@@ -1,14 +1,24 @@
 import json
+import warnings
 from datetime import datetime
-from typing import Dict, List, Optional, Union, Literal
+from typing import Dict, List, Optional, Union, Literal, Tuple
 from pathlib import Path
 
 
-from novita_sandbox.core.exceptions import BuildException
+from novita_sandbox.core.exceptions import (
+    BuildException,
+    ImageConfigException,
+    InvalidArgumentException,
+)
 from novita_sandbox.core.template.consts import STACK_TRACE_DEPTH, RESOLVE_SYMLINKS
 from novita_sandbox.core.template.dockerfile_parser import parse_dockerfile
-from novita_sandbox.core.template.env_files import env_files_command
+from novita_sandbox.core.template.env_files import (
+    BASE_ENV_PATH,
+    env_files_command,
+    env_snapshot_command,
+)
 from novita_sandbox.core.template.image_config import (
+    ImageConfig,
     effective_start_cmd,
     fetch_image_config,
 )
@@ -27,7 +37,7 @@ from novita_sandbox.core.template.types import (
 )
 from novita_sandbox.core.template.utils import (
     calculate_files_hash,
-    get_caller_directory,
+    get_external_caller_directory,
     make_traceback,
     pad_octal,
     read_dockerignore,
@@ -674,12 +684,17 @@ class TemplateBuilder:
 
         return self._template._run_in_new_stack_trace_context(_set_start)
 
-    def set_envs(self, envs: Dict[str, str]) -> "TemplateBuilder":
+    def set_envs(
+        self, envs: Dict[str, str], *, runtime: bool = False
+    ) -> "TemplateBuilder":
         """
         Set environment variables.
-        Note: Environment variables defined here are available only during template build.
+        Values are build-only by default. Pass runtime=True to also persist
+        them in the sandbox. Values in one call expand against the environment
+        before that call; later calls see earlier declarations.
 
         :param envs: Dictionary of environment variable names and values
+        :param runtime: Also persist the resolved values in the sandbox (default False).
 
         :return: `TemplateBuilder` class
 
@@ -698,11 +713,9 @@ class TemplateBuilder:
             "forceUpload": None,
         }
         self._template._instructions.append(instruction)
-        # The ENV instruction above only reaches the *build*. A sandbox started
-        # from the finished template does not inherit it, so the values are also
-        # written to the filesystem at the end of the build -- see
-        # TemplateBase._runtime_env_instruction and env_files.py.
-        self._template._envs.update(envs)
+        self._template._env_declarations.append((dict(envs), runtime))
+        if runtime:
+            self._template._envs.update(envs)
         self._template._collect_stack_trace()
         return self
 
@@ -843,12 +856,22 @@ class TemplateBase:
         # is written once from the full set -- a per-call write would clobber the
         # previous call's file.
         self._envs: Dict[str, str] = {}
+        self._env_declarations: List[Tuple[Dict[str, str], bool]] = []
+        self._image_envs: Dict[str, str] = {}
+        self._image_workdir: Optional[str] = None
+        self._image_start_cmd: Optional[str] = None
+        self._image_ready_cmd: Optional[str] = None
         # Whether to restore what the base image declares. Applied at build time
         # rather than in from_image, because from_image has to stay chainable and
         # reading a registry is not free. See _resolve_inherited_config().
         self._inherit_image_config: bool = False
         self._image_username: Optional[str] = None
         self._image_password: Optional[str] = None
+        #: How to verify the registry's certificate, and what to do if the read
+        #: fails at all. Both are from_image arguments; see there.
+        self._image_ca_bundle: Optional[str] = None
+        self._image_insecure: bool = False
+        self._on_config_failure: str = "warn"
         # Why the image's config is missing, when it is. Recorded rather than only
         # logged: build() has a log channel and to_json() does not, so a dry run
         # or a CLI conversion would otherwise show a clean template that silently
@@ -859,7 +882,7 @@ class TemplateBase:
         self._file_context_path = (
             file_context_path.as_posix()
             if isinstance(file_context_path, Path)
-            else (file_context_path or get_caller_directory(STACK_TRACE_DEPTH) or ".")
+            else (file_context_path or get_external_caller_directory() or ".")
         )
         self._file_ignore_patterns: List[str] = file_ignore_patterns or []
         self._stack_traces: List[Union[TracebackType, None]] = []
@@ -1052,6 +1075,9 @@ class TemplateBase:
         username: Optional[str] = None,
         password: Optional[str] = None,
         inherit_config: bool = True,
+        ca_bundle: Optional[str] = None,
+        insecure: bool = False,
+        on_config_failure: str = "warn",
     ) -> TemplateBuilder:
         """
         Start template from a Docker image.
@@ -1063,6 +1089,16 @@ class TemplateBase:
             image declares, so the sandbox matches what ``docker run`` would give.
             The image's config is read from its registry at build time; anything
             set on the builder overrides it. Pass False to skip the read.
+        :param ca_bundle: Path to a PEM bundle to verify the registry with, for a
+            self-hosted registry behind a private CA.
+        :param insecure: Skip registry TLS verification. Weaker than ``ca_bundle``;
+            use it when the registry's certificate cannot be pinned.
+        :param on_config_failure: What to do when the image's config cannot be read
+            -- ``"warn"`` (default) builds anyway and says so, ``"raise"`` stops
+            with :class:`ImageConfigException`, ``"ignore"`` builds quietly. A
+            template that silently lacks the image's ENV, WORKDIR and start command
+            is the failure this reading exists to prevent, so prefer ``"raise"``
+            where a wrong sandbox is worse than no sandbox.
 
         :return: `TemplateBuilder` class
 
@@ -1072,16 +1108,37 @@ class TemplateBase:
 
         # With credentials (optional)
         Template().from_image('myregistry.com/myimage:latest', username='user', password='pass')
+
+        # Self-hosted registry behind a private CA
+        Template().from_image(
+            'harbor.internal/app:1', username='robot$app', password='...',
+            ca_bundle='/etc/ssl/certs/harbor-ca.pem',
+        )
         ```
         """
+        if on_config_failure not in ("warn", "raise", "ignore"):
+            raise InvalidArgumentException(
+                "on_config_failure must be 'warn', 'raise' or 'ignore', "
+                f"got {on_config_failure!r}"
+            )
+        if ca_bundle and insecure:
+            raise InvalidArgumentException(
+                "ca_bundle and insecure are mutually exclusive; pass the CA bundle "
+                "you want verified rather than disabling verification"
+            )
+
         self._base_image = image
         self._base_template = None
+        self._reset_inherited_config()
 
         # Restore what the image declares, unless the caller opted out. Deferred:
         # from_image has to stay chainable, and reading a registry is not.
         self._inherit_image_config = inherit_config
         self._image_username = username
         self._image_password = password
+        self._image_ca_bundle = ca_bundle
+        self._image_insecure = insecure
+        self._on_config_failure = on_config_failure
 
         # Set the registry config if provided
         if username and password:
@@ -1113,6 +1170,9 @@ class TemplateBase:
         """
         self._base_template = template
         self._base_image = None
+        self._reset_inherited_config()
+        self._inherit_image_config = False
+        self._registry_config = None
 
         # If we should force the next layer and it's a FROM command, invalidate whole template
         if self._force_next_layer:
@@ -1149,6 +1209,8 @@ class TemplateBase:
             stack_trace_override,
         )
         self._base_image = base_image
+        self._base_template = None
+        self._reset_inherited_config()
         # The parser records only the ENV the Dockerfile itself declares, so a
         # Dockerfile that relies on its base image's environment -- the ordinary
         # case, since ``docker build`` inherits it -- got none of it. Measured on
@@ -1198,6 +1260,7 @@ class TemplateBase:
         """
         self._base_image = image
         self._base_template = None
+        self._reset_inherited_config()
 
         # Set the registry config if provided
         self._registry_config = {
@@ -1235,6 +1298,7 @@ class TemplateBase:
         """
         self._base_image = image
         self._base_template = None
+        self._reset_inherited_config()
 
         # Set the registry config if provided
         self._registry_config = {
@@ -1286,6 +1350,7 @@ class TemplateBase:
         """
         self._base_image = image
         self._base_template = None
+        self._reset_inherited_config()
 
         self._registry_config = {
             "type": "oci",
@@ -1331,6 +1396,7 @@ class TemplateBase:
         """
         self._base_image = image
         self._base_template = None
+        self._reset_inherited_config()
 
         self._registry_config = {
             "type": "huawei",
@@ -1477,7 +1543,43 @@ class TemplateBase:
 
         return steps
 
-    def _resolve_inherited_config(self, on_build_logs=None) -> None:
+    def _config_failure_message(self) -> str:
+        """The one wording a failed read is reported with, on every channel."""
+        return (
+            f"Could not read {self._base_image}: {self._image_config_error}. "
+            "The template will build without the environment, working "
+            "directory and start command the image declares."
+        )
+
+    def _reset_inherited_config(self) -> None:
+        self._registry_config = None
+        self._inherit_image_config = False
+        self._image_username = None
+        self._image_password = None
+        self._image_ca_bundle = None
+        self._image_insecure = False
+        self._on_config_failure = "warn"
+        self._image_envs = {}
+        self._image_workdir = None
+        self._image_start_cmd = None
+        self._image_ready_cmd = None
+        self._image_config_error = None
+        self._image_unusable = None
+
+    def _read_inherited_config(self) -> Optional[ImageConfig]:
+        if not self._inherit_image_config or self._base_image is None:
+            return None
+        return fetch_image_config(
+            self._base_image,
+            self._image_username,
+            self._image_password,
+            ca_bundle=self._image_ca_bundle,
+            insecure=self._image_insecure,
+        )
+
+    def _resolve_inherited_config(
+        self, on_build_logs=None, *, image_config: Optional[ImageConfig] = None
+    ) -> None:
         """Restore what the base image declares: ENV, WORKDIR and its command.
 
         ``from_image`` records only the reference -- the platform pulls the image
@@ -1492,71 +1594,74 @@ class TemplateBase:
         set explicitly on the builder overrides what the image declared, which is
         the same precedence a Dockerfile has over its own base image.
 
-        A failed read is not fatal -- the template still builds, just without the
-        restored config -- but it is reported, since an image whose toolchain
-        lives behind its ENV will otherwise look installed and behave as though
-        it is not.
+        Whether a failed read is fatal is the caller's call, via
+        ``on_config_failure``: an image whose toolchain lives behind its ENV
+        otherwise looks installed and behaves as though it is not, so
+        ``"warn"`` reports the failure on both channels and ``"raise"`` refuses to
+        build a template that would misrepresent the image. ``"ignore"`` exists for
+        batch conversions whose images are known not to be read.
 
-        Kept behaviourally identical to the JS SDK's ``resolveInheritedConfig``.
+        Registry literals are loaded before caller environment declarations.
         """
         if not self._inherit_image_config or self._base_image is None:
             return
-        # Only once: build() and to_json() both call this, and a second read would
-        # re-apply the image's values over any the caller set in between.
-        self._inherit_image_config = False
-
-        config = fetch_image_config(
-            self._base_image, self._image_username, self._image_password
+        # Mutable tags are resolved on each serialization/build. Digest-pinned
+        # successes are reused by the registry cache. Caller fields stay separate.
+        config = (
+            image_config if image_config is not None else self._read_inherited_config()
         )
+        assert config is not None
+
+        self._image_envs = {}
+        self._image_workdir = None
+        self._image_start_cmd = None
+        self._image_ready_cmd = None
 
         if config.error:
-            # Reported rather than raised. The build can still succeed, and one
-            # unreachable registry must not fail a batch conversion -- but a
-            # template silently missing the image's PATH is the failure this
-            # exists to prevent, so it must not pass unmentioned.
+            # Recorded whatever happens next: build() has a log channel and
+            # to_json() does not, so the fields are what a dry run reads.
             self._image_config_error = config.error
             self._image_unusable = config.unusable
-            if on_build_logs:
-                on_build_logs(
-                    LogEntry(
-                        timestamp=datetime.now(),
-                        level="warn",
-                        message=(
-                            f"Could not read {self._base_image}: {config.error}. "
-                            "The template will build without the environment, "
-                            "working directory and start command the image declares."
-                        ),
+
+            message = self._config_failure_message()
+
+            if self._on_config_failure == "raise":
+                raise ImageConfigException(message)
+
+            if self._on_config_failure != "ignore":
+                # Both channels, because neither reaches every caller: the log only
+                # exists when someone passed on_build_logs (sandbox.create does, a
+                # bare Template().build() does not), and a warning is the one that
+                # is visible by default in both.
+                warnings.warn(message, stacklevel=2)
+                if on_build_logs:
+                    on_build_logs(
+                        LogEntry(
+                            timestamp=datetime.now(),
+                            level="warn",
+                            message=message,
+                        )
                     )
-                )
             return
 
-        # The image is the base, the caller's own calls override it -- so the
-        # inherited names go under whatever set_envs already recorded.
-        self._envs = {**config.env, **self._envs}
-
-        if config.workdir and not any(
-            i["type"] == InstructionType.WORKDIR for i in self._instructions
-        ):
-            self._instructions.append(
-                Instruction(
-                    type=InstructionType.WORKDIR,
-                    args=[config.workdir],
-                    force=False,
-                    forceUpload=None,
-                    filesHash=None,
-                )
-            )
+        # Registry values are already resolved literals. Keep them separate so
+        # caller declarations such as PATH=/app/bin:$PATH expand against the
+        # image's PATH, without re-expanding dollar signs in the image values.
+        self._image_envs = dict(config.env)
+        self._image_config_error = None
+        self._image_unusable = None
+        self._image_workdir = config.workdir
 
         start_cmd = effective_start_cmd(config.entrypoint, config.cmd)
         if start_cmd and self._start_cmd is None:
-            self._start_cmd = start_cmd
+            self._image_start_cmd = start_cmd
             # set_start_cmd requires a readiness check, and without one the SDK's
             # own Dockerfile parser pairs the command with a 20s timer. Kept
             # identical so an image built through from_image behaves the same as
             # one built from its Dockerfile -- note this is a timer, not a health
             # check: pass set_ready_cmd for a real one.
             if self._ready_cmd is None:
-                self._ready_cmd = wait_for_timeout(20_000).get_cmd()
+                self._image_ready_cmd = wait_for_timeout(20_000).get_cmd()
 
     def image_config_failure(self) -> Optional[Dict[str, Optional[str]]]:
         """Why the base image's declared config is missing, or None if nothing was.
@@ -1581,7 +1686,14 @@ class TemplateBase:
         Returns None when no environment was set, or when no name can be carried
         over -- see :mod:`novita_sandbox.core.template.env_files`.
         """
-        command, _skipped = env_files_command(self._envs)
+        command, _skipped = env_files_command(
+            self._envs,
+            literal_envs=self._image_envs,
+            env_groups=self._env_declarations,
+            base_env_path=BASE_ENV_PATH
+            if env_snapshot_command(self._env_declarations)
+            else None,
+        )
         if command is None:
             return None
 
@@ -1602,8 +1714,26 @@ class TemplateBase:
         """
         _steps: List[Instruction] = []
 
+        # Insert inherited context only after file hashing/upload, so caller
+        # instruction indexes and stack traces remain aligned.
+        if self._image_workdir:
+            steps = [
+                Instruction(
+                    type=InstructionType.WORKDIR,
+                    args=[self._image_workdir],
+                    force=False,
+                )
+            ] + list(steps)
+
         runtime_env = self._runtime_env_instruction()
         if runtime_env is not None:
+            snapshot = env_snapshot_command(self._env_declarations)
+            if snapshot is not None:
+                steps = [
+                    Instruction(
+                        type=InstructionType.RUN, args=[snapshot, "root"], force=False
+                    )
+                ] + list(steps)
             # Appended here rather than inside set_envs: the file is written once
             # from the complete set, and the write must land after any USER
             # instruction the caller added, since it needs root. Serializing does
@@ -1642,11 +1772,17 @@ class TemplateBase:
         if self._registry_config is not None:
             template_data["fromImageRegistry"] = self._registry_config
 
-        if self._start_cmd is not None:
-            template_data["startCmd"] = self._start_cmd
+        start_cmd = (
+            self._start_cmd if self._start_cmd is not None else self._image_start_cmd
+        )
+        if start_cmd is not None:
+            template_data["startCmd"] = start_cmd
 
-        if self._ready_cmd is not None:
-            template_data["readyCmd"] = self._ready_cmd
+        ready_cmd = (
+            self._ready_cmd if self._ready_cmd is not None else self._image_ready_cmd
+        )
+        if ready_cmd is not None:
+            template_data["readyCmd"] = ready_cmd
 
         if self._patch_cmd is not None:
             template_data["preBootScript"] = self._patch_cmd

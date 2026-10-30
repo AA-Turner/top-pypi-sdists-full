@@ -1,7 +1,7 @@
 import re
+
 import numpy as np
 from numpy.typing import NDArray
-from typing import List
 
 from uniplot.axis_labels.label_set import LabelSet
 
@@ -21,8 +21,17 @@ class DatetimeLabelSet(LabelSet):
         log: bool = False,
         vertical_direction: bool = False,
     ):
+        # Note: unit scaling (`unit_scaling`) does not apply to timestamps, so
+        # this class intentionally does not expose that option and lets the base
+        # class default it to off.
         super().__init__(
-            labels, x_min, x_max, available_space, unit, log, vertical_direction
+            labels,
+            x_min,
+            x_max,
+            available_space,
+            unit=unit,
+            log=log,
+            vertical_direction=vertical_direction,
         )
         # For convenience, make sure we have the bounds also available as
         # datetime objects.
@@ -33,20 +42,23 @@ class DatetimeLabelSet(LabelSet):
     # private #
     ###########
 
-    def _find_shortest_string_representation(self) -> List[str]:
+    def _find_shortest_string_representation(self, labels=None) -> list[str]:
         """
         This method will find the shortest strings for datetime labels that
         give enough information.
         """
+        if labels is None:
+            labels = self.labels
         # By default, use NumPy's redering functionality
-        short_labels = [str(x) for x in np.datetime_as_string(self.labels, unit="auto")]
+        short_labels = [str(x) for x in np.datetime_as_string(labels, unit="auto")]
         # Remove the date if it is the same in all labels
-        if len(set(np.datetime_as_string(self.labels, unit="D"))) == 1:
-            short_labels = [t[11:] for t in short_labels]
+        if len(set(np.datetime_as_string(labels, unit="D"))) == 1:
+            # The "auto" unit renders midnight as a date only
+            short_labels = [t[11:] or "00:00" for t in short_labels]
         # Remove day, and then month, if that is redundant (i.e. all labels
         # have a "-01" at the end)
         for _ in range(2):
-            if all([re.fullmatch(r"[\d-]+-01", s) for s in short_labels]):
+            if all(re.fullmatch(r"[\d-]+-01", s) for s in short_labels):
                 short_labels = [t[:-3] for t in short_labels]
             else:
                 break

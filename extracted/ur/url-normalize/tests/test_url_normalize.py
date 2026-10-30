@@ -4,7 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from url_normalize import url_normalize
+from url_normalize import url_humanize, url_normalize
+
+
+@pytest.mark.parametrize("transform", [url_normalize, url_humanize])
+def test_public_api_rejects_removed_charset_argument(transform):
+    """Reject the removed option instead of silently ignoring an encoding request."""
+    with pytest.raises(TypeError, match="unexpected keyword argument 'charset'"):
+        transform("https://example.com/é", charset="iso-8859-1")
 
 
 @pytest.mark.parametrize(
@@ -48,6 +55,23 @@ def test_url_normalize_no_changes_expected(value: str) -> None:
     http://www.intertwingly.net/wiki/pie/PaceCanonicalIds
     """
     assert url_normalize(value) == value
+
+
+@pytest.mark.parametrize("separator", [".", "\u3002", "\uff0e", "\uff61"])
+def test_url_normalize_trailing_idna_separator_is_idempotent(separator):
+    """Canonicalize equivalent trailing host dots in one normalization pass."""
+    value = f"https://Example.COM{separator}:443/path?q=1#section"
+    normalized = url_normalize(value)
+    assert normalized == "https://example.com/path?q=1#section"
+    assert url_normalize(normalized) == normalized
+
+
+@pytest.mark.parametrize("suffix", [".\u3002", "\uff0e\uff61", "\u3002."])
+def test_url_normalize_mixed_trailing_idna_separators(suffix):
+    """Strip repeated trailing label separators consistently with ASCII dots."""
+    normalized = url_normalize(f"https://example.com{suffix}/path")
+    assert normalized == "https://example.com/path"
+    assert url_normalize(normalized) == normalized
 
 
 @pytest.mark.parametrize(

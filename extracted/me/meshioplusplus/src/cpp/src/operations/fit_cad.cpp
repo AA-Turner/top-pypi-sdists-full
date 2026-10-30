@@ -47,6 +47,7 @@
 #include "../detail/freeform_adaptive.hpp"
 #include "../detail/patch_flatten.hpp"
 #include "../detail/patch_network.hpp"
+#include "../detail/primitive_constraints.hpp"
 #include "../detail/quad_layout.hpp"
 #include "../detail/step_brep.hpp"
 #include "../detail/surface_rings.hpp"
@@ -121,8 +122,13 @@
 #include <GProp_GProps.hxx>
 #include <Geom2dAPI_Interpolate.hxx>
 #include <Geom2d_BSplineCurve.hxx>
+#include <Standard_Version.hxx>
+#if OCC_VERSION_MAJOR < 8
 #include <TColStd_HArray1OfReal.hxx>
 #include <TColgp_HArray1OfPnt2d.hxx>
+#else
+#include <NCollection_HArray1.hxx>
+#endif
 #include <TopoDS_Iterator.hxx>
 #include <gp_Pnt2d.hxx>
 #include <GeomAPI_IntSS.hxx>
@@ -166,7 +172,6 @@
 #include <ShapeUpgrade_UnifySameDomain.hxx>
 #include <ShapeFix_Solid.hxx>
 #include <Standard_Failure.hxx>
-#include <Standard_Version.hxx>
 #include <TColgp_Array1OfPnt.hxx>
 #include <TCollection_HAsciiString.hxx>
 #include <TopExp.hxx>
@@ -305,29 +310,65 @@ const Mesh* fcn_annotate(const Mesh& rMesh, Mesh& rOwned) {
     return &rOwned;
 }
 
-// What the refinement did, for the report.
+// What the refinement and the primitive constraints did, for the report.
 struct FcnRefined {
     bool mRan = false;
     RefinePatchesResult mResult;
+    detail::PrimitiveConstraintReport mConstraints;
 };
 
-// The annotated skin, refined by `refine_patches` when asked.
+// The tolerance a face may keep from its patch before a writer demotes it,
+// from the table alone: the requested one, or three times the largest patch
+// tolerance (`fcn_tolerance` without its bounding-box fallback).
+double fcn_face_tolerance(const Mesh& rMesh, double Requested) {
+    if (Requested > 0.0)
+        return Requested;
+    double largest = 0.0;
+    if (rMesh.HasFieldData("fit:patch_tolerance")) {
+        const NDArray& tols = rMesh.FieldData("fit:patch_tolerance");
+        for (std::size_t r = 0; r < tols.Size(); ++r) {
+            const double t = detail::read_double(tols, r);
+            if (std::isfinite(t))
+                largest = std::max(largest, t);
+        }
+    }
+    return 3.0 * largest;
+}
+
+// The annotated skin, refined by `refine_patches` and its primitives
+// constrained when asked.
 const Mesh* fcn_prepare(const Mesh& rMesh, Mesh& rOwned, const FitCadOptions& rOptions,
                         FcnRefined& rRefined) {
     const Mesh* work = fcn_annotate(rMesh, rOwned);
-    if (!rOptions.mRefineSegmentation)
-        return work;
-    rRefined.mResult = refine_patches(*work, rOptions.mRefine);
-    rRefined.mRan = true;
-    log::info("fit_cad: refined the patches: {} -> {} of the area explained by primitives",
-              rRefined.mResult.mInitialExplainedAreaFraction,
-              rRefined.mResult.mExplainedAreaFraction);
-    rOwned = std::move(rRefined.mResult.mMesh);
-    return &rOwned;
+    if (rOptions.mRefineSegmentation) {
+        rRefined.mResult = refine_patches(*work, rOptions.mRefine);
+        rRefined.mRan = true;
+        log::info("fit_cad: refined the patches: {} -> {} of the area explained by primitives",
+                  rRefined.mResult.mInitialExplainedAreaFraction,
+                  rRefined.mResult.mExplainedAreaFraction);
+        rOwned = std::move(rRefined.mResult.mMesh);
+        work = &rOwned;
+    }
+    if (rOptions.mConstrainPrimitives) {
+        const double face_tol = fcn_face_tolerance(*work, rOptions.mTolerance);
+        if (face_tol > 0.0) {
+            if (work != &rOwned) {
+                rOwned = detail::clone_mesh(
+                    *work, [](DataLocation, const std::string&, std::string&) { return true; });
+                work = &rOwned;
+            }
+            rRefined.mConstraints = detail::constrain_primitives(rOwned, face_tol);
+            log::info("fit_cad: constrained {} primitive(s) in {} group(s)",
+                      rRefined.mConstraints.mNumConstrained, rRefined.mConstraints.mNumGroups);
+        }
+    }
+    return work;
 }
 
 // The refinement's report and its `refine:*` field data on the result.
 void fcn_report_refined(const FcnRefined& rRefined, const Mesh& rWork, FitCadResult& rResult) {
+    rResult.mNumConstrainedPrimitives = rRefined.mConstraints.mNumConstrained;
+    rResult.mNumConstraintGroups = rRefined.mConstraints.mNumGroups;
     if (!rRefined.mRan)
         return;
     const RefinePatchesResult& r = rRefined.mResult;
@@ -1483,6 +1524,15 @@ constexpr std::size_t kFcTileMinTriangles = 24;
 template <class T>
 using FcHandle = opencascade::handle<T>;
 
+// OpenCASCADE 8.0 deprecates the HArray classes in favour of NCollection_HArray1.
+#if OCC_VERSION_MAJOR < 8
+using FcPnt2dArray = TColgp_HArray1OfPnt2d;
+using FcRealArray = TColStd_HArray1OfReal;
+#else
+using FcPnt2dArray = NCollection_HArray1<gp_Pnt2d>;
+using FcRealArray = NCollection_HArray1<double>;
+#endif
+
 // The OpenCASCADE messenger prints transfer statistics to stdout; a library
 // must not, so its printers are detached for the duration of the call.
 class FcQuietMessenger {
@@ -1502,7 +1552,7 @@ public:
 
 private:
     FcHandle<Message_Messenger> mMessenger;
-    Message_SequenceOfPrinters mSaved;
+    detail::OcctPrinters mSaved;
 };
 
 gp_Pnt fc_point(const std::vector<double>& rXyz, std::int64_t V) {
@@ -1736,8 +1786,8 @@ void fc_set_pcurves(const TopoDS_Face& rFace, const std::vector<TopoDS_Wire>& rW
                 have_prev = true;
                 uv[static_cast<std::size_t>(j)] = gp_Pnt2d(u, v);
             }
-            FcHandle<TColgp_HArray1OfPnt2d> pts = new TColgp_HArray1OfPnt2d(1, kSamples);
-            FcHandle<TColStd_HArray1OfReal> par = new TColStd_HArray1OfReal(1, kSamples);
+            FcHandle<FcPnt2dArray> pts = new FcPnt2dArray(1, kSamples);
+            FcHandle<FcRealArray> par = new FcRealArray(1, kSamples);
             for (int k = 0; k < kSamples; ++k) {
                 pts->SetValue(k + 1, uv[static_cast<std::size_t>(k)]);
                 par->SetValue(k + 1, a + (b - a) * k / (kSamples - 1));
@@ -5875,8 +5925,11 @@ FitCadResult fc_occt_fit_cad(const Mesh& rMesh, const std::string& rStepPath,
 
 #endif  // MESHIOPLUSPLUS_HAS_OCCT
 
-FitCadResult fit_cad(const Mesh& rMesh, const std::string& rStepPath,
-                     const FitCadOptions& rOptions) {
+// One build of the solid, as `fit_cad` makes it: the options checked, the
+// backend chosen, the freeform modes' general fit run first. `fit_cad` adds the
+// constrained-primitives choice on top of it.
+static FitCadResult fit_cad_build(const Mesh& rMesh, const std::string& rStepPath,
+                                  const FitCadOptions& rOptions) {
     if (std::isnan(rOptions.mTolerance) || std::isinf(rOptions.mTolerance))
         throw std::invalid_argument(std::string(kFcnPrefix) + "tolerance must be finite");
     if ((rOptions.mTypes & ~kFitAllTypes) != 0)
@@ -5941,7 +5994,7 @@ FitCadResult fit_cad(const Mesh& rMesh, const std::string& rStepPath,
         FitCadOptions general = rOptions;
         general.mFreeformGeneral = true;
         general.mExtendSurfaces = true;
-        return fit_cad(rMesh, rStepPath, general);
+        return fit_cad_build(rMesh, rStepPath, general);
     }
 #ifdef MESHIOPLUSPLUS_HAS_OCCT
     if (rOptions.mBackend != FitCadBackend::Native)
@@ -5967,6 +6020,36 @@ FitCadResult fit_cad(const Mesh& rMesh, const std::string& rStepPath,
     }
 #endif
     return fcn_native_fit_cad(rMesh, rStepPath, rOptions);
+}
+
+FitCadResult fit_cad(const Mesh& rMesh, const std::string& rStepPath,
+                     const FitCadOptions& rOptions) {
+    if (!rOptions.mConstrainPrimitives)
+        return fit_cad_build(rMesh, rStepPath, rOptions);
+    // The constrained surfaces are fitted within tolerance, but the solid built
+    // from them can lose a junction the unconstrained surfaces kept (a fillet
+    // tangent to its wall, say), so the constrained solid is kept only where it
+    // demotes no more patches than the unconstrained one. The constrained solid
+    // is written to `rStepPath`; the unconstrained one is built unwritten, and
+    // written only when it is the one kept.
+    FitCadResult on = fit_cad_build(rMesh, rStepPath, rOptions);
+    FitCadOptions plain = rOptions;
+    plain.mConstrainPrimitives = false;
+    const FitCadResult off = fit_cad_build(rMesh, "", plain);
+    const bool keep_on = !(off.mValid && (!on.mValid || off.mNumDemoted < on.mNumDemoted));
+    if (keep_on)
+        return on;
+    if (!on.mValid)
+        log::warn("fit_cad: the constrained primitives give a solid that is not valid; the "
+                  "unconstrained solid is returned");
+    else
+        log::warn("fit_cad: the constrained primitives demote {} patch(es) against {} for the "
+                  "unconstrained solid; the unconstrained solid is returned",
+                  on.mNumDemoted, off.mNumDemoted);
+    FitCadResult out = fit_cad_build(rMesh, rStepPath, plain);
+    out.mNumConstrainedPrimitives = 0;
+    out.mNumConstraintGroups = 0;
+    return out;
 }
 
 }  // namespace meshioplusplus

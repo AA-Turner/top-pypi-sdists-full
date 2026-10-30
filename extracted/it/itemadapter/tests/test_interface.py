@@ -1,23 +1,19 @@
 from __future__ import annotations
 
-import unittest
 from collections.abc import Iterator, KeysView
 from types import MappingProxyType
 from typing import Any
-from unittest import mock
 
 import pytest
 
 from itemadapter.adapter import AdapterInterface, ItemAdapter
 
 
-class AdapterInterfaceTest(unittest.TestCase):
-    @mock.patch.multiple(AdapterInterface, __abstractmethods__=set())
-    def test_interface_class_methods(self):
-        with pytest.raises(NotImplementedError):
-            AdapterInterface.is_item(object())
-        with pytest.raises(NotImplementedError):
-            AdapterInterface.is_item_class(object)
+def test_interface_class_methods() -> None:
+    with pytest.raises(NotImplementedError):
+        AdapterInterface.is_item(object())
+    with pytest.raises(NotImplementedError):
+        AdapterInterface.is_item_class(object)
 
 
 class FakeItemClass:
@@ -76,15 +72,15 @@ class MetadataFakeItemAdapter(BaseFakeItemAdapter):
         return MappingProxyType(item_class._fields.get(field_name) or {})
 
 
-class BaseFakeItemAdapterTest(unittest.TestCase):
+class TestBaseFakeItemAdapter:
     item_class = FakeItemClass
     adapter_class = BaseFakeItemAdapter
 
-    def setUp(self):
-        ItemAdapter.ADAPTER_CLASSES.appendleft(self.adapter_class)
-
-    def tearDown(self):
-        ItemAdapter.ADAPTER_CLASSES.popleft()
+    @pytest.fixture(autouse=True)
+    def _prepend_adapter_class(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(
+            ItemAdapter, "ADAPTER_CLASSES", (self.adapter_class, *ItemAdapter.ADAPTER_CLASSES)
+        )
 
     def test_repr(self):
         item = self.item_class()
@@ -93,6 +89,9 @@ class BaseFakeItemAdapterTest(unittest.TestCase):
         adapter["name"] = "asdf"
         adapter["value"] = 1234
         assert repr(adapter) == "<ItemAdapter for FakeItemClass(name='asdf', value=1234)>"
+
+    def test_get_field_names_from_class(self):
+        assert ItemAdapter.get_field_names_from_class(self.item_class) is None
 
     def test_get_set_value(self):
         item = self.item_class()
@@ -184,7 +183,7 @@ class BaseFakeItemAdapterTest(unittest.TestCase):
         assert sorted(adapter.field_names()) == ["name", "value"]
 
 
-class MetadataFakeItemAdapterTest(BaseFakeItemAdapterTest):
+class TestMetadataFakeItemAdapter(TestBaseFakeItemAdapter):
     item_class = FakeItemClass
     adapter_class = MetadataFakeItemAdapter
 
@@ -206,7 +205,7 @@ class MetadataFakeItemAdapterTest(BaseFakeItemAdapterTest):
         )
 
 
-class FieldNamesFakeItemAdapterTest(BaseFakeItemAdapterTest):
+class TestFieldNamesFakeItemAdapter(TestBaseFakeItemAdapter):
     item_class = FakeItemClass
     adapter_class = FieldNamesFakeItemAdapter
 

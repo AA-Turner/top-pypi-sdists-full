@@ -76,13 +76,14 @@ import warnings
 import zipfile
 import zlib
 from collections import OrderedDict
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
 
-from ..tap_core.secrets import low_diversity, redact, redact_quick, scan
-from .redaction import scrub_changes
+from ..tap_core.secrets import _WINDOW_OVERLAP, low_diversity, redact, redact_quick, scan
+from .redaction import scan_accelerator, scrub_changes
 
 try:
     from .errors import RosError as _RefusalBase
@@ -218,7 +219,9 @@ def _findings(text: str, accel=None) -> tuple[tuple[str, ...], tuple[str, ...]]:
     if accel is not None:
         accel = _indexed_once(accel, text)
     try:
-        findings = scan(text, _accel=accel)
+        # Without the accelerator when `text` is dense in escapes: the
+        # accelerated scan holds every escape at once (`scan_accelerator`).
+        findings = scan(text, _accel=scan_accelerator(text, accel))
         if findings:
             # SHORT-CIRCUIT, and it is load-bearing for cost, not just tidiness.
             # The key-name tier would read the same text again, and the only
@@ -249,6 +252,27 @@ def _indexed_once(accel, text: str):
 
 
 _BASE64 = re.compile(r"(?<![A-Za-z0-9+/])[A-Za-z0-9+/]{24,}={0,2}(?![A-Za-z0-9+/])")
+_NOT_ASCII = bytes(range(0x80, 0x100))
+
+#: Bytes no decode reads as text are read through their ASCII-preserving view
+#: this many bytes at a time. Whole, that view of a 30 MiB checkpoint tensor
+#: was 114 MB (one stray 4-byte character makes every character 4 bytes), and
+#: the scans' working copies of it reached 675 MB. Consecutive windows overlap
+#: by the scanner's own seam allowance (`_WINDOW_OVERLAP` characters, 34K) at
+#: up to four bytes a character, so every credential sits whole, with the
+#: context its rules read, in at least one window -- as in `scan`'s windows.
+#: What a window cannot be is one JSON document: a JSON file over 4 MiB that
+#: is not valid UTF-8 gets the key-name tier's text passes, not its walk.
+_OPAQUE_WINDOW = 4 * 1024 * 1024
+_OPAQUE_OVERLAP = 4 * _WINDOW_OVERLAP
+
+
+def _opaque_windows(data: bytes) -> Iterator[str]:
+    step = _OPAQUE_WINDOW - _OPAQUE_OVERLAP
+    for start in range(0, len(data), step):
+        yield data[start:start + _OPAQUE_WINDOW].decode("utf-8", errors="replace")
+        if start + _OPAQUE_WINDOW >= len(data):
+            return
 
 
 #: Verdicts for bytes already inspected in this process, keyed by
@@ -329,14 +353,15 @@ def _inspect_bytes(raw: bytes, limits: ScanPolicy, accel=None) -> InspectionResu
     rewritable: list[str] = []
     flag_only: list[str] = []
 
-    def record(*texts: str) -> None:
+    def record(*texts: str, windows: Iterable[str] = ()) -> None:
         # A credential is no longer a refusal. It is recorded, and the caller
         # decides whether these bytes can be rewritten safely.
         #
         # DEDUPED per call: one blob is inspected through several decoded
         # views (utf-8, a UTF-16 reading, an ASCII-preserving fallback) and
         # the same credential surfaces in more than one. Counting it twice
-        # would tell a reader two keys leaked where one did.
+        # would tell a reader two keys leaked where one did. `windows` is one
+        # view read in pieces (`_opaque_windows`), each dropped once read.
         found: set[str] = set()
         flagged: set[str] = set()
         seen: set[str] = set()
@@ -348,6 +373,10 @@ def _inspect_bytes(raw: bytes, limits: ScanPolicy, accel=None) -> InspectionResu
                 continue
             seen.add(text)
             hits, names = _findings(text, accel)
+            found.update(hits)
+            flagged.update(names)
+        for window in windows:
+            hits, names = _findings(window, accel)
             found.update(hits)
             flagged.update(names)
         rewritable.extend(sorted(found))
@@ -388,12 +417,14 @@ def _inspect_bytes(raw: bytes, limits: ScanPolicy, accel=None) -> InspectionResu
         if recover:
             stream._expected_crc = None
 
-    def inspect_blob(data: bytes, depth: int, *, candidate: bool = False) -> None:
-        if depth > limits.max_depth:
-            _refuse("nested encoding exceeds inspection limit")
-        budget[0] -= len(data)
-        if budget[0] < 0:
-            _refuse("expanded content exceeds inspection limit")
+    def record_views(data: bytes) -> tuple[str | None, bool]:
+        """Record every decoded view of `data`. Returns the first strict
+        decode (None if none succeeded) and whether any view reads as text.
+
+        The other views die on return. A view costs one to four bytes per
+        character, and a container's members are expanded and decoded next:
+        held across that, every level of a nested archive kept its views.
+        """
         # ASCII credentials must be found even in a binary wrapper.
         text = None
         encodings = ["utf-8-sig"]
@@ -404,17 +435,26 @@ def _inspect_bytes(raw: bytes, limits: ScanPolicy, accel=None) -> InspectionResu
         elif data and data.count(b"\x00") >= len(data) / 4:
             encodings += ["utf-16-le", "utf-16-be", "utf-32-le", "utf-32-be"]
         texts = []
+        utf8 = False
         for encoding in encodings:
             try:
                 decoded = data.decode(encoding)
             except (UnicodeError, ValueError):
                 continue
             texts.append(decoded)
+            utf8 = utf8 or encoding == "utf-8-sig"
             if text is None:
                 text = decoded
         # Legacy Western text is supported only when the whole decoded file
         # is printable prose. Never reinterpret a malformed UTF BOM as cp1252.
-        if text is None and not data.startswith((b"\xff\xfe", b"\xfe\xff", b"\x00\x00\xfe\xff")):
+        # Half ASCII is checked on the bytes first (cp1252 keeps ASCII as is and
+        # maps every other byte to one non-ASCII character): binary data never
+        # pays for a decode, two bytes a character, it could not use.
+        if (
+            text is None
+            and not data.startswith((b"\xff\xfe", b"\xfe\xff", b"\x00\x00\xfe\xff"))
+            and len(data.translate(None, _NOT_ASCII)) >= len(data) / 2
+        ):
             try:
                 legacy = data.decode("cp1252")
             except UnicodeError:
@@ -426,11 +466,32 @@ def _inspect_bytes(raw: bytes, limits: ScanPolicy, accel=None) -> InspectionResu
                 ):
                     text = legacy
                     texts.append(legacy)
+                # Only the name: when unused, nothing holds it through the scans below.
+                del legacy
         readable_text = any(_readable(decoded) for decoded in texts)
         # Always retain an ASCII-preserving view, even when an unrelated UTF-16
-        # decode succeeds on an arbitrary binary prefix.
-        texts.append(data.decode("utf-8", errors="replace"))
-        record(*texts)
+        # decode succeeds on an arbitrary binary prefix. Valid UTF-8 without a
+        # BOM is already that view, character for character; decoding it again
+        # held a second copy of the text for `record` to skip as seen. Opaque
+        # bytes past one window are read in windows (`_opaque_windows`).
+        windows: Iterable[str] = ()
+        if not utf8 or data.startswith(b"\xef\xbb\xbf"):
+            if readable_text or len(data) <= _OPAQUE_WINDOW:
+                texts.append(data.decode("utf-8", errors="replace"))
+            else:
+                windows = _opaque_windows(data)
+        record(*texts, windows=windows)
+        return text, readable_text
+
+    def inspect_blob(data: bytes, depth: int, *, candidate: bool = False) -> None:
+        if depth > limits.max_depth:
+            _refuse("nested encoding exceeds inspection limit")
+        budget[0] -= len(data)
+        if budget[0] < 0:
+            _refuse("expanded content exceeds inspection limit")
+        text, readable_text = record_views(data)
+        if is_container(data):
+            text = None  # read no further; its members are inspected below
 
         if data.startswith(b"\x1f\x8b"):
             try:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: arize-phoenix
-Version: 20.26.1
+Version: 21.0.0
 Summary: AI Observability and Evaluation
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -15,26 +15,27 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: <3.15,>=3.11
+Classifier: Programming Language :: Python :: 3.15
+Requires-Python: <3.16,>=3.11
 Requires-Dist: aioitertools
 Requires-Dist: aiosqlite>=0.22.1
 Requires-Dist: alembic<2,>=1.3.0
 Requires-Dist: anthropic<2,>=1
 Requires-Dist: arize-phoenix-client>=3.5.0
-Requires-Dist: arize-phoenix-evals>=3.9.3
+Requires-Dist: arize-phoenix-evals>=3.9.5
 Requires-Dist: arize-phoenix-otel>=0.17.0
 Requires-Dist: arize-phoenix-sqlean>=0.2.1
 Requires-Dist: authlib>=1.8.0
 Requires-Dist: bashkit!=0.14.2,>=0.10.0
 Requires-Dist: cachetools
-Requires-Dist: certifi>=2026.10.18
+Requires-Dist: certifi>=2026.10.19
 Requires-Dist: email-validator
 Requires-Dist: fastapi>=0.142.0
 Requires-Dist: fastmcp-slim[client,server]<5,>=4
-Requires-Dist: graphql-core<3.4,>=3.3
+Requires-Dist: graphql-core<3.4,>=3.3.1
 Requires-Dist: grpc-interceptor
 Requires-Dist: grpcio
-Requires-Dist: httpx[http2]
+Requires-Dist: httpx2[http2]
 Requires-Dist: jinja2
 Requires-Dist: jmespath
 Requires-Dist: joserfc
@@ -54,7 +55,7 @@ Requires-Dist: prometheus-client
 Requires-Dist: psutil
 Requires-Dist: pyarrow
 Requires-Dist: pydantic-ai-slim[anthropic,bedrock,google,mcp,openai,ui]<3,>=2.53.0
-Requires-Dist: pydantic-monty==1.1.0
+Requires-Dist: pydantic-monty==1.3.0
 Requires-Dist: pydantic>=2.1.0
 Requires-Dist: pystache
 Requires-Dist: python-dateutil
@@ -64,11 +65,11 @@ Requires-Dist: snowballstemmer>=3.1
 Requires-Dist: sqlalchemy[asyncio]<3,>=2.1.1
 Requires-Dist: sqlglot==30.21.0
 Requires-Dist: starlette>=0.37.0
-Requires-Dist: strawberry-graphql==0.335.0
+Requires-Dist: strawberry-graphql==0.336.2
 Requires-Dist: tqdm
 Requires-Dist: typing-extensions>=4.6
 Requires-Dist: uvicorn
-Requires-Dist: wrapt<3,>=1.17.2
+Requires-Dist: wrapt<3,>=2.5.1
 Provides-Extra: aws
 Requires-Dist: aioboto3; extra == 'aws'
 Requires-Dist: aiobotocore>=3.2.0; extra == 'aws'
@@ -95,7 +96,7 @@ Requires-Dist: opentelemetry-sdk==1.45.0; extra == 'container'
 Requires-Dist: opentelemetry-semantic-conventions==0.66b0; extra == 'container'
 Requires-Dist: prometheus-client; extra == 'container'
 Requires-Dist: py-grpc-prometheus; extra == 'container'
-Requires-Dist: strawberry-graphql[opentelemetry]==0.335.0; extra == 'container'
+Requires-Dist: strawberry-graphql[opentelemetry]==0.336.2; extra == 'container'
 Requires-Dist: types-aiobotocore-bedrock-runtime>=3.6.0; extra == 'container'
 Requires-Dist: uvloop; (platform_system != 'Windows') and extra == 'container'
 Requires-Dist: vercel<0.8,>=0.5.8; extra == 'container'
@@ -172,11 +173,7 @@ Description-Content-Type: text/markdown
 
 <p align="center">
  <a href="https://www.star-history.com/arize-ai/phoenix">
-  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/badge?repo=Arize-ai/phoenix&type=rank&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/badge?repo=Arize-ai/phoenix&type=rank" />
-   <img alt="Star History Rank" src="https://api.star-history.com/badge?repo=Arize-ai/phoenix&type=rank" />
-  </picture>
+  <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/badge?repo=Arize-ai/phoenix&type=rank&theme=dark" /><source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/badge?repo=Arize-ai/phoenix&type=rank" /><img alt="Star History Rank" src="https://api.star-history.com/badge?repo=Arize-ai/phoenix&type=rank" /></picture> <picture><source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/badge?repo=Arize-ai/phoenix&type=trending&theme=dark" /><source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/badge?repo=Arize-ai/phoenix&type=trending" /><img alt="GitHub Trending Repository of the Day" src="https://api.star-history.com/badge?repo=Arize-ai/phoenix&type=trending" /></picture>
  </a>
 </p>
 
@@ -197,7 +194,7 @@ Arize Phoenix is Arize's open-source AI observability platform designed for expe
 
 Phoenix is vendor and language agnostic with out-of-the-box support for popular frameworks ([OpenAI Agents SDK](https://arize.com/docs/phoenix/tracing/integrations-tracing/openai-agents-sdk), [Claude Agent SDK](https://arize.com/docs/phoenix/integrations/python/claude-agent-sdk), [LangGraph](https://arize.com/docs/phoenix/tracing/integrations-tracing/langchain), [Vercel AI SDK](https://arize.com/docs/phoenix/tracing/integrations-tracing/vercel-ai-sdk), [Mastra](https://arize.com/docs/phoenix/integrations/typescript/mastra), [CrewAI](https://arize.com/docs/phoenix/tracing/integrations-tracing/crewai), [LlamaIndex](https://arize.com/docs/phoenix/tracing/integrations-tracing/llamaindex), [DSPy](https://arize.com/docs/phoenix/tracing/integrations-tracing/dspy)) and LLM providers ([OpenAI](https://arize.com/docs/phoenix/tracing/integrations-tracing/openai), [Anthropic](https://arize.com/docs/phoenix/tracing/integrations-tracing/anthropic), [Google GenAI](https://arize.com/docs/phoenix/tracing/integrations-tracing/google-genai), [Google ADK](https://arize.com/docs/phoenix/integrations/llm-providers/google-gen-ai/google-adk-tracing), [AWS Bedrock](https://arize.com/docs/phoenix/tracing/integrations-tracing/bedrock), [OpenRouter](https://arize.com/docs/phoenix/integrations/python/openrouter), [LiteLLM](https://arize.com/docs/phoenix/tracing/integrations-tracing/litellm), and more). For details on auto-instrumentation, check out the [OpenInference](https://github.com/Arize-ai/openinference) project.
 
-Phoenix runs practically anywhere, including your local machine, a containerized deployment, or in the cloud. See [Environments](https://arize.com/docs/phoenix/environments) for a walkthrough of each option, or jump straight into the [Tracing Quickstart](https://arize.com/docs/phoenix/get-started/get-started-tracing).
+Phoenix runs practically anywhere, including your local machine, a containerized deployment, or in the cloud. See [Self-Hosting](https://arize.com/docs/phoenix/self-hosting) for a walkthrough of each option, or jump straight into the [Tracing Quickstart](https://arize.com/docs/phoenix/get-started/get-started-tracing).
 
 > [!NOTE]
 > Phoenix is open-source and self-hosted. For a managed platform, Arize offers [Arize AX](https://arize.com/products/ax/?utm_source=github&utm_medium=community&utm_campaign=px-to-ax&utm_content=readme) — the same OpenTelemetry/OpenInference instrumentation works with both. See the [full comparison](https://arize.com/docs/phoenix/resources/frequently-asked-questions/what-is-the-difference-between-phoenix-and-arize).

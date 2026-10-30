@@ -76,6 +76,7 @@ from trilogy.core.models.build import (
     BuildSubselectItem,
     BuildWindowItem,
     get_grouped_aggregate_wrapper,
+    rollup_reaggregate,
 )
 from trilogy.core.models.core import (
     CONCRETE_TYPES,
@@ -233,15 +234,15 @@ def _aggregates_a_constant(function: Any) -> bool:
 
 
 def _aggregates_rows(cte: Any) -> bool:
-    """A CTE computing an aggregate over the rows it reads."""
-    return (
-        isinstance(cte, CTE)
-        and cte.group_to_grain
-        and cte.render_from_clause
-        and any(
-            c.derivation == Derivation.AGGREGATE and not cte.source_map.get(c.address)
-            for c in cte.output_columns
-        )
+    """A CTE computing an aggregate over the rows it reads, including a
+    summary column it re-sums to a coarser grain."""
+    if not (isinstance(cte, CTE) and cte.group_to_grain and cte.render_from_clause):
+        return False
+    rolled = {c.address for c in cte.rollup_concepts}
+    return any(
+        c.derivation == Derivation.AGGREGATE
+        and (c.address in rolled or not cte.source_map.get(c.address))
+        for c in cte.output_columns
     )
 
 
@@ -666,7 +667,11 @@ FUNCTION_MAP = {
     FunctionType.BIT_XOR: lambda x, types: f"({x[0]} ^ {x[1]})",
     FunctionType.BIT_SHIFT_LEFT: lambda x, types: f"({x[0]} << {x[1]})",
     FunctionType.BIT_SHIFT_RIGHT: lambda x, types: f"({x[0]} >> {x[1]})",
-    FunctionType.ARRAY_REDUCE: render_unsupported("array_reduce"),
+    # A generic form, as for array_transform and array_filter; each dialect
+    # renders its own fold, and those with none refuse it in their own map.
+    FunctionType.ARRAY_REDUCE: lambda x, types: (
+        f"array_reduce({x[0]}, ({x[1]}, {x[2]}) -> {x[3]}, {x[4]})"
+    ),
     # generic types
     FunctionType.ALIAS: lambda x, types: f"{x[0]}",
     FunctionType.PRIOR: render_prior,
@@ -1161,6 +1166,9 @@ class BaseDialect:
 
     def normalize_db_type(self, db_type: str) -> DataType:
         """Map a database type string (from information_schema) to a DataType enum."""
+        if db_type.strip().endswith("[]"):
+            # before the precision strip: DECIMAL(10,2)[] is a list, not a decimal
+            return DataType.ARRAY
         key = db_type.lower().split("(")[0].strip()
         return self.DB_COLUMN_TYPE_MAP.get(key, DataType.UNKNOWN)
 
@@ -1513,7 +1521,7 @@ class BaseDialect:
                 rolled = INVALID_REFERENCE_STRING(
                     f"Missing rollup source reference to {c.address}"
                 )
-            summed = self.FUNCTION_MAP[FunctionType.SUM]([rolled], [])
+            summed = self.FUNCTION_MAP[rollup_reaggregate(c)]([rolled], [])
             # a pre-aggregated COUNT rolled up through a join that padded it
             # (a sparse summary table beside its dimension): the group of one
             # padded row counts nothing, 0, as the granular path says

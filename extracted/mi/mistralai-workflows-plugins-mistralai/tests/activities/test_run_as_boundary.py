@@ -6,14 +6,14 @@ from temporalio.converter import DataConverter
 from mistralai.workflows.core.activity import activity
 from mistralai.workflows.core.temporal.payload_converter import MistralWorkflowsPayloadConverter
 from mistralai.workflows.core.workflow import workflow
-from mistralai.workflows.plugins.mistralai.connectors.run_as import ConnectorRunAs
+from mistralai.workflows.plugins.mistralai.connectors.run_as import RunAs
 from mistralai.workflows.testing import create_test_worker
 
-_captured_run_as: list[ConnectorRunAs] = []
+_captured_run_as: list[RunAs] = []
 
 
 @activity(name="test-echo-run-as", _skip_registering=True)
-async def _echo_run_as(run_as: ConnectorRunAs = ConnectorRunAs.AUTO) -> str:
+async def _echo_run_as(run_as: RunAs = RunAs.AUTO) -> str:
     _captured_run_as.append(run_as)
     return run_as.value
 
@@ -22,7 +22,7 @@ async def _echo_run_as(run_as: ConnectorRunAs = ConnectorRunAs.AUTO) -> str:
 class _RunAsBoundaryWorkflow:
     @workflow.entrypoint
     async def run(self) -> str:
-        return await _echo_run_as(run_as=ConnectorRunAs.DEPLOYMENT)
+        return await _echo_run_as(run_as=RunAs.DEPLOYMENT)
 
 
 class TestConnectorRunAsSurvivesActivityBoundary:
@@ -52,5 +52,5 @@ class TestConnectorRunAsSurvivesActivityBoundary:
         finally:
             temporal_env._client = original_client  # type: ignore[attr-defined]
 
-        assert _captured_run_as == [ConnectorRunAs.DEPLOYMENT]
-        assert isinstance(_captured_run_as[0], ConnectorRunAs)
+        assert _captured_run_as == [RunAs.DEPLOYMENT]
+        assert isinstance(_captured_run_as[0], RunAs)

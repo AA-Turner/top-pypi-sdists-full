@@ -265,22 +265,25 @@ class GeolocationCoordinates(Record):
     See https://w3c.github.io/webdriver-bidi/#cddl-type-emulationgeolocationcoordinates
     """
 
-    latitude: float = field(metadata=meta("latitude", required=True, primitive="float"))
-    longitude: float = field(metadata=meta("longitude", required=True, primitive="float"))
-    accuracy: float | UnsetType = field(default=UNSET, metadata=meta("accuracy", primitive="float"))
+    latitude: float = field(metadata=meta("latitude", required=True, primitive="float", min=-90, max=90))
+    longitude: float = field(metadata=meta("longitude", required=True, primitive="float", min=-180, max=180))
+    accuracy: float | UnsetType = field(default=UNSET, metadata=meta("accuracy", primitive="float", min=0))
     altitude: float | None | UnsetType = field(
         default=UNSET,
         metadata=meta("altitude", nullable=True, primitive="float"),
     )
     altitude_accuracy: float | None | UnsetType = field(
         default=UNSET,
-        metadata=meta("altitudeAccuracy", nullable=True, primitive="float"),
+        metadata=meta("altitudeAccuracy", nullable=True, primitive="float", min=0),
     )
     heading: float | None | UnsetType = field(
         default=UNSET,
-        metadata=meta("heading", nullable=True, primitive="float"),
+        metadata=meta("heading", nullable=True, primitive="float", min=0, max=360, exclusive_max=True),
     )
-    speed: float | None | UnsetType = field(default=UNSET, metadata=meta("speed", nullable=True, primitive="float"))
+    speed: float | None | UnsetType = field(
+        default=UNSET,
+        metadata=meta("speed", nullable=True, primitive="float", min=0),
+    )
 
 
 @register("emulation.GeolocationPositionError")
@@ -348,14 +351,17 @@ class MediaFeatures(Record):
         default=UNSET,
         metadata=meta("any-pointer", nullable=True, enum="emulation.MediaFeaturesAnyPointer"),
     )
-    color: int | None | UnsetType = field(default=UNSET, metadata=meta("color", nullable=True, primitive="int"))
+    color: int | None | UnsetType = field(
+        default=UNSET,
+        metadata=meta("color", nullable=True, primitive="int", min=0, max=9007199254740991),
+    )
     color_gamut: MediaFeaturesColorGamut | None | UnsetType = field(
         default=UNSET,
         metadata=meta("color-gamut", nullable=True, enum="emulation.MediaFeaturesColorGamut"),
     )
     color_index: int | None | UnsetType = field(
         default=UNSET,
-        metadata=meta("color-index", nullable=True, primitive="int"),
+        metadata=meta("color-index", nullable=True, primitive="int", min=0, max=9007199254740991),
     )
     display_mode: MediaFeaturesDisplayMode | None | UnsetType = field(
         default=UNSET,
@@ -379,7 +385,7 @@ class MediaFeatures(Record):
     )
     horizontal_viewport_segments: int | None | UnsetType = field(
         default=UNSET,
-        metadata=meta("horizontal-viewport-segments", nullable=True, primitive="int"),
+        metadata=meta("horizontal-viewport-segments", nullable=True, primitive="int", min=0, max=9007199254740991),
     )
     hover: MediaFeaturesHover | None | UnsetType = field(
         default=UNSET,
@@ -391,7 +397,7 @@ class MediaFeatures(Record):
     )
     monochrome: int | None | UnsetType = field(
         default=UNSET,
-        metadata=meta("monochrome", nullable=True, primitive="int"),
+        metadata=meta("monochrome", nullable=True, primitive="int", min=0, max=9007199254740991),
     )
     nav_controls: MediaFeaturesNavControls | None | UnsetType = field(
         default=UNSET,
@@ -443,7 +449,7 @@ class MediaFeatures(Record):
     )
     vertical_viewport_segments: int | None | UnsetType = field(
         default=UNSET,
-        metadata=meta("vertical-viewport-segments", nullable=True, primitive="int"),
+        metadata=meta("vertical-viewport-segments", nullable=True, primitive="int", min=0, max=9007199254740991),
     )
     video_color_gamut: MediaFeaturesVideoColorGamut | None | UnsetType = field(
         default=UNSET,
@@ -492,8 +498,8 @@ class ScreenArea(Record):
     See https://w3c.github.io/webdriver-bidi/#cddl-type-emulationscreenarea
     """
 
-    width: int = field(metadata=meta("width", required=True, primitive="int"))
-    height: int = field(metadata=meta("height", required=True, primitive="int"))
+    width: int = field(metadata=meta("width", required=True, primitive="int", min=0, max=9007199254740991))
+    height: int = field(metadata=meta("height", required=True, primitive="int", min=0, max=9007199254740991))
 
 
 @register("emulation.SetScreenSettingsOverrideParameters")
@@ -657,7 +663,7 @@ class SetTouchOverrideParameters(Record):
     """
 
     max_touch_points: int | None = field(
-        metadata=meta("maxTouchPoints", required=True, nullable=True, primitive="int"),
+        metadata=meta("maxTouchPoints", required=True, nullable=True, primitive="int", min=1, max=9007199254740991),
     )
     contexts: list[str] | UnsetType = field(default=UNSET, metadata=meta("contexts", is_list=True, primitive="str"))
     user_contexts: list[str] | UnsetType = field(

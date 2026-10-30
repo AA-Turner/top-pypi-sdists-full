@@ -108,3 +108,19 @@ def test_a_cycle_records_what_it_left_installed(monkeypatch):
 
     asyncio.run(run())
     assert u.state["checked_cli"] == "0.990.1"
+
+
+def test_the_lifeboats_ask_within_the_cooldown_still_starts_a_cycle():
+    """A release minutes after the last check: the lifeboat asks (`keeper`)
+    within the cooldown. A `recent` answer starts no cycle, the service idles
+    out, and the lifeboat read that silence as a service that cannot start
+    ("Lifeboat rescued" for a routine update). Its ask starts a cycle."""
+    _state(last_check=time.time() - 120, checked_cli="0.990.1")
+    _runtime("0.990.1")
+    u = _updater("0.990.1")
+    u._loop = object()
+    started = []
+    u.start = lambda trigger: started.append(trigger) or "c0ffee"  # type: ignore[method-assign]
+    assert u._check_cycle(updater.CheckTrigger.KEEPER)["outcome"] == updater.CheckOutcome.STARTED
+    assert started == [updater.CheckTrigger.KEEPER]
+    assert u._check_cycle("cli")["outcome"] == updater.CheckOutcome.RECENT

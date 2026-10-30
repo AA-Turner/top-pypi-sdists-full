@@ -256,10 +256,11 @@ impl TTLPolicy {
 
     #[inline]
     fn decrement_indexes(&mut self, start: usize, end: usize) {
-        const MAX_FRONT_OFFSET: usize = cfg_select! {
-            feature = "use-small-offset" => u8::MAX as usize,
-            not(feature = "use-small-offset") => usize::MAX - isize::MAX as usize,
-        };
+        const MAX_FRONT_OFFSET: usize =
+            cfg_select! {
+                feature = "use-small-offset" => u8::MAX as usize,
+                not(feature = "use-small-offset") => usize::MAX - isize::MAX as usize,
+            };
 
         // Fast path: shifting the entire front is a single counter increment.
         // Guard against overflow; the full-normalization path below handles that case.
@@ -422,12 +423,11 @@ impl PolicyExt for TTLPolicy {
     }
 
     fn evict(&mut self, shared: &Self::Shared) -> pyo3::PyResult<Self::Handle> {
-        let front = self.entries.front();
-        if front.is_none() {
-            return Err(new_py_error!(PyKeyError, ()));
-        }
+        self.expire(shared.generation_version());
 
-        let front = unsafe { front.unwrap_unchecked() };
+        let Some(front) = self.entries.front() else {
+            return Err(new_py_error!(PyKeyError, ()));
+        };
 
         let eq = |index: &usize| Ok::<_, pyo3::PyErr>(*index - self.front_offset == 0);
         let removed_key_table = self.table.remove_entry(front.key().hash(), eq).unwrap();

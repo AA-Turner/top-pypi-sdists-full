@@ -14,7 +14,7 @@ from mistralai.workflows.client import get_mistral_client
 from mistralai.workflows.core._events.event_context import BackgroundEventPublisher
 from mistralai.workflows.core._events.event_utils import create_base_event_fields
 from mistralai.workflows.core.activity import activity
-from mistralai.workflows.plugins.mistralai.connectors.run_as import ConnectorRunAs
+from mistralai.workflows.plugins.mistralai.connectors.run_as import RunAs
 from mistralai.workflows.protocol.v1.events import (
     CustomTaskCompleted,
     CustomTaskCompletedAttributes,
@@ -167,7 +167,7 @@ async def connector_get_mcp_app_resource_uris(
     connector_id_or_name: str,
     credentials_name: str | None = None,
     raise_on_error: bool = False,
-    run_as: ConnectorRunAs = ConnectorRunAs.AUTO,
+    run_as: RunAs = RunAs.AUTO,
 ) -> dict[str, str]:
     """Return tool-name to ``ui://`` URI mappings declared by MCP tool metadata."""
     client = get_mistral_client(run_as=run_as)

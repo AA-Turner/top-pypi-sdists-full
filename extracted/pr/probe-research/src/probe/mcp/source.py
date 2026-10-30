@@ -958,6 +958,15 @@ class ResearchOSSource:
         """``GET /v1/workspaces/{W}/branches``: the workspace's lines of work."""
         return self.client.workspace_branches(workspace_id)
 
+    def project_best(self, project_id: str, *, history: int) -> dict:
+        """``GET /v1/projects/{P}/best?history=N``: the pick and its events,
+        newest first (#3624)."""
+        return self.client.get_project_best(project_id, history=history)
+
+    def workspace_best(self, workspace_id: str, *, history: int) -> dict:
+        """``GET /v1/workspaces/{W}/best?history=N``: as :meth:`project_best`."""
+        return self.client.get_workspace_best(workspace_id, history=history)
+
     def project_artifacts(self, project_id: str) -> list[dict]:
         return self.client.list_project_artifacts(project_id)
 

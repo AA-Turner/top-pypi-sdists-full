@@ -2823,10 +2823,10 @@ END:VCALENDAR"""
             nonlocal saved
             saved = True
 
-        todo._async_put = fake_async_put
+        todo._async_send_put = fake_async_put
         asyncio.run(todo.uncomplete())
 
-        assert saved, "uncomplete() did not call _async_put for async client"
+        assert saved, "uncomplete() did not PUT for async client"
         assert todo.icalendar_component.get("STATUS") == "NEEDS-ACTION"
         assert "COMPLETED" not in todo.icalendar_component
 
@@ -3936,6 +3936,241 @@ VALID_SYNC_TOKEN_BODY = (
 )
 
 
+class TestRedirectedRequests:
+    """Zimbra answers a PUT under a name other than ``<uid>.ics`` with a
+    302 to ``<uid>.ics`` and stores nothing.  niquests/requests follow a
+    302 as a GET without the body, which answers 404 - and the data was
+    lost without an error.  A redirected request other than GET/HEAD is
+    repeated with its method and body, on the same host only.
+    """
+
+    ICAL = (
+        "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//x//y//EN\r\n"
+        "BEGIN:VEVENT\r\nUID:redirect-uid\r\nDTSTAMP:20260119T120000Z\r\n"
+        "DTSTART:20260119T120000Z\r\nSUMMARY:x\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+    )
+
+    def _make_response(self, status_code, headers=None):
+        r = mock.MagicMock()
+        r.status_code = status_code
+        r.headers = headers or {}
+        r.reason = "x"
+        r.content = b""
+        r.text = ""
+        return r
+
+    def _server(self, location):
+        """A server redirecting PUTs of other-name.ics to ``location``."""
+        calls = []
+
+        def request(method, url, **kwargs):
+            calls.append((method, url, kwargs))
+            if url.endswith("other-name.ics"):
+                return self._make_response(302, {"Location": location})
+            if method == "PUT":
+                return self._make_response(201)
+            return self._make_response(404)
+
+        return request, calls
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_put_repeated_at_location(self, mocked):
+        mocked.side_effect, calls = self._server("https://cal.example.com/cal/redirect-uid.ics")
+        client = DAVClient(url="https://cal.example.com/cal/")
+        response = client.put("https://cal.example.com/cal/other-name.ics", self.ICAL)
+        assert response.status == 201
+        assert [(m, u) for m, u, _ in calls] == [
+            ("PUT", "https://cal.example.com/cal/other-name.ics"),
+            ("PUT", "https://cal.example.com/cal/redirect-uid.ics"),
+        ]
+        assert calls[0][2]["allow_redirects"] is False
+        assert calls[1][2]["data"] == calls[0][2]["data"]
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_relative_location(self, mocked):
+        mocked.side_effect, calls = self._server("/cal/redirect-uid.ics")
+        client = DAVClient(url="https://cal.example.com/cal/")
+        assert client.put("https://cal.example.com/cal/other-name.ics", self.ICAL).status == 201
+        assert calls[1][1] == "https://cal.example.com/cal/redirect-uid.ics"
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_other_port_not_followed(self, mocked):
+        """The Zimbra docker image redirects to its internal port 8443."""
+        mocked.side_effect, calls = self._server(
+            "https://cal.example.com:8443/cal/redirect-uid.ics"
+        )
+        client = DAVClient(url="https://cal.example.com/cal/")
+        response = client.put("https://cal.example.com/cal/other-name.ics", self.ICAL)
+        assert response.status == 302
+        assert len(calls) == 1
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_get_left_to_the_http_library(self, mocked):
+        mocked.return_value = self._make_response(200)
+        DAVClient(url="https://cal.example.com/cal/").request("/cal/x.ics")
+        assert mocked.call_args.kwargs.get("allow_redirects", True) is True
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_save_follows_the_object(self, mocked):
+        mocked.side_effect, calls = self._server("https://cal.example.com/cal/redirect-uid.ics")
+        client = DAVClient(url="https://cal.example.com/cal/")
+        cal = Calendar(client, url="https://cal.example.com/cal/")
+        event = Event(
+            client, url="https://cal.example.com/cal/other-name.ics", data=self.ICAL, parent=cal
+        )
+        event.save()
+        assert str(event.url) == "https://cal.example.com/cal/redirect-uid.ics"
+        assert len(calls) == 2
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_save_raises_on_unfollowed_redirect(self, mocked):
+        mocked.side_effect, calls = self._server(
+            "https://cal.example.com:8443/cal/redirect-uid.ics"
+        )
+        client = DAVClient(url="https://cal.example.com/cal/")
+        cal = Calendar(client, url="https://cal.example.com/cal/")
+        event = Event(
+            client, url="https://cal.example.com/cal/other-name.ics", data=self.ICAL, parent=cal
+        )
+        with pytest.raises(error.PutError):
+            event.save()
+        assert len(calls) == 1
+
+    def _routes(self, routes, default_put=201):
+        """A server answering ``routes[url]`` = (status, Location or None)."""
+        calls = []
+
+        def request(method, url, **kwargs):
+            calls.append((method, url, kwargs))
+            if url in routes:
+                status, location = routes[url]
+                return self._make_response(status, {"Location": location} if location else {})
+            if method == "PUT":
+                return self._make_response(default_put)
+            return self._make_response(404)
+
+        return request, calls
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_http_to_https_upgrade_followed(self, mocked):
+        """A non-GET method lost the library's redirect following; the
+        upgrade to https on the same host must still work."""
+        mocked.side_effect, calls = self._routes(
+            {"http://cal.example.com/cal/": (308, "https://cal.example.com/cal/")}
+        )
+        client = DAVClient(url="http://cal.example.com/cal/")
+        client.request("http://cal.example.com/cal/", "PROPFIND", "<x/>")
+        assert [(m, u) for m, u, _ in calls] == [
+            ("PROPFIND", "http://cal.example.com/cal/"),
+            ("PROPFIND", "https://cal.example.com/cal/"),
+        ]
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_https_to_http_not_followed(self, mocked):
+        mocked.side_effect, calls = self._routes(
+            {"https://cal.example.com/cal/": (308, "http://cal.example.com/cal/")}
+        )
+        client = DAVClient(url="https://cal.example.com/cal/")
+        assert client.request("https://cal.example.com/cal/", "PROPFIND", "<x/>").status == 308
+        assert len(calls) == 1
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_other_host_not_followed(self, mocked):
+        mocked.side_effect, calls = self._routes(
+            {"https://cal.example.com/cal/x.ics": (307, "https://evil.example.com/cal/x.ics")}
+        )
+        client = DAVClient(url="https://cal.example.com/cal/")
+        assert client.put("https://cal.example.com/cal/x.ics", self.ICAL).status == 307
+        assert len(calls) == 1
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_host_compared_case_insensitively(self, mocked):
+        mocked.side_effect, calls = self._routes(
+            {"https://cal.example.com/cal/x.ics": (307, "https://CAL.Example.com/cal/y.ics")}
+        )
+        client = DAVClient(url="https://cal.example.com/cal/")
+        assert client.put("https://cal.example.com/cal/x.ics", self.ICAL).status == 201
+        assert len(calls) == 2
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_chain_ends_at_the_last_hop(self, mocked):
+        base = "https://cal.example.com/cal/"
+        mocked.side_effect, calls = self._routes(
+            {base + "a.ics": (307, base + "b.ics"), base + "b.ics": (308, base + "c.ics")}
+        )
+        client = DAVClient(url=base)
+        response = client.put(base + "a.ics", self.ICAL)
+        assert response.status == 201
+        assert str(response.redirected_to) == base + "c.ics"
+        assert len(calls) == 3
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_redirect_loop_is_bounded(self, mocked):
+        base = "https://cal.example.com/cal/"
+        mocked.side_effect, calls = self._routes({base + "a.ics": (302, base + "a.ics")})
+        client = DAVClient(url=base)
+        cal = Calendar(client, url=base)
+        event = Event(client, url=base + "a.ics", data=self.ICAL, parent=cal)
+        with pytest.raises(error.PutError):
+            event.save()
+        puts = [c for c in calls if c[0] == "PUT"]
+        assert len(puts) == DAVClient.MAX_REDIRECTS + 1
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_303_to_a_put_is_success_at_the_location(self, mocked):
+        """RFC 9110 section 15.4.4: the PUT succeeded, and the Location
+        names the resource - presumably the object, renamed."""
+        base = "https://cal.example.com/cal/"
+        mocked.side_effect, calls = self._routes(
+            {base + "other-name.ics": (303, base + "server-named.ics")}
+        )
+        client = DAVClient(url=base)
+        cal = Calendar(client, url=base)
+        event = Event(client, url=base + "other-name.ics", data=self.ICAL, parent=cal)
+        event.save()
+        assert str(event.url) == base + "server-named.ics"
+        assert [m for m, _, _ in calls].count("PUT") == 1
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_mkcalendar_adopts_the_location(self, mocked):
+        base = "https://cal.example.com/cal/"
+        calls = []
+
+        def request(method, url, **kwargs):
+            calls.append((method, url))
+            if method == "MKCALENDAR" and url == base + "new/":
+                return self._make_response(307, {"Location": base + "moved/"})
+            if method == "MKCALENDAR":
+                return self._make_response(201)
+            return self._make_response(404)
+
+        mocked.side_effect = request
+        client = DAVClient(url=base)
+        client.url = client.url.with_alias_at(False)
+        cal = Calendar(client, url=None, parent=Calendar(client, url=base))
+        cal._create(id="new")
+        assert str(cal.url) == base + "moved/"
+        assert cal.url.alias_at is False
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_followed_url_keeps_the_url_settings(self, mocked):
+        """The URL an object moves to inherits ``alias_at`` and
+        ``host_aliases``, as every URL derived from its old one does."""
+        base = "https://cal.example.com/cal/"
+        for status in (302, 303):
+            mocked.side_effect, calls = self._routes(
+                {base + "other-name.ics": (status, base + "redirect-uid.ics")}
+            )
+            client = DAVClient(url=base)
+            client.url = client.url.with_alias_at(False).with_host_alias("p01.example.com")
+            cal = Calendar(client, url=base)
+            event = Event(client, url=base + "other-name.ics", data=self.ICAL, parent=cal)
+            event.save()
+            assert str(event.url) == base + "redirect-uid.ics"
+            assert event.url.alias_at is False
+            assert event.url.host_aliases == frozenset({"p01.example.com"})
+
+
 class TestAuthorizationErrorPreconditions:
     """Issue https://github.com/python-caldav/caldav/issues/738: a 403 may carry
     its reason as a precondition in a DAV:error body (RFC 4918 section 16).
@@ -4382,10 +4617,12 @@ class TestDateToUtcConversion:
             def __init__(self):
                 super().__init__("<multistatus xmlns='DAV:'/>")
                 self.report_bodies = []
+                self.report_depths = []
 
             def request(self, url=None, method="GET", body=None, headers=None, *args, **kwargs):
                 if method == "REPORT" and body:
                     self.report_bodies.append(body)
+                    self.report_depths.append((headers or {}).get("Depth"))
                 return super().request(url, method, body, headers, *args, **kwargs)
 
         client = CapturingClient()
@@ -4402,6 +4639,9 @@ class TestDateToUtcConversion:
         # Must NOT contain bare date strings without time component
         assert "20260501Z" not in body
         assert "20260601Z" not in body
+        ## calendar-query is a Depth: 1 REPORT (RFC 4791 section 7.8),
+        ## unlike sync-collection, which shares the helper
+        assert client.report_depths[0] == "1"
 
     def test_searcher_coerces_date_to_datetime(self):
         """calendar.searcher(start=date(...)) must store datetime on the searcher,
@@ -4734,8 +4974,17 @@ class TestTestKeyPrefix:
         from caldav.config import get_all_test_servers
 
         config_file = self._write(tmp_path, {"testing_allowed": True})
-        with pytest.warns(DeprecationWarning, match="test_allowed"):
+        with pytest.warns(FutureWarning, match="test_allowed"):
             assert "srv" in get_all_test_servers(config_file)
+
+    def test_deprecated_key_does_not_break_the_test_run(self, tmp_path):
+        """pyproject.toml's filterwarnings must let the warning through
+        rather than turn the developer's own config into a test error."""
+        from caldav.config import get_all_test_servers, resolve_features
+
+        config_file = self._write(tmp_path, {"testing_allowed": True})
+        assert "srv" in get_all_test_servers(config_file)
+        resolve_features("zimbra")
 
     def test_test_priority(self, tmp_path):
         from caldav.config import _ConfiguredServer, get_all_test_servers
@@ -4749,7 +4998,7 @@ class TestTestKeyPrefix:
         from caldav.config import _ConfiguredServer, get_all_test_servers
 
         config_file = self._write(tmp_path, {"test_allowed": True, "priority": 5})
-        with pytest.warns(DeprecationWarning, match="test_priority"):
+        with pytest.warns(FutureWarning, match="test_priority"):
             params = get_all_test_servers(config_file)["srv"]
             assert _ConfiguredServer("srv", params).priority == 5
 
@@ -4757,7 +5006,7 @@ class TestTestKeyPrefix:
         from caldav.testing import RadicaleServer
 
         assert RadicaleServer({"test_priority": 3}).priority == 3
-        with pytest.warns(DeprecationWarning, match="test_priority"):
+        with pytest.warns(FutureWarning, match="test_priority"):
             assert RadicaleServer({"priority": 4}).priority == 4
 
 
@@ -5881,13 +6130,15 @@ class TestPropstatStatusValidation:
 """
 
     def test_server_error_propstat_raises(self):
-        with pytest.raises(error.ResponseError):
+        with pytest.raises(error.ResponseError) as excinfo:
             MockedDAVResponse(self.XML).expand_simple_props(props=[dav.DisplayName()])
+        assert excinfo.value.status == 500
 
     def test_insufficient_storage_propstat_raises(self):
         xml = self.XML.replace("500 Internal Server Error", "507 Insufficient Storage")
-        with pytest.raises(error.ResponseError):
+        with pytest.raises(error.ResponseError) as excinfo:
             MockedDAVResponse(xml).expand_simple_props(props=[dav.DisplayName()])
+        assert excinfo.value.status == 507
 
     def test_404_propstat_is_still_a_missing_property(self):
         """The 404 quirk must survive: a 404 propstat means "not set here",
@@ -5895,6 +6146,17 @@ class TestPropstatStatusValidation:
         xml = self.XML.replace("500 Internal Server Error", "404 Not Found")
         result = MockedDAVResponse(xml).expand_simple_props(props=[dav.DisplayName()])
         assert result == {"/dav/calendars/user/broken/": {"{DAV:}displayname": None}}
+
+    @pytest.mark.parametrize(
+        "status", ["500 Internal Server Error", "HTTP/1.1 Internal Server Error"]
+    )
+    def test_unparseable_status_line_leaves_status_unset(self, status):
+        """A status line the client cannot read is no evidence of a code:
+        ``status`` stays None rather than claiming 200."""
+        xml = self.XML.replace("HTTP/1.1 500 Internal Server Error", status)
+        with pytest.raises(error.ResponseError) as excinfo:
+            MockedDAVResponse(xml).expand_simple_props(props=[dav.DisplayName()])
+        assert excinfo.value.status is None
 
 
 class TestAsyncDAVClientCredentialPairing:
@@ -5919,42 +6181,6 @@ class TestAsyncDAVClientCredentialPairing:
         )
         assert client.username == "bob"
         assert client.password == "s3cret"
-
-
-class TestPostPutRedirect:
-    """302 response to PUT must update event.url from Location header.
-
-    Bug: `[x[1] for x in r.headers if x[0] == "location"]` iterates the
-    headers dict yielding key *strings*, so x[0] is the first character of
-    each header name — never "location".  The list is always empty and any
-    302 raises IndexError.
-    """
-
-    @mock.patch("caldav.davclient.requests.Session.request")
-    def test_302_put_updates_url_from_location_header(self, mocked):
-        try:
-            from niquests.structures import CaseInsensitiveDict
-        except ImportError:
-            from requests.structures import CaseInsensitiveDict
-
-        new_url = "http://cal.example.com/cal/new-location.ics"
-        resp = mock.MagicMock()
-        resp.status_code = 302
-        resp.headers = CaseInsensitiveDict({"Location": new_url})
-        resp.reason = "Found"
-        resp.content = b""
-        mocked.return_value = resp
-
-        client = DAVClient(url="http://cal.example.com/")
-        cal = Calendar(client=client, url="http://cal.example.com/cal/")
-        event = Event(
-            client=client,
-            url="http://cal.example.com/cal/event.ics",
-            data=ev1,
-            parent=cal,
-        )
-        event.save()
-        assert str(event.url) == new_url
 
 
 class TestWarnUnreadableDisplayName:
@@ -7596,6 +7822,8 @@ class TestSyncCollectionTruncated:
         client, calendar = self._calendar(sync_page({"a.ics": '"a1"'}, "tok-2", truncated=False))
         result = calendar.get_objects_by_sync_token("tok-1")
         assert client.report.call_count == 1
+        ## RFC 6578 section 3.2: sync-collection is only defined for Depth: 0
+        assert client.report.call_args.args[2] == 0
         assert result.truncated is False
         assert result.sync_token == "tok-2"
         assert len(result) == 1
@@ -7658,8 +7886,9 @@ class TestSyncCollectionTruncated:
             b"<D:href>/dav/cal/</D:href>", b"<D:href>/dav/othercal/</D:href>"
         )
         _, calendar = self._calendar(page)
-        with pytest.raises(error.DAVError):
+        with pytest.raises(error.DAVError) as excinfo:
             calendar.get_objects_by_sync_token("tok-1", disable_fallback=True)
+        assert excinfo.value.status == 507
 
     def test_truncated_initial_sync_on_stalwart_stops_short(self):
         """Stalwart's checkpoint of a truncated initial sync skips members.
@@ -7829,7 +8058,25 @@ class TestPreconditionsOnOtherStatuses:
         assert isinstance(exc_info.value, error.PutError)
         assert exc_info.value.preconditions == ["{urn:ietf:params:xml:ns:caldav}no-uid-conflict"]
         assert exc_info.value.body
+        assert exc_info.value.href == "/dav/user/mycal/other.ics"
         assert [m for m, _ in sent] == ["PUT"]
+
+    def test_uid_conflict_href_is_optional(self) -> None:
+        """The holder's href is only a "may": none is not an error."""
+        for body in (None, b"", b"<<<", b"<html/>", UNIQUE_SCHEDULING_BODY, LOCK_TOKEN_BODY):
+            assert error.UidConflictError("/x", body=body).href is None
+
+    def test_uid_conflict_href_variants(self) -> None:
+        """str bodies, unique-scheduling-object-resource (RFC 6638), blank
+        hrefs and surrounding whitespace."""
+        ns = b'<D:error xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">'
+        for tag in (b"no-uid-conflict", b"unique-scheduling-object-resource"):
+            body = ns + b"<C:" + tag + b"><D:href> </D:href><D:href> /b.ics </D:href></C:" + tag
+            body += b"></D:error>"
+            assert error.UidConflictError("/x", body=body).href == "/b.ics"
+        assert error.UidConflictError("/x", body=NO_UID_CONFLICT_BODY.decode()).href == (
+            "/dav/user/mycal/other.ics"
+        )
 
     def test_put_412_uid_conflict_with_schedule_tag(self, base) -> None:
         client, _ = self._client(base, 412, NO_UID_CONFLICT_BODY)
@@ -7985,7 +8232,14 @@ class _SaveRequests:
         return AsyncDAVClient
 
     def _client(
-        self, base, put_status=201, put_body=b"", features=None, exc=None, report=EMPTY_MULTISTATUS
+        self,
+        base,
+        put_status=201,
+        put_body=b"",
+        features=None,
+        exc=None,
+        report=EMPTY_MULTISTATUS,
+        get_status=None,
     ):
         sent = []
         client = base(url="http://cal.example.com/dav/", features=features)
@@ -7997,6 +8251,8 @@ class _SaveRequests:
                 if exc is not None:
                     raise exc
                 status, body = put_status, put_body
+            elif method == "GET" and get_status is not None:
+                status, body = get_status, b""
             else:
                 status, body = 207, report
             resp = mock.MagicMock()
@@ -8173,6 +8429,16 @@ class TestNoOverwriteIfNoneMatch(_SaveRequests):
         assert [m for m, _ in sent] == ["PUT"]
         assert sent[-1][1]["if-none-match"] == "*"
 
+    @pytest.mark.parametrize("support", ["unsupported", "broken", "ungraceful"])
+    def test_uid_lookup_kept_where_uid_search_fails(self, base, support) -> None:
+        """If-None-Match only guards the URL: without no-uid-conflict a
+        UID under another filename must still be looked for, by GET and
+        a scan where the UID search itself fails."""
+        client, sent = self._client(base, features={"search.text.uid": {"support": support}})
+        self._run(self._event(client).save(no_overwrite=True))
+        assert [m for m, _ in sent] == ["GET", "REPORT", "PUT"]
+        assert sent[-1][1]["if-none-match"] == "*"
+
     def test_plain_save_sends_no_if_none_match(self, base) -> None:
         client, sent = self._client(base, features=self.NO_UID_CONFLICT)
         self._run(self._event(client).save())
@@ -8246,15 +8512,121 @@ class TestNoOverwriteIfNoneMatch(_SaveRequests):
 
     def test_server_ignoring_if_none_match_keeps_search(self, base) -> None:
         """Where If-None-Match: * is known to overwrite (Zimbra, SOGo) the
-        old search-then-PUT is kept, and the header is not sent."""
+        header is not sent.  Where the server may also take a duplicate
+        UID, the old search-then-PUT is kept."""
         features = {
             "save.if-none-match": {"support": "unsupported"},
-            "save.no-uid-conflict": {"support": "full"},
+            "save.no-uid-conflict": {"support": "unsupported"},
         }
         client, sent = self._client(base, features=features)
         self._run(self._event(client).save(no_overwrite=True))
         assert [m for m, _ in sent] == ["REPORT", "PUT"]
         assert "if-none-match" not in sent[-1][1]
+
+    IGNORES_IF_NONE_MATCH = {"save.if-none-match": {"support": "unsupported"}}
+
+    @pytest.mark.parametrize("support", ["full", "quirk", "ungraceful"])
+    def test_server_ignoring_if_none_match_gets_url(self, base, support) -> None:
+        """Where the server refuses a duplicate UID, only the URL needs
+        guarding, and a GET of it does that instead of the search."""
+        features = self.IGNORES_IF_NONE_MATCH | {"save.no-uid-conflict": {"support": support}}
+        client, sent = self._client(base, features=features, get_status=404)
+        self._run(self._event(client).save(no_overwrite=True))
+        assert [m for m, _ in sent] == ["GET", "PUT"]
+        assert "if-none-match" not in sent[-1][1]
+
+    def test_server_ignoring_if_none_match_url_taken(self, base) -> None:
+        features = self.IGNORES_IF_NONE_MATCH | self.NO_UID_CONFLICT
+        client, sent = self._client(base, features=features, get_status=200)
+        with pytest.raises(error.ConsistencyError) as exc_info:
+            self._run(self._event(client).save(no_overwrite=True))
+        assert not isinstance(exc_info.value, error.UidConflictError)
+        assert [m for m, _ in sent] == ["GET"]
+
+    def test_server_ignoring_if_none_match_unstable_url_keeps_search(self, base) -> None:
+        """Zimbra: a GET of a constructed URL may 404 on an existing object."""
+        features = (
+            self.IGNORES_IF_NONE_MATCH
+            | self.NO_UID_CONFLICT
+            | {"save-load.stable-url": {"support": "unsupported"}}
+        )
+        client, sent = self._client(base, features=features)
+        self._run(self._event(client).save(no_overwrite=True))
+        assert [m for m, _ in sent] == ["REPORT", "PUT"]
+
+    @pytest.mark.parametrize("get_status", [403, 500])
+    def test_server_ignoring_if_none_match_get_fails(self, base, get_status) -> None:
+        """A GET that does not find the object does not stop the save."""
+        features = self.IGNORES_IF_NONE_MATCH | self.NO_UID_CONFLICT
+        client, sent = self._client(base, features=features, get_status=get_status)
+        self._run(self._event(client).save(no_overwrite=True))
+        assert [m for m, _ in sent] == ["GET", "PUT"]
+
+    def test_server_ignoring_if_none_match_recurrence_instance_searches(self, base) -> None:
+        features = self.IGNORES_IF_NONE_MATCH | self.NO_UID_CONFLICT
+        client, sent = self._client(base, features=features, get_status=404)
+        instance = ev1.replace("DTSTART", "RECURRENCE-ID:20060714T170000Z\nDTSTART", 1)
+        self._run(
+            self._event(client, data=instance).save(no_overwrite=True, only_this_recurrence=None)
+        )
+        assert [m for m, _ in sent][0] == "REPORT"
+        assert "GET" not in [m for m, _ in sent]
+
+    def test_no_create_etag_uid_conflict_stays_etag_mismatch(self, base) -> None:
+        """Issue https://github.com/python-caldav/caldav/issues/756: a 412
+        no-uid-conflict to If-Match is still an ETagMismatchError."""
+        client, sent = self._client(
+            base,
+            put_status=412,
+            put_body=NO_UID_CONFLICT_BODY,
+            features=self.NO_UID_CONFLICT,
+            report=EV1_MULTISTATUS,
+        )
+        event = self._event(client, etag='"etag-a"')
+        with pytest.raises(error.UidConflictError) as exc_info:
+            self._run(event.save(no_create=True))
+        assert isinstance(exc_info.value, error.ETagMismatchError)
+
+    def test_search_missing_a_duplicate_server_refusal_is_consistency_error(self, base) -> None:
+        """Zimbra: no wildcard and an unstable URL, so the search runs.
+        A duplicate it misses (a race, a lazy index) is refused by the
+        server, and that is still the ConsistencyError no_overwrite gives."""
+        features = (
+            self.IGNORES_IF_NONE_MATCH
+            | self.NO_UID_CONFLICT
+            | {"save-load.stable-url": {"support": "unsupported"}}
+        )
+        client, sent = self._client(
+            base, put_status=409, put_body=NO_UID_CONFLICT_BODY, features=features
+        )
+        with pytest.raises(error.UidConflictConsistencyError):
+            self._run(self._event(client).save(no_overwrite=True))
+        assert [m for m, _ in sent] == ["REPORT", "PUT"]
+
+    def test_no_create_search_path_uid_conflict_is_consistency_error(self, base) -> None:
+        """save(no_create=True) where If-Match: * cannot be used searches;
+        the server's refusal of the UID is a ConsistencyError there too."""
+        features = {"save-load.mutable.if-match-wildcard": {"support": "unsupported"}}
+        client, sent = self._client(
+            base,
+            put_status=409,
+            put_body=NO_UID_CONFLICT_BODY,
+            features=features,
+            report=EV1_MULTISTATUS,
+        )
+        with pytest.raises(error.UidConflictConsistencyError):
+            self._run(self._event(client).save(no_create=True))
+        assert [m for m, _ in sent] == ["REPORT", "PUT"]
+
+    def test_server_ignoring_if_none_match_uid_conflict_is_consistency_error(self, base) -> None:
+        """No wildcard goes out, but no_overwrite was asked for: the
+        server's refusal is still the ConsistencyError the search gave."""
+        features = self.IGNORES_IF_NONE_MATCH | self.NO_UID_CONFLICT
+        client, sent = self._client(
+            base, put_status=409, put_body=NO_UID_CONFLICT_BODY, features=features, get_status=404
+        )
+        with pytest.raises(error.UidConflictConsistencyError):
+            self._run(self._event(client).save(no_overwrite=True))
 
     def test_recurrence_instance_keeps_search(self, base) -> None:
         """A recurrence instance is merged into its master, which the PUT
@@ -8267,7 +8639,7 @@ class TestNoOverwriteIfNoneMatch(_SaveRequests):
         assert [m for m, _ in sent][0] == "REPORT"
         assert sent[-1][1]["if-none-match"] == "*"
 
-    @pytest.mark.parametrize("server", ["zimbra", "sogo"])
+    @pytest.mark.parametrize("server", ["zimbra_8_8", "zimbra_10_1", "sogo"])
     def test_hints_of_servers_overwriting(self, server) -> None:
         from caldav import compatibility_hints
         from caldav.compatibility_hints import FeatureSet
@@ -8320,6 +8692,186 @@ EV1_MULTISTATUS = (
     + "</C:calendar-data></D:prop><D:status>HTTP/1.1 200 OK</D:status>"
     "</D:propstat></D:response></D:multistatus>"
 ).encode()
+
+
+class TestUidConflictBareStatus(_SaveRequests):
+    """A server refusing a duplicate UID without the CALDAV:no-uid-conflict
+    precondition (RFC 4791 section 5.3.2.1), but with a status the tester
+    has confirmed (save.no-uid-conflict 'quirk', extra keys 'status' and
+    'precondition').  Such a status alone is no proof, so the library
+    reads it as a UID conflict only when a GET finds nothing at the URL."""
+
+    ## Bedework: 403 CALDAV:no-uid-conflict to a plain PUT, a bare 412
+    ## when it carries If-None-Match: *
+    BEDEWORK = {
+        "save.no-uid-conflict": {"support": "full"},
+        "save.no-uid-conflict.if-none-match": {
+            "support": "quirk",
+            "status": 412,
+            "precondition": False,
+        },
+    }
+    BARE_409 = {"save.no-uid-conflict": {"support": "quirk", "status": 409, "precondition": False}}
+
+    def test_search_skipped(self, base) -> None:
+        client, sent = self._client(base, features=self.BEDEWORK)
+        self._run(self._event(client).save(no_overwrite=True))
+        assert [m for m, _ in sent] == ["PUT"]
+        assert sent[-1][1]["if-none-match"] == "*"
+
+    def test_search_skipped_where_ungraceful(self, base) -> None:
+        """The server refuses the duplicate, if not recognisably: no
+        duplicate can be stored, so the search adds nothing."""
+        features = {"save.no-uid-conflict": {"support": "ungraceful"}}
+        client, sent = self._client(base, features=features)
+        self._run(self._event(client).save(no_overwrite=True))
+        assert [m for m, _ in sent] == ["PUT"]
+
+    def test_bare_412_and_no_object_at_url_is_uid_conflict(self, base) -> None:
+        client, sent = self._client(base, put_status=412, features=self.BEDEWORK, get_status=404)
+        with pytest.raises(error.UidConflictConsistencyError) as exc_info:
+            self._run(self._event(client).save(no_overwrite=True))
+        assert exc_info.value.status == 412
+        assert [m for m, _ in sent] == ["PUT", "GET"]
+
+    def test_bare_412_and_object_at_url_is_url_taken(self, base) -> None:
+        client, sent = self._client(base, put_status=412, features=self.BEDEWORK, get_status=200)
+        with pytest.raises(error.ConsistencyError) as exc_info:
+            self._run(self._event(client).save(no_overwrite=True))
+        assert not isinstance(exc_info.value, error.UidConflictError)
+
+    def test_plain_save_bare_409_is_uid_conflict(self, base) -> None:
+        client, sent = self._client(base, put_status=409, features=self.BARE_409, get_status=404)
+        with pytest.raises(error.UidConflictError) as exc_info:
+            self._run(self._event(client).save())
+        assert not isinstance(exc_info.value, error.ConsistencyError)
+        assert exc_info.value.status == 409
+        ## No retry with cleaned-up data: that cannot free the UID
+        assert [m for m, _ in sent] == ["PUT", "GET"]
+
+    def test_plain_save_bare_409_and_object_at_url_one_get(self, base) -> None:
+        client, sent = self._client(base, put_status=409, features=self.BARE_409, get_status=200)
+        with pytest.raises(error.PutError):
+            self._run(self._event(client).save())
+        assert [m for m, _ in sent] == ["PUT", "GET"]
+
+    def test_raw_data_bare_409_is_uid_conflict(self, base) -> None:
+        client, sent = self._client(base, put_status=409, features=self.BARE_409, get_status=404)
+        event = self._event(client)
+        with pytest.raises(error.UidConflictError):
+            self._run(event.save(raw_data=ev1.encode()))
+        assert [m for m, _ in sent] == ["PUT", "GET"]
+
+    def test_icloud_profile_skips_search(self, base) -> None:
+        """Only the .if-none-match child is known for iCloud."""
+        from caldav import compatibility_hints
+
+        client, sent = self._client(base, features=compatibility_hints.icloud)
+        self._run(self._event(client).save(no_overwrite=True))
+        assert [m for m, _ in sent] == ["PUT"]
+
+    def test_icloud_profile_plain_save_bare_412_is_uid_conflict(self, base) -> None:
+        """iCloud refuses a plain PUT of a taken UID with a bare 412 too
+        (measured by caldav-server-tester, PR 826)."""
+        from caldav import compatibility_hints
+
+        client, sent = self._client(
+            base, put_status=412, features=compatibility_hints.icloud, get_status=404
+        )
+        with pytest.raises(error.UidConflictError) as exc_info:
+            self._run(self._event(client).save())
+        assert not isinstance(exc_info.value, error.ConsistencyError)
+        assert [m for m, _ in sent] == ["PUT", "GET"]
+
+    def test_bare_412_message_does_not_claim_the_url(self, base) -> None:
+        """Where the server refuses duplicates unrecognisably, a 412 to
+        If-None-Match: * may be about the UID: the message says either."""
+        features = {"save.no-uid-conflict": {"support": "ungraceful"}}
+        client, sent = self._client(base, put_status=412, features=features)
+        with pytest.raises(error.ConsistencyError) as exc_info:
+            self._run(self._event(client).save(no_overwrite=True))
+        assert "UID" in str(exc_info.value)
+
+    def test_plain_save_bare_409_and_object_at_url_is_put_error(self, base) -> None:
+        client, sent = self._client(base, put_status=409, features=self.BARE_409, get_status=200)
+        with pytest.raises(error.PutError) as exc_info:
+            self._run(self._event(client).save())
+        assert not isinstance(exc_info.value, error.UidConflictError)
+
+    def test_no_uid_conflict_where_a_missing_object_is_no_404(self, base) -> None:
+        """The GET proves nothing where the server does not answer 404 for
+        a missing object (non-existing-raises-not-found.object)."""
+        features = self.BARE_409 | {
+            "non-existing-raises-not-found.object": {"support": "unsupported"}
+        }
+        client, sent = self._client(base, put_status=409, features=features, get_status=404)
+        with pytest.raises(error.PutError) as exc_info:
+            self._run(self._event(client).save())
+        assert not isinstance(exc_info.value, error.UidConflictError)
+        assert "GET" not in [m for m, _ in sent]
+
+    def test_conditional_save_is_not_read_as_uid_conflict(self, base) -> None:
+        """A refused If-Match is about the object at the URL: one deleted
+        meanwhile also leaves nothing there for the GET to find."""
+        client, sent = self._client(base, put_status=409, features=self.BARE_409, get_status=404)
+        with pytest.raises(error.PutError) as exc_info:
+            self._run(self._event(client, etag='"etag-a"').save())
+        assert not isinstance(exc_info.value, error.UidConflictError)
+        assert "GET" not in [m for m, _ in sent]
+
+    def test_other_status_is_not_read_as_uid_conflict(self, base) -> None:
+        client, sent = self._client(base, put_status=412, features=self.BARE_409, get_status=404)
+        with pytest.raises(error.PutError) as exc_info:
+            self._run(self._event(client).save())
+        assert not isinstance(exc_info.value, error.UidConflictError)
+        assert "GET" not in [m for m, _ in sent]
+
+    @pytest.mark.parametrize(
+        "node",
+        [
+            {"support": "ungraceful"},
+            {"support": "quirk", "status": 403, "precondition": False},
+        ],
+    )
+    def test_bare_403_is_not_read_as_uid_conflict(self, base, node) -> None:
+        """403 is also what a read-only calendar answers: it may be anything."""
+        exc = error.AuthorizationError(
+            url=self.URL + "ev1.ics", reason="Forbidden", status=403, body=b""
+        )
+        client, sent = self._client(
+            base, features={"save.no-uid-conflict": node}, exc=exc, get_status=404
+        )
+        with pytest.raises(error.AuthorizationError) as exc_info:
+            self._run(self._event(client).save())
+        assert not isinstance(exc_info.value, error.UidConflictError)
+        assert "GET" not in [m for m, _ in sent]
+
+    def test_if_none_match_variant_inherits_parent(self) -> None:
+        from caldav.compatibility_hints import FeatureSet
+
+        fs = FeatureSet(self.BARE_409)
+        node = fs.is_supported("save.no-uid-conflict.if-none-match", return_type=dict)
+        assert node["status"] == 409
+
+    @pytest.mark.parametrize("server", ["sogo", "purelymail"])
+    def test_href_given_not_inherited_where_unprobed(self, server) -> None:
+        """A refusal without the precondition has no href to read: the
+        child must not take the parent's level."""
+        from caldav import compatibility_hints
+        from caldav.compatibility_hints import FeatureSet
+
+        fs = FeatureSet(getattr(compatibility_hints, server))
+        assert fs.is_supported("save.no-uid-conflict.href-given", return_type=str) == "unknown"
+
+    @pytest.mark.parametrize("server", ["bedework_3_10_3", "bedework_5_0_0"])
+    def test_hints_of_bedework(self, server) -> None:
+        from caldav import compatibility_hints
+        from caldav.compatibility_hints import FeatureSet
+
+        fs = FeatureSet(getattr(compatibility_hints, server))
+        assert fs.is_supported("save.no-uid-conflict", return_type=str) == "full"
+        node = fs.is_supported("save.no-uid-conflict.if-none-match", return_type=dict)
+        assert (node["support"], node["status"], node["precondition"]) == ("quirk", 412, False)
 
 
 class TestNoCreateIfMatch(_SaveRequests):
@@ -8432,7 +8984,9 @@ class TestNoCreateIfMatch(_SaveRequests):
             )
         assert [m for m, _ in sent] == ["REPORT"]
 
-    @pytest.mark.parametrize("server", ["radicale", "zimbra", "bedework_5_0_0", "sogo"])
+    @pytest.mark.parametrize(
+        "server", ["radicale", "zimbra_8_8", "zimbra_10_1", "bedework_5_0_0", "sogo"]
+    )
     def test_hints_of_servers_mishandling_if_match_star(self, server) -> None:
         from caldav import compatibility_hints
         from caldav.compatibility_hints import FeatureSet

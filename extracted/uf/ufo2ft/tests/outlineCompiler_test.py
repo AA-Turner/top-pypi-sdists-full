@@ -312,6 +312,17 @@ class OutlineTTFCompilerTest:
         actual = compiler.otf["name"].getName(1, 3, 1, 1033).string
         assert actual == "Custom Name for Windows"
 
+    def test_setupTable_name_non_bmp_string(self, quadufo):
+        """Strings with characters outside the BMP still get Windows encoding
+        ID 1, like every other string; UTF-16BE encodes them as surrogate pairs.
+        """
+        quadufo.info.openTypeNameDesigner = "Designer \U0001f600"
+        compiler = OutlineTTFCompiler(quadufo)
+        compiler.compile()
+        name = compiler.otf["name"]
+        assert name.getName(9, 3, 10, 1033) is None
+        assert name.getName(9, 3, 1, 1033).toUnicode() == "Designer \U0001f600"
+
     def test_setupTable_name_empty_styleName(self, quadufo):
         """nameID=4 (full name) should not have trailing space when styleName is empty."""
         quadufo.info.styleName = ""
@@ -1468,6 +1479,7 @@ def test_pass_on_conversion_error(FontClass):
 @pytest.mark.parametrize(
     "vendorID, expected",
     [
+        ("", "    "),
         ("A", "A   "),
         ("AA", "AA  "),
         ("AAA", "AAA "),
@@ -1485,6 +1497,19 @@ def test_achVendId_space_padded_if_less_than_4_chars(
     font = TTFont(tmp)
 
     assert font["OS/2"].achVendID == expected
+
+
+@pytest.mark.parametrize("CompilerClass", [OutlineOTFCompiler, OutlineTTFCompiler])
+def test_achVendId_blank_by_default(FontClass, CompilerClass):
+    ufo = FontClass()
+    font = CompilerClass(ufo).compile()
+    tmp = BytesIO()
+    font.save(tmp)
+    font = TTFont(tmp)
+
+    assert font["OS/2"].achVendID == "    "
+    unique_id = font["name"].getDebugName(3)
+    assert unique_id.split(";")[1] == "    "
 
 
 @pytest.mark.parametrize("compile", [compileTTF, compileOTF])

@@ -26,6 +26,9 @@ DAILY_AT_HOUR_PT = 9
 HEARTBEAT_WEEKDAYS = {0}  # Monday
 SELF_WORKFLOW_FILE = "cron-watchdog.yml"
 ONCALL_HANDLE = "oc-hydra"
+RUNS_PER_PAGE = 100
+MAX_RUN_PAGES = 5
+SLACK_SECTION_LIMIT = 3000
 
 WATCHED = [
     (
@@ -51,17 +54,76 @@ WATCHED = [
     ),
     (
         "airbytehq/ai-skills",
-        "devin-knowledge-sync.yml",
-        "Knowledge Sync",
-        None,
-        frozenset({"push", "schedule"}),
-    ),
-    (
-        "airbytehq/ai-skills",
         "sync-playbooks.yml",
         "Playbook Sync (Devin API)",
         None,
         frozenset({"push"}),
+    ),
+    (
+        "airbytehq/airbyte",
+        "auto-merge-cron.yml",
+        "Docs Auto-Merge Cron",
+        240,
+        frozenset({"schedule"}),
+    ),
+    # Event-driven Hydra pipeline workflows: a single failed run is often a
+    # legitimate outcome (an aborted auto-merge), so watch only for disablement
+    # and a high 24h failure rate.
+    (
+        "airbytehq/airbyte",
+        "ai-review-command.yml",
+        "AI Review",
+        None,
+        frozenset({"workflow_dispatch"}),
+        False,
+    ),
+    (
+        "airbytehq/airbyte",
+        "ai-prove-fix-command.yml",
+        "AI Prove Fix",
+        None,
+        frozenset({"workflow_dispatch"}),
+        False,
+    ),
+    (
+        "airbytehq/airbyte",
+        "ai-ready-command.yml",
+        "AI Ready / Hydra Automerge",
+        None,
+        frozenset({"workflow_dispatch"}),
+        False,
+    ),
+    (
+        "airbytehq/airbyte",
+        "ai-resolve-conflicts-command.yml",
+        "AI Resolve Conflicts",
+        None,
+        frozenset({"workflow_dispatch"}),
+        False,
+    ),
+    (
+        "airbytehq/airbyte",
+        "hydra-stage-handoff.yml",
+        "Hydra Stage Handoff",
+        None,
+        frozenset({"issue_comment", "workflow_run", "workflow_dispatch"}),
+        False,
+    ),
+    (
+        "airbytehq/oncall",
+        "ai-triage-command.yml",
+        "AI Triage (oncall)",
+        None,
+        frozenset({"issues", "repository_dispatch", "workflow_dispatch"}),
+        False,
+    ),
+    (
+        "airbytehq/oncall",
+        "ai-fix-command.yml",
+        "AI Fix (oncall)",
+        None,
+        frozenset({"repository_dispatch", "workflow_dispatch"}),
+        False,
     ),
     (
         "airbytehq/airbyte-ops-mcp",
@@ -87,6 +149,8 @@ class WatchedWorkflow:
     label: str
     stall_grace_min: int | None
     health_events: frozenset[str]
+    streak_alerts: bool = True
+    """Alert on failure streaks; when off, only disablement and the daily 24h failure rate count."""
 
 
 @dataclass(frozen=True)
@@ -167,7 +231,10 @@ def _parse_timestamp(value: str | None) -> datetime:
 
 
 def _as_config(
-    item: tuple[str, str, str, int | None, frozenset[str]],
+    item: (
+        tuple[str, str, str, int | None, frozenset[str]]
+        | tuple[str, str, str, int | None, frozenset[str], bool]
+    ),
 ) -> WatchedWorkflow:
     return WatchedWorkflow(*item)
 
@@ -267,6 +334,8 @@ def derive_status(
     )
     if status.disabled:
         status.unhealthy_since = now
+        return status
+    if not config.streak_alerts:
         return status
     if not runs:
         if not is_self:
@@ -392,19 +461,34 @@ def _resolve_oncall_group_id() -> str | None:
     return exact_matches[0].id
 
 
+def _has_high_failure_rate(status: WorkflowStatus, now: datetime) -> bool:
+    return status.failure_rate(now) > RATE_THRESHOLD
+
+
+def _needs_attention(status: WorkflowStatus, now: datetime) -> bool:
+    if status.disabled or status.unhealthy_since is not None:
+        return True
+    return not status.config.streak_alerts and _has_high_failure_rate(status, now)
+
+
 def _status_line(status: WorkflowStatus, now: datetime) -> str:
     latest = status.latest_run
     if status.disabled:
         condition = f"workflow disabled (`{status.state}`)"
     elif status.unhealthy_since is not None:
         condition = f"unhealthy for {_format_duration(now - status.unhealthy_since)}"
+    elif not status.config.streak_alerts and _has_high_failure_rate(status, now):
+        condition = f"{status.failure_rate(now):.0%} of runs failed in the last 24h"
     else:
         condition = "healthy"
     latest_text = (
         f"no finished runs in the last {status.fetched_run_count} fetched runs"
     )
     if latest is not None:
-        latest_text = f"{latest.conclusion} ({latest.event or 'unknown trigger'})"
+        latest_text = (
+            f"{latest.conclusion} ({latest.event or 'unknown trigger'}) "
+            f"{_format_duration(now - latest.timestamp)} ago"
+        )
         if latest.html_url:
             latest_text += f" — <{latest.html_url}|run>"
     trigger_note = ""
@@ -422,15 +506,24 @@ def _make_blocks(
     ping_oncall: bool,
     oncall_group_id: str | None,
 ) -> list[dict[str, Any]]:
-    text = "\n".join(lines)
     if ping_oncall:
-        text = f"{_oncall_mention(oncall_group_id)}\n{text}"
+        lines = [_oncall_mention(oncall_group_id), *lines]
+    sections: list[str] = []
+    for line in lines:
+        line = line[:SLACK_SECTION_LIMIT]
+        if sections and len(sections[-1]) + 1 + len(line) <= SLACK_SECTION_LIMIT:
+            sections[-1] = f"{sections[-1]}\n{line}"
+        else:
+            sections.append(line)
     return [
         {
             "type": "header",
             "text": {"type": "plain_text", "text": "Hydra cron watchdog"},
         },
-        {"type": "section", "text": {"type": "mrkdwn", "text": text}},
+        *(
+            {"type": "section", "text": {"type": "mrkdwn", "text": text}}
+            for text in sections
+        ),
     ]
 
 
@@ -472,9 +565,7 @@ def decide(
             and now - status.unhealthy_since >= timedelta(minutes=NOTICE_AFTER_MIN)
         )
     ]
-    high_rate = [
-        status for status in statuses if status.failure_rate(now) > RATE_THRESHOLD
-    ]
+    high_rate = [status for status in statuses if _has_high_failure_rate(status, now)]
     lines: list[str] = []
     ping_oncall = False
 
@@ -534,15 +625,9 @@ def decide(
     if lines and not heartbeat_only:
         checked = [status for status in statuses if status.error is None]
         needs_attention = [
-            status
-            for status in checked
-            if status.disabled or status.unhealthy_since is not None
+            status for status in checked if _needs_attention(status, now)
         ]
-        healthy = [
-            status
-            for status in checked
-            if not status.disabled and status.unhealthy_since is None
-        ]
+        healthy = [status for status in checked if not _needs_attention(status, now)]
         if needs_attention:
             lines.append("*🔴 Needs attention*")
             lines.extend(f"• {_status_line(status, now)}" for status in needs_attention)
@@ -610,6 +695,31 @@ def github_json(
     return payload
 
 
+def _fetch_runs(
+    base: str,
+    token: str,
+    *,
+    now: datetime,
+    fetch: Callable[[str, str], dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Fetch run pages until they cover the 24h failure-rate window."""
+    cutoff = now - timedelta(hours=24)
+    runs: list[dict[str, Any]] = []
+    for page in range(1, MAX_RUN_PAGES + 1):
+        suffix = "" if page == 1 else f"&page={page}"
+        response = fetch(f"{base}/runs?per_page={RUNS_PER_PAGE}{suffix}", token)
+        page_runs = response.get("workflow_runs", [])
+        if not isinstance(page_runs, list):
+            raise RuntimeError("workflow runs response was not a list")
+        runs.extend(page_runs)
+        if len(page_runs) < RUNS_PER_PAGE:
+            break
+        oldest = _parse_run(page_runs[-1])
+        if oldest is None or oldest.timestamp < cutoff:
+            break
+    return runs
+
+
 def collect_statuses(
     token: str,
     *,
@@ -623,10 +733,7 @@ def collect_statuses(
         base = f"{GITHUB_API}/repos/{config.repo}/actions/workflows/{config.workflow}"
         try:
             workflow_data = fetch(base, token)
-            runs_response = fetch(f"{base}/runs?per_page=100", token)
-            runs_data = runs_response.get("workflow_runs", [])
-            if not isinstance(runs_data, list):
-                raise RuntimeError("workflow runs response was not a list")
+            runs_data = _fetch_runs(base, token, now=now, fetch=fetch)
             statuses.append(
                 derive_status(
                     config,

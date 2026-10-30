@@ -19,7 +19,7 @@ use chalk_statsd::metrics::MetricsClient;
 use tracing::{debug, warn};
 
 const DEQUEUED_METRIC: &str = "chalk.function_call.dequeued";
-const PROCESSING_LATENCY_METRIC: &str = "chalk.function_call.processing_latency";
+const CALL_DURATION_METRIC: &str = "chalk.function_call.call_duration";
 
 // Batch tuning — chalk_function_queue's defaults (METRICS_BATCH_* ), inlined.
 const BATCH_MAX_MESSAGES: usize = 1000;
@@ -220,7 +220,7 @@ pub fn record_completed_call(
     if let Some(statsd) = &metrics.statsd {
         let tags = call_tags(&function_name, success, mode);
         statsd.publish_count_eager(DEQUEUED_METRIC, 1, &tags);
-        statsd.publish_distribution_eager(PROCESSING_LATENCY_METRIC, elapsed_ms, &tags);
+        statsd.publish_distribution_eager(CALL_DURATION_METRIC, elapsed_ms, &tags);
     }
 
     if let Some(pipeline) = &metrics.pipeline {
@@ -302,7 +302,7 @@ mod tests {
     }
 
     #[test]
-    fn emits_count_and_latency_over_udp() {
+    fn emits_count_and_call_duration_over_udp() {
         let sink = UdpSocket::bind("127.0.0.1:0").unwrap();
         sink.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
         let metrics = CallMetrics {
@@ -325,19 +325,106 @@ mod tests {
 
         let mut seen = String::new();
         let mut buf = [0u8; 2048];
-        while !(seen.contains(DEQUEUED_METRIC) && seen.contains(PROCESSING_LATENCY_METRIC)) {
+        while !(seen.contains(DEQUEUED_METRIC) && seen.contains(CALL_DURATION_METRIC)) {
             let n = sink.recv(&mut buf).expect("statsd packet");
             seen.push_str(&String::from_utf8_lossy(&buf[..n]));
         }
         assert!(seen.contains("chalk.function_call.dequeued:1|c"), "{seen}");
         assert!(
-            seen.contains("chalk.function_call.processing_latency:250|d"),
+            seen.contains("chalk.function_call.call_duration:250|d"),
             "{seen}"
         );
         assert!(seen.contains("function_name:fn_a"), "{seen}");
         assert!(seen.contains("status:success"), "{seen}");
         assert!(seen.contains("mode:sync"), "{seen}");
         assert!(seen.contains("kind:function"), "{seen}");
+    }
+
+    #[tokio::test]
+    async fn measures_real_python_handler_duration_over_udp() {
+        use crate::python_bridge::{ChunkBuffer, PythonHandler};
+        use pyo3::prelude::*;
+
+        Python::initialize();
+        let handler = Python::attach(|py| {
+            Arc::new(PythonHandler::new(
+                py.eval(
+                    pyo3::ffi::c_str!("lambda: __import__('time').sleep(0.06)"),
+                    None,
+                    None,
+                )
+                .unwrap()
+                .unbind(),
+                py.eval(
+                    pyo3::ffi::c_str!(
+                        "lambda data, handler, args, context, emit: (handler(), emit(b'result'))"
+                    ),
+                    None,
+                    None,
+                )
+                .unwrap()
+                .unbind(),
+                None,
+            ))
+        });
+        let sink = UdpSocket::bind("127.0.0.1:0").unwrap();
+        sink.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        let metrics = CallMetrics {
+            statsd: Some(Arc::new(
+                MetricsClient::new_from_datadog_config_unbatched(DatadogConnection::UdpSocket(
+                    sink.local_addr().unwrap().to_string(),
+                ))
+                .unwrap(),
+            )),
+            pipeline: None,
+        };
+
+        let started = std::time::Instant::now();
+        let result = handler
+            .call_into_buffer(
+                vec![1],
+                "real_handler".to_string(),
+                HashMap::new(),
+                String::new(),
+                ChunkBuffer::new().into_shared(),
+            )
+            .await;
+        let elapsed = started.elapsed();
+        assert!(result.is_ok(), "handler failed: {result:?}");
+        record_completed_call(&metrics, "real_handler", true, elapsed, Mode::Async);
+
+        let mut packets = Vec::new();
+        let mut buf = [0u8; 2048];
+        while packets.len() < 2 {
+            let n = sink.recv(&mut buf).expect("StatsD packet");
+            packets.push(String::from_utf8_lossy(&buf[..n]).to_string());
+        }
+        let distribution_value = |name: &str| -> f64 {
+            let packet = packets
+                .iter()
+                .find(|packet| packet.starts_with(name))
+                .unwrap_or_else(|| panic!("missing {name}: {packets:?}"));
+            let value = packet
+                .strip_prefix(name)
+                .unwrap()
+                .split('|')
+                .next()
+                .unwrap()
+                .parse::<f64>()
+                .unwrap();
+            assert!(packet.contains("|d"), "expected distribution: {packet}");
+            value
+        };
+        let call_duration = distribution_value("chalk.function_call.call_duration:");
+        assert!(
+            call_duration >= 50.0,
+            "60 ms handler sleep yielded {call_duration} ms call duration"
+        );
+        assert!(
+            (call_duration - elapsed.as_secs_f64() * 1000.0).abs() < 1.0,
+            "emitted {call_duration} ms, measured {elapsed:?}"
+        );
+        println!("60 ms Python handler sleep yielded {call_duration:.2} ms call duration");
     }
 
     fn call_metrics(pipeline: &Arc<PublishingMetricsPipeline>) -> Arc<CallMetrics> {

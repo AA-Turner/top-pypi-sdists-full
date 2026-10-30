@@ -87,13 +87,13 @@ class VersionAdmin(admin.ModelAdmin):
     def log_addition(self, request, object, message):
         change_message = message or _("Initial version.")
         entry = super().log_addition(request, object, change_message)
-        if is_active():
+        if entry and is_active():
             set_comment(entry.get_change_message())
         return entry
 
     def log_change(self, request, object, message):
         entry = super().log_change(request, object, message)
-        if is_active():
+        if entry and is_active():
             set_comment(entry.get_change_message())
         return entry
 
@@ -309,12 +309,8 @@ class VersionAdmin(admin.ModelAdmin):
     def history_view(self, request, object_id, extra_context=None):
         """Renders the history view."""
         # Check if user has view or change permissions for model
-        if hasattr(self, 'has_view_or_change_permission'):  # for Django >= 2.1
-            if not self.has_view_or_change_permission(request):
-                raise PermissionDenied
-        else:
-            if not self.has_change_permission(request):
-                raise PermissionDenied
+        if not self.has_view_or_change_permission(request):
+            raise PermissionDenied
 
         version_opts = _get_options(self.model)
         if version_opts.object_id_field == self.model._meta.pk.attname:

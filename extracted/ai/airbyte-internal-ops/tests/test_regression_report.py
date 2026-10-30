@@ -12,6 +12,7 @@ from airbyte_protocol.models import Type as AirbyteMessageType
 from airbyte_ops_mcp.regression_tests.ci_output import (
     ARTIFACT_NAME_PREFIX,
     evaluate_comparison_outcome,
+    generate_action_test_comparison_report,
     github_artifact_name,
 )
 from airbyte_ops_mcp.regression_tests.regression import (
@@ -37,6 +38,7 @@ from airbyte_ops_mcp.regression_tests.report import (
     build_comparison_report_model,
     build_diff_block,
     build_json_block,
+    build_record_comparison_checks,
     build_single_version_report_model,
     build_split_diff_block,
     consolidate_reports,
@@ -760,9 +762,94 @@ def test_inline_summary_is_concise_and_starts_at_an_l2_heading():
     assert "| `users` | 100 | 88 | **-12** |" in summary
     assert "| **Total** | **100** | **88** | **-12** |" in summary
     assert HTML_REPORT_FILENAME in summary
-    # Detail belongs to the HTML report, not to the step summary.
+    # Detail belongs to the HTML report, not to the step summary: the request
+    # totals are the one line of the HTTP table the summary carries.
     assert "stdout.txt" not in summary
-    assert "Flow Count" not in summary
+    assert "Repeated URLs" not in summary
+    assert (
+        "**HTTP requests:** control not captured · target 12 (0 to a repeated URL)"
+        in summary
+    )
+
+
+def test_the_inline_summary_carries_per_version_request_totals():
+    """Numbers only, never a verdict.
+
+    A request count that moved between versions is what tells a reviewer
+    whether a record difference came with a change in how the connector called
+    the API; no threshold turns it into a pass or a fail, so it is a line rather
+    than a row of the check table.
+    """
+    summary = render_inline_summary(
+        _comparison(
+            "read",
+            _run_result(
+                True,
+                record_counts_per_stream={"users": 5},
+                http_metrics={"flow_count": 118, "duplicate_flow_count": 7},
+            ),
+            _run_result(
+                True,
+                record_counts_per_stream={"users": 5},
+                http_metrics={"flow_count": 120, "duplicate_flow_count": 8},
+            ),
+        )
+    )
+
+    assert (
+        "**HTTP requests:** control 120 (8 to a repeated URL) "
+        "· target 118 (7 to a repeated URL)" in summary
+    )
+    # It sits between the check table and the stream table, so it reads as
+    # context for both rather than as a check of its own.
+    assert summary.index("| Check |") < summary.index("**HTTP requests:**")
+    assert summary.index("**HTTP requests:**") < summary.index("| Stream |")
+
+
+@pytest.mark.parametrize(
+    ("target_http", "control_http"),
+    [
+        pytest.param(None, None, id="no-capture"),
+        pytest.param(
+            {"flow_count": 0, "duplicate_flow_count": 0},
+            {"flow_count": 0, "duplicate_flow_count": 0},
+            id="no-traffic",
+        ),
+        pytest.param(
+            {"replay_skipped_reason": "mitmproxy is unavailable"},
+            None,
+            id="proxy-never-ran",
+        ),
+    ],
+)
+def test_the_request_line_is_omitted_when_nothing_was_recorded(
+    target_http, control_http
+):
+    """`spec` never calls out; a line of zeroes on every command is noise."""
+    summary = render_inline_summary(
+        _comparison(
+            "spec",
+            _run_result(True, http_metrics=target_http),
+            _run_result(True, http_metrics=control_http),
+        )
+    )
+
+    assert "HTTP requests" not in summary
+
+
+def test_a_single_version_summary_has_no_request_line():
+    """There is no proxy in single-version mode, and nothing to compare against."""
+    summary = render_inline_summary(
+        build_single_version_report_model(
+            connector_image=TARGET_IMAGE,
+            command="read",
+            result=_run_result(
+                True, http_metrics={"flow_count": 12, "duplicate_flow_count": 0}
+            ),
+        )
+    )
+
+    assert "HTTP requests" not in summary
 
 
 def test_inline_summary_uses_a_count_column_in_single_version_mode():
@@ -2842,9 +2929,9 @@ def test_the_http_table_carries_the_replay_counts():
         table for table in model.metric_tables if table.title == "HTTP Traffic"
     )
     rows = {row.label: row for row in table.rows}
-    assert rows["Replayed Flow Count"].target == 17
-    assert rows["Live Flow Count"].target == 3
-    assert rows["Unreplayable Flow Count"].target == 4
+    assert rows["Replayed"].target == 17
+    assert rows["Live"].target == 3
+    assert rows["Unreplayable"].target == 4
 
 
 def test_every_flow_unreplayable_still_reports_the_dropped_count():
@@ -2872,7 +2959,7 @@ def test_every_flow_unreplayable_still_reports_the_dropped_count():
         table for table in model.metric_tables if table.title == "HTTP Traffic"
     )
     rows = {row.label: row for row in table.rows}
-    assert rows["Unreplayable Flow Count"].target == 1
+    assert rows["Unreplayable"].target == 1
 
 
 def test_a_proxy_that_never_ran_reports_the_reason_and_no_zero_table():
@@ -2955,3 +3042,1392 @@ def test_a_proxy_that_never_ran_is_not_mistaken_for_a_quiet_command():
     check = _replay_check(model)
     assert check is not None
     assert check.status == "warn"
+
+
+# --------------------------------------------------------------------------
+# Stopped-early reads: INCOMPLETE on every surface
+# --------------------------------------------------------------------------
+
+_STOPPED = {"reason": "timeout", "records_seen": 1234, "elapsed_s": 10200.0}
+
+
+def _stopped(**overrides) -> dict:
+    return _run_result(True, stopped_early={**_STOPPED, **overrides})
+
+
+def _partial_summary(records_in_target: int = 2) -> RecordComparisonSummary:
+    """A stopped read: the control holds three records, the target this many."""
+
+    def record(data: dict) -> AirbyteMessage:
+        return AirbyteMessage(
+            type=AirbyteMessageType.RECORD,
+            record=AirbyteRecordMessage(stream="users", data=data, emitted_at=1),
+        )
+
+    return run_record_comparisons(
+        {"users": [record({"id": 1}), record({"id": 2}), record({"id": 3})]},
+        {"users": [record({"id": index}) for index in range(1, records_in_target + 1)]},
+        {"users": [["id"]]},
+        partial=True,
+    )
+
+
+def test_a_stopped_side_makes_the_verdict_incomplete_never_pass():
+    model = _comparison("read", _stopped(), _stopped())
+
+    assert model.passed is False
+    assert model.verdict_label == "INCOMPLETE"
+    assert (
+        model.verdict_detail == "stopped early (timeout) after 1,234 records per side"
+    )
+    assert model.context.stopped_early_notes == (
+        "Control: stopped early (timeout) after 1,234 records in 10,200 s",
+        "Target: stopped early (timeout) after 1,234 records in 10,200 s",
+    )
+
+    summary = render_inline_summary(model)
+    assert (
+        "**Result:** ❌ INCOMPLETE — stopped early (timeout) after 1,234 records "
+        "per side" in summary
+    )
+    assert (
+        "- Control: stopped early (timeout) after 1,234 records in 10,200 s" in summary
+    )
+    assert (
+        "- Target: stopped early (timeout) after 1,234 records in 10,200 s" in summary
+    )
+
+    html = render_html_report(model)
+    assert "verdict--fail" in html
+    assert "INCOMPLETE" in html
+    assert "<dt>Stopped early</dt>" in html
+    assert "Target: stopped early (timeout) after 1,234 records in 10,200 s" in html
+
+
+READABLE_FIELDS = {
+    "users": {
+        "cursor": ["updated_at"],
+        "readable": True,
+        "declared": "string/date-time",
+        "reason": "readable (string/date-time)",
+    },
+    "tokens": {
+        "cursor": ["token"],
+        "readable": False,
+        "declared": "string",
+        "reason": "masked: type string",
+    },
+    "events": {
+        "cursor": None,
+        "readable": False,
+        "declared": None,
+        "reason": "no cursor",
+    },
+}
+
+
+def test_the_context_says_how_the_output_was_masked():
+    """A downloaded report must say whether its artifacts hold raw data."""
+    model = _comparison(
+        "read",
+        _run_result(True, output_mode="masked"),
+        _run_result(True, output_mode="masked"),
+    )
+
+    assert model.context.output_mode == "masked"
+    assert model.context.masking is not None
+    assert model.context.masking.startswith("masked — ")
+    assert "primary keys masked" in model.context.masking
+    # A result without the per-stream key states the rule instead of a count.
+    assert "integer or a date" in model.context.masking
+    assert model.context.readable_fields == ()
+    assert model.context.readable_summary is None
+
+    html = render_html_report(model)
+    assert "<dt>Output mode</dt>" in html
+    assert "primary keys masked" in html
+    assert "Readable fields" not in html
+
+
+def test_a_masked_report_lists_what_stayed_readable_per_stream():
+    """The context line carries the count; the table under it says, per
+    stream, which cursor stayed readable and why the others did not."""
+    model = _comparison(
+        "read",
+        _run_result(True, output_mode="masked", readable_fields=READABLE_FIELDS),
+        _run_result(True, output_mode="masked"),
+    )
+
+    assert model.context.masking is not None
+    assert "cursor readable on 1 of 2 streams" in model.context.masking
+    assert model.context.readable_summary == (
+        "cursor readable on 1 of 2 streams (integer, date, date-time only)"
+    )
+    assert [
+        (row.stream, row.cursor, row.readable, row.detail)
+        for row in model.context.readable_fields
+    ] == [
+        ("events", None, False, "no cursor"),
+        ("tokens", "token", False, "masked: type string"),
+        ("users", "updated_at", True, "string/date-time"),
+    ]
+
+    html = render_html_report(model)
+    assert "<h3>Readable fields</h3>" in html
+    assert (
+        "<td><code>users</code></td><td><code>updated_at</code></td><td>yes</td><td>string/date-time</td>"
+        in html
+    )
+    assert (
+        "<td><code>tokens</code></td><td><code>token</code></td><td>no</td><td>masked: type string</td>"
+        in html
+    )
+    assert "<td><code>events</code></td><td>—</td><td>no</td><td>no cursor</td>" in html
+
+
+def test_the_step_summary_carries_the_readable_count_but_not_the_table():
+    model = build_single_version_report_model(
+        connector_image=TARGET_IMAGE,
+        command="read",
+        result=_run_result(True, output_mode="masked", readable_fields=READABLE_FIELDS),
+    )
+
+    summary = render_inline_summary(model)
+
+    assert (
+        "- Readable fields: cursor readable on 1 of 2 streams "
+        "(integer, date, date-time only)"
+    ) in summary
+    assert "updated_at" not in summary
+    assert "masked: type string" not in summary
+
+
+def test_a_raw_run_has_no_readable_fields_table():
+    model = _comparison(
+        "read",
+        _run_result(True, output_mode="raw", readable_fields=READABLE_FIELDS),
+        _run_result(True, output_mode="raw"),
+    )
+
+    # The rows are built from the key when present; the summary and the
+    # masked wording are not, and the page says the run is raw.
+    assert model.context.readable_summary is None
+    assert "Readable fields" not in render_inline_summary(model)
+    assert model.context.masking is not None
+    assert model.context.masking.startswith("raw — ")
+
+
+def test_a_raw_run_is_labelled_as_sensitive():
+    model = build_single_version_report_model(
+        connector_image=TARGET_IMAGE,
+        command="read",
+        result=_run_result(True, output_mode="raw"),
+    )
+
+    assert model.context.output_mode == "raw"
+    assert model.context.masking is not None
+    assert model.context.masking.startswith("raw — ")
+    assert "treat the artifacts as sensitive" in render_html_report(model)
+
+
+def test_a_result_without_a_mode_renders_no_masking_row():
+    model = _comparison("read", _run_result(True), _run_result(True))
+
+    assert model.context.output_mode is None
+    assert model.context.masking is None
+    assert "<dt>Output mode</dt>" not in render_html_report(model)
+
+
+def test_sides_that_stopped_at_different_points_show_both_counts():
+    model = _comparison("read", _stopped(records_seen=987), _stopped())
+
+    assert model.verdict_detail == (
+        "stopped early (timeout) after 1,234 (control) / 987 (target) records"
+    )
+
+
+def test_one_stopped_side_is_named_and_the_other_is_not_blamed():
+    model = _comparison("read", _stopped(reason="cap"), _run_result(True))
+
+    assert model.verdict_label == "INCOMPLETE"
+    assert model.verdict_detail == (
+        "target stopped early (cap) after 1,234 records; control ran to completion"
+    )
+    assert model.context.stopped_early_notes == (
+        "Target: stopped early (cap) after 1,234 records in 10,200 s",
+    )
+
+
+def test_a_side_stopped_at_its_share_of_the_budget_says_so_on_every_surface():
+    """A target that never started reads as one, not as an empty read."""
+    model = _comparison(
+        "read",
+        _stopped(records_seen=0, elapsed_s=0.0, share_s=0, budget_s=10_200),
+        _stopped(elapsed_s=5760.0, share_s=5760, budget_s=10_200),
+    )
+
+    assert model.passed is False
+    assert model.verdict_label == "INCOMPLETE"
+    assert model.verdict_detail == (
+        "stopped early (timeout) after 1,234 (control) / 0 (target) records"
+    )
+    control_note = (
+        "Control: stopped early (timeout) after 1,234 records in 5,760 s, at the "
+        "end of its 96-minute share of the 170-minute read budget"
+    )
+    target_note = (
+        "Target: stopped early (timeout) after 0 records in 0 s, without "
+        "starting: nothing was left of the 170-minute read budget"
+    )
+    assert model.context.stopped_early_notes == (control_note, target_note)
+    summary = render_inline_summary(model)
+    assert f"- {control_note}" in summary
+    assert f"- {target_note}" in summary
+    html = render_html_report(model)
+    assert control_note in html
+    assert target_note in html
+
+
+def test_a_strict_failure_on_a_stopped_read_is_still_a_regression():
+    model = _comparison(
+        "read",
+        _stopped(),
+        _stopped(),
+        extra_checks=(
+            CheckResult(name="Field values", passed=False, summary="1 record differs"),
+        ),
+    )
+
+    assert model.passed is False
+    assert model.verdict_label == "INCOMPLETE"
+    assert model.verdict_detail == (
+        "stopped early (timeout) after 1,234 records per side, but 1 check "
+        "failed: field values — REGRESSION DETECTED"
+    )
+
+
+def test_a_diagnostic_failure_on_a_stopped_read_claims_no_regression():
+    model = _comparison(
+        "read",
+        _stopped(),
+        _stopped(),
+        extra_checks=(
+            CheckResult(
+                name="Record counts",
+                passed=False,
+                severity="diagnostic",
+                summary="1 fewer record",
+            ),
+        ),
+    )
+
+    assert model.verdict_label == "INCOMPLETE"
+    assert "REGRESSION DETECTED" not in model.verdict_detail
+    assert "check failed" not in model.verdict_detail
+
+
+def test_an_errored_comparison_on_a_stopped_read_claims_no_regression():
+    """A comparator crash is a tooling failure on a stopped read too, as the
+    CLI's `regression_detected` treats it."""
+    errored = RecordComparisonSummary(
+        passed=False,
+        errored=True,
+        count_comparison=ComparisonResult(
+            passed=False, message="Record comparison errored"
+        ),
+        errors=["Record comparison errored: OSError('boom')"],
+    )
+    model = _comparison("read", _stopped(), _stopped(), record_comparison=errored)
+
+    assert model.passed is False
+    assert model.verdict_label == "INCOMPLETE"
+    assert model.verdict_detail == (
+        "stopped early (timeout) after 1,234 records per side; the record "
+        "comparison errored, so it is inconclusive"
+    )
+
+
+def test_a_stopped_side_beside_a_crashed_target_is_incomplete_and_a_regression():
+    model = _comparison("read", _run_result(False), _stopped())
+
+    assert model.verdict_label == "INCOMPLETE"
+    assert model.verdict_detail == (
+        "control stopped early (timeout) after 1,234 records; target ran to "
+        "completion; target failed (exit 1), control succeeded — regression "
+        "detected — REGRESSION DETECTED"
+    )
+
+
+def test_partial_record_comparison_checks_downgrade_counts_and_presence():
+    """On a partial read the strict rows are PK integrity and field values."""
+    summary = _partial_summary()
+
+    checks = {check.name: check for check in build_record_comparison_checks(summary)}
+
+    assert checks["Record counts"].status == "warn"
+    assert "inconclusive on a stopped-early read" in checks["Record counts"].summary
+    assert checks["Primary key presence"].status == "warn"
+    assert checks["Primary key integrity (control)"].severity == "strict"
+    assert checks["Primary key integrity (target)"].severity == "strict"
+    assert checks["Field values"].severity == "strict"
+    assert checks["Field values"].status == "pass"
+
+
+def test_partial_read_counts_that_agree_are_still_inconclusive():
+    """Under a cap equal counts are what the cap guarantees, not evidence."""
+    summary = _partial_summary(records_in_target=3)
+    assert summary.count_comparison.passed is True
+
+    checks = {check.name: check for check in build_record_comparison_checks(summary)}
+
+    assert checks["Record counts"].status == "warn"
+    assert checks["Record counts"].summary == (
+        "Record counts match (inconclusive on a stopped-early read)"
+    )
+    assert checks["Primary key presence"].status == "warn"
+    assert checks["Field values"].status == "pass"
+    model = _comparison(
+        "read",
+        _run_result(
+            True, stopped_early=_STOPPED, record_counts_per_stream={"users": 3}
+        ),
+        _run_result(
+            True, stopped_early=_STOPPED, record_counts_per_stream={"users": 3}
+        ),
+        record_comparison=summary,
+    )
+    assert [section.status for section in model.stream_sections] == ["warn"]
+    assert "| Record counts | ⚠️ |" in render_inline_summary(model)
+
+
+def test_a_partial_reads_stream_section_warns_on_a_diagnostic_finding_alone():
+    """A count drop on a partial read is reported as a warning, never a failure."""
+    model = _comparison(
+        "read",
+        _run_result(
+            True, stopped_early=_STOPPED, record_counts_per_stream={"users": 2}
+        ),
+        _run_result(
+            True, stopped_early=_STOPPED, record_counts_per_stream={"users": 3}
+        ),
+        record_comparison=_partial_summary(),
+    )
+
+    assert [section.status for section in model.stream_sections] == ["warn"]
+    assert "1 fewer record(s) in target" in model.stream_sections[0].headline
+    assert model.verdict_label == "INCOMPLETE"
+    assert "REGRESSION DETECTED" not in model.verdict_detail
+
+
+def test_a_partial_read_warns_on_a_duplicate_pk_new_in_the_target():
+    """Where the cap cut each side decides whether a duplicate looks new."""
+
+    def record(data: dict) -> AirbyteMessage:
+        return AirbyteMessage(
+            type=AirbyteMessageType.RECORD,
+            record=AirbyteRecordMessage(stream="users", data=data, emitted_at=1),
+        )
+
+    summary = run_record_comparisons(
+        {"users": [record({"id": 1}), record({"id": 2})]},
+        {"users": [record({"id": 1}), record({"id": 1}), record({"id": 2})]},
+        {"users": [["id"]]},
+        partial=True,
+    )
+
+    checks = {check.name: check for check in build_record_comparison_checks(summary)}
+    assert checks["Primary key integrity (target)"].status == "warn"
+    assert checks["Primary key integrity (target)"].summary == (
+        "New duplicate primary keys in target (inconclusive on a stopped-early "
+        "read) — 1 stream: users"
+    )
+
+    model = _comparison(
+        "read",
+        _run_result(
+            True, stopped_early=_STOPPED, record_counts_per_stream={"users": 3}
+        ),
+        _run_result(
+            True, stopped_early=_STOPPED, record_counts_per_stream={"users": 2}
+        ),
+        record_comparison=summary,
+    )
+    assert [section.status for section in model.stream_sections] == ["warn"]
+    assert (
+        "1 new duplicate PK(s) in target (inconclusive on a stopped-early read)"
+        in model.stream_sections[0].headline
+    )
+    assert model.verdict_label == "INCOMPLETE"
+    assert "REGRESSION DETECTED" not in model.verdict_detail
+
+
+def _ledger_record(transaction_id: str, event: str) -> AirbyteMessage:
+    return AirbyteMessage(
+        type=AirbyteMessageType.RECORD,
+        record=AirbyteRecordMessage(
+            stream="transactions",
+            data={"transaction_id": transaction_id, "event": event},
+            emitted_at=1,
+        ),
+    )
+
+
+def test_a_partial_read_reports_duplicated_pk_groups_without_failing():
+    """A cut can split a duplicated PK's records; its rows and section warn."""
+    summary = run_record_comparisons(
+        {
+            "transactions": [
+                _ledger_record("T7", "sale"),
+                _ledger_record("T7", "hold"),
+                _ledger_record("T8", "sale"),
+                _ledger_record("T8", "sale"),
+            ]
+        },
+        {
+            "transactions": [
+                _ledger_record("T7", "sale"),
+                _ledger_record("T7", "release"),
+                _ledger_record("T8", "sale"),
+            ]
+        },
+        {"transactions": [["transaction_id"]]},
+        partial=True,
+    )
+
+    checks = {check.name: check for check in build_record_comparison_checks(summary)}
+    assert checks["Field values"].status == "warn"
+    assert checks["Field values"].summary == (
+        "All records match, apart from duplicated PK values that are inconclusive "
+        "on a stopped-early read — 1 stream: transactions"
+    )
+    # The count row is the inconclusive one, never the duplicate-row allowance:
+    # a complete read would pass this shortfall as collapsed copies.
+    assert checks["Record counts"].status == "warn"
+    assert checks["Record counts"].summary == (
+        "Record count mismatch — 1 stream failed: transactions (inconclusive on a "
+        "stopped-early read)"
+    )
+    assert checks["Primary key integrity (control)"].summary == (
+        "Pre-existing duplicate primary keys in control (not a regression); others "
+        "not duplicated in target (partial read) — 1 stream: transactions"
+    )
+
+    model = _comparison(
+        "read",
+        _run_result(
+            True, stopped_early=_STOPPED, record_counts_per_stream={"transactions": 3}
+        ),
+        _run_result(
+            True, stopped_early=_STOPPED, record_counts_per_stream={"transactions": 4}
+        ),
+        record_comparison=summary,
+    )
+    assert model.verdict_label == "INCOMPLETE"
+    assert "REGRESSION DETECTED" not in model.verdict_detail
+    [section] = model.stream_sections
+    assert section.status == "warn"
+    assert (
+        "1 duplicated PK(s) whose records differ (inconclusive on a stopped-early "
+        "read)" in section.headline
+    )
+    assert (
+        "1 duplicate PK(s) in control not duplicated in target (partial read)"
+        in section.headline
+    )
+    assert "fixed in target" not in section.headline
+    titles = [block.title for block in section.diff_blocks]
+    assert any(
+        title.startswith("Duplicated PK values whose records differ, inconclusive")
+        for title in titles
+    )
+    assert not any(title.startswith("Field value diffs") for title in titles)
+    html = render_html_report(model)
+    assert "not duplicated in target (partial read)" in html
+    assert "fixed in target" not in html
+
+
+def test_a_single_version_stopped_read_is_incomplete():
+    model = build_single_version_report_model(
+        connector_image=TARGET_IMAGE, command="read", result=_stopped()
+    )
+
+    assert model.passed is False
+    assert model.verdict_label == "INCOMPLETE"
+    assert model.verdict_detail == "stopped early (timeout) after 1,234 records"
+    assert model.context.stopped_early_notes == (
+        "Run: stopped early (timeout) after 1,234 records in 10,200 s",
+    )
+    assert "❌ INCOMPLETE" in render_inline_summary(model)
+
+
+# The connector's own cache: a metric no proxy can observe, and the diagnostic
+# that turns it into a regression signal
+# --------------------------------------------------------------------------
+
+
+def _connector_cache(requests: int, hits: int) -> dict:
+    """The connector-reported half of an `http_metrics` payload."""
+    ratio = "N/A" if not requests else f"{(hits / requests) * 100:.2f}%"
+    return {
+        "connector_request_count": requests,
+        "connector_cache_hits_count": hits,
+        "connector_cache_hit_ratio": ratio,
+    }
+
+
+def _cache_check(model) -> CheckResult | None:
+    return next(
+        (check for check in model.checks if check.name == "Connector cache hit ratio"),
+        None,
+    )
+
+
+def _http_table(model):
+    return next(
+        (table for table in model.metric_tables if table.title == "HTTP Traffic"),
+        None,
+    )
+
+
+def test_the_http_table_no_longer_carries_the_duplicate_url_heuristic():
+    """`Cache Hits Count` used to be the duplicate count wearing a cache label."""
+    model = _comparison(
+        "read",
+        _run_result(True, http_metrics={"flow_count": 12, "duplicate_flow_count": 5}),
+        _run_result(True, http_metrics={"flow_count": 12, "duplicate_flow_count": 5}),
+    )
+
+    table = _http_table(model)
+    assert table is not None
+    labels = {row.label for row in table.rows}
+    assert "Cache Hits Count" not in labels
+    assert "Cache hits" not in labels
+    # The duplicate count itself stays -- it is a real number, just not that one,
+    # and it carries the name `report.md` gives it, not mitmproxy's.
+    assert "Repeated URLs" in labels
+    assert "Duplicate Flow Count" not in labels
+
+
+def test_the_http_table_carries_the_connector_reported_counts():
+    model = _comparison(
+        "read",
+        _run_result(
+            True,
+            http_metrics={
+                "flow_count": 12,
+                "duplicate_flow_count": 0,
+                **_connector_cache(40, 10),
+            },
+        ),
+        _run_result(
+            True,
+            http_metrics={
+                "flow_count": 12,
+                "duplicate_flow_count": 0,
+                **_connector_cache(40, 12),
+            },
+        ),
+    )
+
+    rows = {row.label: row for row in _http_table(model).rows}
+    assert rows["Connector requests"].target == 40
+    assert rows["Cache hits"].target == 10
+    assert rows["Cache hits"].control == 12
+
+
+def test_the_http_table_appears_for_a_connector_only_run():
+    """No proxy at all: the connector's cache is measurable without one.
+
+    Gating the table on `flow_count` would hide every connector cache metric on
+    a run made without `--enable-http-metrics`.
+    """
+    model = _comparison(
+        "read",
+        _run_result(True, http_metrics=_connector_cache(40, 10)),
+        _run_result(True, http_metrics=_connector_cache(40, 10)),
+    )
+
+    table = _http_table(model)
+    assert table is not None
+    labels = {row.label for row in table.rows}
+    assert labels == {"Connector requests", "Cache hits"}
+    # No proxy rows at all rather than a column of zeroes: nothing was captured.
+    assert "Requests" not in labels
+
+
+def test_a_side_that_did_not_report_is_unknown_rather_than_zero():
+    """The failure mode most likely to mislead a reviewer.
+
+    A target on a CDK predating the counters reports nothing while the control
+    reports plenty. A `0` in the target column would read as caching that broke;
+    `None` renders as an em dash and suppresses the delta.
+    """
+    model = _comparison(
+        "read",
+        _run_result(True, http_metrics={"flow_count": 12, "duplicate_flow_count": 0}),
+        _run_result(
+            True,
+            http_metrics={
+                "flow_count": 12,
+                "duplicate_flow_count": 0,
+                **_connector_cache(40, 10),
+            },
+        ),
+    )
+
+    rows = {row.label: row for row in _http_table(model).rows}
+    assert rows["Cache hits"].control == 10
+    assert rows["Cache hits"].target is None
+    assert rows["Cache hits"].delta is None
+    assert rows["Cache hits"].changed is False
+
+
+def test_a_captured_side_with_no_requests_is_a_zero_not_an_unknown():
+    """`flow_count: 0` is a proxy that ran and saw nothing; absent is one that never ran.
+
+    A target that made no requests beside a control that made 120 is the
+    finding the request totals exist for, and an em dash there reads as
+    "nobody looked" when somebody did.
+    """
+    model = _comparison(
+        "read",
+        _run_result(True, http_metrics={"flow_count": 0, "duplicate_flow_count": 0}),
+        _run_result(True, http_metrics={"flow_count": 120, "duplicate_flow_count": 8}),
+    )
+
+    rows = {row.label: row for row in _http_table(model).rows}
+    assert rows["Requests"].control == 120
+    assert rows["Requests"].target == 0
+    assert rows["Requests"].delta == -120
+    assert rows["Repeated URLs"].target == 0
+
+
+def test_a_side_whose_proxy_never_ran_is_an_unknown_not_a_zero():
+    model = _comparison(
+        "read",
+        _run_result(True),
+        _run_result(True, http_metrics={"flow_count": 120, "duplicate_flow_count": 8}),
+    )
+
+    rows = {row.label: row for row in _http_table(model).rows}
+    assert rows["Requests"].control == 120
+    assert rows["Requests"].target is None
+    assert rows["Requests"].delta is None
+
+
+def test_two_captured_sides_that_made_no_requests_get_no_table():
+    """`spec` on both sides: measured, and nothing worth a table of zeroes."""
+    model = _comparison(
+        "spec",
+        _run_result(True, http_metrics={"flow_count": 0, "duplicate_flow_count": 0}),
+        _run_result(True, http_metrics={"flow_count": 0, "duplicate_flow_count": 0}),
+    )
+
+    assert _http_table(model) is None
+
+
+def test_a_target_whose_caching_regressed_is_reported():
+    """The payoff of the whole metric.
+
+    A version that drops `use_cache` from a requester makes strictly more
+    upstream requests for the same data. The proxy sees more flows and cannot say
+    why; this says exactly why.
+    """
+    model = _comparison(
+        "read",
+        _run_result(True, http_metrics=_connector_cache(60, 6)),
+        _run_result(True, http_metrics=_connector_cache(40, 20)),
+    )
+
+    check = _cache_check(model)
+    assert check is not None
+    assert check.status == "warn"
+    assert "Caching regressed" in check.summary
+    assert "a drop of 40.0 point(s), above 10" in check.summary
+    assert "use_cache" in check.summary
+
+
+@pytest.mark.parametrize(
+    ("control", "target"),
+    [
+        pytest.param((5, 4), (10, 7), id="80-to-70-with-different-denominators"),
+        pytest.param((100, 20), (100, 10), id="20-to-10"),
+        pytest.param((3, 1), (30, 7), id="one-third-to-23-and-a-third"),
+    ],
+)
+def test_a_drop_of_exactly_the_threshold_passes(control, target):
+    """The threshold is a comparison of two ratios, and it has to be exact.
+
+    `4/5 - 7/10` in floats is a hair over a tenth, so the boundary case warned
+    with "a drop of 10 point(s), above 10" while `20/100 - 10/100` passed. The
+    comparison is done on fractions, where both are exactly a tenth.
+    """
+    model = _comparison(
+        "read",
+        _run_result(True, http_metrics=_connector_cache(*target)),
+        _run_result(True, http_metrics=_connector_cache(*control)),
+    )
+
+    check = _cache_check(model)
+    assert check is not None
+    assert check.status == "pass"
+
+
+def test_a_drop_just_over_the_threshold_is_printed_with_its_decimal():
+    """10.4 points used to print as "10 point(s), above 10"."""
+    model = _comparison(
+        "read",
+        _run_result(True, http_metrics=_connector_cache(1000, 200)),
+        _run_result(True, http_metrics=_connector_cache(1000, 304)),
+    )
+
+    check = _cache_check(model)
+    assert check is not None
+    assert check.status == "warn"
+    assert "a drop of 10.4 point(s), above 10" in check.summary
+
+
+def test_a_target_whose_cache_served_nothing_is_warned_about_under_the_threshold():
+    """8% to 0% is a drop of 8 points: under the threshold, and a cache that is gone.
+
+    The absolute threshold is right for a cache that served a lot; a cache that
+    only ever served a little can lose all of it under the threshold, and a
+    target reporting no hits where the control reported some is the shape of a
+    requester that lost `use_cache` at any ratio.
+    """
+    model = _comparison(
+        "read",
+        _run_result(True, http_metrics=_connector_cache(50, 0)),
+        _run_result(True, http_metrics=_connector_cache(50, 4)),
+    )
+
+    check = _cache_check(model)
+    assert check is not None
+    assert check.status == "warn"
+    assert "Caching lost" in check.summary
+    assert "0 of 50" in check.summary
+    assert "4 of 50" in check.summary
+    assert "use_cache" in check.summary
+    assert model.passed is True
+
+
+def test_the_cache_diagnostic_never_flips_the_verdict():
+    """Diagnostic by design: a ratio moves for reasons that are not regressions.
+
+    A differently ordered read warms the cache in a different place, and a
+    version that legitimately stopped fetching a stream twice looks identical
+    here. Failing a connector PR on that would be wrong.
+    """
+    model = _comparison(
+        "read",
+        _run_result(True, http_metrics=_connector_cache(60, 0)),
+        _run_result(True, http_metrics=_connector_cache(40, 20)),
+    )
+
+    assert _cache_check(model).status == "warn"
+    assert model.passed is True
+    assert "regression" not in model.verdict_label.lower()
+
+
+def test_a_steady_cache_hit_ratio_passes():
+    model = _comparison(
+        "read",
+        _run_result(True, http_metrics=_connector_cache(40, 19)),
+        _run_result(True, http_metrics=_connector_cache(40, 20)),
+    )
+
+    check = _cache_check(model)
+    assert check is not None
+    assert check.status == "pass"
+    assert "19 of 40" in check.summary
+
+
+def test_a_target_that_started_caching_is_not_warned_about():
+    """An improvement, and a control with no hits has none to lose."""
+    model = _comparison(
+        "read",
+        _run_result(True, http_metrics=_connector_cache(40, 20)),
+        _run_result(True, http_metrics=_connector_cache(40, 0)),
+    )
+
+    assert _cache_check(model) is None
+
+
+@pytest.mark.parametrize(
+    ("control_http", "target_http"),
+    [
+        pytest.param({}, {}, id="neither-reported"),
+        pytest.param(_connector_cache(40, 20), {}, id="target-silent"),
+        pytest.param({}, _connector_cache(40, 20), id="control-silent"),
+        pytest.param(
+            _connector_cache(0, 0), _connector_cache(40, 20), id="control-no-requests"
+        ),
+    ],
+)
+def test_the_cache_diagnostic_is_silent_when_a_side_did_not_report(
+    control_http, target_http
+):
+    """Every connector outside the Python CDK's `HttpClient` looks like this.
+
+    A one-sided comparison is not a comparison, and warning on it would fire on
+    every Java connector and every connector on an older CDK.
+    """
+    model = _comparison(
+        "read",
+        _run_result(True, http_metrics=target_http or None),
+        _run_result(True, http_metrics=control_http or None),
+    )
+
+    assert _cache_check(model) is None
+
+
+def test_the_connector_cache_ratio_surfaces_under_execution_details():
+    """The per-side `dl` iterates `http_metrics`, so both ratios show up there."""
+    model = _comparison(
+        "read",
+        _run_result(
+            True,
+            http_metrics={
+                "flow_count": 12,
+                "replay_hit_ratio": "100.00%",
+                **_connector_cache(40, 10),
+            },
+        ),
+        _run_result(True, http_metrics=_connector_cache(40, 10)),
+    )
+    html = render_html_report(model)
+
+    assert "<dt>Cache hit ratio</dt>" in html
+    assert "<dt>Replay hit ratio</dt>" in html
+    assert "25.00%" in html
+
+
+def test_execution_details_name_the_http_metrics_like_the_table_does():
+    """One name per metric on every surface, the per-side list included.
+
+    The `dl` used to label raw keys -- `Flow count`, `Connector request count`
+    -- beside a table that says `Requests` and `Connector requests` for the
+    same numbers. Keys without a row keep a readable form of the key.
+    """
+    model = _comparison(
+        "read",
+        _run_result(
+            True,
+            http_metrics={
+                "flow_count": 12,
+                "duplicate_flow_count": 3,
+                "replay_source": "control",
+                **_connector_cache(40, 10),
+            },
+        ),
+        _run_result(True, http_metrics={"flow_count": 12}),
+    )
+    html = render_html_report(model)
+
+    assert "<dt>Requests</dt>" in html
+    assert "<dt>Repeated URLs</dt>" in html
+    assert "<dt>Connector requests</dt>" in html
+    assert "<dt>Replay source</dt>" in html
+    assert "<dt>Flow count</dt>" not in html
+    assert "<dt>Duplicate flow count</dt>" not in html
+    assert "<dt>Connector request count</dt>" not in html
+
+
+# --------------------------------------------------------------------------
+# Not-exercised reads: a target-only stream with no records is never a pass
+# --------------------------------------------------------------------------
+
+_NOT_EXERCISED_DETAIL = (
+    "1 stream(s) the control did not read returned no records: audit_logs"
+)
+
+
+def _read_result(counts: dict[str, int], **extra) -> dict:
+    return _run_result(True, record_counts_per_stream=counts, **extra)
+
+
+def test_a_target_only_stream_with_no_records_makes_the_verdict_not_exercised():
+    """The comparison cannot fail a stream the control never read, so a zero
+    there is the one way a PR's new stream passes untested."""
+    model = _comparison(
+        "read",
+        _read_result({"users": 3}),
+        _read_result({"users": 3}),
+        configured_streams=("audit_logs", "users"),
+        target_only_streams=("audit_logs",),
+    )
+
+    assert model.passed is False
+    assert model.not_exercised is True
+    assert model.verdict_label == "NOT EXERCISED"
+    assert model.verdict_detail == _NOT_EXERCISED_DETAIL
+    assert model.context.not_exercised_note is None
+    assert model.outcome is not None
+    assert model.outcome.regression_detected is False
+
+    summary = render_inline_summary(model)
+    assert f"**Result:** ❌ NOT EXERCISED — {_NOT_EXERCISED_DETAIL}" in summary
+    assert "- Not exercised:" not in summary
+
+    html = render_html_report(model)
+    assert "verdict--fail" in html
+    assert "NOT EXERCISED" in html
+    assert "<dt>Not exercised</dt>" not in html
+
+
+def test_every_unexercised_stream_is_counted_and_named():
+    model = _comparison(
+        "read",
+        _read_result({"users": 3, "orders": 2}),
+        _read_result({"users": 3}),
+        target_only_streams=("audit_logs", "invoices", "orders"),
+    )
+
+    assert model.verdict_label == "NOT EXERCISED"
+    assert model.verdict_detail == (
+        "2 stream(s) the control did not read returned no records: audit_logs, invoices"
+    )
+
+
+def test_an_errored_comparison_beside_an_unexercised_stream_claims_no_regression():
+    """A comparator crash is a tooling failure on a NOT EXERCISED read too, as
+    on a stopped one and as the step summary words it."""
+    errored = RecordComparisonSummary(
+        passed=False,
+        errored=True,
+        count_comparison=ComparisonResult(
+            passed=False, message="Record comparison errored"
+        ),
+        errors=["Record comparison errored: OSError('boom')"],
+    )
+    model = _comparison(
+        "read",
+        _read_result({"users": 3}),
+        _read_result({"users": 3}),
+        target_only_streams=("audit_logs",),
+        record_comparison=errored,
+    )
+
+    assert model.passed is False
+    assert model.verdict_label == "NOT EXERCISED"
+    assert model.verdict_detail == (
+        f"{_NOT_EXERCISED_DETAIL}; the record comparison errored, so it is inconclusive"
+    )
+
+
+def test_the_strict_checks_keep_their_own_verdict_beside_an_unexercised_stream():
+    """A regression in the streams both sides read is still named, and the
+    record comparison's own verdict is not rewritten by the stream it never
+    saw."""
+
+    def record(data: dict) -> AirbyteMessage:
+        return AirbyteMessage(
+            type=AirbyteMessageType.RECORD,
+            record=AirbyteRecordMessage(stream="users", data=data, emitted_at=1),
+        )
+
+    clean = run_record_comparisons(
+        {"users": [record({"id": 1}), record({"id": 2})]},
+        {"users": [record({"id": 1}), record({"id": 2})]},
+        {"users": [["id"]]},
+    )
+    model = _comparison(
+        "read",
+        _read_result({"users": 2}),
+        _read_result({"users": 2}),
+        record_comparison=clean,
+        target_only_streams=("audit_logs",),
+    )
+    assert clean.passed is True
+    assert model.verdict_label == "NOT EXERCISED"
+    assert "REGRESSION DETECTED" not in model.verdict_detail
+
+    dropped = run_record_comparisons(
+        {"users": [record({"id": 1}), record({"id": 2})]},
+        {"users": [record({"id": 1})]},
+        {"users": [["id"]]},
+    )
+    model = _comparison(
+        "read",
+        _read_result({"users": 1}),
+        _read_result({"users": 2}),
+        record_comparison=dropped,
+        target_only_streams=("audit_logs",),
+    )
+    assert dropped.passed is False
+    assert model.passed is False
+    assert model.verdict_label == "FAIL (regression)"
+    assert model.verdict_detail.startswith(f"{_NOT_EXERCISED_DETAIL}, but ")
+    assert "REGRESSION DETECTED" in model.verdict_detail
+
+
+@pytest.mark.parametrize(
+    "target_success,control_success,expected_label",
+    [
+        pytest.param(False, True, "FAIL (regression)", id="regression"),
+        pytest.param(False, False, "FAIL (inconclusive)", id="both-failed"),
+    ],
+)
+def test_unexercised_stream_does_not_hide_a_failed_run(
+    target_success, control_success, expected_label
+):
+    model = _comparison(
+        "read",
+        _run_result(target_success, record_counts_per_stream={"users": 2}),
+        _run_result(control_success, record_counts_per_stream={"users": 2}),
+        target_only_streams=("audit_logs",),
+    )
+
+    assert model.not_exercised is True
+    assert model.verdict_label == expected_label
+    assert _NOT_EXERCISED_DETAIL in model.verdict_detail
+
+
+@pytest.mark.parametrize(
+    "target_flags,detail",
+    [
+        pytest.param(
+            {},
+            _NOT_EXERCISED_DETAIL,
+            id="not-exercised-both-failed",
+        ),
+        pytest.param(
+            {
+                "could_not_test": True,
+                "could_not_test_detail": (
+                    "1 stream(s) the control did not read failed with a config "
+                    "error (often a missing permission or scope): audit_logs: "
+                    "HTTP 400, code 4711"
+                ),
+                "excluded_not_exercised_streams": ("audit_logs",),
+            },
+            "HTTP 400, code 4711",
+            id="could-not-test-both-failed",
+        ),
+    ],
+)
+def test_new_stream_summary_and_model_share_the_fail_label(
+    tmp_path, target_flags, detail
+):
+    target = _run_result(
+        False,
+        record_counts_per_stream={"users": 2},
+        **target_flags,
+    )
+    control = _run_result(False, record_counts_per_stream={"users": 2})
+    model = _comparison(
+        "read",
+        target,
+        control,
+        target_only_streams=("audit_logs",),
+    )
+    summary_path = generate_action_test_comparison_report(
+        target_image=TARGET_IMAGE,
+        control_image=CONTROL_IMAGE,
+        command="read",
+        target_result=target,
+        control_result=control,
+        output_dir=tmp_path,
+        target_only_streams=("audit_logs",),
+    )
+    result_line = next(
+        line
+        for line in summary_path.read_text().splitlines()
+        if line.startswith("**Result:**")
+    )
+
+    assert model.verdict_label == "FAIL (inconclusive)"
+    assert result_line.startswith("**Result:** FAIL (inconclusive) —")
+    assert detail in model.verdict_detail
+    assert detail in result_line
+
+
+@pytest.mark.parametrize(
+    "target_success,control_success,expected_label",
+    [
+        pytest.param(
+            False, True, "COULD NOT TEST (config error)", id="target-config-error"
+        ),
+        pytest.param(False, False, "FAIL (inconclusive)", id="both-failed"),
+    ],
+)
+def test_config_error_only_yields_could_not_test_without_both_failure(
+    target_success, control_success, expected_label
+):
+    target = _run_result(
+        target_success,
+        record_counts_per_stream={"users": 2},
+        could_not_test=True,
+        could_not_test_detail="target-only config error detail",
+        excluded_not_exercised_streams=("audit_logs",),
+    )
+    model = _comparison(
+        "read",
+        target,
+        _run_result(control_success, record_counts_per_stream={"users": 2}),
+        target_only_streams=("audit_logs",),
+    )
+
+    assert model.verdict_label == expected_label
+    assert "target-only config error detail" in model.verdict_detail
+
+
+@pytest.mark.parametrize(
+    "target_result,expected_label,expected_details",
+    [
+        pytest.param(
+            {
+                "setup_error": True,
+                "setup_error_detail": "1 stream(s) the control did not read are not defined by the target (lone INCOMPLETE status, no records, no error): audit_logs",
+                "excluded_not_exercised_streams": ("audit_logs",),
+            },
+            "SETUP ERROR",
+            ("not defined by the target",),
+            id="setup-error",
+        ),
+        pytest.param(
+            {
+                "could_not_test": True,
+                "could_not_test_detail": "1 stream(s) the control did not read failed with a config error (often a missing permission or scope): audit_logs: HTTP 400, code 4711",
+                "excluded_not_exercised_streams": ("audit_logs",),
+            },
+            "COULD NOT TEST (config error)",
+            ("HTTP 400", "4711"),
+            id="config-error",
+        ),
+    ],
+)
+def test_target_only_error_verdicts_preserve_their_detail(
+    target_result, expected_label, expected_details
+):
+    model = _comparison(
+        "read",
+        _read_result({"users": 2}, **target_result),
+        _read_result({"users": 2}),
+        target_only_streams=("audit_logs",),
+    )
+
+    assert model.passed is False
+    assert model.verdict_label == expected_label
+    assert all(detail in model.verdict_detail for detail in expected_details)
+    assert model.not_exercised is False
+    assert model.setup_error == (expected_label == "SETUP ERROR")
+    assert model.could_not_test == (expected_label == "COULD NOT TEST (config error)")
+
+
+def test_setup_error_detail_retains_a_real_target_failure():
+    model = _comparison(
+        "read",
+        _run_result(
+            False,
+            record_counts_per_stream={"users": 2},
+            setup_error=True,
+            setup_error_clears_regression=False,
+            setup_error_detail="undefined stream setup detail",
+            excluded_not_exercised_streams=("audit_logs",),
+        ),
+        _read_result({"users": 2}),
+        target_only_streams=("audit_logs",),
+        extra_checks=(CheckResult(name="Shared stream final state", passed=False),),
+    )
+
+    assert model.verdict_label == "SETUP ERROR"
+    assert "undefined stream setup detail" in model.verdict_detail
+    assert "Target failed (exit 1)" in model.verdict_detail
+    assert "failed checks: Shared stream final state" in model.verdict_detail
+    assert "REGRESSION DETECTED" in model.verdict_detail
+
+
+@pytest.mark.parametrize(
+    "flags,stopped,strict,expected_label,details",
+    [
+        pytest.param(
+            {
+                "setup_error": True,
+                "setup_error_detail": "undefined stream setup detail",
+                "could_not_test": True,
+                "could_not_test_detail": "config error detail",
+                "excluded_not_exercised_streams": ("undefined", "config"),
+            },
+            True,
+            False,
+            "INCOMPLETE",
+            (
+                "stopped early",
+                "undefined stream setup detail",
+                "config error detail",
+                "1 stream(s) the control did not read returned no records: empty",
+            ),
+            id="incomplete-precedes-setup-error",
+        ),
+        pytest.param(
+            {
+                "setup_error": True,
+                "setup_error_detail": "undefined stream setup detail",
+                "could_not_test": True,
+                "could_not_test_detail": "config error detail",
+                "excluded_not_exercised_streams": ("undefined", "config"),
+            },
+            False,
+            True,
+            "SETUP ERROR",
+            (
+                "undefined stream setup detail",
+                "config error detail",
+                "1 stream(s) the control did not read returned no records: empty",
+                "failed checks: shared state",
+            ),
+            id="setup-error-precedes-fail",
+        ),
+        pytest.param(
+            {
+                "could_not_test": True,
+                "could_not_test_detail": "config error detail",
+                "excluded_not_exercised_streams": ("config",),
+            },
+            False,
+            True,
+            "FAIL (regression)",
+            (
+                "config error detail",
+                "1 stream(s) the control did not read returned no records: empty",
+                "failed checks: shared state",
+            ),
+            id="strict-fail-precedes-config-error",
+        ),
+        pytest.param(
+            {
+                "could_not_test": True,
+                "could_not_test_detail": "config error detail",
+                "excluded_not_exercised_streams": ("config",),
+            },
+            False,
+            False,
+            "COULD NOT TEST (config error)",
+            (
+                "config error detail",
+                "1 stream(s) the control did not read returned no records: empty",
+            ),
+            id="config-error-precedes-not-exercised",
+        ),
+        pytest.param(
+            {},
+            False,
+            False,
+            "NOT EXERCISED",
+            ("1 stream(s) the control did not read returned no records: empty",),
+            id="not-exercised-precedes-pass",
+        ),
+    ],
+)
+def test_target_only_verdict_precedence_keeps_each_applicable_reason(
+    flags, stopped, strict, expected_label, details
+):
+    result_flags = dict(flags)
+    if stopped:
+        result_flags["stopped_early"] = _STOPPED
+    strict_checks = (
+        (CheckResult(name="shared state", passed=False, summary="state differs"),)
+        if strict
+        else ()
+    )
+    target_only_streams = (
+        ("undefined", "config", "empty")
+        if "setup_error" in result_flags
+        else ("config", "empty")
+        if "could_not_test" in result_flags
+        else ("empty",)
+    )
+    model = _comparison(
+        "read",
+        _read_result({"users": 2}, **result_flags),
+        _read_result({"users": 2}, stopped_early=_STOPPED if stopped else None),
+        target_only_streams=target_only_streams,
+        extra_checks=strict_checks,
+    )
+
+    assert model.verdict_label == expected_label
+    assert all(detail in model.verdict_detail for detail in details)
+
+
+def test_a_target_only_stream_with_records_changes_nothing():
+    target = _read_result({"users": 3, "audit_logs": 1})
+    control = _read_result({"users": 3})
+    model = _comparison(
+        "read",
+        target,
+        control,
+        configured_streams=("audit_logs", "users"),
+        target_only_streams=("audit_logs",),
+    )
+    baseline = _comparison(
+        "read", target, control, configured_streams=("audit_logs", "users")
+    )
+
+    assert model.not_exercised is False
+    assert model.verdict_label == "PASS"
+    assert (model.passed, model.verdict_label, model.verdict_detail) == (
+        baseline.passed,
+        baseline.verdict_label,
+        baseline.verdict_detail,
+    )
+    assert render_inline_summary(model) == render_inline_summary(baseline)
+
+
+def test_identical_catalogs_on_both_sides_keep_the_rule_silent():
+    """One catalog for both sides is the default, an empty set, and an empty
+    set is what the CLI computes from it: a stream empty on both sides is the
+    stream-coverage warning, not an unexercised stream."""
+    target, control = _read_result({"users": 3}), _read_result({"users": 3})
+    by_default = _comparison(
+        "read", target, control, configured_streams=("audit_logs", "users")
+    )
+    explicit = _comparison(
+        "read",
+        target,
+        control,
+        configured_streams=("audit_logs", "users"),
+        target_only_streams=(),
+    )
+
+    for model in (by_default, explicit):
+        assert model.not_exercised is False
+        assert model.passed is True
+        assert model.verdict_label == "PASS"
+        assert model.context.not_exercised_note is None
+        checks = {check.name: check for check in model.checks}
+        assert checks["Stream coverage"].status == "warn"
+    assert render_inline_summary(by_default) == render_inline_summary(explicit)
+
+
+def test_a_stop_outranks_an_unexercised_stream_and_names_it_in_the_context():
+    """Both flags are up; the Result line is the stop's, word for word, and the
+    stream goes in the context block below it."""
+    model = _comparison(
+        "read",
+        _read_result({"users": 3}, stopped_early=_STOPPED),
+        _read_result({"users": 3}, stopped_early=_STOPPED),
+        target_only_streams=("audit_logs",),
+    )
+    note = f"Not exercised: {_NOT_EXERCISED_DETAIL}"
+
+    assert model.passed is False
+    assert model.not_exercised is True
+    assert model.verdict_label == "INCOMPLETE"
+    assert (
+        model.verdict_detail == "stopped early (timeout) after 1,234 records per side"
+    )
+    assert model.context.not_exercised_note == note
+
+    summary = render_inline_summary(model)
+    assert (
+        "**Result:** ❌ INCOMPLETE — stopped early (timeout) after 1,234 records "
+        "per side" in summary
+    )
+    assert "NOT EXERCISED" not in summary
+    assert f"- {note}" in summary
+    assert summary.index("- Target: stopped early") < summary.index(f"- {note}")
+
+    html = render_html_report(model)
+    assert "INCOMPLETE" in html
+    assert f"<dt>Not exercised</dt><dd>{note}</dd>" in html

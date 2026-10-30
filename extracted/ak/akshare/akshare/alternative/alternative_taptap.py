@@ -9,7 +9,8 @@ import time
 from typing import Optional
 
 import pandas as pd
-import requests
+
+from akshare.utils import http
 
 
 # ============================================================
@@ -84,7 +85,7 @@ def game_hot_rank_taptap(symbol: str = "热玩榜") -> pd.DataFrame:
             f"symbol 仅支持 {list(_TAPTAP_RANK_TYPE_MAP.keys())}, 当前传入: {symbol}"
         )
     type_name = _TAPTAP_RANK_TYPE_MAP[symbol]
-    session = requests.Session()
+    session = http.Session()
     session.headers.update(_TAPTAP_HEADERS)
     all_games = []
     total: Optional[int] = None
@@ -132,7 +133,7 @@ def game_hot_rank_taptap(symbol: str = "热玩榜") -> pd.DataFrame:
         "app.rec_text": "推荐语",
         "app.released_time": "发布时间戳",
     }
-    df.rename(columns=rename_map, inplace=True)
+    df = df.rename(columns=rename_map)
     if "评分" in df.columns:
         df["评分"] = pd.to_numeric(df["评分"], errors="coerce").astype("float64")
     for col in ["总点击量", "游玩次数", "评论数", "粉丝数"]:

@@ -10,11 +10,11 @@ from functools import cached_property
 from typing import OrderedDict
 
 import httpx
-import structlog
 
 from mistralai.workflows._version import USER_AGENT
 from mistralai.workflows.core import _http_transport as http_transport
-from mistralai.workflows.core.auth import ConnectorRunAs, StaticTokenProvider, TokenProvider
+from mistralai.workflows.core._logger import get_logger
+from mistralai.workflows.core.auth import RunAs, StaticTokenProvider, TokenProvider
 from mistralai.workflows.core.config.config import config
 from mistralai.workflows.core.temporal.context_handler_interceptor import retrieve_context
 from mistralai.workflows.exceptions import WorkflowError
@@ -25,7 +25,7 @@ from mistralai.workflows.hooks.token_provider_hook import (
 from mistralai.workflows.worker_client.errors import SDKError
 from mistralai.workflows.worker_client.sdk import PrivateWorkerClient
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 
 def _resolve_hook_token_provider(api_key: str | None, token_provider: TokenProvider | None) -> TokenProvider | None:
@@ -43,7 +43,7 @@ def _resolve_hook_token_provider(api_key: str | None, token_provider: TokenProvi
 
 
 class ExecutorCredentialsHook(abc.ABC):
-    """Authenticate requests as the executor unless run_as selects a connector policy.
+    """Authenticate requests as the executor, or per ``run_as`` when set.
 
     AUTO follows the current workflow; DEPLOYMENT uses the worker's credentials.
     Executor JWTs are cached separately for each execution.
@@ -58,10 +58,10 @@ class ExecutorCredentialsHook(abc.ABC):
         api_key: str | None = None,
         token_provider: TokenProvider | None = None,
         *,
-        run_as: ConnectorRunAs | None = None,
+        run_as: RunAs | None = None,
         headers: dict[str, str] | None = None,
     ) -> None:
-        self._run_as = ConnectorRunAs(run_as) if run_as is not None else None
+        self._run_as = RunAs(run_as) if run_as is not None else None
         self._server_url = server_url.rstrip("/")
         self._headers = dict(headers if headers is not None else config.worker.mistral_api_headers or {})
         self._token_provider = _resolve_hook_token_provider(api_key, token_provider)
@@ -75,7 +75,7 @@ class ExecutorCredentialsHook(abc.ABC):
         self._jwt_cache: OrderedDict[str, tuple[str, float]] = OrderedDict()
 
     def _uses_executor_credentials(self) -> bool:
-        if self._run_as == ConnectorRunAs.AUTO:
+        if self._run_as == RunAs.AUTO:
             context = retrieve_context()
             if context is None:
                 raise WorkflowError(
@@ -210,7 +210,7 @@ class SyncExecutorCredentialsHook(ExecutorCredentialsHook):
         api_key: str | None = None,
         token_provider: TokenProvider | None = None,
         *,
-        run_as: ConnectorRunAs | None = None,
+        run_as: RunAs | None = None,
         headers: dict[str, str] | None = None,
     ) -> None:
         super().__init__(server_url, api_key, token_provider, run_as=run_as, headers=headers)

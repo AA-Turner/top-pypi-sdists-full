@@ -270,7 +270,11 @@ def signup(
         str | None, typer.Option("--hint", help="Sign-up steps for the agent (else the app's signup_hint)")
     ] = None,
     totp: Annotated[
-        bool, typer.Option("--totp/--no-totp", help="Turn on authenticator 2FA when the site offers it")
+        bool,
+        typer.Option(
+            "--totp/--no-totp",
+            help="Turn on authenticator 2FA (from the site's settings when sign-up doesn't offer it)",
+        ),
     ] = True,
     proxy_exit: Annotated[str | None, typer.Option("--exit", help="Proxy exit name (else the app's)")] = None,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Print the launch; launches nothing")] = False,

@@ -30,6 +30,30 @@ from . import homedir
 #: Request headers naming the coding agent and its session.
 AGENT_HEADER = "X-Probe-Agent"
 AGENT_SESSION_HEADER = "X-Probe-Agent-Session"
+#: When a write's work happened (swarm friction R2), sent beside the session
+#: headers: the server dates the session's effort by it instead of by the
+#: write's arrival, inside a window it clamps to. The outbox drain sends an
+#: op's `enqueued_at` (`transport.event_at_scope`); a process run with
+#: `EVENT_AT_ENV` -- the Probe daemon's `probe` commands, dated at the oldest
+#: event of the work they file -- sends that. A scope wins over the environment.
+EVENT_AT_HEADER = "X-Probe-Event-At"
+EVENT_AT_ENV = "PROBE_EVENT_AT"
+#: Who made a write (swarm friction R41), sent beside the session headers as
+#: `RUN_WRITE_ORIGIN` when a run process made it: a process that opened a run
+#: for itself (`probe.init()`, `Client.run()` in a script, a job joining
+#: `PROBE_RUN_ID`), `probe exec`'s launcher, and what those start. Never the
+#: agent's own `probe` commands or the Probe daemon's. The server still marks
+#: the experiment with the session (the run is its work) but counts no
+#: activity: a background job filing runs while its agent sits idle at its
+#: prompt is not the agent working. A queued op records it
+#: (`run_write_origin`) and is sent with it whoever drains it.
+WRITE_ORIGIN_HEADER = "X-Probe-Write-Origin"
+RUN_WRITE_ORIGIN = "run"
+#: Marks a run process and what it starts (`mark_run_process`), naming the
+#: session it runs as (`<agent>:<id>`, `queued_session`'s spelling). A request
+#: is the run's only while it is sent as THAT session, so a coding agent started
+#: beneath a run (an eval harness, `probe exec -- claude`) is its own writer.
+RUN_PROCESS_ENV = "PROBE_RUN_PROCESS"
 #: The hosted MCP's opt-in, sent beside the two above: with it set to "1" and
 #: the caller's session known, `search` and `browse` leave out every
 #: project, experiment and run THAT session created (the backend's
@@ -357,6 +381,51 @@ def forwarding_env(env: Mapping[str, str] | None = None) -> dict[str, str]:
     if resolved is None:
         return {}
     return {FORWARDED_SESSION_ENV: f"{resolved[0]}:{resolved[1]}"}
+
+
+def queued_session(env: Mapping[str, str] | None = None) -> str | None:
+    """This process's agent session as an outbox op records it (`<agent>:<id>`,
+    the forwarded spelling), or None. A queued op is sent as the session that
+    QUEUED it (`transport.queued_session_scope`): one outbox worker drains every
+    session's backlog on a machine, and its own session is not theirs."""
+    return forwarding_env(env).get(FORWARDED_SESSION_ENV)
+
+
+def recorded_session_headers(recorded: str | None) -> dict[str, str]:
+    """The session headers for a session `queued_session` recorded; ``{}``
+    for none, or for one this version would not send."""
+    resolved = forwarded_agent_session({FORWARDED_SESSION_ENV: recorded}) if recorded else None
+    return {} if resolved is None else {AGENT_HEADER: resolved[0], AGENT_SESSION_HEADER: resolved[1]}
+
+
+def mark_run_process() -> None:
+    """From now on this process, and what it starts, is a run process for the
+    agent session it runs as (`RUN_PROCESS_ENV`). Nothing to mark without a
+    session: its writes carry none. Never raises: attribution is telemetry.
+    Writes the environment only when it changes: a `run()` after the first, in
+    a process whose native threads may be reading it, leaves it alone."""
+    try:
+        session = queued_session()
+        if session and os.environ.get(RUN_PROCESS_ENV) != session:
+            os.environ[RUN_PROCESS_ENV] = session
+    except Exception:  # noqa: BLE001 -- a run must never fail to open over this
+        pass
+
+
+def run_write_origin(session: str | None) -> str | None:
+    """`RUN_WRITE_ORIGIN` when a write sent as `session` (`<agent>:<id>`) is a
+    run process's: this process was marked as that session's run. Else None.
+    An outbox op records it beside its session, so a run's queued write stays
+    the run's whichever process drains it."""
+    marked = os.environ.get(RUN_PROCESS_ENV, "")
+    return RUN_WRITE_ORIGIN if session and marked == session else None
+
+
+def queued_event_at(env: Mapping[str, str] | None = None) -> str | None:
+    """`EVENT_AT_ENV` as an outbox op records it, or None: a daemon command's
+    write that fails over into the outbox keeps the time its work happened."""
+    value = (os.environ if env is None else env).get(EVENT_AT_ENV, "").strip()
+    return value[:64] or None
 
 
 def session_id_from_env(env: Mapping[str, str] | None = None) -> str | None:

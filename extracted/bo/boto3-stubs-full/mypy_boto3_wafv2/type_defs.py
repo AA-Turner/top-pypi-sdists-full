@@ -1230,11 +1230,15 @@ class AssociationConfigOutputTypeDef(TypedDict):
     RequestBody: NotRequired[
         dict[AssociatedResourceTypeType, RequestBodyAssociatedResourceTypeConfigTypeDef]
     ]
+    ChallengeJavascriptSdkInjection: NotRequired[dict[AssociatedResourceTypeType, dict[str, Any]]]
 
 
 class AssociationConfigTypeDef(TypedDict):
     RequestBody: NotRequired[
         Mapping[AssociatedResourceTypeType, RequestBodyAssociatedResourceTypeConfigTypeDef]
+    ]
+    ChallengeJavascriptSdkInjection: NotRequired[
+        Mapping[AssociatedResourceTypeType, Mapping[str, Any]]
     ]
 
 

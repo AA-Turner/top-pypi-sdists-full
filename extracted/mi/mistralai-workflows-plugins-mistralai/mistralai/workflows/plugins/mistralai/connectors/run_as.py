@@ -4,37 +4,50 @@ from collections.abc import Iterable, Mapping
 from typing import TYPE_CHECKING, Literal
 
 from mistralai.workflows.client import should_use_executor_credentials
-from mistralai.workflows.core.auth import ConnectorRunAs as ConnectorRunAs
 
 if TYPE_CHECKING:
+    from mistralai.workflows.core.auth.run_as import ConnectorRunAs as ConnectorRunAs
+    from mistralai.workflows.core.auth.run_as import RunAs as RunAs
+
     from .decorator import ConnectorSlot
     from .models import ResolvedConnectorBinding
+
+else:
+    # Cores 3.15–3.16 only ship the old name.
+    try:
+        from mistralai.workflows.core.auth.run_as import RunAs, _deprecated_alias_getattr
+    except ImportError:
+        from mistralai.workflows.core.auth.run_as import ConnectorRunAs
+
+        RunAs = ConnectorRunAs
+    else:
+        __getattr__ = _deprecated_alias_getattr(__name__)
 
 
 RunAsArg = Literal["auto", "deployment"] | None
 
 
-def normalize_run_as(value: RunAsArg) -> ConnectorRunAs:
-    """Coerce the public ``run_as=`` argument into a :class:`ConnectorRunAs`.
+def normalize_run_as(value: RunAsArg) -> RunAs:
+    """Coerce the public ``run_as=`` argument into a :class:`RunAs`.
 
     ``None`` (unspecified) maps to ``AUTO`` — follow the workflow's
     ``on_behalf_of`` flag.
     """
     if value is None:
-        return ConnectorRunAs.AUTO
+        return RunAs.AUTO
     try:
-        return ConnectorRunAs(value)
+        return RunAs(value)
     except ValueError:
         raise ValueError(f"Invalid connector run_as {value!r}; expected 'auto', 'deployment', or None") from None
 
 
-def use_executor_credentials_for(run_as: ConnectorRunAs = ConnectorRunAs.AUTO) -> bool:
+def use_executor_credentials_for(run_as: RunAs = RunAs.AUTO) -> bool:
     """Whether a connector running as ``run_as`` should use executor (OBO) credentials.
 
     ``DEPLOYMENT`` always uses the deployment's service identity; ``AUTO`` follows
     the workflow's ``on_behalf_of`` flag.
     """
-    if run_as == ConnectorRunAs.DEPLOYMENT:
+    if run_as == RunAs.DEPLOYMENT:
         return False
     return should_use_executor_credentials()
 
@@ -42,14 +55,14 @@ def use_executor_credentials_for(run_as: ConnectorRunAs = ConnectorRunAs.AUTO) -
 def pinned_run_as_values(
     slots: Iterable["ConnectorSlot"],
     binding_by_name: Mapping[str, "ResolvedConnectorBinding"] | None = None,
-) -> set[ConnectorRunAs]:
+) -> set[RunAs]:
     """The identities ``slots`` pin a conversation to.
 
     An explicit ``run_as`` pins that value. An omitted one means "inherit": it takes
     the preflight binding's identity, and pins nothing when there is no binding to
     inherit from.
     """
-    pinned: set[ConnectorRunAs] = set()
+    pinned: set[RunAs] = set()
     for slot in slots:
         if slot.run_as_explicit:
             pinned.add(slot.run_as)
@@ -60,7 +73,7 @@ def pinned_run_as_values(
     return pinned
 
 
-def raise_if_mixed_run_as(subject: str, run_as_values: set[ConnectorRunAs]) -> None:
+def raise_if_mixed_run_as(subject: str, run_as_values: set[RunAs]) -> None:
     """Reject connectors that mix ``run_as`` identities within one conversation."""
     if len(run_as_values) <= 1:
         return

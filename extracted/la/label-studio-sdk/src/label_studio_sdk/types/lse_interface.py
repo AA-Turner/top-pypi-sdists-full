@@ -15,6 +15,11 @@ class LseInterface(UncheckedBaseModel):
     AI-produced code snapshots for session continuity
     """
 
+    can_edit: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Whether the current user can change this interface: edit, delete, publish versions or move it.
+    """
+
     code: str = pydantic.Field()
     """
     JSX source code for the interface screen module
@@ -56,6 +61,7 @@ class LseInterface(UncheckedBaseModel):
     """
 
     projects_count: typing.Optional[int] = None
+    scenarios: typing.Optional[str] = None
     title: str
     updated_at: typing.Optional[dt.datetime] = None
     versions: typing.Optional[typing.Any] = pydantic.Field(default=None)

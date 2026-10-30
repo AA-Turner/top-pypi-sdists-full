@@ -562,3 +562,146 @@ TEST(MeshCadInterpolation, PoleRingsLiftTheWholeSphere) {
 }
 
 }  // namespace
+
+namespace {
+
+// The aspect ratio of a triangle: its longest edge over the height on it.
+double aspect(const double* pA, const double* pB, const double* pC) {
+    const double* p[3] = {pA, pB, pC};
+    double longest = 0.0;
+    for (int k = 0; k < 3; ++k) {
+        const double* a = p[k];
+        const double* b = p[(k + 1) % 3];
+        longest = std::max(longest,
+                           std::sqrt((b[0] - a[0]) * (b[0] - a[0]) + (b[1] - a[1]) * (b[1] - a[1]) +
+                                     (b[2] - a[2]) * (b[2] - a[2])));
+    }
+    const double u[3] = {pB[0] - pA[0], pB[1] - pA[1], pB[2] - pA[2]};
+    const double v[3] = {pC[0] - pA[0], pC[1] - pA[1], pC[2] - pA[2]};
+    const double c[3] = {u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2],
+                         u[0] * v[1] - u[1] * v[0]};
+    const double area2 = std::sqrt(c[0] * c[0] + c[1] * c[1] + c[2] * c[2]);
+    return area2 > 0.0 ? longest * longest / area2 : 1e300;
+}
+
+}  // namespace
+
+// Roadmap 6.10.2: the layer of 6.11, sized by the metric of the same
+// Hessian (R |Λ| R^T / (8 eps), Loseille and Alauzet 2011) rather than by
+// its largest eigenvalue alone. The triangles stretch along the layer
+// (where the field hardly varies), so the mesh reaches the uniform mesh's
+// error with a fraction of its points. Measured: 1,008 points, L2 1.53e-2
+// and max 5.5e-2, a mean aspect ratio of 5.4 in the layer, against the
+// uniform mesh's 11,281 points (L2 1.58e-2, max 9.7e-2) and the isotropic
+// Hessian size's 3,848 (L2 1.39e-2, max 1.4e-1). Bad arguments are refused
+// by name.
+TEST(MeshCadInterpolation, AMetricFromTheHessianStretchesAlongTheLayer) {
+    const mio::BrepInfo sphere = brep_solids::sphere(1.0);
+    const auto layer = [](const double* pX) { return sphere_layer(pX); };
+    mio::MeshCadSurfaceOptions o;
+    o.mTargetSize = 0.05;
+    o.mMinAngleDeg = 25.0;
+    o.mEdges = false;
+    o.mPoleRings = 2;
+    const auto uniform = mio::mesh_cad_surface(sphere, o);
+    const Errors eu = interpolation_errors(uniform.mMesh, layer, {});
+    o.mTargetSize = 0.1;
+    mio::Mesh bg = mio::mesh_cad_surface(sphere, o).mMesh;
+    {
+        const std::size_t n = bg.NumPoints();
+        mio::NDArray f(mio::DType::Float64, {n});
+        const double* x = bg.Points().As<double>();
+        for (std::size_t i = 0; i < n; ++i)
+            f.As<double>()[i] = sphere_layer(x + 3 * i);
+        bg.AddPointData("f", std::move(f));
+    }
+    mio::HessianOptions ho;
+    ho.mArrayName = "f";
+    ho.mLocation = mio::DataLocation::Point;
+    const mio::Mesh hm = mio::hessian(bg, ho).mMesh;
+    o.mTargetSize = 0.2;
+    mio::MeshCadSizeSources src;
+    src.pMetricBackground = &hm;
+    src.mMetricArray = "f:hessian";
+    src.mMetricError = 8.0e-3;
+    const auto r = mio::mesh_cad_surface(sphere, o, src);
+    ASSERT_EQ(r.mNumFailed, 0);
+    EXPECT_EQ(r.mNumOpenEdges, 0);
+    EXPECT_EQ(r.mNumNonManifoldEdges, 0);
+    EXPECT_EQ(r.mNumMisorientedEdges, 0);
+    const Errors em = interpolation_errors(r.mMesh, layer, {});
+    // The triangles within the layer (|z - 0.3| < 0.05): stretched.
+    double sum = 0.0;
+    std::size_t in_layer = 0;
+    {
+        const double* px = r.mMesh.Points().As<double>();
+        const auto cells = r.mMesh.Cells(0);
+        const mio::NDArray& c = cells.Conn();
+        for (std::size_t t = 0; t < cells.NumCells(); ++t) {
+            const double* p[3];
+            for (std::size_t k = 0; k < 3; ++k)
+                p[k] = px + 3 * mio::detail::read_int(c, 3 * t + k);
+            const double z = (p[0][2] + p[1][2] + p[2][2]) / 3.0;
+            if (std::fabs(z - 0.3) < 0.05) {
+                sum += aspect(p[0], p[1], p[2]);
+                ++in_layer;
+            }
+        }
+    }
+    const double mean_aspect = in_layer ? sum / double(in_layer) : 0.0;
+    std::printf(
+        "[6.10.2] layer: uniform h 0.05 points %zu L2 %.4e max %.4e; metric points %zu "
+        "L2 %.4e max %.4e, mean aspect in the layer %.3g over %zu triangles\n",
+        eu.mPoints, eu.mL2, eu.mMax, em.mPoints, em.mL2, em.mMax, mean_aspect, in_layer);
+    EXPECT_LE(em.mL2, eu.mL2);
+    EXPECT_LE(em.mMax, eu.mMax);
+    EXPECT_LT(double(em.mPoints), 0.15 * double(eu.mPoints));
+    EXPECT_GT(mean_aspect, 3.0);
+    // Deterministic.
+    EXPECT_EQ(mio::mesh_cad_surface(sphere, o, src).mNumPoints, r.mNumPoints);
+    // Refused by name.
+    mio::MeshCadSizeSources bad = src;
+    bad.mMetricError = 0.0;
+    EXPECT_THROW((void)mio::mesh_cad_surface(sphere, o, bad), std::invalid_argument);
+    bad = src;
+    bad.mMetricArray = "missing";
+    EXPECT_THROW((void)mio::mesh_cad_surface(sphere, o, bad), std::invalid_argument);
+    bad = mio::MeshCadSizeSources{};
+    bad.mMetricError = 1e-3;
+    EXPECT_THROW((void)mio::mesh_cad_surface(sphere, o, bad), std::invalid_argument);
+    // The field itself as the source: its Hessian at the points is taken
+    // as hessian takes it, so the mesh is the same, byte for byte.
+    mio::MeshCadSizeSources from_field = src;
+    from_field.pMetricBackground = &bg;
+    from_field.mMetricArray = "f";
+    mio::MeshCadSurfaceExtrasReport xf, xh;
+    const auto rf =
+        mio::mesh_cad_surface(sphere, o, from_field, mio::MeshCadSurfaceExtras{}, nullptr, &xf);
+    (void)mio::mesh_cad_surface(sphere, o, src, mio::MeshCadSurfaceExtras{}, nullptr, &xh);
+    EXPECT_EQ(rf.mNumPoints, r.mNumPoints);
+    EXPECT_EQ(rf.mNumTriangles, r.mNumTriangles);
+    // The angles in the metric, which refinement judges, meet the bound the
+    // surface's own angles do not.
+    std::printf("[6.10.2] least angle in the metric %.2f, on the surface %.2f\n",
+                xh.mMinMetricAngleDeg, r.mMinAngleDeg);
+    EXPECT_NEAR(xf.mMinMetricAngleDeg, xh.mMinMetricAngleDeg, 1e-12);
+    EXPECT_GE(xh.mMinMetricAngleDeg, 25.0 - 1e-6);
+    EXPECT_LT(r.mMinAngleDeg, 25.0);
+    // Curved elements and quads take the metric (roadmap 6.10.2, 6.8.3): the
+    // all-quad split asks it for twice its size.
+    for (const int order : {2, 3}) {
+        mio::MeshCadSurfaceOptions o2 = o;
+        o2.mOrder = order;
+        const auto r2 = mio::mesh_cad_surface(sphere, o2, src);
+        EXPECT_EQ(r2.mNumFailed, 0) << order;
+        EXPECT_EQ(r2.mNumOpenEdges, 0) << order;
+    }
+    mio::MeshCadSurfaceExtras all;
+    all.mQuads = mio::MeshCadQuads::All;
+    mio::MeshCadSurfaceExtrasReport xq;
+    const auto rq = mio::mesh_cad_surface(sphere, o, src, all, nullptr, &xq);
+    EXPECT_EQ(rq.mNumFailed, 0);
+    EXPECT_EQ(rq.mNumOpenEdges, 0);
+    EXPECT_GT(xq.mNumQuads, 0);
+    EXPECT_EQ(xq.mNumLeftoverTriangles, 0);
+}

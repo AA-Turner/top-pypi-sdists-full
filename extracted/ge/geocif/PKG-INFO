@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.1093
+Version: 0.4.1094
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -378,6 +378,32 @@ Outputs land in `{dir_output}/{project}/ml/analysis/{Month_DD_YYYY_HHhmm}/snake/
 as `plots/snake_{country}_{crop}_{model}_{region}_s{season}_{year}.png`, with
 the tidy table behind each figure (raw values, normals, spreads, observation
 dates, each row's role, sources and caveats) in `csvs/` under the same name.
+
+### Season track: pre-season to in-season
+
+`geocif.viz.season_track` draws one season's national yield forecast by the
+date each forecast was made. The pre-season part is the S2S model of an
+`s2s_africa` run, one forecast per NOAA init from four months before planting
+to the planting month (read from the run's `hindcasts.csv`). The in-season
+part is one model of an outlook DB, one forecast per stage, issued the first
+day after the stage's data cutoff. The observed yield and the trend are drawn
+as reference lines, one panel per harvest year.
+
+Both systems are leave-one-year-out hindcasts, so a year can be drawn only
+where both exist and the yield is known: for Africa, the 1993-2016 S2S
+hindcast era. Without `--years`, the years where the forecasts removed the
+largest share of the trend's miss are drawn.
+
+```bash
+python -m geocif.viz.season_track --db outlook_10_11_2026_23h00.db \
+    --table zimbabwe_maize --model kumo \
+    --s2s-run <analysis>/explore/s2s_africa_southern_africa \
+    --country Zimbabwe --crop maize --out season_track [--years 2016 2013]
+```
+
+`--country` is the HarvestStat spelling. The PNG sits in `plots/` beside a
+text file with every plotted value and its error, the year ranking and each
+lead's national skill (with N). The values and the ranking are in `csvs/`.
 
 ### Crop-calendar validation
 

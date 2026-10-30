@@ -11,10 +11,11 @@ from __future__ import annotations
 
 __all__: list[str] = []
 
+import logging
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal, NamedTuple
 from urllib.parse import quote
 
 import requests
@@ -44,6 +45,15 @@ from airbyte_ops_mcp.github_api import (
 )
 from airbyte_ops_mcp.mcp.cloud_auth import resolve_cloud_auth
 from airbyte_ops_mcp.mcp.connector_versions import ConnectorRepo
+from airbyte_ops_mcp.prod_db_access.queries import query_connection_workspace_details
+from airbyte_ops_mcp.regression_tests.models import OUTPUT_MODES
+from airbyte_ops_mcp.regression_tests.read_inputs import READ_TIMEOUT_MINUTES_MAX
+from airbyte_ops_mcp.regression_tests.seed_state import (
+    SEED_STATE_NEEDS_CONNECTION,
+    seed_state_error,
+)
+
+logger = logging.getLogger(__name__)
 
 REGRESSION_TEST_REPO_OWNER = "airbytehq"
 
@@ -83,6 +93,72 @@ def validate_connection_workspace(
     )
     connection = workspace.get_connection(connection_id)
     connection.check_is_valid()
+
+
+class _EuDataPlaneCheck(NamedTuple):
+    """Outcome of the trigger-time EU data-plane lookup.
+
+    `skipped` is the reason the check could not decide, or `None` when it did.
+    """
+
+    is_eu: bool
+    skipped: str | None = None
+
+
+def _check_eu_data_plane(connection_id: str) -> _EuDataPlaneCheck:
+    """Look up the connection's data plane in the Prod DB replica.
+
+    `is_eu` is True only when the replica returns a row whose dataplane group
+    is named exactly `EU`. When the check cannot decide, `is_eu` is False and
+    `skipped` says why, so the caller can report the unresolved residency and
+    fail closed unless masking was explicitly requested. The lookup exception
+    text is kept out of the response because it can contain SQL or connection
+    details; the exception class is safe to report.
+
+    A missing row (an unknown ID, or a tombstoned source or workspace), or a
+    workspace without a named dataplane group, cannot be treated as US. A NULL
+    or empty name counts as unknown, not as US: this is a residency gate,
+    unlike `tier_cache`, which defaults a missing group to US for tier lookups.
+
+    This lookup and the secret retriever differ in three cases:
+
+    - a tombstoned source or workspace: no row here, while the retriever
+      ignores tombstones and still refuses a deleted EU connection;
+    - a workspace with no dataplane group, or a group with an empty name: a
+      NULL or empty name here; the retriever refuses the missing group;
+    - a custom EU group with a name other than exactly `EU` is not recognized.
+    """
+    try:
+        rows = query_connection_workspace_details([connection_id])
+    except Exception as exc:
+        return _skip_eu_check(
+            connection_id,
+            f"the Prod DB replica lookup failed ({type(exc).__name__})",
+            detail=f": {exc}",
+        )
+    if not rows:
+        return _skip_eu_check(
+            connection_id,
+            "the connection is not in the Prod DB replica "
+            "(unknown ID, or a tombstoned source or workspace)",
+        )
+    dataplane_name = rows[0].get("dataplane_name")
+    if not dataplane_name or not dataplane_name.strip():
+        return _skip_eu_check(
+            connection_id,
+            "the workspace has no named dataplane group in the Prod DB replica",
+        )
+    return _EuDataPlaneCheck(is_eu=dataplane_name == "EU")
+
+
+def _skip_eu_check(
+    connection_id: str, reason: str, detail: str = ""
+) -> _EuDataPlaneCheck:
+    """Fail open with `reason` in the response; `detail` goes to the log only."""
+    logger.warning(
+        f"EU data-plane check skipped for connection {connection_id}: {reason}{detail}"
+    )
+    return _EuDataPlaneCheck(is_eu=False, skipped=reason)
 
 
 def _get_workflow_run_status(
@@ -285,6 +361,24 @@ class RunRegressionTestsResponse(BaseModel):
     )
 
 
+def _api_error_message(exc: requests.RequestException) -> str:
+    """GitHub's own words for a failed request, or the exception's.
+
+    A dispatch whose inputs pass GitHub's 65,535-character limit, which a
+    large `state_json` can, comes back as a 422 whose body says so.
+    """
+    response = exc.response
+    if response is not None:
+        try:
+            body = response.json()
+        except ValueError:
+            body = None
+        message = body.get("message") if isinstance(body, dict) else None
+        if message:
+            return f"{response.status_code} {message}"
+    return str(exc)
+
+
 @mcp_tool(
     read_only=False,
     idempotent=False,
@@ -308,7 +402,8 @@ def run_regression_tests(
     connection_id: Annotated[
         str | None,
         "Airbyte Cloud connection ID to fetch config/catalog from. "
-        "If not provided, uses GSM integration test secrets.",
+        "If not provided, prefers the default-config GSM integration-test secret "
+        "before trying other connector secrets.",
     ] = None,
     skip_compare: Annotated[
         bool,
@@ -342,10 +437,27 @@ def run_regression_tests(
         "in the configured catalog. This is useful to limit data volume by testing only "
         "specific streams. If not provided, all streams are tested.",
     ] = None,
+    discover_missing_streams: Annotated[
+        bool,
+        "Read selected streams the connection does not sync yet, such as a stream "
+        "the PR adds. READ discovers them on the PR version and adds them to the "
+        "catalog. A stream the control version does not discover has no control "
+        "side and is read by the target only; when every selected stream is new, "
+        "also select one stream the connection already syncs, so the control reads "
+        "something. Needs selected_streams.",
+    ] = False,
+    injected_sync_mode: Annotated[
+        Literal["full_refresh", "incremental"] | None,
+        "Sync mode for streams added by discover_missing_streams. Default prefers "
+        "full refresh; incremental uses the stream's default cursor.",
+    ] = None,
     enable_debug_logs: Annotated[
         bool,
         "Enable debug-level logging for regression test output. "
-        "Also passed as `LOG_LEVEL=DEBUG` to the connector Docker container.",
+        "Also passed as `LOG_LEVEL=DEBUG` to the connector Docker container. "
+        "Debug logs are off on masked runs for now: with `output_mode='masked'`, "
+        "or on a `connection_id` run that leaves `output_mode` unset, the run "
+        "goes ahead with them switched off.",
     ] = False,
     disable_http_replay: Annotated[
         bool,
@@ -362,6 +474,58 @@ def run_regression_tests(
         "`connection_id` is provided, `False` otherwise. Has no effect unless "
         "the command is `read`.",
     ] = None,
+    max_records: Annotated[
+        int | None,
+        "Stop each side of the read when a RECORD message arrives past this "
+        "many in total, across its streams; a side that emits no more than "
+        "this many reads in full. Bounds a read of a large connection; a read "
+        "the cap stops is a smoke test of the records read before the cap, not "
+        "a full regression, and the report says so on each side that stopped "
+        "early. The two sides can stop at different records. At least 1. Leave "
+        "unset for no cap. Has no effect unless the command is `read`.",
+    ] = None,
+    state_json: Annotated[
+        str | None,
+        "Airbyte state to seed the read with, as a JSON string holding a "
+        "non-empty list of STREAM state messages (the shape "
+        "`get_connection_state` returns; a GLOBAL or LEGACY state is refused). "
+        "Both versions then start from these cursors instead of the "
+        "connection's stored state, so `with_state` is ignored. Use it to replay "
+        "a sync from a chosen point, for example the state a customer's failing "
+        "sync started from. Needs `connection_id`: the connection's catalog says "
+        "which streams sync incrementally, and without one every stream is read "
+        "full_refresh and the seed would be ignored. A connector may clamp a "
+        "seed to what its API still serves. The workflow keeps the seed out of "
+        "the job log, and the report names the seeded streams but none of its "
+        "values. Has no effect unless the command is `read`.",
+    ] = None,
+    output_mode: Annotated[
+        Literal["masked", "raw"] | None,
+        "How the connector output is written to the run artifacts. `masked` "
+        "masks every record value as a type-and-length token as it is written, "
+        "masks primary keys, keeps a cursor readable only when its declared type "
+        "is an integer or a date, and keeps only the length of DEBUG, TRACE, "
+        "ERROR and FATAL log messages, stack traces, error internals and every "
+        "line of the connector's stderr; INFO and WARN log messages, a TRACE "
+        "error's message and the CONNECTION_STATUS message stay readable. "
+        "`raw` keeps the output as emitted. "
+        "Leave unset for the default: `masked` on a `connection_id` run, which "
+        "reads a customer's data, and `raw` otherwise. `raw` is an explicit "
+        "opt-in for US connections and is refused for EU connections. A raw "
+        "request also fails closed when residency cannot be confirmed. Pass "
+        "`masked` to mask a GSM run. Debug logs are off on masked runs for now, "
+        "so a masked run switches `enable_debug_logs` off.",
+    ] = None,
+    read_timeout_minutes: Annotated[
+        int | None,
+        "Minutes the read may take, from its start to its report; in comparison "
+        "mode both versions share them. A read still running at the end is "
+        "stopped, compared and reported as incomplete. Raise it for a connection "
+        "too large to read in the default 170 minutes. From 1 to 300, so the run "
+        "stays inside GitHub's six-hour job limit with fifty minutes for the "
+        "other steps. Leave unset for the default. Has no effect unless the "
+        "command is `read`.",
+    ] = None,
     *,
     ctx: Context,
 ) -> RunRegressionTestsResponse:
@@ -375,11 +539,17 @@ def run_regression_tests(
     repository contains the connector PR.
 
     - skip_compare=False (default): Comparison mode - compares the PR version
-      against the baseline (control) version.
+      against the baseline (control) version. A read is reported NOT EXERCISED,
+      never a pass, when a stream only the target was configured to read
+      (typically one the PR adds) returns no records: the comparison could not
+      fail it, and the PR's new code path never ran.
     - skip_compare=True: Single-version mode - runs tests without comparison.
 
     If connection_id is provided, config/catalog are fetched from Airbyte Cloud.
-    Otherwise, GSM integration test secrets are used.
+    Otherwise, the default-config GSM integration-test secret is preferred before
+    other connector secrets are tried. EU connections always run masked; raw
+    output is refused. If residency cannot be confirmed, the run fails closed
+    unless output_mode='masked' is explicitly requested.
 
     Returns immediately with a run_id and workflow URL. Check the workflow URL
     to monitor progress and view results.
@@ -393,6 +563,55 @@ def run_regression_tests(
     # Generate a unique run ID for tracking
     run_id = str(uuid.uuid4())
 
+    if max_records is not None and max_records < 1:
+        return RunRegressionTestsResponse(
+            run_id=run_id,
+            status=TestRunStatus.FAILED,
+            message=f"max_records must be at least 1, got {max_records}",
+            workflow_url=None,
+        )
+
+    if output_mode is not None and output_mode not in OUTPUT_MODES:
+        return RunRegressionTestsResponse(
+            run_id=run_id,
+            status=TestRunStatus.FAILED,
+            message=(
+                f"output_mode must be one of {', '.join(OUTPUT_MODES)}, "
+                f"got {output_mode!r}"
+            ),
+            workflow_url=None,
+        )
+
+    if read_timeout_minutes is not None and not (
+        1 <= read_timeout_minutes <= READ_TIMEOUT_MINUTES_MAX
+    ):
+        return RunRegressionTestsResponse(
+            run_id=run_id,
+            status=TestRunStatus.FAILED,
+            message=(
+                "read_timeout_minutes must be from 1 to "
+                f"{READ_TIMEOUT_MINUTES_MAX}, got {read_timeout_minutes}"
+            ),
+            workflow_url=None,
+        )
+
+    # A seed is judged here, where a mistake costs a message rather than a
+    # build; the workflow judges it again before SPEC, by the same rules, for
+    # a direct dispatch.
+    if state_json is not None:
+        seed_error = (
+            SEED_STATE_NEEDS_CONNECTION
+            if not connection_id
+            else seed_state_error(state_json)
+        )
+        if seed_error:
+            return RunRegressionTestsResponse(
+                run_id=run_id,
+                status=TestRunStatus.FAILED,
+                message=seed_error,
+                workflow_url=None,
+            )
+
     # Get GitHub token
     try:
         token = resolve_ci_trigger_github_token()
@@ -403,6 +622,33 @@ def run_regression_tests(
             message=str(e),
             workflow_url=None,
         )
+
+    effective_output_mode = output_mode or ("masked" if connection_id else "raw")
+
+    # Resolve residency before dispatch or workspace validation.
+    eu_check: _EuDataPlaneCheck | None = None
+    if connection_id:
+        eu_check = _check_eu_data_plane(connection_id)
+        if eu_check.skipped and effective_output_mode != "masked":
+            return RunRegressionTestsResponse(
+                run_id=run_id,
+                status=TestRunStatus.FAILED,
+                message=(
+                    f"Could not confirm connection {connection_id}'s residency "
+                    f"({eu_check.skipped}); pass output_mode='masked' to run it."
+                ),
+                workflow_url=None,
+            )
+        if eu_check.is_eu and output_mode == "raw":
+            return RunRegressionTestsResponse(
+                run_id=run_id,
+                status=TestRunStatus.FAILED,
+                message="EU-resident connections always run masked; "
+                "raw output is refused.",
+                workflow_url=None,
+            )
+        if eu_check.is_eu and output_mode is None:
+            output_mode = "masked"
 
     # Validate workspace membership if workspace_id and connection_id are provided
     if resolved_workspace_id and connection_id:
@@ -432,6 +678,23 @@ def run_regression_tests(
                 workflow_url=None,
             )
 
+    if discover_missing_streams and not selected_streams:
+        return RunRegressionTestsResponse(
+            run_id=run_id,
+            status=TestRunStatus.FAILED,
+            message="discover_missing_streams needs selected_streams naming the "
+            "streams to add to the catalog.",
+            workflow_url=None,
+        )
+
+    if injected_sync_mode and not discover_missing_streams:
+        return RunRegressionTestsResponse(
+            run_id=run_id,
+            status=TestRunStatus.FAILED,
+            message="injected_sync_mode only applies with discover_missing_streams.",
+            workflow_url=None,
+        )
+
     # Build workflow inputs - connector_name, pr, and repo are required
     workflow_inputs: dict[str, str] = {
         "connector_name": connector_name,
@@ -452,6 +715,10 @@ def run_regression_tests(
         workflow_inputs["override_control_image"] = override_control_image
     if selected_streams:
         workflow_inputs["selected_streams"] = ",".join(selected_streams)
+    if discover_missing_streams:
+        workflow_inputs["discover_missing_streams"] = "true"
+    if injected_sync_mode:
+        workflow_inputs["injected_sync_mode"] = injected_sync_mode
     if enable_debug_logs:
         workflow_inputs["enable_debug_logs"] = "true"
     if disable_http_replay:
@@ -460,27 +727,59 @@ def run_regression_tests(
         workflow_inputs["with_state"] = "true"
     elif with_state is False:
         workflow_inputs["with_state"] = "false"
+    if max_records is not None:
+        workflow_inputs["max_records"] = str(max_records)
+    if state_json is not None:
+        workflow_inputs["state_json"] = state_json
+    if output_mode is not None:
+        workflow_inputs["output_mode"] = output_mode
+    if read_timeout_minutes is not None:
+        workflow_inputs["read_timeout_minutes"] = str(read_timeout_minutes)
 
     mode_description = "single-version" if skip_compare else "comparison"
 
-    dispatch_result = trigger_workflow_dispatch(
-        owner=REGRESSION_TEST_REPO_OWNER,
-        repo=REGRESSION_TEST_REPO_NAME,
-        workflow_file=REGRESSION_TEST_WORKFLOW_FILE,
-        ref=resolve_default_workflow_branch(REGRESSION_TEST_DEFAULT_BRANCH),
-        inputs=workflow_inputs,
-        token=token,
-    )
+    # A refusal from GitHub (a seed past the 65,535-character input limit
+    # comes back as a 422) or a network error on the dispatch is an answer,
+    # not a traceback, which would carry the seed in its frames. A run lookup
+    # that fails after GitHub took the dispatch does not raise: the run is
+    # queued, only its ID is unknown.
+    try:
+        dispatch_result = trigger_workflow_dispatch(
+            owner=REGRESSION_TEST_REPO_OWNER,
+            repo=REGRESSION_TEST_REPO_NAME,
+            workflow_file=REGRESSION_TEST_WORKFLOW_FILE,
+            ref=resolve_default_workflow_branch(REGRESSION_TEST_DEFAULT_BRANCH),
+            inputs=workflow_inputs,
+            token=token,
+        )
+    except requests.RequestException as exc:
+        return RunRegressionTestsResponse(
+            run_id=run_id,
+            status=TestRunStatus.FAILED,
+            message=f"Workflow dispatch failed: {_api_error_message(exc)}",
+            workflow_url=None,
+        )
 
     view_url = dispatch_result.run_url or dispatch_result.workflow_url
     connection_info = f" for connection {connection_id}" if connection_id else ""
     repo_info = f" from {repo}" if repo != ConnectorRepo.AIRBYTE else ""
+    debug_logs_note = (
+        " Debug logs will be off: the run is masked."
+        if effective_output_mode == "masked" and enable_debug_logs
+        else ""
+    )
+    skipped_check = (
+        f"\nEU data-plane check skipped: {eu_check.skipped}."
+        if eu_check and eu_check.skipped
+        else ""
+    )
     return RunRegressionTestsResponse(
         run_id=run_id,
         status=TestRunStatus.QUEUED,
         message=(
             f"{mode_description.capitalize()} regression test workflow triggered "
-            f"for {connector_name} (PR #{pr}{repo_info}){connection_info}. View progress at: {view_url}"
+            f"for {connector_name} (PR #{pr}{repo_info}){connection_info}. "
+            f"View progress at: {view_url}{skipped_check}{debug_logs_note}"
         ),
         workflow_url=dispatch_result.workflow_url,
         github_run_id=dispatch_result.run_id,

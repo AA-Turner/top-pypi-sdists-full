@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: semble
-Version: 0.7.0
+Version: 0.7.1
 Summary: Fast and Accurate Code Search for Agents
 Author-email: Thomas van Dongen <thomasvdongen@proton.me>, Stéphan Tulkens <stephantul@gmail.com>
 License: MIT License
@@ -119,6 +119,7 @@ semble install
 - **MCP server**: lets the agent call Semble directly as a tool.
 - **Instructions**: adds CLI usage guidance to AGENTS.md / CLAUDE.md.
 - **Sub-agent**: installs a dedicated `semble-search` sub-agent.
+- **Skill**: installs a `semble` skill plus a one-line pointer to it in AGENTS.md / CLAUDE.md, instead of the full instructions.
 
 To undo the setup, run `semble uninstall`.
 
@@ -143,7 +144,7 @@ For sandboxed or scripted environments, skip the prompts with `--agent` and, opt
 semble install --agent claude --type mcp subagent --yes
 ```
 
-`--agent` accepts one or more agent ids (e.g. `claude`, `codex`, `pi`); `--type` accepts `mcp`, `instructions`, `subagent`, or `all` (default: all); `--yes` skips the confirmation prompt (requires `--agent` for a fully non-interactive run).
+`--agent` accepts one or more agent ids (e.g. `claude`, `codex`, `pi`); `--type` accepts `mcp`, `instructions`, `subagent`, `skill`, or `all` (default: all but `skill`); `--yes` skips the confirmation prompt (requires `--agent` for a fully non-interactive run).
 
 </details>
 
@@ -319,7 +320,7 @@ Semble runs as an MCP server so agents can search any codebase directly as a nat
 | `search` | Search a codebase with a natural-language or code query. Pass `repo` as a local path or an https:// git URL (or a list of them to search several repos together) and `content` as `code`, `docs`, `config`, or `all` (default: `code`). |
 | `find_related` | Given a file path and line number, return chunks semantically similar to the code at that location. |
 
-For per-agent setup instructions, see the [installation docs](docs/installation.md#mcp-server).
+For per-agent setup instructions, see the [installation docs](docs/installation.md#mcp-server). To share one server across agent sessions, run `semble --http`; see [Shared server (HTTP)](docs/installation.md#shared-server-http).
 
 
 ## Benchmarks

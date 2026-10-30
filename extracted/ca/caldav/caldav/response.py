@@ -85,11 +85,13 @@ def _normalize_href(text: str, preserve_at: bool = False) -> str:
     if "%2540" in text:
         text = text.replace("%2540", "%40")
     decode = unquote_preserving_at if preserve_at else unquote
-    href = decode(text)
     # Ref https://github.com/python-caldav/caldav/issues/435
-    if ":" in href:
-        href = decode(URL(href).path)
-    return href
+    # Decide on the text as sent (RFC 4918 section 8.3: an href is an absolute
+    # URI or a path): once decoded, a ":" may come from the name itself.
+    url = URL(text)
+    if url.hostname is not None:
+        text = url.path
+    return decode(text)
 
 
 def _validate_status(status: str | None) -> None:
@@ -100,7 +102,16 @@ def _validate_status(status: str | None) -> None:
     if status is None:
         return
     if not any(code in status for code in (" 200 ", " 201 ", " 207 ", " 404 ")):
-        raise error.ResponseError(status)
+        raise error.ResponseError(status, status=_parse_status_code(status))
+
+
+def _parse_status_code(status: str) -> int | None:
+    """The code in a status line like "HTTP/1.1 507 Insufficient Storage",
+    or None if there is none (unlike _status_to_code, no 200 fallback)."""
+    parts = status.split()
+    if len(parts) >= 2 and parts[1].isdigit():
+        return int(parts[1])
+    return None
 
 
 def _is_sync_truncation(response: _Element, siblings: Iterable[_Element]) -> bool:
@@ -283,6 +294,9 @@ class DAVResponse:
     huge_tree: bool = False
     reason: str = ""
     davclient: Any = None
+    ## Where the request ended up, when the client repeated it at the
+    ## Location of a redirect (``BaseDAVClient._redirect_target()``)
+    redirected_to: Any = None
     results: list[PropfindResult | CalendarQueryResult] | None = None
     _sync_token: str | None = None
     #: href of the RFC 6578 section 3.6 truncation marker, if the reply had one
@@ -497,7 +511,9 @@ class DAVResponse:
         if self.status == 404:
             return []
         if self.status not in (200, 207):
-            raise error.ResponseError(f"PROPFIND failed with status {self.status}")
+            raise error.error_from_response(
+                error.ResponseError, self, f"PROPFIND failed with status {self.status}"
+            )
         if self.tree is None:
             return []
         results: list[PropfindResult] = []
@@ -520,7 +536,9 @@ class DAVResponse:
     def parse_calendar_query(self) -> "list[CalendarQueryResult]":
         """Parse the response body as a calendar-query or calendar-multiget REPORT reply."""
         if self.status not in (200, 207):
-            raise error.ResponseError(f"REPORT failed with status {self.status}")
+            raise error.error_from_response(
+                error.ResponseError, self, f"REPORT failed with status {self.status}"
+            )
         if self.tree is None:
             return []
         results: list[CalendarQueryResult] = []
@@ -542,7 +560,9 @@ class DAVResponse:
     def parse_sync_collection(self) -> "SyncCollectionResult":
         """Parse the response body as a sync-collection REPORT reply."""
         if self.status not in (200, 207):
-            raise error.ResponseError(f"sync-collection failed with status {self.status}")
+            raise error.error_from_response(
+                error.ResponseError, self, f"sync-collection failed with status {self.status}"
+            )
         if self.tree is None:
             return SyncCollectionResult()
         changed: list[CalendarQueryResult] = []
@@ -625,6 +645,11 @@ class DAVResponse:
             ## 404s; flag it in debug mode if a server pairs them with some
             ## other status so we notice and revisit this handling.
             error.assert_("404" in status)
+        if status and " 404 " in status:
+            ## The resource is gone, so whatever its propstats say is moot.
+            ## Infomaniak adds an empty propstat with 418 to a removed member
+            ## of a sync-collection reply, which would otherwise raise.
+            propstats = []
         return (cast(str, href), propstats, status)
 
     def _parse_scheduling_response_objects(self, parent) -> dict:

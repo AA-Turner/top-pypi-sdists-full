@@ -38,7 +38,7 @@ ImageGenerationProviderPreferencesOnly = TypeAliasType(
 
 
 class ImageGenerationProviderPreferencesOptionsTypedDict(TypedDict):
-    r"""Provider-specific options keyed by provider slug. Only options for the matched provider are forwarded; the rest are ignored. Unrecognized keys are silently dropped."""
+    r"""Provider-specific options keyed by provider slug. The provider segment is case-insensitive; an endpoint tag after `/` must match the endpoint slug exactly. Only options for the matched provider are forwarded; the rest are ignored. Unrecognized keys are silently dropped."""
 
     oneai: NotRequired[Dict[str, Any]]
     ai21: NotRequired[Dict[str, Any]]
@@ -110,6 +110,7 @@ class ImageGenerationProviderPreferencesOptionsTypedDict(TypedDict):
     ionstream: NotRequired[Dict[str, Any]]
     klusterai: NotRequired[Dict[str, Any]]
     krea: NotRequired[Dict[str, Any]]
+    kt: NotRequired[Dict[str, Any]]
     lambda_: NotRequired[Dict[str, Any]]
     lepton: NotRequired[Dict[str, Any]]
     liquid: NotRequired[Dict[str, Any]]
@@ -193,7 +194,7 @@ class ImageGenerationProviderPreferencesOptionsTypedDict(TypedDict):
 
 
 class ImageGenerationProviderPreferencesOptions(BaseModel):
-    r"""Provider-specific options keyed by provider slug. Only options for the matched provider are forwarded; the rest are ignored. Unrecognized keys are silently dropped."""
+    r"""Provider-specific options keyed by provider slug. The provider segment is case-insensitive; an endpoint tag after `/` must match the endpoint slug exactly. Only options for the matched provider are forwarded; the rest are ignored. Unrecognized keys are silently dropped."""
 
     oneai: Annotated[Optional[Dict[str, Any]], pydantic.Field(alias="01ai")] = None
 
@@ -366,6 +367,8 @@ class ImageGenerationProviderPreferencesOptions(BaseModel):
     klusterai: Optional[Dict[str, Any]] = None
 
     krea: Optional[Dict[str, Any]] = None
+
+    kt: Optional[Dict[str, Any]] = None
 
     lambda_: Annotated[Optional[Dict[str, Any]], pydantic.Field(alias="lambda")] = None
 
@@ -623,6 +626,7 @@ class ImageGenerationProviderPreferencesOptions(BaseModel):
                 "ionstream",
                 "klusterai",
                 "krea",
+                "kt",
                 "lambda",
                 "lepton",
                 "liquid",

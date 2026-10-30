@@ -443,7 +443,8 @@ class OpenContextBase(object):
             'recv_notify': True,
             'is_encrypt': self.is_encrypt(),
             'push_proto_fmt': SysConfig.get_proto_fmt(),
-            'ai_type': self._ai_type
+            'ai_type': self._ai_type,
+            'token': SysConfig.get_token()
         }
 
         ret, msg, rsp = self._query_sync(InitConnect.pack_req, InitConnect.unpack_rsp, **kargs)

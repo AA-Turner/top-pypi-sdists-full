@@ -398,8 +398,9 @@ class TestIcebergRestCatalogConnectionRouting(unittest.TestCase):
     """Test that the supported IRC connection types route to the generic wrapper."""
 
     def test_new_irc_types_route_to_generic_wrapper(self):
-        """Test the three delegated IRC types resolve to IcebergRestCatalogConnectionWrapper."""
+        """Test every delegated IRC type resolves to IcebergRestCatalogConnectionWrapper."""
         for connection_type in (
+            "WORKDAYICEBERGRESTCATALOG",
             "DATABRICKSICEBERGRESTCATALOG",
             "SNOWFLAKEICEBERGRESTCATALOG",
             "ICEBERGRESTCATALOG",
@@ -414,21 +415,6 @@ class TestIcebergRestCatalogConnectionRouting(unittest.TestCase):
                 )
                 wrapper = GlueConnectionWrapper.create(wrapper_inputs)
                 self.assertIsInstance(wrapper, IcebergRestCatalogConnectionWrapper)
-
-    def test_workday_irc_type_is_unchanged(self):
-        """Test Workday still routes to its own wrapper."""
-        from sagemaker_studio.connections.glue_connection_lib.connections.wrapper.local.workday_irc_wrapper import (
-            WorkdayIcebergRestCatalogConnectionWrapper,
-        )
-
-        wrapper_inputs = GlueConnectionWrapperInputs(
-            connection=_make_connection(connection_type="WORKDAYICEBERGRESTCATALOG"),
-            additional_options={},
-            kms_client=Mock(),
-            secrets_manager_client=_make_secrets_manager_client(),
-        )
-        wrapper = GlueConnectionWrapper.create(wrapper_inputs)
-        self.assertIsInstance(wrapper, WorkdayIcebergRestCatalogConnectionWrapper)
 
 
 if __name__ == "__main__":

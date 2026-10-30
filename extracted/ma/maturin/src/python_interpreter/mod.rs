@@ -1,10 +1,11 @@
 pub use self::config::InterpreterConfig;
-use crate::Target;
 use crate::auditwheel::PlatformTag;
 use crate::bridge::{ABI3T_MINIMUM_PYTHON_MINOR, StableAbiKind};
 use crate::target::WheelTag;
+use crate::{StableAbi, Target};
 use anyhow::{Result, bail};
 use std::borrow::Cow;
+use std::collections::BTreeSet;
 use std::ffi::OsStr;
 use std::fmt;
 use std::ops::Deref;
@@ -16,6 +17,7 @@ mod config;
 mod discovery;
 mod resolver;
 
+pub(crate) use self::discovery::python_command;
 pub(crate) use self::resolver::InterpreterResolver;
 
 /// Minimum supported CPython minor version.
@@ -23,11 +25,11 @@ pub const MINIMUM_PYTHON_MINOR: usize = 7;
 /// Minimum supported PyPy minor version.
 pub const MINIMUM_PYPY_MINOR: usize = 8;
 /// Be liberal here to include preview versions
-pub const MAXIMUM_PYTHON_MINOR: usize = 14;
+pub const MAXIMUM_PYTHON_MINOR: usize = 15;
 /// Minimum supported version for free-threaded CPython
 pub const FREE_THREADED_MINIMUM_PYTHON_MINOR: usize = 14;
 /// Maximum supported PyPy minor version.
-pub const MAXIMUM_PYPY_MINOR: usize = 11;
+pub const MAXIMUM_PYPY_MINOR: usize = 12;
 
 /// The kind of Python interpreter (CPython, PyPy, or GraalPy).
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, serde::Deserialize, clap::ValueEnum)]
@@ -105,6 +107,8 @@ pub struct PythonInterpreter {
     pub implementation_name: String,
     /// Comes from sysconfig var `SOABI`
     pub soabi: Option<String>,
+    /// Comes from sysconfig var `SOABI_PLATFORM` (Python 3.15+)
+    pub soabi_platform: Option<String>,
 }
 
 impl Deref for PythonInterpreter {
@@ -151,6 +155,39 @@ impl PythonInterpreter {
             StableAbiKind::Abi3 => self.has_abi3(),
             StableAbiKind::Abi3t => self.has_abi3t(),
         }
+    }
+
+    /// Generate PyO3 config file content for this interpreter.
+    ///
+    /// When maturin supplies `PYO3_CONFIG_FILE`, PyO3 does not live-probe the
+    /// interpreter. Use `platform` (from `sysconfig.get_platform()`) to preserve
+    /// the `libpython3` / `libpython3t` names PyO3's native MinGW discovery
+    /// would otherwise select.
+    pub(crate) fn pyo3_config_file_with_platform(
+        &self,
+        target: &Target,
+        stable_abi: Option<StableAbi>,
+        use_target_abi: bool,
+    ) -> String {
+        let mut content = self
+            .config
+            .pyo3_config_file(target, stable_abi, use_target_abi);
+        if target.is_windows()
+            && self.interpreter_kind == InterpreterKind::CPython
+            && self
+                .platform
+                .as_deref()
+                .is_some_and(|platform| platform.starts_with("mingw"))
+            && let Some(stable_abi) = stable_abi
+        {
+            let lib_name = match stable_abi.kind {
+                StableAbiKind::Abi3 => "libpython3",
+                StableAbiKind::Abi3t => "libpython3t",
+            };
+            content.push_str("\nlib_name=");
+            content.push_str(lib_name);
+        }
+        content
     }
 
     /// Formats this interpreter as a value for uv's `--python` argument.
@@ -214,7 +251,7 @@ impl PythonInterpreter {
             || target.is_illumos();
         let platform = if use_sysconfig_platform {
             if let Some(platform) = self.platform.clone() {
-                platform
+                BTreeSet::from_iter([platform])
             } else {
                 project.get_platform_tag(platform_tags)?
             }
@@ -224,54 +261,51 @@ impl PythonInterpreter {
         let tag = if self.implementation_name.parse::<InterpreterKind>().is_err() {
             // Use generic tags when `sys.implementation.name` != `platform.python_implementation()`, for example Pyston
             // See also https://github.com/pypa/packaging/blob/0031046f7fad649580bc3127d1cef9157da0dd79/packaging/tags.py#L234-L261
-            WheelTag::new(
-                format!(
-                    "{interpreter}{major}{minor}",
-                    interpreter = self.implementation_name,
-                    major = self.major,
-                    minor = self.minor,
-                ),
-                self.soabi
-                    .as_deref()
-                    .unwrap_or("none")
-                    .replace(['-', '.'], "_"),
-                platform,
-            )
+            let interpreter = format!(
+                "{interpreter}{major}{minor}",
+                interpreter = self.implementation_name,
+                major = self.major,
+                minor = self.minor,
+            );
+            let abi = self
+                .soabi
+                .as_deref()
+                .unwrap_or("none")
+                .replace(['-', '.'], "_");
+            WheelTag::new([interpreter], [abi], platform)
         } else {
             match self.interpreter_kind {
-                InterpreterKind::CPython => WheelTag::new(
-                    format!("cp{major}{minor}", major = self.major, minor = self.minor),
-                    format!(
+                InterpreterKind::CPython => {
+                    let interpreter =
+                        format!("cp{major}{minor}", major = self.major, minor = self.minor);
+                    let abi = format!(
                         "cp{major}{minor}{abiflags}",
                         major = self.major,
                         minor = self.minor,
                         abiflags = self.abiflags,
-                    ),
-                    platform,
-                ),
+                    );
+                    WheelTag::new([interpreter], [abi], platform)
+                }
                 InterpreterKind::PyPy => {
                     // pypy uses its version as part of the ABI, e.g.
                     // pypy 3.11 7.3 => numpy-1.20.1-pp311-pypy311_pp73-manylinux2014_x86_64.whl
-                    WheelTag::new(
-                        format!("pp{major}{minor}", major = self.major, minor = self.minor),
-                        abiflags::calculate_abi_tag(&self.ext_suffix)
-                            .expect("PyPy's syconfig didn't define a valid `EXT_SUFFIX` ಠ_ಠ"),
-                        platform,
-                    )
+                    let interpreter =
+                        format!("pp{major}{minor}", major = self.major, minor = self.minor);
+                    let abi = abiflags::calculate_abi_tag(&self.ext_suffix)
+                        .expect("PyPy's syconfig didn't define a valid `EXT_SUFFIX` ಠ_ಠ");
+                    WheelTag::new([interpreter], [abi], platform)
                 }
                 InterpreterKind::GraalPy => {
                     // GraalPy like PyPy uses its version as part of the ABI
                     // graalpy 3.10 23.1 => numpy-1.23.5-graalpy310-graalpy231_310_native-manylinux2014_x86_64.whl
-                    WheelTag::new(
-                        format!(
-                            "graalpy{major}{minor}",
-                            major = self.major,
-                            minor = self.minor
-                        ),
-                        abiflags::calculate_abi_tag(&self.ext_suffix)
-                            .expect("GraalPy's syconfig didn't define a valid `EXT_SUFFIX` ಠ_ಠ"),
-                        platform,
-                    )
+                    let interpreter = format!(
+                        "graalpy{major}{minor}",
+                        major = self.major,
+                        minor = self.minor
+                    );
+                    let abi = abiflags::calculate_abi_tag(&self.ext_suffix)
+                        .expect("GraalPy's syconfig didn't define a valid `EXT_SUFFIX` ಠ_ಠ");
+                    WheelTag::new([interpreter], [abi], platform)
                 }
             }
         };
@@ -318,6 +352,7 @@ impl PythonInterpreter {
             runnable: false,
             implementation_name,
             soabi: None,
+            soabi_platform: None,
         }
     }
 
@@ -346,6 +381,7 @@ impl PythonInterpreter {
             runnable: false,
             implementation_name: "cpython".to_string(),
             soabi: None,
+            soabi_platform: None,
         }
     }
 
@@ -470,13 +506,13 @@ impl PythonInterpreter {
         }
     }
 
-    /// An opaque string that uniquely identifies this Python interpreter.
+    /// An opaque fingerprint of this Python interpreter's version and ABI.
     /// Used to trigger rebuilds for `pyo3` when the Python interpreter changes.
     pub fn environment_signature(&self) -> String {
         let pointer_width = self.pointer_width.unwrap_or(64);
         format!(
-            "{}-{}.{}-{}bit",
-            self.implementation_name, self.major, self.minor, pointer_width
+            "{}-{}.{}{}-{}bit",
+            self.implementation_name, self.major, self.minor, self.abiflags, pointer_width
         )
     }
 
@@ -551,6 +587,89 @@ mod tests {
             runnable: false,
             implementation_name: kind.to_string().to_ascii_lowercase(),
             soabi: None,
+            soabi_platform: None,
+        }
+    }
+
+    fn windows_interpreter(
+        platform: &str,
+        minor: usize,
+        abiflags: &str,
+        gil_disabled: bool,
+    ) -> PythonInterpreter {
+        let mut interpreter = interpreter(InterpreterKind::CPython, minor, abiflags, gil_disabled);
+        // Keep EXT_SUFFIX and SOABI identical so sysconfig.get_platform() is
+        // the only source of MinGW identity exercised by these tests.
+        interpreter.config.ext_suffix = ".pyd".to_string();
+        interpreter.platform = Some(platform.to_string());
+        interpreter
+    }
+
+    #[test]
+    fn pyo3_config_file_windows_mingw_abi3_lib_name() {
+        let target = Target::from_resolved_target_triple("x86_64-pc-windows-gnu").unwrap();
+        let interpreter = windows_interpreter("mingw_x86_64_msvcrt_gnu", 14, "", false);
+
+        let config_file = interpreter.pyo3_config_file_with_platform(
+            &target,
+            Some(StableAbi::from_abi3_version(3, 10)),
+            true,
+        );
+
+        assert!(
+            config_file
+                .lines()
+                .any(|line| line == "lib_name=libpython3"),
+            "MinGW abi3 config did not select libpython3:\n{config_file}"
+        );
+    }
+
+    #[test]
+    fn pyo3_config_file_windows_mingw_abi3t_lib_name() {
+        let target = Target::from_resolved_target_triple("x86_64-pc-windows-gnu").unwrap();
+        let interpreter = windows_interpreter("mingw_x86_64_msvcrt_gnu", 15, "t", true);
+
+        let config_file = interpreter.pyo3_config_file_with_platform(
+            &target,
+            Some(StableAbi::from_abi3t_version(3, 15)),
+            true,
+        );
+
+        assert!(
+            config_file
+                .lines()
+                .any(|line| line == "lib_name=libpython3t"),
+            "MinGW abi3t config did not select libpython3t:\n{config_file}"
+        );
+    }
+
+    #[test]
+    fn pyo3_config_file_windows_non_mingw_control() {
+        let target = Target::from_resolved_target_triple("x86_64-pc-windows-gnu").unwrap();
+        let interpreter = windows_interpreter("win_amd64", 14, "", false);
+
+        let config_file = interpreter.pyo3_config_file_with_platform(
+            &target,
+            Some(StableAbi::from_abi3_version(3, 10)),
+            true,
+        );
+
+        assert!(
+            !config_file
+                .lines()
+                .any(|line| line.starts_with("lib_name=")),
+            "non-MinGW Windows config unexpectedly selected a library name:\n{config_file}"
+        );
+    }
+
+    #[test]
+    fn environment_signature_includes_abiflags() {
+        for flags in ["", "d", "t", "td"] {
+            let interp = interpreter(InterpreterKind::CPython, 14, flags, flags.contains('t'));
+            assert_eq!(
+                interp.environment_signature(),
+                format!("cpython-3.14{flags}-64bit")
+            );
         }
     }
 

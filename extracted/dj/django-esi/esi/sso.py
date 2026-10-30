@@ -7,20 +7,22 @@ No httpx2 exception escapes this module, they are raised as `SSOUnavailableError
 This keeps them from being retried a second time by the ESI client's retries,
 which wrap token refreshes made during an ESI request.
 """
+from __future__ import annotations
+
+__lazy_modules__ = ["tenacity"]  # py3,15
+
 import logging
 import os
-import secrets
-import threading
 import time
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
-from typing import Any
+from secrets import token_urlsafe
+from threading import Lock
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlencode
 
 import httpx2
-from tenacity import (
-    RetryCallState, Retrying, before_sleep_log, retry_if_exception, stop_after_attempt, wait_exponential,
-)
+from tenacity import Retrying, before_sleep_log, retry_if_exception, stop_after_attempt, wait_exponential
 
 from django.core.cache import cache
 
@@ -28,6 +30,9 @@ from esi import app_settings
 
 from .errors import IncompleteResponseError, SSOOAuthError, SSOUnavailableError
 from .http_utils import build_django_esi_user_agent, build_limits, build_timeout, time_to_expiry, unpack_cache_control
+
+if TYPE_CHECKING:  # py3.14
+    from tenacity import RetryCallState
 
 logger = logging.getLogger(__name__)
 
@@ -43,14 +48,14 @@ _NOT_SENT_ERRORS = (httpx2.ConnectError, httpx2.ConnectTimeout, httpx2.PoolTimeo
 
 _client: httpx2.Client | None = None
 _client_pid: int | None = None
-_client_lock = threading.Lock()
+_client_lock = Lock()
 
 
 def sso_user_agent() -> str:
     return app_settings.ESI_SSO_USER_AGENT or build_django_esi_user_agent()
 
 
-def _build_client(**kwargs) -> httpx2.Client:
+def _build_client(**kwargs: Any) -> httpx2.Client:
     return httpx2.Client(
         headers={"User-Agent": sso_user_agent()},
         timeout=build_timeout(),
@@ -131,7 +136,7 @@ def sso_retry(idempotent: bool = True) -> Retrying:
     )
 
 
-def _request(method: str, url: str, idempotent: bool = True, **kwargs) -> httpx2.Response:
+def _request(method: str, url: str, idempotent: bool = True, **kwargs: Any) -> httpx2.Response:
     """Send a request to the SSO with retries.
 
     Raises:
@@ -190,7 +195,7 @@ def authorization_url(scopes: list[str] | None = None) -> tuple[str, str]:
     Returns:
         (url, state)
     """
-    state = secrets.token_urlsafe(24)
+    state = token_urlsafe(24)
     params = {
         "response_type": "code",
         "client_id": app_settings.ESI_SSO_CLIENT_ID,

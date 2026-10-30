@@ -66,7 +66,9 @@ class Gateway:
             raise SyntaxError(self._invalid_type(self.type))
 
     def to_text(self, origin=None, relativize=True) -> str:
-        return self.to_styled_text(dns.rdata.RdataStyle(origin=origin, relativize=True))
+        return self.to_styled_text(
+            dns.rdata.RdataStyle(origin=origin, relativize=relativize)
+        )
 
     def to_styled_text(self, style: dns.rdata.RdataStyle) -> str:
         if self.type == 0:
@@ -136,13 +138,13 @@ class Bitmap:
         last_window = -1
         if windows is None:
             windows = []
-        self.windows = windows
-        for window, bitmap in self.windows:
+        self.windows: list[tuple[int, bytes]] = []
+        for window, bitmap in windows:
             if not isinstance(window, int):
                 raise ValueError(f"bad {self.type_name} window type")
             if window <= last_window:
                 raise ValueError(f"bad {self.type_name} window order")
-            if window > 256:
+            if window > 255:
                 raise ValueError(f"bad {self.type_name} window number")
             last_window = window
             if not isinstance(bitmap, bytes):
@@ -154,6 +156,7 @@ class Bitmap:
                 # be included and trailing zero octets must be omitted, so the
                 # last octet of a window's bitmap is always non-zero.
                 raise ValueError(f"bad {self.type_name} octets: trailing zero octet")
+            self.windows.append((window, bitmap))
 
     def to_text(self) -> str:
         text = ""

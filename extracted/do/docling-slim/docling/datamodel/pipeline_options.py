@@ -333,10 +333,13 @@ class OcrAutoOptions(OcrOptions):
     """Automatic OCR engine selection based on system availability.
 
     When this option is used, Docling probes the runtime environment at
-    pipeline initialization and selects the best available OCR engine
-    (e.g., EasyOCR if GPU is present, Tesseract otherwise). The requested
-    languages are forwarded to whichever engine is chosen, and an engine with
-    no model for them is skipped in favour of the next candidate.
+    pipeline initialization and selects the first available OCR engine, in
+    this order: OcrMac on macOS, Nemotron OCR on Linux with CUDA, RapidOCR
+    with onnxruntime, EasyOCR, and RapidOCR with torch. Tesseract is never
+    selected automatically; use `TesseractOcrOptions` or
+    `TesseractCliOcrOptions` for it. The requested languages are forwarded to
+    whichever engine is chosen, and an engine with no model for them is
+    skipped in favour of the next candidate.
 
     Notes:
         `lang` is forwarded to whichever engine is selected. The default empty
@@ -439,6 +442,17 @@ class RapidOcrOptions(OcrOptions):
             description="Enable text direction classification stage. If None, uses RapidOCR default behavior."
         ),
     ] = None
+    detect_orientation: Annotated[
+        bool,
+        Field(
+            description=(
+                "Read an OCR region again at the other three orientations when fewer than half of its "
+                "lines are read with confidence, and keep the first orientation that reads well. Unlike "
+                "`use_cls`, which flips single text lines by 180 degrees, this also fixes pages turned "
+                "by 90 or 270 degrees."
+            )
+        ),
+    ] = False
     use_rec: Annotated[
         bool | None,
         Field(

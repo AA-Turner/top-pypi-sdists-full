@@ -27,6 +27,7 @@ import os
 import re
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import unquote
 
 HUB = "https://huggingface.co"
 
@@ -34,9 +35,11 @@ HUB = "https://huggingface.co"
 _REPO_ID = re.compile(r"^(?:[A-Za-z0-9][A-Za-z0-9._-]{0,95}/)?[A-Za-z0-9][A-Za-z0-9._-]{0,95}$")
 #: A commit sha, as transformers records it.
 _SHA = re.compile(r"^[0-9a-f]{40}$")
+#: A revision with slashes, read whole (huggingface_hub's special refs).
+_SLASHED_REVISION = r"refs/(?:convert/[\w.-]+|pr/\d+)"
 #: A dataset file's download URL naming the repo and revision.
 _HF_URL = re.compile(
-    r"^(?:hf://datasets/(?P<repo>[^@/]+(?:/[^@/]+)?)@(?P<rev>[^/]+)/"
+    rf"^(?:hf://datasets/(?P<repo>[^@/]+(?:/[^@/]+)?)@(?P<rev>{_SLASHED_REVISION}|[^/]+)/"
     r"|https://huggingface\.co/datasets/(?P<repo2>[^/]+/[^/]+)/resolve/(?P<rev2>[^/]+)/)"
 )
 #: The datasets cache folder of a Hub dataset: `<namespace>___<name>`.
@@ -83,6 +86,13 @@ def _is_datasets_object(obj: Any) -> bool:
     return module == "datasets" or module.startswith("datasets.")
 
 
+def _decoded(revision: str) -> str:
+    """`refs%2Fpr%2F3` as the server keys it; one holding a decoded `@` stays
+    encoded, since a `source:KEY@REV` ref splits at the last `@`."""
+    decoded = unquote(revision)
+    return revision if "@" in decoded else decoded
+
+
 def hub_dataset(obj: Any) -> HubRef | None:
     """The Hub dataset a ``datasets.Dataset`` (or ``IterableDataset``) came
     from, or None for anything else (a torch Dataset, local files)."""
@@ -96,7 +106,7 @@ def hub_dataset(obj: Any) -> HubRef | None:
         match = _HF_URL.match(str(url))
         if match:
             repo = match.group("repo") or match.group("repo2")
-            rev = match.group("rev") or match.group("rev2")
+            rev = _decoded(match.group("rev") or match.group("rev2"))
             return HubRef(uri=f"{HUB}/datasets/{repo}", kind="dataset", revision=rev or fingerprint)
     for entry in getattr(obj, "cache_files", None) or ():
         filename = entry.get("filename") if isinstance(entry, dict) else None

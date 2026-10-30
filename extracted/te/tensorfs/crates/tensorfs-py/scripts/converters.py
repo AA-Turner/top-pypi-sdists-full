@@ -233,7 +233,8 @@ SINGLE_FILE = {
              "optional": ["text_model.embeddings.position_ids"], "upstream": "sdxl-headers/text_encoder__model.fp16.safetensors.header"},
             {"name": "text_encoder_2", "prefix": "conditioner.embedders.1.model.", "model": "transformers:CLIPTextModelWithProjection",
              "config": "text_encoder_2/config.json", "convert": "convert_open_clip_checkpoint", "arguments": ["model", "checkpoint", "prefix"],
-             "optional": ["transformer.text_model.embeddings.position_ids"], "upstream": "sdxl-headers/text_encoder_2__model.fp16.safetensors.header"},
+             # Some community checkpoints (Juggernaut XL v9) carry no `logit_scale`: the model never reads it.
+             "optional": ["logit_scale", "transformer.text_model.embeddings.position_ids"], "upstream": "sdxl-headers/text_encoder_2__model.fp16.safetensors.header"},
             {"name": "unet", "prefix": "model.diffusion_model.", "model": "diffusers:UNet2DConditionModel", "config": "unet/config.json",
              "convert": "convert_ldm_unet_checkpoint", "arguments": ["checkpoint", "config"],
              "upstream": "sdxl-headers/unet__diffusion_pytorch_model.fp16.safetensors.header"},
@@ -397,6 +398,37 @@ def h3_native(h3: Any) -> tuple[dict[str, Any], dict[str, tuple[str, tuple[int, 
     return {"name": "h3.native", "reference": H3_REFERENCE, "components": [component]}, source
 
 
+# Who writes H3's fused Q/K/V LoRA factors as the trainers' contiguous thirds, by the keys and
+# `__metadata__` their own code writes (docs/h3-lora-source-layout.md). Recognition chooses h3.lora
+# only for these; any other source names it. Not here: fal's minimax-h3-trainer (no public code),
+# DiffSynth-Studio (head-interleaved on MiniMax's raw base, `blocks.*` keys and `format: pt` only),
+# convert_h3_lora.py and MidLAB (no public code).
+GH = "https://github.com"
+H3_LORA_PRODUCERS = [
+    {"name": "ai-toolkit", "keys": ["diffusion_model."], "metadata": {"software": {"json": {"name": "ai-toolkit"}}}, "cite": [
+        f"{GH}/ostris/ai-toolkit/blob/b69b98314557f7c8b08e11bbb14e48d959e6ab26/extensions_built_in/diffusion_models/minimax_h3/src/transformer.py#L184",
+        f"{GH}/ostris/ai-toolkit/blob/b69b98314557f7c8b08e11bbb14e48d959e6ab26/extensions_built_in/diffusion_models/minimax_h3/minimax_h3.py#L1113",
+        f"{GH}/ostris/ai-toolkit/blob/b69b98314557f7c8b08e11bbb14e48d959e6ab26/toolkit/metadata.py#L20"]},
+    # Its own keys, and `convert_lora.py --target other`'s, which keep its metadata.
+    {"name": "musubi-tuner", "keys": ["lora_unet_", "diffusion_model."], "metadata": {"ss_network_module": "networks.lora_minimax_h3"}, "cite": [
+        f"{GH}/kohya-ss/musubi-tuner/blob/f8a1b03794a49239a3539015075f5123d6c07d66/src/musubi_tuner/minimax_h3/model.py#L436",
+        f"{GH}/kohya-ss/musubi-tuner/blob/f8a1b03794a49239a3539015075f5123d6c07d66/src/musubi_tuner/convert_lora.py#L143-L154",
+        f"{GH}/AkaneTendo25/musubi-tuner/blob/0499c2f8105994bc98ea912dd46ff5ae1ac2628c/src/musubi_tuner/minimax_h3/model.py#L535",
+        f"{GH}/AkaneTendo25/musubi-tuner/blob/0499c2f8105994bc98ea912dd46ff5ae1ac2628c/src/musubi_tuner/networks/lora.py#L1132-L1143"]},
+    # `lora_format: comfyui`: Diffusers' separate Q/K/V stacked into thirds.
+    {"name": "SimpleTuner", "keys": ["diffusion_model."], "metadata": {"modelspec.architecture": {"prefix": "minimaxh3-"}, "modelspec.implementation": "diffusers"}, "cite": [
+        f"{GH}/bghira/SimpleTuner/blob/4b7edb115f95f5bae8855da5dd8e68242eea6922/simpletuner/helpers/models/minimaxh3/modular_pipeline.py#L332-L443"]},
+    # Its MiniMax trainers' LoRAs (not `fizgig.model_eq`, a diff of whatever two checkpoints it is given).
+    *({"name": "Fizgig", "keys": ["lora_unet_"], "metadata": {"ss_network_module": {"prefix": prefix}}, "cite": [
+        f"{GH}/shootthesound/Fizgig/blob/15c8447941842aeb8c8472daf0ea627f0034fbb8/src/fizgig/minimax/model.py#L361",
+        f"{GH}/shootthesound/Fizgig/blob/15c8447941842aeb8c8472daf0ea627f0034fbb8/src/fizgig/families/minimax.py#L359-L365"]}
+      for prefix in ("fizgig.minimax", "fizgig.families (minimax")),
+    # Its converter is not public; the file states the fusion of Diffusers' separate Q/K/V.
+    {"name": "lightx2v", "keys": ["diffusion_model."], "metadata": {"source_format": "Diffusers PEFT LoRA", "qkv_fusion": "block diagonal B; concat A; alpha multiplied by 3"}, "cite": [
+        "https://huggingface.co/lightx2v/Minimax-h3-Turbo/blob/30f485ed874aa44c8183348ad361c5eabad318da/minimax_h3_fl2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors"]},
+]
+
+
 def h3_lora(h3: Any, source: dict[str, tuple[str, tuple[int, ...]]]) -> dict[str, Any]:
     """Trainer LoRA factors: A as is, B through diffusers' own transformer conversion given the
     trainer's contiguous Q/K/V thirds (docs/h3-lora-source-layout.md), so fc1 B halves swap."""
@@ -404,25 +436,82 @@ def h3_lora(h3: Any, source: dict[str, tuple[str, tuple[int, ...]]]) -> dict[str
     leaves = {"attn.qkv_proj": "attn_qkv_proj", "attn.out_proj": "attn_out_proj", "mlp.fc1": "mlp_fc1", "mlp.fc2": "mlp_fc2"}
     blocks = [("blocks", i, True) for i in range(config["num_layers"])]
     blocks += [("token_refiner.blocks", i, False) for i in range(config["num_refiner_layers"])]
+    modules = [(f"{family}.{i}.{leaf}", f"blocks_{i}_{flat}" if kohya else None)
+               for family, i, kohya in blocks for leaf, flat in leaves.items()]
+    # The audio patch projections, which audio-trained LoRAs adapt (Mystic XXX v5).
+    modules += [("audio_patch_proj", "audio_patch_proj"), ("final_layer.audio_out", "final_layer_audio_out")]
     rows = []
-    for family, i, kohya in blocks:
-        for leaf, flat in leaves.items():
-            native = f"{family}.{i}.{leaf}"
-            stems = [f"diffusion_model.{native}"] + ([f"lora_unet_blocks_{i}_{flat}"] if kohya else [])
-            fused, inp = source[f"{native}.weight"][1]
-            for target, b in h3.convert_transformer_key(f"{native}.weight", h3_index(fused), config):
-                ops: dict[str, Any] = {"io": [inp, fused]}
-                if b_ops := row_ops(b[:, 0].numpy(), (fused, 1)):
-                    ops["b"] = b_ops
-                rows.extend([target.removesuffix(".weight"), stem, ops] for stem in stems)
+    for native, flat in modules:
+        stems = [f"diffusion_model.{native}"] + ([f"lora_unet_{flat}"] if flat else [])
+        fused, inp = source[f"{native}.weight"][1]
+        for target, b in h3.convert_transformer_key(f"{native}.weight", h3_index(fused), config):
+            ops: dict[str, Any] = {"io": [inp, fused]}
+            if b_ops := row_ops(b[:, 0].numpy(), (fused, 1)):
+                ops["b"] = b_ops
+            rows.extend([target.removesuffix(".weight"), stem, ops] for stem in stems)
     # Rows in the transformer's construction order (#624): its state_dict, not the trainer's.
     from diffusers import MiniMaxH3Transformer3DModel
 
     with torch.device("meta"):
         census = {k: i for i, k in enumerate(MiniMaxH3Transformer3DModel(**config).state_dict())}
+    # Diffusers/PEFT trainers spell the target itself under `transformer.` (Open-H3-Regenerate-2K's
+    # merged LoRA, diffusers' `save_lora_weights`).
+    shapes = {k.removesuffix(".weight"): tuple(v) for k, v in census_shapes(config).items() if k.endswith(".weight")}
+    for target in dict.fromkeys(r[0] for r in list(rows)):
+        out, inp = shapes[target]
+        rows.append([target, f"transformer.{target}", {"io": [inp, out]}])
     rows.sort(key=lambda r: census[r[0] + ".weight"])
-    lora = {"a": [".lora_A.weight", ".lora_down.weight"], "b": [".lora_B.weight", ".lora_up.weight"], "alpha": [".alpha"]}
-    return {"name": "h3.lora", "explicit": True, "lora": lora, "components": [{"name": "transformer", "rows": rows}]}
+    # The AdaLN curve: ComfyUI's pruned H3 computes each block's modulation from an 8-D curve of
+    # the timestep (`lerp(adaln_t_table, t)`), so a LoRA trained on it adapts `adaln_proj` with
+    # A [r, 8]. Its update, B·A·curve(t), depends on t alone: the curve site carries its factors
+    # and the curve table it reads, and the serving side folds it into exact-timestep tables.
+    blocks = config["num_layers"]
+    width = shapes["transformer_blocks.0.adaln_proj.linear"][0]
+    curve = {"io": [8, width], "table": "adaln_t_table"}
+    for stem in ("transformer.transformer_blocks.{N}.adaln_proj.linear", "diffusion_model.blocks.{N}.adaln_proj.linear"):
+        rows.append(["transformer_blocks.{N}.adaln_curve", stem, curve, {"N": blocks}])
+    lora = {"a": [".lora_A.weight", ".lora_down.weight", ".curve_A.weight"],
+            "b": [".lora_B.weight", ".lora_up.weight", ".curve_B.weight"], "alpha": [".alpha"]}
+    return {"name": "h3.lora", "producers": H3_LORA_PRODUCERS, "lora": lora, "constants": {"adaln_t_table": adaln_t_table()},
+            "components": [{"name": "transformer", "rows": rows}]}
+
+
+def census_shapes(config: dict[str, Any]) -> dict[str, torch.Size]:
+    from diffusers import MiniMaxH3Transformer3DModel
+
+    with torch.device("meta"):
+        return {k: v.shape for k, v in MiniMaxH3Transformer3DModel(**config).state_dict().items()}
+
+
+# ComfyUI's pruned-AdaLN curve table: 1025 timesteps x 8, F32, read by byte range from its pinned file.
+ADALN_T_TABLE = (
+    "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/e5eb578a89295337b8ff433a035929ce0279e0b6/"
+    "diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+    "adaln_t_table",
+    "c02a6c11888297688c1e6278185ea1f947023acfc69f9003bbcdcec9a229a8e7",
+)
+
+
+def fetch_range(url: str, start: int, length: int) -> bytes:
+    request = urllib.request.Request(url, headers={"Range": f"bytes={start}-{start + length - 1}"})
+    with urllib.request.urlopen(request, timeout=120) as response:
+        body = response.read()
+    if response.status != 206 or len(body) != length:
+        sys.exit(f"{url}: range {start}+{length} was not served")
+    return body
+
+
+def adaln_t_table() -> dict[str, Any]:
+    import base64
+
+    url, name, digest = ADALN_T_TABLE
+    (length,) = struct.unpack("<Q", fetch_range(url, 0, 8))
+    entry = json.loads(fetch_range(url, 8, length))[name]
+    begin, end = entry["data_offsets"]
+    body = fetch_range(url, 8 + length + begin, end - begin)
+    if hashlib.sha256(body).hexdigest() != digest or entry["dtype"] != "F32" or entry["shape"] != [1025, 8]:
+        sys.exit(f"{url}: {name} is not the pinned F32 [1025, 8] table")
+    return {"dtype": "F32", "shape": [1025, 8], "sha256": digest, "base64": base64.b64encode(body).decode()}
 
 
 # ------------------------------------------------------------------ SDXL LoRA
@@ -612,6 +701,37 @@ def seedvr2() -> dict[str, Any]:
     return {"name": "seedvr2", "files": {"config.json": {"architecture": "SeedVR2-7B"}}, "components": components}
 
 
+# ------------------------------------------------------------------ H3 latent upscaler
+
+# LBH-123-AI's 3D-conv latent upscaler node, unchanged, as NVlabs' Open-H3-Regenerate-2K vendors it.
+H3_UPSCALER_NODE = (
+    "https://raw.githubusercontent.com/NVlabs/Sana/6e4a44002149418a547434b91d7280a8bbdcace3/"
+    "models/Open-H3-Regenerate-2K/open_h3/upscaler_node.py",
+    "f5945b500ddb38afee23c377034bf15394ba64748511a7e9608953040c4be437",
+)
+
+
+def h3_latent_upscaler() -> dict[str, Any]:
+    """LBH's checkpoint as it is: rows in `LatentResizer3D`'s construction order, built from the
+    node's own code (its ComfyUI imports stubbed), against the banked header's key set."""
+    for name in ("folder_paths", "comfy", "comfy.model_management", "comfy_api", "comfy_api.latest"):
+        sys.modules.setdefault(name, types.ModuleType(name))
+    sys.modules["folder_paths"].folder_names_and_paths = {"latent_upscale_models": ([], set())}
+    sys.modules["folder_paths"].models_dir = tempfile.mkdtemp()
+    with tempfile.NamedTemporaryFile("wb", suffix=".py", delete=False) as f:
+        f.write(fetch(*H3_UPSCALER_NODE))
+    spec = importlib.util.spec_from_file_location("h3_upscaler_node", f.name)
+    node = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(node)
+    keys = header(VECTORS / "h3-latent-upscaler-headers" / "minimax_h3_latent_upscaler_3d_conv_v1_bf16.safetensors.header")
+    config = node._detect_arch({k: torch.empty(shape, device="meta") for k, (_, shape) in keys.items()})
+    with torch.device("meta"):
+        census = list(node.LatentResizer3D(**config).state_dict())
+    assert sorted(census) == sorted(keys), "the upscaler's header is not LatentResizer3D's state_dict"
+    return {"name": "h3.latent_upscaler", "files": {"config.json": {"architecture": "minimax-h3-latent-upscaler-3d-conv-v1"}},
+            "components": [{"name": "upscaler", "rows": [[k] for k in census]}]}
+
+
 # ------------------------------------------------------------------ Ideogram 4
 
 # Diffusers #14126's `convert_ideogram4_transformer_checkpoint_to_diffusers` (`attention.o` ->
@@ -732,6 +852,7 @@ def generate() -> dict[str, dict[str, Any]]:
         "sdxl.lora": sdxl_lora(sdxl, layers, unet),
         "krea2.lora": krea2_lora(),
         "seedvr2": seedvr2(),
+        "h3.latent_upscaler": h3_latent_upscaler(),
         "ideogram4.fp8": ideogram4(),
         **{name: qwen_moe(name, pinned) for name, pinned in QWEN_MOE.items()},
     }

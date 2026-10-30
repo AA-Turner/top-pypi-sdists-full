@@ -356,7 +356,8 @@ def test_a_rewind_of_a_finished_incumbent_is_a_plain_reopen(app, tmp_path, sleep
 
 def test_without_the_barrier_the_backlog_is_fenced(app, tmp_path, monkeypatch, sleeps):
     """Negative control for the tests above: skip the drain and the reopen's
-    new epoch refuses all 50 queued steps."""
+    new epoch refuses all 50 queued steps. They are set aside in discarded/,
+    not dead-lettered: no retry can ever land them (T24)."""
     old, pod2 = _requeue_scenario(app, tmp_path)
     monkeypatch.setattr(
         client_mod.Client, "_drain_before_takeover", lambda self, old: None, raising=False
@@ -365,7 +366,8 @@ def test_without_the_barrier_the_backlog_is_fenced(app, tmp_path, monkeypatch, s
     _launch(pod2)
     pod2.flush()
 
-    assert len(pod2.journal.failed()) == 50
+    assert pod2.journal.failed() == []
+    assert len(list((pod2.journal.dir / "discarded").glob("*.json"))) == 50
     # The drain merges a run's queued metric writes into one POST (plan 1.2),
     # so the fence refuses them in one request: count the writes, not requests.
     assert app.fenced_writes and not app.metric_points_posted.get(old.id)

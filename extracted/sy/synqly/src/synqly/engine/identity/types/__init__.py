@@ -11,7 +11,10 @@ if typing.TYPE_CHECKING:
     from .get_user_response import GetUserResponse
     from .group_id import GroupId
     from .query_groups_response import QueryGroupsResponse
+    from .query_identity_access_grants_response import QueryIdentityAccessGrantsResponse
+    from .query_identity_applications_response import QueryIdentityApplicationsResponse
     from .query_identity_audit_log_response import QueryIdentityAuditLogResponse
+    from .query_identity_policies_response import QueryIdentityPoliciesResponse
     from .query_identity_risk_events_response import QueryIdentityRiskEventsResponse
     from .query_identity_risky_users_response import QueryIdentityRiskyUsersResponse
     from .query_users_response import QueryUsersResponse
@@ -22,7 +25,10 @@ _dynamic_imports: typing.Dict[str, str] = {
     "GetUserResponse": ".get_user_response",
     "GroupId": ".group_id",
     "QueryGroupsResponse": ".query_groups_response",
+    "QueryIdentityAccessGrantsResponse": ".query_identity_access_grants_response",
+    "QueryIdentityApplicationsResponse": ".query_identity_applications_response",
     "QueryIdentityAuditLogResponse": ".query_identity_audit_log_response",
+    "QueryIdentityPoliciesResponse": ".query_identity_policies_response",
     "QueryIdentityRiskEventsResponse": ".query_identity_risk_events_response",
     "QueryIdentityRiskyUsersResponse": ".query_identity_risky_users_response",
     "QueryUsersResponse": ".query_users_response",
@@ -57,7 +63,10 @@ __all__ = [
     "GetUserResponse",
     "GroupId",
     "QueryGroupsResponse",
+    "QueryIdentityAccessGrantsResponse",
+    "QueryIdentityApplicationsResponse",
     "QueryIdentityAuditLogResponse",
+    "QueryIdentityPoliciesResponse",
     "QueryIdentityRiskEventsResponse",
     "QueryIdentityRiskyUsersResponse",
     "QueryUsersResponse",

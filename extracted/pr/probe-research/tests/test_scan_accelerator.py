@@ -16,6 +16,7 @@ import json
 import math
 import random
 import re
+import tracemalloc
 import urllib.parse
 
 import pytest
@@ -249,3 +250,129 @@ def test_a_sensitive_pair_nested_in_a_plain_value_is_read():
     text = pad + " config='api_key=abc' " + pad
     assert gate._findings(text) == ((), (gate.FIELD_NAME_RULE,))
     assert gate._findings(text, _reference()) == gate._findings(text)
+
+
+# --- Issue 3611: memory follows the text, never the number of escapes --------
+
+
+def test_unquote_matches_urllib_across_long_runs():
+    """A run past `_PERCENT_RUN`'s 4096 escapes arrives as several matches,
+    decoded through one incremental decoder: a multi-byte character, or an
+    invalid sequence, across that seam decodes as in one piece."""
+    r = random.Random(3)
+    for text in ("日本語" * 3_000, "é" * 5_000 + "x", "\U0001f600" * 2_000):
+        quoted = urllib.parse.quote(text)
+        assert redaction._unquote(quoted) == urllib.parse.unquote(quoted) == text
+    for _ in range(5):
+        raw = r.randbytes(r.randint(4_000, 20_000))
+        blob = "".join(f"%{b:02X}" for b in raw) + "x" + "%e6%97" * 3_000
+        assert redaction._unquote(blob) == urllib.parse.unquote(blob)
+
+
+def test_decode_escapes_matches_the_substitution():
+    def substituted(value: str) -> str:
+        return redaction._UNICODE_ESCAPE.sub(lambda m: chr(int(m.group(1), 16)), redaction._unquote(value))
+
+    r = random.Random(4)
+    pieces = ["\\u4e00", "\\u00e9", "\\uD83D", "\\u", "x", "%41", "%e4%b8", "%80", "\\\\", "u12", " "]
+    for _ in range(5_000):
+        value = "".join(r.choice(pieces) for _ in range(r.randint(0, 30)))
+        assert redaction._decode_escapes(value) == substituted(value)
+    long = "\\u4e00x" * 20_000 + "%e6%97%a5" * 9_000
+    assert redaction._decode_escapes(long) == substituted(long)
+
+
+def test_neighbourhoods_merge_as_merge_does():
+    r = random.Random(5)
+    for _ in range(500):
+        text = "".join(r.choice("ab%41 ") for _ in range(r.randint(0, 400)))
+        reach = r.randint(0, 30)
+        matches = list(re.finditer(r"%41", text))
+        expected = redaction._merge(
+            [(max(0, m.start() - reach), min(len(text), m.end() + reach)) for m in matches]
+        )
+        assert list(redaction._neighbourhoods(iter(matches), len(text), reach)) == expected
+
+
+def test_only_escape_dense_text_skips_the_accelerator():
+    accel = object()
+    limit = "x" * 6_400 + "%41" * 104  # 104 escapes in 6,712 characters: the limit
+    assert redaction.scan_accelerator(limit, accel) is accel
+    assert redaction.scan_accelerator(limit + "%41", accel) is None
+    # Ordinary escaped text keeps the accelerator (one escape per 119
+    # characters: 0.41 s accelerated against 1.43 s windowed, per 4 MiB).
+    assert redaction.scan_accelerator(("x" * 116 + "%41") * 1_000, accel) is accel
+    assert redaction.scan_accelerator(json.dumps("日本語" * 2_000), accel) is None
+    assert redaction.scan_accelerator("x" * 10_000, None) is None
+
+
+def test_a_document_too_big_to_parse_is_read_as_text(monkeypatch):
+    """A `MemoryError` from parsing a JSON document (the multipart verifier's
+    memory cap) sends the key-name tier to its text passes, not to a refusal
+    that drops every finding the inspection already made."""
+    document = json.dumps([{"api_key": 12345}] + [{}] * 3_000)
+    assert redaction.scrub_changes(document, accel=_reference()) is True
+
+    def boom(*_args, **_kwargs):
+        raise MemoryError
+
+    monkeypatch.setattr(redaction, "json", type("json", (), {"loads": staticmethod(boom)}))
+    assert redaction.scrub_changes(document, accel=_reference()) is True
+    assert gate._findings(document, _reference()) == ((), (gate.FIELD_NAME_RULE,))
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        json.dumps(["日本語のテキスト" * 2_000, f"token={_GHP}", "テキスト" * 2_000]),
+        "%41" * 20_000 + " " + urllib.parse.quote(f"token={_GHP}") + " " + "%41" * 20_000,
+        # Double-encoded: the key-name tier's own scan of the decoded view.
+        urllib.parse.quote(urllib.parse.quote(f"token={_GHP}") * 5_000),
+        "%41" * 30_000 + " config='api_key=abc' ",
+    ],
+)
+def test_escape_dense_text_gets_the_exact_answer(text):
+    assert redaction.scan_accelerator(text, _reference()) is None
+    fast = gate._findings(text, _reference())
+    assert (set(fast[0]), set(fast[1])) == tuple(map(set, gate._findings(text)))
+    assert fast != ((), ())
+
+
+@pytest.mark.parametrize(
+    ("text", "decoded", "bound_mib"),
+    [("%41" * 300_000, 300_000, 6), ("\\u4e00" * 1_200_000, 1_200_000, 24)],
+)
+def test_the_key_name_tier_decodes_escapes_in_bounded_memory(text, decoded, bound_mib):
+    """`(?:%XX)+` kept regex backtracking state per escape (39 MiB for these
+    300K `%41`), and `\\uXXXX` past U+00FF a new string each until the end of
+    the substitution (81-100 MiB for these 1.2M). Now ~1 MiB and 5-10 MiB: on
+    Python 3.10/3.11 `io.StringIO` holds up to 100K pieces (~8 MB) before it
+    joins them, a constant, not a cost per escape."""
+    tracemalloc.start()
+    try:
+        out = redaction._decode_escapes(text)
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    assert len(out) == decoded
+    assert peak < bound_mib * 2**20, f"{peak / 2**20:.1f} MiB"
+
+
+def test_an_opaque_blob_is_read_in_overlapping_windows(monkeypatch):
+    """Bytes no decode reads as text are read through their ASCII-preserving
+    view a window at a time (`_OPAQUE_WINDOW`, shrunk here): a credential across
+    a seam is read whole, and the answer is the whole view's."""
+    monkeypatch.setattr(gate, "_OPAQUE_WINDOW", 200_000)
+    r = random.Random(6)
+    data = bytearray(r.randbytes(600_000))
+    for offset, snippet in {199_990: f"token={_GHP}", 450_000: 'password = "bAtLWMRYlGyzWo"'}.items():
+        data[offset:offset + len(snippet) + 2] = f" {snippet} ".encode()
+    data = bytes(data)
+    seen: list[int] = []
+    findings = gate._findings
+    monkeypatch.setattr(gate, "_findings", lambda text, accel=None: seen.append(len(text)) or findings(text, accel))
+    result = gate.inspect_bytes(data, scan_policy=gate.ScanPolicy())
+    assert max(seen) <= 200_000, "the view was never built whole"
+    whole = findings(data.decode("utf-8", errors="replace"))
+    assert {"github-token", "anchored-secret"} <= set(result.rules)
+    assert set(result.rules) == set(whole[0]) | set(whole[1])

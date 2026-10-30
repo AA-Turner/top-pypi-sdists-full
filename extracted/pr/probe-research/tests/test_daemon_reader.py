@@ -223,6 +223,8 @@ def test_what_the_main_agent_reads_is_the_approved_text():
     assert daemon_cli.ASK_NO_WORKER == ask["ASKED, DAEMON NOT RUNNING"]
     assert daemon_cli.ASK_FINISHING == ask["ASKED, PREVIOUS SESSION STILL FINISHING"]
     assert daemon_cli.ASK_NO_DAEMON == ask["NOT ASKED, NO DAEMON ON THIS MACHINE"]
+    assert daemon_cli.ASK_NO_HOOKS == ask["NOT ASKED, HOOKS NEVER RAN"]
+    assert daemon_cli.ASK_WRITER_NO_MARKER == ask["WRITER, NOT ASKED, NO MARKER"]
     assert daemon_cli.ASK_SESSION_OFF == ask["NOT ASKED, SESSION OFF"]
     assert daemon_cli.ASK_NO_SESSION == ask["NOT ASKED, NO SESSION"]
     assert daemon_cli.ASK_EMPTY == ask["NOT ASKED, EMPTY"]

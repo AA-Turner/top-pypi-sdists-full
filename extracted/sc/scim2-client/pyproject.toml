@@ -1,10 +1,10 @@
 [build-system]
-requires = ["uv_build>=0.12.13,<0.13.0"]
+requires = ["uv_build>=0.12.13,<0.14.0"]
 build-backend = "uv_build"
 
 [project]
 name = "scim2-client"
-version = "0.13.2"
+version = "0.14.1"
 description = "Pythonically build SCIM requests and parse SCIM responses"
 readme = "README.md"
 keywords = [
@@ -18,11 +18,12 @@ keywords = [
 ]
 classifiers = [
     "Intended Audience :: Developers",
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: Implementation :: CPython",
     "License :: OSI Approved :: Apache Software License",
     "Environment :: Web Environment",
@@ -30,7 +31,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 requires-python = ">= 3.11"
-dependencies = ["scim2-models>=0.10.1"]
+dependencies = ["scim2-models>=0.12.4"]
 
 [[project.authors]]
 name = "Yaal Coop"
@@ -134,6 +135,7 @@ env_list = [
     "py312",
     "py313",
     "py314",
+    "py315",
     "minversions",
     "doc",
     "coverage",

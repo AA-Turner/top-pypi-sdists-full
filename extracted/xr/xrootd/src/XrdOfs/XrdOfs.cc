@@ -296,8 +296,8 @@ int XrdOfsDirectory::open(const char              *dir_path, // In
 //
    std::string eText;
    const char* etP = 0;
-   if (dp && XrdOfsFS->tryXERT)
-      {if (dp->getErrMsg(eText)) etP = eText.c_str();
+   if (dp)
+      {if (XrdOfsFS->tryXERT && dp->getErrMsg(eText)) etP = eText.c_str();
        delete dp; dp = 0;
       }
 
@@ -944,6 +944,10 @@ int XrdOfsFile::close()  // In
             if (hP->isRW == XrdOfsHandle::opPC) OfsStats.Data.numOpenP--;
            }
    OfsStats.sdMutex.UnLock();
+
+// Do an fsync() on this file prior to closing if it was open r/w
+//
+   if (ocFsync && hP->isRW) hP->Select().Fsync(); // Ignore errors
 
 // If this file was tagged as a POSC then we need to make sure it will persist
 // Note that we unpersist the file immediately when it's inactive or if no hold

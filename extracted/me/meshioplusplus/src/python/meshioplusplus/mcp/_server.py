@@ -726,6 +726,7 @@ def _register_operations(server: FastMCP) -> None:
         split: str = "zigzag",
         order: int = 1,
         max_cells: int = 20000000,
+        complete: bool = False,
     ) -> dict:
         """Generate a regular 2-D grid of dims=(nx, ny) quads or triangles at
         z = origin[2]. split (triangles) is zigzag, up, down or center; order=2
@@ -742,6 +743,7 @@ def _register_operations(server: FastMCP) -> None:
             split=split,
             order=order,
             max_cells=max_cells,
+            complete=complete,
         )
 
     @server.tool()
@@ -754,6 +756,7 @@ def _register_operations(server: FastMCP) -> None:
         cell_type: str = "hexahedron",
         order: int = 1,
         max_cells: int = 20000000,
+        complete: bool = False,
     ) -> dict:
         """Generate a regular 3-D grid of dims=(nx, ny, nz) hexahedra, tetrahedra
         (six Kuhn tetrahedra per cell) or wedges. order=2 gives hexahedron20,
@@ -769,6 +772,7 @@ def _register_operations(server: FastMCP) -> None:
             cell_type=cell_type,
             order=order,
             max_cells=max_cells,
+            complete=complete,
         )
 
     @server.tool()
@@ -781,6 +785,7 @@ def _register_operations(server: FastMCP) -> None:
         cell_type: str = "quad",
         order: int = 1,
         max_cells: int = 20000000,
+        complete: bool = False,
     ) -> dict:
         """Generate a disk of quads (an n x n grid pushed onto the disk) or
         triangles (n rings, 6 n^2 triangles). order=2 curves the rim. The mesh
@@ -795,6 +800,7 @@ def _register_operations(server: FastMCP) -> None:
             cell_type=cell_type,
             order=order,
             max_cells=max_cells,
+            complete=complete,
         )
 
     @server.tool()
@@ -808,6 +814,7 @@ def _register_operations(server: FastMCP) -> None:
         cell_type: str = "triangle",
         order: int = 1,
         max_cells: int = 20000000,
+        complete: bool = False,
     ) -> dict:
         """Generate a latitude/longitude sphere surface with nu points per ring and
         nv bands, oriented outward. cell_type is triangle, or quad with triangle
@@ -824,6 +831,7 @@ def _register_operations(server: FastMCP) -> None:
             cell_type=cell_type,
             order=order,
             max_cells=max_cells,
+            complete=complete,
         )
 
     @server.tool()
@@ -835,6 +843,7 @@ def _register_operations(server: FastMCP) -> None:
         center: Optional[List[float]] = None,
         order: int = 1,
         max_cells: int = 20000000,
+        complete: bool = False,
     ) -> dict:
         """Generate a sphere surface from an icosahedron split in four
         `subdivisions` times (20 * 4^subdivisions triangles), oriented outward.
@@ -849,6 +858,7 @@ def _register_operations(server: FastMCP) -> None:
             center=center,
             order=order,
             max_cells=max_cells,
+            complete=complete,
         )
 
     @server.tool()
@@ -863,6 +873,7 @@ def _register_operations(server: FastMCP) -> None:
         cell_type: str = "hexahedron",
         order: int = 1,
         max_cells: int = 20000000,
+        complete: bool = False,
     ) -> dict:
         """Generate a solid cylinder along z: hexahedra (the disk grid, extruded)
         or wedges. order=2 curves the side. The mesh carries side regions side,
@@ -879,6 +890,7 @@ def _register_operations(server: FastMCP) -> None:
             cell_type=cell_type,
             order=order,
             max_cells=max_cells,
+            complete=complete,
         )
 
     @server.tool()
@@ -890,6 +902,7 @@ def _register_operations(server: FastMCP) -> None:
         origin: Optional[List[float]] = None,
         order: int = 1,
         max_cells: int = 20000000,
+        complete: bool = False,
     ) -> dict:
         """Generate the reference triangle (0,0) (1,0) (0,1), scaled by size and
         refined into n*n triangles in barycentric lattice order. The mesh carries
@@ -904,6 +917,7 @@ def _register_operations(server: FastMCP) -> None:
             origin=origin,
             order=order,
             max_cells=max_cells,
+            complete=complete,
         )
 
     @server.tool()
@@ -916,6 +930,7 @@ def _register_operations(server: FastMCP) -> None:
         center: Optional[List[float]] = None,
         order: int = 1,
         max_cells: int = 20000000,
+        complete: bool = False,
     ) -> dict:
         """Generate a regular polygon of `sides` sides fanned from its centre
         (rings=1), or refined into `rings` rings of triangles. The mesh carries a
@@ -930,6 +945,7 @@ def _register_operations(server: FastMCP) -> None:
             center=center,
             order=order,
             max_cells=max_cells,
+            complete=complete,
         )
 
     @server.tool()
@@ -945,6 +961,7 @@ def _register_operations(server: FastMCP) -> None:
         cell_type: str = "quad",
         order: int = 1,
         max_cells: int = 20000000,
+        complete: bool = False,
     ) -> dict:
         """Generate an annulus of ntheta x nr quads or triangles, or a sector of
         `angle` radians whose two end rays stay separate node chains (the seam
@@ -964,6 +981,7 @@ def _register_operations(server: FastMCP) -> None:
             cell_type=cell_type,
             order=order,
             max_cells=max_cells,
+            complete=complete,
         )
 
     @server.tool()
@@ -976,6 +994,7 @@ def _register_operations(server: FastMCP) -> None:
         cell_type: str = "quad",
         order: int = 1,
         max_cells: int = 20000000,
+        complete: bool = False,
     ) -> dict:
         """Generate the L-shaped domain: the square of side `size` minus its
         fourth quadrant, with the re-entrant corner at the centre (a singular
@@ -992,6 +1011,7 @@ def _register_operations(server: FastMCP) -> None:
             cell_type=cell_type,
             order=order,
             max_cells=max_cells,
+            complete=complete,
         )
 
     @server.tool()
@@ -1006,6 +1026,7 @@ def _register_operations(server: FastMCP) -> None:
         cell_type: str = "quad",
         order: int = 1,
         max_cells: int = 20000000,
+        complete: bool = False,
     ) -> dict:
         """Generate a square plate of side `size` around a circular hole of
         `radius`, in four quad blocks (the stress-concentration benchmark).
@@ -1023,6 +1044,7 @@ def _register_operations(server: FastMCP) -> None:
             cell_type=cell_type,
             order=order,
             max_cells=max_cells,
+            complete=complete,
         )
 
     @server.tool()
@@ -1046,6 +1068,613 @@ def _register_operations(server: FastMCP) -> None:
             edge=edge,
             origin=origin,
             max_cells=max_cells,
+        )
+
+    @server.tool()
+    def line(
+        output_path: str,
+        output_format: Optional[str] = None,
+        n: int = 8,
+        start: Optional[List[float]] = None,
+        end: Optional[List[float]] = None,
+        order: int = 1,
+        max_cells: int = 20000000,
+        complete: bool = False,
+    ) -> dict:
+        """Generate a straight segment of n line cells from start to end (default
+        the origin to (1, 0, 0)), a 1-D and beam-format fixture. The mesh
+        carries point regions start and end. Reads no input mesh: it creates
+        one."""
+        return _guard(
+            _tools.tool_line,
+            output_path=output_path,
+            output_format=output_format,
+            n=n,
+            start=start,
+            end=end,
+            order=order,
+            max_cells=max_cells,
+            complete=complete,
+        )
+
+    @server.tool()
+    def circle(
+        output_path: str,
+        output_format: Optional[str] = None,
+        radius: float = 1.0,
+        n: int = 16,
+        center: Optional[List[float]] = None,
+        order: int = 1,
+        max_cells: int = 20000000,
+        complete: bool = False,
+    ) -> dict:
+        """Generate a closed polyline of n line cells on a circle in the z =
+        center[2] plane, the seam welded. order=2 puts the mid-edge nodes on the
+        arc. Reads no input mesh: it creates one."""
+        return _guard(
+            _tools.tool_circle,
+            output_path=output_path,
+            output_format=output_format,
+            radius=radius,
+            n=n,
+            center=center,
+            order=order,
+            max_cells=max_cells,
+            complete=complete,
+        )
+
+    @server.tool()
+    def helix(
+        output_path: str,
+        output_format: Optional[str] = None,
+        radius: float = 1.0,
+        pitch: float = 1.0,
+        turns: float = 2.0,
+        n: int = 32,
+        center: Optional[List[float]] = None,
+        order: int = 1,
+        max_cells: int = 20000000,
+        complete: bool = False,
+    ) -> dict:
+        """Generate a helix (a spring) of n line cells around the z axis: turns
+        turns rising pitch per turn. The mesh carries point regions start and
+        end. Reads no input mesh: it creates one."""
+        return _guard(
+            _tools.tool_helix,
+            output_path=output_path,
+            output_format=output_format,
+            radius=radius,
+            pitch=pitch,
+            turns=turns,
+            n=n,
+            center=center,
+            order=order,
+            max_cells=max_cells,
+            complete=complete,
+        )
+
+    @server.tool()
+    def sphere_points(
+        output_path: str,
+        output_format: Optional[str] = None,
+        n: int = 100,
+        radius: float = 1.0,
+        center: Optional[List[float]] = None,
+        max_cells: int = 20000000,
+    ) -> dict:
+        """Generate n points on a sphere on a Fibonacci lattice, as vertex cells: a
+        point-cloud fixture without poles or seams. Reads no input mesh: it
+        creates one."""
+        return _guard(
+            _tools.tool_sphere_points,
+            output_path=output_path,
+            output_format=output_format,
+            n=n,
+            radius=radius,
+            center=center,
+            max_cells=max_cells,
+        )
+
+    @server.tool()
+    def box_points(
+        output_path: str,
+        output_format: Optional[str] = None,
+        n: int = 100,
+        size: Optional[List[float]] = None,
+        origin: Optional[List[float]] = None,
+        seed: int = 0,
+        max_cells: int = 20000000,
+    ) -> dict:
+        """Generate n points drawn uniformly in a box from splitmix64 seeded with
+        seed, as vertex cells: the same cloud on every platform and binding.
+        Reads no input mesh: it creates one."""
+        return _guard(
+            _tools.tool_box_points,
+            output_path=output_path,
+            output_format=output_format,
+            n=n,
+            size=size,
+            origin=origin,
+            seed=seed,
+            max_cells=max_cells,
+        )
+
+    @server.tool()
+    def tetra_sphere(
+        output_path: str,
+        output_format: Optional[str] = None,
+        radius: float = 1.0,
+        subdivisions: int = 3,
+        center: Optional[List[float]] = None,
+        order: int = 1,
+        max_cells: int = 20000000,
+        complete: bool = False,
+    ) -> dict:
+        """Generate a sphere surface from a regular tetrahedron split in four
+        subdivisions times (4 * 4**subdivisions triangles), the most uneven
+        seed: a mesh-quality probe. Reads no input mesh: it creates one."""
+        return _guard(
+            _tools.tool_tetra_sphere,
+            output_path=output_path,
+            output_format=output_format,
+            radius=radius,
+            subdivisions=subdivisions,
+            center=center,
+            order=order,
+            max_cells=max_cells,
+            complete=complete,
+        )
+
+    @server.tool()
+    def octa_sphere(
+        output_path: str,
+        output_format: Optional[str] = None,
+        radius: float = 1.0,
+        subdivisions: int = 2,
+        center: Optional[List[float]] = None,
+        order: int = 1,
+        max_cells: int = 20000000,
+        complete: bool = False,
+    ) -> dict:
+        """Generate a sphere surface from a regular octahedron split in four
+        subdivisions times (8 * 4**subdivisions triangles), with the six axis
+        points exact. Reads no input mesh: it creates one."""
+        return _guard(
+            _tools.tool_octa_sphere,
+            output_path=output_path,
+            output_format=output_format,
+            radius=radius,
+            subdivisions=subdivisions,
+            center=center,
+            order=order,
+            max_cells=max_cells,
+            complete=complete,
+        )
+
+    @server.tool()
+    def cube_sphere(
+        output_path: str,
+        output_format: Optional[str] = None,
+        radius: float = 1.0,
+        n: int = 4,
+        center: Optional[List[float]] = None,
+        cell_type: str = "quad",
+        order: int = 1,
+        max_cells: int = 20000000,
+        complete: bool = False,
+    ) -> dict:
+        """Generate a sphere surface from a cube's six faces of n x n quads (or
+        triangles) pushed radially onto the sphere. Reads no input mesh: it
+        creates one."""
+        return _guard(
+            _tools.tool_cube_sphere,
+            output_path=output_path,
+            output_format=output_format,
+            radius=radius,
+            n=n,
+            center=center,
+            cell_type=cell_type,
+            order=order,
+            max_cells=max_cells,
+            complete=complete,
+        )
+
+    @server.tool()
+    def geo_sphere(
+        output_path: str,
+        output_format: Optional[str] = None,
+        radius: float = 1.0,
+        n: int = 4,
+        center: Optional[List[float]] = None,
+        order: int = 1,
+        max_cells: int = 20000000,
+        complete: bool = False,
+    ) -> dict:
+        """Generate a geodesic sphere of frequency n: every icosahedron face cut
+        into an n x n triangle lattice (20 n**2 triangles) on the sphere. Reads
+        no input mesh: it creates one."""
+        return _guard(
+            _tools.tool_geo_sphere,
+            output_path=output_path,
+            output_format=output_format,
+            radius=radius,
+            n=n,
+            center=center,
+            order=order,
+            max_cells=max_cells,
+            complete=complete,
+        )
+
+    @server.tool()
+    def torus(
+        output_path: str,
+        output_format: Optional[str] = None,
+        major_radius: float = 1.0,
+        minor_radius: float = 0.25,
+        nu: int = 32,
+        nv: int = 16,
+        center: Optional[List[float]] = None,
+        cell_type: str = "quad",
+        order: int = 1,
+        max_cells: int = 20000000,
+        complete: bool = False,
+    ) -> dict:
+        """Generate a torus around the z axis, periodic both ways and welded: genus
+        one (Euler characteristic zero), with negative Gaussian curvature on the
+        inner rim. Reads no input mesh: it creates one."""
+        return _guard(
+            _tools.tool_torus,
+            output_path=output_path,
+            output_format=output_format,
+            major_radius=major_radius,
+            minor_radius=minor_radius,
+            nu=nu,
+            nv=nv,
+            center=center,
+            cell_type=cell_type,
+            order=order,
+            max_cells=max_cells,
+            complete=complete,
+        )
+
+    @server.tool()
+    def moebius(
+        output_path: str,
+        output_format: Optional[str] = None,
+        radius: float = 1.0,
+        width: float = 0.5,
+        nu: int = 32,
+        nv: int = 4,
+        num_twists: int = 1,
+        center: Optional[List[float]] = None,
+        cell_type: str = "quad",
+        order: int = 1,
+        max_cells: int = 20000000,
+        complete: bool = False,
+    ) -> dict:
+        """Generate a Moebius band with num_twists half-twists: an odd count has no
+        consistent orientation (the compute_normals inconsistent_pairs probe).
+        The mesh carries a side region boundary. Reads no input mesh: it creates
+        one."""
+        return _guard(
+            _tools.tool_moebius,
+            output_path=output_path,
+            output_format=output_format,
+            radius=radius,
+            width=width,
+            nu=nu,
+            nv=nv,
+            num_twists=num_twists,
+            center=center,
+            cell_type=cell_type,
+            order=order,
+            max_cells=max_cells,
+            complete=complete,
+        )
+
+    @server.tool()
+    def tube(
+        output_path: str,
+        output_format: Optional[str] = None,
+        radius: float = 1.0,
+        height: float = 1.0,
+        ntheta: int = 16,
+        nz: int = 4,
+        center: Optional[List[float]] = None,
+        cell_type: str = "quad",
+        order: int = 1,
+        max_cells: int = 20000000,
+        complete: bool = False,
+    ) -> dict:
+        """Generate an open cylinder surface around the z axis, oriented outward.
+        The mesh carries side regions bottom and top. Reads no input mesh: it
+        creates one."""
+        return _guard(
+            _tools.tool_tube,
+            output_path=output_path,
+            output_format=output_format,
+            radius=radius,
+            height=height,
+            ntheta=ntheta,
+            nz=nz,
+            center=center,
+            cell_type=cell_type,
+            order=order,
+            max_cells=max_cells,
+            complete=complete,
+        )
+
+    @server.tool()
+    def cone(
+        output_path: str,
+        output_format: Optional[str] = None,
+        radius: float = 1.0,
+        height: float = 1.0,
+        ntheta: int = 16,
+        nz: int = 4,
+        center: Optional[List[float]] = None,
+        cell_type: str = "quad",
+        order: int = 1,
+        max_cells: int = 20000000,
+        complete: bool = False,
+    ) -> dict:
+        """Generate a closed cone surface, the base disk at center and the apex
+        height above it, the rim a sharp edge (a feature_edges probe). The mesh
+        carries cell regions side and base. Reads no input mesh: it creates one."""
+        return _guard(
+            _tools.tool_cone,
+            output_path=output_path,
+            output_format=output_format,
+            radius=radius,
+            height=height,
+            ntheta=ntheta,
+            nz=nz,
+            center=center,
+            cell_type=cell_type,
+            order=order,
+            max_cells=max_cells,
+            complete=complete,
+        )
+
+    @server.tool()
+    def capsule(
+        output_path: str,
+        output_format: Optional[str] = None,
+        radius: float = 0.5,
+        height: float = 1.0,
+        ntheta: int = 16,
+        nz: int = 4,
+        ncap: int = 4,
+        center: Optional[List[float]] = None,
+        cell_type: str = "quad",
+        order: int = 1,
+        max_cells: int = 20000000,
+        complete: bool = False,
+    ) -> dict:
+        """Generate a capsule: a cylinder of length height closed by two
+        hemispheres, smooth where they meet. Reads no input mesh: it creates
+        one."""
+        return _guard(
+            _tools.tool_capsule,
+            output_path=output_path,
+            output_format=output_format,
+            radius=radius,
+            height=height,
+            ntheta=ntheta,
+            nz=nz,
+            ncap=ncap,
+            center=center,
+            cell_type=cell_type,
+            order=order,
+            max_cells=max_cells,
+            complete=complete,
+        )
+
+    @server.tool()
+    def box_surface(
+        output_path: str,
+        output_format: Optional[str] = None,
+        dims: Optional[List[int]] = None,
+        size: Optional[List[float]] = None,
+        origin: Optional[List[float]] = None,
+        cell_type: str = "quad",
+        order: int = 1,
+        max_cells: int = 20000000,
+        complete: bool = False,
+    ) -> dict:
+        """Generate the boundary of a box as a closed surface, each face a grid,
+        oriented outward. The mesh carries cell regions xmin ... zmax, one per
+        face. Reads no input mesh: it creates one."""
+        return _guard(
+            _tools.tool_box_surface,
+            output_path=output_path,
+            output_format=output_format,
+            dims=dims,
+            size=size,
+            origin=origin,
+            cell_type=cell_type,
+            order=order,
+            max_cells=max_cells,
+            complete=complete,
+        )
+
+    @server.tool()
+    def platonic(
+        output_path: str,
+        output_format: Optional[str] = None,
+        name: str = "icosahedron",
+        radius: float = 1.0,
+        center: Optional[List[float]] = None,
+        max_cells: int = 20000000,
+    ) -> dict:
+        """Generate a platonic solid's surface with one cell per face: tetrahedron,
+        octahedron or icosahedron (triangles), cube (quads) or dodecahedron (a
+        polygon block of pentagons). Reads no input mesh: it creates one."""
+        return _guard(
+            _tools.tool_platonic,
+            output_path=output_path,
+            output_format=output_format,
+            name=name,
+            radius=radius,
+            center=center,
+            max_cells=max_cells,
+        )
+
+    @server.tool()
+    def ball(
+        output_path: str,
+        output_format: Optional[str] = None,
+        radius: float = 1.0,
+        n: int = 4,
+        center: Optional[List[float]] = None,
+        cell_type: str = "hexahedron",
+        order: int = 1,
+        max_cells: int = 20000000,
+        complete: bool = False,
+    ) -> dict:
+        """Generate a solid ball of hexahedra (or tetra) by the seven-block
+        butterfly, so no cell degenerates at the centre; n cells from the centre
+        to the surface. The mesh carries a side region surface. Reads no input
+        mesh: it creates one."""
+        return _guard(
+            _tools.tool_ball,
+            output_path=output_path,
+            output_format=output_format,
+            radius=radius,
+            n=n,
+            center=center,
+            cell_type=cell_type,
+            order=order,
+            max_cells=max_cells,
+            complete=complete,
+        )
+
+    @server.tool()
+    def spherical_shell(
+        output_path: str,
+        output_format: Optional[str] = None,
+        inner_radius: float = 0.5,
+        outer_radius: float = 1.0,
+        n: int = 4,
+        nr: int = 2,
+        ratio: float = 1.0,
+        center: Optional[List[float]] = None,
+        order: int = 1,
+        max_cells: int = 20000000,
+        complete: bool = False,
+    ) -> dict:
+        """Generate a thick spherical shell of hexahedra between two radii, nr
+        layers graded by ratio (each layer's thickness over the one inside it).
+        The mesh carries side regions inner and outer. Reads no input mesh: it
+        creates one."""
+        return _guard(
+            _tools.tool_spherical_shell,
+            output_path=output_path,
+            output_format=output_format,
+            inner_radius=inner_radius,
+            outer_radius=outer_radius,
+            n=n,
+            nr=nr,
+            ratio=ratio,
+            center=center,
+            order=order,
+            max_cells=max_cells,
+            complete=complete,
+        )
+
+    @server.tool()
+    def pipe(
+        output_path: str,
+        output_format: Optional[str] = None,
+        inner_radius: float = 0.5,
+        outer_radius: float = 1.0,
+        height: float = 1.0,
+        ntheta: int = 16,
+        nr: int = 2,
+        nz: int = 4,
+        ratio: float = 1.0,
+        center: Optional[List[float]] = None,
+        order: int = 1,
+        max_cells: int = 20000000,
+        complete: bool = False,
+    ) -> dict:
+        """Generate a thick-walled pipe of hexahedra around the z axis, nr layers
+        through the wall graded by ratio. The mesh carries side regions inner,
+        outer, bottom and top. Reads no input mesh: it creates one."""
+        return _guard(
+            _tools.tool_pipe,
+            output_path=output_path,
+            output_format=output_format,
+            inner_radius=inner_radius,
+            outer_radius=outer_radius,
+            height=height,
+            ntheta=ntheta,
+            nr=nr,
+            nz=nz,
+            ratio=ratio,
+            center=center,
+            order=order,
+            max_cells=max_cells,
+            complete=complete,
+        )
+
+    @server.tool()
+    def fichera(
+        output_path: str,
+        output_format: Optional[str] = None,
+        n: int = 2,
+        size: float = 2.0,
+        center: Optional[List[float]] = None,
+        cell_type: str = "hexahedron",
+        order: int = 1,
+        max_cells: int = 20000000,
+        complete: bool = False,
+    ) -> dict:
+        """Generate the Fichera corner: the cube of side size minus its positive
+        octant, the 3-D L-shape with a re-entrant vertex at the centre. The mesh
+        carries side regions xmin ... zmax, notch_x, notch_y and notch_z. Reads
+        no input mesh: it creates one."""
+        return _guard(
+            _tools.tool_fichera,
+            output_path=output_path,
+            output_format=output_format,
+            n=n,
+            size=size,
+            center=center,
+            cell_type=cell_type,
+            order=order,
+            max_cells=max_cells,
+            complete=complete,
+        )
+
+    @server.tool()
+    def solid_torus(
+        output_path: str,
+        output_format: Optional[str] = None,
+        major_radius: float = 1.0,
+        minor_radius: float = 0.25,
+        n: int = 4,
+        nu: int = 32,
+        center: Optional[List[float]] = None,
+        order: int = 1,
+        max_cells: int = 20000000,
+        complete: bool = False,
+    ) -> dict:
+        """Generate a solid torus of hexahedra: the squircle disk swept around the
+        z axis and welded. The mesh carries a side region surface. Reads no
+        input mesh: it creates one."""
+        return _guard(
+            _tools.tool_solid_torus,
+            output_path=output_path,
+            output_format=output_format,
+            major_radius=major_radius,
+            minor_radius=minor_radius,
+            n=n,
+            nu=nu,
+            center=center,
+            order=order,
+            max_cells=max_cells,
+            complete=complete,
         )
 
     @server.tool()
@@ -1104,6 +1733,7 @@ def _register_operations(server: FastMCP) -> None:
         attach_distance: bool = True,
         attach_quality: bool = False,
         pillow: bool = True,
+        hex_grading: str = "uniform",
         untangle_iterations: int = 50,
         max_cells: int = 20000000,
         max_tets: int = 100000000,
@@ -1123,6 +1753,8 @@ def _register_operations(server: FastMCP) -> None:
         winding_threshold, so holes and self-intersections are tolerated.
         skin_grading='uniform' keeps the skin at one level (the stuffing angle
         guarantee). fill='all'/'inside'/'cover' chooses the castellated leaves.
+        hex_grading='graded' grades the hexahedra with the octree (dual
+        transition schemes) instead of one grid at the skin's size.
         Reports the frame, leaf and cell counts, the quality (dihedral angles,
         scaled Jacobian, histograms), feature recovery, timings and warnings."""
         return _guard(
@@ -1162,6 +1794,7 @@ def _register_operations(server: FastMCP) -> None:
             attach_distance=attach_distance,
             attach_quality=attach_quality,
             pillow=pillow,
+            hex_grading=hex_grading,
             untangle_iterations=untangle_iterations,
             max_cells=max_cells,
             max_tets=max_tets,
@@ -1200,6 +1833,12 @@ def _register_operations(server: FastMCP) -> None:
         model_tolerances: bool = False,
         virtual_faces: bool = False,
         lop_corners: bool = False,
+        metric_background_path: Optional[str] = None,
+        metric_array: str = "",
+        metric_error: float = 0.0,
+        untangle: bool = False,
+        quads: str = "none",
+        quad_pairs: str = "matching",
     ) -> dict:
         """Triangulate the faces of a CAD model (Kratos CAD JSON; STEP and
         IGES where OpenCASCADE is linked) into one conforming surface mesh with
@@ -1245,23 +1884,46 @@ def _register_operations(server: FastMCP) -> None:
         allows. metric "varying" follows each face's metric as it varies
         instead of its mean; virtual_edges samples chains of short edges
         meeting smoothly as one, listed in virtual_edges.
-        reparam_condition_number (0: off; else above 1, order 1 only) meshes a
+        reparam_condition_number (0: off; else above 1; any order) meshes a
         face whose metric's condition number over its unrefined triangulation
         passes it in a flattening of that triangulation (a conformal map, or
         mean-value coordinates on a circle), every point still on the
         surface, listed in reparametrised (condition_number,
-        condition_number_disc, taken, method, reason); model_tolerances
-        accepts the gaps the model declares in its edges' extras (a STEP or
-        IGES read writes OpenCASCADE's), listed in tolerance_uses;
-        virtual_faces (order 1 only) meshes a face narrower than target_size
-        with the neighbour it meets tangentially along the most edge, each
-        triangle keeping its own face, listed in merged_faces; lop_corners
+        condition_number_disc, taken, method 'conformal', 'mean_value' or
+        'annulus' (a band between two circles), reason); model_tolerances
+        accepts the gaps the model declares in its edges' and vertices'
+        extras (a STEP or IGES read writes OpenCASCADE's) and the file's
+        tolerances.model_tolerance, which also pairs trims no edge names,
+        listed in tolerance_uses; virtual_faces (any order) meshes a face
+        narrower than target_size with the neighbour it meets tangentially
+        along the most edge, a chain of slivers joining the group the first
+        forms, each triangle keeping its own face, listed in merged_faces;
+        a metric_background_path mesh whose 9-component point_data
+        metric_array is a field's Hessian (hessian writes "<array>:hessian"),
+        or whose 1-component one is the field itself (its Hessian then
+        taken), with the target interpolation error metric_error, sizes the
+        triangles by the anisotropic metric R |L| R^T / (8 metric_error)
+        (Loseille and Alauzet 2011), triangles stretching where the field
+        varies in one direction only (any order; min_metric_angle reports
+        the least corner angle in the metric); lop_corners
         protects every acute corner by corner lopping (Pav and Walkington
         2005) in place of concentric shells, only with refinement, listed in
         lopped_corners (angle_deg, lfs0, lop_radius, turning_deg,
         stated_bound_deg, num_forced, min_forced_deg, within_two_radii,
         guaranteed, reason): the angle bound the paper proves on a planar
-        face, and whether the run meets it."""
+        face, and whether the run meets it. untangle (order 2 or 3) moves a
+        face's own high-order nodes on the surface to untangle a folded curved
+        element before it is straightened (Toulorge et al. 2013), then slides
+        the nodes on the model's edges (quads' nodes too), counted in
+        num_untangled. quads 'dominant' recombines each face's triangles in
+        pairs into a quad block beside the triangles left; 'all' splits the
+        quad-dominant mesh of twice the size (its size sources, a metric
+        included, asked for twice their size) through its edges' midpoints
+        into quads only, and takes no virtual_edges; with order 2 or 3 either
+        writes curved quad9 or quad16 beside triangle6 or triangle10;
+        quad_pairs 'matching' (the default, a maximum matching, Blossom-quad)
+        or 'greedy' (best pair first) pairs them; reported as num_quads,
+        num_leftover_triangles and min_quad_scaled_jacobian."""
         return _guard(
             _tools.tool_mesh_cad_surface,
             input_path=input_path,
@@ -1295,6 +1957,12 @@ def _register_operations(server: FastMCP) -> None:
             model_tolerances=model_tolerances,
             virtual_faces=virtual_faces,
             lop_corners=lop_corners,
+            metric_background_path=metric_background_path,
+            metric_array=metric_array,
+            metric_error=metric_error,
+            untangle=untangle,
+            quads=quads,
+            quad_pairs=quad_pairs,
         )
 
     @server.tool()
@@ -1382,10 +2050,12 @@ def _register_operations(server: FastMCP) -> None:
         attach_occupancy: bool = False,
         max_cells: int = 20000000,
         sign: str = "pseudonormal",
+        plane: str = "auto",
     ) -> dict:
         """Build a regular hexahedron grid around a mesh. Give exactly one of
         resolution (nx, ny, nz; nx, ny selects 2-D quad pixels around a planar
-        polyline) or cell_size. fill='all' keeps the whole bounding
+        polyline, in plane 'xy', 'xz' or 'yz', 'auto' taking the axis of zero
+        extent) or cell_size. fill='all' keeps the whole bounding
         box, 'surface' keeps only cells a triangle passes through, and 'inside'
         keeps only cells whose centre is inside the surface. Reports the lattice
         origin/spacing/dims and how many cells were kept."""
@@ -1404,6 +2074,7 @@ def _register_operations(server: FastMCP) -> None:
             attach_occupancy=attach_occupancy,
             max_cells=max_cells,
             sign=sign,
+            plane=plane,
         )
 
     @server.tool()
@@ -1929,6 +2600,37 @@ def _register_operations(server: FastMCP) -> None:
             max_inverted=max_inverted,
             max_degenerate=max_degenerate,
             file_format=file_format,
+        )
+
+    @server.tool()
+    def check_conformity(
+        input_path: str,
+        output_path: Optional[str] = None,
+        file_format: Optional[str] = None,
+        output_format: Optional[str] = None,
+        tolerance: float = 1e-9,
+    ) -> dict:
+        """Whether a mesh is conforming: every two cells meet in a whole
+        shared face, edge or corner with the same point ids.
+
+        Examines the volume cells (else the 2-D cells). Reports
+        num_hanging_nodes (a point on a volume cell's face or edge that the
+        cell does not use), num_t_junctions (the same on a 2-D cell's edge),
+        num_partial_overlaps (unmatched facets in one plane overlapping over a
+        positive area), num_unwelded_facets (coincident facets with different
+        point ids), num_boundary_facets, num_non_manifold_facets, conforming,
+        warnings and interface_mode: "conforming", "weld" (merge the
+        coincident points first) or "proximity" -- the find_interface mode
+        that suits the mesh. tolerance is a fraction of the examined facets'
+        bounding-box diagonal. Pass output_path to write the mesh with
+        conformity:hanging point_data (1 hanging node, 2 T-junction)."""
+        return _guard(
+            _tools.tool_check_conformity,
+            input_path=input_path,
+            output_path=output_path,
+            file_format=file_format,
+            output_format=output_format,
+            tolerance=tolerance,
         )
 
     @server.tool()
@@ -2829,6 +3531,49 @@ def _register_operations(server: FastMCP) -> None:
         )
 
     @server.tool()
+    def error_size(
+        input_path: str,
+        output_path: str,
+        target_error: float,
+        input_format: Optional[str] = None,
+        output_format: Optional[str] = None,
+        error_array: str = "error:zz",
+        order: float = 1.0,
+        min_size: float = 0.0,
+        max_size: float = 0.0,
+        output: str = "size",
+        overwrite: bool = False,
+    ) -> dict:
+        """A per-point size field from a per-cell error indicator (roadmap
+        6.10.2), by the adaptive procedure of Zienkiewicz and Zhu (1987).
+
+        With N cells evaluated and the target global error target_error, a
+        cell of diameter h whose one-component cell_data indicator
+        error_array (estimate_error writes "error:zz") is eta asks
+        h * (target_error / sqrt(N) / eta)**(1 / order), order being the
+        indicator's rate in the cell size (1 for linear elements), clamped to
+        [min_size, max_size] (0: no bound); a point takes the least of its
+        cells' (NaN where none is evaluated). The sizes are written as
+        point_data output (default "size", what mesh_cad_surface's
+        background_array reads), so estimate_error -> error_size ->
+        mesh_cad_surface(background_path=...) closes the adaptive loop.
+        Reports num_cells, num_skipped, num_clamped, min_size and max_size."""
+        return _guard(
+            _tools.tool_error_size,
+            input_path=input_path,
+            output_path=output_path,
+            target_error=target_error,
+            input_format=input_format,
+            output_format=output_format,
+            error_array=error_array,
+            order=order,
+            min_size=min_size,
+            max_size=max_size,
+            output=output,
+            overwrite=overwrite,
+        )
+
+    @server.tool()
     def transform(
         input_path: str,
         output_path: str,
@@ -3016,6 +3761,248 @@ def _register_operations(server: FastMCP) -> None:
         )
 
     @server.tool()
+    def boundary_layer(
+        input_path: str,
+        output_path: str,
+        first_height: float,
+        input_format: Optional[str] = None,
+        output_format: Optional[str] = None,
+        num_layers: int = 3,
+        growth: float = 1.2,
+        reverse: bool = False,
+        collision_fraction: float = 0.45,
+        smooth_iterations: int = 5,
+        max_shrink: int = 6,
+        collapse: str = "points",
+        normal_smooth_iterations: int = 0,
+        front_check: bool = True,
+    ) -> dict:
+        """Grow prismatic boundary layers from a triangle and quad surface
+        (roadmap 6.9): wedges from triangles and hexahedra from quads along
+        each point's most normal normal (Aubry and Löhner 2009), the first
+        first_height thick and each next growth times the one before (against
+        the faces' normals with reverse), stopped at collision_fraction of the
+        distance to the surface ahead, smoothed smooth_iterations times; the
+        points of a cell that would fold are halved max_shrink times and then
+        collapsed into pyramids and tetrahedra (collapse="points") or their
+        top layer dropped (collapse="layers"), so no cell is written folded.
+        normal_smooth_iterations Laplacian passes smooth the growth
+        directions; front_check tests the last layer's faces against each
+        other and the surface. The wall and the cap come out as faces with
+        boundary_layer:layer cell data. Reports num_cells, num_wedges,
+        num_hexahedra, num_pyramids, num_tetrahedra, num_shrunk,
+        num_collapsed, num_not_visible, num_fewer_layers,
+        num_front_crossings, min_scaled_jacobian, min_thickness,
+        max_thickness and cap_closed."""
+        return _guard(
+            _tools.tool_boundary_layer,
+            input_path=input_path,
+            output_path=output_path,
+            first_height=first_height,
+            input_format=input_format,
+            output_format=output_format,
+            num_layers=num_layers,
+            growth=growth,
+            reverse=reverse,
+            collision_fraction=collision_fraction,
+            smooth_iterations=smooth_iterations,
+            max_shrink=max_shrink,
+            collapse=collapse,
+            normal_smooth_iterations=normal_smooth_iterations,
+            front_check=front_check,
+        )
+
+    @server.tool()
+    def extrude(
+        input_path: str,
+        output_path: str,
+        input_format: Optional[str] = None,
+        output_format: Optional[str] = None,
+        direction: Optional[List[float]] = None,
+        num_layers: int = 1,
+        ratio: float = 1.0,
+        offsets: Optional[List[float]] = None,
+        record_layers: bool = False,
+        max_cells: int = 20_000_000,
+    ) -> dict:
+        """Sweep a surface into a volume, or a curve into a surface, along a
+        vector (roadmap 3.1.2): triangles to wedges, quads to hexahedra, lines
+        (when there are no 2-D cells) to quads, in num_layers layers spaced
+        uniformly, by a geometric ratio, or at explicit offsets (fractions of
+        direction, increasing, ending at 1). direction (default [0, 0, 1]) is
+        the whole displacement; faces are turned to point along it. The
+        output holds the swept cells only, with Side regions bottom, top and
+        side, and the input's regions and data carried; record_layers adds
+        extrude:layer cell data. Reports num_cells, num_hexahedra, num_wedges,
+        num_pyramids, num_tetrahedra, num_quads, num_triangles, num_flipped,
+        min_scaled_jacobian and warnings."""
+        return _guard(
+            _tools.tool_extrude,
+            input_path=input_path,
+            output_path=output_path,
+            input_format=input_format,
+            output_format=output_format,
+            direction=direction if direction is not None else (0.0, 0.0, 1.0),
+            num_layers=num_layers,
+            ratio=ratio,
+            offsets=offsets,
+            record_layers=record_layers,
+            max_cells=max_cells,
+        )
+
+    @server.tool()
+    def revolve(
+        input_path: str,
+        output_path: str,
+        input_format: Optional[str] = None,
+        output_format: Optional[str] = None,
+        axis: Optional[List[float]] = None,
+        axis_point: Optional[List[float]] = None,
+        angle: float = 360.0,
+        num_layers: int = 16,
+        tolerance: float = 1e-9,
+        record_layers: bool = False,
+        max_cells: int = 20_000_000,
+    ) -> dict:
+        """Sweep a surface (or a curve) around an axis (roadmap 3.1.3):
+        axis (default [0, 1, 0]) through axis_point (default the origin),
+        angle degrees (right-hand rule; 360 closes the turn) in num_layers
+        steps. Points within tolerance (a fraction of the bounding-box
+        diagonal) of the axis stay put, so the cells around them collapse
+        into pyramids, tetrahedra and wedges. Side regions start, end (a
+        partial turn) and side. Reports the extrude counts, num_on_axis,
+        full, min_scaled_jacobian and warnings."""
+        return _guard(
+            _tools.tool_revolve,
+            input_path=input_path,
+            output_path=output_path,
+            input_format=input_format,
+            output_format=output_format,
+            axis=axis if axis is not None else (0.0, 1.0, 0.0),
+            axis_point=axis_point if axis_point is not None else (0.0, 0.0, 0.0),
+            angle=angle,
+            num_layers=num_layers,
+            tolerance=tolerance,
+            record_layers=record_layers,
+            max_cells=max_cells,
+        )
+
+    @server.tool()
+    def mirror(
+        input_path: str,
+        output_path: str,
+        input_format: Optional[str] = None,
+        output_format: Optional[str] = None,
+        origin: Optional[List[float]] = None,
+        normal: Optional[List[float]] = None,
+        keep_original: bool = False,
+        weld: bool = True,
+        tolerance: float = 1e-9,
+        reflect_vector_data: bool = False,
+    ) -> dict:
+        """Reflect a mesh across the plane through origin (default the
+        origin) with normal (default [1, 0, 0]), every cell right side out
+        (roadmap 3.2.5; a reflecting transform leaves them inverted). With
+        keep_original the input followed by its image, the points on the
+        plane shared when weld (default); reflect_vector_data reflects float
+        vector and tensor data. Reports num_flipped_cells,
+        num_points_on_plane, num_dropped_cells, num_dropped_sides and
+        warnings."""
+        return _guard(
+            _tools.tool_mirror,
+            input_path=input_path,
+            output_path=output_path,
+            input_format=input_format,
+            output_format=output_format,
+            origin=origin if origin is not None else (0.0, 0.0, 0.0),
+            normal=normal if normal is not None else (1.0, 0.0, 0.0),
+            keep_original=keep_original,
+            weld=weld,
+            tolerance=tolerance,
+            reflect_vector_data=reflect_vector_data,
+        )
+
+    @server.tool()
+    def tetrahedralize(
+        input_path: str,
+        output_path: str,
+        input_format: Optional[str] = None,
+        output_format: Optional[str] = None,
+        backend: str = "auto",
+        max_size: float = 0.0,
+        max_volume: float = 0.0,
+        grading: float = 0.3,
+        optimize_steps: int = 3,
+        max_cells: int = 50_000_000,
+        face_array: str = "cad:face",
+    ) -> dict:
+        """Fill a closed, manifold, consistently oriented triangle surface
+        (a mesh_cad_surface result, a boundary layer's cap) with tetrahedra
+        (roadmap 6.7). backend "netgen" keeps its triangles and points
+        exactly; "octree", the native backend always built, fits the boundary
+        within the reported hausdorff_to_surface; "auto" (default) takes
+        Netgen when built in, else octree with a warning. Each shell bounds a
+        region (a box inside a box gives two), meshed on its own. max_size and max_volume (0: none) bound the
+        tetrahedra, grading (0 to 1) is how fast the size grows inward,
+        optimize_steps the backend's volume optimisation passes; face_array
+        (cad:face) is carried to the triangles. backend "netgen" in a build
+        without it (-DMESHIOPLUSPLUS_WITH_NETGEN) returns an error naming the
+        flag. Reports num_tetrahedra, num_points,
+        num_new_points, num_regions, num_boundary_triangles,
+        boundary_preserved, hausdorff_to_surface, min_dihedral_deg,
+        max_dihedral_deg, volume, backend and warnings."""
+        return _guard(
+            _tools.tool_tetrahedralize,
+            input_path=input_path,
+            output_path=output_path,
+            input_format=input_format,
+            output_format=output_format,
+            backend=backend,
+            max_size=max_size,
+            max_volume=max_volume,
+            grading=grading,
+            optimize_steps=optimize_steps,
+            max_cells=max_cells,
+            face_array=face_array,
+        )
+
+    @server.tool()
+    def project_to_cad(
+        input_path: str,
+        model_path: str,
+        output_path: str,
+        input_format: Optional[str] = None,
+        output_format: Optional[str] = None,
+        face_array: str = "cad:face",
+        edge_array: str = "cad:edge",
+        max_distance: float = 0.0,
+        trim_samples: int = 16,
+    ) -> dict:
+        """Move a mesh's points back onto the CAD model it was made from
+        (roadmap 6.10.1): a point on one edge's lines (cad:edge) onto that
+        edge, on two or more (a corner) onto the lowest, a point whose cells
+        name one face (cad:face) onto its surface by Newton point inversion;
+        a point on two faces and no edge stays. model_path is a CAD JSON,
+        STEP or IGES file. A point farther than max_distance (0: no limit)
+        stays. Reports num_projected, num_on_edges, num_on_curves (of those
+        on edges, onto the edge's own 3-D curve), num_corners,
+        num_ambiguous, num_too_far, num_failed, num_outside_trim (projections
+        outside their face's trims, kept, never clamped), max_move and
+        outside_trim."""
+        return _guard(
+            _tools.tool_project_to_cad,
+            input_path=input_path,
+            model_path=model_path,
+            output_path=output_path,
+            input_format=input_format,
+            output_format=output_format,
+            face_array=face_array,
+            edge_array=edge_array,
+            max_distance=max_distance,
+            trim_samples=trim_samples,
+        )
+
+    @server.tool()
     def undo_green(
         coarse_path: str,
         fine_path: str,
@@ -3104,6 +4091,305 @@ def _register_operations(server: FastMCP) -> None:
             preserve_boundary=preserve_boundary,
             preserve_features=preserve_features,
             feature_angle=feature_angle,
+        )
+
+    @server.tool()
+    def adapt(
+        input_path: str,
+        output_path: str,
+        input_format: Optional[str] = None,
+        output_format: Optional[str] = None,
+        hsiz: Optional[float] = None,
+        size: Optional[str] = None,
+        metric: Optional[str] = None,
+        hmin: Optional[float] = None,
+        hmax: Optional[float] = None,
+        hausd: Optional[float] = None,
+        hgrad: Optional[float] = None,
+        hgradreq: Optional[float] = None,
+        angle_detection: Optional[float] = 45.0,
+        optim: bool = False,
+        noinsert: bool = False,
+        noswap: bool = False,
+        nomove: bool = False,
+        nosurf: bool = False,
+        nreg: bool = False,
+        opnbdy: bool = False,
+        frozen: Optional[str] = None,
+        required: Optional[List[str]] = None,
+        local: Optional[Dict[str, Dict[str, float]]] = None,
+    ) -> dict:
+        """Remesh a simplicial mesh with MMG (needs a build with
+        MESHIOPLUSPLUS_WITH_MMG; otherwise returns error_type
+        NotImplementedError and mmg_available False). mmg3d for
+        tetrahedra, mmg2d for a planar triangle mesh, mmgs for another
+        triangle surface. Give at most one of hsiz (constant edge size),
+        size (point_data name of a size field) and metric (point_data name
+        of a six-component, three in 2-D, metric in Medit .sol order); none
+        lets MMG size from the mesh. hmin/hmax bound the edge sizes, hausd
+        bounds how far the boundary moves, hgrad/hgradreq set the
+        gradation, angle_detection (45 degrees; None turns it off) finds
+        ridges. optim/noinsert/noswap/nomove/nosurf/nreg/opnbdy are MMG's
+        switches. frozen names a point region MMG must keep; required
+        names regions whose entities it must keep; local maps a region to
+        {"hmin", "hmax", "hausd"}. Cell and side regions and a medit:ref
+        array come back under their names; other point/cell data is
+        dropped (use interpolate), field_data is carried. Reports status
+        ("success" or "low_failure"), library, num_points_in/out,
+        num_elements_in/out, quality (aspect ratio min/mean/max/histogram)
+        and warnings."""
+        return _guard(
+            _tools.tool_adapt,
+            input_path=input_path,
+            output_path=output_path,
+            input_format=input_format,
+            output_format=output_format,
+            hsiz=hsiz,
+            size=size,
+            metric=metric,
+            hmin=hmin,
+            hmax=hmax,
+            hausd=hausd,
+            hgrad=hgrad,
+            hgradreq=hgradreq,
+            angle_detection=angle_detection,
+            optim=optim,
+            noinsert=noinsert,
+            noswap=noswap,
+            nomove=nomove,
+            nosurf=nosurf,
+            nreg=nreg,
+            opnbdy=opnbdy,
+            frozen=frozen,
+            required=required,
+            local=local,
+        )
+
+    @server.tool()
+    def discretize_levelset(
+        input_path: str,
+        output_path: str,
+        level_set: str,
+        input_format: Optional[str] = None,
+        output_format: Optional[str] = None,
+        isovalue: float = 0.0,
+        materials: Optional[List[List[int]]] = None,
+        remove_small_components: Optional[float] = None,
+        hmin: Optional[float] = None,
+        hmax: Optional[float] = None,
+        hausd: Optional[float] = None,
+        hgrad: Optional[float] = None,
+        hgradreq: Optional[float] = None,
+        angle_detection: Optional[float] = 45.0,
+        optim: bool = False,
+        noinsert: bool = False,
+        noswap: bool = False,
+        nomove: bool = False,
+        nosurf: bool = False,
+        nreg: bool = False,
+        opnbdy: bool = False,
+        frozen: Optional[str] = None,
+        required: Optional[List[str]] = None,
+        local: Optional[Dict[str, Dict[str, float]]] = None,
+    ) -> dict:
+        """Embed the isovalue of the point_data level set `level_set` (a
+        signed distance, say) conformally in a simplicial mesh and remesh
+        both sides with MMG (needs a build with MESHIOPLUSPLUS_WITH_MMG;
+        otherwise returns error_type NotImplementedError and mmg_available
+        False): mmg3d, mmg2d or mmgs by the mesh, as adapt. The elements
+        carry cell_data medit:ref (3 inside, below the isovalue; 2 outside)
+        and the cell regions inside/outside; the interface is the side region
+        interface, on the inside elements. materials lists [ref, split,
+        ref_inside, ref_outside] over the input's medit:ref (MMG's
+        multi-material mode: split 0 keeps the cells whole);
+        remove_small_components is MMG's rmc volume fraction. The other MMG
+        parameters are adapt's. The input's side regions come back, its cell
+        regions do not. Reports as adapt."""
+        return _guard(
+            _tools.tool_discretize_levelset,
+            input_path=input_path,
+            output_path=output_path,
+            level_set=level_set,
+            input_format=input_format,
+            output_format=output_format,
+            isovalue=isovalue,
+            materials=materials,
+            remove_small_components=remove_small_components,
+            hmin=hmin,
+            hmax=hmax,
+            hausd=hausd,
+            hgrad=hgrad,
+            hgradreq=hgradreq,
+            angle_detection=angle_detection,
+            optim=optim,
+            noinsert=noinsert,
+            noswap=noswap,
+            nomove=nomove,
+            nosurf=nosurf,
+            nreg=nreg,
+            opnbdy=opnbdy,
+            frozen=frozen,
+            required=required,
+            local=local,
+        )
+
+    @server.tool()
+    def mesh_domain(
+        input_path: str,
+        output_path: str,
+        input_format: Optional[str] = None,
+        output_format: Optional[str] = None,
+        hsiz: Optional[float] = None,
+        size: Optional[str] = None,
+        holes: Optional[List[List[float]]] = None,
+        hmin: Optional[float] = None,
+        hmax: Optional[float] = None,
+        hausd: Optional[float] = None,
+        hgrad: Optional[float] = None,
+        hgradreq: Optional[float] = None,
+        angle_detection: Optional[float] = 45.0,
+        optim: bool = False,
+        noinsert: bool = False,
+        noswap: bool = False,
+        nomove: bool = False,
+        nosurf: bool = False,
+        nreg: bool = False,
+        opnbdy: bool = False,
+        frozen: Optional[str] = None,
+        required: Optional[List[str]] = None,
+        local: Optional[Dict[str, Dict[str, float]]] = None,
+    ) -> dict:
+        """Triangulate the planar domain the line cells of a mesh bound with
+        MMG's MMG2D_mmg2dmesh (needs a build with MESHIOPLUSPLUS_WITH_MMG;
+        otherwise returns error_type NotImplementedError and mmg_available
+        False). hsiz is a constant edge size, size a point_data size field on
+        the boundary points. MMG meshes every region the lines enclose, each
+        a cell region subdomain:<k>; it has no notion of a hole, so holes
+        lists one [x, y] point inside each region to leave out. The lines'
+        cell regions also come back as side regions of the triangles. The
+        other MMG parameters are adapt's. Reports as adapt plus
+        num_subdomains and num_holes."""
+        return _guard(
+            _tools.tool_mesh_domain,
+            input_path=input_path,
+            output_path=output_path,
+            input_format=input_format,
+            output_format=output_format,
+            hsiz=hsiz,
+            size=size,
+            holes=holes,
+            hmin=hmin,
+            hmax=hmax,
+            hausd=hausd,
+            hgrad=hgrad,
+            hgradreq=hgradreq,
+            angle_detection=angle_detection,
+            optim=optim,
+            noinsert=noinsert,
+            noswap=noswap,
+            nomove=nomove,
+            nosurf=nosurf,
+            nreg=nreg,
+            opnbdy=opnbdy,
+            frozen=frozen,
+            required=required,
+            local=local,
+        )
+
+    @server.tool()
+    def move(
+        input_path: str,
+        output_path: str,
+        displacement: str,
+        moving: List[str],
+        input_format: Optional[str] = None,
+        output_format: Optional[str] = None,
+        lagrangian: int = 1,
+        hmin: Optional[float] = None,
+        hmax: Optional[float] = None,
+        hausd: Optional[float] = None,
+        hgrad: Optional[float] = None,
+        hgradreq: Optional[float] = None,
+        angle_detection: Optional[float] = 45.0,
+        optim: bool = False,
+        noinsert: bool = False,
+        noswap: bool = False,
+        nomove: bool = False,
+        nosurf: bool = False,
+        nreg: bool = False,
+        opnbdy: bool = False,
+        frozen: Optional[str] = None,
+        required: Optional[List[str]] = None,
+        local: Optional[Dict[str, Dict[str, float]]] = None,
+    ) -> dict:
+        """Move a tetrahedral or planar triangle mesh by the point_data
+        vector `displacement` of the boundary facets of the regions `moving`
+        (cell or side regions), remeshing as it deforms with MMG's
+        Lagrangian mode (MMG3D_mmg3dmov, MMG2D_mmg2dmov). MMG extends the
+        displacement inward by linear elasticity (the ELAS library) and
+        keeps the rest of the boundary in place, so the displacement given
+        elsewhere is not read. lagrangian is MMG's lag: 0 moves only, 1
+        also swaps, 2 also inserts and collapses. Needs a build with
+        MESHIOPLUSPLUS_WITH_MMG and an MMG built with ELAS; otherwise returns
+        error_type NotImplementedError with mmg_available and
+        mmg_elas_available. The other MMG parameters are adapt's. Reports as
+        adapt."""
+        return _guard(
+            _tools.tool_move,
+            input_path=input_path,
+            output_path=output_path,
+            displacement=displacement,
+            moving=moving,
+            input_format=input_format,
+            output_format=output_format,
+            lagrangian=lagrangian,
+            hmin=hmin,
+            hmax=hmax,
+            hausd=hausd,
+            hgrad=hgrad,
+            hgradreq=hgradreq,
+            angle_detection=angle_detection,
+            optim=optim,
+            noinsert=noinsert,
+            noswap=noswap,
+            nomove=nomove,
+            nosurf=nosurf,
+            nreg=nreg,
+            opnbdy=opnbdy,
+            frozen=frozen,
+            required=required,
+            local=local,
+        )
+
+    @server.tool()
+    def metric_from_hessian(
+        input_path: str,
+        output_path: str,
+        hessian: str,
+        input_format: Optional[str] = None,
+        output_format: Optional[str] = None,
+        error: float = 1e-2,
+        hmin: float = 1e-3,
+        hmax: float = 1.0,
+        output: str = "metric",
+    ) -> dict:
+        """The anisotropic metric of the point_data Hessian `hessian`
+        ((n, 9), or (n, 4) in 2-D, row-major as the hessian tool writes)
+        for the adapt tool: M = c/error |H| with c = (1/2)(d/(d+1))^2, its
+        eigenvalues clamped so the sizes lie in [hmin, hmax], written as
+        point_data `output` (six components, three in 2-D, in the
+        lower-triangle order of a Medit .sol). Needs no MMG."""
+        return _guard(
+            _tools.tool_metric_from_hessian,
+            input_path=input_path,
+            output_path=output_path,
+            hessian=hessian,
+            input_format=input_format,
+            output_format=output_format,
+            error=error,
+            hmin=hmin,
+            hmax=hmax,
+            output=output,
         )
 
     @server.tool()
@@ -4127,6 +5413,7 @@ def _register_gated(server: FastMCP) -> None:
         resegment_rounds: int = 2,
         layout_snap_to_features: bool = True,
         validate_by_surface_sampling: bool = True,
+        constrain_primitives: bool = False,
     ) -> dict:
         """Turn a closed triangle skin into a CAD solid with analytic faces,
         written to output_path as AP214 STEP -- the last step of skin to CAD
@@ -4214,7 +5501,12 @@ def _register_gated(server: FastMCP) -> None:
         num_extraordinary_vertices, num_resegmented, num_escalations,
         max_g1_angle_deg, max_freeform_distance, rms_freeform_distance and
         faces (per patch tried: param_method, num_ctrl, iterations,
-        refinements, distances, escalation_steps, demotion_reason)."""
+        refinements, distances, escalation_steps, demotion_reason).
+        constrain_primitives (off) fits related primitives together on either
+        backend: coaxial cylinders, cones, tori and spheres share one axis,
+        parallel and perpendicular planes and nearly equal radii are made
+        exact, each change kept only where its patch still passes its fit;
+        adds num_constrained_primitives and num_constraint_groups."""
         return _guard(
             _tools.tool_fit_cad,
             input_path=input_path,
@@ -4270,6 +5562,7 @@ def _register_gated(server: FastMCP) -> None:
             resegment_rounds=resegment_rounds,
             layout_snap_to_features=layout_snap_to_features,
             validate_by_surface_sampling=validate_by_surface_sampling,
+            constrain_primitives=constrain_primitives,
         )
 
     @server.tool()

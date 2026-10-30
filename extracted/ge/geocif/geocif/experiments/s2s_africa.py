@@ -103,13 +103,18 @@ BIN_COLS = [f"{m}_{h}" for m in MONTHS for h in (1, 15)]
 # yields
 # ---------------------------------------------------------------------------
 def load_yields(hvstat_csv, products):
-    """Filtered, PS-aggregated HarvestStat rows for ``products``."""
+    """Filtered, PS-aggregated HarvestStat rows for ``products``.
+
+    ``area`` rides along only as the weight of national aggregates drawn from
+    ``hindcasts.csv``; nothing in the model reads it.
+    """
     from geocif.production_analysis._common import load_filtered_hvstat
 
     df = load_filtered_hvstat(hvstat_csv)
     df = df[df["product"].isin(products)].copy()
     df = df.rename(columns={"yield": "obs", "harvest_year": "year"})
-    return df[["fnid", "country", "product", "season_name", "year", "obs"]]
+    return df[["fnid", "country", "product", "season_name", "year", "obs",
+               "area"]]
 
 
 def causal_trend_fnid(obs):
@@ -572,6 +577,34 @@ def loyo(data, feats, eval_years):
         test["ahat"] = predict_ols(res, test, feats)
         outs.append(test)
     return pd.concat(outs, ignore_index=True) if outs else pd.DataFrame()
+
+
+HINDCAST_COLUMNS = ["country", "crop", "season_name", "offset", "init_year",
+                    "init_month", "planting_month", "fnid", "year", "obs",
+                    "area", "trend", "anom", "ahat", "yhat_tha"]
+
+
+def hindcast_rows(lo, areas, keys, planting, wraps, offset):
+    """One offset's LOYO predictions as ``hindcasts.csv`` rows.
+
+    ``yhat_tha`` is the unit's leave-one-year-out trend scaled by the
+    predicted anomaly, the same rule as the forecast's t/ha level; the trend
+    is interpolated here, so the extrapolation caveat of ``trend_extrap_*``
+    does not apply. ``init_year``/``init_month`` name the init each row was
+    forecast from (``init_calendar``), so readers need no calendar logic.
+    """
+    h = lo[["fnid", "year", "obs", "trend", "anom", "ahat"]].merge(
+        areas[["fnid", "year", "area"]].drop_duplicates(["fnid", "year"]),
+        on=["fnid", "year"], how="left")
+    h["yhat_tha"] = h["trend"] * (1 + h["ahat"])
+    inits = [init_calendar(planting, offset, int(y), wraps) for y in h["year"]]
+    h["init_year"] = [i[0] for i in inits]
+    h["init_month"] = [i[1] for i in inits]
+    h["offset"] = offset
+    h["planting_month"] = planting
+    for k, v in keys.items():
+        h[k] = v
+    return h[HINDCAST_COLUMNS]
 
 
 def edge_table(anoms):
@@ -1249,6 +1282,7 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
             logger.warning(f"s2s_countries not in the yield table: {missing}")
 
     combos, skills, forecasts, excluded, panel = [], [], [], [], []
+    hindcasts = []
     s2s_cache = {}
 
     for (country, product, season_name), g in ylds.groupby(
@@ -1370,6 +1404,9 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
             lo = loyo(d, fl, [y for y in eval_years if y in set(d.year)])
             if lo.empty:
                 continue
+            hindcasts.append(hindcast_rows(
+                lo, g, {k: rec[k] for k in ("country", "crop", "season_name")},
+                cal["planting_month"], cal["wraps"], off))
             s = score_combo(lo, anoms, edges)
             train_by_offset[off] = d
             row = {**{k: rec[k] for k in ("country", "crop", "season_name")},
@@ -1610,6 +1647,12 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
     pd.DataFrame(skills).to_csv(out / "skill.csv", index=False)
     fdf = pd.DataFrame(forecasts)
     fdf.to_csv(out / "forecasts.csv", index=False)
+    # Every offset's LOYO predictions, per unit and year: what the skill
+    # numbers were computed from, and the pre-season half of
+    # viz/season_track.py.
+    (pd.concat(hindcasts, ignore_index=True) if hindcasts
+     else pd.DataFrame(columns=HINDCAST_COLUMNS)).to_csv(
+        out / "hindcasts.csv", index=False)
     pd.DataFrame(excluded).to_csv(out / "excluded.csv", index=False)
     if panel:
         pd.DataFrame(panel).to_csv(out / "predictors.csv", index=False)

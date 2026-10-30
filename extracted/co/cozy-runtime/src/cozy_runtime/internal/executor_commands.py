@@ -114,7 +114,6 @@ class RequestMemory(Command, frozen=True, kw_only=True, tag="request_memory"):
 
 class Activate(Command, frozen=True, kw_only=True, tag="activate"):
     construction: str
-    authorized_device_limit_bytes: int | UnsetType = UNSET
     #: A follower's half: the constructions rank 0 parked to make room.
     park: tuple[str, ...] = ()
 
@@ -206,6 +205,10 @@ class Start(Command, frozen=True, kw_only=True, tag="start"):
     call_interfaces: tuple[CallInterface, ...] = ()
     #: What its loads will construct, known before anything heavy is imported.
     constructions: tuple[Construction, ...] = ()
+    #: Development only (the machine's `gpu_memory_limit`, never a user setting): each GPU is a
+    #: card of this many bytes, the executor's memory budget, to test constrained VRAM on bigger
+    #: cards.
+    gpu_memory_limit: int | None = None
 
     def release(self) -> Release:
         return Release(application=self.application, package_interface=self.package_interface)
@@ -219,6 +222,15 @@ class Adapter(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
     component: str = ""
     source_component: str = ""
     family: str = ""
+
+
+class View(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
+    """A checkpoint whose header lives only in TensorD's memory (an adapter view composed by
+    reference): opened from these bytes, never from the store."""
+
+    header: bytes = b""
+    #: the objects it cites that no store holds (its graph)
+    own: tuple[bytes, ...] = ()
 
 
 class Binding(Release, frozen=True, kw_only=True):
@@ -244,6 +256,8 @@ class Binding(Release, frozen=True, kw_only=True):
     package: str = ""
     model: str = ""
     adapters: tuple[Adapter, ...] = ()
+    #: the snapshots that are views, by id
+    views: dict[str, View] = {}
     prepared_use: PreparedUse | None = None
     #: In a group, each placeable component's GPU (an index within it): 0 keeps it beside the
     #: serial scope, g >= 1 keeps it resident on GPU g, where its calls and remote scopes run.

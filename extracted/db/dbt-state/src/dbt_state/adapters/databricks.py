@@ -45,6 +45,10 @@ class DatabricksAdapterExtension(BaseAdapterExtension):
         ).rows[0][0]
         return datetime.fromtimestamp(int(epoch_micros) / 1_000_000, tz=timezone.utc)
 
+    def _information_schema_table(self, catalog: str, name: str) -> str:
+        # backticked because hyphenated catalog names don't parse unquoted
+        return f"{self._sql(exp.to_identifier(catalog, quoted=True))}.information_schema.{name}"
+
     def _fetch_last_modified_epochs(
         self, table_batch: t.Collection[exp.Table]
     ) -> t.Dict[str, t.Optional[int]]:
@@ -105,7 +109,7 @@ class DatabricksAdapterExtension(BaseAdapterExtension):
                 SELECT
                   concat('`', table_catalog, '`.`', table_schema, '`.`', table_name, '`') as fqn,
                   last_altered as last_updated
-                FROM {catalog}.information_schema.tables
+                FROM {self._information_schema_table(catalog, "tables")}
                 WHERE {self._sql(filter_expr)}"""
             )
 
@@ -144,7 +148,7 @@ class DatabricksAdapterExtension(BaseAdapterExtension):
                 table_name,
                 column_name,
                 full_data_type
-            FROM {catalog}.information_schema.columns
+            FROM {self._information_schema_table(catalog, "columns")}
             WHERE {self._sql(filter_expr)}
             """)
 
@@ -218,7 +222,7 @@ class DatabricksAdapterExtension(BaseAdapterExtension):
             table_schema,
             table_name as view_name,
             view_definition
-            FROM {catalog}.information_schema.views
+            FROM {self._information_schema_table(catalog, "views")}
             WHERE {self._sql(filter_expr)}
             """
 

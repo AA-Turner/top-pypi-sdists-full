@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Optional
 import numpy as np
 from numpy.lib.array_utils import normalize_axis_tuple
 
+import pytensor
 from pytensor import config, printing
 from pytensor import scalar as ps
 from pytensor.gradient import DisconnectedType, disconnected_type
@@ -435,7 +436,7 @@ class NonZeroDimsCAReduce(FixedOpCAReduce):
             for(int i=0;i<PyArray_NDIM({iname});i++){{
                 if(PyArray_DIMS({iname})[i]==0 && tosum[i]){{
                     PyErr_Format(PyExc_ValueError,
-                        "Input of CAReduce{{{node.op.scalar_op}}} has zero-size on axis %%d",i);
+                        "Input of CAReduce{{{node.op.scalar_op}}} has zero-size on axis %d",i);
                     {sub["fail"]};
                 }}
             }}
@@ -2755,15 +2756,12 @@ def var(input, axis=None, ddof=0, keepdims=False, corrected=False):
                           axis=None, ddof=0, keepdims=False, corrected=False)"
         )
 
+    input = as_tensor_variable(input)
     input_ndim = input.type.ndim
     if axis is None:
         axis = list(range(input_ndim))
-    elif isinstance(axis, int | np.integer):
-        axis = [axis]
-    elif isinstance(axis, np.ndarray) and axis.ndim == 0:
-        axis = [int(axis)]
     else:
-        axis = [int(a) for a in axis]
+        axis = list(normalize_axis_tuple(axis, input_ndim))
 
     # compute the axis-wise mean
     mean_input = mean(input, axis, keepdims=True)
@@ -2774,23 +2772,23 @@ def var(input, axis=None, ddof=0, keepdims=False, corrected=False):
     # return the mean sqr
     two = constant(2, dtype=centered_input.dtype)
     if ddof == 0:
-        v = mean((centered_input**two), axis, keepdims=keepdims)
+        v = mean((centered_input**two), axis=axis, keepdims=keepdims)
     else:
-        shp = shape(input) - ddof
+        shp = shape(input)
+        reduced_dims = [shp[i] for i in axis]
+        n_elems = variadic_mul(*reduced_dims)
+        div = (n_elems - ddof).astype(centered_input.dtype)
         v = sum((centered_input**two), axis=axis, keepdims=keepdims)
-        for i in axis:
-            v = true_div(v, shp[i])
+        v = true_div(v, div)
 
     # use 'corrected_two_pass' algorithm
     if corrected:
         if ddof == 0:
-            error = mean(centered_input, axis, keepdims=keepdims) ** 2
+            error = mean(centered_input, axis=axis, keepdims=keepdims) ** 2
         else:
-            shp = shape(input) - ddof
-            shp_inp = shape(input)
+            denom = ((n_elems - ddof) * n_elems).astype(centered_input.dtype)
             error = sum(centered_input, axis=axis, keepdims=keepdims) ** 2
-            for i in axis:
-                error = true_div(error, shp[i] * shp_inp[i])
+            error = true_div(error, denom)
         v = v - error
 
     v.name = "var"
@@ -2852,8 +2850,6 @@ def median(x: TensorLike, axis=None) -> TensorVariable:
         Compute the median along this axis of the tensor.
         None means all axes (like numpy).
     """
-    from pytensor.ifelse import ifelse
-
     x = as_tensor_variable(x)
     x_ndim = x.type.ndim
     if axis is None:
@@ -2879,7 +2875,7 @@ def median(x: TensorLike, axis=None) -> TensorVariable:
     even_median = (k_values + km1_values) / 2.0
     odd_median = k_values.astype(even_median.type.dtype)
     even_k = eq(mod(raveled_size, 2), 0)
-    return ifelse(even_k, even_median, odd_median, name="median")
+    return pytensor.ifelse(even_k, even_median, odd_median, name="median")
 
 
 @scalar_elemwise
@@ -3112,8 +3108,6 @@ class Dot(Op):
     -----
     Matrix-matrix products are sometimes optimized to Dot22 or Gemm ops
     (see tensor.blas).
-    Vector-vector products are sometimes optimized to Ger or CGer (see
-    tensor.blas).
     Matrix-vector products are sometimes optimized to Gemv, CGemv (see
     tensor.blas).
 
@@ -3263,8 +3257,6 @@ def dense_dot(a, b):
     -----
     Matrix-matrix products are sometimes optimized to Dot22 or Gemm ops
     (see tensor.blas).
-    Vector-vector products are sometimes optimized to Ger or CGer (see
-    tensor.blas).
     Matrix-vector products are sometimes optimized to Gemv, CGemv (see
     tensor.blas).
 

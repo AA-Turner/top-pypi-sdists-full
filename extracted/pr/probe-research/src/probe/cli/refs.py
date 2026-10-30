@@ -184,8 +184,8 @@ def is_uuid(ref: str) -> bool:
     Deliberately permissive (``UUID()`` also takes the dashless, braced and
     ``urn:`` spellings): its callers either make an ERROR more helpful (the
     "write it as id:" hint) or route an id-shaped value as an id -- an ambient
-    project ref (``from_ambient``), an experiment's filing (``_filed_under``,
-    ``_active_project_id``) and an ``edge add`` run end that skips the petname
+    project ref (``from_ambient``), an experiment's filing (``reads.filed_under``,
+    ``reads.active_project_id``) and an ``edge add`` run end that skips the petname
     lookup. Tightening or loosening it changes all of them.
     """
     try:

@@ -21,7 +21,7 @@ from batchgenerators.augmentations.utils import create_zero_centered_coordinate_
     interpolate_img, \
     rotate_coords_2d, rotate_coords_3d, scale_coords, resize_segmentation, resize_multichannel_image, \
     elastic_deform_coordinates_2, \
-    get_organ_gradient_field, ignore_anatomy
+    get_organ_gradient_field, ignore_anatomy, sample_factor_around_one
 from batchgenerators.augmentations.crop_and_pad_augmentations import random_crop as random_crop_aug
 from batchgenerators.augmentations.crop_and_pad_augmentations import center_crop as center_crop_aug
 
@@ -143,8 +143,8 @@ def augment_channel_translation(data, const_channel=0, max_shifts=None):
 
     shape = data.shape
 
-    const_data = data[:, [const_channel]]
-    trans_data = data[:, [i for i in range(shape[1]) if i != const_channel]]
+    trans_channels = [i for i in range(shape[1]) if i != const_channel]
+    trans_data = data[:, trans_channels]
 
     # iterate the batch dimension
     for j in range(shape[0]):
@@ -161,7 +161,7 @@ def augment_channel_translation(data, const_channel=0, max_shifts=None):
 
         # iterate the image dimensions, randomly draw shifts/translations
         for i, v in enumerate(dims):
-            rand_shift = np.random.choice(list(range(-max_shifts[v], max_shifts[v], 1)))
+            rand_shift = np.random.choice(list(range(-max_shifts[v], max_shifts[v] + 1)))
 
             if rand_shift > 0:
                 ixs[v] = {'lo': 0, 'hi': -rand_shift}
@@ -184,7 +184,9 @@ def augment_channel_translation(data, const_channel=0, max_shifts=None):
 
         trans_data[j] = slice
 
-    data_return = np.concatenate([const_data, trans_data], axis=1)
+    # the constant channel keeps its position
+    data_return = data.copy()
+    data_return[:, trans_channels] = trans_data
     return data_return
 
 
@@ -249,17 +251,9 @@ def augment_spatial(data, seg, patch_size, patch_center_dist_from_border=30,
 
         if do_scale and np.random.uniform() < p_scale_per_sample:
             if independent_scale_for_each_axis and np.random.uniform() < p_independent_scale_per_axis:
-                sc = []
-                for _ in range(dim):
-                    if np.random.random() < 0.5 and scale[0] < 1:
-                        sc.append(np.random.uniform(scale[0], 1))
-                    else:
-                        sc.append(np.random.uniform(max(scale[0], 1), scale[1]))
+                sc = [sample_factor_around_one(scale) for _ in range(dim)]
             else:
-                if np.random.random() < 0.5 and scale[0] < 1:
-                    sc = np.random.uniform(scale[0], 1)
-                else:
-                    sc = np.random.uniform(max(scale[0], 1), scale[1])
+                sc = sample_factor_around_one(scale)
 
             coords = scale_coords(coords, sc)
             modified_coords = True
@@ -413,17 +407,9 @@ def augment_spatial_2(data, seg, patch_size, patch_center_dist_from_border=30,
 
         if do_scale and np.random.uniform() < p_scale_per_sample:
             if independent_scale_for_each_axis and np.random.uniform() < p_independent_scale_per_axis:
-                sc = []
-                for _ in range(dim):
-                    if np.random.random() < 0.5 and scale[0] < 1:
-                        sc.append(np.random.uniform(scale[0], 1))
-                    else:
-                        sc.append(np.random.uniform(max(scale[0], 1), scale[1]))
+                sc = [sample_factor_around_one(scale) for _ in range(dim)]
             else:
-                if np.random.random() < 0.5 and scale[0] < 1:
-                    sc = np.random.uniform(scale[0], 1)
-                else:
-                    sc = np.random.uniform(max(scale[0], 1), scale[1])
+                sc = sample_factor_around_one(scale)
 
             coords = scale_coords(coords, sc)
             modified_coords = True

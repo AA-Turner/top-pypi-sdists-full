@@ -227,7 +227,9 @@ def trigger_workflow_dispatch(
         WorkflowDispatchResult with workflow URL and optionally run ID/URL.
 
     Raises:
-        requests.HTTPError: If API request fails.
+        requests.RequestException: If the dispatch request fails. The run
+            lookup after an accepted dispatch never raises: the run has been
+            queued by then, so a failed lookup leaves the run ID unset.
     """
     dispatch_time = datetime.now(tz=datetime.now().astimezone().tzinfo)
 
@@ -252,10 +254,18 @@ def trigger_workflow_dispatch(
     if not find_run:
         return WorkflowDispatchResult(workflow_url=workflow_url)
 
-    # Best-effort lookup of the run that was just triggered
-    run_info = find_workflow_run(
-        owner, repo, workflow_file, ref, token, dispatch_time, max_wait_seconds
-    )
+    # Best-effort lookup of the run that was just triggered. GitHub accepted
+    # the dispatch, so an error here must not read as a dispatch that failed:
+    # a caller retrying it would queue a second run.
+    try:
+        run_info = find_workflow_run(
+            owner, repo, workflow_file, ref, token, dispatch_time, max_wait_seconds
+        )
+    except requests.RequestException as exc:
+        logger.warning(
+            "Dispatched %s, but could not find its run: %s", workflow_file, exc
+        )
+        run_info = None
     if run_info:
         run_id, run_url = run_info
         return WorkflowDispatchResult(

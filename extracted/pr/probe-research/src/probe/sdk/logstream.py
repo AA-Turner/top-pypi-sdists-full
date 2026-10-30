@@ -741,7 +741,7 @@ class LogStreamer:
     def _refused(self, chunk: Chunk, exc: errors.RosError) -> _Outcome:
         status = exc.status or 0
         detail = exc.detail if isinstance(exc.detail, dict) else {}
-        if status == 409 and detail.get("code") == "stale_write_epoch":
+        if status == 409 and detail.get("code") == errors.STALE_WRITE_EPOCH:
             fresh = self._epoch() if self._epoch is not None else None
             # This process still believes the old attempt: a newer one took
             # the run over, so this one stops talking.

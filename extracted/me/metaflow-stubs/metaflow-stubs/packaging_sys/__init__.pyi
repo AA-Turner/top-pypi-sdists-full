@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.39                                                                                #
-# Generated on 2026-09-02T21:19:46.696776                                                            #
+# MF version: 2.19.40                                                                                #
+# Generated on 2026-10-29T20:14:39.404431                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -10,11 +10,11 @@ import enum
 import metaflow
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.packaging_sys.tar_backend
-    import enum
-    import typing
     import metaflow.extension_support.metadata
+    import typing
     import metaflow.packaging_sys
+    import enum
+    import metaflow.packaging_sys.tar_backend
     import metaflow.packaging_sys.backend
 
 from . import distribution_support as distribution_support

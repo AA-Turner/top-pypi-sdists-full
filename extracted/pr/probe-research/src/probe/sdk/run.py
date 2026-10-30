@@ -5565,6 +5565,12 @@ class Run:
             time, never blocked on: a detached worker mid-pass cannot hold the
             close past its deadline, and between polls the loop looks at what
             of this run is still queued, since that worker may be delivering it;
+          * while it polls, the close says it is waiting (`Journal.drain_want`),
+            and a pass gives the lock up at its next op; a pass also lets go of
+            it while an upload of its is on the network, keeping only that
+            run's lock (#3618). So the close sends its own run's writes in
+            seconds behind a 10k-op backlog or a 30 MiB upload of another run,
+            where it used to wait out whole passes (~400 s in the swarm);
           * the waits come from `durable.backoff_delays` (`_FINISH_BACKOFF`),
             at least the server's ``Retry-After`` when it named one, and never
             past the deadline.

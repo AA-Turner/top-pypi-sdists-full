@@ -202,7 +202,7 @@ def test_the_new_wording_is_the_drafted_text():
     assert body("job/record-session-bash.NEW.md") == bite.OPEN_WITH_BASH
     markers = dict(line.split(": ", 1) for line in body("bite/bash-markers.NEW.md").split("\n"))
     assert markers["long text cut"] == bite.MORE_CHARS[1]
-    assert markers["file change cut (reader)"] == bite.MORE_LINES[1]
+    assert markers["file change cut"] == bite.MORE_LINES[1]
     assert markers["cut-off note tail"] == bite.NOT_SHOWN[1]
     assert markers["last writes heading"] == bite.LAST_WRITES[1]
     assert markers["long turn cut tail"] == bite.TURN_CUT[1]

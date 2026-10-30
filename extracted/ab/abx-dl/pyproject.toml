@@ -1,6 +1,6 @@
 [project]
 name = "abx-dl"
-version = "1.13.295"
+version = "1.13.301"
 requires-python = ">=3.12,<3.15"
 description = "All-in-one CLI tool to download and extract content from URLs"
 authors = [
@@ -58,7 +58,7 @@ dependencies = [
     "rich>=13.0.0",
     "abxbus==2.5.79",
     "abxpkg==1.13.77",
-    "abx-plugins==1.13.608",
+    "abx-plugins==1.13.616",
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
     "platformdirs>=4.0.0",

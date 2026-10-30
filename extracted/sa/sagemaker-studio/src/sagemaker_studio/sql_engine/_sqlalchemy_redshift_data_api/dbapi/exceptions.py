@@ -214,14 +214,27 @@ class TransientError(OperationalError):
 class StatementExecutionError(OperationalError):
     """Exception raised when a Data API statement execution fails."""
 
-    def __init__(self, message, statement_id=None):
+    def __init__(self, message, statement_id=None, redshift_query_id=None, query_string=None):
         super().__init__(message)
         self.statement_id = statement_id
+        self.redshift_query_id = redshift_query_id
+        self.query_string = query_string
 
     def __str__(self):
         base_msg = super().__str__()
+        details = []
         if self.statement_id:
-            return f"{base_msg} (Statement ID: {self.statement_id})"
+            details.append(f"Statement ID: {self.statement_id}")
+        if self.query_string:
+            sql = (
+                self.query_string[:200] + "..."
+                if len(self.query_string) > 200
+                else self.query_string
+            )
+            details.append(f"SQL: {sql}")
+
+        if details:
+            return f"{base_msg} ({', '.join(details)})"
         return base_msg
 
 

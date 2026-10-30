@@ -6,9 +6,11 @@ service account, and allows EU retrieval only in a `europe-west9` zone under
 the `connector-regression-eu-job` service account.
 
 This is a guard against mistakes, not a security boundary. It stops a US runner,
-a laptop or Cloud Run from reading EU secrets by accident. A process with root
-off GCE could answer the metadata requests itself, so the security boundary is
-IAM on the EU job service account.
+a laptop or Cloud Run from reading EU secrets, and the EU runner from reading a
+US connection, by accident. A process with root off GCE could answer the
+metadata requests itself, and IAM does not separate the regions yet: a workspace
+secret's name does not carry its region, so a grant cannot tell EU and US
+secrets apart.
 """
 
 from __future__ import annotations
@@ -22,6 +24,10 @@ EU_RUNNER_SERVICE_ACCOUNT = (
 EU_RUNNER_REQUIRED_MESSAGE = (
     "Retrieval for EU connections is only permitted on the EU regression runner "
     f"({EU_RUNNER_REGION}, service account {EU_RUNNER_SERVICE_ACCOUNT})"
+)
+EU_RUNNER_EU_ONLY_MESSAGE = (
+    "The EU regression runner only retrieves EU connections; a non-EU "
+    "connection runs on the US runner"
 )
 
 _METADATA_URL = "http://metadata.google.internal/computeMetadata/v1/instance"

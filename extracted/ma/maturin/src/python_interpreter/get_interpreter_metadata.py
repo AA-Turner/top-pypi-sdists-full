@@ -30,12 +30,14 @@ metadata = {
     "interpreter": platform.python_implementation().lower(),
     "ext_suffix": ext_suffix,
     "soabi": sysconfig.get_config_var("SOABI") or None,
+    "soabi_platform": sysconfig.get_config_var("SOABI_PLATFORM") or None,
     "platform": sysconfig.get_platform(),
     # This one isn't technically necessary, but still very useful for sanity checks
     "system": platform.system().lower(),
     # This one is for generating a config file for pyo3
     "pointer_width": struct.calcsize("P") * 8,
     "gil_disabled": sysconfig.get_config_var("Py_GIL_DISABLED") == 1,
+    "debug": sysconfig.get_config_var("Py_DEBUG") == 1,
 }
 
 print(json.dumps(metadata))

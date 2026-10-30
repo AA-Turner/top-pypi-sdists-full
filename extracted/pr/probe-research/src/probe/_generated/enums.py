@@ -159,6 +159,7 @@ class BranchState(StrEnum):
     """
 
     live = 'live'
+    dead_end = 'dead_end'
     concluded = 'concluded'
     stopped = 'stopped'
     active = 'active'
@@ -546,6 +547,10 @@ class EntityType(StrEnum):
 class Kind1(StrEnum):
     files = 'files'
     runs = 'runs'
+
+
+class ExperimentOutcome(StrEnum):
+    dead_end = 'dead_end'
 
 
 class Nonfinite(StrEnum):
@@ -1846,3 +1851,15 @@ class Source5(StrEnum):
     codex = 'codex'
     pi = 'pi'
     kimi_code = 'kimi_code'
+
+
+class DocsState(StrEnum):
+    """
+    How fresh the answer is. `ok`: the copy is current. `stale`: the last
+    good copy, because the latest refresh failed. `unavailable`: no copy has
+    loaded yet, so there are no sections.
+    """
+
+    ok = 'ok'
+    stale = 'stale'
+    unavailable = 'unavailable'

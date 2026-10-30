@@ -264,12 +264,32 @@ def test_the_rest_of_those_groups_stays_refused(tmp_path, command, matched):
                                      "probe status --json", "probe service status", "probe token list",
                                      "probe outbox retry op1", "probe wandb key set k", "probe workspace list",
                                      "probe statusline status", "probe notes sync", "probe wizard --help",
-                                     "probe file preview data/train.csv", "probe draft edit n.md < edit.txt"])
+                                     "probe file preview data/train.csv", "probe draft edit n.md < edit.txt",
+                                     "probe --version 2>&1", "probe wizard --action update --yes > f 2>&1",
+                                     "probe update --check 2>/dev/null | tail -3"])
 def test_the_clis_own_upkeep_runs(tmp_path, command):
     """A daemon-profile agent could not run `probe update --check` (2026-10-21):
     every command that neither reads nor writes research content was refused
-    with the reads and writes. Only tracking is the daemon's."""
+    with the reads and writes. Only tracking is the daemon's. Output sent to a
+    file is still the same command (issue 3622: `2>&1` was refused as `probe 2`)."""
     assert _guard(tmp_path, command) is None
+
+
+def test_a_redirection_between_the_wizards_flags_stays_refused(tmp_path):
+    """Only a TRAILING redirection is dropped: one in the middle is a word the
+    plain-flags check cannot vouch for."""
+    command = "probe wizard --action update > f --yes"
+    assert _guard(tmp_path, command) == session_marker.DAEMON_PROFILE_DENY.format(matched="probe wizard")
+
+
+@pytest.mark.parametrize("command,matched", [("probe --spool-dir '>' logout", "probe logout"),
+                                             ("probe wizard --yes --action update '>' --action=uninstall",
+                                              "probe wizard")])
+def test_a_quoted_redirection_hides_no_command(tmp_path, command, matched):
+    """A quoted `>` is an option's value, not a redirection: dropping it with the
+    word after it let `logout` through as a bare `probe --spool-dir` (review of
+    issue 3622's fix)."""
+    assert _guard(tmp_path, command) == session_marker.DAEMON_PROFILE_DENY.format(matched=matched)
 
 
 @pytest.mark.parametrize("command", ["probe run get r1", "probe run metrics r1 --key loss", "probe run series r1",
@@ -411,6 +431,10 @@ DAEMONS = {
     # over in CLIs of 2026-10-05..06.
     "deny", "statusline install", "statusline uninstall", "install", "uninstall", "desktop", "session inline",
     "session daemon",
+    # Restoring a captured session the researcher deleted (research-os 0411):
+    # theirs alone, like the delete (a removal, sorted already); the CLI also
+    # refuses it from any agent's shell.
+    "session undelete",
     # The install pipeline in repair mode: it may re-approve the daemon's key
     # and change the researcher's agent settings, as the guided install does.
     "repair",
@@ -484,6 +508,9 @@ SKILL_NAMES_REFUSED = {
     # instrument-code: the researcher mints a remote job's token (browser approval).
     "probe token",
 }
+#: Exact commands the skills name for the RESEARCHER to type, refused to the
+#: agent: the `probe` skill's way a launched session goes inline (F7).
+SKILL_SPANS_REFUSED = {"probe session state inline --session <id>"}
 
 
 def test_every_probe_command_the_daemon_skills_name_is_allowed():
@@ -507,7 +534,8 @@ def test_every_probe_command_the_daemon_skills_name_is_allowed():
             allowed, matched = session_marker.daemon_profile_allows(args)
             if not allowed:
                 refused += 1
-                assert matched in SKILL_NAMES_REFUSED, f"{path.relative_to(skills)}: `{span}` is refused"
+                assert matched in SKILL_NAMES_REFUSED or span in SKILL_SPANS_REFUSED, (
+                    f"{path.relative_to(skills)}: `{span}` is refused")
     assert named > 20 and refused, "the scan found the skills' commands"
 
 

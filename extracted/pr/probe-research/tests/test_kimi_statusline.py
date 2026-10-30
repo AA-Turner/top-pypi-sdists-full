@@ -308,3 +308,24 @@ def test_before_the_first_message_the_footer_shows_the_new_sessions_state(kimi, 
     )
     assert done.returncode == 0, done.stderr
     assert done.stdout.strip().endswith(("tracking", "off", "on", ")")) and "● " in done.stdout, done.stdout
+
+
+@pytest.mark.parametrize(("key_held", "degraded"), [(True, False), (False, True)])
+def test_before_the_first_message_a_daemon_session_reads_as_starting(kimi, tmp_path, key_held, degraded):
+    """Issue 3619: Kimi's footer drew `on (daemon degraded)` until the first
+    message (no `sessionId` yet), though the daemon starts with the session.
+    It is starting when it can start at all (the daemon's key is held), as the
+    footer says once the session exists."""
+    config = json.loads((kimi / "probe" / "config.json").read_text())
+    config["defaults"] = {"session_state": "full", "recorders": {"kimi_code": "daemon"}}  # harness-literal-ok: the recorder table's key
+    if key_held:
+        config["contexts"]["default"]["companion_token"] = "daemon-key"
+    (kimi / "probe" / "config.json").write_text(json.dumps(config))
+    snapshot = json.dumps({"model": "m", "cwd": str(kimi / "home"), "sessionId": "", "version": "2.1.1"})
+    done = subprocess.run(
+        [sys.executable, str(PLUGIN / "hooks" / "statusline.py")], input=snapshot, capture_output=True, text=True,
+        env={**os.environ, "KIMI_CODE_STATUS_LINE": "1", "NO_COLOR": "1"}, check=False,
+    )
+    assert done.returncode == 0, done.stderr
+    assert "on (daemon" in done.stdout, done.stdout
+    assert ("degraded" in done.stdout) is degraded, done.stdout

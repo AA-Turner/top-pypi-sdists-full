@@ -41,6 +41,11 @@ def valuecount(table, field, value, missing=None):
     The `field` argument can be a single field name or index (starting from
     zero) or a tuple of field names and/or indexes.
 
+    A table without data rows has zero count and frequency::
+
+        >>> etl.valuecount([['foo']], 'foo', 'a')
+        (0, 0.0)
+
     """
 
     total = 0
@@ -49,7 +54,7 @@ def valuecount(table, field, value, missing=None):
         total += 1
         if v == value:
             vs += 1
-    return vs, float(vs)/total
+    return vs, float(vs)/total if total else 0.0
 
 
 Table.valuecount = valuecount
@@ -199,6 +204,10 @@ def parsecounter(table, field, parsers=(('int', int), ('float', float))):
 
     The `field` argument can be a field name or index (starting from zero).
 
+    Parser exceptions derived from :class:`Exception` are counted as errors.
+    Process-control exceptions such as :class:`KeyboardInterrupt` and
+    :class:`SystemExit` propagate instead of being counted as parse failures.
+
     """
 
     if isinstance(parsers, (list, tuple)):
@@ -213,7 +222,7 @@ def parsecounter(table, field, parsers=(('int', int), ('float', float))):
             for name, parser in parsers.items():
                 try:
                     parser(v)
-                except:
+                except Exception:
                     errors[name] += 1
                 else:
                     counter[name] += 1

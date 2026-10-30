@@ -22,7 +22,14 @@ from typing import Any, TypeGuard
 from trilogy.core import graph as nx
 from trilogy.core.constants import GRAIN_NULL_SENTINEL
 from trilogy.core.domain_graph import DomainGraph
-from trilogy.core.enums import Derivation, FunctionType, Granularity, Purpose
+from trilogy.core.enums import (
+    BooleanOperator,
+    DatasourceState,
+    Derivation,
+    FunctionType,
+    Granularity,
+    Purpose,
+)
 from trilogy.core.having_normalization import _child_exprs
 from trilogy.core.models.author import (
     AggregateWrapper,
@@ -37,6 +44,7 @@ from trilogy.core.models.author import (
     Parenthetical,
     SelectLineage,
     UndefinedConcept,
+    WhereClause,
 )
 from trilogy.core.models.environment import Environment
 
@@ -345,6 +353,36 @@ def _may_pad(graph: DomainGraph) -> bool:
     coalescing (union/full) join somewhere in the statement's scope."""
     return any(not b.complete for b in graph.binding_edges) or bool(
         graph.coalescing_relation_members()
+    )
+
+
+def _and_atoms(condition: Any) -> list[Any]:
+    if isinstance(condition, Conditional) and condition.operator == BooleanOperator.AND:
+        return _and_atoms(condition.left) + _and_atoms(condition.right)
+    if isinstance(condition, Parenthetical):
+        return _and_atoms(condition.content)
+    return [condition]
+
+
+def statement_graph(
+    graph: DomainGraph, where: WhereClause | None, environment: Environment
+) -> DomainGraph:
+    """`graph` as the statement filtered by `where` sees it: a datasource
+    whose `complete where` the WHERE implies holds every row the statement
+    can (see `DomainGraph.with_conditions_met`). Only a datasource the
+    statement can read: a persist's own target is unpublished while it is
+    built, and its WHERE implies the target's `complete where` by design."""
+    if where is None:
+        return graph
+    atoms = _and_atoms(where.conditional)
+    readable = {
+        ds.identifier
+        for ds in environment.datasources.values()
+        if ds.status == DatasourceState.PUBLISHED
+    }
+    return graph.with_conditions_met(
+        lambda binding: binding.datasource in readable
+        and all(a in atoms for a in _and_atoms(binding.condition))
     )
 
 

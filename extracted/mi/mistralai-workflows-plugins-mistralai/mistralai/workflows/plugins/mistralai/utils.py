@@ -12,14 +12,14 @@ from mistralai.workflows.client import get_mistral_client as _get_mistral_client
 from mistralai.workflows.core.config.config import config
 from mistralai.workflows.core.rate_limiting.rate_limit import RateLimit
 from mistralai.workflows.core.task import Task
-from mistralai.workflows.plugins.mistralai.connectors.run_as import ConnectorRunAs
+from mistralai.workflows.plugins.mistralai.connectors.run_as import RunAs
 from mistralai.workflows.plugins.mistralai.models import ChatStreamState, ContentChunk, ConversationStreamState
 
 _MISTRAL_LLM_RATE_LIMIT_DEFAULT_KEY = "__MISTRAL_LLM_RATE_LIMIT_DEFAULT_KEY"
 _StreamEventT = TypeVar("_StreamEventT")
 
 
-def get_mistral_client(run_as: ConnectorRunAs = ConnectorRunAs.AUTO) -> Mistral:
+def get_mistral_client(run_as: RunAs = RunAs.AUTO) -> Mistral:
     api_key_secret = config.worker.agent.mistral_client_api_key
     return _get_mistral_client(
         api_key=api_key_secret.get_secret_value() if api_key_secret else None,

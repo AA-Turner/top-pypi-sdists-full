@@ -417,6 +417,65 @@ class UpdateMixin(BaseMixin):
         cache.update({"a": 99})
         assert cache.get("a") == 99
 
+    def test_update_from_tuple_set_and_list_subclass(self):
+        cache = self.create_cache()
+
+        cache.update((("t", 1),))
+        cache.update({("s", 2)})
+        cache.update(frozenset({("f", 3)}))
+
+        class Pairs(list):
+            # a subclass may run Python code (even this cache) while iterated
+            def __iter__(self):
+                assert len(cache) >= 0
+                return super().__iter__()
+
+        cache.update(Pairs([("l", 4)]))
+        assert [cache.get(k) for k in "tsfl"] == [1, 2, 3, 4]
+
+    def test_update_keeps_entries_read_before_an_error(self):
+        cache = self.create_cache()
+
+        def pairs():
+            yield "a", 1
+            yield "b", 2
+            raise ValueError("stop")
+
+        with pytest.raises(ValueError, match="stop"):
+            cache.update(pairs())
+
+        assert cache.get("a") == 1
+        assert cache.get("b") == 2
+
+    def test_update_memory_follows_the_cache_not_the_input(self):
+        tracemalloc = pytest.importorskip("tracemalloc")  # not on PyPy
+        cache = self.create_cache(10)
+        if isinstance(cache, cachebox.Cache):
+            pytest.skip("Cache does not evict")
+
+        tracemalloc.start()
+        try:
+            cache.update((i, bytes(1000)) for i in range(20_000))
+            _, peak = tracemalloc.get_traced_memory()
+        finally:
+            tracemalloc.stop()
+
+        # all 20k values alive at once would be about 20 MB
+        assert peak < 5_000_000, peak
+
+    def test_update_ignores_a_wrong_len(self):
+        class Lying:
+            def __len__(self):
+                return 2**62
+
+            def __iter__(self):
+                return iter([("a", 1)])
+
+        cache = self.create_cache()
+
+        cache.update(Lying())
+        assert cache.get("a") == 1
+
     def test_update_invalid_argument(self):
         cache = self.create_cache()
 
@@ -535,6 +594,83 @@ assert sorted(make().values()) == [1, 2]
 print("ok")
 """
 
+ITERATING_WHILE_OTHER_THREADS_MUTATE = """
+import faulthandler
+import random
+import sys
+import threading
+import time
+
+import cachebox
+
+name = sys.argv[1]
+cls = getattr(cachebox, name)
+if name == "TTLCache":
+    cache = cls(500, global_ttl=60)
+elif name == "Cache":
+    cache = cls(0)
+else:
+    cache = cls(500)
+
+if name == "VTTLCache":
+    def put(key):
+        cache.insert(key, key, 60)
+else:
+    def put(key):
+        cache[key] = key
+
+stop = threading.Event()
+errors = []
+# a hang prints every thread's stack before the parent's timeout
+faulthandler.dump_traceback_later(50, exit=True)
+
+
+def worker(seed):
+    rng = random.Random(seed)
+    while not stop.is_set():
+        key = rng.randrange(2000)
+        op = rng.random()
+        try:
+            if op < 0.25:
+                cache.get(key)
+            elif op < 0.55:
+                put(key)
+            elif op < 0.7:
+                cache.pop(key, None)
+            else:
+                if rng.random() < 0.5:
+                    view = rng.choice((cache.keys, cache.values))()
+                    bool(view), len(view)
+                    for _ in view:
+                        pass
+                else:
+                    # every entry is key -> key: a torn or reused-node read shows up here
+                    view = cache.items()
+                    bool(view), len(view)
+                    seen = set()
+                    for k, v in view:
+                        if k != v or k in seen:
+                            raise AssertionError(f"items() yielded {k!r} -> {v!r}")
+                        seen.add(k)
+        except RuntimeError:
+            pass  # the cache changed during iteration: expected
+        except Exception as e:
+            errors.append(repr(e))
+            return
+
+
+threads = [threading.Thread(target=worker, args=(i,)) for i in range(8)]
+for t in threads:
+    t.start()
+time.sleep(2)
+stop.set()
+for t in threads:
+    t.join()
+
+assert not errors, errors[:3]
+print("ok")
+"""
+
 
 class IterationMixin(BaseMixin):
     def test_keys_returns_all_keys(self):
@@ -572,6 +708,33 @@ class IterationMixin(BaseMixin):
             timeout=60,
             check=False,
         )
+
+        assert done.stdout.strip() == "ok", (
+            done.stderr or f"exit code {done.returncode}"
+        )
+
+    def test_iterating_while_other_threads_mutate(self):
+        # Free-threaded builds: an iterator must not read entries another thread is
+        # changing. Reading freed memory faults instead of failing, hence a child process.
+        name = type(self.create_cache()).__name__
+
+        try:
+            done = subprocess.run(
+                [
+                    sys.executable,
+                    "-c",
+                    ITERATING_WHILE_OTHER_THREADS_MUTATE,
+                    name,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            pytest.fail(
+                f"{name}: iterating while other threads mutate never finished"
+            )
 
         assert done.stdout.strip() == "ok", (
             done.stderr or f"exit code {done.returncode}"
@@ -1038,6 +1201,196 @@ for t in threads:
 print("finished")
 """
 
+UPDATE_RUNNING_PYTHON_CODE = """
+import faulthandler
+import sys
+import threading
+
+import cachebox
+
+name = sys.argv[1]
+cls = getattr(cachebox, name)
+# a hang prints every thread's stack before the parent's timeout
+faulthandler.dump_traceback_later(50, exit=True)
+# switch threads as often as possible, also inside Key.__eq__
+sys.setswitchinterval(1e-6)
+
+
+def make(n):
+    cache = cls(0, global_ttl=60) if name == "TTLCache" else cls(0)
+    for i in range(n):
+        cache[Key(i)] = i
+    return cache
+
+
+class Key:
+    def __init__(self, v):
+        self.v = v
+
+    def __hash__(self):
+        return self.v
+
+    def __eq__(self, other):
+        return self.v == other.v
+
+
+# the iterable reads the cache that is being updated
+a = make(10)
+a.update((Key(i), a.get(Key(i), 0) + 1) for i in range(20))
+assert a.get(Key(19)) == 1, a.get(Key(19))
+
+# two caches updated from each other
+a, b = make(200), make(200)
+
+
+def update(x, y):
+    for _ in range(100):
+        x.update(y)
+
+
+threads = [
+    threading.Thread(target=update, args=(a, b)),
+    threading.Thread(target=update, args=(b, a)),
+]
+for t in threads:
+    t.start()
+for t in threads:
+    t.join()
+print("ok")
+"""
+
+LOCK_WAITERS_WITH_FINALIZERS = """
+import faulthandler
+import random
+import sys
+import threading
+import time
+
+import cachebox
+
+name = sys.argv[1]
+cls = getattr(cachebox, name)
+if name == "TTLCache":
+    cache = cls(500, global_ttl=60)
+elif name == "Cache":
+    cache = cls(0)
+else:
+    cache = cls(500)
+
+# a hang prints every thread's stack before the parent's timeout
+faulthandler.dump_traceback_later(50, exit=True)
+# switch threads as often as possible, also in the middle of a finalizer
+sys.setswitchinterval(1e-6)
+
+errors = []
+threading.excepthook = lambda args: errors.append(repr(args.exc_value))
+
+
+class Value:
+    def __del__(self):
+        # runs while clear() or an eviction holds the cache lock
+        self.dropped = True
+
+
+# every method that waits for the cache lock without an argument
+methods = [
+    getattr(cache, m)
+    for m in (
+        "__len__", "__bool__", "__sizeof__", "capacity", "current_size",
+        "is_empty", "is_full", "shrink_to_fit", "popitem", "clear",
+    )
+]
+methods += [
+    getattr(cache, m)
+    for m in ("remaining_size", "expire", "popitem_with_expire")
+    if hasattr(cache, m)
+]
+stop = threading.Event()
+
+
+def worker(seed):
+    rng = random.Random(seed)
+    while not stop.is_set():
+        if rng.random() < 0.6:
+            cache[rng.randrange(2000)] = Value()
+        else:
+            try:
+                rng.choice(methods)()
+            except (KeyError, OverflowError):
+                pass  # empty cache, or Cache has nothing to pop
+
+
+deadline = time.monotonic() + 3
+started = 0
+while time.monotonic() < deadline:
+    # starting threads stops the world on free-threaded builds
+    batch = [threading.Thread(target=worker, args=(started + i,)) for i in range(8)]
+    for t in batch:
+        t.start()
+    started += len(batch)
+    time.sleep(0.1)
+    stop.set()
+    for t in batch:
+        t.join()
+    stop.clear()
+
+assert not errors, errors[:3]
+print("ok")
+"""
+
+COMPARE_WITH_ARGUMENTS_SWAPPED = """
+import faulthandler
+import sys
+import threading
+
+import cachebox
+
+name = sys.argv[1]
+cls = getattr(cachebox, name)
+# a hang prints every thread's stack before the parent's timeout
+faulthandler.dump_traceback_later(50, exit=True)
+# switch threads as often as possible, also inside Key.__eq__
+sys.setswitchinterval(1e-6)
+
+
+class Key:
+    def __init__(self, v):
+        self.v = v
+
+    def __hash__(self):
+        return self.v
+
+    def __eq__(self, other):
+        return self.v == other.v
+
+
+def make():
+    cache = cls(0, global_ttl=60) if name == "TTLCache" else cls(0)
+    for i in range(200):
+        cache[Key(i)] = i
+    return cache
+
+
+a, b = make(), make()
+
+
+def compare(x, y):
+    for _ in range(300):
+        assert x == y
+        assert not x != y
+
+
+threads = [
+    threading.Thread(target=compare, args=(a, b)),
+    threading.Thread(target=compare, args=(b, a)),
+]
+for t in threads:
+    t.start()
+for t in threads:
+    t.join()
+print("ok")
+"""
+
 
 class IssuesMixin(BaseMixin):
     def test_issue_5(self):
@@ -1094,6 +1447,90 @@ class IssuesMixin(BaseMixin):
         assert done.stdout.strip() == "finished", (
             done.stderr or f"exit code {done.returncode}"
         )
+
+    def test_update_running_python_code(self):
+        # https://github.com/awolverp/cachebox/issues/118
+        #
+        # update() iterated its argument while holding the cache lock, so an
+        # iterable that used the same cache hung, and so did a.update(b) with
+        # b.update(a) on another thread.
+        name = type(self.create_cache()).__name__
+
+        try:
+            done = subprocess.run(
+                [sys.executable, "-c", UPDATE_RUNNING_PYTHON_CODE, name],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            pytest.fail(f"{name}: update() never returned")
+
+        assert done.stdout.strip() == "ok", (
+            done.stderr or f"exit code {done.returncode}"
+        )
+
+    def test_lock_waiters_with_finalizers(self):
+        # Follow-up to #95: methods such as len() and clear() waited for the
+        # cache lock without detaching. With the GIL, a finalizer running under
+        # clear() hands the GIL to a thread blocked there; on free-threaded
+        # builds the blocked thread holds up a stop-the-world.
+        name = type(self.create_cache()).__name__
+
+        try:
+            done = subprocess.run(
+                [sys.executable, "-c", LOCK_WAITERS_WITH_FINALIZERS, name],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            pytest.fail(
+                f"{name}: threads waiting for the cache lock never returned"
+            )
+
+        assert done.stdout.strip() == "ok", (
+            done.stderr or f"exit code {done.returncode}"
+        )
+
+    def test_compare_with_arguments_swapped(self):
+        # https://github.com/awolverp/cachebox/issues/118
+        #
+        # `a == b` locks both caches; with `b == a` running on another thread
+        # the locks were taken in opposite orders and both threads hung.
+        name = type(self.create_cache()).__name__
+
+        try:
+            done = subprocess.run(
+                [sys.executable, "-c", COMPARE_WITH_ARGUMENTS_SWAPPED, name],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            pytest.fail(
+                f"{name}: a == b and b == a on two threads never returned"
+            )
+
+        assert done.stdout.strip() == "ok", (
+            done.stderr or f"exit code {done.returncode}"
+        )
+
+    def test_none_refcount(self):
+        cache = self.create_cache(1000)
+
+        if isinstance(cache, cachebox.Cache):
+            pytest.skip()
+
+        for i in range(10_000):
+            cache[i] = None
+
+        for i in range(10_000):
+            v = cache.get(i)
+            assert v is None
 
 
 class SweepIntervalMixin(BaseMixin):

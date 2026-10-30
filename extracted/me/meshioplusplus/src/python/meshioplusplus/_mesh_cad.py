@@ -43,6 +43,9 @@ _MAX_POLE_RINGS = 8
 #: How smoothing moves an interior point.
 SMOOTH_METHODS = ("laplacian", "odt")
 METRICS = ("mean", "varying")
+#: Quadrilaterals (roadmap 6.8): none, quad-dominant, all-quad.
+QUADS = ("none", "dominant", "all")
+QUAD_PAIRS = ("matching", "greedy")
 
 _REPORT_INTS = (
     "num_points",
@@ -59,6 +62,9 @@ _REPORT_INTS = (
     "num_faces_below_bound",
     "num_smoothed",
     "num_curved_straightened",
+    "num_untangled",
+    "num_quads",
+    "num_leftover_triangles",
 )
 _REPORT_FLOATS = (
     "tolerance",
@@ -67,6 +73,8 @@ _REPORT_FLOATS = (
     "min_edge",
     "max_edge",
     "max_edge_gap",
+    "min_quad_scaled_jacobian",
+    "min_metric_angle",
 )
 
 
@@ -127,6 +135,12 @@ def mesh_cad_surface(
     model_tolerances: bool = False,
     virtual_faces: bool = False,
     lop_corners: bool = False,
+    metric_background=None,
+    metric_array: str = "",
+    metric_error: float = 0.0,
+    untangle: bool = False,
+    quads: str = "none",
+    quad_pairs: str = "matching",
     return_report: bool = False,
 ):
     """Triangulate a B-rep's faces into one conforming surface mesh.
@@ -193,8 +207,9 @@ def mesh_cad_surface(
         surface against the face's plane over the smallest) exceeds this in
         a flattening of that triangulation (a conformal map, or mean-value
         coordinates on a circle) instead of its own parameters, every point
-        still lifted onto the surface; 0 is off, otherwise above 1. Order 1
-        only.
+        still lifted onto the surface; 0 is off, otherwise above 1. With
+        ``order`` 2 or 3 the curved nodes sit at the flattening's coordinates,
+        lifted the same way.
     :param model_tolerances: accept the gaps the model itself declares, the
         ``"tolerance"`` and ``"end_tolerances"`` in an edge's ``extra`` JSON
         (a STEP or IGES read writes OpenCASCADE's), where a closed edge's
@@ -202,7 +217,8 @@ def mesh_cad_surface(
     :param virtual_faces: mesh a face narrower than ``target_size`` together
         with the neighbour it meets tangentially along the most edge, through
         their common flattening; each triangle keeps the face it lies in, and
-        the edges they share leave the ``line`` block. Order 1 only.
+        the edges they share leave the ``line`` block. With ``order`` 2 or 3
+        the curved nodes sit at the flattening's coordinates.
     :param lop_corners: protect every acute corner by corner lopping (S. E.
         Pav and N. J. Walkington, "Delaunay refinement by corner lopping",
         IMR 2005) in place of concentric shells: a ball of radius
@@ -213,9 +229,59 @@ def mesh_cad_surface(
         proves (Corollary 3) for the face's turning on a planar face, and
         whether the run meets it. Only with refinement (``min_angle`` or a
         size).
+    :param metric_background: a mesh whose 9-component ``point_data``
+        ``metric_array`` is a field's Hessian (``hessian`` writes
+        ``"<array>:hessian"``), or whose 1-component one is the field itself
+        (its Hessian at the points is then taken as ``hessian`` takes it),
+        with ``metric_error``: an anisotropic metric
+        ``R |L| R^T / (8 metric_error)`` from it (A. Loseille and F. Alauzet,
+        "Continuous mesh framework part I", 2011), its sizes kept between a
+        64th of ``target_size`` and the local size, sizes each face's
+        triangles in every direction: Lawson's flips and encroachment follow
+        it on the surface (as ``metric="varying"`` does), and refinement
+        judges each triangle by its lengths and angles in it, so triangles
+        stretch where the field varies in one direction only. Read at the
+        nearest point of its surface (a volume mesh is skinned first). The
+        report's ``min_metric_angle`` is the least corner angle in the
+        metric, the measure refinement judges by.
+    :param metric_array: the name of the Hessian array, or of the field.
+    :param metric_error: the target interpolation error (positive).
+    :param untangle: with ``order`` 2 or 3, before an element whose Jacobian
+        is not positive everywhere is made straight-sided, move its face's own
+        high-order nodes on the surface to raise the worst scaled Jacobian
+        around them, the nodes on the model's edges staying put (T. Toulorge,
+        C. Geuzaine, J.-F. Remacle and J. Lambrechts, "Robust untangling of
+        curvilinear meshes", 2013); only the elements still invalid are
+        straightened, and the result is kept only when it straightens fewer.
+        A face with an element whose two sides run along one edge (a straight
+        angle at their corner, where no node move helps) is meshed with an
+        interior grid. With ``quads`` the quads' nodes inside a face move
+        too. Reported as ``num_untangled``.
+    :param quads: ``"none"`` (the default); ``"dominant"``, each face's
+        triangles recombined in pairs (``quad_pairs``) where they make a
+        convex quad with corners within 63 degrees of a right angle, the rest
+        kept beside them (H. Borouchaki and P. J. Frey, 1998); or ``"all"``,
+        the quad-dominant mesh of twice the size split through its edges'
+        midpoints (on the geometry, shared across faces) and a centre on the
+        surface, each quad into four and each triangle into three, so no
+        triangle is left; it asks the size sources (a metric included) for
+        twice their size. With ``order`` 2 or 3 either writes curved ``quad9``
+        or ``quad16`` elements (beside ``triangle6`` or ``triangle10``) whose
+        nodes lie on the geometry, each proved valid by a Bézier bound on its
+        Jacobian or kept straight-sided; no quad is made with both sides at
+        a corner on one edge. ``"all"`` takes no ``virtual_edges``. Reported
+        as ``num_quads``, ``num_leftover_triangles`` and
+        ``min_quad_scaled_jacobian``.
+    :param quad_pairs: how triangles pair into quads (roadmap 6.8.1):
+        ``"matching"`` (the default), a maximum-cardinality matching of
+        greatest total quality, the Blossom-quad of J.-F. Remacle et al.
+        (2012) on the core's own matching (exact in patches of 3,000
+        triangles and a band about the triangles left), or ``"greedy"``, best
+        pair first.
     :param return_report: also return the report.
     :returns: the surface mesh (``triangle`` and ``line`` blocks, or their
-        curved forms with ``order`` 2 or 3), or
+        curved forms with ``order`` 2 or 3, with a ``quad`` block beside or in
+        place of the triangles with ``quads``), or
         ``(mesh, report)``. The report has the counts (``num_failed``,
         ``num_open_edges``, ``num_non_manifold_edges``,
         ``num_misoriented_edges``, ...), the extreme angles and edge lengths,
@@ -231,7 +297,8 @@ def mesh_cad_surface(
         face's given size allows), ``reparametrised`` (per face over
         ``reparam_condition_number``: ``face``, ``condition_number``, the
         flattening's ``condition_number_disc``, ``taken``, ``method``
-        ``"conformal"`` or ``"mean_value"``, and ``reason`` when not taken),
+        ``"conformal"``, ``"mean_value"`` or ``"annulus"`` (a band between
+        two circles), and ``reason`` when not taken),
         ``merged_faces`` (per sliver found: ``sliver``, ``host``, ``width``,
         the shared ``edges``, ``merged`` and ``reason``) and
         ``tolerance_uses`` (per edge and place where a declared tolerance
@@ -239,7 +306,10 @@ def mesh_cad_surface(
         ``lopped_corners`` (per corner lopped: ``face``, ``point``,
         ``angle_deg``, ``lfs0``, ``lop_radius``, ``turning_deg``,
         ``stated_bound_deg``, ``num_forced``, ``min_forced_deg``,
-        ``within_two_radii``, ``guaranteed`` and ``reason`` when not).
+        ``within_two_radii``, ``guaranteed`` and ``reason`` when not),
+        ``num_untangled``, ``num_quads``, ``num_leftover_triangles``,
+        ``min_quad_scaled_jacobian`` (0 with no quad) and
+        ``min_metric_angle`` (0 without a ``metric_background``).
     :raises ValueError: on an option out of range or a mesh with no B-rep.
     :raises RuntimeError: with ``strict=True``, naming the first failed face.
     :raises NotImplementedError: without the compiled core.
@@ -290,10 +360,16 @@ def mesh_cad_surface(
         raise ValueError(
             f"{_PREFIX}reparam_condition_number must be 0 (off) or greater than 1"
         )
-    if reparam_condition_number > 0.0 and int(order) > 1:
-        raise ValueError(f"{_PREFIX}reparam_condition_number is order 1 only")
-    if virtual_faces and int(order) > 1:
-        raise ValueError(f"{_PREFIX}virtual_faces is order 1 only")
+    if untangle and int(order) < 2:
+        raise ValueError(f"{_PREFIX}untangle needs curved elements (order 2 or 3)")
+    if quad_pairs not in QUAD_PAIRS:
+        raise ValueError(f"{_PREFIX}quad_pairs must be one of {QUAD_PAIRS}")
+    if quads not in QUADS:
+        raise ValueError(f"{_PREFIX}quads must be one of {QUADS}")
+    if quads == "all" and virtual_edges:
+        raise ValueError(
+            f'{_PREFIX}quads="all" takes no virtual_edges: its split meshes at order 2'
+        )
 
     face_pairs = _size_pairs(face_sizes, "face_sizes", len(brep["faces"]))
     edge_pairs = _size_pairs(edge_sizes, "edge_sizes", len(brep.get("edges", [])))
@@ -311,6 +387,27 @@ def mesh_cad_surface(
                 f"{_PREFIX}background: its point_data {background_array!r} must "
                 "have one component"
             )
+
+    metric_error = float(metric_error)
+    if metric_background is not None:
+        data = getattr(metric_background, "point_data", {})
+        if not metric_array or metric_array not in data:
+            raise ValueError(
+                f"{_PREFIX}metric_background: it has no point_data {metric_array!r}"
+            )
+        values = np.asarray(data[metric_array])
+        if values.reshape(len(values), -1).shape[1] not in (1, 9):
+            raise ValueError(
+                f"{_PREFIX}metric_background: its point_data {metric_array!r} must "
+                "have nine components (a Hessian, as hessian writes it) or one (a "
+                "field, whose Hessian is then taken)"
+            )
+        if not (math.isfinite(metric_error) and metric_error > 0.0):
+            raise ValueError(f"{_PREFIX}metric_error must be finite and positive")
+    elif metric_array or metric_error != 0.0:
+        raise ValueError(
+            f"{_PREFIX}metric_array and metric_error need a metric_background"
+        )
 
     _core = _core_or_raise("mesh_cad_surface")
     res = _core.mesh_cad_surface(
@@ -342,6 +439,12 @@ def mesh_cad_surface(
         model_tolerances=bool(model_tolerances),
         virtual_faces=bool(virtual_faces),
         lop_corners=bool(lop_corners),
+        metric_background=metric_background,
+        metric_array=str(metric_array),
+        metric_error=metric_error,
+        untangle=bool(untangle),
+        quads=quads,
+        quad_pairs=quad_pairs,
     )
     out = res["mesh"]
     if not return_report:

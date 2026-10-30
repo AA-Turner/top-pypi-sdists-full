@@ -1,6 +1,6 @@
 [project]
 name = "fable-library"
-version = "5.24.0"
+version = "5.26.0"
 description = "Fable library for Python"
 authors = [
     { name = "Dag Brattli", email = "dag@brattli.net" }

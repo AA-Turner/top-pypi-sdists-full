@@ -2,14 +2,17 @@ import argparse
 from pathlib import Path
 from textwrap import dedent
 from typing import List, Optional, Tuple
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock
 
 import pytest
 from gpuhunt import KNOWN_TENSTORRENT_ACCELERATORS
+from rich.prompt import Confirm
 
+import dstack._internal.cli.services.configurators.run as run_configurator_module
 from dstack._internal.cli.services.configurators import get_run_configurator_class
 from dstack._internal.cli.services.configurators.run import (
     ServiceConfigurator,
+    TaskConfigurator,
     render_run_spec_diff,
 )
 from dstack._internal.core.errors import CLIError, ConfigurationError
@@ -24,6 +27,7 @@ from dstack._internal.core.models.configurations import (
 )
 from dstack._internal.core.models.envs import Env
 from dstack._internal.core.models.profiles import Profile
+from dstack._internal.core.models.runs import RunStatus
 from dstack._internal.server.testing.common import get_run_spec
 from tests._internal.utils.test_ssh import PRIVATE_KEY, PUBLIC_KEY, PUBLIC_KEY_NO_COMMENT
 
@@ -72,7 +76,7 @@ class TestApplyArgs:
         assert modified.model_dump() == conf.model_dump()
 
     def test_ports_override(self):
-        conf = TaskConfiguration(commands=["whoami"], ports=["80"])
+        conf = TaskConfiguration.model_validate({"commands": ["whoami"], "ports": ["80"]})
         modified, args = self.apply_args(conf, ["-p", "8000:80", "--port", "8001:8000"])
         conf.ports = [
             PortMapping(local_port=8000, container_port=80),
@@ -81,12 +85,12 @@ class TestApplyArgs:
         assert modified.model_dump() == conf.model_dump()
 
     def test_local_ports_conflict(self):
-        conf = TaskConfiguration(commands=["whoami"], ports=["3000"])
+        conf = TaskConfiguration.model_validate({"commands": ["whoami"], "ports": ["3000"]})
         with pytest.raises(ConfigurationError):
             self.apply_args(conf, ["-p", "3000:4000"])
 
     def test_any_port(self):
-        conf = TaskConfiguration(commands=["whoami"], ports=["8000"])
+        conf = TaskConfiguration.model_validate({"commands": ["whoami"], "ports": ["8000"]})
         modified, args = self.apply_args(conf, ["-p", "*:8000"])
         conf.ports = [PortMapping(local_port=None, container_port=8000)]
         assert modified.model_dump() == conf.model_dump()
@@ -128,6 +132,7 @@ class TestApplyArgs:
             }
         )
         modified, _ = self.apply_args(conf, ["hello"])
+        assert isinstance(modified, ServiceConfiguration)
         assert modified.groups is not None
         assert modified.groups[0].commands == [
             "echo hello ${{ groups[0].replicas[0].IP_ADDRESS }}"
@@ -160,6 +165,7 @@ class TestApplyArgs:
             }
         )
         modified, _ = self.apply_args(conf, [])
+        assert isinstance(modified, ServiceConfiguration)
         assert modified.commands == ["echo ${{ env.FOO }}"]
 
 
@@ -190,6 +196,38 @@ class TestApplyConfiguration:
             configurator_args=configurator_args,
             ssh_identity_file=None,
         )
+
+
+class TestApplyPlan:
+    def test_interrupt_at_stop_prompt_aborts_run(self, monkeypatch: pytest.MonkeyPatch):
+        run = MagicMock(status=RunStatus.RUNNING)
+        run.attach.side_effect = KeyboardInterrupt
+        api = MagicMock()
+        api.runs.apply_plan.return_value = run
+        for name in [
+            "print_run_plan",
+            "_print_service_urls",
+            "_print_dev_environment_connection_info",
+        ]:
+            monkeypatch.setattr(run_configurator_module, name, Mock())
+        monkeypatch.setattr(run_configurator_module, "_get_apply_status", Mock(return_value=""))
+        monkeypatch.setattr(run_configurator_module, "get_runs_table", Mock(return_value=""))
+        monkeypatch.setattr(
+            run_configurator_module, "_is_ready_to_attach", Mock(return_value=True)
+        )
+        # Submit the run, then press Ctrl+C at "Stop the run before detaching?"
+        monkeypatch.setattr(Confirm, "ask", Mock(side_effect=[True, KeyboardInterrupt]))
+
+        with pytest.raises(KeyboardInterrupt):
+            TaskConfigurator(api_client=api).apply_plan(
+                run_plan=MagicMock(current_resource=None),
+                repo=Mock(),
+                command_args=argparse.Namespace(yes=False, detach=False, verbose=False),
+                configurator_args=argparse.Namespace(max_offers=None),
+                ssh_identity_file=None,
+            )
+
+        run.stop.assert_called_once_with(abort=True)
 
 
 class TestRenderRunSpecDiff:

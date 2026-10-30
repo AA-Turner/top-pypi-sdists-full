@@ -1,15 +1,15 @@
 from typing import Any
 
-import structlog
 import temporalio.client
 import temporalio.worker
 import temporalio.workflow
 from temporalio import activity
 
+from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.encoding.fields_offloader import FieldsOffloader, OffloadableModel
 from mistralai.workflows.core.temporal.utils import require_activity_context_value
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 
 class ActivityInOutOffloadingInterceptorInboundInterceptor(temporalio.worker.ActivityInboundInterceptor):

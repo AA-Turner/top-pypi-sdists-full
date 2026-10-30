@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: prime-traces
-Version: 0.0.10
+Version: 0.0.11
 Summary: Prime Intellect Traces SDK - Upload, query and export traces
 Project-URL: Homepage, https://github.com/PrimeIntellect-ai/prime
 Project-URL: Documentation, https://github.com/PrimeIntellect-ai/prime/tree/main/packages/prime-traces
@@ -21,6 +21,7 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Requires-Dist: httpx>=0.25.0
+Requires-Dist: orjson>=3.10.0
 Requires-Dist: pydantic>=2.0.0
 Provides-Extra: dev
 Requires-Dist: pytest-asyncio>=0.23.0; extra == 'dev'

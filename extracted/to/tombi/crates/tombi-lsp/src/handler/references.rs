@@ -10,18 +10,12 @@ pub async fn handle_references(
     backend: &Backend,
     params: ReferenceParams,
 ) -> Result<Option<Vec<tombi_extension::Location>>, tower_lsp_server::jsonrpc::Error> {
-    log::trace!("{:?}", params);
-
-    let ReferenceParams {
-        text_document_position_params:
-            TextDocumentPositionParams {
-                text_document,
-                position,
-            },
-        context,
-        ..
-    } = params;
-    let text_document_uri = text_document.uri.into();
+    let text_document_uri: tombi_uri::Uri = params
+        .text_document_position_params
+        .text_document
+        .uri
+        .clone()
+        .into();
 
     let ConfigSchemaStore { config, .. } = backend
         .config_manager
@@ -31,16 +25,23 @@ pub async fn handle_references(
     if !config
         .lsp
         .as_ref()
-        .and_then(|server| server.references.as_ref())
+        .and_then(|lsp| lsp.references.as_ref())
         .and_then(|references| references.enabled)
         .unwrap_or_default()
         .value()
     {
-        log::debug!("`server.references.enabled` is false");
+        log::debug!("skip references because `lsp.references.enabled` is false.");
         return Ok(None);
     }
 
     log::info!("handle_references");
+    log::debug!("{:?}", params);
+
+    let ReferenceParams {
+        text_document_position_params: TextDocumentPositionParams { position, .. },
+        context,
+        ..
+    } = params;
 
     let Some(document_source) = backend.document_source(&text_document_uri) else {
         return Ok(None);

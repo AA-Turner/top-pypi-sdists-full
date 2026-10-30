@@ -38,11 +38,11 @@ def test_special_mode_states_go_by_product_id() -> None:
 
 def _iokit(monkeypatch: pytest.MonkeyPatch, *devices: tuple[int, Optional[str]]) -> None:
     entries = [
-        SimpleNamespace(properties={"idVendor": APPLE_VENDOR_ID, "idProduct": product_id, "USB Serial Number": serial})
+        SimpleNamespace(idVendor=APPLE_VENDOR_ID, idProduct=product_id, serial_number=serial, close=lambda: None)
         for product_id, serial in devices
     ]
-    monkeypatch.setattr(dfu_guide, "get_io_services_by_type", lambda service_type: entries)
-    monkeypatch.setattr(dfu_guide, "find", lambda find_all=False: [])
+    monkeypatch.setattr(dfu_guide, "uses_iokit", lambda: True)
+    monkeypatch.setattr(dfu_guide, "list_devices", lambda: entries)
 
 
 @pytest.mark.asyncio
@@ -100,3 +100,50 @@ def _fake_clock():
         return now[0]
 
     return monotonic
+
+
+@pytest.mark.asyncio
+async def test_assisted_guide_restarts_the_device_after_its_step(monkeypatch: pytest.MonkeyPatch) -> None:
+    events: list[str] = []
+    states = [UsbState.NORMAL]
+
+    async def current_state(udid: Optional[str]) -> UsbState:
+        return states[0]
+
+    async def restart() -> None:
+        events.append("restart")
+        # the phone goes down, then comes up in DFU mode behind KIS
+        states[0] = UsbState.KIS
+
+    monkeypatch.setattr(dfu_guide, "current_state", current_state)
+    monkeypatch.setattr(dfu_guide, "POLL_INTERVAL", 0)
+    monkeypatch.setattr(dfu_guide.time, "monotonic", _fake_clock())
+    monkeypatch.setattr(dfu_guide.asyncio, "sleep", _no_sleep)
+    sequence = dfu_guide.FACE_ID_IPHONE_ASSISTED
+
+    result = await dfu_guide.run_sequence(Console(file=io.StringIO()), sequence, "udid", restart)
+
+    assert events == ["restart"]
+    assert result.state == UsbState.KIS
+
+
+async def _no_sleep(seconds: float) -> None:
+    pass
+
+
+@pytest.mark.asyncio
+async def test_a_restarting_step_needs_a_way_to_restart(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(dfu_guide, "current_state", lambda udid: _state(UsbState.NORMAL))
+    monkeypatch.setattr(dfu_guide.time, "monotonic", _fake_clock())
+    with pytest.raises(ValueError, match="restart"):
+        await dfu_guide.run_sequence(Console(file=io.StringIO()), dfu_guide.FACE_ID_IPHONE_ASSISTED, "udid")
+
+
+async def _state(state: UsbState) -> UsbState:
+    return state
+
+
+def test_assisted_sequence_only_for_face_id_iphones() -> None:
+    assert dfu_guide.iphone_sequence("iPhone18,4", assisted=True) is dfu_guide.FACE_ID_IPHONE_ASSISTED
+    assert dfu_guide.iphone_sequence("iPhone18,4") is dfu_guide.FACE_ID_IPHONE
+    assert dfu_guide.iphone_sequence("iPhone9,1", assisted=True) is dfu_guide.IPHONE_7

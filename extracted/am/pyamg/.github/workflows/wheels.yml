@@ -2,8 +2,11 @@ name: Build wheels
 
 on:
   workflow_dispatch:
-    branches:
-      - main
+    inputs:
+      ref:
+        description: 'Branch, tag, or commit to build (blank: the branch the workflow runs on)'
+        required: false
+        default: ''
   release:
     types:
       - published
@@ -15,28 +18,35 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macos-13 is an intel runner, macos-14 is apple silicon
-        os: [ubuntu-latest, windows-latest, macos-13, macos-latest]
+        # macos-15-intel is an intel runner, macos-latest is apple silicon
+        os: [ubuntu-latest, windows-latest, macos-15-intel, macos-latest]
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
-          # uncomment to force a wheel build
-          # ref: v5.3.0
-          fetch-depth: 0
-
+          fetch-depth: 0  # versioningit needs tags
+          ref: ${{ inputs.ref }}  # empty on release -> the release tag
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.1.4
+        uses: pypa/cibuildwheel@v4.3.5
         env:
-          CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-*"
+          CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-* cp314-*"
           CIBW_ARCHS_MACOS: "auto"
-          CIBW_ARCHS_WINDOWS: "AMD64 x86"
+          CIBW_ARCHS_WINDOWS: "AMD64"  # avoid x86: scipy no longer provides 32-bit Windows wheels
           CIBW_ARCHS_LINUX: "x86_64"
+          # Windows (as in matplotlib):
+          # force MSVC (--vsenv)
+          # link the C++ runtime statically (b_vscrt=mt)
+          CIBW_CONFIG_SETTINGS_WINDOWS: >-
+            setup-args=--vsenv
+            setup-args=-Db_vscrt=mt
+            "setup-args=-Dcpp_link_args=['ucrt.lib','vcruntime.lib','/nodefaultlib:libucrt.lib','/nodefaultlib:libvcruntime.lib']"
           CIBW_BUILD_VERBOSITY: 2
+          CIBW_TEST_REQUIRES: pytest
+          CIBW_TEST_COMMAND: "pytest --pyargs pyamg"
 
       - name: Save wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
           path: ./wheelhouse/*.whl
@@ -46,11 +56,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
-          # uncomment to force a wheel build
-          #ref: v5.3.0
-          fetch-depth: 0
+          fetch-depth: 0  # versioningit needs tags
+          ref: ${{ inputs.ref }}  # empty at release
 
       - name: Install pypa/build
         run: pip install 'build[virtualenv]'
@@ -58,8 +67,25 @@ jobs:
       - name: Build sdist
         run: python -m build --sdist
 
+      - name: Check sdist metadata
+        run: pipx run twine check --strict dist/*.tar.gz
+
+      # isolated build and test of sdist
+      - name: Test sdist
+        run: |
+          sdist=$(ls "$PWD"/dist/*.tar.gz)
+          expected=$(basename "$sdist" .tar.gz)
+          expected=${expected#pyamg-}
+          python -m venv /tmp/sdist-venv
+          /tmp/sdist-venv/bin/pip install "$sdist" pytest
+          cd /tmp
+          version=$(/tmp/sdist-venv/bin/python -c 'import pyamg; print(pyamg.__version__)')
+          echo "sdist: $expected  installed: $version"
+          test "$version" = "$expected"
+          /tmp/sdist-venv/bin/pytest --pyargs pyamg
+
       - name: Save sdist
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: cibw-sdist
           path: dist/*.tar.gz
@@ -67,11 +93,14 @@ jobs:
   upload_all:
     name: upload to PyPI
     needs: [build_wheels, build_sdist]
+    if: github.event_name == 'release'  # manual runs only build artifacts
     environment: publish_pypi
+    permissions:
+          id-token: write
     runs-on: ubuntu-latest
     steps:
     - name: retrieve artifacts
-      uses: actions/download-artifact@v5
+      uses: actions/download-artifact@v7
       with:
         pattern: cibw-*
         path: dist
@@ -79,5 +108,4 @@ jobs:
     - name: publish to pypi
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
-        # switch to true to overwrite upload
         skip-existing: false

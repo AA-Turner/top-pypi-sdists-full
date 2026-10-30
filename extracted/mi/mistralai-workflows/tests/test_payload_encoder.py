@@ -504,3 +504,90 @@ class TestPayloadMetadataCodec:
         assert result.context.continued_run_id is None
         assert result.context.first_execution_run_id is None
         assert result.context.schedule_id is None
+
+
+class TestNonEnvelopePayloadCodec:
+    """Payloads outside the json/wf_v1 envelope (failures, heartbeats, memos...) go through the same encoder."""
+
+    PLAIN_DATA = to_json({"bulk": "x" * 2048, "secret": EncryptedStrField(data="Shhhh!").model_dump(mode="json")})
+
+    def _make_codec(self, mode: PayloadEncryptionMode | None, compression: bool) -> MistralWorkflowsPayloadCodec:
+        return MistralWorkflowsPayloadCodec(
+            payload_offloading_config=None,
+            payload_encryption_config=(
+                PayloadEncryptionConfig(mode=mode, main_key=TEST_MAIN_KEY) if mode is not None else None
+            ),
+            payload_compression_config=PayloadCompressionConfig(min_size_bytes=100) if compression else None,
+        )
+
+    def _make_plain_payload(self) -> Payload:
+        return Payload(metadata={PayloadMetadataKeys.ENCODING: b"json/plain"}, data=self.PLAIN_DATA)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("mode", "compression"),
+        [
+            (None, True),
+            (PayloadEncryptionMode.FULL, False),
+            (PayloadEncryptionMode.FULL, True),
+            (PayloadEncryptionMode.PARTIAL, False),
+            (PayloadEncryptionMode.PARTIAL, True),
+        ],
+    )
+    async def test_round_trip(self, mode, compression):
+        codec = self._make_codec(mode, compression)
+
+        [encoded] = await codec.encode([self._make_plain_payload()])
+        assert encoded.data != self.PLAIN_DATA
+        [decoded] = await codec.decode([encoded])
+
+        # Partial encryption re-serializes the JSON document, so only compare its content.
+        assert json.loads(decoded.data) == json.loads(self.PLAIN_DATA)
+        assert dict(decoded.metadata) == {PayloadMetadataKeys.ENCODING: b"json/plain"}
+
+    @pytest.mark.asyncio
+    async def test_untransformed_payload_is_unchanged(self):
+        codec = self._make_codec(PayloadEncryptionMode.PARTIAL, compression=True)
+        payload = Payload(metadata={PayloadMetadataKeys.ENCODING: b"json/plain"}, data=b'{"small": true}')
+
+        [encoded] = await codec.encode([payload])
+
+        assert encoded == payload
+
+    @pytest.mark.asyncio
+    async def test_full_encryption_stays_readable_by_earlier_workers(self):
+        codec = self._make_codec(PayloadEncryptionMode.FULL, compression=False)
+
+        [encoded] = await codec.encode([self._make_plain_payload()])
+
+        # Earlier workers only know the binary/encrypted marker: they decrypt the data and restore
+        # the original encoding, ignoring encoding_options.
+        assert encoded.metadata[PayloadMetadataKeys.ENCODING] == b"binary/encrypted"
+        assert encoded.metadata[PayloadMetadataKeys.ENCODING_ORIGINAL] == b"json/plain"
+        decrypted = await codec.payload_encoder.decode_payload_content(encoded.data, [EncodedPayloadOptions.ENCRYPTED])
+        assert decrypted == self.PLAIN_DATA
+
+    @pytest.mark.asyncio
+    async def test_decodes_full_encryption_from_earlier_workers(self):
+        codec = self._make_codec(PayloadEncryptionMode.FULL, compression=False)
+        earlier_worker_payload = Payload(
+            metadata={
+                PayloadMetadataKeys.ENCODING: b"binary/encrypted",
+                PayloadMetadataKeys.ENCODING_ORIGINAL: b"json/plain",
+            },
+            data=codec.payload_encoder._encrypt(self.PLAIN_DATA),
+        )
+
+        [decoded] = await codec.decode([earlier_worker_payload])
+
+        assert decoded.data == self.PLAIN_DATA
+        assert dict(decoded.metadata) == {PayloadMetadataKeys.ENCODING: b"json/plain"}
+
+    @pytest.mark.asyncio
+    async def test_encode_does_not_mutate_input_payload(self):
+        codec = self._make_codec(PayloadEncryptionMode.FULL, compression=True)
+        payload = self._make_plain_payload()
+
+        await codec.encode([payload])
+
+        assert dict(payload.metadata) == {PayloadMetadataKeys.ENCODING: b"json/plain"}

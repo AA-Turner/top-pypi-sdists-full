@@ -52,6 +52,21 @@ class TestConnections(unittest.TestCase):
             name="nonexistent_connection",
         )
 
+    def test_get_connection_by_name_access_denied_is_a_runtime_error(self):
+        # Listed, but GetConnection withSecret is refused: the documented RuntimeError, naming
+        # the connection and DataZone's error code.
+        self.mock_datazone_api.list_connections.return_value = {
+            "items": [{"connectionId": "12345", "name": "test_connection"}]
+        }
+        self.mock_datazone_api.get_connection.side_effect = ClientError(
+            error_response={"Error": {"Code": "AccessDeniedException", "Message": "denied"}},
+            operation_name="GetConnection",
+        )
+        with self.assertRaises(RuntimeError) as context:
+            self.connections.get_connection_by_name("test_connection")
+        self.assertIn("Unable to access connection 'test_connection'", str(context.exception))
+        self.assertIn("AccessDeniedException", str(context.exception))
+
     def test_list_connections_success(self):
         self.mock_datazone_api.list_connections.side_effect = [
             {"items": [{"name": "connection1", "type": "type1"}], "nextToken": "token1"},
@@ -65,6 +80,32 @@ class TestConnections(unittest.TestCase):
         self.mock_datazone_api.list_connections.assert_any_call(
             domainIdentifier="test_domain", projectIdentifier="test_project"
         )
+
+    def test_list_connection_records_are_the_providers_answer_unwrapped_and_in_its_order(self):
+        # What sqlutils.attach_local_catalogs() works on: the wire-shaped records, no Connection
+        # around them, no IAM connection moved to the front, no GetConnection for any of them.
+        lakehouse = {"connectionId": "c1", "name": "sales.catalog", "type": "LAKEHOUSE"}
+        iam = {"connectionId": "c2", "name": "project.iam", "type": "IAM"}
+        self.mock_datazone_api.list_connections.side_effect = [
+            {"items": [lakehouse], "nextToken": "t"},
+            {"items": [iam], "nextToken": None},
+        ]
+        records = self.connections.list_connection_records()
+        self.assertEqual(records, [lakehouse, iam])
+        self.assertNotIsInstance(records[0], Connection)
+        self.mock_datazone_api.get_connection.assert_not_called()
+
+    def test_list_connection_records_access_denied_is_the_same_runtime_error_as_list_connections(
+        self,
+    ):
+        self.mock_datazone_api.list_connections.side_effect = ClientError(
+            error_response={"Error": {"Code": "AccessDeniedException"}},
+            operation_name="ListConnections",
+        )
+        with self.assertRaises(RuntimeError) as context:
+            self.connections.list_connection_records()
+        self.assertIs(type(context.exception), RuntimeError)  # the provider's own type stays inside
+        self.assertIn("listing connections", str(context.exception))
 
     def test_list_connections_throw_client_error(self):
         self.mock_datazone_api.list_connections.side_effect = ClientError(

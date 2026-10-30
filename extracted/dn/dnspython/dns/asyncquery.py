@@ -698,7 +698,7 @@ async def https(
     r = dns.message.from_wire(
         response.content,
         keyring=q.keyring,
-        request_mac=q.request_mac,
+        request_mac=q.mac,
         one_rr_per_rrset=one_rr_per_rrset,
         ignore_trailing=ignore_trailing,
     )
@@ -732,7 +732,7 @@ async def _http3(
     if url_parts.port is not None:
         port = url_parts.port
 
-    q.id = 0
+    q.set_id(0)
     wire = q.to_wire()
     the_connection: dns.quic.AsyncQuicConnection
     if connection:
@@ -762,7 +762,7 @@ async def _http3(
         r = dns.message.from_wire(
             wire,
             keyring=q.keyring,
-            request_mac=q.request_mac,
+            request_mac=q.mac,
             one_rr_per_rrset=one_rr_per_rrset,
             ignore_trailing=ignore_trailing,
         )
@@ -804,7 +804,7 @@ async def quic(
     if server_hostname is not None and hostname is None:
         hostname = server_hostname
 
-    q.id = 0
+    q.set_id(0)
     wire = q.to_wire()
     the_connection: dns.quic.AsyncQuicConnection
     if connection:
@@ -818,7 +818,7 @@ async def quic(
         async with mfactory(
             context,
             verify_mode=verify,
-            server_name=server_hostname,
+            server_name=hostname,
         ) as the_manager:
             if not connection:
                 the_connection = the_manager.connect(  # pyright: ignore
@@ -833,7 +833,7 @@ async def quic(
         r = dns.message.from_wire(
             wire,
             keyring=q.keyring,
-            request_mac=q.request_mac,
+            request_mac=q.mac,
             one_rr_per_rrset=one_rr_per_rrset,
             ignore_trailing=ignore_trailing,
         )
@@ -869,6 +869,7 @@ async def _inbound_xfr(
         txn_manager, rdtype, serial, is_udp, raise_on_serial_went_backwards
     ) as inbound:
         done = False
+        first = True
         tsig_ctx = None
         while not done:
             _, mexpiration = _compute_times(timeout)
@@ -893,6 +894,9 @@ async def _inbound_xfr(
                 multi=(not is_udp),
                 one_rr_per_rrset=is_ixfr,
             )
+            if not query.is_response(r, xfr_continuation=not first):
+                raise BadResponse
+            first = False
             done = inbound.process_message(r)
             yield r
             tsig_ctx = r.tsig_ctx

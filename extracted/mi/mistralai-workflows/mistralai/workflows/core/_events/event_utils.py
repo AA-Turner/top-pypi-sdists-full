@@ -1,15 +1,15 @@
 import uuid
 from typing import Any
 
-import structlog
 import temporalio.activity
 import temporalio.workflow
 
+from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.temporal.context_handler_interceptor import retrieve_context
 from mistralai.workflows.core.temporal.utils import TEMPORAL_SCHEDULE_ID_SEARCH_KEY, require_activity_context_value
 from mistralai.workflows.exceptions import NotInTemporalContextError
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 
 def _in_workflow() -> bool:
@@ -65,6 +65,27 @@ def try_get_lineage_workflow_exec_id() -> tuple[str | None, str | None]:
         return get_lineage_workflow_exec_id()
     except NotInTemporalContextError:
         return None, None
+
+
+EMITTER_ACTIVITY_NAMES: set[str] = set()
+
+
+def create_emitter_event_fields(kind: str) -> dict[str, Any]:
+    # An emitter local activity keeps its id across retries and replays, so a re-sent event keeps its id
+    # and the API deduplicates it. Other activities may publish several events of one kind, so they don't.
+    if not _in_activity():
+        return create_base_event_fields()
+    info = temporalio.activity.info()
+    if not info.is_local or info.activity_type not in EMITTER_ACTIVITY_NAMES:
+        return create_base_event_fields()
+    return create_stable_activity_event_fields(kind)
+
+
+def create_stable_activity_event_fields(kind: str) -> dict[str, Any]:
+    """For an event the activity sends once per kind, so a retried attempt re-sends it under the same id."""
+    info = temporalio.activity.info()
+    event_id = uuid.uuid5(uuid.UUID(info.workflow_run_id), f"{info.activity_id}:{kind}")
+    return {**create_base_event_fields(), "event_id": str(event_id)}
 
 
 def create_base_event_fields() -> dict[str, Any]:

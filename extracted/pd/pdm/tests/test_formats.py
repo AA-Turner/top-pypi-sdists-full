@@ -2,6 +2,7 @@ import hashlib
 import shutil
 from argparse import Namespace
 from textwrap import dedent
+from urllib.parse import quote
 
 import pytest
 
@@ -288,6 +289,49 @@ def test_build_uv_pyproject_toml_with_workspace(project):
     assert data["tool"]["uv"]["workspace"]["members"] == ["packages/*"]
     assert data["tool"]["uv"]["sources"]["foo"] == {"workspace": True}
     assert data["tool"]["uv"]["sources"]["bar"] == {"workspace": True}
+
+
+@pytest.mark.parametrize("source_kind", ["path", "url", "vcs"])
+def test_build_uv_pyproject_preserves_file_requirement_metadata(project, source_kind):
+    wheel = FIXTURES / "artifacts" / "first-2.0.2-py2.py3-none-any.whl"
+    source = {
+        "path": wheel.as_uri(),
+        "url": "https://example.invalid/first-2.0.2-py2.py3-none-any.whl",
+        "vcs": "git+https://example.invalid/first.git@main",
+    }[source_kind]
+    req = parse_requirement(f'first[feature] @ {source} ; sys_platform == "linux"')
+    original = req.as_line()
+    req.groups = ["default", "tools"]
+    locked_repo = LockedRepository({}, project.sources, project.environment)
+
+    with uv_file_builder(project, ">=3.10", [req], locked_repo) as builder:
+        path = builder.build_pyproject_toml()
+        with path.open("rb") as fp:
+            data = tomllib.load(fp)
+
+    expected = 'first[feature]; sys_platform == "linux"'
+    assert data["project"]["dependencies"] == [expected]
+    assert data["project"]["optional-dependencies"]["tools"] == [expected]
+    assert set(data["tool"]["uv"]["sources"]) == {"first"}
+    assert req.as_line() == original
+
+
+def test_build_uv_pyproject_preserves_workspace_file_metadata(project):
+    member = project.root / "packages" / "foo"
+    member.mkdir(parents=True)
+    member.joinpath("pyproject.toml").write_text('[project]\nname = "foo"\nversion = "0.1.0"\n')
+    project.pyproject.settings["workspace"] = {"members": ["packages/*"]}
+    req = parse_requirement(f'foo[feature] @ {member.as_uri()} ; sys_platform == "linux"')
+    req.groups = ["default"]
+    locked_repo = LockedRepository({}, project.sources, project.environment)
+
+    with uv_file_builder(project, ">=3.10", [req], locked_repo) as builder:
+        path = builder.build_pyproject_toml()
+        with path.open("rb") as fp:
+            data = tomllib.load(fp)
+
+    assert data["project"]["dependencies"] == ['foo[feature]; sys_platform == "linux"']
+    assert data["tool"]["uv"]["sources"]["foo"] == {"workspace": True}
 
 
 def test_build_uv_files_without_project_name_and_version(project):
@@ -1211,6 +1255,56 @@ def test_parse_uv_lock_drops_the_placeholder_root(project):
     assert names == {"packaging"}, f"the placeholder root leaked into the resolution: {names}"
 
 
+@pytest.mark.parametrize("version", [None, "2.0.2"])
+@pytest.mark.parametrize(
+    "source",
+    [
+        pytest.param('directory = {path = "./local", editable = false}', id="directory"),
+        pytest.param('directory = {path = "./local", editable = true}', id="editable-directory"),
+        pytest.param(
+            'vcs = {type = "git", url = "https://example.org/first.git", '
+            'commit-id = "0123456789abcdef0123456789abcdef01234567"}',
+            id="vcs",
+        ),
+        pytest.param(
+            'archive = {url = "http://fixtures.test/artifacts/first-2.0.2-py2.py3-none-any.whl", '
+            'hashes = {sha256 = "HASH"}}',
+            id="archive",
+        ),
+        pytest.param(
+            'wheels = [{url = "http://fixtures.test/artifacts/first-2.0.2-py2.py3-none-any.whl", '
+            'hashes = {sha256 = "HASH"}}]',
+            id="wheels",
+        ),
+    ],
+)
+def test_export_pylock_optional_version(project, pdm, source, version):
+    artifact = FIXTURES / "artifacts/first-2.0.2-py2.py3-none-any.whl"
+    source = source.replace("HASH", hashlib.sha256(artifact.read_bytes()).hexdigest())
+    local = project.root / "local"
+    local.mkdir()
+    local.joinpath("pyproject.toml").write_text('[project]\nname = "first"\nversion = "2.0.2"\n', encoding="utf-8")
+    lock_path = project.root / "pylock.toml"
+    version_line = f'version = "{version}"\n' if version is not None else ""
+    lock_path.write_text(
+        'lock-version = "1.0"\ncreated-by = "test"\n\n[[packages]]\nname = "first"\n' + version_line + source + "\n",
+        encoding="utf-8",
+    )
+
+    result = pdm(["export", "-f", "pylock", "-L", str(lock_path)], obj=project, strict=True)
+
+    exported = tomllib.loads(result.stdout)
+    package = exported["packages"][0]
+    assert package["name"] == "first"
+    if version is None:
+        assert "version" not in package
+    else:
+        assert package["version"] == version
+    repository = LockedRepository(exported, [], project.environment)
+    candidate = next(iter(repository.packages.values())).candidate
+    assert candidate.version == version
+
+
 @pytest.mark.parametrize("source", ["url", "path"])
 @pytest.mark.parametrize("output_format", ["requirements", "pylock"])
 def test_export_pylock_archive_hashes(project, pdm, source, output_format):
@@ -1233,3 +1327,45 @@ def test_export_pylock_archive_hashes(project, pdm, source, output_format):
     else:
         exported = tomllib.loads(result.stdout)
         assert exported["packages"][0]["archive"]["hashes"] == expected
+
+
+@pytest.mark.parametrize("lock_format", ["pdm", "pylock"])
+@pytest.mark.parametrize("source", ["url", "path"])
+@pytest.mark.parametrize("subdirectory", [None, "src/child", "src/a&b"])
+def test_export_pylock_archive_subdirectory(project, pdm, tmp_path, pypi_indexes, lock_format, source, subdirectory):
+    bundle = tmp_path / "bundle"
+    child = bundle / (subdirectory or "src/child")
+    for directory, name in [(bundle, "parent"), (child, "child")]:
+        directory.mkdir(parents=True, exist_ok=True)
+        directory.joinpath("pyproject.toml").write_text(
+            f'[project]\nname = "{name}"\nversion = "1.0"\ndependencies = []\n', encoding="utf-8"
+        )
+    shutil.make_archive(str(tmp_path / "bundle-1.0"), "zip", tmp_path, "bundle")
+    if source == "url":
+        pypi_indexes["http://archives.test/"] = {"/": tmp_path}
+        url = "http://archives.test/bundle-1.0.zip"
+    else:
+        url = (tmp_path / "bundle-1.0.zip").as_uri()
+    name = "child" if subdirectory else "parent"
+    requirement = f"{name} @ {url}"
+    if subdirectory:
+        requirement += f"#subdirectory={quote(subdirectory)}"
+    project.project_config["lock.format"] = lock_format
+
+    pdm(["add", "--no-sync", requirement], obj=project, strict=True)
+    result = pdm(["export", "-f", "pylock"], obj=project, strict=True)
+
+    exported = tomllib.loads(result.stdout)
+    package = exported["packages"][0]
+    assert package["name"] == name
+    assert package["archive"]["url"] == url
+    assert package["archive"]["hashes"] == {
+        "sha256": hashlib.sha256((tmp_path / "bundle-1.0.zip").read_bytes()).hexdigest()
+    }
+    if subdirectory:
+        assert package["archive"]["subdirectory"] == subdirectory
+    else:
+        assert "subdirectory" not in package["archive"]
+    repository = LockedRepository(exported, [], project.environment)
+    candidate = next(iter(repository.packages.values())).candidate
+    assert candidate.req.subdirectory == subdirectory

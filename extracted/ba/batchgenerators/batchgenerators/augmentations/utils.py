@@ -17,6 +17,7 @@ import random
 import numpy as np
 from copy import deepcopy
 from scipy.ndimage import (
+    find_objects,
     fourier_gaussian,
     gaussian_filter,
     gaussian_gradient_magnitude,
@@ -156,6 +157,19 @@ def scale_coords(coords, scale):
     return coords
 
 
+def sample_factor_around_one(factor_range):
+    """
+    Draws a factor (scale, contrast, gamma) from factor_range. If the range contains one, factors below and above one
+    are equally likely, however asymmetric the range is around one: (0.5, 2) shrinks as often as it enlarges. A range
+    that ends at or below one, or starts at or above one, is sampled uniformly.
+    """
+    if np.random.random() < 0.5 and factor_range[0] < 1:
+        return np.random.uniform(factor_range[0], min(1, factor_range[1]))
+    if factor_range[1] <= 1:
+        return np.random.uniform(factor_range[0], factor_range[1])
+    return np.random.uniform(max(factor_range[0], 1), factor_range[1])
+
+
 def uncenter_coords(coords):
     shp = coords.shape[1:]
     coords = deepcopy(coords)
@@ -227,15 +241,22 @@ def _resample_seg_by_argmax(labels, score_fn, nearest_fn, out_shape, dtype, seg_
     better = np.empty(out_shape, dtype=bool)
     # 'nearest': the nearest neighbour label settles a tie only if it is one of the tied labels. Where three
     # or more labels meet it need not be - a 2x2x2 block [3,1,1,1,2,2,2,3] sampled at its centre scores
-    # 1 and 2 at 0.375 each and 3 at 0.25, and its nearest neighbour is a 3. So instead of marking tied
-    # voxels, track whether the nearest neighbour's label currently has the top score: a label that takes
-    # the lead strictly decides that afresh, one that draws level can only add to it. Where it holds at the
-    # end the nearest neighbour is the answer (it changes nothing where its label won outright), and where
-    # it does not the argmax winner stands.
+    # 1 and 2 at 0.375 each and 3 at 0.25, and its nearest neighbour is a 3. So the nearest neighbour settles
+    # a voxel exactly where its own label ends up with the top score (it changes nothing where that label
+    # won outright), and elsewhere the argmax winner stands. That is decided in two halves:
+    #   * at the nearest neighbour's own turn in the loop: does its label take the lead, or draw level with a
+    #     positive score? -> nn_cand
+    #   * after the loop: did no later label take the lead from it? The running winner only ever changes to a
+    #     later label, and only on a strict improvement, so that is exactly win <= nn_idx.
+    # The first half only looks at voxels whose nearest neighbour is the current label, i.e. inside that
+    # label's bounding box in nn_idx, typically a few % of the volume, and nothing has to be tracked through
+    # the loop for the other labels.
     nearest = seg_tiebreak == 'nearest'
     if nearest:
         nn_idx = _nearest_label_index(labels, nearest_fn(), idx_dtype)
-        nn_top = np.empty(out_shape, dtype=bool)
+        # boxes of the label indices >= 1 (find_objects does not report index 0, nor -1 = 'not a label')
+        nn_boxes = find_objects(nn_idx)
+        nn_cand = np.zeros(out_shape, dtype=bool)
         is_nn = np.empty(out_shape, dtype=bool)
         level = np.empty(out_shape, dtype=bool)
     for i, c in enumerate(labels):
@@ -246,34 +267,39 @@ def _resample_seg_by_argmax(labels, score_fn, nearest_fn, out_shape, dtype, seg_
             # and empty_value (if the caller gave one) has the final say below.
             best = score
             if nearest:
-                np.equal(nn_idx, 0, out=nn_top)
-                np.greater(score, 0, out=level)
-                nn_top &= level
+                # `score > 0` guard: a label that scores zero at a voxel is absent there, not leading
+                np.equal(nn_idx, 0, out=is_nn)
+                np.greater(score, 0, out=nn_cand)
+                nn_cand &= is_nn
             del score
             continue
-        if nearest:
-            np.equal(nn_idx, i, out=is_nn)
-            # `score > 0` guard: two labels that both score zero at a voxel are not tied for the win there,
-            # they are simply both absent, and some other label will claim it. `better` is free until it is
-            # computed below, so it holds that guard meanwhile.
-            np.equal(score, best, out=level)
-            np.greater(score, 0, out=better)
-            level &= better
-            level &= is_nn
-            nn_top |= level
         # '>=' lets the later (larger) label take ties, '>' leaves them with the earlier (smaller) one
         (np.greater_equal if seg_tiebreak == 'highest' else np.greater)(score, best, out=better)
         if nearest:
-            np.copyto(nn_top, is_nn, where=better)
+            box = nn_boxes[i - 1] if i - 1 < len(nn_boxes) else None
+            if box is not None:
+                # nn_cand = is_nn and (takes the lead, or draws level with a positive score), against `best`
+                # before it is updated. `score > 0` guard on drawing level: two labels that both score zero at
+                # a voxel are not tied for the win there, they are simply both absent.
+                is_nn_b, level_b, score_b = is_nn[box], level[box], score[box]
+                np.greater(score_b, 0, out=level_b)
+                np.greater_equal(score_b, best[box], out=is_nn_b)
+                level_b &= is_nn_b
+                level_b |= better[box]
+                np.equal(nn_idx[box], i, out=is_nn_b)
+                level_b &= is_nn_b
+                nn_cand[box] |= level_b
         np.copyto(win, i, where=better)
         np.maximum(best, score, out=best)
         del score
 
     if nearest:
-        # copyto rather than win[nn_top] = nn_idx[nn_top]: nn_top holds nearly everywhere (also wherever the
+        np.less_equal(win, nn_idx, out=level)
+        level &= nn_cand
+        # copyto rather than win[level] = nn_idx[level]: this holds nearly everywhere (also wherever the
         # nearest neighbour's label won outright), and the indexed form copies all of those out first
-        np.copyto(win, nn_idx, where=nn_top)
-        del nn_idx, nn_top, is_nn, level
+        np.copyto(win, nn_idx, where=level)
+        del nn_idx, nn_cand, is_nn, level
     del better
     empty = best <= 0 if empty_value is not None else None
     del best
@@ -401,21 +427,21 @@ def random_crop_3D_image(img, crop_size):
             img.shape), "If you provide a list/tuple as center crop make sure it has the same len as your data has dims (3d)"
 
     if crop_size[0] < img.shape[0]:
-        lb_x = np.random.randint(0, img.shape[0] - crop_size[0])
+        lb_x = np.random.randint(0, img.shape[0] - crop_size[0] + 1)
     elif crop_size[0] == img.shape[0]:
         lb_x = 0
     else:
         raise ValueError("crop_size[0] must be smaller or equal to the images x dimension")
 
     if crop_size[1] < img.shape[1]:
-        lb_y = np.random.randint(0, img.shape[1] - crop_size[1])
+        lb_y = np.random.randint(0, img.shape[1] - crop_size[1] + 1)
     elif crop_size[1] == img.shape[1]:
         lb_y = 0
     else:
         raise ValueError("crop_size[1] must be smaller or equal to the images y dimension")
 
     if crop_size[2] < img.shape[2]:
-        lb_z = np.random.randint(0, img.shape[2] - crop_size[2])
+        lb_z = np.random.randint(0, img.shape[2] - crop_size[2] + 1)
     elif crop_size[2] == img.shape[2]:
         lb_z = 0
     else:
@@ -432,21 +458,21 @@ def random_crop_3D_image_batched(img, crop_size):
             img.shape) - 2), "If you provide a list/tuple as center crop make sure it has the same len as your data has dims (3d)"
 
     if crop_size[0] < img.shape[2]:
-        lb_x = np.random.randint(0, img.shape[2] - crop_size[0])
+        lb_x = np.random.randint(0, img.shape[2] - crop_size[0] + 1)
     elif crop_size[0] == img.shape[2]:
         lb_x = 0
     else:
         raise ValueError("crop_size[0] must be smaller or equal to the images x dimension")
 
     if crop_size[1] < img.shape[3]:
-        lb_y = np.random.randint(0, img.shape[3] - crop_size[1])
+        lb_y = np.random.randint(0, img.shape[3] - crop_size[1] + 1)
     elif crop_size[1] == img.shape[3]:
         lb_y = 0
     else:
         raise ValueError("crop_size[1] must be smaller or equal to the images y dimension")
 
     if crop_size[2] < img.shape[4]:
-        lb_z = np.random.randint(0, img.shape[4] - crop_size[2])
+        lb_z = np.random.randint(0, img.shape[4] - crop_size[2] + 1)
     elif crop_size[2] == img.shape[4]:
         lb_z = 0
     else:
@@ -463,14 +489,14 @@ def random_crop_2D_image(img, crop_size):
             img.shape), "If you provide a list/tuple as center crop make sure it has the same len as your data has dims (2d)"
 
     if crop_size[0] < img.shape[0]:
-        lb_x = np.random.randint(0, img.shape[0] - crop_size[0])
+        lb_x = np.random.randint(0, img.shape[0] - crop_size[0] + 1)
     elif crop_size[0] == img.shape[0]:
         lb_x = 0
     else:
         raise ValueError("crop_size[0] must be smaller or equal to the images x dimension")
 
     if crop_size[1] < img.shape[1]:
-        lb_y = np.random.randint(0, img.shape[1] - crop_size[1])
+        lb_y = np.random.randint(0, img.shape[1] - crop_size[1] + 1)
     elif crop_size[1] == img.shape[1]:
         lb_y = 0
     else:
@@ -487,14 +513,14 @@ def random_crop_2D_image_batched(img, crop_size):
             img.shape) - 2), "If you provide a list/tuple as center crop make sure it has the same len as your data has dims (2d)"
 
     if crop_size[0] < img.shape[2]:
-        lb_x = np.random.randint(0, img.shape[2] - crop_size[0])
+        lb_x = np.random.randint(0, img.shape[2] - crop_size[0] + 1)
     elif crop_size[0] == img.shape[2]:
         lb_x = 0
     else:
         raise ValueError("crop_size[0] must be smaller or equal to the images x dimension")
 
     if crop_size[1] < img.shape[3]:
-        lb_y = np.random.randint(0, img.shape[3] - crop_size[1])
+        lb_y = np.random.randint(0, img.shape[3] - crop_size[1] + 1)
     elif crop_size[1] == img.shape[3]:
         lb_y = 0
     else:

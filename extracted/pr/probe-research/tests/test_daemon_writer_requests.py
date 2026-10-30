@@ -132,6 +132,21 @@ def test_a_request_is_one_event_shown_whole_and_its_file_is_taken(tmp_path):
     assert len([e for e in w.store.events_between(1) if e.stream == REQUEST_STREAM]) == 1, "taken once"
 
 
+def test_a_handovers_line_breaks_reach_the_writer(tmp_path):
+    """`probe ask --writer` keeps a handover's lists and paragraphs, and so does
+    the worker: the writer's bite shows them as written (one rule,
+    `mailbox.request_text`). A request from an older CLI (one line) reads the same."""
+    w, _ = _worker(tmp_path)
+    handover = "phase 2 handover:\n- group the six arms into one experiment\n\n- mark lr-spike-5 a dead end"
+    mailbox.write_request(SID, handover + "  \r\n\n")
+    mailbox.write_request(SID, "file the runs", now=time.time() + 1)
+    w.read_new()
+    first, second = [e for e in w.store.events_between(1) if e.stream == REQUEST_STREAM]
+    assert first.text == requests_mod.REQUEST_LINE.format(text=handover)
+    assert bite_mod.render(first).endswith("\n- group the six arms into one experiment\n\n- mark lr-spike-5 a dead end")
+    assert second.text == requests_mod.REQUEST_LINE.format(text="file the runs")
+
+
 def test_a_request_shows_under_the_approved_label():
     """`bite/request-label.PROPOSED.md`, `{placeholders}` as wildcards."""
     import re

@@ -11,10 +11,12 @@ from __future__ import annotations
 import datetime
 import json
 import os
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+
+from airbyte_ops_mcp.regression_tests.models import StreamError
 
 if TYPE_CHECKING:
     from airbyte_ops_mcp.regression_tests.repro_case import ReproductionVerdict
@@ -210,30 +212,96 @@ def github_artifacts_url() -> str | None:
     return f"{run_url}#artifacts"
 
 
-def _pk_integrity_cell(uniqueness_info: dict[str, Any], side: str) -> str:
+# What an unmeasured metric reads as, and the distinction the HTTP table turns
+# on. A proxy that never ran and a connector that never reported are both *not
+# measured*, and neither may render as `0` or as `0.00%`: a reviewer reading a
+# zero cache-hit ratio concludes the version broke its caching, when in fact
+# nobody looked. `not reported` is also what a Java connector, a connector using
+# its own `requests.Session`, and a connector on a CDK predating the counters all
+# render as -- see docs/regression-tests.md.
+_NOT_CAPTURED = "not captured"
+_NOT_REPORTED = "not reported"
+
+# One name per HTTP metric, shared by `report.md` and the HTML report's table,
+# keyed by the `http_metrics` JSON key. "Flow" is mitmproxy's word; a reviewer
+# is counting requests, and the same number must not read as `Requests` on one
+# surface and `Flow Count` on the next.
+HTTP_METRIC_LABELS: dict[str, str] = {
+    "flow_count": "Requests",
+    "duplicate_flow_count": "Repeated URLs",
+    "replayed_flow_count": "Replayed",
+    "live_flow_count": "Live",
+    "unreplayable_flow_count": "Unreplayable",
+    "replay_hit_ratio": "Replay hit ratio",
+    "connector_request_count": "Connector requests",
+    "connector_cache_hits_count": "Cache hits",
+    "connector_cache_hit_ratio": "Cache hit ratio",
+}
+
+# The proxy-derived columns, and the connector-derived ones. Split because the
+# two sides of the table go missing independently: a run whose proxy never
+# started has the connector's numbers and none of the proxy's. The connector's
+# own request count gets a column of its own because it is the denominator of
+# `Cache hit ratio` -- the proxy's `Requests` is not: a cache hit is served
+# inside `Session.send()` and never reaches the proxy.
+_PROXY_HTTP_COLUMNS = (
+    "flow_count",
+    "duplicate_flow_count",
+    "replayed_flow_count",
+    "live_flow_count",
+    "replay_hit_ratio",
+)
+_CONNECTOR_HTTP_COLUMNS = (
+    "connector_request_count",
+    "connector_cache_hits_count",
+    "connector_cache_hit_ratio",
+)
+
+
+def _http_metrics_row(version: str, http_metrics: dict[str, Any]) -> str:
+    """One version's row of the HTTP table, with unmeasured sides named as such."""
+    cells = [
+        str(http_metrics.get(key, _NOT_CAPTURED)) for key in _PROXY_HTTP_COLUMNS
+    ] + [str(http_metrics.get(key, _NOT_REPORTED)) for key in _CONNECTOR_HTTP_COLUMNS]
+    return f"| {version} | " + " | ".join(cells) + " |"
+
+
+def _pk_integrity_cell(
+    uniqueness_info: dict[str, Any], side: str, partial: bool = False
+) -> str:
     """Render one version's PK integrity as a table cell.
 
     Shows the duplicate PK count split into what the target did not introduce
     (pre-existing in both versions, or fixed in the target: a warning) and
-    what it did (new: a failure), plus the number of records missing their
-    declared PK values when there are any (a failure on either side). The
-    control's own duplicates the target dropped or changed records of are
-    named apart ("with dropped or changed records"): the field values or PK
-    presence fail on them, so this cell only warns. The status closes the cell, after every finding,
-    so it reads as the verdict on all of them: `1 (pre-existing), 1 missing
-    PK ❌`.
+    what it did (new: a failure, or a warning on a stopped-early read), plus
+    the number of records missing their declared PK values when there are any
+    (a failure on either side). The control's own duplicates the target
+    dropped or changed records of are named apart ("with dropped or changed
+    records"): the field values or PK presence fail on them, so this cell only
+    warns. The glyph follows the comparison's `passed`, which already applies
+    the stopped-early rule, so the cell cannot disagree with the stream's
+    result or the Result line. The status closes the cell, after every
+    finding, so it reads as the verdict on all of them: `1 (pre-existing), 1
+    missing PK ❌`.
+
+    On a `partial` read the comparison calls no control duplicate fixed or
+    lost (both counts are 0), so the control's own duplicates are the rest of
+    its count, named "not duplicated in target (partial read)".
     """
     duplicate_count = uniqueness_info.get("duplicate_pk_count", 0)
     pre_existing = uniqueness_info.get("pre_existing_duplicate_pk_count", 0)
     if side == "target":
         own = [(uniqueness_info.get("new_duplicate_pk_count", 0), "new")]
     else:
+        fixed = uniqueness_info.get("fixed_duplicate_pk_count", 0)
+        lost = uniqueness_info.get("lost_duplicate_pk_count", 0)
+        unclassified = (
+            max(0, duplicate_count - pre_existing - fixed - lost) if partial else 0
+        )
         own = [
-            (uniqueness_info.get("fixed_duplicate_pk_count", 0), "fixed in target"),
-            (
-                uniqueness_info.get("lost_duplicate_pk_count", 0),
-                "with dropped or changed records",
-            ),
+            (fixed, "fixed in target"),
+            (lost, "with dropped or changed records"),
+            (unclassified, "not duplicated in target (partial read)"),
         ]
     own = [(count, label) for count, label in own if count]
 
@@ -277,6 +345,7 @@ def _render_record_comparison_section(
     streams_without_pk = set(record_comparison.get("streams_without_pk", []))
 
     passed = record_comparison.get("passed", False)
+    partial = bool(record_comparison.get("partial"))
     status = "✅ PASSED" if passed else "❌ FAILED"
 
     lines: list[str] = [
@@ -294,6 +363,26 @@ def _render_record_comparison_section(
             + "fall back to count comparison only."
         ),
         "",
+        *(
+            [
+                (
+                    "This read was stopped early, so the two outputs end at different "
+                    + "points: record counts and primary key presence are inconclusive "
+                    + "here (⚠️ whatever they show — under a cap equal counts are what "
+                    + "the cap guarantees). A cap or deadline can also cut a duplicated "
+                    + "PK value's records on one side, so duplicate PKs new in the "
+                    + "target, the field values of PK values with more than one record "
+                    + "on either side, and control duplicates the target does not repeat "
+                    + "are reported, not judged; no added copies or count allowance are "
+                    + "computed. Only records missing their declared PK values and the "
+                    + "field values of PK values both sides emitted once decide the "
+                    + "status."
+                ),
+                "",
+            ]
+            if partial
+            else []
+        ),
         "| Stream | Count (C → T) | Missing PKs | Dup PKs (control) | Dup PKs (target) | Value Diffs | Result |",
         "|--------|---------------|-------------|-------------------|------------------|-------------|--------|",
     ]
@@ -306,6 +395,13 @@ def _render_record_comparison_section(
         | set(field_values)
     )
 
+    # On a partial read the count and presence cells are inconclusive whatever
+    # they show, and they never decide the stream's result.
+    def glyph(info_passed: bool) -> str:
+        if partial:
+            return "⚠️"
+        return "✅" if info_passed else "❌"
+
     for stream in all_streams:
         count_info = counts.get(stream, {})
         count_pass = count_info.get("passed", True)
@@ -313,9 +409,12 @@ def _render_record_comparison_section(
         target_count = count_info.get("target_count", 0)
         # A count that passes with fewer target records passed on the
         # duplicate-row allowance: the shortfall is within the duplicate rows
-        # the target dropped.
+        # the target dropped. On a partial read the cell is inconclusive
+        # whatever it shows.
         count_warned = count_pass and target_count < control_count
-        if not count_pass:
+        if partial:
+            count_status = glyph(count_pass)
+        elif not count_pass:
             count_status = "❌"
         elif count_warned:
             count_status = "⚠️"
@@ -325,49 +424,48 @@ def _render_record_comparison_section(
 
         if stream in streams_without_pk:
             missing_cell = dup_control_cell = dup_target_cell = diff_cell = "—"
-            stream_passed = count_pass
-            stream_warned = count_warned
+            stream_passed = count_pass or partial
+            stream_warned = partial or count_warned
         else:
             presence_info = pk_presence.get(stream, {})
             missing = presence_info.get("missing_pk_count", 0)
-            missing_cell = (
-                f"{missing} {'✅' if presence_info.get('passed', True) else '❌'}"
-            )
+            missing_cell = f"{missing} {glyph(presence_info.get('passed', True))}"
 
             dup_control = uniqueness_control.get(stream, {})
-            dup_control_cell = _pk_integrity_cell(dup_control, "control")
+            dup_control_cell = _pk_integrity_cell(dup_control, "control", partial)
 
             dup_target = uniqueness_target.get(stream, {})
-            dup_target_cell = _pk_integrity_cell(dup_target, "target")
+            dup_target_cell = _pk_integrity_cell(dup_target, "target", partial)
 
             field_info = field_values.get(stream, {})
             diff_count = field_info.get("records_with_value_diff", 0)
             # Identical copies the target added under an already-duplicated
-            # PK warn; they are not value diffs.
+            # PK warn; they are not value diffs. Neither are the duplicated
+            # PK values a stopped-early read could not judge.
             added_copies = field_info.get("added_copy_count", 0)
+            partial_groups = field_info.get("partial_group_diff_count", 0)
             diff_cell = str(diff_count)
             if added_copies:
                 copies = "copy" if added_copies == 1 else "copies"
                 diff_cell += f", {added_copies} added {copies}"
+            if partial_groups:
+                diff_cell += f", {partial_groups} duplicated PK(s) inconclusive"
             if not field_info.get("passed", True):
                 diff_cell += " ❌"
-            elif added_copies:
+            elif added_copies or partial_groups:
                 diff_cell += " ⚠️"
             else:
                 diff_cell += " ✅"
 
-            stream_passed = all(
-                info.get("passed", True)
-                for info in (
-                    count_info,
-                    presence_info,
-                    dup_control,
-                    dup_target,
-                    field_info,
-                )
+            deciding = (
+                (dup_control, dup_target, field_info)
+                if partial
+                else (count_info, presence_info, dup_control, dup_target, field_info)
             )
+            stream_passed = all(info.get("passed", True) for info in deciding)
             stream_warned = (
-                count_warned
+                partial
+                or count_warned
                 or bool(added_copies)
                 or any(
                     info.get("duplicate_pk_count", 0)
@@ -474,6 +572,352 @@ def _describe_run(command: str, result: dict[str, Any]) -> str:
     return f"connectionStatus {status}"
 
 
+def stopped_early_sides(
+    *sides: tuple[str, dict[str, Any]],
+) -> tuple[tuple[str, dict[str, Any]], ...]:
+    """The sides the harness stopped, as `(role, stopped_early)` pairs.
+
+    `stopped_early` is the per-side dict `_run_connector_command` emits --
+    `reason`, `records_seen`, `elapsed_s` -- and is `None` on a side that ran
+    to completion, which is left out here.
+    """
+    return tuple(
+        (role, result["stopped_early"])
+        for role, result in sides
+        if result.get("stopped_early")
+    )
+
+
+def describe_stopped_early(
+    stopped: Sequence[tuple[str, dict[str, Any]]], side_count: int
+) -> str:
+    """The Result line's account of a run that was stopped early.
+
+    One clause when both sides stopped with the same count, and both counts
+    when they did not: under a cap the two sides hold the same number of
+    records, under a deadline they rarely do, and that difference is what a
+    reader needs before reading the count table. Equal counts are not the
+    same records: a connector that reads slices concurrently can stop each
+    side at different records.
+    """
+    reasons = sorted({entry["reason"] for _role, entry in stopped})
+    reason = (
+        reasons[0]
+        if len(reasons) == 1
+        else ", ".join(f"{role}: {entry['reason']}" for role, entry in stopped)
+    )
+    counts = [entry["records_seen"] for _role, entry in stopped]
+    if side_count == 1:
+        return f"stopped early ({reason}) after {counts[0]:,} records"
+    if len(stopped) < side_count:
+        role = stopped[0][0]
+        other = "control" if role == "target" else "target"
+        return (
+            f"{role} stopped early ({reason}) after {counts[0]:,} records; "
+            f"{other} ran to completion"
+        )
+    if len(set(counts)) == 1:
+        return f"stopped early ({reason}) after {counts[0]:,} records per side"
+    both = " / ".join(f"{entry['records_seen']:,} ({role})" for role, entry in stopped)
+
+    return f"stopped early ({reason}) after {both} records"
+
+
+def stopped_early_notes(
+    stopped: Sequence[tuple[str, dict[str, Any]]],
+) -> tuple[str, ...]:
+    """One line per stopped side, for the context block of every surface.
+
+    A read's deadline is its share of `--read-timeout`, so a side stopped at
+    its deadline carries `share_s` and `budget_s`, and its line names the
+    share: the deadline falls before the budget's end (well before it for a
+    comparison's control), and a bare elapsed time would read as the whole
+    budget. A share of 0 is a side that never started.
+    """
+    notes: list[str] = []
+    for role, entry in stopped:
+        note = (
+            f"{'Run' if role == 'single' else role.capitalize()}: stopped early "
+            f"({entry['reason']}) after {entry['records_seen']:,} records "
+            f"in {entry['elapsed_s']:,.0f} s"
+        )
+        share_s = entry.get("share_s")
+        budget_s = entry.get("budget_s")
+        if share_s is not None and budget_s is not None:
+            budget = f"the {_duration_adjective(budget_s)} read budget"
+            note += (
+                f", without starting: nothing was left of {budget}"
+                if share_s == 0
+                else f", at the end of its {_duration_adjective(share_s)} share "
+                f"of {budget}"
+            )
+        notes.append(note)
+    return tuple(notes)
+
+
+LEGACY_NOT_FOUND_MESSAGE = (
+    "A stream listed in your configuration was not found in the source. "
+    "Please check the logs for more details."
+)
+_CDK_AGGREGATE_ERROR_PREFIX = (
+    "During the sync, the following streams did not sync successfully"
+)
+
+
+def not_exercised_streams(
+    target_only_streams: Sequence[str],
+    target_counts: Mapping[str, int],
+    excluded_streams: Sequence[str] = (),
+) -> tuple[str, ...]:
+    """The target-only streams the target read nothing from.
+
+    A stream configured for the target but not for the control -- typically one
+    the connector PR adds -- has no control side to compare against, so the
+    record comparison cannot fail it. Zero records there means the PR's new
+    code path was never run, and the rule that catches it is this one. Empty
+    whenever the two sides read the same catalog, which keeps the verdict of
+    such a run exactly as it was.
+    """
+    return tuple(
+        stream
+        for stream in target_only_streams
+        if stream not in excluded_streams and not target_counts.get(stream, 0)
+    )
+
+
+def undefined_streams(
+    target_only_streams: Sequence[str],
+    statuses: Mapping[str, Sequence[str]],
+    record_counts: Mapping[str, int],
+    errors: Mapping[str | None, Sequence[StreamError]],
+) -> tuple[str, ...]:
+    """Target-only streams the target connector does not define."""
+    result = []
+    for stream in target_only_streams:
+        stream_errors = errors.get(stream, ())
+        incomplete_only = (
+            statuses.get(stream, ()) == ["INCOMPLETE"]
+            and record_counts.get(stream, 0) == 0
+            and not stream_errors
+        )
+        legacy_not_found = any(
+            error.message == LEGACY_NOT_FOUND_MESSAGE for error in stream_errors
+        )
+        if incomplete_only or legacy_not_found:
+            result.append(stream)
+    return tuple(result)
+
+
+def config_error_streams(
+    target_only_streams: Sequence[str],
+    errors: Mapping[str | None, Sequence[StreamError]],
+) -> tuple[str, ...]:
+    """Target-only streams with an attributed, non-legacy config error."""
+    return tuple(
+        stream
+        for stream in target_only_streams
+        if any(
+            error.failure_type == "config_error"
+            and error.message != LEGACY_NOT_FOUND_MESSAGE
+            for error in errors.get(stream, ())
+        )
+    )
+
+
+def could_not_test(
+    target_only_streams: Sequence[str],
+    errors: Mapping[str | None, Sequence[StreamError]],
+) -> bool:
+    """Whether every read error prevents testing a target-only config."""
+    target_only = set(target_only_streams)
+    has_target_config_error = False
+    for stream, stream_errors in errors.items():
+        for error in stream_errors:
+            if stream is None:
+                if not (error.message or "").startswith(_CDK_AGGREGATE_ERROR_PREFIX):
+                    return False
+                continue
+            if (
+                stream in target_only
+                and error.failure_type == "config_error"
+                and error.message != LEGACY_NOT_FOUND_MESSAGE
+            ):
+                has_target_config_error = True
+                continue
+            return False
+    return has_target_config_error
+
+
+def target_errors_only_from(
+    target_only_streams: Sequence[str],
+    errors: Mapping[str | None, Sequence[StreamError]],
+) -> bool:
+    """Whether every recorded error is target-only or a CDK aggregate."""
+    target_only = set(target_only_streams)
+    return all(
+        (
+            stream in target_only
+            if stream is not None
+            else all(
+                (error.message or "").startswith(_CDK_AGGREGATE_ERROR_PREFIX)
+                for error in stream_errors
+            )
+        )
+        for stream, stream_errors in errors.items()
+    )
+
+
+def describe_setup_error(streams: Sequence[str]) -> str:
+    return (
+        f"{len(streams)} stream(s) the control did not read are not defined by "
+        "the target (lone INCOMPLETE status, no records, no error): "
+        f"{', '.join(streams)}"
+    )
+
+
+def describe_could_not_test(
+    streams: Sequence[str],
+    errors: Mapping[str | None, Sequence[StreamError]],
+) -> str:
+    details = []
+    for stream in streams:
+        error = next(
+            (
+                error
+                for error in errors.get(stream, ())
+                if error.failure_type == "config_error"
+                and error.message != LEGACY_NOT_FOUND_MESSAGE
+            ),
+            None,
+        )
+        details.append(
+            f"{stream}: {error.message if error and error.message else 'no message provided'}"
+        )
+    return (
+        f"{len(streams)} stream(s) the control did not read failed with a config "
+        "error (often a missing permission or scope): " + "; ".join(details)
+    )
+
+
+def describe_not_exercised(streams: Sequence[str]) -> str:
+    """The Result line's account of a read that proved nothing about a stream."""
+    return (
+        f"{len(streams)} stream(s) the control did not read returned no "
+        f"records: {', '.join(streams)}"
+    )
+
+
+def not_exercised_note(streams: Sequence[str]) -> str | None:
+    """The context-block line of a run with unexercised streams, or `None`."""
+    return f"Not exercised: {describe_not_exercised(streams)}" if streams else None
+
+
+def new_stream_verdict_label(
+    *,
+    stopped: bool,
+    setup_error: bool,
+    strict_failed: bool,
+    regression: bool,
+    both_failed: bool,
+    comparison_errored: bool,
+    could_not_test: bool,
+    not_exercised: bool,
+) -> str | None:
+    """Choose the label for a run with a target-only stream verdict reason.
+
+    Returns `None` when no incomplete, setup, config-error, comparison-error, or
+    unexercised-stream reason needs to override the existing pass/fail path.
+    """
+    if stopped:
+        return "INCOMPLETE"
+    if setup_error:
+        return "SETUP ERROR"
+    if not (could_not_test or not_exercised or comparison_errored):
+        return None
+    if strict_failed and not comparison_errored:
+        return "FAIL (regression)"
+    if regression and not could_not_test:
+        return "FAIL (regression)"
+    if both_failed or comparison_errored:
+        return "FAIL (inconclusive)"
+    if could_not_test:
+        return "COULD NOT TEST (config error)"
+    return "NOT EXERCISED"
+
+
+def _duration_adjective(seconds: int) -> str:
+    """`96-minute`, or `45-second` for under ten minutes that are not whole."""
+    if seconds % 60 == 0 or seconds >= 600:
+        return f"{seconds / 60:,.0f}-minute"
+    return f"{seconds:,}-second"
+
+
+def run_output_mode(*results: dict[str, Any]) -> str | None:
+    """How the run's output was written, from the first side that says."""
+    for result in results:
+        mode = result.get("output_mode")
+        if mode:
+            return str(mode)
+    return None
+
+
+def run_readable_fields(*results: dict[str, Any]) -> dict[str, Any] | None:
+    """What a masked run left readable per stream, from the first side that says.
+
+    The shape is `MaskPolicy.streams` serialised: stream name to `cursor`,
+    `readable`, `declared` and `reason`. `None` for a raw run, or a result
+    that predates the key.
+    """
+    for result in results:
+        fields = result.get("readable_fields")
+        if isinstance(fields, dict):
+            return fields
+    return None
+
+
+def readable_cursor_counts(readable_fields: Mapping[str, Any]) -> tuple[int, int]:
+    """Streams whose cursor stayed readable, out of those that declare one."""
+    with_cursor = [
+        entry
+        for entry in readable_fields.values()
+        if isinstance(entry, dict) and entry.get("cursor")
+    ]
+    return sum(bool(entry.get("readable")) for entry in with_cursor), len(with_cursor)
+
+
+def describe_readable_cursors(readable_fields: Mapping[str, Any]) -> str:
+    """The one-line count every surface shows; `report.html` has the table."""
+    readable, total = readable_cursor_counts(readable_fields)
+    return (
+        f"cursor readable on {readable} of {total} streams "
+        "(integer, date, date-time only)"
+    )
+
+
+def describe_masking(
+    output_mode: str | None, readable_fields: Mapping[str, Any] | None = None
+) -> str | None:
+    """One line on what the run's artifacts hold, for every surface."""
+    if output_mode == "masked":
+        cursors = (
+            describe_readable_cursors(readable_fields)
+            if readable_fields is not None
+            else "a cursor is readable only when its declared type is an integer or a date"
+        )
+        return (
+            "masked — record values are type-and-length tokens; primary keys "
+            f"masked; {cursors}; debug logs off, and DEBUG, TRACE, ERROR and FATAL "
+            "log messages, stack traces, error internals and stderr lines keep "
+            "only their length"
+        )
+    if output_mode == "raw":
+        return (
+            "raw — records, HTTP bodies and logs are unmasked; treat the "
+            "artifacts as sensitive"
+        )
+    return None
+
+
 def evaluate_comparison_outcome(
     command: str,
     target_result: dict[str, Any],
@@ -520,6 +964,8 @@ def generate_action_test_comparison_report(
     record_comparison: dict[str, Any] | None = None,
     comparison_findings: Sequence[tuple[str, str]] = (),
     reproduction: ReproductionVerdict | None = None,
+    target_only_streams: Sequence[str] = (),
+    inconclusive_findings: Sequence[str] = (),
 ) -> Path:
     """Generate a markdown comparison report for a single action (command).
 
@@ -544,9 +990,15 @@ def generate_action_test_comparison_report(
             dropped a field. Warnings are listed without changing the verdict:
             they do not gate a release, but a reader of this file should not
             have to open the HTML report to learn the catalog grew.
+        inconclusive_findings: Failed findings that represent checks that could
+            not complete, rather than evidence of a regression. They remain
+            visible as failed findings in the report.
         reproduction: The reproduction-case verdict, when the run used one. It
             replaces the command-outcome verdict: in case mode a failing control
             is the expected evidence, not an inconclusive run.
+        target_only_streams: The streams configured for the target but not for
+            the control. One that returned no records makes the verdict NOT
+            EXERCISED, never a pass (see `not_exercised_streams`).
 
     Returns:
         Path to the generated report.md file.
@@ -588,17 +1040,124 @@ def generate_action_test_comparison_report(
     )
 
     failures = [text for status, text in comparison_findings if status == "fail"]
+    inconclusive_failure_texts = set(inconclusive_findings)
+    inconclusive_failures = [
+        text for text in failures if text in inconclusive_failure_texts
+    ]
+    strict_failures = [
+        text for text in failures if text not in inconclusive_failure_texts
+    ]
 
-    if reproduction is not None:
+    stopped = stopped_early_sides(
+        ("control", control_result), ("target", target_result)
+    )
+    not_exercised = not_exercised_streams(
+        target_only_streams,
+        target_result.get("record_counts_per_stream", {}),
+        excluded_streams=target_result.get("excluded_not_exercised_streams", ()),
+    )
+    setup_error = bool(target_result.get("setup_error"))
+    setup_error_clears_regression = bool(
+        target_result.get("setup_error_clears_regression")
+    )
+    could_not_test_result = bool(target_result.get("could_not_test"))
+    record_comparison_errored = bool(
+        record_comparison is not None and record_comparison.get("errored")
+    )
+    strict_problems = len(strict_failures) + (
+        1
+        if outcome.both_succeeded
+        and record_comparison_failed
+        and not record_comparison_errored
+        else 0
+    )
+    comparison_errored = (
+        (record_comparison_errored or bool(inconclusive_failures))
+        and not strict_problems
+        and not outcome.regression_detected
+    )
+    verdict_label = new_stream_verdict_label(
+        stopped=bool(stopped),
+        setup_error=setup_error,
+        strict_failed=bool(strict_problems),
+        regression=outcome.regression_detected,
+        both_failed=outcome.both_failed,
+        comparison_errored=comparison_errored,
+        could_not_test=could_not_test_result,
+        not_exercised=bool(not_exercised),
+    )
+    if (
+        comparison_errored
+        and not outcome.both_failed
+        and not_exercised
+        and verdict_label == "FAIL (inconclusive)"
+    ):
+        verdict_label = "NOT EXERCISED"
+
+    if verdict_label is not None:
+        # Never a pass: the comparison saw part of what each side would have
+        # emitted, or nothing at all of a stream only the target read. A strict
+        # failure inside what it saw is still a regression. A stop outranks an
+        # unexercised stream, which then goes in the notes below the line.
+        if verdict_label == "INCOMPLETE":
+            detail = describe_stopped_early(stopped, side_count=2)
+        elif verdict_label == "SETUP ERROR":
+            detail = target_result.get("setup_error_detail", "Target setup failed.")
+            if outcome.regression_detected and not setup_error_clears_regression:
+                detail += f"; {sides}"
+        elif could_not_test_result and verdict_label == "COULD NOT TEST (config error)":
+            detail = target_result.get(
+                "could_not_test_detail", "A target config error prevented the read."
+            )
+        elif could_not_test_result or verdict_label.startswith("FAIL"):
+            detail = sides
+        else:
+            detail = describe_not_exercised(not_exercised)
+        if (
+            not outcome.success
+            and not (setup_error or could_not_test_result)
+            and not verdict_label.startswith("FAIL")
+        ):
+            detail += f"; {sides[0].lower()}{sides[1:]}"
+        if setup_error or could_not_test_result:
+            if setup_error and verdict_label != "SETUP ERROR":
+                detail += "; " + target_result.get("setup_error_detail", "")
+            if (
+                could_not_test_result
+                and verdict_label != "COULD NOT TEST (config error)"
+            ):
+                detail += "; " + target_result.get("could_not_test_detail", "")
+        if not_exercised and verdict_label != "NOT EXERCISED":
+            detail += "; " + describe_not_exercised(not_exercised)
+        if strict_problems:
+            plural = "s" if strict_problems > 1 else ""
+            detail += f", and the comparison found {strict_problems} problem{plural}"
+        if comparison_errored:
+            detail += "; the record comparison errored, so it is inconclusive"
+        line = f"**Result:** {verdict_label} — {detail}"
+        if strict_problems or (
+            outcome.regression_detected
+            and not (
+                setup_error_clears_regression
+                or could_not_test_result
+                or comparison_errored
+            )
+        ):
+            line += " — **REGRESSION DETECTED**"
+        lines.append(line)
+        lines.extend(f"- {note}" for note in stopped_early_notes(stopped))
+        if stopped and not_exercised:
+            lines.append(f"- {not_exercised_note(not_exercised)}")
+    elif reproduction is not None:
         lines.append(f"**Result:** {reproduction.detail} — **{reproduction.label}**")
         lines.extend(f"- {finding}" for finding in reproduction.details)
-    elif failures:
+    elif strict_failures:
         # Only reachable when both commands ran cleanly, so this is the one
         # verdict the exit codes could not have produced.
-        plural = "s" if len(failures) > 1 else ""
+        plural = "s" if len(strict_failures) > 1 else ""
         lines.append(
             f"**Result:** {sides}, and the comparison found "
-            f"{len(failures)} problem{plural} — **REGRESSION DETECTED**"
+            f"{len(strict_failures)} problem{plural} — **REGRESSION DETECTED**"
         )
     elif outcome.check_improvement:
         lines.append(f"**Result:** {sides} — improvement, not a regression")
@@ -623,6 +1182,13 @@ def generate_action_test_comparison_report(
             f"**Result:** {sides} — **TEST FAILED** (inconclusive, nothing to "
             "compare the target against)"
         )
+
+    masking = describe_masking(
+        run_output_mode(target_result, control_result),
+        run_readable_fields(target_result, control_result),
+    )
+    if masking:
+        lines.append(f"- Output mode: {masking}")
 
     # Use emojis for better scanability. The Result column comes from the shared
     # per-version rule rather than a local re-derivation, so it agrees with the
@@ -735,22 +1301,56 @@ def generate_action_test_comparison_report(
 
     control_http = control_result.get("http_metrics") or {}
     target_http = target_result.get("http_metrics") or {}
-    # Counts only when a capture actually recorded something. A payload holding
-    # just `replay_skipped_reason` describes a proxy that never ran, and an
-    # all-zero table -- `spec`, and `check` on plenty of connectors -- is noise
-    # either way. The skip reason still prints below, outside the table.
-    if control_http.get("flow_count") or target_http.get("flow_count"):
+    # Counts only when something was actually measured. A payload holding just
+    # `replay_skipped_reason` describes a proxy that never ran, and an all-zero
+    # table -- `spec`, and `check` on plenty of connectors -- is noise either
+    # way. The skip reason still prints below, outside the table.
+    #
+    # `connector_request_count` and not `flow_count` alone: the connector's own
+    # cache needs no proxy to be measured, so a run whose proxy never started
+    # still has half a table to show, and gating on the proxy would hide it.
+    if any(
+        side.get(key)
+        for side in (control_http, target_http)
+        for key in ("flow_count", "connector_request_count")
+    ):
         lines.extend(
             [
                 "#### HTTP Metrics",
                 "",
-                "| Version | Flow Count | Duplicate Flows | Replayed | Live | Unreplayable | Cache Hit Ratio |",
-                "|---------|------------|-----------------|----------|------|--------------|-----------------|",
-                f"| Control | {control_http.get('flow_count', 0)} | {control_http.get('duplicate_flow_count', 0)} | {control_http.get('replayed_flow_count', 0)} | {control_http.get('live_flow_count', 0)} | {control_http.get('unreplayable_flow_count', 0)} | {control_http.get('cache_hit_ratio', 'N/A')} |",
-                f"| Target | {target_http.get('flow_count', 0)} | {target_http.get('duplicate_flow_count', 0)} | {target_http.get('replayed_flow_count', 0)} | {target_http.get('live_flow_count', 0)} | {target_http.get('unreplayable_flow_count', 0)} | {target_http.get('cache_hit_ratio', 'N/A')} |",
+                # The first five columns are the harness's view through the
+                # proxy; the last three are the connector's report on its own
+                # `requests_cache`, which no proxy can see. Two different
+                # measurements of two different things -- see the docs.
+                "| Version | "
+                + " | ".join(
+                    HTTP_METRIC_LABELS[key]
+                    for key in (*_PROXY_HTTP_COLUMNS, *_CONNECTOR_HTTP_COLUMNS)
+                )
+                + " |",
+                "|---" * (1 + len(_PROXY_HTTP_COLUMNS) + len(_CONNECTOR_HTTP_COLUMNS))
+                + "|",
+                _http_metrics_row("Control", control_http),
+                _http_metrics_row("Target", target_http),
                 "",
             ]
         )
+        if control_http.get("unreplayable_flow_count") or target_http.get(
+            "unreplayable_flow_count"
+        ):
+            # Out of the table rather than a ninth column, but never dropped:
+            # this is the usual reason replay coverage is poor, and the fix
+            # (`--http-replay-max-body`) is only findable if the number is.
+            lines.extend(
+                [
+                    f"Flows excluded from the replay corpus as unreplayable: "
+                    f"control {control_http.get('unreplayable_flow_count', 0)}, "
+                    f"target {target_http.get('unreplayable_flow_count', 0)}. "
+                    "Raise `--http-replay-max-body` if this is a large share of "
+                    "the requests.",
+                    "",
+                ]
+            )
 
     # Outside the table: the reason is the whole story when the proxy never ran,
     # and there are no counts to hang it off.
@@ -763,6 +1363,15 @@ def generate_action_test_comparison_report(
                 "",
             ]
         )
+    for role, http in (("control", control_http), ("target", target_http)):
+        if http.get("capture_skipped_reason"):
+            lines.extend(
+                [
+                    f"HTTP traffic was not captured on the {role}: "
+                    f"{http['capture_skipped_reason']}.",
+                    "",
+                ]
+            )
 
     if record_comparison is not None:
         lines.extend(_render_record_comparison_section(record_comparison))
@@ -839,16 +1448,26 @@ def generate_single_version_report(
     else:
         lines.append(f"- **Artifacts:** `{artifact_name}`")
 
+    masking = describe_masking(run_output_mode(result), run_readable_fields(result))
+    if masking:
+        lines.append(f"- **Output mode:** {masking}")
+
     # Single-version mode uses the same per-version rule as comparison mode, so a
     # `check` that exits 0 with connectionStatus FAILED is a FAIL, not a pass.
     succeeded = command_result_succeeded(command, result)
+    stopped = stopped_early_sides(("single", result))
+    if stopped:
+        verdict = f"INCOMPLETE — {describe_stopped_early(stopped, side_count=1)}"
+    else:
+        verdict = "PASS" if succeeded else "FAIL"
 
     lines.extend(
         [
             "",
             "### Summary",
             "",
-            f"**Result:** {'PASS' if succeeded else 'FAIL'}",
+            f"**Result:** {verdict}",
+            *(f"- {note}" for note in stopped_early_notes(stopped)),
             "",
             f"- **Exit Code:** {result['exit_code']}",
         ]

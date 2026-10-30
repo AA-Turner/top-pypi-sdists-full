@@ -1795,6 +1795,7 @@ class IngestDataOutputTypeDef(TypedDict):
 
 class InvokeAgentRuntimeResponseTypeDef(TypedDict):
     runtimeSessionId: str
+    sessionEndpointUrl: str
     mcpSessionId: str
     mcpProtocolVersion: str
     traceId: str

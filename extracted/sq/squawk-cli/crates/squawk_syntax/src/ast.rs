@@ -36,7 +36,9 @@ use std::marker::PhantomData;
 use crate::syntax_node::{SyntaxNode, SyntaxNodeChildren, SyntaxToken};
 use squawk_parser::SyntaxKind;
 
-pub use self::node_ext::{LanguageName, is_quoted_name_node, normalize_name_node};
+pub use self::node_ext::{
+    KEYWORD_TYPE_NAMES, LanguageName, is_quoted_name_node, normalize_name_node,
+};
 pub use self::{
     generated::tokens::*,
     node_ext::{
@@ -61,13 +63,6 @@ pub trait AstNode {
         Self: Sized;
 
     fn syntax(&self) -> &SyntaxNode;
-    #[must_use]
-    fn clone_for_update(&self) -> Self
-    where
-        Self: Sized,
-    {
-        Self::cast(self.syntax().clone_for_update()).unwrap()
-    }
     #[must_use]
     fn clone_subtree(&self) -> Self
     where

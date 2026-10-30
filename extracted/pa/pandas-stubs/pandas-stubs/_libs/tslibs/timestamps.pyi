@@ -51,10 +51,16 @@ _Ambiguous: TypeAlias = bool | Literal["raise", "NaT"]
 TimeZones: TypeAlias = str | _tzinfo | int | None
 
 class Timestamp(datetime, SupportsIndex):
-    min: ClassVar[Timestamp]  # pyright: ignore[reportIncompatibleVariableOverride]
-    max: ClassVar[Timestamp]  # pyright: ignore[reportIncompatibleVariableOverride]
+    # invalid-mutable-override is only enabled by ty_all.
+    # TODO: reduce the double unused-ignore-comment when astral-sh/ty#2681 is resolved
+    min: ClassVar[  # pyright: ignore[reportIncompatibleVariableOverride] # ty: ignore[invalid-mutable-override,unused-ignore-comment,unused-ignore-comment]
+        Timestamp
+    ]
+    max: ClassVar[  # pyright: ignore[reportIncompatibleVariableOverride] # ty: ignore[invalid-mutable-override,unused-ignore-comment,unused-ignore-comment]
+        Timestamp
+    ]
 
-    resolution: ClassVar[  # pyright: ignore[reportIncompatibleVariableOverride]
+    resolution: ClassVar[  # pyright: ignore[reportIncompatibleVariableOverride] # ty: ignore[invalid-mutable-override,unused-ignore-comment,unused-ignore-comment]
         Timedelta
     ]
     value: int
@@ -167,6 +173,7 @@ class Timestamp(datetime, SupportsIndex):
         minute: int | None = None,
         second: int | None = None,
         microsecond: int | None = None,
+        nanosecond: int | None = None,
         tzinfo: _tzinfo | None = None,
         fold: Literal[0, 1] | None = None,
     ) -> Timestamp: ...
@@ -353,10 +360,12 @@ class Timestamp(datetime, SupportsIndex):
     def month_name(self, locale: str | None = None) -> str: ...
     @property
     def day_of_week(self) -> int: ...
+    # TODO: remove dayofweek once pandas removes it; use day_of_week (pandas-dev/pandas#64729)
     @property
     def dayofweek(self) -> int: ...
     @property
     def day_of_year(self) -> int: ...
+    # TODO: remove dayofyear once pandas removes it; use day_of_year (pandas-dev/pandas#64729)
     @property
     def dayofyear(self) -> int: ...
     @property
@@ -368,6 +377,7 @@ class Timestamp(datetime, SupportsIndex):
     def to_numpy(self) -> np.datetime64: ...
     @property
     def days_in_month(self) -> int: ...
+    # TODO: remove daysinmonth once pandas removes it; use days_in_month (pandas-dev/pandas#64729)
     @property
     def daysinmonth(self) -> int: ...
     @property

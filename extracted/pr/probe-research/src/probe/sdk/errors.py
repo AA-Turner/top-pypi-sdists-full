@@ -7,6 +7,7 @@ string or a validation error list. See ``CONTRACT.md`` (Error contract).
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 
@@ -160,6 +161,31 @@ class NotFoundError(RosError):
 #: with other details, and their writes are lost for reasons of ours.
 #: tests/unit/test_delivery_alert_config.py pins it to the server's.
 RUN_NOT_FOUND_DETAIL = "run not found"
+
+
+#: `detail.code` on the server's 409 for a write a newer attempt superseded: its
+#: write epoch is older than the run's (`app/telemetry/fencing.py`; the log-chunk
+#: door's since 0270).
+STALE_WRITE_EPOCH = "stale_write_epoch"
+#: That refusal's message, the same from every server since 0185, which is how
+#: one that sends no code is told apart.
+_STALE_EPOCH_MESSAGE = re.compile(r"write carries epoch (\d+) but run \S+ is on epoch (\d+)")
+
+
+def names_stale_write_epoch(exc: BaseException) -> bool:
+    """The server refused the write because a newer attempt owns the run: the
+    write's epoch is past, and no retry will ever land it. Told by
+    `STALE_WRITE_EPOCH`, or on a server that sends no code by the epochs its
+    message names (the carried one older than the run's); any other 409 is not."""
+    if not isinstance(exc, ConflictError):
+        return False
+    detail = exc.detail if isinstance(exc.detail, dict) else {}
+    if detail.get("code") == STALE_WRITE_EPOCH:
+        return True
+    # From the start of the message, so one that only quotes the phrase (a name
+    # a person chose, echoed in another conflict) is never read as this refusal.
+    match = _STALE_EPOCH_MESSAGE.match(str(exc))
+    return match is not None and int(match.group(1)) < int(match.group(2))
 
 
 def names_no_such_run(exc: BaseException) -> bool:

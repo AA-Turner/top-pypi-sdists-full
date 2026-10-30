@@ -561,8 +561,20 @@ impl<'a, T: ContainerElement> IntoIterator for &'a List<T> {
 // --- Any Type System Conversions ---
 
 unsafe impl<T: ContainerElement> AnyCompatible for List<T> {
+    #[inline]
+    unsafe fn is_undefined(field: *const Self) -> bool {
+        ObjectArc::is_null(std::ptr::addr_of!((*field).data))
+    }
+
     fn type_str() -> String {
         format!("List<{}>", T::container_type_str())
+    }
+
+    fn type_schema() -> String {
+        crate::type_traits::type_schema(
+            <ListObj as crate::ObjectCore>::TYPE_KEY,
+            &[T::container_type_schema()],
+        )
     }
 
     unsafe fn check_any_strict(data: &TVMFFIAny) -> bool {

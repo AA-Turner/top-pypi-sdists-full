@@ -50,6 +50,7 @@
     X(region) \
     X(symbol) \
     X(heap) \
+    X(min_cut) \
     X(hashtable) \
     X(rational) \
     X(inf_rational) \
@@ -122,6 +123,7 @@
     X(range_predicate) \
     X(regex_range_collapse) \
     X(seq_rewriter) \
+    X(seq_limits) \
     X(seq_parikh) \
     X(seq_power) \
     X(seq_eq_approx) \
@@ -144,6 +146,7 @@
     X(ff_euf) \
     X(ff_native_proof) \
     X(finite_field) \
+    X(flatten_clauses) \
     X(polynomial) \
     X(polynomial_factorization) \
     X(upolynomial) \

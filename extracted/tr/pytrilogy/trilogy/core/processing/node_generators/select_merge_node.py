@@ -24,7 +24,7 @@ from trilogy.core.models.build import (
 )
 from trilogy.core.models.build_environment import BuildEnvironment
 from trilogy.core.processing.aggregate_rollup import (
-    get_additive_rollup_concepts,
+    get_rollup_concepts,
     merge_rollup_concepts,
 )
 from trilogy.core.processing.condition_utility import (
@@ -105,7 +105,7 @@ def create_pruned_concept_graph(
     for node_address, datasource in list(g.datasources.items()):
         if not isinstance(datasource, BuildDatasource):
             continue
-        for concept in get_additive_rollup_concepts(
+        for concept in get_rollup_concepts(
             datasource=datasource,
             requested_concepts=all_concepts,
             concepts_by_address=concepts_by_address,
@@ -638,6 +638,7 @@ def gen_select_merge_node(
     depth: int,
     accept_partial: bool = False,
     conditions: BuildWhereClause | None = None,
+    outputs: list[BuildConcept] | None = None,
 ) -> StrategyNode | None:
     abstract_props = [
         c
@@ -823,12 +824,15 @@ def gen_select_merge_node(
             _merge_condition_routing(parents, all_concepts, conditions)
         )
 
-        # The joined rows sit at the parents' finer grain; SUM-roll additive
+        # The joined rows sit at the parents' finer grain; roll up rollable
         # aggregates up to the target (force_group + rollup_concepts make the
         # renderer emit SUM and GROUP BY at the merge level).
+        # The WHERE applies before the regroup, so columns only it reads are
+        # no group keys.
+        rollup_targets = outputs or all_concepts
         rollup_at_merge = merge_rollup_concepts(
             (parent_node.grain for parent_node in parents),
-            all_concepts,
+            rollup_targets,
             environment.concepts,
         )
         force_merge_group: bool | None = True if rollup_at_merge else None
@@ -843,7 +847,7 @@ def gen_select_merge_node(
             force_merge_group = True
 
         candidate = MergeNode(
-            output_concepts=list(all_concepts),
+            output_concepts=list(rollup_targets if rollup_at_merge else all_concepts),
             input_concepts=unique(
                 normals
                 + abstract_props

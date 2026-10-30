@@ -508,3 +508,12 @@ def test_a_mark_outside_markers_is_skipped_and_what_follows_is_read():
     text = ('<article class="ov-page"><p data-owner="human" data-strength="soft">theirs</p>'
             "<h2>After</h2><p>The writer's opening.</p></article>")
     assert tools._shape(text, "html") == (["After"], "The writer's opening.")
+
+
+def test_the_outline_says_when_a_dead_end_was_marked_or_cleared(tmp_path):
+    deps = _deps(tmp_path, CheckoutReplay())
+    _log(deps.store, "experiment", "create", "b2", "--project", "willow", "--question", "q?", at=1.0)
+    asyncio.run(tools.autoload_summaries(deps))
+    _log(deps.store, "experiment", "set", "b2", "--dead-end", "OOM at batch 64 on 80 GB")
+    _log(deps.store, "experiment", "set", "b2", "--clear-dead-end")
+    assert "- since v3: dead end marked; dead end cleared" in tools.summary_outline(deps.store)

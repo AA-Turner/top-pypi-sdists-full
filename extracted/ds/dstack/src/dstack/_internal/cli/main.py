@@ -1,4 +1,5 @@
 import argparse
+import sys
 
 import argcomplete
 from rich.markup import escape
@@ -26,7 +27,7 @@ from dstack._internal.cli.commands.secrets import SecretCommand
 from dstack._internal.cli.commands.server import ServerCommand
 from dstack._internal.cli.commands.stop import StopCommand
 from dstack._internal.cli.commands.volume import VolumeCommand
-from dstack._internal.cli.utils.common import _colors, console
+from dstack._internal.cli.utils.common import _colors, error_console
 from dstack._internal.cli.utils.updates import check_for_updates
 from dstack._internal.core.errors import ClientError, CLIError, ConfigurationError, SSHError
 from dstack._internal.core.services.ssh.client import get_ssh_client_info
@@ -98,9 +99,23 @@ def main():
         get_ssh_client_info()
         args.func(args)
     except (ClientError, CLIError, ConfigurationError, SSHError) as e:
-        console.print(f"[error]{escape(str(e))}[/]")
+        error_console.print(f"[error]{escape(str(e))}[/]")
         logger.debug(e, exc_info=True)
-        exit(1)
+        sys.exit(1)
+    except KeyboardInterrupt:
+        error_console.print("\nInterrupted")
+        logger.debug("Interrupted", exc_info=True)
+        # Re-raise instead of exiting with an error code: on an uncaught KeyboardInterrupt,
+        # Python shuts down normally (incl. atexit) and then kills itself with SIGINT,
+        # so that a parent shell sees the interrupt and stops, e.g., a script loop.
+        sys.excepthook = _excepthook_without_keyboard_interrupt
+        raise
+
+
+def _excepthook_without_keyboard_interrupt(exc_type, exc_value, exc_traceback):
+    if issubclass(exc_type, KeyboardInterrupt):
+        return
+    sys.__excepthook__(exc_type, exc_value, exc_traceback)
 
 
 if __name__ == "__main__":

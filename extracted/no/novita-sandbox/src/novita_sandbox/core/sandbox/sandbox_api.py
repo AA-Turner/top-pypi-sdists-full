@@ -101,6 +101,24 @@ class SandboxLifecycle(TypedDict):
     """
 
 
+def legacy_create_network_config(
+    network: Optional[SandboxNetworkOpts],
+) -> Optional[Dict[str, bool]]:
+    """Serialize the network option accepted by legacy create."""
+    if network is None:
+        return None
+    unsupported = sorted(set(network) - {"allow_public_traffic"})
+    if unsupported:
+        from novita_sandbox.core.exceptions import SandboxException
+        raise SandboxException(
+            "Sandbox.create network only supports allow_public_traffic on legacy "
+            f"domains; unsupported options: {', '.join(unsupported)}"
+        )
+    if "allow_public_traffic" not in network:
+        return {}
+    return {"allowPublicTraffic": bool(network["allow_public_traffic"])}
+
+
 class SandboxInfoLifecycle(TypedDict):
     """
     Sandbox lifecycle configuration returned by sandbox info.

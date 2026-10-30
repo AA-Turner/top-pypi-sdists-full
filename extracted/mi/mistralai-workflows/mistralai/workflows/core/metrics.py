@@ -36,3 +36,10 @@ def record_event_route_v1_fallback(reason: EventRouteFallbackReason) -> None:
         "mistral_workflows_event_route_v1_fallback",
         "Times a v2-configured worker fell back to the v1 event route.",
     ).add(1, {"reason": reason.value})
+
+
+def record_event_publish_retry(event_count: int) -> None:
+    _get_counter(
+        "mistral_workflows_event_publish_retries",
+        "Workflow events whose publish attempt failed transiently and will be retried.",
+    ).add(event_count)

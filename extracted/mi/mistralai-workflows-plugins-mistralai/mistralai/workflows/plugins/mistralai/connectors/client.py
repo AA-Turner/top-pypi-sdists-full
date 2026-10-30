@@ -10,7 +10,7 @@ from .constants import MISTRALAI_PLUGIN_KEY
 from .decorator import ConnectorError
 from .mcp_apps import connector_get_mcp_app_resource_uris
 from .models import ResolvedConnectorBinding, resolved_connector_bindings_from_extension
-from .run_as import ConnectorRunAs, RunAsArg, normalize_run_as
+from .run_as import RunAs, RunAsArg, normalize_run_as
 
 
 class ToolCallClient:
@@ -113,7 +113,7 @@ class ToolCallClient:
         binding: ResolvedConnectorBinding,
         credentials_name: str | None,
         tool_name: str,
-        run_as: ConnectorRunAs,
+        run_as: RunAs,
     ) -> str | None:
         if credentials_name == binding.credentials_name and (
             binding.mcp_ui_resource_uris or binding.mcp_ui_resource_uris_fetched

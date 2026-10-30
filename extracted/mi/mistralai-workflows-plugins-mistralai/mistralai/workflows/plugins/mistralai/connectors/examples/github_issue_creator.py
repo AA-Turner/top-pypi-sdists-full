@@ -31,7 +31,7 @@ import structlog
 import mistralai.workflows as workflows
 import mistralai.workflows.plugins.mistralai as workflows_mistralai
 from mistralai.workflows import Depends, InteractiveWorkflow
-from mistralai.workflows.core.logging import setup_logging
+from mistralai.workflows.core.logging import LoggerConfig, LogLevel, setup_logging
 from mistralai.workflows.plugins.mistralai.connectors import (
     ToolCallClient,
     connector,
@@ -94,5 +94,9 @@ if __name__ == "__main__":
         log_format=config.common.log_format,
         log_level=config.common.log_level,
         app_version=config.common.app_version,
+        extra_config=[
+            LoggerConfig(name=name, level=LogLevel.WARNING)
+            for name in ("httpx", "httpcore", "asyncio", "aiocache", "urllib3")
+        ],
     )
     asyncio.run(workflows.run_worker([GitHubIssueCreatorWorkflow]))

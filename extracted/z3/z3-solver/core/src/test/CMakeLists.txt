@@ -61,6 +61,7 @@ add_executable(test-z3
   factor_rewriter.cpp
   finder.cpp
   fixed_bit_vector.cpp
+  flatten_clauses.cpp
   for_each_file.cpp
   get_consequences.cpp
   get_implied_equalities.cpp
@@ -85,6 +86,7 @@ add_executable(test-z3
   map.cpp
   matcher.cpp
   memory.cpp
+  min_cut.cpp
   model2expr.cpp
   model_based_opt.cpp
   mod_factor.cpp
@@ -147,6 +149,7 @@ add_executable(test-z3
   smt_proof_weakening.cpp
   scoped_timer.cpp
   scoped_vector.cpp
+  seq_limits.cpp
   seq_power.cpp
   seq_rewriter.cpp
   seq_parikh.cpp

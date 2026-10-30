@@ -722,6 +722,7 @@ def _update_prelude(
     # a run held this update off for 24 h without a break, so it goes on.
     from probe.service.protocol import DeferReason  # loaded already, by `updater`
 
+    deferred = False
     if (
         not force
         and not forced_past(DeferReason.RUN_IN_FLIGHT)
@@ -734,17 +735,23 @@ def _update_prelude(
                 # Not a training loop: this is the updater, so the skip it just
                 # recorded can go to the server now.
                 update_report.flush(base_url)
-                return _Prelude(lines=[], deferred=UpdateOutcome(
-                    lines=[
-                        "a run is in flight on this machine; upgrade deferred "
-                        "(`probe doctor` shows what is holding it)"
-                    ],
-                    ok=True,
-                    restart_needed=False,
-                    deferred=True,
-                ))
+                deferred = True
         except Exception:  # noqa: BLE001 -- an unreadable lock must not strand the upgrade
             pass
+    if deferred:
+        # Deferred, Probe's hooks in Codex are still approved (#3617): Codex
+        # rewrites its copies of Probe's plugins by itself, and a day's deferral
+        # left Codex unrecorded that long. Outside the check above, whose
+        # handler would go on with the upgrade.
+        return _Prelude(lines=[], deferred=UpdateOutcome(
+            lines=[
+                "a run is in flight on this machine; upgrade deferred "
+                "(`probe doctor` shows what is holding it)" + updater.approve_codex_hooks_note()
+            ],
+            ok=True,
+            restart_needed=False,
+            deferred=True,
+        ))
 
     # A failed manifest fetch must never block the upgrade -- being unable to
     # ask "what is latest" is not a reason to refuse to move.

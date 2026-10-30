@@ -363,8 +363,8 @@ class BackgroundHost:
     def _young(self, key: str) -> bool:
         """`key`'s child started under STARTUP_S ago and runs: it is still
         importing, its lease not taken yet. (A worker that took its lease keeps
-        it longer than that: it lingers `outbox_worker._EXIT_GRACE_SECONDS`
-        before it exits.) Under the lock."""
+        it longer than that: it lingers `outbox_worker._LINGER_SECONDS` with
+        its queue empty before it exits.) Under the lock."""
         child = self._children.get(key)
         return child is not None and time.monotonic() - child.started < STARTUP_S and child.popen.poll() is None
 

@@ -19,7 +19,7 @@ license = "BSD-2-Clause"
 name = "proxsuite"
 readme = "README.md"
 requires-python = ">= 3.10"
-version = "0.8.1"
+version = "0.8.2"
 
 [project.urls]
 homepage = "https://github.com/cmake-wheel/proxsuite"
@@ -27,7 +27,6 @@ repository = "https://github.com/cmake-wheel/proxsuite.git"
 upstream = "https://github.com/Simple-Robotics/proxsuite"
 
 [tool.cmeel]
-build-number = 1
 configure-args = [
   "-DBUILD_PYTHON_INTERFACE=ON",
   "-DBUILD_TESTING=ON",

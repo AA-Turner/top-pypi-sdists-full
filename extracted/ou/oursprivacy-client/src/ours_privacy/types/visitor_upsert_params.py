@@ -485,10 +485,10 @@ class DefaultProperties(TypedDict, total=False):
     """
 
     active_duration: Annotated[Optional[float], PropertyInfo(alias="activeDuration")]
-    """The active time in milliseconds that the user had this tab active"""
+    """The total time in milliseconds this tab has been visible since the page loaded"""
 
     ad_id: Optional[str]
-    """The ad id for detected in the session.
+    """The ad id detected in the session.
 
     This is set by the web sdk automatically. Leading and trailing whitespace is
     removed before validation.
@@ -502,7 +502,7 @@ class DefaultProperties(TypedDict, total=False):
     """
 
     adset_id: Optional[str]
-    """The adset id for detected in the session.
+    """The adset id detected in the session.
 
     This is set by the web sdk automatically. Leading and trailing whitespace is
     removed before validation.
@@ -540,9 +540,9 @@ class DefaultProperties(TypedDict, total=False):
     """
 
     browser_language: Optional[str]
-    """The language of the browser.
+    """The language of the browser, lowercased.
 
-    Ex: en-US Leading and trailing whitespace is removed before validation.
+    Ex: en-us Leading and trailing whitespace is removed before validation.
     """
 
     browser_name: Optional[str]
@@ -558,7 +558,7 @@ class DefaultProperties(TypedDict, total=False):
     """
 
     campaign_id: Optional[str]
-    """The campaign id for detected in the session.
+    """The campaign id detected in the session.
 
     This is set by the web sdk automatically. Leading and trailing whitespace is
     removed before validation.
@@ -579,7 +579,7 @@ class DefaultProperties(TypedDict, total=False):
     cpu_architecture: Optional[str]
     """The architecture of the CPU.
 
-    Ex: x64 Leading and trailing whitespace is removed before validation.
+    Ex: amd64 Leading and trailing whitespace is removed before validation.
     """
 
     current_url: Optional[str]
@@ -597,7 +597,7 @@ class DefaultProperties(TypedDict, total=False):
     device_model: Optional[str]
     """The model of the device.
 
-    Ex: iPhone 13 Leading and trailing whitespace is removed before validation.
+    Ex: iPhone Leading and trailing whitespace is removed before validation.
     """
 
     device_type: Optional[str]
@@ -613,10 +613,14 @@ class DefaultProperties(TypedDict, total=False):
     """
 
     duration: Optional[float]
-    """The time in milliseconds since the page was loaded // script was loaded"""
+    """
+    The time in milliseconds since the previous event on this page, or since the web
+    SDK loaded for the first event. Restarts when a hidden tab becomes visible
+    again.
+    """
 
     encoding: Optional[str]
-    """The browsers encoding.
+    """The browser's encoding.
 
     Ex: UTF-8 Leading and trailing whitespace is removed before validation.
     """
@@ -796,7 +800,7 @@ class DefaultProperties(TypedDict, total=False):
     """
 
     received_at: Optional[str]
-    """The time the event was received by an Ours server in ISO format"""
+    """The time an Ours server received the event, in ISO 8601 UTC"""
 
     referrer: Optional[str]
     """
@@ -817,7 +821,7 @@ class DefaultProperties(TypedDict, total=False):
     """
 
     sccid: Optional[str]
-    """The SnapChat Click ID.
+    """The Snapchat Click ID.
 
     Ex: sccid123 Leading and trailing whitespace is removed before validation.
     """
@@ -839,7 +843,10 @@ class DefaultProperties(TypedDict, total=False):
     """
 
     sr: Optional[str]
-    """Leading and trailing whitespace is removed before validation."""
+    """The screen resolution as width x height in pixels.
+
+    Ex: 1920x1080 Leading and trailing whitespace is removed before validation.
+    """
 
     title: Optional[str]
     """
@@ -867,9 +874,10 @@ class DefaultProperties(TypedDict, total=False):
     """
 
     uafvl: Optional[str]
-    """User agent as a full list of strings.
-
-    Leading and trailing whitespace is removed before validation.
+    """
+    The browser brands and full versions from User-Agent Client Hints, as
+    brand;version pairs separated by |. Leading and trailing whitespace is removed
+    before validation.
     """
 
     user_agent: Optional[str]

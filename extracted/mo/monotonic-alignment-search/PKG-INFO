@@ -1,36 +1,37 @@
 Metadata-Version: 2.4
 Name: monotonic-alignment-search
-Version: 0.2.1
+Version: 0.2.2
 Summary: Monotonically align text and speech
 Author-email: Jaehyeon Kim <jaywalnut310@gmail.com>
 Maintainer-email: Enno Hermann <enno.hermann@gmail.com>
-License: MIT
+License-Expression: MIT
 Project-URL: Repository, https://github.com/eginhard/monotonic_alignment_search
 Project-URL: Issues, https://github.com/eginhard/monotonic_alignment_search/issues
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Multimedia :: Sound/Audio :: Speech
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
-License-File: LICENSE
-Requires-Dist: numpy>=1.21.6
+License-File: LICENSES/CC0-1.0.txt
+License-File: LICENSES/MIT.txt
+License-File: REUSE.toml
+Requires-Dist: numpy>=1.23.2
 Provides-Extra: cpu
-Requires-Dist: torch>=1.12.1; extra == "cpu"
+Requires-Dist: torch>=1.13.0; extra == "cpu"
 Provides-Extra: cuda
-Requires-Dist: torch>=1.12.1; extra == "cuda"
+Requires-Dist: torch>=1.13.0; extra == "cuda"
 Dynamic: license-file
 
 <!--

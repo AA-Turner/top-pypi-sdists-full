@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: atomate2
-Version: 0.1.6
+Version: 0.1.7
 Summary: atomate2 is a library of materials science workflows
 Author-email: Alex Ganose <alexganose@gmail.com>
 License-Expression: BSD-3-Clause-LBNL
@@ -48,7 +48,7 @@ Requires-Dist: cclib>=1.8.1; extra == "cclib"
 Provides-Extra: mp
 Requires-Dist: mp-api>=0.37.5; extra == "mp"
 Provides-Extra: phonons
-Requires-Dist: phonopy<5,>=4.6; extra == "phonons"
+Requires-Dist: phonopy<5,>=4.7.1; extra == "phonons"
 Requires-Dist: seekpath>=2.0.0; extra == "phonons"
 Provides-Extra: pheasy
 Requires-Dist: atomate2[phonons]; extra == "pheasy"
@@ -92,8 +92,8 @@ Requires-Dist: openmm>=8.1.0; extra == "openmm"
 Provides-Extra: fireworks
 Requires-Dist: fireworks==2.1.4; extra == "fireworks"
 Provides-Extra: strict-openff
-Requires-Dist: mdanalysis==2.10.0; extra == "strict-openff"
-Requires-Dist: monty==2026.7.16; extra == "strict-openff"
+Requires-Dist: mdanalysis==2.11.0; extra == "strict-openff"
+Requires-Dist: monty==2026.10.21; extra == "strict-openff"
 Requires-Dist: openmm-mdanalysis-reporter==0.1.0; extra == "strict-openff"
 Requires-Dist: openmm==8.6.1; extra == "strict-openff"
 Requires-Dist: pymatgen==2026.9.24; extra == "strict-openff"
@@ -106,7 +106,7 @@ Requires-Dist: sevenn==0.13.0; extra == "strict-forcefields-generic"
 Requires-Dist: deepmd-kit==3.2.0; extra == "strict-forcefields-generic"
 Requires-Dist: tensorflow-cpu==2.21.0; sys_platform == "linux" and extra == "strict-forcefields-generic"
 Requires-Dist: tensorflow==2.21.0; (sys_platform == "darwin" or sys_platform == "win32") and extra == "strict-forcefields-generic"
-Requires-Dist: wandb==0.30.0; extra == "strict-forcefields-generic"
+Requires-Dist: wandb==0.31.0; extra == "strict-forcefields-generic"
 Requires-Dist: upet==0.2.5; extra == "strict-forcefields-generic"
 Provides-Extra: strict-forcefields-torch-limited
 Requires-Dist: matgl==4.0.3; extra == "strict-forcefields-torch-limited"
@@ -121,7 +121,7 @@ Requires-Dist: atomate2[ase,ase-ext,cclib,defects,lobster,mp,openmm,phonons]; ex
 Requires-Dist: numpy<3.0; extra == "strict"
 Requires-Dist: numba>=0.60.0; extra == "strict"
 Requires-Dist: pymatgen==2026.9.24; extra == "strict"
-Requires-Dist: pymatgen-core==2026.10.2; extra == "strict"
+Requires-Dist: pymatgen-core==2026.10.16; extra == "strict"
 Dynamic: license-file
 
 # atomate2

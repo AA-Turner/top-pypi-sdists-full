@@ -6,7 +6,7 @@ import re
 import secrets
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import Any, Protocol
 
 import rfc8785
 
@@ -19,7 +19,9 @@ from mpp import (
     generate_challenge_id,
 )
 from mpp._parsing import MAX_AUTHORIZATION_SIZE, ParseError, _b64_decode
+from mpp._typing import is_dict
 from mpp._units import transform_units
+from mpp._validation import Validation
 from mpp.errors import (
     InternalPaymentError,
     InvalidChallengeError,
@@ -28,14 +30,12 @@ from mpp.errors import (
     PaymentError,
     PaymentExpiredError,
     PaymentOutcomeUnknownError,
+    VerificationFailedError,
 )
 from mpp.events import CHALLENGE_CREATED, PAYMENT_FAILED, PAYMENT_SUCCESS, EventDispatcher
 from mpp.x402._server import X402Input, X402Intent, x402_credential
 
 DEFAULT_EXPIRES_MINUTES = 5
-
-if TYPE_CHECKING:
-    from mpp._validation import Validation
 
 
 class Intent(Protocol):
@@ -50,7 +50,9 @@ async def _settle(intent: Any, credential: Credential, request: dict[str, Any]) 
     The validation's ``payer`` is copied to the receipt unless it already has one.
     """
     if hasattr(intent, "broadcast"):
-        validation: Validation = await intent.validate(credential, request)
+        validation = await intent.validate(credential, request)
+        if not isinstance(validation, Validation):
+            raise VerificationFailedError("Intent returned an invalid validation result")
         receipt: Receipt = await intent.broadcast(credential, request)
         if validation.payer is not None and receipt.payer is None:
             receipt = replace(receipt, payer=validation.payer)
@@ -399,7 +401,8 @@ def _authenticate_echo(
             opaque=echo_opaque,
             header=echo.header,
         )
-    except rfc8785.CanonicalizationError as error:
+    except (rfc8785.CanonicalizationError, RecursionError) as error:
+        # json.loads accepts deeper nesting than rfc8785.dumps can recurse into.
         raise MalformedCredentialError("Challenge contains non-canonical JSON") from error
     if not _constant_time_equal(echo.id, expected_id):
         raise InvalidChallengeError(echo.id, "challenge was not issued by this server")
@@ -470,7 +473,7 @@ def _assert_sponsored_challenge_lifetime(request: dict[str, Any], expires: str) 
     from mpp.methods.tempo.fee_payer_policy import MIN_REMAINING_VALIDITY_SECONDS
 
     details = request.get("methodDetails")
-    if not isinstance(details, dict) or not details.get("feePayer"):
+    if not is_dict(details) or not details.get("feePayer"):
         return
     try:
         expires_dt = datetime.fromisoformat(expires.replace("Z", "+00:00"))

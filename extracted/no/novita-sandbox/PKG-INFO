@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: novita-sandbox
-Version: 2.1.1
+Version: 2.1.2
 Summary: Novita Agent Sandbox SDK - Python library for Novita Agent Sandbox
 Project-URL: Homepage, https://novita.ai
 Project-URL: Documentation, https://novita.ai/docs/guides/sandbox-overview
@@ -171,3 +171,22 @@ make test-core
 make test-code-interpreter
 make test-desktop
 ```
+
+
+### Template environment scope
+
+`set_envs({...})` adds build-only variables. Use `set_envs({...}, runtime=True)`
+when the resolved values must also be available in the sandbox. Dockerfile `ENV`
+is persisted at runtime; Dockerfile `ARG` remains build-only. Declaration order
+is preserved, and values in one declaration group read the preceding environment.
+Image ENV values are literals; inherited WORKDIR applies before caller steps.
+
+```python
+template = Template().from_image("python:3.12-slim")
+template.set_envs({"BUILD_MODE": "release"})
+template.set_envs({"PATH": "/app/bin:$PATH", "APP_MODE": "worker"}, runtime=True)
+```
+
+Mutable image tags are refreshed for each serialization/build. Only successful
+digest-pinned registry reads are cached; failed reads can be retried on the same
+builder. Explicit caller commands and settings take precedence over image defaults.

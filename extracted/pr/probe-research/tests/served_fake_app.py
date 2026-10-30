@@ -14,12 +14,25 @@ import contextlib
 import json
 import os
 import re
+import sys
 import threading
 import time
 from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import httpx
+
+
+class _Server(ThreadingHTTPServer):
+    def handle_error(self, request, client_address) -> None:
+        # A client the test killed mid-request (what the exit tests do) has
+        # gone, and the reply's broken pipe is expected. The default prints its
+        # traceback from this daemon thread at whatever moment it lands, into
+        # whichever test on the worker is capturing output at the time (a
+        # CliRunner's, 2026-10-29: test_daemon_mailbox read it as its answer).
+        if isinstance(sys.exc_info()[1], (BrokenPipeError, ConnectionResetError)):
+            return
+        super().handle_error(request, client_address)
 
 
 @contextlib.contextmanager
@@ -63,7 +76,7 @@ def serve(app) -> Iterator[str]:
         def log_message(self, *args) -> None:  # keep pytest output clean
             pass
 
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    server = _Server(("127.0.0.1", 0), Handler)
     server.daemon_threads = True
     thread = threading.Thread(target=lambda: server.serve_forever(poll_interval=0.01), daemon=True)
     thread.start()

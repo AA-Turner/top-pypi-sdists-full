@@ -452,6 +452,7 @@ _VIEW_OPTIONS_DOC = """View-specific keys.
   depth          lineage on a run: walk upstream N hops (1-5); on a dataset, source or checkpoint: 1-8 (default 4).
   direction      lineage on a dataset, source or checkpoint: upstream (default, to its sources) or downstream (what used it).
   steps          same: true = the methods view, the upstream chain as ordered steps, source first; no direction/depth.
+  links          lineage on a project or experiment: built_on | used_by (| run_edges on an experiment) = that whole list as rows, paged by `cursor`.
   trial          diff on a run: which trial's filesystem changes (required).
   path_prefix    diff on a run: narrow to one subtree.
   runs           inherited on an experiment: true lists the source runs, not their files.
@@ -1589,6 +1590,7 @@ def create_server(
                 stored=stored,
                 provider=provider,
                 kind=kind,
+                token_budget=token_budget,
             )
 
     @mcp.tool()

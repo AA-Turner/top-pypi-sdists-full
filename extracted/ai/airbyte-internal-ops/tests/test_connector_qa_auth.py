@@ -23,6 +23,19 @@ from airbyte_ops_mcp.mcp.connector_qa import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _us_connection(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Answer the EU data-plane check with a US row instead of the Prod DB replica."""
+    monkeypatch.setattr(
+        connector_qa,
+        "query_connection_workspace_details",
+        lambda connection_ids: [
+            {"connection_id": connection_id, "dataplane_name": "US"}
+            for connection_id in connection_ids
+        ],
+    )
+
+
 def _run_tool(*, ctx: Context, **kwargs: Any) -> RunRegressionTestsResponse:
     return run_regression_tests(
         connector_name="source-pokeapi",

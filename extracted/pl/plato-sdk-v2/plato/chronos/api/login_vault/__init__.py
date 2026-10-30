@@ -13,6 +13,7 @@ from . import (
     get_login_vault_exit_upstream,
     get_login_vault_grant,
     get_login_vault_grant_token,
+    get_login_vault_persona,
     import_login_vault_settings,
     list_login_vault_account_personas,
     list_login_vault_accounts,
@@ -60,4 +61,5 @@ __all__ = [
     "list_login_vault_account_personas",
     "get_login_vault_grant",
     "get_login_vault_grant_token",
+    "get_login_vault_persona",
 ]

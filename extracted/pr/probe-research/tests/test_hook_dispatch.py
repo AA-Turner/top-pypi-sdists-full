@@ -689,6 +689,7 @@ def test_a_stopped_dispatcher_takes_its_routes_with_it(tmp_path):
     assert not marker.exists(), "a route outlived the dispatcher bounding it"
 
 
+@pytest.mark.realtime  # a wall-clock bound on spawned processes: alone, not beside another worker's load
 @pytest.mark.parametrize(
     ("codex", "extra", "bound"),
     [(False, {"CLAUDE_CODE_SESSIONEND_HOOKS_TIMEOUT_MS": "800"}, 1.2), (False, {}, 1.8), (True, {}, 3.0)],

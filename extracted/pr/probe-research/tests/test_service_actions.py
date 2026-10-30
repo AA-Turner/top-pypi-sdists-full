@@ -232,6 +232,146 @@ def test_a_child_an_earlier_service_left_running_gets_the_time_limit_too(tmp_pat
     assert (status["error"]["message"], holder) == ("the action ran past 1 s and was stopped", None)
 
 
+_DONE_OK = 'import json; print(json.dumps({"v": 1, "event": "done", "ok": True, "complete": True, "exit_code": 0, "steps": []}))'
+
+
+def test_actions_queued_behind_an_update_run_in_order_and_a_stopped_service_never_runs_them(tmp_path, monkeypatch):
+    """While an update holds the slot an action is journaled and queued, not
+    refused (an Update is: it is the same work); once it lets go the queue runs
+    oldest first, one at a time, and what is asked for while it drains joins the
+    line, an Update included. Another action's hold with nothing waiting is still
+    `busy`. A service stopping with actions still queued starts none of them, and
+    the next one reads them as stopped, never as run."""
+    import asyncio
+
+    from probe.service import children
+    from probe.service.protocol import RpcError
+
+    actions = _in_process_actions(tmp_path, monkeypatch)
+    monkeypatch.setenv(actions.ACTION_TIMEOUT_ENV, "60")  # real children: never cut short
+    monkeypatch.setattr(children, "core_argv", lambda _action: [sys.executable, "-c", _DONE_OK])
+    update = {"kind": "update", "cycle_id": "c1"}
+
+    async def queue_then_drain():
+        held: list = [update]
+        manager = actions.ActionManager(
+            emit=lambda *_a: None, changed=lambda: None, holder=lambda: held[0] or manager.busy_holder()
+        )
+
+        def ask(action: str, crid: str, params: dict | None = None) -> dict:
+            return manager.run({"action": action, "params": params or {}, "client_request_id": crid}, {})
+
+        first = ask("logout", "a")
+        second = ask("session_default", "b", {"state": "read"})
+        with pytest.raises(RpcError) as same_work:
+            ask("update", "u0")
+        retried = ask("logout", "a")
+        states = [manager.records[x["action_id"]].state for x in (first, second)]
+        waiting_fds = [x["action_id"] for x in (first, second) if x["action_id"] in manager._fds]
+        held[0] = {"kind": "action", "action_id": "act_" + "1" * 16, "action": "logout"}
+        manager.drain()  # an action's hold, not an update's: the line waits ...
+        with pytest.raises(RpcError) as busy:  # ... and a new action with none waiting is busy
+            actions.ActionManager(emit=lambda *_a: None, changed=lambda: None, holder=lambda: held[0]).run(
+                {"action": "logout", "params": {}, "client_request_id": "c"}, {})
+        waited = manager.running is None
+        held[0] = None
+        manager.drain()  # the update let go: the first starts, the second waits behind it
+        third = ask("workspace_limit", "d", {"workspace": None})
+        later_update = ask("update", "u1")
+        ids = [x["action_id"] for x in (first, second, third, later_update)]
+        records = [manager.records[i] for i in ids]
+        while any(r.state != "done" for r in records):
+            await asyncio.sleep(0.05)
+        return first, second, third, later_update, retried, states, waiting_fds, (same_work, busy), waited, records
+
+    first, second, third, later_update, retried, states, waiting_fds, refused, waited, records = asyncio.run(
+        asyncio.wait_for(queue_then_drain(), 30.0))
+    assert all(x.get("queued") is True for x in (first, second, third, later_update))
+    assert retried == {"action_id": first["action_id"], "existing": True, "queued": True}
+    assert states == ["queued", "queued"] and waiting_fds == [] and waited
+    assert [r.value.code for r in refused] == [ErrorCode.BUSY, ErrorCode.BUSY]
+    assert [r.done["ok"] for r in records] == [True] * 4
+    children_at = []
+    for record in records:
+        lines = [json.loads(line) for line in actions.paths.actions_dir().joinpath(f"{record.action_id}.jsonl")
+                 .read_text().splitlines()]
+        assert [line["type"] for line in lines][:3] == ["accepted", "queued", "child"]
+        children_at.append(lines[2]["at"])
+    for before, after in zip(records, children_at[1:]):
+        assert before.ended_at <= after, "one at a time, oldest first"
+
+    async def queue_then_stop():
+        manager = actions.ActionManager(emit=lambda *_a: None, changed=lambda: None, holder=lambda: update)
+        waiting = manager.run({"action": "logout", "params": {}, "client_request_id": "d"}, {})["action_id"]
+        manager.close()
+        manager.holder = lambda: None
+        manager.drain()
+        return waiting, manager.running
+
+    waiting, running = asyncio.run(queue_then_stop())
+    assert running is None
+    later = actions.ActionManager(emit=lambda *_a: None, changed=lambda: None, holder=lambda: None)
+    later.load(lambda *_a: None)
+    status = later.records[waiting].public()
+    assert status["state"] == "done" and status["done"]["ok"] is False
+    assert status["error"] == {"v": 1, "event": "error", "code": "interrupted", "message": "service stopped"}
+
+
+def test_the_queue_behind_an_update_is_bounded(tmp_path, monkeypatch):
+    """Past MAX_QUEUED_ACTIONS waiting, `action.run` is busy again, and nothing is journaled for it."""
+    from probe.service.protocol import RpcError
+
+    actions = _in_process_actions(tmp_path, monkeypatch)
+    monkeypatch.setattr(actions, "MAX_QUEUED_ACTIONS", 2)
+    manager = actions.ActionManager(emit=lambda *_a: None, changed=lambda: None,
+                                    holder=lambda: {"kind": "update", "cycle_id": "c1"})
+    for crid in ("a", "b"):
+        assert manager.run({"action": "logout", "params": {}, "client_request_id": crid}, {})["queued"] is True
+    with pytest.raises(RpcError) as full:
+        manager.run({"action": "logout", "params": {}, "client_request_id": "c"}, {})
+    assert full.value.code == ErrorCode.BUSY and len(manager.queue) == 2
+    assert len(list(actions.paths.actions_dir().glob("*.jsonl"))) == 2
+
+
+def test_a_recovered_child_s_time_limit_counts_from_its_start_not_its_wait(tmp_path, monkeypatch):
+    """An action that waited behind an update before its child started: the
+    next service limits that child from the child's start, so the wait spends
+    none of its time."""
+    import asyncio
+
+    from probe.service import paths, procid
+
+    actions = _in_process_actions(tmp_path, monkeypatch)
+    monkeypatch.setenv(actions.ACTION_TIMEOUT_ENV, "600")
+    child = subprocess.Popen([sys.executable, "-c", _HANG, str(tmp_path / "child.pid"), "hangs"],
+                             start_new_session=True)
+    action_id = "act_" + "2" * 16
+    try:
+        paths.private_dir(paths.actions_dir())
+        now = time.time()
+        lines = [
+            {"type": "accepted", "v": 1, "action_id": action_id, "action": "logout", "params": {},
+             "client_request_id": "a", "accepted_at": now - 3600, "service_pid": 1},
+            {"type": "queued", "at": now - 3600, "holder": {"kind": "update", "cycle_id": "c1"}},
+            {"type": "child", "pid": child.pid, "start_time": procid.start_time(child.pid), "at": now},
+        ]
+        (paths.actions_dir() / f"{action_id}.jsonl").write_text("".join(json.dumps(line) + "\n" for line in lines))
+
+        async def recover() -> float:
+            manager = actions.ActionManager(emit=lambda *_a: None, changed=lambda: None, holder=lambda: None)
+            manager.load(lambda *_a: None)
+            assert manager.records[action_id].orphan
+            (timer,) = manager._timers
+            left = timer.when() - asyncio.get_running_loop().time()
+            manager.close()
+            return left
+
+        assert asyncio.run(recover()) > 500
+    finally:
+        child.kill()
+        child.wait()
+
+
 def test_cancel_is_refused_while_writing_and_interrupts_an_approval_wait(service_home, core):
     writing, approved = service_home.home / "written", service_home.home / "approved"
     core.plan("configure", steps=[{"event": STEP}, {"wait": str(writing)}, {"event": PROMPT, "interruptible": True},

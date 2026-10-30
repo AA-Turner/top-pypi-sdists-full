@@ -10,17 +10,12 @@ pub async fn handle_goto_declaration(
     backend: &Backend,
     params: DeclarationParams,
 ) -> Result<Option<Vec<tombi_extension::Location>>, tower_lsp_server::jsonrpc::Error> {
-    log::trace!("{:?}", params);
-
-    let DeclarationParams {
-        text_document_position_params:
-            TextDocumentPositionParams {
-                text_document,
-                position,
-            },
-        ..
-    } = params;
-    let text_document_uri = text_document.uri.into();
+    let text_document_uri: tombi_uri::Uri = params
+        .text_document_position_params
+        .text_document
+        .uri
+        .clone()
+        .into();
 
     let ConfigSchemaStore { config, .. } = backend
         .config_manager
@@ -30,16 +25,22 @@ pub async fn handle_goto_declaration(
     if !config
         .lsp
         .as_ref()
-        .and_then(|server| server.goto_declaration.as_ref())
+        .and_then(|lsp| lsp.goto_declaration.as_ref())
         .and_then(|goto_declaration| goto_declaration.enabled)
         .unwrap_or_default()
         .value()
     {
-        log::debug!("`server.goto_declaration.enabled` is false");
+        log::debug!("skip goto declaration because `lsp.goto_declaration.enabled` is false.");
         return Ok(None);
     }
 
     log::info!("handle_goto_declaration");
+    log::debug!("{:?}", params);
+
+    let DeclarationParams {
+        text_document_position_params: TextDocumentPositionParams { position, .. },
+        ..
+    } = params;
 
     let Some(document_source) = backend.document_source(&text_document_uri) else {
         return Ok(None);

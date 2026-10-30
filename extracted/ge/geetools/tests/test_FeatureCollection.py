@@ -33,6 +33,64 @@ class TestToImage:
         return ee.Geometry.Point([12.453386, 41.903282]).buffer(1)
 
 
+class TestGrid:
+    """Test the ``grid`` method."""
+
+    def test_grid_size_and_ids(self):
+        grid = ee.FeatureCollection.geetools.grid(20)
+        assert grid.size().getInfo() == 162
+        assert grid.first().get("id").getInfo() == "EPSG:4326_20_E00-S00"
+        assert grid.first().get("equator_cell_size_m").getInfo() > 0
+
+    def test_grid_with_float_size(self):
+        grid = ee.FeatureCollection.geetools.grid(60.0)
+        assert grid.size().getInfo() == 18
+        assert grid.first().get("id").getInfo() == "EPSG:4326_60_E00-S00"
+
+    def test_grid_projected_crs(self):
+        grid = ee.FeatureCollection.geetools.grid(10_000_000, "EPSG:3857")
+        assert grid.size().getInfo() > 0
+        assert grid.first().get("id").getInfo() == "EPSG:3857_10000000_E00-S00"
+
+    def test_grid_polar_crs(self):
+        grid = ee.FeatureCollection.geetools.grid(2_000_000, "EPSG:3031")
+        assert grid.size().getInfo() == 16
+        assert grid.first().get("equator_cell_size_m").getInfo() is None
+
+
+class TestReduceColumnsGroup:
+    """Test the ``reduceColumnsGroup`` method."""
+
+    def test_reduce_columns_group(self, data_regression):
+        red = ee.Reducer.mean().combine(ee.Reducer.sum(), sharedInputs=True)
+        output = self.table.geetools.reduceColumnsGroup(
+            reducer=red, groupBy="ADM0_NAME", selectors=["Shape_Area"]  # group by country
+        )
+        data_regression.check(output.getInfo())
+
+    def test_reduce_columns_group_custom_output(self, data_regression):
+        red = ee.Reducer.mean().combine(ee.Reducer.sum(), sharedInputs=True)
+        red = red.setOutputs(["average_km2", "sum_km2"])
+        output = self.table.geetools.reduceColumnsGroup(
+            reducer=red, groupBy="ADM0_NAME", selectors=["Shape_Area"]  # group by country
+        )
+        data_regression.check(output.getInfo())
+
+    def test_reduce_columns_group_fail_column_type(self):
+        red = ee.Reducer.mean()
+        output = self.table.geetools.reduceColumnsGroup(
+            reducer=red, groupBy="ADM0_NAME", selectors=["ADM1_NAME"]  # group by country
+        )
+        with pytest.raises(ee.ee_exception.EEException):
+            output.getInfo()
+
+    @property
+    def table(self):
+        return ee.FeatureCollection("FAO/GAUL/2015/level1").filter(
+            ee.Filter.stringStartsWith(leftField="ADM0_NAME", rightValue="Ar")
+        )
+
+
 class TestToDictionary:
     """Test the ``toDictionary`` method."""
 
@@ -397,3 +455,14 @@ class TestBreakGeometries:
         point1 = ee.Geometry.Point([1, 0])
         multipoint = ee.Geometry.MultiPoint([point0, point1])
         return ee.FeatureCollection([ee.Feature(multipoint, {"test": "test"})])
+
+
+class TestSplit:
+    """Test the ``split`` method."""
+
+    def test_split(self, ee_dictionary_regression):
+        asset = "FAO/GAUL/2015/level0"
+        fc = ee.FeatureCollection(asset).limit(10)
+        fc = ee.FeatureCollection(fc.geetools.split(3).get(0))
+        dict = fc.geetools.toDictionary()
+        ee_dictionary_regression.check(dict)

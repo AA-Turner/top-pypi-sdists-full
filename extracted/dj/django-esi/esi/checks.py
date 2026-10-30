@@ -1,11 +1,16 @@
+from typing import TYPE_CHECKING, Any
+
 from django.conf import settings
 from django.core.checks import Error, Tags, Warning, register
 
+if TYPE_CHECKING:
+    from django.core.checks import CheckMessage
+
 
 @register(Tags.security)
-def check_sso_application_settings(*args, **kwargs):
+def check_sso_application_settings(*args: Any, **kwargs: Any) -> list["CheckMessage"]:
 
-    errors = []
+    errors: list[CheckMessage] = []
 
     if (
         not hasattr(settings, "ESI_SSO_CLIENT_ID")

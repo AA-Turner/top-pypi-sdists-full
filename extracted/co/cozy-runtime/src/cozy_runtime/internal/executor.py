@@ -197,6 +197,7 @@ from cozy_runtime.internal.executor_commands import (
     Supplied,
     TensorFSOptions,
     Unload,
+    View,
 )
 from cozy_runtime.internal.executor_replies import GpuMemory, RankMemory
 from cozy_runtime.internal.exits import Exit
@@ -815,6 +816,8 @@ class Executor:
         #: torch under it (`internal.execution`, imported with the device).
         self.constructions: dict[str, Executor] = {}
         self.memory: Memory | None = None
+        #: HOST ONLY: Start's development GPU memory limit, the memory's budget (the card's size)
+        self.gpu_memory_limit: int | None = None
         self.execution: ModuleType | None = None
         #: HOST ONLY: each attempt's open request, by request id (`ctx.plan` replaces its plan)
         self.requests: dict[str, MemoryRequest] = {}
@@ -1050,6 +1053,11 @@ class Executor:
         except ResidencyError as exc:
             return {"ok": False, "code": "weight_residency_unavailable", "detail": str(exc)}
         accel.first_launches(torch, self.device_kind)
+        if self.device_kind == "cuda" and self.world == 1:
+            # The prebuilt 8-bit op opens here, before any request: a component first built
+            # mid-request (Klein's on-demand upsampler under a 16-bit main model) would ask for it
+            # only then, and serve its whole stage on a fallback while it lands.
+            int8_linear.native(torch, torch.cuda.current_device())
         self._device_ready = True
         place(self._device())
         return None
@@ -1063,7 +1071,8 @@ class Executor:
         if host.memory is not None:
             return
         device = self._rank_device(torch)
-        host.memory, host.execution = Memory.open(device), execution
+        host.memory = Memory.open(device, budget_bytes=host.gpu_memory_limit)
+        host.execution = execution
         if device.type == "cuda":  # steps report the device's time beside the host's
             DEVICE[:] = [execution.Steps()]
         _split.install(execution)
@@ -1619,6 +1628,7 @@ class Executor:
         """
         if self.poisoned:
             return {"ok": False, "code": "poisoned_generation", "detail": self.poisoned}
+        self.host.gpu_memory_limit = command.gpu_memory_limit
         if command.memo is not None:
             stage_memo.ENGINE.configure(command.memo)
         if self.started or (command.import_only and self.imported):
@@ -2483,7 +2493,7 @@ class Executor:
         opened: dict[str, Checkpoint] = {}
         for manifest in {vmap.get(name, reference.snapshot) for name in names}:
             opened[manifest] = host._checkpoint(
-                manifest, _connection(command.tensorfs, command.actor, host.bearers)
+                manifest, _connection(command.tensorfs, command.actor, host.bearers), binding.views
             )
         checkpoints = {name: opened[vmap.get(name, reference.snapshot)] for name in names}
         # `names` is what the DERIVE constructed (model-code-fit D9), not what the header
@@ -2522,7 +2532,9 @@ class Executor:
             ),
             None,
         ) or host._checkpoint(
-            reference.snapshot, _connection(command.tensorfs, command.actor, host.bearers)
+            reference.snapshot,
+            _connection(command.tensorfs, command.actor, host.bearers),
+            binding.views,
         )
         config_bytes = model_config.construction_config(config_checkpoint.configs())
         config_document = canonical.parse_canonical(config_bytes)
@@ -3730,6 +3742,9 @@ class Executor:
                     command.request_id, {"sites": [], "levels": {}, "oom_floor": 0}
                 ),
                 "loops": self.host.loops.pop(command.request_id, []),
+                # When this reply was built, and (`_send_reply`) when it went on the seam: a
+                # request's time after its observations splits into this process's and the host's.
+                "reply_built_unix_ms": round(time.time() * 1000, 1),
             },
             "quiescent": quiescent,
             **_env_document(),
@@ -4201,7 +4216,7 @@ class Executor:
         if command.phase == "begin":
             if state is not None:
                 return refused(code="request_memory_busy")
-            context = self._request(request_id)
+            context = self.constructions[command.construction]._request(request_id)
             rows = context.__enter__()
             self.host._rank_request = _RankRequest(command.construction, request_id, context, rows)
         elif state is None or (state.id, state.construction) != (
@@ -4480,9 +4495,17 @@ class Executor:
         return host.store
 
     def _checkpoint(
-        self, ref: str, connection: weights_store.Connection | None = None
+        self,
+        ref: str,
+        connection: weights_store.Connection | None = None,
+        views: Mapping[str, View] | None = None,
     ) -> Checkpoint:
+        """`ref` from the store, or from the bytes TensorD sent when it is a view (`views`)."""
         with store_refusals(f"opening {ref[:23]}"):
+            view = (views or {}).get(ref)
+            if view is not None:
+                opened = weights_store.open_view(self._store(), view.header, view.own, connection)
+                return Checkpoint(opened)
             return Checkpoint(weights_store.open_checkpoint(self._store(), ref, connection))
 
     def _child_events(self, exchange: Exchange) -> Nudges:
@@ -4665,7 +4688,10 @@ class Executor:
         device = host.memory.device.index if cuda else None
         peak: int | None = None
         try:
-            with host.memory.request(request_id) as request, host.execution.serving(request):
+            with (
+                host.memory.request(request_id, others=self._sibling_sets()) as request,
+                host.execution.serving(request),
+            ):
                 host.requests[request_id] = request
                 if prepared is not None:
                     request.queued = functools.partial(self._queued_prefetch, request_id, prepared)
@@ -4679,6 +4705,22 @@ class Executor:
             if request is not None:
                 gpu = _gpu_numbers(self.world)[self.rank] if cuda else -1
                 rows.append(host.execution.record(request, gpu, device, self._store(), peak))
+
+    def _sibling_sets(self) -> list[Any]:
+        """The residency sets of this process's other loaded constructions: their cached weights
+        are not this construction's working set."""
+        memory = self.host.memory
+        if memory is None:
+            return []
+        modules = [
+            model.module
+            for key, child in self.host.constructions.items()
+            if key != self.construction
+            for member in child.model_executors or [child]
+            if member.backend is not None
+            for model in member.backend.models.values()
+        ]
+        return [memory.models[module] for module in modules if module in memory.models]
 
     def _quiescent(self) -> bool:
         """No author computation may still mutate GPU or output state when a terminal is
@@ -4873,6 +4915,8 @@ _TELEMETRY = ("observations", "execution", "attribution")
 
 def _send_reply(channel: Channel, reply: dict[str, Any]) -> None:
     """Put ONE reply on the seam. Telemetry never costs a reply its outcome."""
+    if isinstance(execution := reply.get("execution"), dict):
+        execution["reply_sent_unix_ms"] = round(time.time() * 1000, 1)
     try:
         channel.send(reply)
     except SeamError as exc:

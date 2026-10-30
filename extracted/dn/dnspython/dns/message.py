@@ -131,6 +131,10 @@ class MessageError:
 DEFAULT_EDNS_PAYLOAD = dns.renderer.DEFAULT_EDNS_PAYLOAD
 MAX_CHAIN = 16
 
+#: The negative caching TTL used by ``resolve_chaining()`` for a negative
+#: answer whose authority section has no SOA record.
+NEGATIVE_TTL_WITHOUT_SOA = 300
+
 IndexKeyType = tuple[
     int,
     dns.name.Name,
@@ -309,11 +313,16 @@ class Message:
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    def is_response(self, other: "Message") -> bool:
+    def is_response(self, other: "Message", xfr_continuation: bool = False) -> bool:
         """Is *other* a response to this message?
 
         :param other: The message to check.
         :type other: :py:class:`dns.message.Message`
+        :param xfr_continuation: If ``True``, *other* is a message after the
+            first one in the response to an AXFR or IXFR query, and its
+            question section may be empty (RFC 5936 section 2.2.1).  This has
+            no effect if this message is not an AXFR or IXFR query.
+        :type xfr_continuation: bool
         :rtype: bool
         """
 
@@ -340,13 +349,36 @@ class Message:
             # case, which is that all the sections are returned and
             # identical.
             return True
-        for n in self.question:
-            if n not in other.question:
+        if (
+            xfr_continuation
+            and len(other.question) == 0
+            and len(self.question) == 1
+            and self.question[0].rdtype in {dns.rdatatype.AXFR, dns.rdatatype.IXFR}
+        ):
+            return True
+        # Compare the questions with absolute names, as a message read with
+        # an origin (e.g. a zone transfer response) has relativized names.
+        ours = self._absolute_question()
+        theirs = other._absolute_question()
+        for n in ours:
+            if n not in theirs:
                 return False
-        for n in other.question:
-            if n not in self.question:
+        for n in theirs:
+            if n not in ours:
                 return False
         return True
+
+    def _absolute_question(self) -> list[tuple[dns.name.Name, int, int, int]]:
+        origin = self.origin
+        return [
+            (
+                rrset.name.derelativize(origin) if origin else rrset.name,
+                rrset.rdclass,
+                rrset.rdtype,
+                rrset.covers,
+            )
+            for rrset in self.question
+        ]
 
     def section_number(self, section: list[dns.rrset.RRset]) -> int:
         """Return the "section number" of the specified section for use
@@ -769,6 +801,32 @@ class Message:
     def _make_opt(flags=0, payload=DEFAULT_EDNS_PAYLOAD, options=None):
         return dns.renderer._make_opt(flags, payload, options)
 
+    def set_id(self, id: int):
+        """Set the message id to the specified value, and if TSIG is going to be used
+        to sign this message later, update it accordingly.
+
+        :param id: The message id
+        :type id: int
+        """
+        self.id = id
+        if self.want_tsig_sign:
+            assert self.tsig is not None
+            assert self.tsig.rdtype == dns.rdatatype.TSIG
+            tsig_rdata = cast(dns.rdtypes.ANY.TSIG.TSIG, self.tsig[0])
+            self.use_tsig(
+                self.keyring,
+                None,
+                tsig_rdata.fudge,
+                id,
+                tsig_rdata.error,
+                tsig_rdata.other,
+                tsig_rdata.algorithm,
+            )
+
+    def set_random_id(self):
+        """Assign a newly-generated random query id to the message."""
+        self.set_id(dns.entropy.random_16())
+
     def use_edns(
         self,
         edns: int | bool | None = 0,
@@ -956,7 +1014,9 @@ class ChainingResult:
     The ``minimum_ttl`` attribute is the minimum TTL, i.e. the TTL to
     use if caching the data.  It is the smallest of all the CNAME TTLs
     and either the answer TTL if it exists or the SOA TTL and SOA
-    minimum values for negative answers.
+    minimum values for negative answers.  For a negative answer with no
+    SOA record, ``NEGATIVE_TTL_WITHOUT_SOA`` is used in place of the SOA
+    values.
 
     The ``cnames`` attribute is a list of all the CNAME RRSets followed to
     get to the canonical name.
@@ -1044,6 +1104,10 @@ class QueryMessage(Message):
                     try:
                         auname = auname.parent()
                     except dns.name.NoParent:
+                        # There is no SOA, so there is no negative TTL.
+                        # Like many other implementations, use a short
+                        # default negative caching TTL.
+                        min_ttl = min(min_ttl, NEGATIVE_TTL_WITHOUT_SOA)
                         break
         return ChainingResult(qname, answer, min_ttl, cnames)
 
@@ -1125,7 +1189,7 @@ class _WireReader:
         assert self.message is not None
         section = self.message.sections[section_number]
         for _ in range(qcount):
-            qname = self.parser.get_name(self.message.origin)
+            qname = self.parser.get_name(self.message.origin, True)
             rdtype, rdclass = self.parser.get_struct("!HH")
             rdclass, rdtype, _, _ = self.message._parse_rr_header(
                 section_number, qname, rdclass, rdtype
@@ -1149,7 +1213,7 @@ class _WireReader:
         force_unique = self.one_rr_per_rrset
         for i in range(count):
             rr_start = self.parser.current
-            absolute_name = self.parser.get_name()
+            absolute_name = self.parser.get_name(decompress=True)
             if self.message.origin is not None:
                 name = absolute_name.relativize(self.message.origin)
             else:
@@ -1524,7 +1588,6 @@ class _TextReader:
         try:
             ttl = dns.ttl.from_text(token.value)
         except dns.ttl.BadTTL:
-            print("bad ttl")
             ttl = 0
         else:
             token = self.tok.get()

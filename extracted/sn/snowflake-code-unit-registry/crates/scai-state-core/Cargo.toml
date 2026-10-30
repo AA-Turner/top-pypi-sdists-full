@@ -22,7 +22,7 @@ regress = "0.12"
 chrono = { version = "0.4", features = ["serde"] }
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 rayon = "1.10"
-jsonschema = "0.58"
+jsonschema.workspace = true
 # Bundled: wheels, native libs and the Node addon ship without a system libsqlite.
 rusqlite = { version = "0.40", features = ["bundled"] }
 

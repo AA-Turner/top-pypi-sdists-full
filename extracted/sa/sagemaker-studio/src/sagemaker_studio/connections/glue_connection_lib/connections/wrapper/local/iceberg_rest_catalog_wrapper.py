@@ -16,8 +16,8 @@ class IcebergRestCatalogConnectionWrapper(NativeConnectionWrapper):
     Generic Iceberg REST catalog connection wrapper.
 
     Serves every IRC connection type whose OAuth2 token acquisition can be delegated to
-    Glue, which currently covers Databricks Unity Catalog, Snowflake Horizon and the
-    vendor-neutral ICEBERGRESTCATALOG type.
+    Glue, which currently covers Workday Data Connect, Databricks Unity Catalog, Snowflake
+    Horizon and the vendor-neutral ICEBERGRESTCATALOG type.
 
     Rather than performing the OAuth2 exchange in this library, this wrapper calls Glue's
     RefreshOAuth2Tokens API. Glue performs the exchange server side using the

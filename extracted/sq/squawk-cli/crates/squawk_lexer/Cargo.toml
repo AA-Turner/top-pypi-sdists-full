@@ -16,6 +16,7 @@ readme = "README.md"
 doctest = false
 
 [dependencies]
+memchr.workspace = true
 
 [dev-dependencies]
 insta.workspace = true

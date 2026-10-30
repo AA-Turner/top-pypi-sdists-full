@@ -55,6 +55,7 @@ from fontTools import designspaceLib, ufoLib, varLib
 from fontTools.ttLib.tables._n_a_m_e import NameRecord as ftNameRecord
 from fontTools.ttLib.tables._n_a_m_e import _makeWindowsName
 
+from ufo2ft.constants import OPENTYPE_CATEGORIES_KEY
 from ufo2ft.util import (
     _getNewGlyphFactory,
     importUfoModule,
@@ -314,6 +315,12 @@ class Instantiator:
     special_axes: Mapping[str, designspaceLib.AxisDescriptor] = field(
         default_factory=dict
     )
+    # (design location, openTypeOS2Panose) of each source that has its own fontinfo
+    source_panoses: List[Tuple[Location, List[int]]] = field(default_factory=list)
+    # (design location, public.openTypeCategories) of each source that defines them
+    source_opentype_categories: List[Tuple[Location, Dict[str, str]]] = field(
+        default_factory=list
+    )
     # computed attributes (see __post_init__ below)
     default_source_idx: int = field(init=False)
     default_design_location: Location = field(init=False)
@@ -501,7 +508,40 @@ class Instantiator:
             copy_info = copy.copy(copy_info)
             copy_info.openTypeOS2Panose = shared_panose if any(shared_panose) else None
 
+        # An instance that sits exactly on a source takes that source's own panose
+        # instead, as it describes that source better than the shared values do.
+        source_panoses: List[Tuple[Location, List[int]]] = []
+        if do_info:
+            for source in designspace.sources:
+                if source.layerName is not None and source is not designspace.default:
+                    continue  # No font info in non-default source layers.
+                panose = source.font.info.openTypeOS2Panose
+                if panose is None:
+                    continue
+                if len(panose) != 10:
+                    logger.warning(
+                        "openTypeOS2Panose values in source %s have invalid length, "
+                        "they will be padded/truncated to 10 values",
+                        source.name,
+                    )
+                source_location = {**default_design_location, **source.location}
+                source_panoses.append((source_location, (list(panose) + [0] * 10)[:10]))
+
         copy_lib: Mapping[str, Any] = default_font.lib if do_info else {}
+
+        # Likewise for the GDEF glyph categories, which can differ per source (e.g.
+        # glyphsLib infers them from each master's anchors). Sources that define
+        # none fall back to the default's, copied with the rest of its lib.
+        source_opentype_categories: List[Tuple[Location, Dict[str, str]]] = []
+        if do_info:
+            for source in designspace.sources:
+                if source.layerName is not None and source is not designspace.default:
+                    continue  # No lib in non-default source layers.
+                categories = source.font.lib.get(OPENTYPE_CATEGORIES_KEY)
+                if not categories:
+                    continue
+                source_location = {**default_design_location, **source.location}
+                source_opentype_categories.append((source_location, categories))
 
         # The list of glyphs-not-to-export-and-decompose-where-used-as-a-component is
         # supposed to be taken from the Designspace when a Designspace is used as the
@@ -529,6 +569,8 @@ class Instantiator:
             skip_export_glyphs,
             designspace_root_lib_font_info,
             special_axes,
+            source_panoses,
+            source_opentype_categories,
         )
 
     @property
@@ -592,6 +634,11 @@ class Instantiator:
         # Lib
         #  1. Copy the default lib to the instance.
         font.lib = typing.cast(dict, copy.deepcopy(self.copy_lib))
+        #     If the instance sits on a source with its own GDEF categories, use those.
+        for source_location, categories in self.source_opentype_categories:
+            if source_location == location:
+                font.lib[OPENTYPE_CATEGORIES_KEY] = copy.deepcopy(categories)
+                break
         #  2. Copy the Designspace's skipExportGlyphs list over to the UFO to
         #     make sure it wins over the default UFO one.
         font.lib["public.skipExportGlyphs"] = [name for name in self.skip_export_glyphs]
@@ -745,6 +792,12 @@ class Instantiator:
                 if (value := getattr(self.copy_info, attribute, None)) is not None:
                     setattr(font.info, attribute, copy.deepcopy(value))
 
+        # level 4 (part 2): the panose of the source the instance sits on, if any
+        for source_location, panose in self.source_panoses:
+            if source_location == location:
+                font.info.openTypeOS2Panose = list(panose)
+                break
+
         # level 3: copy the designspace root <lib> public.fontInfo key
         if self.designspace_root_lib_font_info:
             merge_public_font_info(
@@ -881,16 +934,18 @@ class Instantiator:
                 instance_location=location,
             )
 
-        # If the masters haven't set the OS/2 weight and width class, use the
-        # user-space values ("input") of the axis mapping in the Designspace file for
-        # weight and width axes, if they exist. The slnt axis' value maps 1:1 to
-        # italicAngle. Clamp the values to the valid ranges.
-        if info_instance.openTypeOS2WeightClass is None and "wght" in self.special_axes:
+        # Set the OS/2 weight and width class from the user-space values ("input") of
+        # the axis mapping in the Designspace file for the weight and width axes, if
+        # they exist, no matter what the masters say, like varLib does for variable
+        # fonts. Round and clamp the values to the valid ranges. Without such an
+        # axis, the masters' (interpolated) classes are left alone. If the masters
+        # haven't set the italicAngle, the slnt axis' value maps 1:1 to it.
+        if "wght" in self.special_axes:
             weight_axis = self.special_axes["wght"]
             font.info.openTypeOS2WeightClass = weight_class_from_wght_value(
                 weight_axis.map_backward(location[weight_axis.name])
             )
-        if info_instance.openTypeOS2WidthClass is None and "wdth" in self.special_axes:
+        if "wdth" in self.special_axes:
             width_axis = self.special_axes["wdth"]
             font.info.openTypeOS2WidthClass = width_class_from_wdth_value(
                 width_axis.map_backward(location[width_axis.name])

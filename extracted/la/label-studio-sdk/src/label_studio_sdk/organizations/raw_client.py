@@ -163,6 +163,7 @@ class RawOrganizationsClient:
         self,
         id: int,
         *,
+        allow_unsafe_instruction_tags: typing.Optional[bool] = OMIT,
         contact_info: typing.Optional[str] = OMIT,
         custom_interfaces_enabled: typing.Optional[bool] = OMIT,
         custom_scripts_enabled: typing.Optional[bool] = OMIT,
@@ -174,6 +175,7 @@ class RawOrganizationsClient:
         react_code_settings: typing.Optional[typing.Any] = OMIT,
         title: typing.Optional[str] = OMIT,
         token: typing.Optional[str] = OMIT,
+        token_expires_at: typing.Optional[dt.datetime] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[LseOrganization]:
         """
@@ -188,6 +190,9 @@ class RawOrganizationsClient:
         Parameters
         ----------
         id : int
+
+        allow_unsafe_instruction_tags : typing.Optional[bool]
+            Keep script, iframe, style and other active tags in project instructions
 
         contact_info : typing.Optional[str]
 
@@ -220,6 +225,9 @@ class RawOrganizationsClient:
 
         token : typing.Optional[str]
 
+        token_expires_at : typing.Optional[dt.datetime]
+            When the current invite link stops working; null works only while expiration is disabled
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -232,6 +240,7 @@ class RawOrganizationsClient:
             f"api/organizations/{encode_path_param(id)}",
             method="PATCH",
             json={
+                "allow_unsafe_instruction_tags": allow_unsafe_instruction_tags,
                 "contact_info": contact_info,
                 "custom_interfaces_enabled": custom_interfaces_enabled,
                 "custom_scripts_enabled": custom_scripts_enabled,
@@ -243,6 +252,7 @@ class RawOrganizationsClient:
                 "react_code_settings": react_code_settings,
                 "title": title,
                 "token": token,
+                "token_expires_at": token_expires_at,
             },
             headers={
                 "content-type": "application/json",
@@ -354,7 +364,7 @@ class RawOrganizationsClient:
         self, id: int, *, search: typing.Optional[str] = None, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[typing.List[OrganizationMemberSkillsOption]]:
         """
-        Return self-reported Skills values with Contributor Setup display metadata.
+        Return Skills values held by members, self-reported or set by a skill assessment, with Contributor Setup display metadata. Owners, Administrators and Managers only.
 
         Parameters
         ----------
@@ -677,6 +687,7 @@ class AsyncRawOrganizationsClient:
         self,
         id: int,
         *,
+        allow_unsafe_instruction_tags: typing.Optional[bool] = OMIT,
         contact_info: typing.Optional[str] = OMIT,
         custom_interfaces_enabled: typing.Optional[bool] = OMIT,
         custom_scripts_enabled: typing.Optional[bool] = OMIT,
@@ -688,6 +699,7 @@ class AsyncRawOrganizationsClient:
         react_code_settings: typing.Optional[typing.Any] = OMIT,
         title: typing.Optional[str] = OMIT,
         token: typing.Optional[str] = OMIT,
+        token_expires_at: typing.Optional[dt.datetime] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[LseOrganization]:
         """
@@ -702,6 +714,9 @@ class AsyncRawOrganizationsClient:
         Parameters
         ----------
         id : int
+
+        allow_unsafe_instruction_tags : typing.Optional[bool]
+            Keep script, iframe, style and other active tags in project instructions
 
         contact_info : typing.Optional[str]
 
@@ -734,6 +749,9 @@ class AsyncRawOrganizationsClient:
 
         token : typing.Optional[str]
 
+        token_expires_at : typing.Optional[dt.datetime]
+            When the current invite link stops working; null works only while expiration is disabled
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -746,6 +764,7 @@ class AsyncRawOrganizationsClient:
             f"api/organizations/{encode_path_param(id)}",
             method="PATCH",
             json={
+                "allow_unsafe_instruction_tags": allow_unsafe_instruction_tags,
                 "contact_info": contact_info,
                 "custom_interfaces_enabled": custom_interfaces_enabled,
                 "custom_scripts_enabled": custom_scripts_enabled,
@@ -757,6 +776,7 @@ class AsyncRawOrganizationsClient:
                 "react_code_settings": react_code_settings,
                 "title": title,
                 "token": token,
+                "token_expires_at": token_expires_at,
             },
             headers={
                 "content-type": "application/json",
@@ -868,7 +888,7 @@ class AsyncRawOrganizationsClient:
         self, id: int, *, search: typing.Optional[str] = None, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[typing.List[OrganizationMemberSkillsOption]]:
         """
-        Return self-reported Skills values with Contributor Setup display metadata.
+        Return Skills values held by members, self-reported or set by a skill assessment, with Contributor Setup display metadata. Owners, Administrators and Managers only.
 
         Parameters
         ----------

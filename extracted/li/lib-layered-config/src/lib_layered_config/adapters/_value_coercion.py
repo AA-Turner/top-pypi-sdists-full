@@ -14,10 +14,10 @@ from __future__ import annotations
 
 import math
 import re
-from typing import Final
+from typing import Final, cast
 
-import orjson
-
+from ..domain import json_codec
+from ..domain.json_codec import CONFIG_MAX_DEPTH, JSON_INT_MIN, nesting_depth
 from ..domain.redaction import NotSensitiveKeys, is_sensitive_at
 from ._nested_keys import NESTED_KEY_DELIMITER
 
@@ -65,7 +65,7 @@ def coerce_value(raw_key: str, value: str, *, not_sensitive: NotSensitiveKeys = 
     """
     container = parse_json_container(value)
     if container is not None:
-        return container
+        return value if _too_deep_to_write(raw_key, container) else container
     lowered = value.lower()
     if lowered in _BOOL_LITERALS:
         return lowered == _BOOL_TRUE
@@ -73,6 +73,21 @@ def coerce_value(raw_key: str, value: str, *, not_sensitive: NotSensitiveKeys = 
         return value if _key_is_sensitive(raw_key, not_sensitive) else None
     number = parse_number(value)
     return value if number is None else number
+
+
+def _too_deep_to_write(raw_key: str, container: object) -> bool:
+    """Return whether *container*, placed at *raw_key*, nests the config past what JSON writes.
+
+    A key of N segments sits N tables down (the top-level one included), so its value may nest
+    :data:`CONFIG_MAX_DEPTH` minus N levels. A deeper one stays text, like an integer outside
+    JSON's range: as a list it would load and then crash every JSON view.
+
+    Examples:
+        >>> deep = [[[1]]]
+        >>> _too_deep_to_write("DEEP", deep), _too_deep_to_write("__".join(["K"] * 251), deep)
+        (False, True)
+    """
+    return len(raw_key.split(NESTED_KEY_DELIMITER)) + nesting_depth(container) > CONFIG_MAX_DEPTH
 
 
 def _key_is_sensitive(raw_key: str, not_sensitive: NotSensitiveKeys) -> bool:
@@ -103,22 +118,31 @@ def parse_json_container(value: str) -> list[object] | dict[str, object] | None:
     if not value.startswith(_JSON_CONTAINER_PREFIXES):
         return None
     try:
-        return orjson.loads(value)
-    except orjson.JSONDecodeError:
+        parsed = json_codec.loads(value)
+    except json_codec.JsonLoadError:
         return None
+    # The text opens with "[" or "{", so a document that parsed is an array or an object; JSON keys are strings.
+    return cast("list[object] | dict[str, object]", parsed) if isinstance(parsed, (list, dict)) else None
 
 
 def parse_number(value: str) -> int | float | None:
     """Return the int or float *value* spells exactly, else ``None``.
+
+    An integer of more than 19 digits stays text, and so does one below the range a JSON view
+    writes: as a number it would load and then crash ``Config.to_json`` and every other JSON view.
 
     Examples:
         >>> parse_number("5"), parse_number("-7"), parse_number("3.5")
         (5, -7, 3.5)
         >>> [parse_number(text) for text in ("007123", "1.50", "+5", "1_000", "nan", "inf")]
         [None, None, None, None, None, None]
+        >>> parse_number("-9223372036854775808"), parse_number("-9223372036854775809")
+        (-9223372036854775808, None)
     """
     if _INT_TEXT.fullmatch(value):
-        return int(value)
+        number = int(value)
+        # 19 digits never reach the top of the JSON range (2**64 - 1 has 20), only its bottom.
+        return number if number >= JSON_INT_MIN else None
     if len(value) > _MAX_FLOAT_TEXT or not value.isascii():
         return None
     try:

@@ -216,6 +216,11 @@ class PosTerminal(BaseModel):
 
 
 class Pos(BaseModel):
+    """Point of sale data for the transaction.
+
+    Null when no point of sale data is available, such as clearing-only records that never went through authorization
+    """
+
     entry_mode: PosEntryMode
 
     terminal: PosTerminal
@@ -716,7 +721,7 @@ class Transaction(BaseModel):
     merchant_currency: str
     """3-character alphabetic ISO 4217 code for the local currency of the transaction."""
 
-    network: Optional[Literal["AMEX", "INTERLINK", "MAESTRO", "MASTERCARD", "UNKNOWN", "VISA"]] = None
+    network: Optional[Literal["ALLPOINT", "AMEX", "INTERLINK", "MAESTRO", "MASTERCARD", "UNKNOWN", "VISA"]] = None
     """Card network of the authorization.
 
     Value is `UNKNOWN` when Lithic cannot determine the network code from the
@@ -732,7 +737,12 @@ class Transaction(BaseModel):
     raw score by 10x.
     """
 
-    pos: Pos
+    pos: Optional[Pos] = None
+    """Point of sale data for the transaction.
+
+    Null when no point of sale data is available, such as clearing-only records that
+    never went through authorization
+    """
 
     result: Literal[
         "ACCOUNT_PAUSED",

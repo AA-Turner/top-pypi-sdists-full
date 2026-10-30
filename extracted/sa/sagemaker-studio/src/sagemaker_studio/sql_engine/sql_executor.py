@@ -8,6 +8,8 @@ from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import SQLAlchemyError
 
+from sagemaker_studio.utils._sql_cache import connection_needs_reset, reset_connection_state
+
 from .athena_transformer import AthenaTransformer
 from .big_query_transformer import BigQueryTransformer
 from .database_resource import DatabaseResource
@@ -66,9 +68,14 @@ class ExecutionResult:
         execution_time: Execution time in seconds (if measured).
         execution_metadata: Engine-specific metadata returned by the database API.
             Each engine provides different fields. Examples:
-            - Redshift: {"statement_id": "...", "session_id": "...", "records_updated": N}
+            - Redshift: {"statement_id": "...", "session_id": "...", "records_updated": N,
+              "redshift_query_id": N}
             - Athena: {"query_execution_id": "...", "data_scanned_bytes": N, "execution_time_ms": N}
             - Other engines: None or {} until support is added.
+            redshift_query_id is Redshift's own query id (RedshiftQueryId from DescribeStatement),
+            present only when Redshift assigned one; the Data API reports -1 for leader-node-only
+            statements, which is omitted. Failed Redshift statements carry statement_id and
+            redshift_query_id; other failed statements have execution_metadata None.
     """
 
     statement_index: int
@@ -160,9 +167,25 @@ class SqlExecutor:
                     statement_type=stmt.statement_type,
                     error=str(e),
                     status=ExecutionStatus.ERROR.value,
+                    execution_metadata=SqlExecutor._error_execution_metadata(e),
                 )
                 if error_strategy == ErrorStrategy.STOP_ON_ERROR:
                     break
+
+    @staticmethod
+    def _error_execution_metadata(error: BaseException) -> Optional[Dict[str, Any]]:
+        """Return the Redshift ids a failed statement's exception carries, or None."""
+        orig = getattr(error, "orig", error)
+        statement_id = getattr(orig, "statement_id", None) or getattr(error, "statement_id", None)
+        if not statement_id:
+            return None
+        metadata: Dict[str, Any] = {"statement_id": statement_id}
+        redshift_query_id = getattr(orig, "redshift_query_id", None) or getattr(
+            error, "redshift_query_id", None
+        )
+        if redshift_query_id and redshift_query_id > 0:
+            metadata["redshift_query_id"] = redshift_query_id
+        return metadata
 
     def get_supported_connection_types(self) -> list[str]:
         """
@@ -277,11 +300,20 @@ class SqlExecutor:
                     )
             # caller manages connection lifecycle
             else:
-                yield from self.execute_statements(
-                    statements,
-                    lambda stmt: _statement_executor(connection, stmt, parameters),
-                    error_strategy,
-                )
+                # A cancelled query raises KeyboardInterrupt (a BaseException), which leaves
+                # this caller-owned connection unusable for the next query. Clean it up and
+                # re-raise untouched. The predicate keeps us off healthy connections, which a
+                # GeneratorExit from an early-closed stream also brings through here.
+                try:
+                    yield from self.execute_statements(
+                        statements,
+                        lambda stmt: _statement_executor(connection, stmt, parameters),
+                        error_strategy,
+                    )
+                except BaseException:
+                    if connection_needs_reset(connection):
+                        reset_connection_state(connection)
+                    raise
 
         except SQLAlchemyError:
             raise

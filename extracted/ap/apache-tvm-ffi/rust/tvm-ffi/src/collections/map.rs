@@ -459,11 +459,23 @@ where
     K: ContainerElement,
     V: ContainerElement,
 {
+    #[inline]
+    unsafe fn is_undefined(field: *const Self) -> bool {
+        ObjectArc::is_null(std::ptr::addr_of!((*field).data))
+    }
+
     fn type_str() -> String {
         format!(
             "Map<{}, {}>",
             K::container_type_str(),
             V::container_type_str()
+        )
+    }
+
+    fn type_schema() -> String {
+        crate::type_traits::type_schema(
+            <MapObj as crate::ObjectCore>::TYPE_KEY,
+            &[K::container_type_schema(), V::container_type_schema()],
         )
     }
 

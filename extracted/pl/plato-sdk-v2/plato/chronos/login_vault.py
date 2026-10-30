@@ -81,6 +81,7 @@ from plato.chronos.api.login_vault import (
     get_login_vault_default,
     get_login_vault_grant,
     get_login_vault_grant_token,
+    get_login_vault_persona,
     list_login_vault_account_personas,
     list_login_vault_accounts,
     list_login_vault_exits,
@@ -796,6 +797,15 @@ class LoginVault(_VaultBase):
             if page.next_cursor is None:
                 return LoginVaultPersonaList(personas=personas)
             cursor = page.next_cursor
+
+    def get_persona(self, persona: str) -> LoginVaultPersona | None:
+        """One persona's whole record (email, inbox, phone, fixture, accounts);
+        None when there is none."""
+        args = get_login_vault_persona._build_request_args(persona=_slug(persona, "persona"), x_api_key=self._api_key)
+        try:
+            return _parse(LoginVaultPersona, self._call(args))
+        except NotFoundError:
+            return None
 
     def set_persona(
         self, persona: str, *, email: str | None = None, inbox: str | None = None, phone: str | None = None

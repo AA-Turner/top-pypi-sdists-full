@@ -1221,7 +1221,7 @@ def test_experiment_set_refuses_two_flags_reading_stdin(wired, capsys, monkeypat
     _experiment(wired)
     monkeypatch.setattr("sys.stdin", io.StringIO("the answer"))
     assert cli.main(["experiment", "set", "e", "--conclusion", "-", "--summary", "-"]) == 2
-    assert "only one of --conclusion and --summary can read stdin" in capsys.readouterr().err
+    assert "only one of --conclusion, --summary and --dead-end can read stdin" in capsys.readouterr().err
     assert _patches(wired) == []
 
 
@@ -1293,3 +1293,61 @@ def test_a_refused_set_with_tags_writes_neither_half(wired, monkeypatch, capsys)
     captured = capsys.readouterr()
     assert "name too long" in captured.err and captured.out == ""
     assert project["tags"] == ["a"] and project.get("name") != "N"
+
+
+def test_experiment_set_dead_end_marks_it_and_says_why(wired, capsys, tmp_path):
+    """`--dead-end "<why>"` is the server's `outcome: dead_end` with its reason,
+    on the same PATCH; `@file` reads the reason like `--conclusion`."""
+    experiment = _experiment(wired)
+    why = "OOM at batch 64 on 80 GB"
+    rc = cli.main(["experiment", "set", "e", "--dead-end", f"  {why} ", "--authored-by", "agent"])
+    assert rc == 0
+    out = _json_out(capsys)
+    (body,) = _patches(wired, f"/experiments/{experiment['id']}")
+    assert body == {"outcome": "dead_end", "outcome_reason": why, "authored_by": "agent"}
+    assert (out["outcome"], out["outcome_reason"], out["outcome_source"]) == ("dead_end", why, "agent")
+
+    path = tmp_path / "why.txt"
+    path.write_text("loses 4 points at the smaller batch")
+    assert cli.main(["experiment", "set", "e", "--dead-end", f"@{path}"]) == 0
+    capsys.readouterr()
+    assert _patches(wired, f"/experiments/{experiment['id']}")[-1]["outcome_reason"] == (
+        "loses 4 points at the smaller batch"
+    )
+
+
+def test_experiment_set_clear_dead_end_sends_a_null_outcome(wired, capsys):
+    experiment = _experiment(wired)
+    experiment.update(outcome="dead_end", outcome_reason="old", outcome_source="agent")
+    assert cli.main(["experiment", "set", "e", "--clear-dead-end", "--authored-by", "agent"]) == 0
+    out = _json_out(capsys)
+    (body,) = _patches(wired, f"/experiments/{experiment['id']}")
+    assert body == {"outcome": None, "authored_by": "agent"}
+    assert out["outcome"] is None and experiment["outcome"] is None
+
+
+@pytest.mark.parametrize(
+    ("argv", "says"),
+    [
+        (["--dead-end", "why", "--clear-dead-end"], "pass one"),
+        (["--dead-end", "   "], "say why it is a dead end"),
+        (["--dead-end", "-", "--conclusion", "-"], "can read stdin"),
+        (["--metric", "val/loss", "--dead-end", "why"], "--metric goes alone"),
+        (["--metric", "val/loss", "--clear-dead-end"], "--metric goes alone"),
+    ],
+)
+def test_experiment_set_refuses_a_contradictory_dead_end(wired, capsys, argv, says):
+    _experiment(wired)
+    assert cli.main(["experiment", "set", "e", *argv]) == 2
+    assert says in capsys.readouterr().err
+    assert _patches(wired) == []
+
+
+def test_an_agent_mark_over_a_persons_dead_end_prints_the_servers_reason(wired, capsys):
+    from tests.conftest import OUTCOME_LOCKED_DETAIL
+
+    experiment = _experiment(wired)
+    experiment.update(outcome="dead_end", outcome_reason="theirs", outcome_source="human")
+    assert cli.main(["experiment", "set", "e", "--clear-dead-end", "--authored-by", "agent"]) != 0
+    assert OUTCOME_LOCKED_DETAIL in capsys.readouterr().err
+    assert experiment["outcome"] == "dead_end"

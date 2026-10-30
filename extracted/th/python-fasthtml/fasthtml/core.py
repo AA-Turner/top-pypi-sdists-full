@@ -119,8 +119,14 @@ class HtmxHeaders:
     trigger_name:str|None=None; trigger:str|None=None
     def __bool__(self): return any(hasattr(self,o) for o in htmx_hdrs)
 
+def _get_header(h, k):
+    k = k.lower()
+    res = h.get(k)
+    encoded = h.get(k+'-uri-autoencoded')=='true' or (k=='hx-prompt' and h.get('hx-request-type'))
+    return unquote(res) if res is not None and encoded else res
+
 def _get_htmx(h):
-    res = {k:h.get(v.lower(), None) for k,v in htmx_hdrs.items()}
+    res = {k:_get_header(h, v) for k,v in htmx_hdrs.items()}
     return HtmxHeaders(**res)
 
 # %% ../nbs/api/00_core.ipynb #1d53e8e7
@@ -293,7 +299,7 @@ async def _find_p(conn, data, hdrs, arg:str, p:Parameter):
     # Not a special name or a special annotation
     res = conn.path_params.get(arg, None)
     if res in (empty,None): res = conn.cookies.get(arg, None)
-    if res in (empty,None): res = hdrs.get(snake2hyphens(arg), None)
+    if res in (empty,None): res = _get_header(hdrs, snake2hyphens(arg))
     if res in (empty,None): res = _formitem(conn.query_params, arg)
     if res in (empty,None): res = _formitem(data, arg)
     if res in (empty,None) and isinstance(vals := data.get('values'), dict): res = _formitem(vals, arg)  # htmx v4 nests form data under `values`
@@ -573,7 +579,7 @@ htmx_exts = {
 # %% ../nbs/api/00_core.ipynb #60cb52ea
 htmxsrc   = Script(src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.7/dist/htmx.js")
 htmx4src  = Script(src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/htmx.min.js")
-fhjsscr   = Script(src="https://cdn.jsdelivr.net/gh/answerdotai/fasthtml-js@1.0.12/fasthtml.js")
+fhjsscr   = Script(src="https://cdn.jsdelivr.net/gh/answerdotai/fasthtml-js@1.0.13/fasthtml.js")
 surrsrc   = Script(src="https://cdn.jsdelivr.net/gh/answerdotai/surreal@main/surreal.js")
 scopesrc  = Script(src="https://cdn.jsdelivr.net/gh/gnat/css-scope-inline@main/script.js")
 viewport  = Meta(name="viewport", content="width=device-width, initial-scale=1, viewport-fit=cover")
@@ -621,7 +627,7 @@ def def_hdrs(htmx=True, htmx4=False, surreal=True):
     "Default headers for a FastHTML app"
     hdrs = []
     if surreal: hdrs = [surrsrc,scopesrc] + hdrs
-    if htmx4: 
+    if htmx and htmx4: 
         # metaCharacter="-" makes htmx4 use dashes instead of colons
         meta_cfg = Meta(name="htmx-config", content=json.dumps({"metaCharacter": "-"}))
         hdrs = [meta_cfg, htmx4src,fhjsscr] + hdrs 
@@ -692,7 +698,7 @@ class FastHTML(Starlette):
         same_site='lax', sess_https_only=False, sess_domain=None, key_fname='.sesskey',
         body_wrap=noop_body, htmlkw=None, nb_hdrs=False, canonical=True, max_part_size=DEF_MAXPART, **bodykw):
         middleware,before,after = map(_list, (middleware,before,after))
-        self.title,self.canonical,self.session_cookie,self.key_fname = title,canonical,session_cookie,key_fname
+        self.htmx4,self.title,self.canonical,self.session_cookie,self.key_fname = htmx4,title,canonical,session_cookie,key_fname
         hdrs,ftrs,exts = map(listify, (hdrs,ftrs,exts))
         if htmx4 and exts: exts = ['ws4' if e in ('ws', 'ws4') else e for e in exts]
         exts = {k:htmx_exts[k] for k in exts}
@@ -1155,8 +1161,8 @@ def _add_ids(s):
 @patch
 def setup_ws(app:FastHTML, f=noop):
     conns = {}
-    async def on_connect(scope, send): conns[scope.client] = send
-    async def on_disconnect(scope): conns.pop(scope.client)
+    async def on_connect(ws, send): conns[ws.client] = send
+    async def on_disconnect(ws): conns.pop(ws.client)
     app.ws('/ws', conn=on_connect, disconn=on_disconnect)(f)
     async def send(s):
         for o in conns.values(): await o(s)

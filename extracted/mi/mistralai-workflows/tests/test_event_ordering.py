@@ -1,10 +1,15 @@
 import asyncio
+from http import HTTPStatus
 from unittest.mock import AsyncMock, Mock, patch
 
+import httpx
 import pytest
 from pydantic import TypeAdapter
+from temporalio.exceptions import ApplicationError
 
+from mistralai.workflows.core._events import event_context as event_context_module
 from mistralai.workflows.core._events.event_context import (
+    EVENT_PUBLISH_FAILED_ERROR_TYPE,
     BackgroundEventPublisher,
     EventContext,
 )
@@ -16,6 +21,7 @@ from mistralai.workflows.protocol.v1.events import (
     CustomTaskStartedAttributes,
     WorkflowEvent,
 )
+from mistralai.workflows.worker_client.errors import SDKError
 
 _event_adapter = TypeAdapter(WorkflowEvent)
 
@@ -176,15 +182,12 @@ class TestBackgroundEventPublisherConcurrency:
         assert slow_send_finished
 
     @pytest.mark.asyncio
-    async def test_adaptive_drain_timeout_with_many_events(
+    async def test_drain_waits_for_many_events(
         self,
         event_context: EventContext,
         background_publisher: BackgroundEventPublisher,
         mock_workflows_client: AsyncMock,
     ) -> None:
-        """Reproduces WFL-365: with many events in flight, the old fixed 10s
-        timeout would expire before all events are sent. The adaptive drain
-        timeout scales with the number of pending events."""
         event_count = 1000
         events_sent = []
 
@@ -228,53 +231,116 @@ class TestBackgroundEventPublisherConcurrency:
             await background_publisher.shutdown()
 
     @pytest.mark.asyncio
-    async def test_encoding_failure_does_not_stall_queue(
+    @pytest.mark.parametrize("failure", ["encoding", "serialization"])
+    async def test_unpublishable_event_fails_drain_without_stalling_the_queue(
         self,
         event_context: EventContext,
         background_publisher: BackgroundEventPublisher,
         mock_workflows_client: AsyncMock,
+        failure: str,
     ) -> None:
-        """Verify that encoding failures don't prevent drain() from completing.
-
-        When maybe_encode_event raises an exception, the sender loop should:
-        1. Call task_done() for the failed event (so drain doesn't hang)
-        2. Continue processing remaining events
-        3. Successfully send events that encode correctly
-        """
-        events_sent: list[str] = []
-        fail_on_indices = {1, 3, 5}  # These events will fail to encode
-
-        async def track_send_batch(*, events, **kwargs) -> None:
-            for e in events:
-                events_sent.append(e["event_id"])
-
-        mock_workflows_client.send_events_batch_async = AsyncMock(side_effect=track_send_batch)
-
-        call_count = 0
-
-        async def flaky_encode(event, encoder):
-            nonlocal call_count
-            idx = call_count
-            call_count += 1
-            if idx in fail_on_indices:
-                raise ValueError(f"Simulated encoding failure for event {idx}")
-            return event
+        async def encode(event: WorkflowEvent, encoder: object) -> WorkflowEvent:
+            if event.event_id != "evt-1":
+                return event
+            if failure == "encoding":
+                raise ValueError("Simulated encoding failure")
+            unserializable = Mock(wraps=event, event_type=event.event_type)
+            unserializable.model_dump_json.side_effect = TypeError("Simulated serialization failure")
+            return unserializable
 
         async with event_context:
-            with patch(
-                "mistralai.workflows.core._events.event_context.maybe_encode_event",
-                side_effect=flaky_encode,
-            ):
-                for i in range(7):
+            with patch("mistralai.workflows.core._events.event_context.maybe_encode_event", side_effect=encode):
+                for i in range(4):
                     background_publisher.publish_event_background(_make_event(i))
 
-                # drain() should complete without hanging despite encoding failures
-                await asyncio.wait_for(background_publisher.drain(), timeout=5.0)
+                with pytest.raises(ApplicationError) as exc_info:
+                    await asyncio.wait_for(background_publisher.drain(), timeout=5.0)
                 await background_publisher.shutdown()
 
-        # Events 0, 2, 4, 6 should have been sent (indices 1, 3, 5 failed)
-        assert len(events_sent) == 4
-        assert set(events_sent) == {"evt-0", "evt-2", "evt-4", "evt-6"}
+        assert exc_info.value.type == EVENT_PUBLISH_FAILED_ERROR_TYPE
+        assert exc_info.value.non_retryable
+        mock_workflows_client.send_events_batch_async.assert_not_called()
+        mock_workflows_client.send_event_async.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_transient_failures_are_retried_without_blocking_the_producer(
+        self,
+        event_context: EventContext,
+        background_publisher: BackgroundEventPublisher,
+        mock_workflows_client: AsyncMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(event_context_module, "_PUBLISH_RETRY_INITIAL_BACKOFF_SECONDS", 0.01)
+        sent: list[str] = []
+        failures_left = 2
+
+        async def flaky_send(*, event: dict, **kwargs: object) -> None:
+            nonlocal failures_left
+            if failures_left:
+                failures_left -= 1
+                raise httpx.ConnectError("down")
+            sent.append(event["event_id"])
+
+        mock_workflows_client.send_event_async = AsyncMock(side_effect=flaky_send)
+
+        async with event_context:
+            background_publisher.publish_event_background(_make_event(0))
+            await asyncio.sleep(0)
+            background_publisher.publish_event_background(_make_event(1))
+            assert sent == []
+
+            await background_publisher.drain()
+            await background_publisher.shutdown()
+
+        assert sent == ["evt-0", "evt-1"]
+
+    @pytest.mark.asyncio
+    async def test_transient_failures_past_the_budget_fail_drain_as_retryable(
+        self,
+        event_context: EventContext,
+        background_publisher: BackgroundEventPublisher,
+        mock_workflows_client: AsyncMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(event_context_module, "_PUBLISH_RETRY_INITIAL_BACKOFF_SECONDS", 0.01)
+        monkeypatch.setattr(event_context_module, "_PUBLISH_RETRY_BUDGET_SECONDS", 0.05)
+        mock_workflows_client.send_event_async = AsyncMock(side_effect=httpx.ConnectError("down"))
+
+        async with event_context:
+            background_publisher.publish_event_background(_make_event(0))
+            with pytest.raises(ApplicationError) as exc_info:
+                await background_publisher.drain()
+            await background_publisher.shutdown()
+
+        assert exc_info.value.type == EVENT_PUBLISH_FAILED_ERROR_TYPE
+        assert not exc_info.value.non_retryable
+        assert mock_workflows_client.send_event_async.call_count > 1
+
+    @pytest.mark.asyncio
+    async def test_too_large_batch_split_shares_one_retry_budget(
+        self,
+        event_context: EventContext,
+        background_publisher: BackgroundEventPublisher,
+        mock_workflows_client: AsyncMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(event_context_module, "_PUBLISH_RETRY_INITIAL_BACKOFF_SECONDS", 0.01)
+        monkeypatch.setattr(event_context_module, "_PUBLISH_RETRY_BUDGET_SECONDS", 0.2)
+        too_large = SDKError(
+            "too large",
+            httpx.Response(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, request=httpx.Request("POST", "http://api/events")),
+        )
+        mock_workflows_client.send_events_batch_async = AsyncMock(side_effect=too_large)
+        mock_workflows_client.send_event_async = AsyncMock(side_effect=httpx.ConnectError("down"))
+
+        async with event_context:
+            for i in range(10):
+                background_publisher.publish_event_background(_make_event(i))
+            with pytest.raises(ApplicationError) as exc_info:
+                await asyncio.wait_for(background_publisher.drain(), timeout=1.0)
+            await background_publisher.shutdown()
+
+        assert not exc_info.value.non_retryable
 
 
 class TestTaskEventOrdering:

@@ -1,15 +1,22 @@
 import json
 import logging
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Generator, List, Optional, TypedDict, Union
 from uuid import uuid4
 
 import sagemaker_studio.utils.sql_handler as sql_handler
+from sagemaker_studio import local_kernel
 from sagemaker_studio.connections.connection import SUPPORTED_IRC_GLUE_CONNECTION_TYPES, Connection
 from sagemaker_studio.connections.helper_factory import HelperFactory
 from sagemaker_studio.project import Project
 from sagemaker_studio.sql_engine.sql_executor import ErrorStrategy
-from sagemaker_studio.utils._sql_cache import ConnectionCache, ManagedConnection
+from sagemaker_studio.utils import duckdbutils
+from sagemaker_studio.utils._sql_cache import (
+    ConnectionCache,
+    ManagedConnection,
+    reset_connection_state,
+)
 
 
 class ConnectionConfig(TypedDict, total=False):
@@ -26,7 +33,6 @@ logger = logging.getLogger(__name__)
 logger.info("Importing sqlutils")
 
 _project = None
-_duckdb = None
 _sql_executor = None
 
 # Kernel-lifetime cache of the project S3 root (async materialization write destination).
@@ -90,7 +96,15 @@ def _get_or_create_connection(
     Returns:
         Optional[ManagedConnection]: engine plus optional connection (None when
             persist_session=False); None if engine creation fails.
+
+    On an AWS Notebook local kernel ``persist_session`` is ignored: the engine is built for the
+    statement and not kept, so its first request fetches the connection's credentials from the
+    app and no cell runs on credentials an earlier cell was vended (a profile switch in the app
+    takes effect on the next cell). The engines a local kernel can build (Athena) carry no
+    session state worth keeping.
     """
+    if local_kernel.is_local_kernel():
+        persist_session = False
     cache_key = _make_cache_key(connection_id, connection_name, **kwargs)
 
     # Try cache first (persist_session reuses across calls)
@@ -141,7 +155,14 @@ def sql(
         connection_id (Optional[str]): The ID of the DataZone connection to use for the query.
         connection_name (Optional[str]): The name of the DataZone connection to use for the query.
         connection (Optional[ConnectionConfig]): Connection details including type (e.g., {"type": "spark"}).
-        persist_session: Cache and reuse connection (default True).
+        persist_session: Cache and reuse connection (default True). Ignored on an AWS Notebook
+            local kernel, where every statement builds its engine with credentials fetched
+            from the app at that moment.
+        catalog_name, schema_name (keyword arguments): For Athena, the query's execution context.
+            For a DuckDB query with no connection, the attached catalog (see
+            :func:`attach_local_catalogs`) and schema put first on DuckDB's ``search_path`` while it
+            runs; one DuckDB does not have is
+            :class:`~sagemaker_studio.exceptions.CatalogUnavailableError` before the query runs.
 
     Returns:
         DataFrame: Result of the SQL query execution.
@@ -155,35 +176,47 @@ def sql(
     if not query or not query.strip():
         return None
 
-    if _is_spark_connection(connection):
-        spark = _ensure_spark()
-        return spark.sql(query)
-
-    resolved_dz_conn = _resolve_connection(connection_id, connection_name)
-    if resolved_dz_conn and resolved_dz_conn.type in SUPPORTED_IRC_GLUE_CONNECTION_TYPES:
-        return _execute_irc_connection_query(query, resolved_dz_conn)
+    route = _route(connection, connection_id, connection_name, parameters)
+    if route.engine == _ENGINE_SPARK:
+        return _ensure_spark().sql(query)
+    if route.engine == _ENGINE_GLUE_IRC:
+        return _execute_irc_connection_query(query, route.connection)
+    if route.engine == _ENGINE_DUCKDB:
+        with duckdbutils._duckdb_cell(kwargs) as duck:
+            return duckdbutils._run_duckdb_statement(duck, query)
 
     # adding args anyway as we will filter out necessary args to pass down based on engine type
     _apply_athena_context(query, kwargs)
 
-    cached = _get_or_create_connection(
-        connection_id, connection_name, resolved_dz_conn, persist_session, **kwargs
-    )
+    if route.engine == _ENGINE_ATHENA:
+        from sagemaker_studio.sql_engine.sql_executor import ExecutionStatus
+        from sagemaker_studio.utils.athena_v4 import execute_query_statements
 
-    if cached:
+        athena_api = _athena_api(route.connection, kwargs, parameters, required=True)
         result = next(
-            _ensure_sql_executor().execute(
-                cached.engine,
-                query,
-                connection=cached.connection,  # May be None for non-persisted
-                parameters=parameters,
-            )
+            execute_query_statements(athena_api, query, ErrorStrategy.STOP_ON_ERROR), None
         )
+        if result is None:
+            return None
+        if result.status != ExecutionStatus.SUCCESS.value:
+            raise RuntimeError(result.error or "Athena query failed")
         return result.result
-    else:
-        # Execute query locally using DuckDB if no connection specified
-        _resolve_pending_for_duckdb(query)
-        return (lambda x: x.df() if x else None)(_ensure_duckdb().sql(query))
+
+    cached = _require_engine(
+        _get_or_create_connection(
+            connection_id, connection_name, route.connection, persist_session, **kwargs
+        ),
+        route.connection,
+    )
+    result = next(
+        _ensure_sql_executor().execute(
+            cached.engine,
+            query,
+            connection=cached.connection,  # May be None for non-persisted
+            parameters=parameters,
+        )
+    )
+    return result.result
 
 
 def sql_stream(
@@ -209,7 +242,14 @@ def sql_stream(
         connection_name (Optional[str]): The name of the DataZone connection to use for the query.
         connection (Optional[ConnectionConfig]): Connection details including type (e.g., {"type": "spark"}).
         error_strategy (str): Error handling strategy - STOP_ON_ERROR (default) or CONTINUE_ON_ERROR.
-        persist_session: Cache and reuse connection (default True).
+        persist_session: Cache and reuse connection (default True). Ignored on an AWS Notebook
+            local kernel, where every statement builds its engine with credentials fetched
+            from the app at that moment.
+        catalog_name, schema_name (keyword arguments): For Athena, the query's execution context.
+            For DuckDB statements with no connection, the attached catalog (see
+            :func:`attach_local_catalogs`) and schema put first on DuckDB's ``search_path`` until
+            the stream is exhausted or closed; one DuckDB does not have is
+            :class:`~sagemaker_studio.exceptions.CatalogUnavailableError` at the first result.
 
     Returns:
         Generator[ExecutionResult]: Generator yielding ExecutionResult for each statement.
@@ -223,7 +263,8 @@ def sql_stream(
     if not query or not query.strip():
         return iter([])
 
-    if _is_spark_connection(connection):
+    route = _route(connection, connection_id, connection_name, parameters)
+    if route.engine == _ENGINE_SPARK:
         from sagemaker_studio.sql_engine.spark_transformer import SparkTransformer
         from sagemaker_studio.sql_engine.sql_executor import SqlExecutor
 
@@ -248,60 +289,72 @@ def sql_stream(
             connection_type="SPARK",
         )
 
-    resolved_dz_conn = _resolve_connection(connection_id, connection_name)
-    if resolved_dz_conn and resolved_dz_conn.type in SUPPORTED_IRC_GLUE_CONNECTION_TYPES:
+    if route.engine == _ENGINE_GLUE_IRC:
         from sagemaker_studio.sql_engine.spark_transformer import SparkTransformer
         from sagemaker_studio.sql_engine.sql_executor import SqlExecutor
 
         statements = SparkTransformer.split_query(query)
 
         def execute_stmt(stmt):
-            return _execute_irc_connection_query(stmt, resolved_dz_conn)
+            return _execute_irc_connection_query(stmt, route.connection)
 
         return SqlExecutor.execute_statements(
             statements,
             execute_stmt,
             error_strategy,
         )
-
-    # adding args anyway as we will filter out necessary args to pass down based on engine type
-    _apply_athena_context(query, kwargs)
-
-    cached = _get_or_create_connection(
-        connection_id, connection_name, resolved_dz_conn, persist_session, **kwargs
-    )
-
-    if cached:
-        conn_type = cached.engine.get_execution_options().get("connection_type", "")
-        return _stream_and_capture_metadata(
-            _ensure_sql_executor().execute(
-                cached.engine,
-                query,
-                connection=cached.connection,  # May be None for non-persisted
-                parameters=parameters,
-                error_strategy=error_strategy,
-            ),
-            connection_id=connection_id,
-            connection_type=conn_type,
-        )
-    else:
+    if route.engine == _ENGINE_DUCKDB:
         from sagemaker_studio.sql_engine.duckdb_transformer import DuckDBTransformer
         from sagemaker_studio.sql_engine.sql_executor import SqlExecutor
 
         statements = DuckDBTransformer.split_query(query)
 
-        def _run_duckdb(stmt):
-            _resolve_pending_for_duckdb(stmt)
-            return (lambda x: x.df() if x else None)(_ensure_duckdb().sql(stmt))
+        def _run_statements(duck):
+            # ``duck`` is the cell's engine: every statement of the stream runs on it.
+            def _run_duckdb(stmt):
+                return duckdbutils._run_duckdb_statement(duck, stmt)
 
+            return SqlExecutor.execute_statements(statements, _run_duckdb, error_strategy)
+
+        # The metadata capture wraps the cell, not the other way round: its reset of
+        # _last_sql_execution_metadata happens now, as for every other engine, while the cell is
+        # still entered when the first result is asked for.
         return _stream_and_capture_metadata(
-            SqlExecutor.execute_statements(
-                statements,
-                _run_duckdb,
-                error_strategy,
-            ),
-            connection_type="DUCKDB",
+            duckdbutils._in_duckdb_cell(kwargs, _run_statements), connection_type="DUCKDB"
         )
+
+    if route.engine == _ENGINE_ATHENA:
+        from sagemaker_studio.utils.athena_v4 import execute_query_statements
+
+        _apply_athena_context(query, kwargs)
+        athena_api = _athena_api(route.connection, kwargs, parameters, required=True)
+        return _stream_and_capture_metadata(
+            execute_query_statements(athena_api, query, error_strategy),
+            connection_id=connection_id,
+            connection_type="ATHENA",
+        )
+
+    # adding args anyway as we will filter out necessary args to pass down based on engine type
+    _apply_athena_context(query, kwargs)
+
+    cached = _require_engine(
+        _get_or_create_connection(
+            connection_id, connection_name, route.connection, persist_session, **kwargs
+        ),
+        route.connection,
+    )
+    conn_type = cached.engine.get_execution_options().get("connection_type", "")
+    return _stream_and_capture_metadata(
+        _ensure_sql_executor().execute(
+            cached.engine,
+            query,
+            connection=cached.connection,  # May be None for non-persisted
+            parameters=parameters,
+            error_strategy=error_strategy,
+        ),
+        connection_id=connection_id,
+        connection_type=conn_type,
+    )
 
 
 def _execute_irc_connection_query(query: str, resolved_dz_conn: Connection):
@@ -403,7 +456,7 @@ def sql_stream_with_display(
     _materialise_stream(stream, dataframe_name)
 
 
-def _bind_succeeded_partials(specs, dataframe_name, resolved_dz_conn, conn_type):
+def _bind_succeeded_partials(specs, dataframe_name, resolved_dz_conn, conn_type, read_chunks=None):
     """Option-A parity: on a mid-cell async failure, bind the statements that already
     succeeded as plain DataFrames (df_0, df_1, ...) so the user keeps them for debugging,
     matching the sync path. These are sync-materialized (rows read now by execution_id) --
@@ -428,9 +481,12 @@ def _bind_succeeded_partials(specs, dataframe_name, resolved_dz_conn, conn_type)
             if spec.kind == "dml":
                 ip.user_ns[var_name] = spec.rowcount
             elif spec.kind == "result" and spec.execution_id:
-                columns, chunks, _total = _reader.open_result_reader(
-                    resolved_dz_conn, conn_type, spec.execution_id
-                )
+                if read_chunks is not None:
+                    columns, chunks, _total = read_chunks(spec.execution_id)
+                else:
+                    columns, chunks, _total = _reader.open_result_reader(
+                        resolved_dz_conn, conn_type, spec.execution_id
+                    )
                 rows = [r for chunk in chunks for r in chunk]
                 ip.user_ns[var_name] = DataFrame(rows, columns=columns)
         except Exception:
@@ -469,41 +525,52 @@ def _stream_with_async_materialization(
         # back to sync (pre-execution) so behavior matches the sync path exactly.
         if error_strategy != ErrorStrategy.STOP_ON_ERROR:
             return False
-        if _is_spark_connection(connection):
+        # The async path materializes pages into the project's S3 root, which an AWS Notebook
+        # local kernel does not have: run its statements synchronously instead.
+        if local_kernel.is_local_kernel():
             return False
-        resolved_dz_conn = _resolve_connection(connection_id, connection_name)
-        if resolved_dz_conn is None or resolved_dz_conn.type in SUPPORTED_IRC_GLUE_CONNECTION_TYPES:
+        route = _route(connection, connection_id, connection_name, parameters)
+        if route.engine not in (_ENGINE_ATHENA, _ENGINE_NATIVE):
             return False
+        resolved_dz_conn = route.connection
         if resolved_dz_conn.type not in _async.ASYNC_SUPPORTED_CONNECTION_TYPES:
             return False
 
         _apply_athena_context(query, kwargs)
-        # Acquire the connection the same way the sync path does: default persist_session=True
-        # (reuse one live connection across cells -- reclaims the ~1s engine build and, by
-        # reusing that single connection for the statement execution below via
-        # connection=cached.connection, keeps the async path at one client build per query so
-        # the "Cannot inject class attribute upload_file" double-build never happens). Honor a
-        # caller-supplied persist_session=False (the disable-persist-session kill switch): that
-        # yields connection=None, and the executor then opens exactly one connection itself --
-        # still a single build, no collision.
-        # first_page_rows is a display-layer knob, not a connection param -- exclude it.
-        persist_session = kwargs.get("persist_session", True)
-        conn_kwargs = {
-            k: v for k, v in kwargs.items() if k not in ("persist_session", "first_page_rows")
-        }
-        cached = _get_or_create_connection(
-            connection_id,
-            connection_name,
-            resolved_dz_conn,
-            persist_session=persist_session,
-            **conn_kwargs,
-        )
-        if not cached:
-            return False
+        athena_api = _athena_api(resolved_dz_conn, kwargs, parameters)
+        if athena_api is not None:
+            # Athena: execute directly through the AWS API, without a SQLAlchemy/PyAthena engine.
+            cached = None
+            executor = None
+            conn_type = "ATHENA"
+            transformer = None
+        else:
+            # Acquire the connection the same way the sync path does: default persist_session=True
+            # (reuse one live connection across cells -- reclaims the ~1s engine build and, by
+            # reusing that single connection for the statement execution below via
+            # connection=cached.connection, keeps the async path at one client build per query so
+            # the "Cannot inject class attribute upload_file" double-build never happens). Honor a
+            # caller-supplied persist_session=False (the disable-persist-session kill switch): that
+            # yields connection=None, and the executor then opens exactly one connection itself --
+            # still a single build, no collision.
+            # first_page_rows is a display-layer knob, not a connection param -- exclude it.
+            persist_session = kwargs.get("persist_session", True)
+            conn_kwargs = {
+                k: v for k, v in kwargs.items() if k not in ("persist_session", "first_page_rows")
+            }
+            cached = _get_or_create_connection(
+                connection_id,
+                connection_name,
+                resolved_dz_conn,
+                persist_session=persist_session,
+                **conn_kwargs,
+            )
+            if not cached:
+                return False
 
-        executor = _ensure_sql_executor()
-        conn_type = cached.engine.get_execution_options().get("connection_type", "")
-        transformer = executor._get_transformer(conn_type)
+            executor = _ensure_sql_executor()
+            conn_type = cached.engine.get_execution_options().get("connection_type", "")
+            transformer = executor._get_transformer(conn_type)
     except Exception:
         logger.debug("Async eligibility/setup failed; falling back to sync", exc_info=True)
         return False
@@ -557,7 +624,10 @@ def _stream_with_async_materialization(
         if not result.returns_rows:
             return SingleStatementResult(result=result.rowcount, execution_metadata=metadata)
         return SingleStatementResult(
-            result=_async.AsyncResultMarker(execution_id=_async.extract_execution_id(metadata)),
+            result=_async.AsyncResultMarker(
+                execution_id=_async.extract_execution_id(metadata),
+                redshift_query_id=_async.extract_redshift_query_id(metadata),
+            ),
             execution_metadata=metadata,
         )
 
@@ -574,15 +644,23 @@ def _stream_with_async_materialization(
     # cached kernel-lifetime rather than discarded per cell. Guard on close() so a non-generator
     # iterable (already fully drained, nothing to release) is a harmless no-op.
     specs: List[Any] = []
-    _result_stream = _stream_and_capture_metadata(
-        executor.execute(
+    if athena_api is not None:
+        from sagemaker_studio.utils.athena_v4 import execute_query_statements
+
+        statement_results = execute_query_statements(
+            athena_api, query, error_strategy, athena_api.execute_without_fetch
+        )
+    else:
+        statement_results = executor.execute(
             cached.engine,
             query,
             connection=cached.connection,
             parameters=parameters,
             error_strategy=error_strategy,
             statement_executor=_async_statement_executor,
-        ),
+        )
+    _result_stream = _stream_and_capture_metadata(
+        statement_results,
         connection_id=connection_id,
         connection_type=conn_type,
     )
@@ -597,7 +675,13 @@ def _stream_with_async_materialization(
                 # are sync-materialized DataFrames, not async first-page cards -- best-effort,
                 # never masking the original error.
                 try:
-                    _bind_succeeded_partials(specs, dataframe_name, resolved_dz_conn, conn_type)
+                    _bind_succeeded_partials(
+                        specs,
+                        dataframe_name,
+                        resolved_dz_conn,
+                        conn_type,
+                        read_chunks=athena_api.read_chunks if athena_api is not None else None,
+                    )
                 except Exception:
                     logger.debug("Failed to bind partial results before raising", exc_info=True)
                 # Defensive: we reuse the cached persisted connection across cells, so clear
@@ -606,16 +690,8 @@ def _stream_with_async_materialization(
                 # (Data API) -- both leave the txn active-not-deactivated -- but this guards
                 # any transactional engine/driver where reuse would otherwise raise
                 # PendingRollbackError. Best-effort; never mask the original error.
-                if cached.connection is not None:
-                    try:
-                        cached.connection.rollback()
-                    except Exception:
-                        try:
-                            cached.connection.invalidate()
-                        except Exception:
-                            logger.debug(
-                                "Failed to reset connection after statement error", exc_info=True
-                            )
+                if cached is not None:
+                    reset_connection_state(cached.connection)
                 raise Exception(exec_result.error)
             specs.append(_async.spec_from_result(exec_result))
 
@@ -659,6 +735,16 @@ def _stream_with_async_materialization(
             first_page_rows = max(1, min(first_page_rows, _reader.MAX_INLINE_FIRST_PAGE_ROWS))
 
     def _reader_factory(execution_id):
+        if athena_api is not None:
+            columns, chunks, total_rows = athena_api.read_chunks(execution_id)
+            first_page, remaining = _reader.split_first_page(chunks, first_page_rows)
+            stats_fn = None
+            if total_rows is None:
+
+                def stats_fn():  # noqa: F811 -- deliberate per-factory closure
+                    return _reader.read_athena_output_rows(athena_api.client, execution_id)
+
+            return columns, first_page, remaining, total_rows, stats_fn
         # For Athena, build ONE credentialed client up front and share it between the result
         # reader and the stats fetcher below. This avoids a second Session.client() creation
         # on the background thread (the create_client step exposed to the boto3 "Cannot
@@ -777,6 +863,61 @@ def _create_credential_provider(credential_getter):
     return credential_provider
 
 
+# The engines a statement runs on (see _route).
+_ENGINE_SPARK = "SPARK"  # the kernel's Spark session
+_ENGINE_GLUE_IRC = "GLUE_IRC"  # a Glue-backed Spark session, for Iceberg REST catalog connections
+_ENGINE_DUCKDB = "DUCKDB"  # the kernel's DuckDB
+_ENGINE_ATHENA = "ATHENA"  # the SDK-owned native Athena API executor
+_ENGINE_NATIVE = "NATIVE"  # another connection's SQLAlchemy engine
+
+
+@dataclass(frozen=True)
+class _Route:
+    """Where a statement runs: the engine, and the connection it runs with (None for none)."""
+
+    engine: str
+    connection: Optional[Connection] = None
+
+
+def _route(
+    connection: Optional[ConnectionConfig],
+    connection_id: Optional[str],
+    connection_name: Optional[str],
+    parameters: Optional[Union[Dict[str, Any], List[str]]] = None,
+) -> _Route:
+    """Decide which engine runs a statement, from the arguments ``sql``, ``sql_stream`` and the
+    async path take. The one place this decision is made:
+
+    - ``connection={"type": "spark"}``: the kernel's Spark session.
+    - An Iceberg REST catalog connection: a Glue-backed Spark session.
+    - An Athena connection: the SDK-owned native Athena API executor, whatever engine the
+      workgroup runs.
+    - Any other connection: the connection's own SQLAlchemy engine, in every mode (an S3
+      connection has none, and is refused as such).
+    - No connection: DuckDB.
+    """
+    if _is_spark_connection(connection):
+        return _Route(_ENGINE_SPARK)
+    resolved = _resolve_connection(connection_id, connection_name)
+    if resolved is None:
+        return _Route(_ENGINE_DUCKDB)
+    if resolved.type in SUPPORTED_IRC_GLUE_CONNECTION_TYPES:
+        return _Route(_ENGINE_GLUE_IRC, resolved)
+    if _engine_type_of(resolved) == "ATHENA":
+        return _Route(_ENGINE_ATHENA, resolved)
+    return _Route(_ENGINE_NATIVE, resolved)
+
+
+def _require_engine(
+    cached: Optional[ManagedConnection], connection: Optional[Connection]
+) -> ManagedConnection:
+    """The connection's engine, or a clear error when none could be built for it."""
+    if cached is None:
+        name = getattr(connection, "name", None) or getattr(connection, "id", None)
+        raise RuntimeError(f"Could not create a SQL engine for connection {name!r}.")
+    return cached
+
+
 def _resolve_connection(connection_id: str, connection_name: str):
     """Resolve a connection by name or id. Returns None if neither is provided."""
     if not connection_name and not connection_id:
@@ -787,6 +928,17 @@ def _resolve_connection(connection_id: str, connection_name: str):
     if connection_name:
         return project.connection(connection_name)
     return project.connection(id=connection_id)
+
+
+def _engine_type_of(conn: Connection) -> Optional[str]:
+    """
+    The engine ``conn``'s statements run on: :attr:`Connection.sql_engine_type`, which is the
+    connection type except for a LAKEHOUSE catalog connection naming an Athena workgroup (the
+    AWS Notebook app's catalog connection), which runs on Athena. That rule lives there only; a
+    connection-like object without the attribute runs on its ``type``.
+    """
+    engine_type = getattr(conn, "sql_engine_type", None)
+    return engine_type if isinstance(engine_type, str) else conn.type
 
 
 def _get_engine_from_connection(
@@ -801,12 +953,13 @@ def _get_engine_from_connection(
 
     sql_executor = _ensure_sql_executor()
 
-    if conn.type not in sql_executor.get_supported_connection_types():
+    engine_type = _engine_type_of(conn)
+    if engine_type not in sql_executor.get_supported_connection_types():
         raise RuntimeError(
             f"SQL is not supported for connection type {conn.type}. Supported types are {', '.join(sql_executor.get_supported_connection_types())}."
         )
 
-    sql_helper = HelperFactory.get_sql_helper(conn.type)
+    sql_helper = HelperFactory.get_sql_helper(engine_type)
 
     # Create credential provider that refreshes credentials
     if connection_id or connection_name:
@@ -823,7 +976,51 @@ def _get_engine_from_connection(
 
     connection_config = sql_helper.to_sql_config(conn, **kwargs)
 
-    return sql_executor.create_engine(conn.type, connection_config)
+    return sql_executor.create_engine(engine_type, connection_config)
+
+
+def _athena_api(resolved_dz_conn, kwargs: dict, parameters=None, required: bool = False):
+    """Return the SDK-owned executor for an Athena connection.
+
+    Optional probes return ``None`` for non-Athena or incomplete connections. Public query entry
+    points set ``required`` so malformed Athena configuration raises instead of falling through to
+    local DuckDB.
+    """
+    from sagemaker_studio.utils.athena_v4 import athena_executor
+
+    if resolved_dz_conn is None or _engine_type_of(resolved_dz_conn) != "ATHENA":
+        return None
+
+    credential_provider = None
+    if isinstance(resolved_dz_conn, Connection):
+        connection_id = getattr(resolved_dz_conn, "id", None)
+        connection_name = getattr(resolved_dz_conn, "name", None)
+
+        def credential_getter():
+            if isinstance(connection_id, str) and connection_id:
+                return _resolve_connection(connection_id, None).connection_creds
+            if isinstance(connection_name, str) and connection_name:
+                return _resolve_connection(None, connection_name).connection_creds
+            return resolved_dz_conn.connection_creds
+
+        credential_provider = _create_credential_provider(credential_getter)
+
+    executor_kwargs = {
+        "catalog": kwargs.get("catalog_name"),
+        "schema": kwargs.get("schema_name"),
+        "selected_engine_version": (
+            kwargs.get("selected_engine_version") or kwargs.get("engine_version")
+        ),
+        "parameters": parameters,
+    }
+    if credential_provider is not None:
+        executor_kwargs["credential_provider"] = credential_provider
+    executor = athena_executor(resolved_dz_conn, **executor_kwargs)
+    if required and executor is None:
+        raise ValueError(
+            "Athena connection requires a non-empty workgroup_name and connection id or name"
+        )
+    return executor
 
 
 def _apply_athena_context(query: str, kwargs: dict) -> None:
@@ -906,6 +1103,9 @@ def close_all_connections() -> int:
         >>> print(f"Closed {count} connections")
     """
     _stop_glue_spark()
+    from sagemaker_studio.utils import athena_v4
+
+    athena_v4.clear_cache()
     return _connection_cache.clear()
 
 
@@ -931,6 +1131,8 @@ def _ensure_project_s3_root():
     global _project_s3_root
     if _project_s3_root:
         return _project_s3_root
+    if local_kernel.is_local_kernel():
+        return None  # an AWS Notebook workspace has no project S3 root
     project = _ensure_project()
     root = getattr(getattr(project, "s3", None), "root", None) if project else None
     if root:
@@ -938,92 +1140,55 @@ def _ensure_project_s3_root():
     return root
 
 
-def _ensure_duckdb():
-    """Initialize Project on demand"""
-    global _duckdb
-    if _duckdb is None:
-        import duckdb as _duckdb
-
-        # Refer to https://duckdb.org/duckdb-docs.pdf
-        _duckdb.sql("SET python_scan_all_frames = true;")
-        # Refer to https://duckdb.org/docs/stable/core_extensions/httpfs/s3api#credential_chain-provider
-        _duckdb.sql("CREATE SECRET (TYPE s3, PROVIDER credential_chain);")
-    return _duckdb
+def _reset_local_kernel_state() -> None:
+    """Forget the Project built for a previous local-kernel configuration (tests, embedders); the
+    attached catalogs and the engine's credential-chain secret go on the same reset."""
+    global _project, _project_s3_root
+    _project = None
+    _project_s3_root = None
 
 
-def _resolve_pending_for_duckdb(statement: str) -> None:
-    """Resolve any ``PendingDataFrame`` proxies a DuckDB statement references, BEFORE the
-    statement runs.
+local_kernel.add_reset_listener(_reset_local_kernel_state)
 
-    DuckDB (``python_scan_all_frames=true``) resolves a namespace name via its replacement
-    scan, which validates the object **by type in the C++ engine** -- it bypasses the
-    proxy's ``__getattr__``, so the proxy's access-triggered blocking never fires and
-    DuckDB would reject the proxy with ``InvalidInputException`` instead of waiting.
 
-    To give DuckDB only real frames, ask DuckDB itself which names the statement references
-    (``con.get_table_names`` -- a structured ``set[str]``, no execution, no replacement scan
-    on the proxy), and for each referenced name that is a ``PendingDataFrame`` in the
-    namespace, block on ``_resolve()`` (which rebinds it to the real DataFrame). This is
-    referenced-only: a pending df the statement does not touch is never resolved. Any name
-    that is not a pending proxy (a real table, a CTE name) is simply skipped.
+# --- The project's data catalogs on DuckDB: the entry points the kernel and the frontend call ----
+# (the DuckDB side is ``duckdbutils``; what is attached and how is ``duckdb_engine.catalogs``)
 
-    Non-fatal DISCOVERY, propagating RESOLUTION: if ``get_table_names`` is unavailable or
-    raises (parse edge case), we swallow it and let DuckDB run as it does today -- the
-    discovery step is a best-effort optimization. But once a referenced pending proxy is
-    found, ``_resolve()`` deliberately PROPAGATES an upstream materialization failure or
-    ``TimeoutError`` to the caller (surfacing a clear "upstream df failed/timed out" instead
-    of a confusing DuckDB catalog error). So this is not a no-new-failure-surface guarantee
-    on the resolution itself -- an upstream failure the statement genuinely depends on is
-    meant to surface here.
+
+def attach_local_catalogs() -> List[Dict[str, Any]]:
     """
+    Attach the project's data catalogs to the kernel's DuckDB, afresh from the project's connections
+    as listed now (:func:`duckdbutils.attach_catalogs`), signing with ``credential_chain`` secrets;
+    no connection's credentials are fetched. For the kernel to call at start and the frontend on
+    every sign-in, sign-out, profile switch or connection change; an empty listing (signed out)
+    leaves nothing attached.
+
+    Returns:
+        The attached databases, as :func:`list_attached_catalogs` reports them (a connection that
+        could not be attached is on its entry, with the reason); empty when the kernel has no
+        project to list connections from.
+
+    Raises:
+        RuntimeError: The connections could not be listed; what was attached before stays.
+        LocalAppUnavailableError: The AWS Notebook app could not be reached for the listing.
+    """
+    project = _ensure_project()
+    if not project:
+        logger.warning("No project to list connections from; nothing is attached to DuckDB")
+        return list_attached_catalogs()
     try:
-        from IPython import get_ipython
-    except Exception:
-        return
-    ip = get_ipython()
-    if ip is None:
-        return
+        records = project._connection_service.list_connection_records()
+    except Exception as e:
+        # The frontend's call shows the user nothing: the log is where this failure is seen.
+        logger.warning(
+            "Could not list the project's connections; the attached catalogs are unchanged: %s", e
+        )
+        raise
+    return duckdbutils.attach_catalogs(records)
 
-    from sagemaker_studio.utils.pending_dataframe import PendingDataFrame
 
-    # Snapshot the namespace before scanning: background materialize threads bind new names
-    # (df_0, df_1, ...) into ip.user_ns concurrently, so iterating the live view can raise
-    # "dictionary changed size during iteration" (#8). A list() snapshot is a point-in-time
-    # copy of references -- but list() ITSELF iterates the dict view, so a bind landing
-    # DURING the list() call raises the same RuntimeError. Retry a few times: binds are
-    # brief, so a re-snapshot almost always lands in a quiet window. This is best-effort
-    # pre-resolution; if every attempt races (pathological), fall through without the
-    # snapshot and let DuckDB handle any still-pending proxy as it would today.
-    ns_items = None
-    for _attempt in range(5):
-        try:
-            ns_items = list(ip.user_ns.items())
-            break
-        except RuntimeError:
-            continue
-    if ns_items is None:
-        return
-
-    # Fast path: nothing pending in the namespace -> skip the get_table_names call entirely.
-    if not any(isinstance(v, PendingDataFrame) for _k, v in ns_items):
-        return
-
-    ns_snapshot = dict(ns_items)
-    con = _ensure_duckdb()
-    try:
-        referenced = con.get_table_names(statement)
-    except Exception:
-        # get_table_names unavailable / parse edge case: fall through to today's behavior.
-        logger.debug("duckdb get_table_names failed; skipping pending pre-resolve", exc_info=True)
-        return
-
-    for name in referenced:
-        obj = ns_snapshot.get(name)
-        if isinstance(obj, PendingDataFrame):
-            # Blocks until the referenced df materializes (or raises its terminal error /
-            # times out). Rebinds the namespace name to the real frame as a side effect of
-            # the background thread's commit; _resolve() also caches it on the proxy.
-            obj._resolve()
+detach_local_catalogs = duckdbutils.detach_local_catalogs  # the frontend's sign-out call
+list_attached_catalogs = duckdbutils.list_attached_catalogs  # the frontend's catalog selector
 
 
 def _ensure_sql_executor():
@@ -1128,9 +1293,7 @@ def _create_glue_spark(config=None, spark_conf=None):
         spark_conf: Optional user Spark config overrides, carried over likewise.
     """
     try:
-        from sagemaker_studio.utils.spark.connection_resolver import (
-            _identify_service_from_props,
-        )
+        from sagemaker_studio.utils.spark.connection_resolver import _identify_service_from_props
         from sagemaker_studio.utils.spark.session.glue.glue_spark_session_manager import (
             GlueSparkSessionManager,
         )
@@ -1253,6 +1416,14 @@ def _is_spark_connection(connection: Optional[ConnectionConfig] = None) -> bool:
     return False
 
 
+def _result_display_metadata(result) -> Dict[str, Any]:
+    """Jupyter display_data metadata for one statement result: the Redshift query id if assigned."""
+    from sagemaker_studio.utils.sqlutils_async import extract_redshift_query_id
+
+    query_id = extract_redshift_query_id(getattr(result, "execution_metadata", None))
+    return {"redshift_query_id": query_id} if query_id is not None else {}
+
+
 def _materialise_stream(stream, dataframe_name: str):
     """Consume a result stream, display/assign results in IPython, and return consolidated output."""
     logger.info("display/assign results")
@@ -1264,7 +1435,7 @@ def _materialise_stream(stream, dataframe_name: str):
     results: list = []
     for result in stream:
         if result.status == "success":
-            display(result.result)
+            display(result.result, metadata=_result_display_metadata(result))
             results.append(result)
         else:
             # Save partial results for debugging before raising

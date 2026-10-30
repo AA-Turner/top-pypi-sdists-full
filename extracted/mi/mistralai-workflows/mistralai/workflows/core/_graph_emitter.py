@@ -12,8 +12,6 @@ import inspect
 from pathlib import Path
 from typing import Any, Callable, cast, get_type_hints
 
-import structlog
-
 from mistralai.workflows.core._graph_builder import (
     _apply_workflow_name_prefix,
     _ast_span,
@@ -46,10 +44,11 @@ from mistralai.workflows.core._graph_types import (
     _FileIndex,
     _TreeCtx,
 )
+from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.definition.workflow_definition import get_workflow_definition
 from mistralai.workflows.core.wire_format import AtlasWireFormat
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 _HANDLER_ATTRS: frozenset[str] = frozenset({"signal", "update", "query"})
 

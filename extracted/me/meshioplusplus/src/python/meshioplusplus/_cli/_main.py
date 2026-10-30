@@ -6,7 +6,9 @@ from . import (
     _agglomerate,
     _ascii,
     _binary,
+    _boundary_layer,
     _check,
+    _check_conformity,
     _clean,
     _compress,
     _conservative_interpolate,
@@ -22,6 +24,7 @@ from . import (
     _decompress,
     _diff,
     _extract_surface,
+    _extrude,
     _feature_edges,
     _find_interface,
     _fit_primitives,
@@ -35,6 +38,8 @@ from . import (
     _isosurface,
     _merge,
     _mesh_cad,
+    _mirror,
+    _mmg,
     _normals,
     _octree,
     _octree_mesh,
@@ -44,6 +49,7 @@ from . import (
     _pipeline,
     _point_budget,
     _predict,
+    _project_to_cad,
     _proximity,
     _quality,
     _refine,
@@ -55,6 +61,7 @@ from . import (
     _reorder,
     _repair,
     _resample,
+    _revolve,
     _sdf,
     _segment,
     _shrinkwrap,
@@ -67,6 +74,7 @@ from . import (
     _stats,
     _subdivide,
     _tessellate,
+    _tetrahedralize,
     _to_cad,
     _transform,
     _tui,
@@ -143,6 +151,14 @@ def main(argv=None):
     )
     _check.add_args(parser)
     parser.set_defaults(func=_check.check_cmd)
+
+    parser = subparsers.add_parser(
+        "check-conformity",
+        help="Hanging nodes, T-junctions and partial overlaps: exit 1 when the "
+        "mesh is not conforming (2: could not check)",
+    )
+    _check_conformity.add_args(parser)
+    parser.set_defaults(func=_check_conformity.check_conformity_cmd)
 
     parser = subparsers.add_parser(
         "feature-edges",
@@ -364,6 +380,48 @@ def main(argv=None):
     parser.set_defaults(func=_mesh_cad.mesh_cad_surface_cmd)
 
     parser = subparsers.add_parser(
+        "project-to-cad",
+        help="Move a mesh's points back onto the CAD faces and edges its cells name",
+    )
+    _project_to_cad.add_args(parser)
+    parser.set_defaults(func=_project_to_cad.project_to_cad_cmd)
+
+    parser = subparsers.add_parser(
+        "boundary-layer",
+        help="Prismatic boundary layers grown from a triangle and quad surface",
+    )
+    _boundary_layer.add_args(parser)
+    parser.set_defaults(func=_boundary_layer.boundary_layer_cmd)
+
+    parser = subparsers.add_parser(
+        "extrude",
+        help="Sweep a surface into a volume (or a curve into a surface) along a vector",
+    )
+    _extrude.add_args(parser)
+    parser.set_defaults(func=_extrude.extrude_cmd)
+
+    parser = subparsers.add_parser(
+        "revolve",
+        help="Sweep a surface (or a curve) around an axis",
+    )
+    _revolve.add_args(parser)
+    parser.set_defaults(func=_revolve.revolve_cmd)
+
+    parser = subparsers.add_parser(
+        "mirror",
+        help="Reflect a mesh across a plane, every cell right side out",
+    )
+    _mirror.add_args(parser)
+    parser.set_defaults(func=_mirror.mirror_cmd)
+
+    parser = subparsers.add_parser(
+        "tetrahedralize",
+        help="Fill a closed triangle surface with tetrahedra, its triangles kept (Netgen)",
+    )
+    _tetrahedralize.add_args(parser)
+    parser.set_defaults(func=_tetrahedralize.tetrahedralize_cmd)
+
+    parser = subparsers.add_parser(
         "grid-sample",
         help="Sample a mesh's point data onto a regular grid (for a CNN)",
     )
@@ -528,6 +586,34 @@ def main(argv=None):
     )
     _decimate_volume.add_args(parser)
     parser.set_defaults(func=_decimate_volume.decimate_volume_cmd)
+
+    parser = subparsers.add_parser(
+        "adapt",
+        help="Remesh to a size or a metric with MMG (a build with MESHIOPLUSPLUS_WITH_MMG)",
+    )
+    _mmg.add_adapt_args(parser)
+    parser.set_defaults(func=_mmg.adapt_cmd)
+
+    parser = subparsers.add_parser(
+        "discretize-levelset",
+        help="Embed a level set conformally and remesh both sides with MMG",
+    )
+    _mmg.add_discretize_levelset_args(parser)
+    parser.set_defaults(func=_mmg.discretize_levelset_cmd)
+
+    parser = subparsers.add_parser(
+        "mesh-2d",
+        help="Triangulate the planar domain a line mesh bounds with MMG",
+    )
+    _mmg.add_mesh_2d_args(parser)
+    parser.set_defaults(func=_mmg.mesh_2d_cmd)
+
+    parser = subparsers.add_parser(
+        "move",
+        help="Move a mesh by a boundary displacement and remesh with MMG (needs ELAS)",
+    )
+    _mmg.add_move_args(parser)
+    parser.set_defaults(func=_mmg.move_cmd)
 
     parser = subparsers.add_parser(
         "remesh",

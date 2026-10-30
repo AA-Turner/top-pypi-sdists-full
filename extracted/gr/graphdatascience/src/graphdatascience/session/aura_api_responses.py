@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import dataclasses
-import sys
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Any, NamedTuple
 
 from pandas import Timedelta
@@ -48,8 +47,8 @@ class SessionDetails:
             memory=SessionMemoryValue.fromApiResponse(data["memory"]),
             status=data["status"],
             host=data["host"],
-            expiry_date=TimeParser.fromisoformat(expiry_date) if expiry_date else None,
-            created_at=TimeParser.fromisoformat(data["created_at"]),
+            expiry_date=datetime.fromisoformat(expiry_date) if expiry_date else None,
+            created_at=datetime.fromisoformat(data["created_at"]),
             ttl=cls._parse_ttl(ttl),
             project_id=data["project_id"],
             user_id=data["user_id"],
@@ -105,8 +104,8 @@ class SessionDetailsWithErrors(SessionDetails):
             memory=SessionMemoryValue.fromApiResponse(data["memory"]),
             status=data["status"],
             host=data["host"],
-            expiry_date=TimeParser.fromisoformat(expiry_date) if expiry_date else None,
-            created_at=TimeParser.fromisoformat(data["created_at"]),
+            expiry_date=datetime.fromisoformat(expiry_date) if expiry_date else None,
+            created_at=datetime.fromisoformat(data["created_at"]),
             ttl=cls._parse_ttl(ttl),
             project_id=data["project_id"],
             user_id=data["user_id"],
@@ -281,12 +280,28 @@ class ProjectDetails:
         )
 
 
-# datetime.fromisoformat only works with Python version > 3.9
-class TimeParser:
-    @staticmethod
-    def fromisoformat(date: str) -> datetime:
-        if sys.version_info >= (3, 11):
-            return datetime.fromisoformat(date)
-        else:
-            # Aura API example: 1970-01-01T00:00:00Z
-            return datetime.strptime(date, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+@dataclass(repr=True, frozen=True)
+class GraphMapping:
+    """
+    A mapping of a `(graph_name, database_username, database_uuid)` triple to the
+    GDS session holding that graph. Registered when a graph is created so that it
+    can be discovered from other APIs (e.g. the Cypher API).
+    """
+
+    graph_name: str
+    database_username: str
+    database_uuid: str
+    session_id: str
+    linked: bool
+    created_at: datetime
+
+    @classmethod
+    def from_json(cls, json: dict[str, Any]) -> GraphMapping:
+        return cls(
+            graph_name=json["graph_name"],
+            database_username=json["database_username"],
+            database_uuid=json["database_uuid"],
+            session_id=json["session_id"],
+            linked=json["linked"],
+            created_at=datetime.fromisoformat(json["created_at"]),
+        )

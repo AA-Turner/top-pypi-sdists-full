@@ -1,7 +1,7 @@
 {
-"url": "https://files.pythonhosted.org/packages/60/d1/8728260955240c0fe16f6ce5cef7e90088ef54384f0594fb495d0b1eb051/opentelemetry_instrumentation_boto3sqs-0.66b1.tar.gz",
-"filename": "opentelemetry_instrumentation_boto3sqs-0.66b1.tar.gz",
-"upload_time": "2026-10-06T17:36:18.138142Z",
+"url": "https://files.pythonhosted.org/packages/0c/93/9b2bccd266e880ad0e3a11e043fde0c1b9eb479d5e5579fc215412dde6a3/opentelemetry_instrumentation_boto3sqs-0.66b2.tar.gz",
+"filename": "opentelemetry_instrumentation_boto3sqs-0.66b2.tar.gz",
+"upload_time": "2026-10-29T17:38:19.820287Z",
 "download_count": 3915053,
 "rank": 2023
 }

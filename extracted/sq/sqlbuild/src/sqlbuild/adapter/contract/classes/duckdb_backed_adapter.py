@@ -49,6 +49,8 @@ from sqlbuild.adapter.contract.constants import (
     QUALIFIED_NAME_SEPARATOR,
 )
 from sqlbuild.adapter.contract.exceptions import AdapterUserError, ViewRenameRefusedError
+from sqlbuild.adapter.contract.main.column_name_key import column_name_key
+from sqlbuild.adapter.contract.main.is_quoted_identifier import is_quoted_identifier
 from sqlbuild.adapter.contract.main.run_relation_read_probe import run_relation_read_probe
 from sqlbuild.adapter.contract.main.same_view_definition import same_view_definition
 from sqlbuild.adapter.contract.main.unsupported_relation_usage import unsupported_relation_usage
@@ -399,6 +401,8 @@ class DuckDbBackedAdapter(UnkeyedDiffMixin, BaseAdapter):
     def render_identifier(self, name: str) -> str:
         """Render one DuckDB identifier using double-quote escaping."""
 
+        if is_quoted_identifier(name):
+            return name
         return '"' + name.replace('"', '""') + '"'
 
     def render_exact_identifier(self, name: str) -> str:
@@ -1233,6 +1237,12 @@ class DuckDbBackedAdapter(UnkeyedDiffMixin, BaseAdapter):
         )
         if schema is not None:
             query += f" AND table_schema = {_duckdb_string_literal(schema)}"
+        else:
+            query += (
+                " AND lower(table_schema) IN "
+                "(SELECT lower(search_schema) FROM "
+                "(SELECT UNNEST(current_schemas(true)) AS search_schema))"
+            )
         if database is not None:
             query += f" AND table_catalog = {_duckdb_string_literal(database)}"
         result: Any = self.execute(connection=connection, sql=query).fetchone()
@@ -2070,7 +2080,7 @@ class DuckDbBackedAdapter(UnkeyedDiffMixin, BaseAdapter):
         exclude_columns: tuple[str, ...] = (),
     ) -> tuple[str, ...]:
         immutable_columns: frozenset[str] = frozenset(
-            column.lower() for column in (*unique_key, *exclude_columns)
+            column_name_key(column) for column in (*unique_key, *exclude_columns)
         )
         join_condition: str = " AND ".join(
             f"__target.{self.render_identifier(k)} = __source.{self.render_identifier(k)}"
@@ -2079,7 +2089,7 @@ class DuckDbBackedAdapter(UnkeyedDiffMixin, BaseAdapter):
         update_assignments: str = ", ".join(
             f"{self.render_identifier(col)} = __source.{self.render_identifier(col)}"
             for col in source_columns
-            if col.lower() not in immutable_columns
+            if column_name_key(col) not in immutable_columns
         )
         insert_columns: str = ", ".join(self.render_identifier(col) for col in source_columns)
         insert_values: str = ", ".join(

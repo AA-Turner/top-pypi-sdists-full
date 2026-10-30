@@ -2,12 +2,14 @@ import asyncio
 import base64
 import json
 import time
+from typing import Any
 
 import httpx
 import pytest
 
+from mistralai.workflows._mistral_http import MISTRAL_HTTP
 from mistralai.workflows.client import _get_async_client, _get_sync_client, get_mistral_client
-from mistralai.workflows.core.auth import ConnectorRunAs, StaticTokenProvider
+from mistralai.workflows.core.auth import RunAs, StaticTokenProvider
 from mistralai.workflows.core.config.config import config
 from mistralai.workflows.core.temporal.context_handler_interceptor import define_context
 from mistralai.workflows.exceptions import WorkflowError
@@ -25,31 +27,36 @@ def _jwt(token: str) -> str:
 
 class AuthServer:
     def __init__(self):
-        self.requests: list[httpx.Request] = []
+        self.requests: list[Any] = []
         self.exchanges: list[str] = []
         self.tokens: dict[str, str] = {}
         self.reject_exchange = False
 
-    def handle(self, request: httpx.Request) -> httpx.Response:
+    def handle(self, request: Any, http: Any) -> Any:
         self.requests.append(request)
         if request.url.path.endswith("/executor-identity-token"):
             assert request.headers["Authorization"] == "Bearer deployment-key"
             token = json.loads(request.content)["execution_token"]
             self.exchanges.append(token)
             if self.reject_exchange:
-                return httpx.Response(403, json={"detail": "Forbidden"})
+                return http.Response(403, json={"detail": "Forbidden"})
             self.tokens.setdefault(token, _jwt(token))
-            return httpx.Response(200, json={"token": self.tokens[token]})
+            return http.Response(200, json={"token": self.tokens[token]})
         if request.url.path == "/redirect":
-            return httpx.Response(302, headers={"Location": "https://foreign.example/target"})
-        return httpx.Response(200, json={"data": [], "object": "list"})
+            return http.Response(302, headers={"Location": "https://foreign.example/target"})
+        return http.Response(200, json={"data": [], "object": "list"})
 
-    async def handle_async(self, request: httpx.Request) -> httpx.Response:
-        await asyncio.sleep(0)
-        return self.handle(request)
+    def transport(self, client_cls: type) -> Any:
+        http = MISTRAL_HTTP if client_cls in (MISTRAL_HTTP.Client, MISTRAL_HTTP.AsyncClient) else httpx
 
-    def transport(self, client_cls):
-        return httpx.MockTransport(self.handle_async if client_cls is httpx.AsyncClient else self.handle)
+        def handle(request: Any) -> Any:
+            return self.handle(request, http)
+
+        async def handle_async(request: Any) -> Any:
+            await asyncio.sleep(0)
+            return handle(request)
+
+        return http.MockTransport(handle_async if client_cls is http.AsyncClient else handle)
 
 
 @pytest.fixture
@@ -63,13 +70,13 @@ def server(monkeypatch):
 
 async def _get(client, path="/resource"):
     url = f"https://api.example{path}"
-    if isinstance(client, httpx.AsyncClient):
+    if isinstance(client, (httpx.AsyncClient, MISTRAL_HTTP.AsyncClient)):
         return await client.get(url)
     return await asyncio.to_thread(client.get, url)
 
 
 async def _close(client):
-    if isinstance(client, httpx.AsyncClient):
+    if isinstance(client, (httpx.AsyncClient, MISTRAL_HTTP.AsyncClient)):
         await client.aclose()
     else:
         client.close()
@@ -80,7 +87,7 @@ async def client(request, server):
     client = request.param(
         server_url="https://api.example",
         token_provider=StaticTokenProvider("deployment-key"),
-        run_as=ConnectorRunAs.AUTO,
+        run_as=RunAs.AUTO,
     )
     yield client
     await _close(client)
@@ -153,7 +160,7 @@ class TestAuthenticationPolicies:
             server_url="https://api.example",
             token_provider=StaticTokenProvider("deployment-key"),
             use_executor_credentials=executor,
-            run_as=None if executor else ConnectorRunAs.DEPLOYMENT,
+            run_as=None if executor else RunAs.DEPLOYMENT,
         )
         try:
             with define_context(_context("alice")):
@@ -173,7 +180,7 @@ class TestAuthenticationPolicies:
             await _close(client)
 
     async def test_auto_without_credentials_defers_failure_until_obo_request(self, factory, server):
-        client = factory(server_url="https://api.example", run_as=ConnectorRunAs.AUTO)
+        client = factory(server_url="https://api.example", run_as=RunAs.AUTO)
         try:
             with define_context(_context("alice")), pytest.raises(WorkflowError, match="token_provider"):
                 await _get(client)
@@ -184,7 +191,7 @@ class TestAuthenticationPolicies:
         finally:
             await _close(client)
 
-    @pytest.mark.parametrize("mode", [ConnectorRunAs.AUTO, ConnectorRunAs.DEPLOYMENT])
+    @pytest.mark.parametrize("mode", [RunAs.AUTO, RunAs.DEPLOYMENT])
     def test_conflicting_legacy_option_is_rejected(self, factory, mode, server):
         with pytest.raises(ValueError, match="conflicts"):
             factory(run_as=mode, use_executor_credentials=True)
@@ -199,9 +206,12 @@ class TestMistralClient:
         client = get_mistral_client(
             server_url="https://api.example",
             token_provider=StaticTokenProvider("deployment-key"),
-            run_as=ConnectorRunAs.AUTO,
+            run_as=RunAs.AUTO,
         )
         try:
+            # mistralai 2.9.3 metadata uses httpx; client-python/pyproject.toml 3.x uses httpx2.
+            assert isinstance(client.sdk_configuration.async_client, MISTRAL_HTTP.AsyncClient)
+            assert isinstance(client.sdk_configuration.client, MISTRAL_HTTP.Client)
             for context in [_context("alice"), _context(obo=False), _context("bob")]:
                 with define_context(context):
                     await client.models.list_async()

@@ -9,10 +9,10 @@ https://quote.eastmoney.com/
 import datetime
 
 import pandas as pd
-import requests
 
 from akshare.index.index_stock_zh import get_tx_start_year
-from akshare.utils import demjson
+from akshare.utils import jsonish
+from akshare.utils import http
 from akshare.utils.tqdm import get_tqdm
 
 
@@ -78,11 +78,9 @@ def stock_zh_a_hist_tx(
             "param": f"{symbol},day,{year}-01-01,{year + 1}-12-31,640,{adjust}",
             "r": "0.8205512681390605",
         }
-        r = requests.get(url, params=params, timeout=timeout)
+        r = http.get(url, params=params, timeout=timeout)
         data_text = r.text
-        data_json = demjson.decode(data_text[data_text.find("={") + 1 :])["data"][
-            symbol
-        ]
+        data_json = jsonish.loads(data_text[data_text.find("={") + 1 :])["data"][symbol]
         if "day" in data_json.keys():
             temp_df = pd.DataFrame(data_json["day"])
         elif "hfqday" in data_json.keys():
@@ -114,11 +112,11 @@ def stock_zh_a_hist_tx(
         big_df["volume"] = big_df["volume"] * 100
     big_df["turnover"] = big_df["turnover"] / 100
     big_df["amount"] = big_df["amount"] * 10000
-    big_df.drop_duplicates(inplace=True, ignore_index=True)
+    big_df = big_df.drop_duplicates(ignore_index=True)
     big_df.index = pd.to_datetime(big_df["date"], errors="coerce")
-    big_df.sort_index(inplace=True)
+    big_df = big_df.sort_index()
     big_df = big_df[start_date:end_date]
-    big_df.reset_index(inplace=True, drop=True)
+    big_df = big_df.reset_index(drop=True)
     return big_df
 
 

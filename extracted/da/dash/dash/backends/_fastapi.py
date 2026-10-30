@@ -4,6 +4,7 @@ from contextvars import copy_context, ContextVar
 import asyncio
 import concurrent.futures
 import json
+import logging
 import queue
 from typing import TYPE_CHECKING, Any, Callable, Dict, List
 import sys
@@ -20,10 +21,12 @@ from urllib.parse import urlparse
 
 try:
     from fastapi import FastAPI, Request, Response, Body
-    from fastapi.responses import JSONResponse, RedirectResponse
+    from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
     from fastapi.staticfiles import StaticFiles
     from starlette.responses import Response as StarletteResponse
-    from starlette.datastructures import MutableHeaders
+    from starlette.datastructures import Headers, MutableHeaders
+    from starlette.exceptions import HTTPException
+    from starlette.requests import HTTPConnection
     from starlette.types import ASGIApp, Scope, Receive, Send
     from starlette.websockets import WebSocket, WebSocketDisconnect
     import uvicorn
@@ -36,7 +39,27 @@ import janus
 
 from dash.fingerprint import check_fingerprint
 from dash import _validate, get_app
+from dash._streaming import (
+    STREAM_HEADERS,
+    STREAM_MIMETYPE,
+    StreamedCallbackResponse,
+    _shutdown as _streaming_shutdown,
+    keepalive_seconds,
+    marker_ndjson_aiter,
+    to_json,
+)
+from dash._callback import get_stream_connection_id
+from dash._stream_hub import (
+    STREAM_ACK,
+    STREAM_CANCEL_ACK,
+    async_downlink_marker,
+    cancel_stream,
+    install_stream_shutdown_handler,
+    shutdown_active_streams,
+    spawn_async_pump,
+)
 from dash.exceptions import PreventUpdate
+from dash._compression import decompress_payload
 from .base_server import (
     BaseDashServer,
     RequestAdapter,
@@ -48,12 +71,28 @@ from .ws import (
     run_callback_in_executor,
     run_callback_on_loop,
     make_callback_done_handler,
+    make_stream_frame_emitter,
     shutdown_ws_connection,
 )
 from ._utils import format_traceback_html
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from dash import Dash
+
+logger = logging.getLogger(__name__)
+
+
+def _run_subprocess(args, env):
+    proc = subprocess.Popen(args, env=env)  # pylint: disable=R1732
+    try:
+        proc.wait()
+    except KeyboardInterrupt:
+        proc.terminate()
+        try:
+            proc.wait(timeout=3)
+        except (KeyboardInterrupt, subprocess.TimeoutExpired):
+            proc.kill()
+            proc.wait()
 
 
 class FastAPIResponseAdapter(ResponseAdapter):
@@ -76,7 +115,8 @@ class FastAPIResponseAdapter(ResponseAdapter):
         """
         data = kwargs.get("data")
         if isinstance(data, (str, bytes, bytearray)):
-            resp = Response(content=data)
+            # Already-serialized JSON, like the Flask adapter's default content type.
+            resp = Response(content=data, media_type="application/json")
         else:
             resp = JSONResponse(content=data)
         if self._headers:
@@ -113,6 +153,43 @@ def get_current_request() -> Request:
 _ENV_CONFIG = "_DASH_FASTAPI_CONFIG"
 
 
+def _replay_body(body: bytes, receive: Receive) -> Receive:
+    """ASGI receive that sends an already read request body once."""
+    sent = False
+
+    async def replay():
+        nonlocal sent
+        if not sent:
+            sent = True
+            return {"type": "http.request", "body": body, "more_body": False}
+        return await receive()
+
+    return replay
+
+
+def _hook_response(result: Any) -> StarletteResponse:
+    """Turn a before_request hook's return value into a response, following the
+    Flask/Quart contract: a response, a body, ``(body, status)``,
+    ``(body, headers)`` or ``(body, status, headers)``."""
+    if isinstance(result, StarletteResponse):
+        return result
+    status, headers = 200, None
+    if isinstance(result, tuple):
+        if len(result) == 3:
+            result, status, headers = result
+        elif isinstance(result[1], (dict, Headers, list, tuple)):
+            result, headers = result
+        else:
+            result, status = result
+    if isinstance(status, str):
+        status = int(status.split(" ", 1)[0])
+    if isinstance(headers, (list, tuple)):
+        headers = dict(headers)
+    if isinstance(result, (dict, list)):
+        return JSONResponse(content=result, status_code=status, headers=headers)
+    return Response(content=result, status_code=status, headers=headers)
+
+
 class DashMiddleware:  # pylint: disable=too-few-public-methods
     """Consolidated middleware for all Dash/FastAPI integration needs."""
 
@@ -141,30 +218,34 @@ class DashMiddleware:  # pylint: disable=too-few-public-methods
                 self.dash_app.enable_dev_tools(**config, first_run=False)
             self._dev_tools_initialized = True
 
-    async def _setup_timing(self, request: Request) -> None:
-        """Set up timing information for the request."""
+    async def _setup_timing(self, request: Request) -> bytes | None:
+        """Set up timing information for the request.
+
+        Returns the request body when it had to be read to parse the JSON.
+        """
+        body = None
+        request.state.json_body = None
         try:
-            request.state.json_body = (
-                await request.json()
-                if request.headers.get("content-type", "").startswith(
-                    "application/json"
-                )
-                else None
-            )
+            if request.headers.get("content-type", "").startswith("application/json"):
+                body = await request.body()
+                request.state.json_body = json.loads(body)
         except Exception:  # pylint: disable=broad-exception-caught
             request.state.json_body = None
         if self.enable_timing:
             request.state.timing_information = {
                 "__dash_server": {"dur": time.time(), "desc": None}
             }
+        return body
 
-    async def _run_before_hooks(self) -> None:
-        """Run all before-request hooks."""
+    async def _run_before_hooks(self) -> Any:
+        """Run the before-request hooks, returning the first non-None result."""
         for func in self.before_request_funcs:
-            if inspect.iscoroutinefunction(func):
-                await func()
-            else:
-                func()
+            result = func()
+            if inspect.isawaitable(result):
+                result = await result
+            if result is not None:
+                return result
+        return None
 
     async def _run_after_hooks(self) -> None:
         """Run after-request hook if configured."""
@@ -192,6 +273,12 @@ class DashMiddleware:  # pylint: disable=too-few-public-methods
         """Handle exceptions during request processing."""
         if isinstance(error, PreventUpdate):
             response = Response(status_code=204)
+        elif isinstance(error, HTTPException):
+            response = JSONResponse(
+                status_code=error.status_code,
+                content={"detail": error.detail},
+                headers=error.headers,
+            )
         elif self.dash_server.error_handling_mode in ["raise", "prune"]:
             tb = self.dash_server._get_traceback(None, error)  # pylint: disable=W0212
             response = Response(content=tb, media_type="text/html", status_code=500)
@@ -215,34 +302,56 @@ class DashMiddleware:  # pylint: disable=too-few-public-methods
             except Exception:  # pylint: disable=broad-exception-caught
                 traceback.print_exc()
             await self._initialize_dev_tools()
-            await self.app(scope, receive, send)
+
+            async def _receive_with_shutdown():
+                msg = await receive()
+                if msg.get("type") == "lifespan.startup":
+                    _streaming_shutdown.clear()
+                    install_stream_shutdown_handler()
+                elif msg.get("type") == "lifespan.shutdown":
+                    shutdown_active_streams()
+                return msg
+
+            await self.app(scope, _receive_with_shutdown, send)
             return
 
-        # Non-HTTP/WebSocket scopes pass through
+        if scope["type"] == "websocket":
+            await self._gate_websocket(scope, receive, send)
+            return
+
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
 
-        # Non-Dash routes pass through to avoid consuming body stream
-        path = scope["path"]
-        prefix = self.dash_app.config.routes_pathname_prefix
-        dash_prefix = prefix.rstrip("/") + "/_dash-"
-        if (
-            not path.startswith(dash_prefix)
-            and path != prefix
-            and path != prefix.rstrip("/")
-        ):
-            await self.app(scope, receive, send)
-            return
-
-        # HTTP request handling
+        # before_request hooks run for every route, like Flask and Quart. Only
+        # Dash's own routes get their JSON body parsed and timing recorded, so
+        # user routes keep their raw body stream.
+        is_dash_route = self._is_dash_route(scope)
         request = Request(scope, receive=receive)
         token = set_current_request(request)
 
         try:
-            await self._setup_timing(request)
-            await self._run_before_hooks()
+            body = None
+            if is_dash_route:
+                body = await self._setup_timing(request)
+            else:
+                request.state.json_body = None
 
+            denied = await self._run_before_hooks()
+            if denied is not None:
+                await _hook_response(denied)(scope, receive, send)
+                return
+
+            if not is_dash_route:
+                # User routes keep their own error handling.
+                reset_current_request(token)
+                token = None
+                await self.app(scope, receive, send)
+                return
+
+            if body is not None:
+                # The body stream is consumed, replay it for handlers reading it.
+                receive = _replay_body(body, receive)
             await self.app(scope, receive, send)
 
             await self._run_after_hooks()
@@ -251,11 +360,46 @@ class DashMiddleware:  # pylint: disable=too-few-public-methods
         except Exception as e:  # pylint: disable=W0718
             await self._handle_error(e, scope, receive, send)
         finally:
+            if token is not None:
+                reset_current_request(token)
+
+    def _is_dash_route(self, scope: Scope) -> bool:
+        path = scope["path"]
+        # When mounted under a parent app the path still carries the mount
+        # prefix, which Starlette also reports as root_path.
+        root_path = scope.get("root_path", "")
+        if root_path and (path == root_path or path.startswith(root_path + "/")):
+            path = path[len(root_path) :] or "/"
+        prefix = self.dash_app.config.routes_pathname_prefix
+        return (
+            path.startswith(prefix.rstrip("/") + "/_dash-")
+            or path in (prefix, prefix.rstrip("/"))
+            or path in self.dash_app.routes
+        )
+
+    async def _gate_websocket(self, scope: Scope, receive: Receive, send: Send):
+        """Run the before_request hooks on the WebSocket handshake so the
+        WebSocket callback transport has the same access check as HTTP."""
+        connection = HTTPConnection(scope)
+        connection.state.json_body = None
+        token = set_current_request(connection)
+        try:
+            denied = await self._run_before_hooks()
+        except Exception:  # pylint: disable=broad-exception-caught
+            logger.exception("before_request hook failed, rejecting WebSocket")
+            denied = True
+        finally:
             reset_current_request(token)
+        if denied is not None:
+            # Closing before accept makes the server reject the handshake (403).
+            await send({"type": "websocket.close", "code": 1008})
+            return
+        await self.app(scope, receive, send)
 
 
 class FastAPIDashServer(BaseDashServer[FastAPI]):
     websocket_capability: bool = True
+    downlink_mode: str = "stream"
 
     def __init__(self, server: FastAPI):
         super().__init__(server)
@@ -328,7 +472,8 @@ class FastAPIDashServer(BaseDashServer[FastAPI]):
         and passed through the middleware, which is necessary for features like authentication
         and timing to work correctly on all routes. FastAPI will match this catch-all route
         for any path that isn't matched by a more specific route, allowing the middleware to
-        process the request and then return the appropriate response (e.g., 404 if no Dash route matches)."""
+        process the request and then return the appropriate response (e.g., 404 if no Dash route matches).
+        """
 
     def _setup_catchall(self):
         try:
@@ -459,6 +604,12 @@ class FastAPIDashServer(BaseDashServer[FastAPI]):
             ]
             if kwargs.get("reload"):
                 uvicorn_args.append("--reload")
+                for directory in kwargs.get("reload_dirs") or []:
+                    uvicorn_args.extend(["--reload-dir", str(directory)])
+                for pattern in kwargs.get("reload_excludes") or []:
+                    uvicorn_args.extend(["--reload-exclude", str(pattern)])
+                for pattern in kwargs.get("reload_includes") or []:
+                    uvicorn_args.extend(["--reload-include", str(pattern)])
 
             dev_tools = dash_app._dev_tools  # pylint: disable=W0212
             config = dict(
@@ -470,9 +621,7 @@ class FastAPIDashServer(BaseDashServer[FastAPI]):
 
             # Add any other kwargs as CLI args if needed
 
-            # pylint: disable=R1732
-            proc = subprocess.Popen(uvicorn_args, env=env)
-            proc.wait()
+            _run_subprocess(uvicorn_args, env)
 
     def make_response(
         self,
@@ -547,9 +696,53 @@ class FastAPIDashServer(BaseDashServer[FastAPI]):
         )
 
     def serve_callback(self, dash_app: Dash):
-        async def _dispatch(request: Request):  # pylint: disable=unused-argument
+        def _ndjson_response(marker):
             # pylint: disable=protected-access
-            body = self.request_adapter().get_json()
+            return StreamingResponse(
+                marker_ndjson_aiter(
+                    marker,
+                    keepalive_seconds(dash_app._stream_keepalive_interval),
+                ),
+                media_type=STREAM_MIMETYPE,
+                headers=dict(STREAM_HEADERS),
+            )
+
+        async def _dispatch(
+            request: Request,
+        ):  # pylint: disable=unused-argument,too-many-return-statements
+            # pylint: disable=protected-access
+            if "gzip" in request.headers.get("content-encoding", ""):
+                body = decompress_payload(await self.request_adapter()._request.body())
+            else:
+                body = self.request_adapter().get_json()
+            downlink = body.get("streamDownlink")
+            if downlink is not None:
+                connection_id = get_stream_connection_id()
+                if connection_id is None or not dash_app.shared_storage_enabled:
+                    return Response(status_code=403)
+                return _ndjson_response(
+                    async_downlink_marker(
+                        dash_app.shared_storage,
+                        connection_id,
+                        downlink.get("from"),
+                    )
+                )
+            cancel = body.get("streamCancel")
+            if cancel is not None:
+                # A tab closed while the shared downlink stays open for others:
+                # stop its pump. Same connection-id rule as the downlink: a page
+                # can only cancel its own streams.
+                connection_id = (
+                    get_stream_connection_id()
+                    if dash_app.shared_storage_enabled
+                    else None
+                )
+                if connection_id is None:
+                    return Response(status_code=403)
+                cancel_stream(
+                    dash_app.shared_storage, connection_id, cancel["requestId"]
+                )
+                return JSONResponse(content=STREAM_CANCEL_ACK)
             cb_ctx = dash_app._initialize_context(
                 body
             )  # pylint: disable=protected-access
@@ -566,6 +759,29 @@ class FastAPIDashServer(BaseDashServer[FastAPI]):
             response_data = ctx.run(partial_func)
             if inspect.iscoroutine(response_data):
                 response_data = await response_data
+            if isinstance(response_data, StreamedCallbackResponse):
+                stream_conn = body.get("streamConnection")
+                if stream_conn is not None:
+                    # A streamConnection asserts "multiplex me": the connection
+                    # id is derived from the signed end_id (never from the
+                    # client), so a page can only publish to its own topic. An
+                    # unverified connection is refused, never run some other way,
+                    # so no frame reaches a topic without a valid token.
+                    connection_id = (
+                        get_stream_connection_id()
+                        if dash_app.shared_storage_enabled
+                        else None
+                    )
+                    if connection_id is None:
+                        return Response(status_code=403)
+                    spawn_async_pump(
+                        dash_app.shared_storage,
+                        connection_id,
+                        stream_conn["requestId"],
+                        response_data,
+                    )
+                    return cb_ctx.dash_response.set_response(data=to_json(STREAM_ACK))
+                return _ndjson_response(response_data)
             return cb_ctx.dash_response.set_response(data=response_data)
 
         return _dispatch
@@ -812,6 +1028,12 @@ class FastAPIDashServer(BaseDashServer[FastAPI]):
                             renderer_id,
                             shutdown_event,
                         )
+                        stream_emitter = make_stream_frame_emitter(
+                            outbound_queue,
+                            request_id,
+                            renderer_id,
+                            shutdown_event,
+                        )
 
                         if is_async:
                             task = asyncio.create_task(
@@ -820,6 +1042,7 @@ class FastAPIDashServer(BaseDashServer[FastAPI]):
                                     payload,
                                     ws_cb,
                                     FastAPIResponseAdapter(),
+                                    stream_emitter,
                                 )
                             )
                             task.add_done_callback(done_handler)
@@ -832,6 +1055,7 @@ class FastAPIDashServer(BaseDashServer[FastAPI]):
                                 payload,
                                 ws_cb,
                                 FastAPIResponseAdapter(),
+                                stream_emitter,
                             )
                             # Set up done callback to send response
                             future.add_done_callback(done_handler)

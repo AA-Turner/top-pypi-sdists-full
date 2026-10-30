@@ -1722,3 +1722,219 @@ def test_a_wrong_run_id_fails_now_not_in_the_outbox(wired_async, outbox_dir, tmp
     assert cli.main(["artifact", "add", "no-such-run", str(_big(tmp_path))]) != 0
     assert not multipart.pending(Journal(outbox_dir))
 
+
+
+# -- a superseded attempt's writes, and dead letters no retry can deliver (T24) --
+
+
+def _stale_point(journal: Journal, run_id: str, step: int = 1) -> None:
+    journal.append_http(
+        "POST",
+        f"/v1/runs/{run_id}/metrics",
+        {"points": [{"key": "loss", "kind": "model", "value": 0.5, "step_index": step}], "write_epoch": 1},
+        run_ref=run_id,
+    )
+
+
+@pytest.mark.parametrize("coded", [False, True], ids=["epochs-in-the-message", "code-in-the-detail"])
+def test_a_superseded_write_is_set_aside_not_dead_lettered(wired_async, outbox_dir, coded, monkeypatch):
+    """A write a newer attempt of its run superseded (its epoch is past) is
+    refused every time: it goes to discarded/, kept and never sent again,
+    instead of a dead letter that nagged every session start (#3629). Told by
+    the server's code, or on a server without one by the epochs its message
+    names."""
+    from probe._shared import telemetry
+
+    sent: list = []
+    monkeypatch.setattr(
+        telemetry, "emit_outbox_discarded", lambda counts, **kw: sent.append((counts.writes, kw["reason"]))
+    )
+    wired_async.stale_write_epoch_code = coded
+    run_id = _reopened_run(wired_async)
+    journal = Journal(outbox_dir)
+    _stale_point(journal, run_id)
+
+    report = cli_drain(wired_async, outbox_dir)
+
+    assert (report.superseded.writes, report.dead_lettered, report.delivered) == (1, 0, 0)
+    assert journal.failed() == [] and journal.pending() == []
+    (kept,) = (outbox_dir / "discarded").glob("*.json")
+    assert json.loads(kept.read_text())["last_error"].startswith("ConflictError: write carries epoch 1")
+    assert wired_async.fenced_writes and not wired_async.metric_points_posted.get(run_id)
+    assert Journal.read_status(str(outbox_dir))["failed"] == 0
+    assert sent == [(1, telemetry.DiscardReason.SUPERSEDED)], "the drain itself says so"
+
+
+def test_a_merged_post_of_superseded_points_sets_every_one_aside(wired_async, outbox_dir):
+    run_id = _reopened_run(wired_async)
+    journal = Journal(outbox_dir)
+    for step in (1, 2, 3):
+        _stale_point(journal, run_id, step)
+
+    report = cli_drain(wired_async, outbox_dir)
+
+    assert report.superseded.writes == 3 and report.dead_lettered == 0
+    assert len(wired_async.fenced_writes) == 1, "one merged POST, refused once"
+    assert journal.failed() == [] and len(list((outbox_dir / "discarded").glob("*.json"))) == 3
+
+
+def test_only_a_past_epoch_is_read_as_superseded():
+    from probe.sdk import errors
+
+    message = "write carries epoch {} but run r-1 is on epoch 2: this writer was superseded by a reopen."
+    assert errors.names_stale_write_epoch(errors.ConflictError(message.format(1)))
+    assert errors.names_stale_write_epoch(
+        errors.ConflictError("refused", detail={"message": "refused", "code": errors.STALE_WRITE_EPOCH})
+    )
+    # A future epoch passes the fence (a rolling deploy), and any other 409 is
+    # a conflict the drain treats as it always did.
+    assert not errors.names_stale_write_epoch(errors.ConflictError(message.format(3)))
+    assert not errors.names_stale_write_epoch(
+        errors.ConflictError("slug taken", detail={"message": "slug taken", "existing_id": "x"})
+    )
+    assert not errors.names_stale_write_epoch(errors.ValidationError(message.format(1), status=422))
+    # Only the refusal itself, never another conflict that quotes it (a name).
+    assert not errors.names_stale_write_epoch(errors.ConflictError("slug 'x " + message.format(1) + "' taken"))
+
+
+_STALE_LETTER = (
+    "ConflictError: write carries epoch 1 but run r-1 is on epoch 2: this writer was superseded "
+    "by a reopen. Stop logging from this process, or reopen the run to obtain the current epoch."
+)
+
+
+def _letter(journal: Journal, name: str, run_ref: str, last_error: str, *, stamped: bool = True, **extra) -> None:
+    journal.failed_dir.mkdir(parents=True, exist_ok=True)
+    context = {"name": None, "base_url": "http://test"}
+    if stamped:  # the credential that queued it (#2035)
+        context["principal"] = {"source": "config", "fingerprint": "fp-own"}
+    op = {
+        "schema": "probe.outbox/1", "op_id": name, "kind": "http", "method": "POST",
+        "path": f"/v1/runs/{run_ref}/metrics", "body": {"points": []}, "run_ref": run_ref,
+        "context": context, "attempts": 1, "last_error": last_error, **extra,
+    }
+    (journal.failed_dir / f"{name}.json").write_text(json.dumps(op))
+
+
+def test_doctor_fix_sets_aside_only_the_letters_no_retry_can_deliver(tmp_path):
+    """A superseded attempt's write, and a write whose run the server still
+    says does not exist, asked again with the write's own credential, go to
+    discarded/. Everything else stays for `probe outbox retry`: a run that
+    exists again, an answer that cannot tell, a workspace limit's 404, any
+    other refusal, and a close a takeover set aside."""
+    journal = Journal(tmp_path / "outbox")
+    _letter(journal, "0001-stale", "r-1", _STALE_LETTER)
+    _letter(journal, "0002-gone", "r-gone", "NotFoundError: run not found")
+    _letter(journal, "0003-back", "r-back", "NotFoundError: run not found")
+    _letter(journal, "0004-limit", "r-gone",
+            "NotFoundError: run not found (this request was limited to workspace w-1)")
+    _letter(journal, "0005-refused", "r-1", "ValidationError: unknown metric kind")
+    _letter(journal, "0006-unknown", "r-unknown", "NotFoundError: run not found")
+    _letter(journal, "0007-held", "r-1", _STALE_LETTER, takeover_hold={"pid": 1})
+    asked: list[str] = []
+
+    def run_exists(op):
+        asked.append(op["run_ref"])
+        return {"r-gone": False, "r-back": True}.get(op["run_ref"])
+
+    counts = journal.drop_unrecoverable(run_exists=run_exists)
+
+    assert counts.writes == 2
+    assert sorted(p.name for p in (journal.dir / "discarded").glob("*.json")) == [
+        "0001-stale.json", "0002-gone.json",
+    ]
+    assert sorted(p.name for p, _ in journal.failed()) == [
+        "0003-back.json", "0004-limit.json", "0005-refused.json", "0006-unknown.json", "0007-held.json",
+    ]
+    assert sorted(asked) == ["r-back", "r-gone", "r-unknown"], "a superseded write needs no request"
+    assert journal.drop_unrecoverable(run_exists=run_exists).writes == 0
+
+
+def test_doctor_fix_asks_with_each_writes_own_credential_once_per_run(tmp_path, monkeypatch):
+    from probe.sdk import client as client_module
+    from probe.sdk import errors
+    from probe.sdk import journal as journal_module
+
+    journal = Journal(tmp_path / "outbox")
+    for n, ref in enumerate(["r-gone", "r-gone", "r-limited", "r-away", "r-here"]):
+        _letter(journal, f"000{n}-{ref}", ref, "NotFoundError: run not found")
+    # Queued before writes named their credential: only today's login is at
+    # hand, and another team's reads every run as absent. Never asked, kept.
+    _letter(journal, "0005-r-gone", "r-gone", "NotFoundError: run not found", stamped=False)
+    built: list = []
+    asked: list[str] = []
+
+    class FakeClient:
+        def __init__(self, *, settings, async_writes):
+            built.append(settings)
+            self.transport = self
+
+        def request(self, method, path):
+            asked.append(path)
+            ref = path.rsplit("/", 1)[1]
+            if ref == "r-gone":
+                raise errors.NotFoundError("run not found", status=404, detail="run not found")
+            if ref == "r-limited":
+                exc = errors.NotFoundError("run not found", status=404, detail="run not found")
+                exc.workspace_limit_applied = "w-1"
+                raise exc
+            if ref == "r-away":
+                raise errors.TransportError("connection refused")
+            return {"id": ref}
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(journal_module, "_settings_for_op", lambda context, **_kw: ("own", context["base_url"]))
+    monkeypatch.setattr(client_module, "Client", FakeClient)
+
+    counts = journal.drop_unrecoverable()
+
+    assert counts.writes == 2, "both of r-gone's writes, and only those"
+    assert asked.count("/v1/runs/r-gone") == 1, "one request per credential and run"
+    assert set(built) == {("own", "http://test")}
+    assert sorted(p.name for p, _ in journal.failed()) == [
+        "0002-r-limited.json", "0003-r-away.json", "0004-r-here.json", "0005-r-gone.json",
+    ]
+
+
+def test_probe_doctor_fix_reports_what_it_set_aside(tmp_path, monkeypatch):
+    from probe.cli import doctor as doctor_impl
+    from probe._shared import telemetry
+
+    root = tmp_path / "outbox"
+    monkeypatch.setenv("PROBE_OUTBOX_DIR", str(root))
+    _letter(Journal(root), "0001-stale", "r-1", _STALE_LETTER)
+    sent: list = []
+    monkeypatch.setattr(
+        telemetry, "emit_outbox_discarded", lambda counts, **kw: sent.append((counts.writes, kw["reason"]))
+    )
+
+    lines = doctor_impl.drop_unrecoverable_dead_letters()
+
+    assert len(lines) == 1 and "Set aside 1 dead-lettered write" in lines[0]
+    assert sent == [(1, telemetry.DiscardReason.UNRECOVERABLE)]
+    assert Journal(root).failed() == []
+    assert doctor_impl.drop_unrecoverable_dead_letters() == [], "nothing left to say"
+
+
+def test_probe_outbox_drain_says_what_it_set_aside(tmp_path, monkeypatch, capsys):
+    """A superseded write leaves the queue without landing: the drain says so,
+    so it never reads as delivered, and `drain --all` adds every queue's up."""
+    from probe.sdk import journal as journal_module
+
+    main = _cli_main()
+    monkeypatch.setattr(main, "_journal", lambda: Journal(tmp_path / "outbox"))
+
+    def drained(journal, **_kw):
+        report = journal_module.DrainReport()
+        report.superseded.add({"kind": "http", "context": {"base_url": "http://test"}})
+        return report
+
+    monkeypatch.setattr(journal_module, "drain", drained)
+
+    main._drain_foreground()
+
+    assert "1 write(s) set aside: a newer attempt took their run over" in capsys.readouterr().out
+    folded = main._fold_drain_reports([drained(None), drained(None)])
+    assert folded.superseded.writes == 2

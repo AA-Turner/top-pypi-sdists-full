@@ -106,7 +106,7 @@ class Index(pulumi.CustomResource):
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
                  push: pulumi.Input[Optional[_builtins.bool]] = None,
-                 registry: pulumi.Input[Optional[Union['RegistryArgs', 'RegistryArgsDict']]] = None,
+                 registry: pulumi.Input[Optional[Union['RegistryArgs', 'RegistryArgsDict', 'outputs.Registry']]] = None,
                  sources: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  tag: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
@@ -180,13 +180,12 @@ class Index(pulumi.CustomResource):
         pulumi.export("ref", index.ref)
         ```
 
-
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.bool] push: If true, push the index to the target registry.
                
                Defaults to `true`.
-        :param pulumi.Input[Union['RegistryArgs', 'RegistryArgsDict']] registry: Authentication for the registry where the tagged index will be pushed.
+        :param pulumi.Input[Union['RegistryArgs', 'RegistryArgsDict', 'outputs.Registry']] registry: Authentication for the registry where the tagged index will be pushed.
                
                Credentials can also be included with the provider's configuration.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] sources: Existing images to include in the index.
@@ -268,7 +267,6 @@ class Index(pulumi.CustomResource):
         pulumi.export("ref", index.ref)
         ```
 
-
         :param str resource_name: The name of the resource.
         :param IndexArgs args: The arguments to use to populate this resource's properties.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -285,7 +283,7 @@ class Index(pulumi.CustomResource):
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
                  push: pulumi.Input[Optional[_builtins.bool]] = None,
-                 registry: pulumi.Input[Optional[Union['RegistryArgs', 'RegistryArgsDict']]] = None,
+                 registry: pulumi.Input[Optional[Union['RegistryArgs', 'RegistryArgsDict', 'outputs.Registry']]] = None,
                  sources: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  tag: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
@@ -339,7 +337,7 @@ class Index(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter
-    def push(self) -> pulumi.Output[Optional[_builtins.bool]]:
+    def push(self) -> pulumi.Output[_builtins.bool]:
         """
         If true, push the index to the target registry.
 

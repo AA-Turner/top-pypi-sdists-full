@@ -1,6 +1,7 @@
 use crate::hashbrown;
 use crate::internal::alias;
 use crate::internal::lazyheap;
+use crate::internal::lazyheap::HeapNode;
 use crate::internal::pickle::Builder;
 use crate::internal::utils;
 use crate::policies::traits;
@@ -10,15 +11,9 @@ use crate::policies::traits::SharedExt;
 
 pub use crate::policies::common::Shared;
 
-macro_rules! compare_fn {
-    () => {
-        |x, y| x.frequency.cmp(&y.frequency)
-    };
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
-pub struct Frequency(u128);
+pub struct Frequency(u64);
 
 impl Frequency {
     #[inline(always)]
@@ -33,6 +28,26 @@ pub struct FrequencyHandle {
     value: alias::PyObject,
     size: usize,
     frequency: Frequency,
+    slot: lazyheap::HeapSlot<u64>,
+}
+
+impl lazyheap::HeapNode for FrequencyHandle {
+    type Key = u64;
+
+    #[inline(always)]
+    fn heap_key(&self) -> u64 {
+        self.frequency.0
+    }
+
+    #[inline(always)]
+    fn heap_slot(&self) -> &lazyheap::HeapSlot<u64> {
+        &self.slot
+    }
+
+    #[inline(always)]
+    fn heap_slot_mut(&mut self) -> &mut lazyheap::HeapSlot<u64> {
+        &mut self.slot
+    }
 }
 
 impl FrequencyHandle {
@@ -70,14 +85,15 @@ impl FrequencyHandle {
             key,
             value,
             size,
-            frequency: Frequency(frequency),
+            frequency: Frequency(u64::try_from(frequency).unwrap_or(u64::MAX)),
+            slot: Default::default(),
         })
     }
 
     /// Returns the frequency.
     #[inline]
     pub fn frequency(&self) -> u128 {
-        self.frequency.0
+        self.frequency.0 as u128
     }
 
     /// Consumes `self` and returns the [`utils::PrecomputedHashObject`].
@@ -114,6 +130,7 @@ impl FrequencyHandle {
             value: self.value.clone_ref(py),
             size: self.size,
             frequency: self.frequency,
+            slot: Default::default(),
         }
     }
 }
@@ -163,10 +180,14 @@ impl traits::OccupiedExt for Occupied<'_> {
                 .saturating_sub(cursor.element().size())
                 .saturating_add(new.size());
 
+            let mut new = new;
+            *new.heap_slot_mut() = *cursor.element().heap_slot();
             let old = std::mem::replace(cursor.element_mut(), new);
 
             cursor.element_mut().frequency.increment();
-            self.policy.heap.mark_unsorted();
+
+            // The key may move either way; re-position lazily (no layout change now).
+            self.policy.heap.mark_changed(*cursor);
 
             old
         }
@@ -177,7 +198,7 @@ impl traits::OccupiedExt for Occupied<'_> {
         self.shared.generation_version().increment();
 
         let (cursor, _) = unsafe { self.policy.table.remove(self.bucket) };
-        let item = self.policy.heap.remove(cursor, compare_fn!());
+        let item = self.policy.heap.remove(cursor);
 
         self.policy.currsize = self.policy.currsize.saturating_sub(item.size());
         item
@@ -259,11 +280,11 @@ impl LFUPolicy {
     pub fn iter(&mut self, gv: &utils::GenerationVersion) -> lazyheap::RawIter<FrequencyHandle> {
         // We don't want to intrupt other iterators with no reason
         // so need to manually call sort_by to only intrupt them on changes.
-        if self.heap.sort_by(compare_fn!()) {
+        if self.heap.sort_by() {
             gv.increment();
         }
 
-        self.heap.iter(compare_fn!())
+        self.heap.iter()
     }
 
     #[inline]
@@ -273,7 +294,7 @@ impl LFUPolicy {
         n: usize,
         gv: &utils::GenerationVersion,
     ) -> Option<utils::PrecomputedHashObject> {
-        if self.heap.sort_by(compare_fn!()) {
+        if self.heap.sort_by() {
             gv.increment();
         }
 
@@ -332,8 +353,10 @@ impl PolicyExt for LFUPolicy {
 
         match cursor {
             Some(cursor) => unsafe {
-                // increment frequency
+                // Lazy priority increase: O(1), no buffer movement. The heap repairs
+                // its root on the next eviction; ordered iteration re-sorts.
                 cursor.element_mut().frequency.increment();
+                self.heap.mark_unsorted();
 
                 Ok(Some(cursor.element()))
             },
@@ -374,7 +397,7 @@ impl PolicyExt for LFUPolicy {
         {
             let front_cursor = self
                 .heap
-                .front(compare_fn!())
+                .front()
                 .ok_or_else(|| new_py_error!(PyKeyError, "cache is empty"))?;
 
             self.table
@@ -386,7 +409,7 @@ impl PolicyExt for LFUPolicy {
 
         shared.generation_version().increment();
 
-        let handle = self.heap.pop_front(compare_fn!()).unwrap();
+        let handle = self.heap.pop_front().unwrap();
 
         self.currsize = self.currsize.saturating_sub(handle.size);
         Ok(handle)
@@ -465,7 +488,7 @@ impl PolicyExt for LFUPolicy {
         let mut heap = lazyheap::LazyHeap::new();
 
         unsafe {
-            for cursor in self.heap.iter(compare_fn!()) {
+            for cursor in self.heap.iter() {
                 let cloned_handle = cursor.element().clone_ref(py);
                 let new_cursor = heap.push(cloned_handle);
                 table.insert_no_grow(new_cursor.element().key().hash(), new_cursor);
@@ -494,7 +517,7 @@ impl PolicyExt for LFUPolicy {
             let mut tuple = list.begin_tuple(3)?;
             tuple.push(handle.key.as_ref())?;
             tuple.push(handle.value())?;
-            tuple.push(handle.frequency.0)?;
+            tuple.push(handle.frequency.0 as u128)?;
             tuple.end()?;
         }
 
@@ -540,7 +563,7 @@ impl PolicyExt for LFUPolicy {
             }
         }
 
-        slf.heap.sort_by(compare_fn!());
+        slf.heap.sort_by();
         Ok((shared, slf))
     }
 }

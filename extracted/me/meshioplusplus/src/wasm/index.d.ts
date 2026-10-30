@@ -425,18 +425,50 @@ export interface MeshCadSurfaceOptions {
   /**
    * Mesh a face whose metric's condition number over its coarse mesh passes
    * this in a flattening of that mesh (v17.20.0); 0 (default) is off,
-   * otherwise above 1; order 1 only.
+   * otherwise above 1; at order 2 or 3 the curved nodes sit at the
+   * flattening's coordinates.
    */
   reparamConditionNumber?: number;
   /** Accept the gaps the model itself declares in its edges' extras (default false). */
   modelTolerances?: boolean;
-  /** Mesh a sliver face with the neighbour it meets tangentially (default false). */
+  /** Mesh a sliver face with the neighbour it meets tangentially, at any order (default false). */
   virtualFaces?: boolean;
   /**
    * Lop acute corners (Pav and Walkington 2005) in place of concentric
    * shells (v17.20.0; default false); only with refinement.
    */
   lopCorners?: boolean;
+  /**
+   * A mesh whose 9-component point data `metricArray` is a field's Hessian
+   * (or whose 1-component one is the field, its Hessian then taken): an
+   * anisotropic metric from it, with the target interpolation error
+   * `metricError`, sizes the triangles in every direction (roadmap 6.10.2),
+   * at any order; `minMetricAngle` reports the least angle in the metric.
+   */
+  metricBackground?: Mesh;
+  /** The name of that Hessian array (e.g. 'f:hessian'), or of the field. */
+  metricArray?: string;
+  /** The target interpolation error (positive). */
+  metricError?: number;
+  /**
+   * With `order` 2 or 3, move a face's own high-order nodes on the surface
+   * (quads' too) to untangle a folded curved element before it is
+   * straightened (roadmap 6.6.3; default false).
+   */
+  untangle?: boolean;
+  /**
+   * 'none' (the default), 'dominant' (pairs of triangles recombined into
+   * quads where they make a good one) or 'all' (the quad-dominant mesh of
+   * twice the size split into quads only; no `virtualEdges`); order 2 or 3
+   * writes quad9 or quad16 (6.8).
+   */
+  quads?: 'none' | 'dominant' | 'all';
+  /**
+   * How triangles pair into quads: 'matching' (the default, a maximum
+   * matching of greatest total quality, Blossom-quad) or 'greedy' (best pair
+   * first) (6.8.1).
+   */
+  quadPairs?: 'matching' | 'greedy';
 }
 
 /** A corner lopped (`lopCorners`, v17.20.0), 0-based face and point. */
@@ -470,7 +502,7 @@ export interface MeshCadReparamFace {
   /** The same in its flattening's plane (0 when none was built). */
   conditionNumberDisc: number;
   taken: boolean;
-  method: 'conformal' | 'mean_value' | 'none';
+  method: 'conformal' | 'mean_value' | 'annulus' | 'none';
   /** Why not taken. */
   reason: string;
 }
@@ -509,6 +541,277 @@ export interface MeshCadCorner {
   /** A pole's reach on the surface; 0 for a small angle. */
   reach: number;
   pole: boolean;
+}
+
+/** Options of `boundaryLayer` (doc/boundary_layer.md). */
+export interface BoundaryLayerOptions {
+  /** The first layer's thickness (required, positive). */
+  firstHeight: number;
+  /** How many layers, 1 to 1000 (default 3). */
+  numLayers?: number;
+  /** Each layer's thickness over the one before, 1 to 10 (default 1.2). */
+  growth?: number;
+  /** Grow against the faces' normals (default false). */
+  reverse?: boolean;
+  /** Of the distance a point's ray hits, in (0, 1] (default 0.45). */
+  collisionFraction?: number;
+  /** Passes smoothing that share over neighbours (default 5). */
+  smoothIterations?: number;
+  /** Halvings of a point's layers before they collapse (default 6). */
+  maxShrink?: number;
+  /**
+   * How a point whose cells fold gives way: `"points"` (default) halves its
+   * layers and then collapses it; `"layers"` drops its top layer, so it grows
+   * fewer layers at their full thickness.
+   */
+  collapse?: 'points' | 'layers';
+  /** Laplacian passes over the growth directions, 0 to 1000 (default 0). */
+  normalSmoothIterations?: number;
+  /** Test the last layer's faces against each other and the surface (default true). */
+  frontCheck?: boolean;
+}
+
+/** What `boundaryLayer` returns. */
+export interface BoundaryLayerResult {
+  mesh: Mesh;
+  numCells: number;
+  numWedges: number;
+  numHexahedra: number;
+  numPyramids: number;
+  numTetrahedra: number;
+  numShrunk: number;
+  numCollapsed: number;
+  numNotVisible: number;
+  /** With `collapse: "layers"`, the points that grow fewer layers than asked. */
+  numFewerLayers: number;
+  /** Last-layer face pairs the front test found crossing or touching. */
+  numFrontCrossings: number;
+  minScaledJacobian: number;
+  minThickness: number;
+  maxThickness: number;
+  capClosed: boolean;
+  warnings: string[];
+}
+
+/** Options of `extrude` (doc/extrude.md). */
+export interface ExtrudeOptions {
+  /** The whole displacement of the last level (default `[0, 0, 1]`). */
+  direction?: number[];
+  /** Layers, 1 or more (default 1); with `offsets`, 1 or their count. */
+  numLayers?: number;
+  /** Each layer's thickness over the one below's (default 1, uniform). */
+  ratio?: number;
+  /** Explicit level fractions, increasing, positive, the last 1. */
+  offsets?: number[];
+  /** Attach Int32 `extrude:layer` cell data (default false). */
+  recordLayers?: boolean;
+  /** Refuse more profile cells times layers (default 20000000). */
+  maxCells?: number;
+}
+
+/** Options of `revolve` (doc/extrude.md). */
+export interface RevolveOptions {
+  /** The axis direction (default `[0, 1, 0]`). */
+  axis?: number[];
+  /** A point of the axis (default the origin). */
+  axisPoint?: number[];
+  /** Degrees, 0 < |angle| <= 360, right-hand rule (default 360, a full turn). */
+  angle?: number;
+  /** Steps of the turn (default 16; at least 3 for a full turn). */
+  numLayers?: number;
+  /** On the axis: a fraction of the bounding-box diagonal (default 1e-9). */
+  tolerance?: number;
+  /** Attach Int32 `revolve:layer` cell data (default false). */
+  recordLayers?: boolean;
+  /** Refuse more profile cells times layers (default 20000000). */
+  maxCells?: number;
+}
+
+/** What `extrude` and `revolve` return. */
+export interface SweepResult {
+  mesh: Mesh;
+  numCells: number;
+  numHexahedra: number;
+  numWedges: number;
+  numPyramids: number;
+  numTetrahedra: number;
+  /** A swept curve's quads. */
+  numQuads: number;
+  /** A swept curve's triangles, where an end is on the axis. */
+  numTriangles: number;
+  /** Profile cells turned to face the sweep. */
+  numFlipped: number;
+  /** `revolve` only: profile points on the axis. */
+  numOnAxis?: number;
+  /** `revolve` only: a full turn, closed on itself. */
+  full?: boolean;
+  /** The least scaled Jacobian of a volume cell; 0 for a swept curve. */
+  minScaledJacobian: number;
+  warnings: string[];
+}
+
+/** Options of `mirror` (doc/mirror.md). */
+export interface MirrorOptions {
+  /** A point of the plane (default the origin). */
+  origin?: number[];
+  /** The plane's normal (default `[1, 0, 0]`). */
+  normal?: number[];
+  /** The input followed by its image (default false). */
+  keepOriginal?: boolean;
+  /** With `keepOriginal`, share the points on the plane (default true). */
+  weld?: boolean;
+  /** On the plane: a fraction of the bounding-box diagonal (default 1e-9). */
+  tolerance?: number;
+  /** Reflect float vector and tensor data on the copies (default false). */
+  reflectVectorData?: boolean;
+}
+
+/** What `mirror` returns. */
+export interface MirrorResult {
+  mesh: Mesh;
+  numFlippedCells: number;
+  numPointsOnPlane: number;
+  numDroppedCells: number;
+  numDroppedSides: number;
+  warnings: string[];
+}
+
+/** Options of `tetrahedralize` (doc/tetrahedralize.md). */
+export interface TetrahedralizeOptions {
+  /**
+   * `"auto"` (default: Netgen when built in, else `"octree"`), `"netgen"`
+   * (the surface kept; no WebAssembly build carries it) or `"octree"` (the
+   * native isosurface stuffing, the boundary fitted).
+   */
+  backend?: 'auto' | 'netgen' | 'octree';
+  /** The largest edge asked of the tetrahedra (0, the default, is none). */
+  maxSize?: number;
+  /** The largest volume asked of a tetrahedron (0, the default, is none). */
+  maxVolume?: number;
+  /** How fast the size grows away from the surface, in [0, 1] (default 0.3). */
+  grading?: number;
+  /** Passes of the backend's volume optimisation, 0 to 100 (default 3). */
+  optimizeSteps?: number;
+  /** Refuse a result of more tetrahedra (default 50000000). */
+  maxCells?: number;
+  /** The cell data naming each triangle's CAD face (default "cad:face"). */
+  faceArray?: string;
+}
+
+/** What `tetrahedralize` returns. */
+export interface TetrahedralizeResult {
+  mesh: Mesh;
+  numTetrahedra: number;
+  /** Every point of the result. */
+  numPoints: number;
+  /** Of those, inside the surface. */
+  numNewPoints: number;
+  /** Enclosed regions, one per shell. */
+  numRegions: number;
+  numBoundaryTriangles: number;
+  /** Every surface triangle and its points kept exactly. */
+  boundaryPreserved: boolean;
+  hausdorffToSurface: number;
+  minDihedralDeg: number;
+  maxDihedralDeg: number;
+  volume: number;
+  /** The backend that ran. */
+  backend: string;
+  warnings: string[];
+}
+
+/** Options of `checkConformity` (doc/check_conformity.md). */
+export interface ConformityOptions {
+  /** Distances at or below this fraction of the examined facets' bounding-box
+   *  diagonal count as zero (default 1e-9). */
+  tolerance?: number;
+  /** Attach the `conformity:hanging` point data (default true). */
+  attachFlags?: boolean;
+}
+
+/** What `checkConformity` returns. */
+export interface ConformityResult {
+  /** The input, unchanged but for `conformity:hanging` (1 hanging node, 2 T-junction). */
+  mesh: Mesh;
+  /** 3 for volume cells, 2 for 2-D cells, 0 when nothing was examined. */
+  dimension: number;
+  /** Points on a volume cell's face or edge that the cell does not use. */
+  numHangingNodes: number;
+  /** Points on a 2-D cell's edge that the cell does not use. */
+  numTJunctions: number;
+  /** Pairs of unmatched facets in one plane that overlap over a positive area. */
+  numPartialOverlaps: number;
+  /** Pairs of coincident unmatched facets with different point ids. */
+  numUnweldedFacets: number;
+  numBoundaryFacets: number;
+  numNonManifoldFacets: number;
+  /** None of the four defects above. */
+  conforming: boolean;
+  /** The `findInterface` mode that suits the mesh. */
+  interfaceMode: 'conforming' | 'weld' | 'proximity';
+  warnings: string[];
+}
+
+/** Options of `errorSize` (doc/error.md). */
+export interface ErrorSizeOptions {
+  /** The target global error, in the indicator's norm (positive; required). */
+  targetError: number;
+  /** The one-component cell data indicator (default "error:zz"). */
+  errorArray?: string;
+  /** The indicator's rate in the cell size (default 1, for linear elements). */
+  order?: number;
+  /** The least size written (0, the default, is no bound). */
+  minSize?: number;
+  /** The greatest size written (0, the default, is no bound). */
+  maxSize?: number;
+  /** The point data array written (default "size"). */
+  output?: string;
+  /** Replace an existing array of that name (default false). */
+  overwrite?: boolean;
+}
+
+/** What `errorSize` returns. */
+export interface ErrorSizeResult {
+  mesh: Mesh;
+  /** Cells evaluated. */
+  numCells: number;
+  /** Cells whose indicator or size is not finite. */
+  numSkipped: number;
+  /** Cell sizes the bounds clamped. */
+  numClamped: number;
+  /** The least and greatest point size written. */
+  minSize: number;
+  maxSize: number;
+}
+
+/** Options of `projectToCad` (doc/project_to_cad.md). */
+export interface ProjectToCadOptions {
+  /** The cell data naming each triangle's or quad's CAD face (default "cad:face"). */
+  faceArray?: string;
+  /** The cell data naming each line's CAD edge (default "cad:edge"). */
+  edgeArray?: string;
+  /** A point farther than this stays (0, the default, is no limit). */
+  maxDistance?: number;
+  /** Samples per knot span when testing a face's trims (default 16). */
+  trimSamples?: number;
+}
+
+/** What `projectToCad` returns. */
+export interface ProjectToCadResult {
+  mesh: Mesh;
+  numProjected: number;
+  numOnEdges: number;
+  /** Of those on edges, the points put onto the edge's own 3-D curve. */
+  numOnCurves: number;
+  numCorners: number;
+  numAmbiguous: number;
+  numTooFar: number;
+  numFailed: number;
+  numOutsideTrim: number;
+  maxMove: number;
+  /** The points (0-based) projected outside their face's trims, ascending. */
+  outsideTrim: number[];
+  warnings: string[];
 }
 
 /** One face's outcome in `meshCadSurface`'s report. */
@@ -583,6 +886,17 @@ export interface MeshCadSurfaceResult {
   toleranceUses: MeshCadToleranceUse[];
   /** The corners lopped (v17.20.0). */
   loppedCorners: MeshCadLoppedCorner[];
+  /** Curved elements kept curved by untangling (6.6.3). */
+  numUntangled: number;
+  /** Quads, the triangles left beside them, and the least scaled Jacobian of a quad (6.8). */
+  numQuads: number;
+  numLeftoverTriangles: number;
+  minQuadScaledJacobian: number;
+  /**
+   * With a `metricBackground`, the least corner angle of a cell in the metric
+   * at its centroid, in degrees (the measure refinement judges by); 0 without.
+   */
+  minMetricAngle: number;
 }
 
 /** Sampling options of `igaRefine` / `igaSample`. */
@@ -1131,6 +1445,7 @@ export type OpSpec =
       attachOccupancy?: boolean;
       maxCells?: number;
       sign?: SdfSign;
+      plane?: PlanarPlane;
     }
   | {
       /**
@@ -1255,6 +1570,9 @@ export type OctreeMeshConformity = 'stuffing' | 'cleaving';
 
 /** How `octreeMesh`'s size field may vary along the skin. */
 export type OctreeMeshSkinGrading = 'graded' | 'uniform';
+
+/** How a hexahedral `octreeMesh` output grades: one grid at the skin's size, or the octree's own grading through dual transition schemes. */
+export type OctreeMeshHexGrading = 'uniform' | 'graded';
 
 /** Which leaves a castellated `octreeMesh` output keeps. */
 export type OctreeMeshFill = 'inside' | 'all' | 'cover';
@@ -2002,6 +2320,19 @@ export interface MeshioPlusPlusModule {
   hasOcct(): boolean;
 
   /**
+   * Whether `tetrahedralize`'s Netgen backend is linked in: always false in
+   * WebAssembly, where no Netgen build exists (the octree backend always is).
+   */
+  hasNetgen(): boolean;
+
+  /**
+   * Whether the MMG backend (`adapt`, `discretize_levelset`, `mesh_domain`,
+   * `move`) is linked in: always false in WebAssembly until the port of
+   * roadmap 3.2.8.
+   */
+  hasMmg(): boolean;
+
+  /**
    * Whether the KaHIP kaffpa partitioner is linked in, so `partition` with
    * `method: 'kahip'` runs: true in the full artifact (`{full: true}`),
    * false in the lean one.
@@ -2328,62 +2659,62 @@ export interface MeshioPlusPlusModule {
    *   above `maxCells`.
    */
   rectangle(dims?: number[] | null, size?: number[] | null, origin?: number[] | null,
-            cellType?: string, split?: string, order?: number, maxCells?: number): Mesh;
+            cellType?: string, split?: string, order?: number, maxCells?: number, complete?: boolean): Mesh;
 
   /** A regular 3-D grid of `'hexahedron'`, `'tetra'` (six Kuhn tetrahedra per
    * cell) or `'wedge'` cells. Side regions `xmin` ... `zmax`. */
   box(dims?: number[] | null, size?: number[] | null, origin?: number[] | null,
-      cellType?: string, order?: number, maxCells?: number): Mesh;
+      cellType?: string, order?: number, maxCells?: number, complete?: boolean): Mesh;
 
   /** A disk of `n x n` quads (squircle map) or `n` rings of triangles. Side
    * region `rim`. */
   disk(radius?: number, n?: number, center?: number[] | null, cellType?: string,
-       order?: number, maxCells?: number): Mesh;
+       order?: number, maxCells?: number, complete?: boolean): Mesh;
 
   /** A latitude / longitude sphere surface, oriented outward; `cellType: 'quad'`
    * gives quads between the rings and triangle caps. */
   uvSphere(radius?: number, nu?: number, nv?: number, center?: number[] | null,
-           cellType?: string, order?: number, maxCells?: number): Mesh;
+           cellType?: string, order?: number, maxCells?: number, complete?: boolean): Mesh;
 
   /** A sphere surface of `20 * 4^subdivisions` triangles, oriented outward. */
   icosaSphere(radius?: number, subdivisions?: number, center?: number[] | null,
-              order?: number, maxCells?: number): Mesh;
+              order?: number, maxCells?: number, complete?: boolean): Mesh;
 
   /** A solid cylinder along z, `'hexahedron'` or `'wedge'` cells. Side regions
    * `side`, `top`, `bottom`. */
   cylinder(radius?: number, height?: number, nxy?: number, nz?: number,
            center?: number[] | null, cellType?: string, order?: number,
-           maxCells?: number): Mesh;
+           maxCells?: number, complete?: boolean): Mesh;
 
   /** The reference triangle `(0,0) (1,0) (0,1)`, scaled by `size` and refined into
    * `n * n` triangles in barycentric lattice order. Side regions `ymin`, `xmin`,
    * `hypotenuse`. */
   referenceTriangle(n?: number, size?: number[] | null, origin?: number[] | null,
-                    order?: number, maxCells?: number): Mesh;
+                    order?: number, maxCells?: number, complete?: boolean): Mesh;
 
   /** A regular polygon fanned from its centre (`rings: 1`), or refined into
    * `rings` rings of triangles. Side region `rim`. */
   ngon(sides?: number, radius?: number, rings?: number, center?: number[] | null,
-       order?: number, maxCells?: number): Mesh;
+       order?: number, maxCells?: number, complete?: boolean): Mesh;
 
   /** An annulus, or a sector of `angle` radians whose two end rays stay separate
    * node chains (the seam pair `periodic` links). Side regions `inner`, `outer`
    * and, for a sector, `start` and `end`. */
   annulus(innerRadius?: number, outerRadius?: number, ntheta?: number, nr?: number,
           angle?: number, center?: number[] | null, cellType?: string, order?: number,
-          maxCells?: number): Mesh;
+          maxCells?: number, complete?: boolean): Mesh;
 
   /** The square of side `size` minus its fourth quadrant (`x > 0`, `y < 0`), the
    * re-entrant corner at `center`. Side regions `xmin`, `xmax`, `ymin`, `ymax`,
    * `notch_x`, `notch_y`. */
   lshape(n?: number, size?: number, center?: number[] | null, cellType?: string,
-         order?: number, maxCells?: number): Mesh;
+         order?: number, maxCells?: number, complete?: boolean): Mesh;
 
   /** A square plate of side `size` around a circular hole, in four quad blocks of
    * `nt x nr` cells. Side regions `hole`, `xmin`, `xmax`, `ymin`, `ymax`. */
   plateWithHole(radius?: number, size?: number, nt?: number, nr?: number,
                 center?: number[] | null, cellType?: string, order?: number,
-                maxCells?: number): Mesh;
+                maxCells?: number, complete?: boolean): Mesh;
 
   /** A tiling of pointy-top hexagons as one ragged `polygon` block. Side region
    * `boundary`. */
@@ -2395,12 +2726,77 @@ export interface MeshioPlusPlusModule {
    * cells sharing a facet, for linear types. */
   referenceCells(types?: string[] | null, pairs?: boolean): Mesh;
 
+  /** A straight segment of `n` `line` cells from `start` to `end`. Point regions `start` and `end`. */
+  line(n?: number, start?: number[] | null, end?: number[] | null, order?: number, maxCells?: number, complete?: boolean): Mesh;
+
+  /** A closed polyline of `n` `line` cells on a circle in the `z = center[2]` plane. */
+  circle(radius?: number, n?: number, center?: number[] | null, order?: number, maxCells?: number, complete?: boolean): Mesh;
+
+  /** A helix of `n` `line` cells around the z axis, rising `pitch` per turn. Point regions `start` and `end`. */
+  helix(radius?: number, pitch?: number, turns?: number, n?: number, center?: number[] | null, order?: number, maxCells?: number, complete?: boolean): Mesh;
+
+  /** `n` points on a sphere on a Fibonacci lattice, as `vertex` cells. */
+  spherePoints(n?: number, radius?: number, center?: number[] | null, maxCells?: number): Mesh;
+
+  /** `n` points drawn uniformly in a box from splitmix64 seeded with `seed`, as `vertex` cells. */
+  boxPoints(n?: number, size?: number[] | null, origin?: number[] | null, seed?: number, maxCells?: number): Mesh;
+
+  /** A sphere surface from a regular tetrahedron split in four `subdivisions` times. */
+  tetraSphere(radius?: number, subdivisions?: number, center?: number[] | null, order?: number, maxCells?: number, complete?: boolean): Mesh;
+
+  /** A sphere surface from a regular octahedron split in four `subdivisions` times. */
+  octaSphere(radius?: number, subdivisions?: number, center?: number[] | null, order?: number, maxCells?: number, complete?: boolean): Mesh;
+
+  /** A sphere surface from a cube's six faces of `n x n` cells. */
+  cubeSphere(radius?: number, n?: number, center?: number[] | null, cellType?: string, order?: number, maxCells?: number, complete?: boolean): Mesh;
+
+  /** A geodesic sphere of frequency `n` (`20 n^2` triangles). */
+  geoSphere(radius?: number, n?: number, center?: number[] | null, order?: number, maxCells?: number, complete?: boolean): Mesh;
+
+  /** A torus around the z axis, periodic both ways and welded. */
+  torus(majorRadius?: number, minorRadius?: number, nu?: number, nv?: number, center?: number[] | null, cellType?: string, order?: number, maxCells?: number, complete?: boolean): Mesh;
+
+  /** A Moebius band with `numTwists` half-twists (odd: non-orientable). Side region `boundary`. */
+  moebius(radius?: number, width?: number, nu?: number, nv?: number, numTwists?: number, center?: number[] | null, cellType?: string, order?: number, maxCells?: number, complete?: boolean): Mesh;
+
+  /** An open cylinder surface around the z axis. Side regions `bottom` and `top`. */
+  tube(radius?: number, height?: number, ntheta?: number, nz?: number, center?: number[] | null, cellType?: string, order?: number, maxCells?: number, complete?: boolean): Mesh;
+
+  /** A closed cone surface with a sharp rim. Cell regions `side` and `base`. */
+  cone(radius?: number, height?: number, ntheta?: number, nz?: number, center?: number[] | null, cellType?: string, order?: number, maxCells?: number, complete?: boolean): Mesh;
+
+  /** A cylinder of length `height` closed by two hemispheres. */
+  capsule(radius?: number, height?: number, ntheta?: number, nz?: number, ncap?: number, center?: number[] | null, cellType?: string, order?: number, maxCells?: number, complete?: boolean): Mesh;
+
+  /** The boundary of a box as a closed surface. Cell regions `xmin` ... `zmax`. */
+  boxSurface(dims?: number[] | null, size?: number[] | null, origin?: number[] | null, cellType?: string, order?: number, maxCells?: number, complete?: boolean): Mesh;
+
+  /** A platonic solid's surface, one cell per face: `'tetrahedron'`, `'cube'`, `'octahedron'`, `'dodecahedron'` (a `polygon` block) or `'icosahedron'`. */
+  platonic(name?: string, radius?: number, center?: number[] | null, maxCells?: number): Mesh;
+
+  /** A ball by the seven-block butterfly, `n` cells from the centre to the surface. Side region `surface`. */
+  ball(radius?: number, n?: number, center?: number[] | null, cellType?: string, order?: number, maxCells?: number, complete?: boolean): Mesh;
+
+  /** A thick spherical shell of hexahedra, `ratio` grading the layers. Side regions `inner` and `outer`. */
+  sphericalShell(innerRadius?: number, outerRadius?: number, n?: number, nr?: number, ratio?: number, center?: number[] | null, order?: number, maxCells?: number, complete?: boolean): Mesh;
+
+  /** A thick-walled pipe of hexahedra. Side regions `inner`, `outer`, `bottom`, `top`. */
+  pipe(innerRadius?: number, outerRadius?: number, height?: number, ntheta?: number, nr?: number, nz?: number, ratio?: number, center?: number[] | null, order?: number, maxCells?: number, complete?: boolean): Mesh;
+
+  /** The cube of side `size` minus its positive octant. Side regions `xmin` ... `zmax`, `notch_x`, `notch_y`, `notch_z`. */
+  fichera(n?: number, size?: number, center?: number[] | null, cellType?: string, order?: number, maxCells?: number, complete?: boolean): Mesh;
+
+  /** A solid torus of hexahedra, the squircle disk swept around the z axis. Side region `surface`. */
+  solidTorus(majorRadius?: number, minorRadius?: number, n?: number, nu?: number, center?: number[] | null, order?: number, maxCells?: number, complete?: boolean): Mesh;
+
   /**
    * Build a regular grid around a mesh. Give exactly one of `resolution` and
    * `cellSize`; `fill` selects the whole bounding box, only the cells a triangle
-   * passes through, or only the cells inside the surface.
+   * passes through, or only the cells inside the surface. A zero third
+   * `resolution` entry selects 2-D pixels around a planar skin in `plane`
+   * (`'auto'` takes the axis of zero extent).
    * @throws {Error} when neither or both size options are given, on an unknown
-   *   `fill`/`sign`, or when the grid exceeds `maxCells`.
+   *   `fill`/`sign`/`plane`, or when the grid exceeds `maxCells`.
    */
   voxelize(
     mesh: Mesh,
@@ -2414,6 +2810,7 @@ export interface MeshioPlusPlusModule {
     attachOccupancy?: boolean,
     maxCells?: number,
     watertightCheck?: SdfWatertightCheck,
+    plane?: PlanarPlane,
   ): {
     mesh: Mesh;
     dims: number[];
@@ -2663,6 +3060,30 @@ export interface MeshioPlusPlusModule {
     marked?: string,
     overwrite?: boolean,
   ): { mesh: Mesh; globalError: number; numSkipped: number; numMarked: number };
+
+  /**
+   * A per-point size field from a per-cell error indicator (roadmap 6.10.2),
+   * by the adaptive procedure of Zienkiewicz and Zhu (1987): with `N` cells
+   * evaluated, a cell of diameter `h` whose indicator `errorArray` (what
+   * `estimateError` writes) is `eta` asks
+   * `h * (targetError / sqrt(N) / eta) ** (1 / order)`, clamped to
+   * `[minSize, maxSize]` (0: no bound); a point takes the least of its
+   * cells' (NaN where none is evaluated). The sizes are written as point data
+   * `output`, what `meshCadSurface`'s `background` reads.
+   * @throws {Error} on a missing or multi-component indicator, a target error
+   *   or order that is not finite and positive, a negative bound,
+   *   `minSize > maxSize`, an output-name collision without `overwrite`, or
+   *   an unknown option.
+   */
+  errorSize(mesh: Mesh, options: ErrorSizeOptions): ErrorSizeResult;
+
+  /**
+   * Whether a mesh is conforming: hanging nodes, T-junctions, partly
+   * overlapping and unwelded facets of its volume cells (else its 2-D cells).
+   * See doc/check_conformity.md.
+   * @throws {Error} on a negative or non-finite tolerance, or an unknown option.
+   */
+  checkConformity(mesh: Mesh, options?: ConformityOptions): ConformityResult;
 
   /**
    * Remesh a surface by approximated centroidal Voronoi diagram (ACVD)
@@ -3055,6 +3476,69 @@ export interface MeshioPlusPlusModule {
    * @throws {Error} on a bad option or an info object that is not a B-rep.
    */
   meshCadSurface(info: CadJsonInfo, options: MeshCadSurfaceOptions): MeshCadSurfaceResult;
+
+  /**
+   * Move every point of `mesh` onto the CAD face or edge its cells name
+   * (`cad:face` on triangles and quads, `cad:edge` on lines, as
+   * `meshCadSurface` writes them) of the B-rep `info` (roadmap 6.10.1): a
+   * point on one edge's lines onto that edge, on two or more (a corner) onto
+   * the lowest, a point whose cells name one face onto its surface (Newton
+   * point inversion); a point on two faces and no edge stays. A projection
+   * outside its face's trims is kept and listed in `outsideTrim`.
+   * @throws {Error} on a mesh with no face cell data, an index out of range or
+   * an info object that is not a B-rep.
+   */
+  projectToCad(mesh: Mesh, info: CadJsonInfo, options?: ProjectToCadOptions): ProjectToCadResult;
+
+  /**
+   * Grow prismatic boundary layers from a triangle and quad surface (roadmap
+   * 6.9): wedges from triangles and hexahedra from quads along each point's
+   * most normal normal, stopped before they collide, the points of a folding
+   * cell shrunk and then collapsed into pyramids and tetrahedra; the wall and
+   * the cap come out as faces with `boundary_layer:layer` cell data.
+   * @throws {Error} on a bad option or a surface that is not triangles and
+   * quads, manifold and consistently oriented.
+   */
+  boundaryLayer(mesh: Mesh, options: BoundaryLayerOptions): BoundaryLayerResult;
+
+  /**
+   * Sweep a surface's triangles and quads into wedges and hexahedra (or, with
+   * no 2-D cells, its lines into quads) along a vector, in layers (roadmap
+   * 3.1.2): the swept cells only, with side regions `bottom`, `top` and
+   * `side`.
+   * @throws {Error} on a bad option, a face or line parallel to the
+   * direction, higher-order or volume cells, or an exceeded budget.
+   */
+  extrude(mesh: Mesh, options?: ExtrudeOptions): SweepResult;
+
+  /**
+   * Sweep a surface (or a curve) around an axis (roadmap 3.1.3); points on
+   * the axis stay put and the cells around them collapse. Side regions
+   * `start`, `end` (a partial turn) and `side`.
+   * @throws {Error} on a bad option, a face that crosses the axis or turns
+   * within its own plane, or an exceeded budget.
+   */
+  revolve(mesh: Mesh, options?: RevolveOptions): SweepResult;
+
+  /**
+   * Reflect a mesh across a plane, every cell right side out (roadmap
+   * 3.2.5); with `keepOriginal` the input followed by its image.
+   * @throws {Error} on a zero normal, a bad tolerance or a cell type with no
+   * orientation flip.
+   */
+  mirror(mesh: Mesh, options?: MirrorOptions): MirrorResult;
+
+  /**
+   * Fill a closed, manifold, consistently oriented triangle surface with
+   * tetrahedra (roadmap 6.7). No WebAssembly build carries Netgen, which
+   * keeps the surface's triangles (`hasNetgen()` is false), so `"auto"` is the
+   * native octree backend: isosurface stuffing whose boundary is fitted to
+   * the surface within `hausdorffToSurface` (`boundaryPreserved` false), with
+   * a warning saying so.
+   * @throws {Error} for `backend: "netgen"` naming `MESHIOPLUSPLUS_WITH_NETGEN`;
+   * on a bad option or an open, non-manifold or misoriented surface by name.
+   */
+  tetrahedralize(mesh: Mesh, options?: TetrahedralizeOptions): TetrahedralizeResult;
 
   /**
    * Evaluate patch `patch` (0-based; the face of a B-rep) at `params`, a flat
@@ -3826,6 +4310,12 @@ export interface FitCadOptions {
   layoutSnapToFeatures?: boolean;
   /** Whether a freeform face's surface is sampled against the skin too, outside the legacy mode (default true). */
   validateBySurfaceSampling?: boolean;
+  /**
+   * Whether related primitives are fitted together, on either backend: coaxial cylinders, cones,
+   * tori and spheres share one axis, parallel and perpendicular planes and nearly equal radii are
+   * made exact, each change kept only where its patch still passes its fit (default false).
+   */
+  constrainPrimitives?: boolean;
 }
 
 /** One patch {@link MeshioPlusPlusModule.fitCad} tried as a surface (v17.12.0). */
@@ -3930,6 +4420,8 @@ export interface OctreeMeshOptions {
   attachQuality?: boolean;
   /** Hexahedral output: insert a layer of hexahedra along the boundary (default true). */
   pillow?: boolean;
+  /** Hexahedral output: one grid at the skin's size (`'uniform'`, the default) or the octree's own grading (`'graded'`). */
+  hexGrading?: OctreeMeshHexGrading;
   /** Hexahedral output: untangling iterations (default 50). */
   untangleIterations?: number;
   /** Refuse an octree with more leaves than this (default 20000000). */
@@ -4023,6 +4515,8 @@ export interface OctreeMeshResult {
   guaranteeApplies: boolean;
   /** Winding numbers re-evaluated near the threshold. */
   numWindingRechecks: number;
+  /** Winding numbers flooded in deep inside a closed skin, not evaluated. */
+  numWindingSkipped: number;
   /** Seconds spent in each stage, in order, as `[stage, seconds]` pairs. */
   timings: Array<[string, number]>;
   /** Everything that did not meet its target, in order. */
@@ -4169,6 +4663,10 @@ export interface FitCadResult {
   maxG1AngleDeg: number;
   maxFreeformDistance: number;
   rmsFreeformDistance: number;
+  /** With `constrainPrimitives`: the patches whose primitive took a shared axis, normal or radius. */
+  numConstrainedPrimitives: number;
+  /** With `constrainPrimitives`: the coaxial groups, parallel-normal families and equal-radius sets formed. */
+  numConstraintGroups: number;
   /** Outside the legacy mode: one record per patch tried as a surface. */
   faces?: FitCadFaceRecord[];
   /** The solid's B-rep, for `writeMesh(path, mesh, 'cad_json', {info})`. */

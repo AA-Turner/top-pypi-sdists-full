@@ -6,11 +6,10 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import TypeVar
 
-import structlog
-
+from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.worker_client.errors.sdkerror import SDKError
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 _T = TypeVar("_T")
 

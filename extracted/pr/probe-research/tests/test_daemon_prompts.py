@@ -51,11 +51,14 @@ def test_every_approved_file_is_used_here():
             "tools/bash-replies.NEW.md", "job/record-session-bash.NEW.md", "bite/bash-markers.NEW.md",
             # parallel calls and tasks: pinned in test_daemon_bash_tools.py
             "tools/parallel.NEW.md", "tools/task-command.NEW.md", "tools/task-instructions.NEW.md",
-            "tools/task-command-map.NEW.md", "tools/task-replies.NEW.md", "tools/parallel-replies.NEW.md"}
+            "tools/task-command-map.NEW.md", "tools/task-replies.NEW.md", "tools/parallel-replies.NEW.md",
+            # swarm friction T17, T18, T20
+            "bite/runs-ahead.NEW.md", "bite/file-growing.NEW.md", "bite/reference-header.NEW.md",
+            "bite/runs-read.NEW.md"}
     used |= {f"bite/{p.name}" for p in (FIXTURES / "bite").glob("*.PROPOSED.md")}
     # `reads/` (the daemon's reader) is pinned in test_daemon_reads_prompts.py.
     assert {str(p.relative_to(FIXTURES)) for p in FIXTURES.rglob("*.md") if p.relative_to(FIXTURES).parts[0] != "reads"} == used
-    assert len(used) == 41
+    assert len(used) == 45
 
 
 # ---------------------------------------------------------------------------
@@ -87,6 +90,20 @@ def test_the_instructions_carry_the_researchers_skills_verbatim():
         assert f"# Skill: {name}\n\n{skill}" in text, name
         assert text.index(f"# Skill: {name}") > at, "in order, after the job"
         at = text.index(f"# Skill: {name}")
+
+
+def test_the_instructions_show_track_works_reference_whole():
+    """Swarm friction T18: the writer `read` it in most runs; now it is in the
+    cached instructions, after the skills, under its approved heading."""
+    from probe.daemon import folders
+
+    text = bite_mod.instructions_for("")
+    reference = (bite_mod.skills_root() / "track-work" / "reference.md").read_text(encoding="utf-8").strip()
+    assert f"{body('bite/reference-header.NEW.md')}\n\n{reference}" in text
+    assert text.index(bite_mod.REFERENCE_HEADER) > text.index("# Skill: edit-notes")
+    assert bite_mod.RUNS_AHEAD == body("bite/runs-ahead.NEW.md")
+    assert folders.GROWING == body("bite/file-growing.NEW.md")
+    assert f"{bite_mod.RUNS_READ}\n{bite_mod.RUN_CUT}" == body("bite/runs-read.NEW.md")
 
 
 def _tools_seen() -> tuple[dict, list]:

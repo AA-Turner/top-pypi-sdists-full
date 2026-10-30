@@ -1,0 +1,1344 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright The LanceDB Authors
+
+//! Table optimization operations for compaction, pruning, and index optimization.
+//!
+//! This module contains the implementation of optimization operations that help
+//! maintain good performance for LanceDB tables.
+
+use std::{
+    collections::HashSet,
+    sync::{Arc, Mutex},
+};
+
+use arrow_schema::DataType;
+use chrono::{DateTime, Utc};
+use lance::dataset::cleanup::{CleanupPolicyBuilder, RemovalStats};
+use lance::dataset::optimize::{
+    CompactionMetrics, CompactionPlan, CompactionPlanner, IndexRemapperOptions,
+    compact_files_with_planner, plan_compaction,
+};
+use lance::index::{DatasetIndexExt, DatasetIndexInternalExt};
+use lance_core::utils::tracing::{DATASET_COMPACTING_EVENT, TRACE_DATASET_EVENTS};
+use lance_index::IndexType;
+use lance_index::metrics::NoOpMetricsCollector;
+use lance_index::optimize::OptimizeOptions;
+use log::{debug, info};
+
+use super::NativeTable;
+use crate::error::{Error, Result};
+pub use chrono::Duration;
+pub use lance::dataset::optimize::{CompactionMode, CompactionOptions, IndexRemapMode};
+
+const MAX_ARROW_FIXED_SIZE_LIST_CHILD_INDEX: u64 = u32::MAX as u64;
+
+struct PrecomputedCompactionPlanner {
+    plan: Mutex<Option<CompactionPlan>>,
+}
+
+impl PrecomputedCompactionPlanner {
+    fn new(plan: CompactionPlan) -> Self {
+        Self {
+            plan: Mutex::new(Some(plan)),
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl CompactionPlanner for PrecomputedCompactionPlanner {
+    async fn plan(&self, dataset: &lance::Dataset) -> lance::Result<CompactionPlan> {
+        let plan = self
+            .plan
+            .lock()
+            .map_err(|_| lance_core::Error::internal("precomputed compaction plan lock poisoned"))?
+            .take()
+            .ok_or_else(|| {
+                lance_core::Error::internal("precomputed compaction plan was already consumed")
+            })?;
+        debug_assert_eq!(dataset.manifest().version, plan.read_version());
+        Ok(plan)
+    }
+}
+
+fn sq_vector_dimension(data_type: &DataType) -> Option<i32> {
+    match data_type {
+        DataType::FixedSizeList(_, dimension) => Some(*dimension),
+        DataType::List(field) => match field.data_type() {
+            DataType::FixedSizeList(_, dimension) => Some(*dimension),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+fn segment_touches_fragments(
+    fragment_ids: Option<impl IntoIterator<Item = u32>>,
+    affected_fragments: &HashSet<u64>,
+) -> bool {
+    fragment_ids.is_none_or(|fragment_ids| {
+        fragment_ids
+            .into_iter()
+            .any(|fragment| affected_fragments.contains(&(fragment as u64)))
+    })
+}
+
+fn oversized_sq_partition(
+    partition_sizes: impl IntoIterator<Item = u64>,
+    dimension: u64,
+) -> Option<u64> {
+    partition_sizes.into_iter().find(|partition_size| {
+        partition_size
+            .checked_mul(dimension)
+            .is_none_or(|child_len| child_len > MAX_ARROW_FIXED_SIZE_LIST_CHILD_INDEX)
+    })
+}
+
+async fn validate_sq_index_remapping(
+    dataset: &lance::Dataset,
+    options: &CompactionOptions,
+    has_custom_remapper: bool,
+) -> Result<CompactionPlan> {
+    let plan = plan_compaction(dataset, options).await?;
+    if options.defer_index_remap || has_custom_remapper || dataset.manifest().uses_stable_row_ids()
+    {
+        return Ok(plan);
+    }
+
+    if plan.tasks.is_empty() {
+        return Ok(plan);
+    }
+    let affected_fragments: HashSet<u64> = plan
+        .tasks
+        .iter()
+        .flat_map(|task| task.fragments.iter().map(|fragment| fragment.id))
+        .collect();
+
+    for segment in dataset.load_indices().await?.iter() {
+        if !segment_touches_fragments(
+            segment
+                .fragment_bitmap
+                .as_ref()
+                .map(|fragment_bitmap| fragment_bitmap.iter()),
+            &affected_fragments,
+        ) {
+            continue;
+        }
+        let Some(field_id) = segment.fields.first() else {
+            continue;
+        };
+        let Some(field) = dataset.schema().field_by_id(*field_id) else {
+            continue;
+        };
+        let data_type = field.data_type();
+        let Some(dimension) = sq_vector_dimension(&data_type) else {
+            continue;
+        };
+        let dimension = u64::try_from(dimension).map_err(|_| Error::InvalidInput {
+            message: format!(
+                "SQ index '{}' has an invalid vector dimension of {}",
+                segment.name, dimension
+            ),
+        })?;
+
+        let field_path = dataset.schema().field_path(*field_id)?;
+        let vector_index = match dataset
+            .open_vector_index(&field_path, &segment.uuid, &NoOpMetricsCollector)
+            .await
+        {
+            Ok(vector_index) => vector_index,
+            Err(error) => {
+                // The default remapper also treats an index it cannot open as
+                // unusable and drops it, so it cannot reach the SQ take kernel.
+                debug!(
+                    "Skipping remap preflight for index segment {} because it could not be opened: {}",
+                    segment.uuid, error
+                );
+                continue;
+            }
+        };
+        if !matches!(
+            vector_index.index_type(),
+            IndexType::IvfSq | IndexType::IvfHnswSq
+        ) {
+            continue;
+        }
+
+        let partition_sizes = (0..vector_index.total_partitions())
+            .map(|partition_id| vector_index.partition_size(partition_id) as u64);
+        if let Some(partition_size) = oversized_sq_partition(partition_sizes, dimension) {
+            let max_partition_size = MAX_ARROW_FIXED_SIZE_LIST_CHILD_INDEX / dimension;
+            return Err(Error::InvalidInput {
+                message: format!(
+                    "Cannot compact table because SQ index '{}' segment {} has a partition with {} vectors of dimension {}. Arrow's fixed-size-list take kernel cannot remap partitions whose child array exceeds {} values. Recreate the index with default IVF partitioning, or enough partitions to keep each partition at or below {} vectors, before compacting.",
+                    segment.name,
+                    segment.uuid,
+                    partition_size,
+                    dimension,
+                    MAX_ARROW_FIXED_SIZE_LIST_CHILD_INDEX,
+                    max_partition_size,
+                ),
+            });
+        }
+    }
+
+    Ok(plan)
+}
+
+/// Optimize the dataset.
+///
+/// Similar to `VACUUM` in PostgreSQL, it offers different options to
+/// optimize different parts of the table on disk.
+///
+/// By default, it optimizes everything, as [`OptimizeAction::All`].
+#[derive(Default)]
+pub enum OptimizeAction {
+    /// Run all optimizations with default values
+    #[default]
+    All,
+    /// Compacts files in the dataset
+    ///
+    /// LanceDb uses a readonly filesystem for performance and safe concurrency.  Every time
+    /// new data is added it will be added into new files.  Small files
+    /// can hurt both read and write performance.  Compaction will merge small files
+    /// into larger ones.
+    ///
+    /// All operations that modify data (add, delete, update, merge insert, etc.) will create
+    /// new files.  If these operations are run frequently then compaction should run frequently.
+    ///
+    /// If these operations are never run (search only) then compaction is not necessary.
+    Compact {
+        options: CompactionOptions,
+        remap_options: Option<Arc<dyn IndexRemapperOptions>>,
+    },
+    /// Prune old version of datasets
+    ///
+    /// Every change in LanceDb is additive.  When data is removed from a dataset a new version is
+    /// created that doesn't contain the removed data.  However, the old version, which does contain
+    /// the removed data, is left in place.  This is necessary for consistency and concurrency and
+    /// also enables time travel functionality like the ability to checkout an older version of the
+    /// dataset to undo changes.
+    ///
+    /// Over time, these old versions can consume a lot of disk space.  The prune operation will
+    /// remove versions of the dataset that are older than a certain age.  This will free up the
+    /// space used by that old data.
+    ///
+    /// Once a version is pruned it can no longer be checked out.
+    Prune {
+        /// The duration of time to keep versions of the dataset.
+        older_than: Option<Duration>,
+        /// Because they may be part of an in-progress transaction, files newer than 7 days old are not deleted by default.
+        /// If you are sure that there are no in-progress transactions, then you can set this to True to delete all files older than `older_than`.
+        ///
+        /// **WARNING**: This should only be set to true if you can guarantee that no other process is
+        /// currently working on this dataset.  Otherwise the dataset could be put into a corrupted state.
+        delete_unverified: Option<bool>,
+        /// Tagged versions are never removed, regardless of their age.
+        ///
+        /// If true, an error will be returned if there are any old versions that are still tagged.
+        /// If false or `None` (the default), tagged versions are silently retained and all other
+        /// old versions are removed.
+        error_if_tagged_old_versions: Option<bool>,
+    },
+    /// Optimize the indices
+    ///
+    /// This operation optimizes all indices in the table.  When new data is added to LanceDb
+    /// it is not added to the indices.  However, it can still turn up in searches because the search
+    /// function will scan both the indexed data and the unindexed data in parallel.  Over time, the
+    /// unindexed data can become large enough that the search performance is slow.  This operation
+    /// will add the unindexed data to the indices without rerunning the full index creation process.
+    ///
+    /// Optimizing an index is faster than re-training the index but it does not typically adjust the
+    /// underlying model relied upon by the index.  This can eventually lead to poor search accuracy
+    /// and so users may still want to occasionally retrain the index after adding a large amount of
+    /// data.
+    ///
+    /// For example, when using IVF, an index will create clusters.  Optimizing an index assigns unindexed
+    /// data to the existing clusters, but it does not move the clusters or create new clusters.
+    Index(OptimizeOptions),
+}
+
+/// Statistics about the optimization.
+#[derive(Debug, Default)]
+pub struct OptimizeStats {
+    /// Stats of the file compaction.
+    pub compaction: Option<CompactionMetrics>,
+
+    /// Stats of the version pruning
+    pub prune: Option<RemovalStats>,
+}
+
+/// Internal implementation of optimize_indices
+///
+/// This logic was moved from NativeTable to keep table.rs clean.
+pub(crate) async fn optimize_indices(table: &NativeTable, options: &OptimizeOptions) -> Result<()> {
+    info!("LanceDB: optimizing indices: {:?}", options);
+    table.dataset.ensure_mutable()?;
+    let mut dataset = (*table.dataset.get().await?).clone();
+    dataset.optimize_indices(options).await?;
+    table.dataset.update(dataset);
+    Ok(())
+}
+
+/// Remove old versions of the dataset from disk.
+///
+/// # Arguments
+/// * `older_than` - The duration of time to keep versions of the dataset.
+/// * `delete_unverified` - Because they may be part of an in-progress
+///   transaction, files newer than 7 days old are not deleted by default.
+///   If you are sure that there are no in-progress transactions, then you
+///   can set this to True to delete all files older than `older_than`.
+///
+///   **WARNING**: This should only be set to true if you can guarantee that
+///   no other process is currently working on this dataset.  Otherwise the
+///   dataset could be put into a corrupted state.
+///
+/// * `error_if_tagged_old_versions` - Tagged versions are always retained.  If
+///   this is true, an error is returned when a tagged version is older than the
+///   cutoff.  Defaults to false (the tagged versions are retained silently),
+///   unlike Lance's own default, so that `optimize` does not fail (and skip the
+///   steps after pruning) once a tagged version ages past the cutoff.
+///
+/// This calls into [lance::dataset::Dataset::cleanup_old_versions] and
+/// returns the result.
+pub(crate) async fn cleanup_old_versions(
+    table: &NativeTable,
+    older_than: Duration,
+    delete_unverified: Option<bool>,
+    error_if_tagged_old_versions: Option<bool>,
+) -> Result<RemovalStats> {
+    table.dataset.ensure_mutable()?;
+    let dataset = table.dataset.get().await?;
+    let stats = dataset
+        .cleanup_old_versions(
+            older_than,
+            delete_unverified,
+            Some(error_if_tagged_old_versions.unwrap_or(false)),
+        )
+        .await?;
+    // Computed-column signature sidecars live outside lance's directories;
+    // drop the ones the surviving versions no longer reference.
+    let removed =
+        super::freshness::prune_sidecars(&dataset, delete_unverified.unwrap_or(false)).await?;
+    if removed > 0 {
+        log::debug!("removed {removed} unreferenced computed-column signature sidecars");
+    }
+    Ok(stats)
+}
+
+/// Remove dataset versions committed before an absolute timestamp.
+pub(crate) async fn cleanup_old_versions_before(
+    table: &NativeTable,
+    before_timestamp: DateTime<Utc>,
+    delete_unverified: Option<bool>,
+    error_if_tagged_old_versions: Option<bool>,
+) -> Result<RemovalStats> {
+    table.dataset.ensure_mutable()?;
+    let dataset = table.dataset.get().await?;
+    let mut policy = CleanupPolicyBuilder::default().before_timestamp(before_timestamp);
+    if let Some(delete_unverified) = delete_unverified {
+        policy = policy.delete_unverified(delete_unverified);
+    }
+    // Tagged versions are retained rather than raising an error unless asked.
+    policy = policy.error_if_tagged_old_versions(error_if_tagged_old_versions.unwrap_or(false));
+    let stats = dataset.cleanup_with_policy(policy.build()).await?;
+    // Computed-column signature sidecars live outside lance's directories;
+    // drop the ones the surviving versions no longer reference.
+    let removed =
+        super::freshness::prune_sidecars(&dataset, delete_unverified.unwrap_or(false)).await?;
+    if removed > 0 {
+        log::debug!("removed {removed} unreferenced computed-column signature sidecars");
+    }
+    Ok(stats)
+}
+
+/// Compact files in the dataset.
+///
+/// This can be run after making several small appends to optimize the table
+/// for faster reads.
+///
+/// This calls into [lance::dataset::optimize::compact_files_with_planner].
+pub(crate) async fn compact_files_impl(
+    table: &NativeTable,
+    options: CompactionOptions,
+    remap_options: Option<Arc<dyn IndexRemapperOptions>>,
+) -> Result<CompactionMetrics> {
+    table.dataset.ensure_mutable()?;
+    let mut dataset = (*table.dataset.get().await?).clone();
+    tracing::info!(target: TRACE_DATASET_EVENTS, event=DATASET_COMPACTING_EVENT, uri = dataset.uri());
+    let plan = validate_sq_index_remapping(&dataset, &options, remap_options.is_some()).await?;
+    let planner = PrecomputedCompactionPlanner::new(plan);
+    let metrics = compact_files_with_planner(&mut dataset, remap_options, &planner).await?;
+    table.dataset.update(dataset);
+    Ok(metrics)
+}
+
+/// Execute the optimize operation on the table.
+///
+/// This is the main entry point for all optimization operations.
+pub(crate) async fn execute_optimize(
+    table: &NativeTable,
+    action: OptimizeAction,
+) -> Result<OptimizeStats> {
+    let mut stats = OptimizeStats {
+        compaction: None,
+        prune: None,
+    };
+    match action {
+        OptimizeAction::All => {
+            // Call helper functions directly to avoid async recursion issues
+            stats.compaction =
+                Some(compact_files_impl(table, CompactionOptions::default(), None).await?);
+            stats.prune = Some(
+                cleanup_old_versions(
+                    table,
+                    Duration::try_days(7).expect("valid delta"),
+                    None,
+                    None,
+                )
+                .await?,
+            );
+            optimize_indices(table, &OptimizeOptions::default()).await?;
+        }
+        OptimizeAction::Compact {
+            options,
+            remap_options,
+        } => {
+            stats.compaction = Some(compact_files_impl(table, options, remap_options).await?);
+        }
+        OptimizeAction::Prune {
+            older_than,
+            delete_unverified,
+            error_if_tagged_old_versions,
+        } => {
+            stats.prune = Some(
+                cleanup_old_versions(
+                    table,
+                    older_than.unwrap_or(Duration::try_days(7).expect("valid delta")),
+                    delete_unverified,
+                    error_if_tagged_old_versions,
+                )
+                .await?,
+            );
+        }
+        OptimizeAction::Index(options) => {
+            optimize_indices(table, &options).await?;
+        }
+    }
+    Ok(stats)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{oversized_sq_partition, segment_touches_fragments, sq_vector_dimension};
+    use arrow_array::{
+        Array, FixedSizeListArray, Float32Array, Int32Array, RecordBatch, StringArray,
+    };
+    use arrow_schema::{DataType, Field, Schema};
+    use lance_arrow::FixedSizeListArrayExt;
+    use rstest::rstest;
+    use std::{collections::HashSet, sync::Arc};
+
+    use crate::connect;
+    use crate::database::listing::OPT_NEW_TABLE_ENABLE_STABLE_ROW_IDS;
+    use crate::index::vector::IvfRqIndexBuilder;
+    use crate::index::{Index, scalar::BTreeIndexBuilder};
+    use crate::query::ExecutableQuery;
+    use crate::table::{CompactionOptions, OptimizeAction, OptimizeStats};
+    use futures::TryStreamExt;
+
+    /// Regression test for https://github.com/lancedb/lancedb/issues/2866.
+    #[test]
+    fn test_detect_oversized_sq_partition() {
+        const DIMENSION: u64 = 4095;
+        let safe_size = u32::MAX as u64 / DIMENSION;
+
+        assert_eq!(
+            oversized_sq_partition([safe_size, safe_size + 1], DIMENSION),
+            Some(safe_size + 1)
+        );
+        assert_eq!(
+            oversized_sq_partition([safe_size / 2, safe_size / 2 + 1], DIMENSION),
+            None
+        );
+    }
+
+    #[test]
+    fn test_segment_touches_fragments_includes_unknown_coverage() {
+        let affected_fragments = HashSet::from([7]);
+
+        assert!(segment_touches_fragments(
+            Some([7_u32]),
+            &affected_fragments
+        ));
+        assert!(!segment_touches_fragments(
+            Some([8_u32]),
+            &affected_fragments
+        ));
+        assert!(segment_touches_fragments(
+            None::<[u32; 0]>,
+            &affected_fragments
+        ));
+    }
+
+    #[test]
+    fn test_sq_vector_dimension_includes_multivectors() {
+        const DIMENSION: i32 = 4095;
+        let vector = DataType::FixedSizeList(
+            Arc::new(Field::new("item", DataType::Float32, false)),
+            DIMENSION,
+        );
+        let multivector = DataType::List(Arc::new(Field::new("item", vector.clone(), false)));
+
+        assert_eq!(sq_vector_dimension(&vector), Some(DIMENSION));
+        assert_eq!(sq_vector_dimension(&multivector), Some(DIMENSION));
+        assert_eq!(sq_vector_dimension(&DataType::Float32), None);
+    }
+
+    #[tokio::test]
+    async fn test_compact_legacy_vector_index_with_unknown_fragment_coverage() {
+        use lance::Dataset;
+        use lance::index::vector::{IndexFileVersion, VectorIndexParams};
+        use lance::index::{DatasetIndexExt, DatasetIndexInternalExt};
+        use lance_index::IndexType;
+        use lance_linalg::distance::MetricType;
+        use lance_table::io::commit::write_manifest_file_to_path;
+        use object_store::ObjectStoreExt;
+
+        const INDEX_NAME: &str = "legacy_ivf_pq";
+        const ROWS: i32 = 128;
+        const DIMENSION: i32 = 8;
+
+        let tmpdir = tempfile::tempdir().unwrap();
+        let conn = connect(tmpdir.path().to_str().unwrap())
+            .execute()
+            .await
+            .unwrap();
+        let vectors = FixedSizeListArray::try_new_from_values(
+            Float32Array::from_iter_values((0..ROWS).flat_map(|row| {
+                (0..DIMENSION).map(move |offset| (row * DIMENSION + offset) as f32)
+            })),
+            DIMENSION,
+        )
+        .unwrap();
+        let schema = Arc::new(Schema::new(vec![Field::new(
+            "vector",
+            vectors.data_type().clone(),
+            false,
+        )]));
+        let batch = RecordBatch::try_new(schema, vec![Arc::new(vectors)]).unwrap();
+        let table = conn
+            .create_table("test_legacy_vector_compact", batch.clone())
+            .execute()
+            .await
+            .unwrap();
+        table.add(batch.clone()).execute().await.unwrap();
+        table.add(batch).execute().await.unwrap();
+        let mut dataset = (*table.dataset().unwrap().get().await.unwrap()).clone();
+        let mut params = VectorIndexParams::ivf_pq(1, 8, 1, MetricType::L2, 10);
+        params.version(IndexFileVersion::Legacy);
+        dataset
+            .create_index(
+                &["vector"],
+                IndexType::Vector,
+                Some(INDEX_NAME.to_string()),
+                &params,
+                true,
+            )
+            .await
+            .unwrap();
+        table.dataset().unwrap().update(dataset);
+
+        let dataset = table.dataset().unwrap().get().await.unwrap();
+        let mut segments = dataset.load_indices_by_name(INDEX_NAME).await.unwrap();
+        assert_eq!(segments.len(), 1);
+        let original = segments.pop().unwrap();
+        let field_path = dataset.schema().field_path(original.fields[0]).unwrap();
+        let vector_index = dataset
+            .open_vector_index(
+                &field_path,
+                &original.uuid,
+                &lance_index::metrics::NoOpMetricsCollector,
+            )
+            .await
+            .unwrap();
+        assert_eq!(vector_index.index_type(), IndexType::IvfPq);
+        assert_eq!(
+            vector_index.statistics().unwrap()["index_file_version"],
+            "Legacy"
+        );
+        let mut legacy = original.clone();
+        legacy.fragment_bitmap = None;
+        let object_store = dataset.object_store(None).await.unwrap();
+        let mut manifest = dataset.manifest().clone();
+        manifest.index_section = None;
+        manifest.transaction_section = None;
+        let manifest_path = dataset.manifest_location().path.clone();
+        object_store.inner.delete(&manifest_path).await.unwrap();
+        write_manifest_file_to_path(
+            object_store.as_ref(),
+            &mut manifest,
+            Some(vec![legacy]),
+            &manifest_path,
+            None,
+        )
+        .await
+        .unwrap();
+        let legacy_dataset = Dataset::open(dataset.uri()).await.unwrap();
+        table.dataset().unwrap().update(legacy_dataset);
+
+        let dataset = table.dataset().unwrap().get().await.unwrap();
+        let description_error = dataset
+            .describe_indices(None)
+            .await
+            .err()
+            .expect("legacy coverage should be unknown to index descriptions");
+        assert!(
+            description_error
+                .to_string()
+                .contains("Fragment bitmap is required")
+        );
+
+        let stats = table
+            .optimize(OptimizeAction::Compact {
+                options: CompactionOptions {
+                    target_rows_per_fragment: 1_000,
+                    ..Default::default()
+                },
+                remap_options: None,
+            })
+            .await
+            .unwrap();
+        assert!(stats.compaction.unwrap().fragments_removed > 0);
+        assert_eq!(table.count_rows(None).await.unwrap(), ROWS as usize * 3);
+    }
+
+    #[tokio::test]
+    async fn test_optimize_compact_simple() {
+        let conn = connect("memory://").execute().await.unwrap();
+
+        // Create a table with initial data
+        let schema = Arc::new(Schema::new(vec![Field::new("i", DataType::Int32, false)]));
+        let batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![Arc::new(Int32Array::from_iter_values(0..100))],
+        )
+        .unwrap();
+
+        let table = conn
+            .create_table("test_compact", batch)
+            .execute()
+            .await
+            .unwrap();
+
+        // Add more data to create multiple fragments
+        for i in 0..5 {
+            let batch = RecordBatch::try_new(
+                schema.clone(),
+                vec![Arc::new(Int32Array::from_iter_values(
+                    (i * 100 + 100)..((i + 1) * 100 + 100),
+                ))],
+            )
+            .unwrap();
+            table.add(batch).execute().await.unwrap();
+        }
+
+        // Verify we have multiple fragments before compaction
+        let initial_row_count = table.count_rows(None).await.unwrap();
+        assert_eq!(initial_row_count, 600);
+
+        // Run compaction
+        let stats = table
+            .optimize(OptimizeAction::Compact {
+                options: CompactionOptions {
+                    target_rows_per_fragment: 1000,
+                    ..Default::default()
+                },
+                remap_options: None,
+            })
+            .await
+            .unwrap();
+
+        // Verify compaction occurred
+        assert!(stats.compaction.is_some());
+        let compaction_metrics = stats.compaction.unwrap();
+        assert!(compaction_metrics.fragments_removed > 0);
+
+        // Verify data integrity after compaction
+        let final_row_count = table.count_rows(None).await.unwrap();
+        assert_eq!(final_row_count, 600);
+
+        // Verify data content is correct
+        let batches = table
+            .query()
+            .execute()
+            .await
+            .unwrap()
+            .try_collect::<Vec<_>>()
+            .await
+            .unwrap();
+
+        let total_rows: usize = batches.iter().map(|b| b.num_rows()).sum();
+        assert_eq!(total_rows, 600);
+
+        // Verify the values are as expected
+        let mut all_values: Vec<i32> = Vec::new();
+        for batch in &batches {
+            let array = batch["i"].as_any().downcast_ref::<Int32Array>().unwrap();
+            all_values.extend(array.values().iter().copied());
+        }
+        all_values.sort();
+        let expected: Vec<i32> = (0..600).collect();
+        assert_eq!(all_values, expected);
+    }
+
+    #[tokio::test]
+    async fn test_compact_with_concurrent_add() {
+        const NUM_FRAGMENTS: usize = 5;
+        const ROWS_PER_FRAGMENT: i32 = 300;
+
+        let tmpdir = tempfile::tempdir().unwrap();
+        let conn = connect(tmpdir.path().to_str().unwrap())
+            .execute()
+            .await
+            .unwrap();
+        let schema = Arc::new(Schema::new(vec![Field::new("id", DataType::Int32, false)]));
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![Arc::new(Int32Array::from_iter_values(0..ROWS_PER_FRAGMENT))],
+        )
+        .unwrap();
+
+        let table = conn
+            .create_table("test_concurrent_compact", batch.clone())
+            .execute()
+            .await
+            .unwrap();
+        table
+            .create_index(&["id"], Index::BTree(BTreeIndexBuilder::default()))
+            .execute()
+            .await
+            .unwrap();
+        for _ in 0..NUM_FRAGMENTS {
+            table.add(batch.clone()).execute().await.unwrap();
+        }
+
+        // Use separate handles so the two writes actually overlap, as they can
+        // when different Node connections operate on the same S3 table.
+        let compact_table = conn
+            .open_table("test_concurrent_compact")
+            .execute()
+            .await
+            .unwrap();
+        let append_table = conn
+            .open_table("test_concurrent_compact")
+            .execute()
+            .await
+            .unwrap();
+        let compact_task = tokio::spawn(async move {
+            compact_table
+                .optimize(OptimizeAction::Compact {
+                    options: CompactionOptions {
+                        target_rows_per_fragment: 1_000,
+                        ..Default::default()
+                    },
+                    remap_options: None,
+                })
+                .await
+        });
+        tokio::task::yield_now().await;
+        for _ in 0..NUM_FRAGMENTS {
+            append_table.add(batch.clone()).execute().await.unwrap();
+        }
+        compact_task.await.unwrap().unwrap();
+
+        let table = conn
+            .open_table("test_concurrent_compact")
+            .execute()
+            .await
+            .unwrap();
+        let dataset = table.dataset().unwrap().get().await.unwrap();
+        let fragment_ids = dataset
+            .get_fragments()
+            .iter()
+            .map(|fragment| fragment.id())
+            .collect::<Vec<_>>();
+        assert!(fragment_ids.windows(2).all(|ids| ids[0] < ids[1]));
+
+        // A second compaction exposed the original out-of-order row-id bug.
+        table
+            .optimize(OptimizeAction::Compact {
+                options: CompactionOptions {
+                    target_rows_per_fragment: 1_000,
+                    ..Default::default()
+                },
+                remap_options: None,
+            })
+            .await
+            .unwrap();
+        assert_eq!(
+            table.count_rows(None).await.unwrap(),
+            ROWS_PER_FRAGMENT as usize * (NUM_FRAGMENTS * 2 + 1)
+        );
+    }
+
+    #[tokio::test]
+    async fn test_optimize_prune_versions() {
+        let conn = connect("memory://").execute().await.unwrap();
+
+        // Create a table
+        let schema = Arc::new(Schema::new(vec![Field::new("i", DataType::Int32, false)]));
+        let batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![Arc::new(Int32Array::from_iter_values(0..10))],
+        )
+        .unwrap();
+
+        let table = conn
+            .create_table("test_prune", batch)
+            .execute()
+            .await
+            .unwrap();
+
+        // Make several modifications to create versions
+        for i in 0..5 {
+            let batch = RecordBatch::try_new(
+                schema.clone(),
+                vec![Arc::new(Int32Array::from_iter_values(
+                    (i * 10 + 10)..((i + 1) * 10 + 10),
+                ))],
+            )
+            .unwrap();
+            table.add(batch).execute().await.unwrap();
+        }
+
+        // Verify multiple versions exist
+        let versions = table.list_versions().await.unwrap();
+        assert!(versions.len() > 1);
+
+        // Run prune with a very old cutoff (won't delete recent versions)
+        let stats = table
+            .optimize(OptimizeAction::Prune {
+                older_than: Some(chrono::Duration::try_days(0).unwrap()),
+                delete_unverified: Some(true),
+                error_if_tagged_old_versions: None,
+            })
+            .await
+            .unwrap();
+
+        // Prune-only operation should not have compaction stats
+        assert!(stats.compaction.is_none());
+
+        // Verify prune stats
+        let prune_stats = stats.prune.unwrap();
+        assert!(prune_stats.bytes_removed > 0);
+        assert_eq!(prune_stats.old_versions, 5);
+
+        // Verify data is still intact
+        let final_row_count = table.count_rows(None).await.unwrap();
+        assert_eq!(final_row_count, 60);
+
+        // Verify data content is correct
+        let batches = table
+            .query()
+            .execute()
+            .await
+            .unwrap()
+            .try_collect::<Vec<_>>()
+            .await
+            .unwrap();
+
+        let mut all_values: Vec<i32> = Vec::new();
+        for batch in &batches {
+            let array = batch["i"].as_any().downcast_ref::<Int32Array>().unwrap();
+            all_values.extend(array.values().iter().copied());
+        }
+        all_values.sort();
+        let expected: Vec<i32> = (0..60).collect();
+        assert_eq!(all_values, expected);
+    }
+
+    #[tokio::test]
+    async fn test_optimize_prune_retains_tagged_versions() {
+        let tmpdir = tempfile::tempdir().unwrap();
+        let conn = connect(tmpdir.path().to_str().unwrap())
+            .execute()
+            .await
+            .unwrap();
+
+        let schema = Arc::new(Schema::new(vec![Field::new("i", DataType::Int32, false)]));
+        let make_batch = |start: i32| {
+            RecordBatch::try_new(
+                schema.clone(),
+                vec![Arc::new(Int32Array::from_iter_values(start..start + 10))],
+            )
+            .unwrap()
+        };
+
+        let table = conn
+            .create_table("test_prune_tagged", make_batch(0))
+            .execute()
+            .await
+            .unwrap();
+        // Tag the first version, then create more versions after it.
+        table.tags().await.unwrap().create("keep", 1).await.unwrap();
+        for i in 1..4 {
+            table.add(make_batch(i * 10)).execute().await.unwrap();
+        }
+        assert_eq!(table.list_versions().await.unwrap().len(), 4);
+
+        // Explicitly asking for an error still errors, and leaves everything in place.
+        let err = table
+            .optimize(OptimizeAction::Prune {
+                older_than: Some(chrono::Duration::try_days(0).unwrap()),
+                delete_unverified: Some(true),
+                error_if_tagged_old_versions: Some(true),
+            })
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("tagged version"), "{err}");
+        assert_eq!(table.list_versions().await.unwrap().len(), 4);
+
+        // By default, tagged versions are retained and the other old versions are removed.
+        let stats = table
+            .optimize(OptimizeAction::Prune {
+                older_than: Some(chrono::Duration::try_days(0).unwrap()),
+                delete_unverified: Some(true),
+                error_if_tagged_old_versions: None,
+            })
+            .await
+            .unwrap();
+        assert_eq!(stats.prune.unwrap().old_versions, 2);
+        let mut versions = table
+            .list_versions()
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|v| v.version)
+            .collect::<Vec<_>>();
+        versions.sort();
+        assert_eq!(versions, vec![1, 4]);
+
+        // Same through the absolute-cutoff entry point used by the Node binding.
+        table.add(make_batch(40)).execute().await.unwrap();
+        let stats = table
+            .optimize_prune_before(chrono::Utc::now(), Some(true), None)
+            .await
+            .unwrap();
+        assert_eq!(stats.prune.unwrap().old_versions, 1);
+
+        // The tagged version is still readable, including its data files.
+        assert_eq!(table.count_rows(None).await.unwrap(), 50);
+        table.checkout_tag("keep").await.unwrap();
+        let batches = table
+            .query()
+            .execute()
+            .await
+            .unwrap()
+            .try_collect::<Vec<_>>()
+            .await
+            .unwrap();
+        let rows: usize = batches.iter().map(|b| b.num_rows()).sum();
+        assert_eq!(rows, 10);
+    }
+
+    #[tokio::test]
+    async fn test_optimize_index() {
+        let conn = connect("memory://").execute().await.unwrap();
+
+        // Create a table with data
+        let schema = Arc::new(Schema::new(vec![Field::new("i", DataType::Int32, false)]));
+        let batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![Arc::new(Int32Array::from_iter_values(0..100))],
+        )
+        .unwrap();
+
+        let table = conn
+            .create_table("test_index_optimize", batch)
+            .execute()
+            .await
+            .unwrap();
+
+        // Create an index
+        table
+            .create_index(&["i"], Index::BTree(BTreeIndexBuilder::default()))
+            .execute()
+            .await
+            .unwrap();
+
+        // Add more data (unindexed)
+        let batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![Arc::new(Int32Array::from_iter_values(100..200))],
+        )
+        .unwrap();
+        table.add(batch).execute().await.unwrap();
+
+        // Verify index stats before optimization
+        let indices = table.list_indices().await.unwrap();
+        assert_eq!(indices.len(), 1);
+        let index_name = indices[0].name.clone();
+        let stats_before = table.index_stats(&index_name).await.unwrap().unwrap();
+        assert_eq!(stats_before.num_indexed_rows, 100);
+        assert_eq!(stats_before.num_unindexed_rows, 100);
+
+        // Run index optimization
+        let stats = table
+            .optimize(OptimizeAction::Index(Default::default()))
+            .await
+            .unwrap();
+
+        // For index optimization, compaction and prune stats should be None
+        assert!(stats.compaction.is_none());
+        assert!(stats.prune.is_none());
+
+        // Verify index stats after optimization
+        let stats_after = table.index_stats(&index_name).await.unwrap().unwrap();
+        assert_eq!(stats_after.num_indexed_rows, 200);
+        assert_eq!(stats_after.num_unindexed_rows, 0);
+        assert!(stats_after.num_indices.is_some());
+
+        // Verify data integrity
+        let final_row_count = table.count_rows(None).await.unwrap();
+        assert_eq!(final_row_count, 200);
+    }
+
+    #[tokio::test]
+    async fn test_optimize_vector_index_after_delete_with_stable_row_ids() {
+        const NUM_ROWS: i32 = 400;
+        const DIMENSION: i32 = 32;
+
+        let conn = connect("memory://").execute().await.unwrap();
+        let vectors = FixedSizeListArray::try_new_from_values(
+            Float32Array::from_iter_values((0..NUM_ROWS).flat_map(|id| {
+                (0..DIMENSION).map(move |offset| ((id as f32 * 0.1) + (offset as f32 * 0.3)).sin())
+            })),
+            DIMENSION,
+        )
+        .unwrap();
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("id", DataType::Int32, false),
+            Field::new("vector", vectors.data_type().clone(), false),
+        ]));
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(Int32Array::from_iter_values(0..NUM_ROWS)),
+                Arc::new(vectors),
+            ],
+        )
+        .unwrap();
+        let table = conn
+            .create_table("test_vector_index_optimize_after_delete", batch)
+            .storage_option(OPT_NEW_TABLE_ENABLE_STABLE_ROW_IDS, "true")
+            .execute()
+            .await
+            .unwrap();
+
+        table
+            .create_index(
+                &["vector"],
+                Index::IvfRq(IvfRqIndexBuilder::default().num_partitions(4)),
+            )
+            .execute()
+            .await
+            .unwrap();
+        table.delete("id % 3 = 0").await.unwrap();
+
+        // Regression test for #3330: deleted stable row IDs used to become
+        // misaligned with row addresses while joining small IVF partitions.
+        table
+            .optimize(OptimizeAction::Index(Default::default()))
+            .await
+            .unwrap();
+
+        assert_eq!(table.count_rows(None).await.unwrap(), 266);
+    }
+
+    #[tokio::test]
+    async fn test_optimize_all() {
+        let conn = connect("memory://").execute().await.unwrap();
+
+        // Create a table with data
+        let schema = Arc::new(Schema::new(vec![Field::new("i", DataType::Int32, false)]));
+        let batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![Arc::new(Int32Array::from_iter_values(0..100))],
+        )
+        .unwrap();
+
+        let table = conn
+            .create_table("test_optimize_all", batch)
+            .execute()
+            .await
+            .unwrap();
+
+        // Add more data
+        for i in 0..3 {
+            let batch = RecordBatch::try_new(
+                schema.clone(),
+                vec![Arc::new(Int32Array::from_iter_values(
+                    (i * 100 + 100)..((i + 1) * 100 + 100),
+                ))],
+            )
+            .unwrap();
+            table.add(batch).execute().await.unwrap();
+        }
+
+        // Run all optimizations
+        let stats = table.optimize(OptimizeAction::All).await.unwrap();
+
+        // Verify stats from both compaction and prune
+        assert!(stats.compaction.is_some());
+        assert!(stats.prune.is_some());
+
+        // Verify data integrity
+        let final_row_count = table.count_rows(None).await.unwrap();
+        assert_eq!(final_row_count, 400);
+
+        // Verify data content
+        let batches = table
+            .query()
+            .execute()
+            .await
+            .unwrap()
+            .try_collect::<Vec<_>>()
+            .await
+            .unwrap();
+
+        let mut all_values: Vec<i32> = Vec::new();
+        for batch in &batches {
+            let array = batch["i"].as_any().downcast_ref::<Int32Array>().unwrap();
+            all_values.extend(array.values().iter().copied());
+        }
+        all_values.sort();
+        let expected: Vec<i32> = (0..400).collect();
+        assert_eq!(all_values, expected);
+    }
+
+    #[tokio::test]
+    async fn test_optimize_default_action() {
+        // Verify that default action is All
+        let action: OptimizeAction = Default::default();
+        assert!(matches!(action, OptimizeAction::All));
+    }
+
+    #[tokio::test]
+    async fn test_optimize_stats_default() {
+        // Verify OptimizeStats default values
+        let stats: OptimizeStats = Default::default();
+        assert!(stats.compaction.is_none());
+        assert!(stats.prune.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_compact_with_deferred_index_remap() {
+        // Smoke test: verifies compaction with deferred index remap doesn't error.
+        // We don't currently assert that remap is actually deferred.
+        let conn = connect("memory://").execute().await.unwrap();
+
+        // Create a table with data
+        let schema = Arc::new(Schema::new(vec![Field::new("id", DataType::Int32, false)]));
+        let batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![Arc::new(Int32Array::from_iter_values(0..100))],
+        )
+        .unwrap();
+
+        let table = conn
+            .create_table("test_deferred_remap", batch.clone())
+            .execute()
+            .await
+            .unwrap();
+
+        // Add more data
+        table.add(batch).execute().await.unwrap();
+
+        // Create an index
+        table
+            .create_index(&["id"], Index::BTree(BTreeIndexBuilder::default()))
+            .execute()
+            .await
+            .unwrap();
+
+        // Run compaction with deferred index remap
+        let stats = table
+            .optimize(OptimizeAction::Compact {
+                options: CompactionOptions {
+                    target_rows_per_fragment: 2000,
+                    defer_index_remap: true,
+                    ..Default::default()
+                },
+                remap_options: None,
+            })
+            .await
+            .unwrap();
+
+        assert!(stats.compaction.is_some());
+
+        // Verify data integrity after compaction
+        let final_row_count = table.count_rows(None).await.unwrap();
+        assert_eq!(final_row_count, 200);
+
+        // Verify data content is correct
+        let batches = table
+            .query()
+            .execute()
+            .await
+            .unwrap()
+            .try_collect::<Vec<_>>()
+            .await
+            .unwrap();
+
+        let mut all_values: Vec<i32> = Vec::new();
+        for batch in &batches {
+            let array = batch["id"].as_any().downcast_ref::<Int32Array>().unwrap();
+            all_values.extend(array.values().iter().copied());
+        }
+        all_values.sort();
+
+        // Since we added the same data twice (0..100 twice), we expect 200 values
+        // with values 0-99 appearing twice
+        let mut expected: Vec<i32> = (0..100).chain(0..100).collect();
+        expected.sort();
+        assert_eq!(all_values, expected);
+    }
+
+    #[tokio::test]
+    async fn test_compaction_preserves_schema() {
+        let conn = connect("memory://").execute().await.unwrap();
+
+        // Create a table with multiple columns
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("id", DataType::Int32, false),
+            Field::new("name", DataType::Utf8, true),
+        ]));
+
+        let batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![
+                Arc::new(Int32Array::from_iter_values(0..10)),
+                Arc::new(StringArray::from(
+                    (0..10).map(|i| format!("name_{}", i)).collect::<Vec<_>>(),
+                )),
+            ],
+        )
+        .unwrap();
+
+        let original_schema = batch.schema();
+
+        let table = conn
+            .create_table("test_schema_preserved", batch.clone())
+            .execute()
+            .await
+            .unwrap();
+
+        // Add more data
+        table.add(batch).execute().await.unwrap();
+
+        // Run compaction
+        table
+            .optimize(OptimizeAction::Compact {
+                options: CompactionOptions::default(),
+                remap_options: None,
+            })
+            .await
+            .unwrap();
+
+        // Verify schema is preserved
+        let current_schema = table.schema().await.unwrap();
+        assert_eq!(current_schema, original_schema);
+
+        // Verify data is intact and correct
+        let batches = table
+            .query()
+            .execute()
+            .await
+            .unwrap()
+            .try_collect::<Vec<_>>()
+            .await
+            .unwrap();
+
+        let total_rows: usize = batches.iter().map(|b| b.num_rows()).sum();
+        assert_eq!(total_rows, 20);
+    }
+
+    #[tokio::test]
+    async fn test_optimize_empty_table() {
+        let conn = connect("memory://").execute().await.unwrap();
+
+        // Create a table and delete all data
+        let schema = Arc::new(Schema::new(vec![Field::new("i", DataType::Int32, false)]));
+        let batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![Arc::new(Int32Array::from_iter_values(0..10))],
+        )
+        .unwrap();
+
+        let table = conn
+            .create_table("test_empty_optimize", batch)
+            .execute()
+            .await
+            .unwrap();
+
+        // Delete all rows
+        table.delete("true").await.unwrap();
+
+        // Verify table is empty
+        assert_eq!(table.count_rows(None).await.unwrap(), 0);
+
+        // Optimize should work on empty table
+        let stats = table.optimize(OptimizeAction::All).await.unwrap();
+        assert!(stats.compaction.is_some());
+        assert!(stats.prune.is_some());
+
+        // Verify table is still empty but schema is preserved
+        assert_eq!(table.count_rows(None).await.unwrap(), 0);
+        let current_schema = table.schema().await.unwrap();
+        assert_eq!(current_schema, schema);
+    }
+
+    #[rstest]
+    #[case::all(OptimizeAction::All)]
+    #[case::compact(OptimizeAction::Compact {
+        options: CompactionOptions::default(),
+        remap_options: None,
+    })]
+    #[case::prune(OptimizeAction::Prune {
+        older_than: Some(chrono::Duration::try_days(0).unwrap()),
+        delete_unverified: Some(true),
+        error_if_tagged_old_versions: None,
+    })]
+    #[case::index(OptimizeAction::Index(Default::default()))]
+    #[tokio::test]
+    async fn test_optimize_fails_on_checked_out_table(#[case] action: OptimizeAction) {
+        let conn = connect("memory://").execute().await.unwrap();
+
+        let schema = Arc::new(Schema::new(vec![Field::new("i", DataType::Int32, false)]));
+        let batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![Arc::new(Int32Array::from_iter_values(0..10))],
+        )
+        .unwrap();
+
+        let table = conn
+            .create_table("test_checkout_optimize", batch.clone())
+            .execute()
+            .await
+            .unwrap();
+
+        table.add(batch).execute().await.unwrap();
+
+        table.checkout(1).await.unwrap();
+
+        let result = table.optimize(action).await;
+        assert!(result.is_err());
+
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("cannot be modified when a specific version is checked out"),
+            "Expected error message about checked out table, got: {}",
+            err_msg
+        );
+    }
+}

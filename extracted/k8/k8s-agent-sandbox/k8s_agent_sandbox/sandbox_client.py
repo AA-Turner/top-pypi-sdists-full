@@ -19,6 +19,7 @@ file I/O) via the Sandbox resource handle.
 
 import uuid
 import atexit
+import functools
 import logging
 from types import TracebackType
 from typing import Any, Dict, Generic, List, Self, Tuple, Type, TypeVar
@@ -36,6 +37,7 @@ from .sandbox import Sandbox
 from .models import (
     AdditionalPodMetadata,
     SandboxConnectionConfig,
+    SandboxFileConfig,
     SandboxLocalTunnelConnectionConfig,
     SandboxTracerConfig,
 )
@@ -62,6 +64,8 @@ class SandboxClient(Generic[T]):
         tracer_config: SandboxTracerConfig | None = None,
         cleanup: bool = False,
         api_client: client.ApiClient | None = None,
+        *,
+        file_config: SandboxFileConfig | None = None,
     ) -> None:
         """
         Initializes the SandboxClient.
@@ -78,9 +82,12 @@ class SandboxClient(Generic[T]):
                 explicitly named through create_sandbox(). Defaults to False.
             api_client: Optional pre-configured Kubernetes ``ApiClient`` forwarded
                 to the underlying ``K8sHelper`` to target a specific cluster/context.
+            file_config: File download limits for created and attached sandboxes.
+                Defaults to unlimited downloads.
         """
         # Sandbox related configuration
         self.connection_config = connection_config or SandboxLocalTunnelConnectionConfig()
+        self.file_config = file_config
         
         # Tracer configuration
         self.tracer_config = tracer_config or SandboxTracerConfig()
@@ -239,6 +246,7 @@ class SandboxClient(Generic[T]):
                 connection_config=self.connection_config,
                 tracer_config=self.tracer_config,
                 k8s_helper=self.k8s_helper,
+                **({"file_config": self.file_config} if self.file_config is not None else {}),
             )
         except Exception:
             if cleanup_generated:
@@ -251,6 +259,7 @@ class SandboxClient(Generic[T]):
             raise
 
         previous = self._active_connection_sandboxes.get((namespace, claim_name))
+        sandbox._on_terminated = functools.partial(self._untrack, self._active_connection_sandboxes)
         self._active_connection_sandboxes[(namespace, claim_name)] = sandbox
         if previous is not None:
             previous.close_connection()
@@ -310,9 +319,11 @@ class SandboxClient(Generic[T]):
             namespace=namespace,
             connection_config=self.connection_config,
             tracer_config=self.tracer_config,
-            k8s_helper=self.k8s_helper
+            k8s_helper=self.k8s_helper,
+            **({"file_config": self.file_config} if self.file_config is not None else {}),
         )
 
+        new_handle._on_terminated = functools.partial(self._untrack, self._active_connection_sandboxes)
         self._active_connection_sandboxes[key] = new_handle
         return new_handle
     
@@ -332,6 +343,19 @@ class SandboxClient(Generic[T]):
                 self._active_connection_sandboxes.pop(key, None)
         return list(self._active_connection_sandboxes.keys())
       
+    @staticmethod
+    def _untrack(registry: Dict[Tuple[str, str], T], sandbox: Sandbox) -> None:
+        # terminate() calls this after a successful delete, while claim_name is still
+        # set, so the None check only narrows its type. A newer handle may have
+        # replaced this one for the same claim, so remove only this exact handle.
+        # This is static and bound to the registry with functools.partial, so a tracked
+        # handle never keeps the client alive. An instance method would keep it alive.
+        if sandbox.claim_name is None:
+            return
+        key = (sandbox.namespace, sandbox.claim_name)
+        if registry.get(key) is sandbox:
+            del registry[key]
+
     def list_all_sandboxes(self, namespace: str = "default", label_selector: str | None = None) -> List[str]:
         """
         Lists all SandboxClaim names currently existing in the Kubernetes cluster

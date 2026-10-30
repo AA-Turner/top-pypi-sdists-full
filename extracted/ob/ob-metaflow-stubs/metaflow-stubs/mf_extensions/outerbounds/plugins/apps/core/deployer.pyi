@@ -1,20 +1,20 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.39.1+obcheckpoint(0.2.14);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-10-28T20:25:47.857545                                                            #
+# MF version: 2.19.39.2+obcheckpoint(0.2.14);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-10-29T12:38:34.336707                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
     import metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine
-    import datetime
-    import typing
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.deployer
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs
+    import datetime
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.deployer
+    import typing
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config
 
 from .config.typed_configs import TypedCoreConfig as TypedCoreConfig

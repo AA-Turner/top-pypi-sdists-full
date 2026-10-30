@@ -6,14 +6,10 @@ from dataclasses import dataclass, replace
 from typing import (
     TYPE_CHECKING,
     Any,
-    Dict,
     Iterator,
-    List,
     Literal,
     Optional,
     Sequence,
-    Tuple,
-    Union,
 )
 
 from .drawing_primitives import DeviceCMYK, DeviceGray, DeviceRGB
@@ -131,7 +127,7 @@ class Table:
         self._repeat_headings = TableHeadingsDisplay.coerce(repeat_headings)
         self._min_row_height = min_row_height
         self._initial_style: Optional[FontFace] = None
-        self.rows: List[Row] = []
+        self.rows: list[Row] = []
 
         if padding is None:
             self._padding = Padding.new(0)
@@ -199,6 +195,12 @@ class Table:
         "This is an internal method called by `fpdf.FPDF.table()` once the table is finished"
         # Starting with some sanity checks:
         self._cols_count = max(row.cols_count for row in self.rows) if self.rows else 0
+        if (
+            self._col_widths
+            and not isinstance(self._col_widths, NumberClass)
+            and sum(self._col_widths) <= 0
+        ):
+            self._col_widths = None
         if self._width is None:
             if self._col_widths and isinstance(self._col_widths, NumberClass):
                 self._width = self._cols_count * self._col_widths
@@ -346,7 +348,7 @@ class Table:
             Sequence[float]
         ] = None,  # x-positions of the individual columns, pre-calculated for speed. Only relevant when rendering
         **kwargs: Any,
-    ) -> Tuple[bool, float, float]:
+    ) -> tuple[bool, float, float]:
         # If cell_height_info is provided then we are rendering a cell
         # If cell_height_info is not provided then we are only here to figure out the height of the cell
         #
@@ -374,6 +376,10 @@ class Table:
 
         text_align = cell.align or self._text_align
         if not isinstance(text_align, (Align, str)):
+            if j >= len(text_align):
+                raise ValueError(
+                    f"Invalid .text_align specified: missing alignment for table() column {j + 1} on row {i + 1}"
+                )
             text_align = text_align[j]
 
         style = self._initial_style
@@ -576,13 +582,16 @@ class Table:
             return float(colspan * (width / cols_count) + gutter_within_cell)
         if isinstance(self._col_widths, NumberClass):
             return colspan * self._col_widths + gutter_within_cell
+        total_col_widths = sum(self._col_widths)
+        if total_col_widths <= 0:
+            return float(colspan * (width / cols_count) + gutter_within_cell)
         if j >= len(self._col_widths):
             raise ValueError(
                 f"Invalid .col_widths specified: missing width for table() column {j + 1} on row {i + 1}"
             )
         col_width: float = 0
         for k in range(j, j + colspan):
-            col_ratio = self._col_widths[k] / sum(self._col_widths)
+            col_ratio = self._col_widths[k] / total_col_widths
             col_width += col_ratio * width
             if k != j:
                 col_width += self._gutter_width
@@ -590,8 +599,8 @@ class Table:
 
     def _compute_rows_info(self) -> Iterator["RowLayoutInfo"]:
         # First pass: Regularise the table by processing the rowspan and colspan entries
-        active_rowspans: Dict[int, int] = {}
-        prev_row_in_col: Dict[int, Optional[Row]] = {}
+        active_rowspans: dict[int, int] = {}
+        prev_row_in_col: dict[int, Optional[Row]] = {}
         for i, row in enumerate(self.rows):
             # Link up rowspans
             active_rowspans, prior_rowspans = row.convert_spans(active_rowspans)
@@ -613,10 +622,10 @@ class Table:
             raise FPDFException("Rowspan extends beyond end of table")
 
         # Second pass: Estimate the cell sizes
-        rowspan_list: List[RowSpanLayoutInfo] = []
-        row_min_heights: List[Number] = []
-        row_span_max: List[int] = []
-        rendered_heights: List[Dict[int, float]] = []
+        rowspan_list: list[RowSpanLayoutInfo] = []
+        row_min_heights: list[Number] = []
+        row_span_max: list[int] = []
+        rendered_heights: list[dict[int, float]] = []
         # pylint: disable=protected-access
         with self._fpdf._disable_writing():  # pyright: ignore[reportPrivateUsage]
             for i, row in enumerate(self.rows):
@@ -686,7 +695,7 @@ class Table:
         rowspan_list = sorted(rowspan_list, key=lambda span: span.length)
 
         # Third pass: allocate space required for the rowspans
-        row_span_padding: List[float] = [0 for _ in self.rows]
+        row_span_padding: list[float] = [0 for _ in self.rows]
         for span in rowspan_list:
             # accumulate already assigned properties
             max_padding: float = 0
@@ -715,7 +724,7 @@ class Table:
         for i, row in enumerate(self.rows):
             row_height: float = float(row_min_heights[i]) + row_span_padding[i]
             # Compute the size of merged cells
-            merged_sizes: List[float] = [0, row_height]
+            merged_sizes: list[float] = [0, row_height]
             for j in range(i + 1, i + row_span_max[i]):
                 merged_sizes.append(
                     merged_sizes[-1]
@@ -755,7 +764,7 @@ class Row:
         min_height: Optional[float] = None,
     ) -> None:
         self._table = table
-        self.cells: List[Optional[TableSpan | Cell]] = []
+        self.cells: list[Optional[TableSpan | Cell]] = []
         self.style: Optional[FontFace] = style
         self.v_align = VAlign.coerce(v_align) if v_align else v_align
         self.min_height = min_height
@@ -770,11 +779,11 @@ class Row:
         return max(spans) if len(spans) else 1
 
     def convert_spans(
-        self, active_rowspans: Dict[int, int]
-    ) -> Tuple[Dict[int, int], Sequence[int]]:
+        self, active_rowspans: dict[int, int]
+    ) -> tuple[dict[int, int], Sequence[int]]:
         # convert colspans
         prev_col = 0
-        cells: List[Optional[Cell | TableSpan]] = []
+        cells: list[Optional[Cell | TableSpan]] = []
         for i, cell in enumerate(self.cells):
             if cell is None:
                 continue
@@ -822,10 +831,10 @@ class Row:
         img_fill_width: bool = False,
         colspan: int = 1,
         rowspan: int = 1,
-        padding: Optional[Tuple[float, ...]] = None,
+        padding: Optional[tuple[float, ...]] = None,
         link: Optional[str | int] = None,
         border: CellBordersLayout = CellBordersLayout.INHERIT,
-    ) -> Union["Cell", TableSpan]:
+    ) -> "Cell | TableSpan":
         """
         Adds a cell to the row.
 
@@ -876,7 +885,8 @@ class Row:
             style,
             img,
             img_fill_width,
-            colspan,
+            # a colspan below 1 spans one column, like a rowspan below 1 spans one row
+            max(colspan, 1),
             rowspan,
             padding,
             link,
@@ -904,15 +914,15 @@ class Cell:
         "border",
     )
     text: str
-    align: Optional[Union[str, Align]]
-    v_align: Optional[Union[str, VAlign]]
+    align: Optional[str | Align]
+    v_align: Optional[str | VAlign]
     style: Optional[FontFace]
     img: Optional[ImageType]
     img_fill_width: bool
     colspan: int
     rowspan: int
     padding: Optional[float | Sequence[float] | Padding]
-    link: Optional[Union[str, int]]
+    link: Optional[str | int]
     border: CellBordersLayout
 
     def write(self, text: str, align: Optional[Align | str] = None) -> None:
@@ -925,8 +935,8 @@ class RowLayoutInfo:
     # accumulated rowspans to take in account when considering page breaks:
     pagebreak_height: float
     # heights of every cell in the row:
-    rendered_heights: Dict[int, float]
-    merged_heights: List[float]
+    rendered_heights: dict[int, float]
+    merged_heights: list[float]
 
 
 @dataclass(frozen=True)

@@ -15,9 +15,19 @@ class LseInterfaceList(UncheckedBaseModel):
     Whether this interface can receive an uploaded file as a submission.
     """
 
+    can_edit: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Whether the current user can change this interface: edit, delete, publish versions or move it.
+    """
+
     created_at: typing.Optional[dt.datetime] = None
     created_by: typing.Optional[UserSimple] = None
     description: typing.Optional[str] = None
+    has_scenarios: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Whether this interface has browser scenarios available to run.
+    """
+
     id: typing.Optional[int] = None
     is_system: typing.Optional[bool] = pydantic.Field(default=None)
     """

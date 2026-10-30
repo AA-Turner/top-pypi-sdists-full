@@ -30,9 +30,8 @@ Exit codes: 0 clean, 1 findings / stale entries / growth / unreadable input.
 from __future__ import annotations
 
 import argparse
-import subprocess
 import sys
-from collections import Counter
+from datetime import UTC, datetime
 from importlib import resources
 from pathlib import Path
 from typing import Final
@@ -40,27 +39,44 @@ from typing import Final
 import yaml
 
 from omnibase_core.errors.model_onex_error import ModelOnexError
-from omnibase_core.models.bootstrap.model_environment_bootstrap import (
-    ModelEnvironmentBootstrap,
+from omnibase_core.handlers.handler_private_vocabulary_resolution import (
+    build_container,
+    capture_environment,
+    resolve_private_vocabulary,
+)
+from omnibase_core.models.private_vocabulary import ModelPrivateVocabularyResolution
+from omnibase_core.models.validation.model_hardcoded_model_config_lab_denylist import (
+    ModelHardcodedModelConfigLabDenylist,
 )
 from omnibase_core.utils.util_safe_yaml_loader import load_yaml_content_as_model
 from omnibase_core.validation.hardcoded_model_config.handler import (
     HandlerHardcodedModelConfigCompute,
     added_entries,
     compare_with_baseline,
-    content_sha1,
 )
 from omnibase_core.validation.hardcoded_model_config.models import (
     ModelHardcodedModelConfigBaseline,
     ModelHardcodedModelConfigBaselineEntry,
     ModelHardcodedModelConfigFinding,
-    ModelHardcodedModelConfigLabDenylist,
     ModelHardcodedModelConfigPolicy,
     ModelHardcodedModelConfigScanInput,
+)
+from omnibase_core.validation.validator_hardcoded_model_scan import (
+    InputError as _InputError,
+)
+from omnibase_core.validation.validator_hardcoded_model_scan import (
+    is_scanned,
+    load_literal_rule_set,
+    read_baseline_at_ref,
+    read_file_at_ref,
+    split_growth,
+    tracked_files,
+    unjudged_families,
 )
 
 __all__ = [
     "build_parser",
+    "load_literal_rule_set",
     "load_policy",
     "main",
     "read_baseline_at_ref",
@@ -68,109 +84,15 @@ __all__ = [
 ]
 
 _POLICY_RESOURCE: Final[str] = "policy.yaml"
-_LAB_DENYLIST_REL: Final[str] = "vocabularies/hardcoded_model_config_lab_denylist.yaml"
-_SCANNED_SUFFIXES: Final[frozenset[str]] = frozenset(
-    {
-        ".py",
-        ".pyi",
-        ".yaml",
-        ".yml",
-        ".json",
-        ".toml",
-        ".sh",
-        ".bash",
-        ".cfg",
-        ".ini",
-        ".conf",
-        ".service",
-        ".env",
-        ".tsv",
-        ".txt",
-        ".ts",
-        ".tsx",
-        ".js",
-        ".jsx",
-        ".mjs",
-        ".cjs",
-        ".md",
-        ".mdx",
-        ".rst",
-    }
-)
-_SCANNED_NAMES: Final[frozenset[str]] = frozenset({"Dockerfile", "Containerfile"})
-_BASELINE_HEADER: Final[str] = """\
-# Baseline for check-hardcoded-model-config-compute (OMN-19252).
-# Plan: knowledge-base-internal beta/plans/2026-09-23-remove-hardcoded-model-config.md
-# (task A1 and the per-repository ratchet of tasks A3.x).
-#
-# RULE: entries only leave. A finding not listed here fails. An entry that no
-# longer matches its file fails until it is removed. CI refuses a pull request
-# whose copy of this file carries an entry its base branch did not. Retired lab
-# values (family R) are never admitted. Entries are keyed by line content
-# (sha1 of the stripped line), not by line number.
-#
-# Regenerate only to SHRINK it:
-#   python -m omnibase_core.validation.hardcoded_model_config.runtime_hardcoded_model_config \\
-#     --all --baseline <this file> --write-baseline
-"""
-
-
-class _InputError(Exception):
-    """An input the gate cannot read. The gate fails closed on it."""
-
-
-def _workspace_config_root() -> Path | None:
-    """The operator's private config root, or None when none is supplied.
-
-    ``ONEX_WORKSPACE_CONFIG_ROOT`` wins; otherwise the ``omnibase_internal``
-    sibling of ``OMNI_HOME``. A consumer with neither runs the shape rules alone.
-    """
-    captured = ModelEnvironmentBootstrap.capture_process_environment(
-        declared_keys=("ONEX_WORKSPACE_CONFIG_ROOT", "OMNI_HOME")
-    ).environment
-    configured = (captured.optional("ONEX_WORKSPACE_CONFIG_ROOT") or "").strip()
-    if configured:
-        return Path(configured)
-    omni_home = (captured.optional("OMNI_HOME") or "").strip()
-    if omni_home:
-        return Path(omni_home) / ".." / "omnibase_internal"
-    return None
-
-
-def _lab_denylist() -> ModelHardcodedModelConfigLabDenylist | None:
-    """Dead lab endpoints and lab deployment facts from the private vocabulary,
-    when it is present.
-
-    An absent file is the neutral case (shape rules only). A file that is
-    present and unreadable or malformed stops the gate: a denylist that
-    silently fails to load would pass the values it exists to refuse.
-    """
-    root = _workspace_config_root()
-    if root is None:
-        return None
-    path = root / _LAB_DENYLIST_REL
-    if not path.is_file():
-        return None
-    try:
-        return load_yaml_content_as_model(
-            path.read_text(encoding="utf-8"), ModelHardcodedModelConfigLabDenylist
-        )
-    except (OSError, ModelOnexError) as exc:
-        raise _InputError(f"{path}: lab denylist is invalid: {exc}") from exc
 
 
 def _union[T](first: tuple[T, ...], second: tuple[T, ...]) -> tuple[T, ...]:
     return first + tuple(v for v in second if v not in first)
 
 
-def unjudged_families(policy: ModelHardcodedModelConfigPolicy) -> frozenset[str]:
-    """Families this run cannot detect, whose baseline entries it must not judge."""
-    if policy.lab_host_names or policy.lab_ports:
-        return frozenset()
-    return frozenset({"D"})
-
-
-def load_policy() -> ModelHardcodedModelConfigPolicy:
+def load_policy(
+    vocabulary: ModelPrivateVocabularyResolution,
+) -> ModelHardcodedModelConfigPolicy:
     """Read the policy shipped inside this package, plus the private lab denylist."""
     package = __package__ or "omnibase_core.validation.hardcoded_model_config"
     raw = resources.files(package).joinpath(_POLICY_RESOURCE).read_text("utf-8")
@@ -181,41 +103,31 @@ def load_policy() -> ModelHardcodedModelConfigPolicy:
     last = policy.path_classes[-1] if policy.path_classes else None
     if last is None or last.name != "SOURCE" or last.globs != ("**",):
         raise _InputError("policy.yaml must end with a SOURCE class globbing '**'")
-    denylist = _lab_denylist()
-    if denylist is not None:
+    if vocabulary.text is not None:
+        # An absent vocabulary is the neutral case (shape rules only); a present
+        # one that is malformed stops the gate rather than pass what it refuses.
+        try:
+            denylist = load_yaml_content_as_model(
+                vocabulary.text, ModelHardcodedModelConfigLabDenylist
+            )
+        except ModelOnexError as exc:
+            raise _InputError(
+                f"{vocabulary.path}: lab denylist is invalid: {exc}"
+            ) from exc
         policy = policy.model_copy(
             update={
-                "retired_values": _union(
-                    policy.retired_values, denylist.retired_values
-                ),
-                "lab_host_names": _union(
-                    policy.lab_host_names, denylist.lab_host_names
-                ),
-                "lab_ports": _union(policy.lab_ports, denylist.lab_ports),
+                name: _union(getattr(policy, name), values)
+                for name, values in denylist
+                if name != "schema_version"
             }
         )
     return policy
 
 
-def _is_scanned(path: str) -> bool:
-    name = path.rsplit("/", 1)[-1]
-    if name in _SCANNED_NAMES or name.startswith(".env"):
-        return True
-    dot = name.rfind(".")
-    return dot > 0 and name[dot:].lower() in _SCANNED_SUFFIXES
-
-
-def _tracked_files() -> list[str]:
-    result = subprocess.run(
-        ["git", "ls-files", "-z"], capture_output=True, text=True, check=False
-    )
-    if result.returncode != 0:
-        raise _InputError(f"git ls-files failed: {result.stderr.strip()}")
-    return [p for p in result.stdout.split("\0") if p]
-
-
 def _parse_baseline(
-    raw: str, source: str
+    raw: str,
+    source: str,
+    unbaselinable: frozenset[str] = frozenset(),
 ) -> list[ModelHardcodedModelConfigBaselineEntry]:
     try:
         document = load_yaml_content_as_model(raw, ModelHardcodedModelConfigBaseline)
@@ -229,79 +141,23 @@ def _parse_baseline(
             f"{source}: retired lab values (family R) can never be baselined; "
             f"delete the value instead of listing it: {names}"
         )
+    named = sorted({e.path for e in entries if e.path in unbaselinable})
+    if named:
+        raise _InputError(
+            f"{source}: files the plan names as audited findings are fixed, never "
+            f"baselined: {', '.join(named)}"
+        )
     return entries
 
 
-def read_baseline_at_ref(ref: str, path: str) -> str | None:
-    """Return the baseline text at ``ref``, or None when the file is absent there.
-
-    An unresolvable ref is an error, never an absent file.
-    """
-    verify = subprocess.run(
-        ["git", "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if verify.returncode != 0:
-        raise _InputError(f"--base {ref!r} does not resolve to a commit")
-    exists = subprocess.run(
-        ["git", "cat-file", "-e", f"{ref}:{path}"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if exists.returncode != 0:
-        return None
-    show = subprocess.run(
-        ["git", "show", f"{ref}:{path}"], capture_output=True, text=True, check=False
-    )
-    if show.returncode != 0:
-        raise _InputError(f"git show {ref}:{path} failed: {show.stderr.strip()}")
-    return show.stdout
-
-
-def read_file_at_ref(ref: str, path: str) -> str | None:
-    """Return ``path``'s text at ``ref``, or None when it is absent there."""
-    show = subprocess.run(
-        ["git", "show", f"{ref}:{path}"], capture_output=True, text=True, check=False
-    )
-    return show.stdout if show.returncode == 0 else None
-
-
-def _split_growth(
-    ref: str,
-    grown: list[ModelHardcodedModelConfigBaselineEntry],
-    head: list[ModelHardcodedModelConfigBaselineEntry],
-) -> tuple[
-    list[ModelHardcodedModelConfigBaselineEntry],
-    list[ModelHardcodedModelConfigBaselineEntry],
-]:
-    """Split grown entries into (lines that already stood at ``ref``, new lines).
-
-    A grown entry is pre-existing only while its file at ``ref`` holds at least
-    as many lines with its content hash as the head baseline lists for its key,
-    so a copy of an old line that the change adds is still new.
-    """
-    head_counts = Counter(e.key() for e in head)
-    at_ref: dict[str, Counter[str]] = {}
-    old: list[ModelHardcodedModelConfigBaselineEntry] = []
-    new: list[ModelHardcodedModelConfigBaselineEntry] = []
-    for entry in grown:
-        if entry.path not in at_ref:
-            text = read_file_at_ref(ref, entry.path) or ""
-            at_ref[entry.path] = Counter(content_sha1(ln) for ln in text.splitlines())
-        held = at_ref[entry.path][entry.content_sha1]
-        (old if held >= head_counts[entry.key()] else new).append(entry)
-    return old, new
-
-
 def _write_baseline(
-    path: Path, entries: list[ModelHardcodedModelConfigBaselineEntry]
+    path: Path,
+    entries: list[ModelHardcodedModelConfigBaselineEntry],
+    header: str,
 ) -> None:
     """Write the baseline in the shape yamlfmt leaves unchanged: document start
     first, then the header, then one block mapping per entry."""
-    lines = ["---", _BASELINE_HEADER, "schema_version: 1"]
+    lines = ["---", header, "schema_version: 1"]
     ordered = sorted(entries, key=lambda e: e.key())
     if not ordered:
         lines.append("entries: []")
@@ -328,11 +184,7 @@ def _print_finding(finding: ModelHardcodedModelConfigFinding) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="check-hardcoded-model-config-compute",
-        description=(
-            "Refuse new hardcoded lab model configuration: model ids, inference "
-            "endpoints, private and lab-subnet hosts, retired lab values and "
-            "loaded example files (OMN-19252)."
-        ),
+        description="Refuse hardcoded model config, tier aliases and engine names.",
     )
     parser.add_argument("paths", nargs="*", help="Files to scan (pre-commit mode)")
     parser.add_argument(
@@ -354,12 +206,23 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _run(args: argparse.Namespace) -> int:
-    policy = load_policy()
-    handler = HandlerHardcodedModelConfigCompute(policy)
+    try:
+        container = build_container()
+        vocabulary = resolve_private_vocabulary(
+            container,
+            "hardcoded_model_config_lab_denylist",
+            environment=capture_environment(container),
+            now=datetime.now(UTC),
+        )
+    except ModelOnexError as exc:
+        raise _InputError(exc.message) from exc
+    policy = load_policy(vocabulary)
+    literals = load_literal_rule_set(policy)
+    handler = HandlerHardcodedModelConfigCompute(policy, literals)
 
-    candidates = _tracked_files() if args.all else list(args.paths)
+    candidates = tracked_files() if args.all else list(args.paths)
     files = sorted({p.replace("\\", "/").removeprefix("./") for p in candidates})
-    files = [p for p in files if _is_scanned(p) and Path(p).is_file()]
+    files = [p for p in files if is_scanned(p, policy) and Path(p).is_file()]
 
     findings: list[ModelHardcodedModelConfigFinding] = []
     for rel in files:
@@ -390,7 +253,7 @@ def _run(args: argparse.Namespace) -> int:
             )
             for f in findings
         ]
-        _write_baseline(Path(args.baseline), entries)
+        _write_baseline(Path(args.baseline), entries, policy.baseline_header)
         print(f"Wrote {len(entries)} baseline entries to {args.baseline}.")
         return 0
 
@@ -400,7 +263,9 @@ def _run(args: argparse.Namespace) -> int:
         if not baseline_path.is_file():
             raise _InputError(f"baseline {args.baseline} does not exist")
         baseline = _parse_baseline(
-            baseline_path.read_text(encoding="utf-8"), args.baseline
+            baseline_path.read_text(encoding="utf-8"),
+            args.baseline,
+            frozenset(policy.unbaselinable_files),
         )
 
     missing = frozenset(e.path for e in baseline if not Path(e.path).is_file())
@@ -409,7 +274,7 @@ def _run(args: argparse.Namespace) -> int:
         baseline,
         frozenset(files),
         missing,
-        unjudged_families=unjudged_families(policy),
+        unjudged_families=unjudged_families(policy, literals),
     )
 
     grown: list[ModelHardcodedModelConfigBaselineEntry] = []
@@ -424,8 +289,11 @@ def _run(args: argparse.Namespace) -> int:
             )
         else:
             base_entries = _parse_baseline(base_raw, f"{args.base}:{args.baseline}")
-            reclassified, grown = _split_growth(
-                args.base, added_entries(base_entries, baseline), baseline
+            reclassified, grown = split_growth(
+                args.base,
+                added_entries(base_entries, baseline),
+                baseline,
+                read_file_at_ref,
             )
             for entry in reclassified:
                 print(
@@ -453,7 +321,9 @@ def _run(args: argparse.Namespace) -> int:
             f"\n{len(new)} new finding(s), {len(stale)} stale baseline entr(y/ies), "
             f"{len(grown)} added baseline entr(y/ies). Lab hosts, lab ports, lab "
             "model backends and model ids belong in a config-store overlay, not in "
-            "the repository. There is no suppression marker: an exception is a "
+            "the repository; operational numbers, first-party URLs, locations, "
+            "repository and host lists, ruling stamps and budgets belong in the "
+            "contract or its overlay. There is no suppression marker: an exception is a "
             "change to omnibase_core's hardcoded_model_config/policy.yaml."
         )
         return 1

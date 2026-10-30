@@ -41,6 +41,7 @@ from absl import logging
 from a11 import net, timing
 from a11.cli import console as console_module
 from a11.cli.app import Command
+from a11.cli.commands import _command_help
 from a11.cli.signals import stop_on_signals
 from a11.gateway import config, conversations, daemon
 from a11.status import Status, StatusCode
@@ -138,6 +139,14 @@ def _add_serving_flags(
         action="store_true",
         default=argparse.SUPPRESS if inherit_defaults else False,
         help="Disable transcription actions.",
+    )
+    parser.add_argument(
+        "--llm-context-config",
+        default=argparse.SUPPRESS if inherit_defaults else None,
+        help=(
+            "Default JSON context policy for LLM actions (disabled when"
+            " absent)."
+        ),
     )
     parser.add_argument(
         "--no-flow-tools",
@@ -327,6 +336,8 @@ def _detach(args: argparse.Namespace) -> int:
         "--coding-sandbox",
         args.coding_sandbox,
     ]
+    if getattr(args, "llm_context_config", None) is not None:
+        passthrough += ["--llm-context-config", args.llm_context_config]
     for extra in args.coding_add_dir:
         passthrough += ["--coding-add-dir", extra]
 
@@ -408,7 +419,7 @@ async def _run(args: argparse.Namespace) -> int:
 
 GATEWAY_COMMAND = Command(
     name="gateway",
-    help="Run or manage the A11 gateway.",
+    help=_command_help("gateway"),
     description=(
         "Start the API for a unified access point to shell tools and other"
         " features, or manage one running in the background."

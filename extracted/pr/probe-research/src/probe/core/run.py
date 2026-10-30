@@ -5,7 +5,8 @@ the process's stdout, which a server cannot give one request), and the
 desktop app can too. The contract is `probe wizard --json`'s:
 
     argv    one action: configure | recorder | logout | uninstall | update |
-            session_default | workspace_limit | status | version | report | desktop.
+            session_default | workspace_limit | status | version | report | desktop |
+            codex_trust.
             Spawn it as `<python> -I -m
             probe.core.run <action>` from a directory of its own: `-m` puts
             the working directory first on `sys.path`, so a `probe/` folder or
@@ -29,6 +30,10 @@ desktop app can too. The contract is `probe wizard --json`'s:
             desktop management request (`probe desktop request --json`'s
             stdin) and writes that command's v1 envelope, with its exit status
             (the Probe service's `desktop.request`).
+            `codex_trust` approves Probe's own hooks in Codex as an update
+            does and writes `{"outcome", "approved", "error"}`
+            (`probe.cli.codex_hooks.heal`; the Probe service's healer,
+            `probe.service.codextrust`).
     stderr  everything else: the run's own text and its child processes'.
     exit    0 done, 1 failed, 2 usage (an unknown action or a request it
             refuses: `error{code: usage}` + `done`), 75 another setup holds
@@ -104,6 +109,10 @@ def main(argv: list[str] | None = None, stdin: TextIO | None = None) -> int:
 
             reads.print_status(refresh=request.refresh)
             return 0
+        if action is requests.ActionName.CODEX_TRUST:
+            # The service's healer: Codex's config is the person's, never a session's.
+            agent_session.forgo_harness_process_session()
+            return _codex_trust()
         # As `probe` does before any other command: a harness that names no session
         # in its shells (Kimi Code) is found from its process, so the refusals that
         # read the session (`probe session default` from an agent) still hold.
@@ -120,7 +129,7 @@ def main(argv: list[str] | None = None, stdin: TextIO | None = None) -> int:
 
 #: The actions that read rather than change: the caller's session is not
 #: looked up for them (`_caller_session_refusal`).
-READS = frozenset({ActionName.REPORT, ActionName.STATUS, ActionName.VERSION})
+READS = frozenset({ActionName.REPORT, ActionName.STATUS, ActionName.VERSION, ActionName.CODEX_TRUST})
 
 
 def _caller_session_refusal(action) -> str | None:
@@ -161,6 +170,19 @@ def _report(request) -> int:
     with events.redirect_stdout() as out:
         answer = report.run(request)
         out.write(json.dumps(answer.as_json()) + "\n")
+    return 0
+
+
+def _codex_trust() -> int:
+    """`codex_trust`: Probe's hooks in Codex approved (`codex_hooks.heal`), its
+    answer as ONE object on the real stdout. What Codex prints goes to stderr."""
+    import json
+
+    from probe.cli import codex_hooks
+    from probe.core import events
+
+    with events.redirect_stdout() as out:
+        out.write(json.dumps(codex_hooks.heal()) + "\n")
     return 0
 
 

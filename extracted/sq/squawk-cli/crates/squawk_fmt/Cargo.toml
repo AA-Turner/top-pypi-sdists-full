@@ -9,6 +9,7 @@ description.workspace = true
 documentation.workspace = true
 homepage.workspace = true
 repository.workspace = true
+readme = "README.md"
 
 [lib]
 doctest = false
@@ -28,6 +29,9 @@ clap.workspace = true
 anyhow.workspace = true
 either.workspace = true
 annotate-snippets.workspace = true
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+mimalloc.workspace = true
 
 [dev-dependencies]
 insta.workspace = true

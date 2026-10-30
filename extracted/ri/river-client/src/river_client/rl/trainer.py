@@ -231,12 +231,11 @@ class AsyncTrainer:
                 and "decoupled_ppo" remain supported. The trainer prepares custom
                 losses before rollouts.
                 Custom losses default to one logical request per update. Explicit
-                backward batching supports additive sums, optionally divided by
-                mask.sum().clamp_min(1). With batch standardization each output
-                must scale linearly with advantages (or be independent of them).
-                Streaming a policy term mixed with an advantage-independent
-                auxiliary term requires group standardization or no standardization.
-                Other formulas fail preparation before rollouts.
+                backward batching preserves each example's reductions and scalar
+                operations. With batch-standardized advantages, each output must
+                scale proportionally with the advantages or be independent of them.
+                For other objectives, use group-local or no advantage
+                standardization, or disable backward overlap.
                 Deferred scaling changes floating-point rounding; numerically
                 sensitive objectives should be compared against full-batch runs.
                 Server microbatching and loss chunking still apply. Custom policy losses
@@ -733,10 +732,6 @@ class AsyncTrainer:
             if self._overlap and (
                 self._loss_binding.normalize != "sum"
                 or self.advantage.standardize == "batch"
-                or (
-                    self._streaming_custom_loss is not None
-                    and self._streaming_custom_loss.outputs["loss"][1]
-                )
             ):
                 self.engine.server_capabilities.require("gradient_scale_v1")
         read = getattr(self.engine.model, "get_policy_version", None)
@@ -1374,17 +1369,11 @@ class AsyncTrainer:
                 self.engine.model.prepare_loss, self._loss_binding.loss
             )
         if self._overlap:
-            plan = StreamingCustomLoss(
+            self._streaming_custom_loss = StreamingCustomLoss(
                 self._loss_binding.loss,
                 batch_standardize=self.advantage.standardize == "batch",
                 custom_loss_inputs=self._loss_binding.input_adapter,
             )
-            plan.loss = await call(
-                self.engine.model._prepare_loss_graph,
-                self._loss_binding.loss,
-                plan.graph,
-            )
-            self._streaming_custom_loss = plan
 
     def _check_step(self):
         # Model.step currently advances on submission. Only a successfully

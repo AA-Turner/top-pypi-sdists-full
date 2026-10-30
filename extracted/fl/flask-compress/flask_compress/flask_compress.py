@@ -27,6 +27,23 @@ from flask.wrappers import Response
 
 from .compat import compression
 
+# The compression module that we import from compat may not contain all the algorithms
+# listed in this module, because some of them may not be available in the environment.
+# So we build an explicit list that will be used as default config.
+SUPPORTED_ALGORITHMS: list[str] = []
+SUPPORTED_ALGORITHMS_STREAMING: list[str] = []
+
+for algorithm, key, streaming in (
+    ("zstd", "zstd", True),
+    ("br", None, True),
+    ("gzip", "gzip", False),  # gzip is not by default part of the streaming algorithms
+    ("deflate", "zlib", True),
+):
+    if key is None or hasattr(compression, key):
+        SUPPORTED_ALGORITHMS.append(algorithm)
+        if streaming:
+            SUPPORTED_ALGORITHMS_STREAMING.append(algorithm)
+
 
 class CacheBackend(Protocol):
     def get(self, key: str) -> bytes | None: ...
@@ -126,6 +143,15 @@ def _format(algo: str | list[str]) -> tuple[str, ...]:
         return tuple(algo)
 
 
+def _validate(*algorithms: str) -> None:
+    for algo in algorithms:
+        if algo not in SUPPORTED_ALGORITHMS:
+            raise ValueError(
+                f"Unsupported compression algorithm {algo!r},"
+                f" should be in {SUPPORTED_ALGORITHMS}"
+            )
+
+
 class Compress:
     """
     The Compress object allows your application to use Flask-Compress.
@@ -204,8 +230,8 @@ class Compress:
             ("COMPRESS_STREAMS", True),
             ("COMPRESS_EVALUATE_CONDITIONAL_REQUEST", True),
             ("COMPRESS_STREAMING_ENDPOINT_CONDITIONAL", ["static"]),
-            ("COMPRESS_ALGORITHM", ["zstd", "br", "gzip", "deflate"]),
-            ("COMPRESS_ALGORITHM_STREAMING", ["zstd", "br", "deflate"]),  # no gzip
+            ("COMPRESS_ALGORITHM", list(SUPPORTED_ALGORITHMS)),
+            ("COMPRESS_ALGORITHM_STREAMING", list(SUPPORTED_ALGORITHMS_STREAMING)),
         ]
 
         for k, v in defaults:
@@ -221,6 +247,7 @@ class Compress:
         self.streaming_endpoint_with_conditional = set(
             app.config["COMPRESS_STREAMING_ENDPOINT_CONDITIONAL"]
         )
+        _validate(*self.enabled_algorithms, *self.streaming_algorithms)
 
         if app.config["COMPRESS_REGISTER"] and app.config["COMPRESS_MIMETYPES"]:
             app.after_request(self.after_request)

@@ -1,16 +1,18 @@
-__lazy_modules__ = ["httpx2._types", "aiopenapi3.plugin", "aiopenapi3.request"]  # py3,16
+__lazy_modules__ = [
+    "datetime", "httpx2", "aiopenapi3._types", "aiopenapi3.plugin", "aiopenapi3.request", "esi.models",
+]  # py3.15
 
 import logging
-import pathlib
-import warnings
-from datetime import date, datetime
+from datetime import date
 from hashlib import md5
+from pathlib import Path
 from timeit import default_timer
 from typing import TYPE_CHECKING, Any
+from warnings import warn
 
 from aiopenapi3 import FileSystemLoader, OpenAPI
 from aiopenapi3.errors import HTTPClientError as base_HTTPClientError, HTTPServerError as base_HTTPServerError
-from httpx2 import AsyncClient, Client, HTTPStatusError, RequestError, Response
+from httpx2 import AsyncClient, Client, HTTPStatusError, RequestError
 from tenacity import AsyncRetrying, Retrying, retry_if_exception, stop_after_attempt, wait_combine, wait_exponential
 
 from django.conf import settings
@@ -34,9 +36,12 @@ from .http_utils import (
 )
 
 if TYPE_CHECKING:  # py3.14
-    from aiopenapi3._types import ResponseDataType, ResponseHeadersType
+    from datetime import datetime
+
+    from aiopenapi3._types import HTTPMethodType, OperationType, ResponseDataType, ResponseHeadersType, ServerType
     from aiopenapi3.plugin import Plugin
     from aiopenapi3.request import OperationIndex, RequestBase
+    from httpx2 import Response
 
     from esi.models import Token
 
@@ -135,7 +140,7 @@ def _load_aiopenapi_client_sync(
         **(additional_spec_headers or {})
     }
 
-    def session_factory(**kwargs) -> Client:
+    def session_factory(**kwargs: Any) -> Client:
         kwargs.pop("headers", None)
         return SpecCachingClient(
             headers=headers,
@@ -149,7 +154,7 @@ def _load_aiopenapi_client_sync(
             url=spec_url,
             path=spec_file,
             session_factory=session_factory,
-            loader=FileSystemLoader(pathlib.Path(spec_file)),
+            loader=FileSystemLoader(Path(spec_file)),
             use_operation_tags=True,
             plugins=_load_plugins(app_name, tags or [], operations or [])
         )
@@ -187,7 +192,7 @@ async def _load_aiopenapi_client_async(
         "X-Compatibility-Date": compatibility_date
     }
 
-    def session_factory(**kwargs) -> AsyncClient:
+    def session_factory(**kwargs: Any) -> AsyncClient:
         kwargs.pop("headers", None)
         return AsyncClient(
             headers=headers,
@@ -226,7 +231,7 @@ def esi_client_factory_sync(
         tags: list[str] | None = None,
         operations: list[str] | None = None,
         additional_spec_headers: dict | None = None,
-        **kwargs) -> OpenAPI:
+        **kwargs: Any) -> OpenAPI:
     """Generate a new OpenAPI ESI client.
     Args:
         compatibility_date (str): "YYYY-MM-DD" The latest version of ESI your client is tested with
@@ -261,7 +266,7 @@ async def esi_client_factory_async(
         ua_appname: str, ua_version: str, ua_url: str | None = None,
         spec_file: str | None = None,
         tenant: str = "tranquility",
-        **kwargs) -> OpenAPI:  # pragma: no cover
+        **kwargs: Any) -> OpenAPI:  # pragma: no cover
     """Generate a new OpenAPI ESI client.
     Args:
         compatibility_date (str): "YYYY-MM-DD" The latest version of ESI your client is tested with
@@ -279,18 +284,22 @@ async def esi_client_factory_async(
 
 
 class BaseEsiOperation():
-    def __init__(self, operation, api: OpenAPI) -> None:
+    def __init__(
+        self,
+        operation: "tuple[HTTPMethodType, str, OperationType, list[ServerType] | None]",
+        api: OpenAPI,
+    ) -> None:
         self.method, self.url, self.operation, self.extra = operation
         self.api = api
         self.token: Token | None = None
         self.bucket: ESIRateLimitBucket | None = None
 
-        self._args = []
-        self._kwargs = {}
+        self._args: tuple[Any, ...] | list[Any] = []
+        self._kwargs: dict[str, Any] = {}
 
         self._set_bucket()
 
-    def __call__(self, *args, **kwargs) -> "BaseEsiOperation":
+    def __call__(self, *args: Any, **kwargs: Any) -> "BaseEsiOperation":
         self._args = args
         self._kwargs = kwargs
         return self
@@ -466,7 +475,7 @@ class BaseEsiOperation():
         """
         cache.expire(self._etag_key(), timeout=ETAG_EXPIRY)
 
-    def _clear_etag(self):
+    def _clear_etag(self) -> None:
         """ Delete the cached ETag for this operation.
         """
         try:
@@ -474,7 +483,7 @@ class BaseEsiOperation():
         except Exception as e:
             logger.error(f"Failed to delete ETag {e}", exc_info=True)
 
-    def _store_cache(self, cache_key: str, response) -> None:
+    def _store_cache(self, cache_key: str, response: "Response") -> None:
         """ Store the response in cache for expiry TTL.
         Args:
             cache_key (str): The cache key to store the response under
@@ -515,7 +524,7 @@ class BaseEsiOperation():
         if len(missing_scopes) > 0:
             raise ValueError(f"Token Missing Scopes - {missing_scopes}")
 
-    def parse_cached_request(self, cached_response) -> "tuple[ResponseHeadersType, ResponseDataType]":
+    def parse_cached_request(self, cached_response: "Response") -> "tuple[ResponseHeadersType, ResponseDataType]":
         req = self.api.createRequest(
             f"{self.operation.tags[0]}.{self.operation.operationId}"
         )
@@ -568,8 +577,8 @@ class BaseEsiOperation():
 
 class EsiOperation(BaseEsiOperation):
     def __skip__process__headers__(
-        self, result, headers: dict[str, str], expected_response
-    ):
+        self, result: Any, headers: dict[str, str], expected_response: Any
+    ) -> dict[str, str]:
         """Return all headers always"""
         return headers
 
@@ -577,7 +586,7 @@ class EsiOperation(BaseEsiOperation):
             self,
             parameters: dict[str, Any],
             etag: str | None = None,
-            last_modified: datetime | None = None) -> "RequestBase.Response":
+            last_modified: "datetime | None" = None) -> "RequestBase.Response":
 
         reset = cache.get("esi_error_limit_reset")
         if reset is not None:
@@ -592,7 +601,7 @@ class EsiOperation(BaseEsiOperation):
 
         retry = http_retry_sync()
 
-        def __func():
+        def __func() -> "RequestBase.Response":
             req = self.api.createRequest(f"{self.operation.tags[0]}.{self.operation.operationId}")
 
             # We want all headers from ESI
@@ -606,7 +615,7 @@ class EsiOperation(BaseEsiOperation):
                     # Fallback older Django-ESI Behaviour
                     # Deprecated
                     req.req.headers["Authorization"] = f"Bearer {self.token}"
-                    warnings.warn(
+                    warn(
                         "Passing an Access Token string directly is deprecated."
                         "Doing so will Skip Validation of Scopes"
                         "Please use a Token object instead.",
@@ -648,8 +657,8 @@ class EsiOperation(BaseEsiOperation):
             force_refresh: bool = False,
             use_cache: bool = True,
             store_cache: bool = True,
-            last_modified: datetime | None = None,
-            **extra) -> tuple[Any, Response] | Any:
+            last_modified: "datetime | None" = None,
+            **extra: Any) -> "tuple[Any, Response] | Any":
         """Executes the request and returns the response from ESI for the current operation.
 
         Keyword Arguments:
@@ -781,8 +790,8 @@ class EsiOperation(BaseEsiOperation):
             force_refresh: bool = False,
             use_cache: bool = True,
             store_cache: bool = True,
-            last_modified: datetime | None = None,
-            **extra) -> tuple[list[Any], Response | Any | None] | list[Any]:
+            last_modified: "datetime | None" = None,
+            **extra: Any) -> "tuple[list[Any], Response | Any | None] | list[Any]":
         all_results: list[Any] = []
         last_response: Response | None = None
         """Executes the request and returns the response from ESI for the current
@@ -906,7 +915,7 @@ class EsiOperation(BaseEsiOperation):
     def results_localized(
             self,
             languages: list[str] | str | None = None,
-            **kwargs
+            **kwargs: Any
     ) -> dict[str, list[Any]]:
         """Executes the request and returns the response from ESI for all default languages and pages (if any).
         Args:
@@ -949,7 +958,7 @@ class EsiOperationAsync(BaseEsiOperation):  # pragma: no cover
             self,
             parameters: dict[str, Any],
             etag: str | None = None,
-            last_modified: datetime | None = None
+            last_modified: "datetime | None" = None
     ) -> "RequestBase.Response":
 
         reset = cache.get("esi_error_limit_reset")
@@ -982,9 +991,9 @@ class EsiOperationAsync(BaseEsiOperation):  # pragma: no cover
         etag: str | None = None,
         return_response: bool = False,
         use_cache: bool = True,
-        last_modified: datetime | None = None,
-        **extra
-    ) -> tuple[Any, Response] | Any:
+        last_modified: "datetime | None" = None,
+        **extra: Any
+    ) -> "tuple[Any, Response] | Any":
         self.token = self._extract_token_param()
         parameters = self._kwargs | extra
         cache_key = self._cache_key()
@@ -1046,10 +1055,10 @@ class EsiOperationAsync(BaseEsiOperation):  # pragma: no cover
             etag: str | None = None,
             return_response: bool = False,
             use_cache: bool = True,
-            **extra
-    ) -> tuple[list[Any], Response | Any | None] | list[Any]:
-        all_results = []
-        last_response = None
+            **extra: Any
+    ) -> "tuple[list[Any], Response | Any | None] | list[Any]":
+        all_results: list[Any] = []
+        last_response: Response | None = None
 
         if self._has_page_param():
             current_page = 1
@@ -1076,7 +1085,7 @@ class EsiOperationAsync(BaseEsiOperation):  # pragma: no cover
     def results_localized(
             self,
             languages: list[str] | str | None = None,
-            **extra) -> dict[str, list[Any]]:
+            **extra: Any) -> dict[str, list[Any]]:
         """Executes the request and returns the response from ESI for all default languages and pages (if any).
         Args:
             languages: (list[str], str, optional) language(s) to return instead of default languages
@@ -1119,7 +1128,7 @@ class ESITag:
     Assets, Characters, etc.
     """
 
-    def __init__(self, operation, api) -> None:
+    def __init__(self, operation: "OperationIndex.OperationTag", api: OpenAPI) -> None:
         self._oi = operation._oi
         self._operations = operation._operations
         self.api = api
@@ -1139,7 +1148,7 @@ class ESITagAsync():  # pragma: no cover
     Assets, Characters, etc.
     """
 
-    def __init__(self, operation, api) -> None:
+    def __init__(self, operation: "OperationIndex.OperationTag", api: OpenAPI) -> None:
         self._oi = operation._oi
         self._operations = operation._operations
         self.api = api
@@ -1264,7 +1273,7 @@ class ESIClientProvider:
         operations: list[str] | None = None,
         tags: list[str] | None = None,
         additional_spec_headers: dict | None = None,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         if additional_spec_headers is None:
             additional_spec_headers = {}

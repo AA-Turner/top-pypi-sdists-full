@@ -10,15 +10,57 @@ import uuid
 from decimal import Decimal, InvalidOperation
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+from botocore.exceptions import ClientError, ParamValidationError
+
 from .exceptions import (
     InterfaceError,
     OperationalError,
     ProgrammingError,
     StatementExecutionError,
-    StatementTimeoutError,
     map_boto3_exception,
 )
 from .retry import RetryConfig, retry_on_transient_error
+
+# Long polling on DescribeStatement. No client-side timeout, so always the max wait.
+LONG_POLL_WAIT_SECONDS = 30
+_LONG_POLL_MEMBER = "WaitTimeSeconds"
+
+# Parameter-problem codes; matched only alongside _LONG_POLL_MEMBER in the message.
+_PARAM_REJECTION_ERROR_CODES = frozenset(
+    {"ValidationException", "InvalidParameterValue", "MissingParameter"}
+)
+
+# Classic-mode backoff schedule.
+_INITIAL_POLL_INTERVAL = 0.1
+_MAX_POLL_INTERVAL = 1.0  # was 5.0
+_POLL_BACKOFF_MULTIPLIER = 1.5
+
+
+class _LongPollRejected(OperationalError):
+    """
+    Signal that describe_statement was rejected for carrying WaitTimeSeconds.
+
+    Subclasses OperationalError so retry_on_transient_error re-raises it unchanged
+    instead of mapping it into a DB-API error.
+    """
+
+
+def _is_long_poll_rejection(exc: Exception) -> bool:
+    """
+    Whether exc indicates WaitTimeSeconds was unknown or unaccepted.
+
+    A service error qualifies only when its code is a parameter-problem code and its
+    message names the member, so an unrelated ValidationException is not absorbed.
+    """
+
+    if isinstance(exc, ParamValidationError):
+        return _LONG_POLL_MEMBER in str(exc)
+    if isinstance(exc, ClientError):
+        error = exc.response.get("Error", {})
+        error_code = error.get("Code", "")
+        error_message = error.get("Message", "")
+        return error_code in _PARAM_REJECTION_ERROR_CODES and _LONG_POLL_MEMBER in error_message
+    return False
 
 
 class StatementExecutor:
@@ -29,9 +71,10 @@ class StatementExecutor:
         self.connection = connection
         self.client = connection.client
         self.connection_params = connection.connection_params
+        self._long_poll_supported_memo: Optional[bool] = None
 
     def execute_statement(
-        self, sql: str, parameters: Optional[Union[List, Dict]] = None, timeout_seconds: int = 300
+        self, sql: str, parameters: Optional[Union[List, Dict]] = None
     ) -> Dict[str, Any]:
         """
         Execute a SQL statement using the Redshift Data API.
@@ -39,13 +82,13 @@ class StatementExecutor:
         Args:
             sql: The SQL statement to execute
             parameters: Optional list of parameters for the SQL statement
-            timeout_seconds: Maximum time to wait for statement completion
 
         Returns:
             Dict containing statement execution results
 
         Raises:
-            StatementTimeoutError: If statement execution times out
+            StatementTimeoutError: If the Redshift Data API reports a service-side
+                statement timeout
             OperationalError: If statement execution fails
             ProgrammingError: If SQL is invalid
         """
@@ -57,7 +100,6 @@ class StatementExecutor:
             "cluster_identifier": self.connection_params.cluster_identifier,
             "workgroup_name": self.connection_params.workgroup_name,
             "region": self.connection_params.region,
-            "timeout_seconds": timeout_seconds,
             "transaction_id": self.connection.get_transaction_id(),
         }
 
@@ -145,7 +187,7 @@ class StatementExecutor:
             raise mapped_exception
 
         # Poll for completion
-        result = self._poll_statement_completion(statement_id, timeout_seconds, execution_context)
+        result = self._poll_statement_completion(statement_id, execution_context)
 
         # Update last query time after query completes (not during transactions)
         if self.connection._persist_session and not transaction_id:
@@ -203,58 +245,85 @@ class StatementExecutor:
             # Convert all other types to string
             return str(param_value)
 
+    def _long_poll_supported(self) -> bool:
+        """
+        Whether this client's service model accepts WaitTimeSeconds on DescribeStatement.
+
+        Memoized: it records only the service-model inspection, never a runtime
+        rejection, which is a fallback scoped to the one statement it occurred in.
+
+        Returns:
+            True to poll in long-poll mode, False to poll in classic mode
+        """
+        if self._long_poll_supported_memo is None:
+            self._long_poll_supported_memo = self._detect_long_poll_support()
+        return self._long_poll_supported_memo
+
+    def _detect_long_poll_support(self) -> bool:
+        """
+        Inspect the client's botocore service model for the long-poll member.
+
+        Fails open: any problem reading the model yields classic mode, so the
+        inspection can never be why a statement fails. The broad except covers
+        unrelated failure types (missing attributes, unresolvable operation,
+        non-container members from a Mock client).
+
+        Returns:
+            True when DescribeStatementRequest declares the member, False otherwise
+        """
+        try:
+            operation_model = self.client.meta.service_model.operation_model("DescribeStatement")
+            input_shape = operation_model.input_shape
+            if input_shape is None:
+                return False
+            return _LONG_POLL_MEMBER in input_shape.members
+        except Exception:
+            return False
+
     def _poll_statement_completion(
-        self, statement_id: str, timeout_seconds: int, execution_context: Dict[str, Any]
+        self, statement_id: str, execution_context: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
-        Poll for statement completion with exponential backoff.
+        Poll for statement completion until the Data API reports a terminal status.
+
+        No client-side time limit. With WaitTimeSeconds support each poll holds the
+        call open server-side; otherwise polls use the classic backoff schedule.
 
         Args:
             statement_id: The statement ID to poll
-            timeout_seconds: Maximum time to wait
             execution_context: Execution context for error handling and logging
 
         Returns:
             Dict containing statement results
 
         Raises:
-            StatementTimeoutError: If polling times out
-            OperationalError: If statement execution fails
+            StatementExecutionError: If the statement reports FAILED
+            OperationalError: If the statement was cancelled or reports an unknown status
         """
-        start_time = time.time()
-        poll_interval = 0.1  # Start with 100ms
-        max_poll_interval = 5.0  # Max 5 seconds between polls
-        backoff_multiplier = 1.5
-        poll_count = 0
+        poll_interval = _INITIAL_POLL_INTERVAL
+        use_long_poll = self._long_poll_supported()
 
         # Create retry config for describe_statement calls
         retry_config = RetryConfig(max_attempts=3, base_delay=0.5, max_delay=5.0)
 
         while True:
-            elapsed_time = time.time() - start_time
-            poll_count += 1
-
-            # Check for timeout
-            if elapsed_time >= timeout_seconds:
-                # Try to cancel the statement
-                try:
-                    self._cancel_statement(statement_id, execution_context)
-                except Exception:
-                    pass  # Ignore cancellation errors
-
-                # Always raise timeout error when timeout is reached
-                raise StatementTimeoutError(
-                    f"Statement execution timed out after {timeout_seconds} seconds",
-                    statement_id=statement_id,
-                    timeout_seconds=timeout_seconds,
-                    execution_context=execution_context,
-                )
-
             # Check statement status with retry logic
             try:
 
                 def describe_statement():
-                    return self.client.describe_statement(Id=statement_id)
+                    params: Dict[str, Any] = {"Id": statement_id}
+                    if use_long_poll:
+                        params[_LONG_POLL_MEMBER] = LONG_POLL_WAIT_SECONDS
+                    try:
+                        return self.client.describe_statement(**params)
+                    except Exception as exc:
+                        # Detect here, where the original botocore type is still intact.
+                        if use_long_poll and _is_long_poll_rejection(exc):
+                            raise _LongPollRejected(
+                                f"Redshift Data API rejected {_LONG_POLL_MEMBER}; "
+                                f"falling back to client-side polling"
+                            ) from exc
+                        raise
 
                 response = retry_on_transient_error(
                     describe_statement,
@@ -262,6 +331,13 @@ class StatementExecutor:
                     operation_name="describe_statement",
                     execution_context=execution_context,
                 )
+
+            except _LongPollRejected:
+                # Must precede `except Exception`, else the signal is mapped to a DB error.
+                # Finish this statement in classic mode.
+                use_long_poll = False
+                poll_interval = _INITIAL_POLL_INTERVAL
+                continue
 
             except Exception as e:
                 mapped_exception = map_boto3_exception(e, execution_context)
@@ -281,26 +357,18 @@ class StatementExecutor:
                     "result_rows": response.get("ResultRows"),
                     "result_size": response.get("ResultSize"),
                     "sub_statements": response.get("SubStatements", []),
+                    "redshift_query_id": response.get("RedshiftQueryId"),
                 }
 
             elif status == "FAILED":
                 # Statement failed
                 error_message = response.get("Error", "Statement execution failed")
-                query_string = response.get("QueryString", "")
-
-                # Create enhanced execution context for the error
-                error_context = execution_context.copy()
-                error_context.update(
-                    {
-                        "error_message": error_message,
-                        "query_string": query_string,
-                        "elapsed_seconds": elapsed_time,
-                        "poll_count": poll_count,
-                    }
-                )
 
                 raise StatementExecutionError(
-                    f"Statement execution failed: {error_message}", statement_id=statement_id
+                    f"Statement execution failed: {error_message}",
+                    statement_id=statement_id,
+                    redshift_query_id=response.get("RedshiftQueryId"),
+                    query_string=response.get("QueryString"),
                 )
 
             elif status == "ABORTED":
@@ -308,11 +376,15 @@ class StatementExecutor:
                 raise OperationalError(f"Statement was cancelled: {statement_id}")
 
             elif status in ("SUBMITTED", "PICKED", "STARTED"):
-                # Statement is still running, continue polling
-                time.sleep(poll_interval)
+                # Still running. In long-poll mode the service already held the call
+                # open, so skip the client-side wait and backoff advance.
+                if not use_long_poll:
+                    time.sleep(poll_interval)
 
-                # Increase poll interval with exponential backoff
-                poll_interval = min(poll_interval * backoff_multiplier, max_poll_interval)
+                    # Increase poll interval with exponential backoff
+                    poll_interval = min(
+                        poll_interval * _POLL_BACKOFF_MULTIPLIER, _MAX_POLL_INTERVAL
+                    )
 
             else:
                 # Unknown status
@@ -324,6 +396,9 @@ class StatementExecutor:
     ):
         """
         Cancel a running statement.
+
+        No in-driver caller today (the timeout-stanza cancel was removed); retained as
+        the cancellation entry point for a caller that needs to stop a statement.
 
         Args:
             statement_id: The statement ID to cancel
@@ -564,6 +639,7 @@ class Cursor:
         self._rowcount = -1
         self._result_rows = None
         self._result_size = None
+        self._redshift_query_id = None
         self.arraysize = 1  # DB-API 2.0 default arraysize
 
     def execute(self, sql: str, parameters: Optional[Union[List, Dict]] = None):
@@ -593,6 +669,7 @@ class Cursor:
         self._rowcount = -1
         self._result_rows = None
         self._result_size = None
+        self._redshift_query_id = None
 
         # Keep parameters as-is to preserve parameter names for Data API
         # Dict parameters will be handled as named parameters (:name style)
@@ -605,6 +682,7 @@ class Cursor:
         self._rowcount = result.get("records_updated", 0) if not self._has_result_set else -1
         self._result_rows = result.get("result_rows")
         self._result_size = result.get("result_size")
+        self._redshift_query_id = result.get("redshift_query_id")
 
         # Set up column metadata if we have results
         if self._has_result_set:
@@ -793,6 +871,7 @@ class Cursor:
         self._rowcount = -1
         self._result_rows = None
         self._result_size = None
+        self._redshift_query_id = None
 
     def get_execution_metadata(self) -> Optional[Dict[str, Any]]:
         """Return engine-specific execution metadata for query history tracking."""
@@ -803,6 +882,9 @@ class Cursor:
             "statement_id": self._statement_id,
             "has_result_set": self._has_result_set,
         }
+
+        if self._redshift_query_id and self._redshift_query_id > 0:
+            metadata["redshift_query_id"] = self._redshift_query_id
 
         # Include session ID if available
         if hasattr(self, "connection") and hasattr(self.connection, "_session_id"):

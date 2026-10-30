@@ -4,7 +4,7 @@ import math
 import os
 import warnings
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from graphdatascience.arrow_client.arrow_authentication import ArrowAuthentication
@@ -18,9 +18,16 @@ from graphdatascience.session.aura_graph_data_science import AuraGraphDataScienc
 from graphdatascience.session.cloud_location import CloudLocation
 from graphdatascience.session.dbms_connection_info import DbmsConnectionInfo
 from graphdatascience.session.endpoint_mappings import procedure_name_from_python_endpoint
+from graphdatascience.session.graph_mapping_context import GraphMappingContext
 from graphdatascience.session.session_info import SessionInfo
 from graphdatascience.session.session_lifecycle_manager import SessionLifecycleManager
 from graphdatascience.session.session_sizes import SessionMemory, SessionMemoryValue
+from graphdatascience.session.session_target import (
+    AttachedTarget,
+    SelfManagedTarget,
+    SessionTarget,
+    SessionTargetResolver,
+)
 
 
 def _humanize_duration(duration: timedelta) -> str:
@@ -204,6 +211,7 @@ class GdsSessions:
             session_name (str): The name of the session.
             memory (SessionMemory | SessionMemoryValue | str): The size of the session specified by memory.
             db_connection (DbmsConnectionInfo | None): The database connection information.
+                The instance type is detected from the connected database, which also supports virtual graph and composite instances.
             ttl (datetime.timedelta | None): The session's time to live after inactivity.
             cloud_location (CloudLocation | None): The cloud location where the GDS Session will run.
                 Must be a `CloudLocation(provider, region)` with a supported provider (`"gcp"`, `"aws"`, or `"azure"`)
@@ -222,45 +230,11 @@ class GdsSessions:
         if isinstance(memory, str) or isinstance(memory, SessionMemoryValue):
             memory = SessionMemory.of(memory)
 
-        if db_connection is None:
-            db_runner = None
-            aura_db_instance = None
-            aura_database_id = None
-        else:
-            if aura_instance_id := db_connection.aura_instance_id:
-                aura_db_instance = self._aura_api.list_instance(aura_instance_id)
+        target = SessionTargetResolver(self._aura_api, self._create_db_runner).resolve(
+            db_connection, neo4j_driver_config
+        )
 
-                if not aura_db_instance:
-                    raise ValueError(
-                        f"Aura instance with id `{aura_instance_id}` could not be found. Please verify that the instance id is correct and that you have access to the Aura instance."
-                    )
-
-                db_connection.set_uri(aura_db_instance.connection_url)
-
-                db_runner = self._create_db_runner(db_connection, neo4j_driver_config)
-                db_runner.hosted_in_aura = True
-            else:
-                db_runner = self._create_db_runner(db_connection, neo4j_driver_config)
-
-                if db_runner.resolve_hosted_in_aura():
-                    warnings.warn(
-                        DeprecationWarning(
-                            "Deriving the Aura instance from the database URI is deprecated and will be removed in a future release. "
-                            "Please specify the `aura_instance_id` in the `db_connection` argument."
-                        )
-                    )
-
-                    aura_instance_id = AuraApi.extract_id(db_connection.get_uri())
-                    aura_db_instance = self._aura_api.list_instance(aura_instance_id)
-                    if not aura_db_instance:
-                        raise ValueError(
-                            f"Aura instance with id `{aura_instance_id}` could not be found. Please specify the `aura_instance_id` in the `db_connection` argument."
-                        )
-                else:
-                    aura_db_instance = None
-            aura_database_id = db_connection.aura_database_id
-
-        if aura_db_instance is None:
+        if isinstance(target, SelfManagedTarget):
             if not cloud_location:
                 raise ValueError("cloud_location must be provided for sessions not attached to an AuraDB.")
 
@@ -268,8 +242,14 @@ class GdsSessions:
         else:
             if cloud_location is not None:
                 raise ValueError("cloud_location cannot be provided for sessions against an AuraDB.")
+
             session_details = self._get_or_create_attached_session(
-                session_name, memory.value, aura_db_instance.id, aura_database_id, ttl
+                session_name,
+                memory.value,
+                target.instance_id,
+                target.database_id,
+                ttl,
+                instance_type=target.instance_type,
             )
 
         self._await_session_running(session_details, timeout)
@@ -279,14 +259,17 @@ class GdsSessions:
 
         arrow_authentication = AuraApiTokenAuthentication(self._aura_api)
 
+        graph_mapping_context = self._graph_mapping_context(session_details, target)
+
         return self._construct_client(
             session_details.id,
             session_host,
             session_port,
             arrow_authentication,
-            db_runner,
+            target.db_runner,
             arrow_client_options,
             show_progress,
+            graph_mapping_context,
         )
 
     def delete(self, *, session_name: str | None = None, session_id: str | None = None) -> bool:
@@ -362,7 +345,7 @@ class GdsSessions:
 
     def _await_session_running(self, session_details: SessionDetails, timeout: int | None = None) -> None:
         if session_details.expiry_date:
-            until_expiry: timedelta = session_details.expiry_date - datetime.now(timezone.utc)
+            until_expiry: timedelta = session_details.expiry_date - datetime.now(UTC)
             if until_expiry < timedelta(0):
                 raise RuntimeError(f"Session `{session_details.name}` expired {_humanize_duration(-until_expiry)} ago.")
             elif until_expiry < timedelta(hours=1):
@@ -398,15 +381,6 @@ class GdsSessions:
         except Exception as e:
             raise RuntimeError(f"Failed to authenticate to the Neo4j database: {e}")
 
-    def _get_or_create_standalone_session(
-        self,
-        session_name: str,
-        memory: SessionMemoryValue,
-        cloud_location: CloudLocation,
-        ttl: timedelta | None = None,
-    ) -> SessionDetails:
-        return self._aura_api.get_or_create_session(session_name, memory, ttl=ttl, cloud_location=cloud_location)
-
     def _get_or_create_attached_session(
         self,
         session_name: str,
@@ -414,9 +388,15 @@ class GdsSessions:
         instance_id: str,
         database_id: str | None = None,
         ttl: timedelta | None = None,
+        instance_type: str | None = None,
     ) -> SessionDetails:
         return self._aura_api.get_or_create_session(
-            name=session_name, instance_id=instance_id, database_id=database_id, memory=memory, ttl=ttl
+            name=session_name,
+            instance_id=instance_id,
+            database_id=database_id,
+            memory=memory,
+            ttl=ttl,
+            instance_type=instance_type,
         )
 
     def _get_or_create_self_managed_session(
@@ -442,6 +422,7 @@ class GdsSessions:
         db_runner: Neo4jQueryRunner | None,
         arrow_client_options: dict[str, Any] | None = None,
         show_progress: bool = True,
+        graph_mapping_context: GraphMappingContext | None = None,
     ) -> AuraGraphDataScience:
         return AuraGraphDataScience.create(
             (session_host, session_port),
@@ -450,4 +431,20 @@ class GdsSessions:
             session_lifecycle_manager=SessionLifecycleManager(session_id, self._aura_api),
             arrow_client_options=arrow_client_options,
             show_progress=show_progress,
+            graph_mapping_context=graph_mapping_context,
+        )
+
+    def _graph_mapping_context(
+        self,
+        session_details: SessionDetails,
+        target: SessionTarget,
+    ) -> GraphMappingContext | None:
+        if not isinstance(target, AttachedTarget):
+            return None
+
+        return GraphMappingContext.from_aura_api(
+            self._aura_api,
+            session_details.id,
+            session_details.user_id,
+            target.database_id or target.instance_id,
         )

@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: sqlbuild
-Version: 0.185.0
+Version: 0.186.1
 Requires-Dist: duckdb>=2.0.0
 Requires-Dist: filelock>=3.20.3
 Requires-Dist: orjson>=3.11.7
-Requires-Dist: polyglot-sql-chio==0.13.9
+Requires-Dist: polyglot-sql-chio==0.13.10
 Requires-Dist: pydantic-settings>=2,<3
 Requires-Dist: pyyaml>=6.0.2
-Requires-Dist: sqlbuild-cli==0.185.0
+Requires-Dist: sqlbuild-cli==0.186.1
 Requires-Dist: google-cloud-bigquery>=3.37.0 ; extra == 'bigquery'
 Requires-Dist: clickhouse-connect>=0.15 ; extra == 'clickhouse'
 Requires-Dist: dagster>=1.13.0 ; extra == 'dagster'
@@ -38,7 +38,7 @@ Requires-Python: >=3.12, <3.15
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/chio-labs/sqlbuild/main/.github/sqlbuild-logo-clean.png" alt="SQLBuild" width="100%">
+  <img src="https://raw.githubusercontent.com/sqlstack-io/sqlbuild/main/.github/sqlbuild-logo-clean.png" alt="SQLBuild" width="100%">
 </p>
 
 <p align="center">
@@ -60,7 +60,7 @@ no external state database, no manifest files and no paid tier.
 Its compiler and planner run in Rust. Warehouse execution and extensions use Python.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/chio-labs/sqlbuild/main/.github/demos/rename.gif" alt="Moving and renaming an incremental model with sqb mv: sqb plan migrates the existing table instead of rebuilding it" width="100%">
+  <img src="https://raw.githubusercontent.com/sqlstack-io/sqlbuild/main/.github/demos/rename.gif" alt="Moving and renaming an incremental model with sqb mv: sqb plan migrates the existing table instead of rebuilding it" width="100%">
 </p>
 
 Move an incremental model to a new folder and name with `sqb mv`, and `sqb plan` migrates its table
@@ -139,7 +139,7 @@ running on local DuckDB.
 `SELECT` fails at compile time, before anything reaches the warehouse.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/chio-labs/sqlbuild/main/.github/demos/contract.gif" alt="sqb compile fails because units_sold is not in the enforced contract and the declared waffles_sold column is missing" width="100%">
+  <img src="https://raw.githubusercontent.com/sqlstack-io/sqlbuild/main/.github/demos/contract.gif" alt="sqb compile fails because units_sold is not in the enforced contract and the declared waffles_sold column is missing" width="100%">
 </p>
 
 Both sides are reported: the new column isn't in the contract, and the declared one is gone.
@@ -172,7 +172,7 @@ A mart that reads `__source("raw__payments")` directly now fails, and so does th
 has no mock for it:
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/chio-labs/sqlbuild/main/.github/demos/rules.gif" alt="sqb compile reports the custom rule XSQBRARCH001 on the line that reads a raw source, and a unit test with no mock for that source" width="100%">
+  <img src="https://raw.githubusercontent.com/sqlstack-io/sqlbuild/main/.github/demos/rules.gif" alt="sqb compile reports the custom rule XSQBRARCH001 on the line that reads a raw source, and a unit test with no mock for that source" width="100%">
 </p>
 
 See [rules](https://sqlbuild.com/docs/concepts/rules/).
@@ -182,7 +182,7 @@ See [rules](https://sqlbuild.com/docs/concepts/rules/).
 `sqb scope --as-path` previews moving a model before you move it.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/chio-labs/sqlbuild/main/.github/demos/scope.gif" alt="sqb scope previews moving daily_revenue: the enum and macro it uses would be lost, so both usages are invalidated" width="100%">
+  <img src="https://raw.githubusercontent.com/sqlstack-io/sqlbuild/main/.github/demos/scope.gif" alt="sqb scope previews moving daily_revenue: the enum and macro it uses would be lost, so both usages are invalidated" width="100%">
 </p>
 
 Look at `Lost` and `Invalidated usages`: the model uses an enum and a macro that are private to

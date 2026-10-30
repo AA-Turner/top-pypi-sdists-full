@@ -4,7 +4,6 @@ from typing import (
     Dict,
 )
 
-import structlog
 import temporalio
 import temporalio.activity
 import temporalio.client
@@ -13,6 +12,7 @@ import temporalio.workflow
 from opentelemetry import trace
 from opentelemetry.trace import format_trace_id
 
+from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.config.config import config
 from mistralai.workflows.core.temporal.utils import require_activity_context_value
 from mistralai.workflows.core.tracing._otel_config import _get_calling_module_name
@@ -23,7 +23,7 @@ from mistralai.workflows.models import (
     SearchAttributes,
 )
 
-logger = structlog.getLogger(__name__)
+logger = get_logger(__name__)
 tracer = trace.get_tracer(_get_calling_module_name())
 
 

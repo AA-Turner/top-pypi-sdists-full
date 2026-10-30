@@ -97,6 +97,7 @@ class TestDBAPIExceptionHierarchy(unittest.TestCase):
 
         # Test attributes
         self.assertEqual(error.statement_id, "stmt-456")
+        self.assertIsNone(error.redshift_query_id)
 
         # Test string representation includes statement ID
         error_str = str(error)
@@ -107,6 +108,66 @@ class TestDBAPIExceptionHierarchy(unittest.TestCase):
         # Test without statement ID
         error_no_id = StatementExecutionError("Statement execution failed: syntax error")
         self.assertEqual(str(error_no_id), "Statement execution failed: syntax error")
+
+        # Test with the engine-side Redshift query id (not part of the message)
+        error_with_query_id = StatementExecutionError(
+            "Statement execution failed: syntax error",
+            statement_id="stmt-456",
+            redshift_query_id=123456,
+        )
+        self.assertEqual(error_with_query_id.redshift_query_id, 123456)
+        self.assertEqual(
+            str(error_with_query_id),
+            "Statement execution failed: syntax error (Statement ID: stmt-456)",
+        )
+
+    def test_statement_execution_error_query_string(self):
+        """Test StatementExecutionError surfaces the failing SQL in str()."""
+        # query_string is stored on the attribute and rendered in str()
+        error = StatementExecutionError(
+            "Statement execution failed: syntax error",
+            statement_id="stmt-456",
+            query_string="SELECT * FROM users",
+        )
+        self.assertEqual(error.query_string, "SELECT * FROM users")
+        self.assertEqual(
+            str(error),
+            "Statement execution failed: syntax error "
+            "(Statement ID: stmt-456, SQL: SELECT * FROM users)",
+        )
+
+    def test_statement_execution_error_query_string_absent(self):
+        """Test str() is unchanged when query_string is omitted."""
+        # Exact existing format must be preserved so a future reformat is caught
+        error = StatementExecutionError(
+            "Statement execution failed: syntax error", statement_id="stmt-456"
+        )
+        self.assertIsNone(error.query_string)
+        self.assertEqual(
+            str(error),
+            "Statement execution failed: syntax error (Statement ID: stmt-456)",
+        )
+        error_no_id = StatementExecutionError("Statement execution failed: syntax error")
+        self.assertEqual(str(error_no_id), "Statement execution failed: syntax error")
+
+    def test_statement_execution_error_query_string_truncated(self):
+        """Test str() truncates a long SQL while the attribute keeps full text."""
+        long_sql = "SELECT " + "x" * 500
+        error = StatementExecutionError(
+            "Statement execution failed", statement_id="stmt-456", query_string=long_sql
+        )
+        # Attribute holds the full, untruncated value
+        self.assertEqual(error.query_string, long_sql)
+        # str() truncates to 200 chars plus an ellipsis
+        self.assertEqual(
+            str(error),
+            "Statement execution failed " f"(Statement ID: stmt-456, SQL: {long_sql[:200]}...)",
+        )
+
+    def test_statement_execution_error_query_string_default(self):
+        """Test query_string defaults to None when the argument is omitted."""
+        error = StatementExecutionError("Statement execution failed")
+        self.assertIsNone(error.query_string)
 
 
 class TestBoto3ExceptionMapping(unittest.TestCase):

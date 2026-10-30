@@ -1,10 +1,12 @@
+from typing import Any
+
 from django.core.management.base import BaseCommand
 
 
 class Command(BaseCommand):
     help = 'Clear ESI OpenAPI specification document caches.'
 
-    def handle(self, *args, **options):
+    def handle(self, *args: Any, **options: Any) -> None:
         self.stdout.write("Finding all ESI Spec Caches.")
         try:
             from django_redis import get_redis_connection

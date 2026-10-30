@@ -28,6 +28,7 @@ class DataFrameOperand(_message.Message):
         "underscore_expr",
         "libchalk_expr",
         "data_source",
+        "value_double",
     )
     VALUE_STRING_FIELD_NUMBER: _ClassVar[int]
     VALUE_INT_FIELD_NUMBER: _ClassVar[int]
@@ -41,6 +42,7 @@ class DataFrameOperand(_message.Message):
     UNDERSCORE_EXPR_FIELD_NUMBER: _ClassVar[int]
     LIBCHALK_EXPR_FIELD_NUMBER: _ClassVar[int]
     DATA_SOURCE_FIELD_NUMBER: _ClassVar[int]
+    VALUE_DOUBLE_FIELD_NUMBER: _ClassVar[int]
     value_string: str
     value_int: int
     value_bool: bool
@@ -53,6 +55,7 @@ class DataFrameOperand(_message.Message):
     underscore_expr: _expression_pb2.LogicalExprNode
     libchalk_expr: _expression_pb2.LogicalExprNode
     data_source: DataFrameDataSource
+    value_double: float
     def __init__(
         self,
         value_string: _Optional[str] = ...,
@@ -67,6 +70,7 @@ class DataFrameOperand(_message.Message):
         underscore_expr: _Optional[_Union[_expression_pb2.LogicalExprNode, _Mapping]] = ...,
         libchalk_expr: _Optional[_Union[_expression_pb2.LogicalExprNode, _Mapping]] = ...,
         data_source: _Optional[_Union[DataFrameDataSource, _Mapping]] = ...,
+        value_double: _Optional[float] = ...,
     ) -> None: ...
 
 class DataFrameDataSource(_message.Message):

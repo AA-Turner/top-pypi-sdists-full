@@ -11,7 +11,6 @@ import opentelemetry
 import opentelemetry.baggage
 import opentelemetry.context
 import opentelemetry.trace
-import structlog
 import temporalio
 from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
 from opentelemetry.trace import StatusCode
@@ -20,6 +19,7 @@ from temporalio.contrib.opentelemetry import TracingInterceptor, TracingWorkflow
 from temporalio.contrib.pydantic import PydanticPayloadConverter
 from temporalio.converter import PayloadConverter
 
+from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.config.config import config
 from mistralai.workflows.core.encoding.trace_encoder import TraceEncoder
 from mistralai.workflows.core.tracing._otel_config import (
@@ -37,7 +37,7 @@ from mistralai.workflows.core.tracing.utils import (
 from mistralai.workflows.exceptions import ErrorCode
 from mistralai.workflows.models import EventAttributes, EventSpanType
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 UNSERIALIZABLE_TRACE_DATA = json.dumps({"error": ErrorCode.UNSERIALIZABLE_PAYLOAD_ERROR.value})
 

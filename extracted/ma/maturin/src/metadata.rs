@@ -228,7 +228,7 @@ impl Metadata24 {
             self.merge_people(project);
 
             if let Some(description) = &project.description {
-                self.summary = Some(description.clone());
+                self.summary = Some(single_line_summary(description));
             }
             if let Some(requires_python) = &project.requires_python {
                 self.requires_python = Some(requires_python.clone());
@@ -494,15 +494,19 @@ impl Metadata24 {
     fn merge_optional_dependencies(&mut self, project: &pyproject_toml::Project) -> Result<()> {
         if let Some(dependencies) = &project.optional_dependencies {
             for (extra, deps) in dependencies {
-                self.provides_extra.push(extra.clone());
+                let extra_name = ExtraName::new(extra.clone())
+                    .with_context(|| format!("invalid extra name: {extra}"))?;
+                // Metadata 2.3+ only allows normalized names in `Provides-Extra`
+                // (PEP 685), the same form the `extra == ...` markers use.
+                let normalized = extra_name.to_string();
+                if !self.provides_extra.contains(&normalized) {
+                    self.provides_extra.push(normalized);
+                }
                 for dep in deps {
                     let mut dep = dep.clone();
                     let new_extra = MarkerExpression::Extra {
                         operator: ExtraOperator::Equal,
-                        name: MarkerValueExtra::Extra(
-                            ExtraName::new(extra.clone())
-                                .with_context(|| format!("invalid extra name: {extra}"))?,
-                        ),
+                        name: MarkerValueExtra::Extra(extra_name.clone()),
                     };
                     dep.marker.and(MarkerTree::expression(new_extra));
                     self.requires_dist.push(dep);
@@ -662,7 +666,7 @@ impl Metadata24 {
         let metadata = Metadata24 {
             // name, version and metadata_version are added through metadata24::new()
             // Mapped from cargo metadata
-            summary: package.description.as_ref().map(|d| d.trim().into()),
+            summary: package.description.as_deref().map(single_line_summary),
             description,
             description_content_type,
             keywords: if package.keywords.is_empty() {
@@ -899,6 +903,18 @@ fn escape_email_with_display_name(display_name: &str, email: &str) -> String {
     format!("{display_name} <{email}>")
 }
 
+/// Join a multi-line description into the single line `Summary` allows.
+///
+/// A line break inside the `Summary` header ends the header block early, so
+/// every field written after it would be read as part of the description.
+fn single_line_summary(text: &str) -> String {
+    text.split(['\r', '\n'])
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 /// Fold long header field according to RFC 5322 section 2.2.3
 /// https://datatracker.ietf.org/doc/html/rfc5322#section-2.2.3
 fn fold_header(text: &str) -> String {
@@ -1024,6 +1040,106 @@ A test project
         "#]];
 
         assert_metadata_from_cargo_toml(readme, cargo_toml, expected);
+    }
+
+    #[test]
+    fn test_multiline_description_from_cargo_toml() {
+        let readme = "readme";
+
+        // A line break inside `Summary` would end the header block early and
+        // turn every following field into part of the description.
+        let cargo_toml = indoc!(
+            r#"
+            [package]
+            name = "info-project"
+            version = "0.1.0"
+            description = """
+            A test project
+            written in Rust
+                for Python
+            """
+            homepage = "https://example.org"
+            readme = "REPLACE_README_PATH"
+            keywords = ["ffi", "test"]
+
+            [lib]
+            crate-type = ["cdylib"]
+            name = "pyo3_pure"
+        "#
+        );
+
+        let expected = expect![[r#"
+            Metadata-Version: 2.4
+            Name: info-project
+            Version: 0.1.0
+            Summary: A test project written in Rust for Python
+            Keywords: ffi,test
+            Home-Page: https://example.org
+            Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+            Project-URL: Homepage, https://example.org
+
+            readme
+        "#]];
+
+        assert_metadata_from_cargo_toml(readme, cargo_toml, expected);
+    }
+
+    #[test]
+    fn test_multiline_description_from_pyproject_toml() {
+        let temp_dir = TempDir::new().unwrap();
+        let crate_path = temp_dir.path();
+        let manifest_path = crate_path.join("Cargo.toml");
+        let pyproject_path = crate_path.join("pyproject.toml");
+
+        fs::create_dir(crate_path.join("src")).unwrap();
+        fs::write(crate_path.join("src/lib.rs"), "").unwrap();
+        let cargo_toml = indoc!(
+            r#"
+            [package]
+            name = "test-package"
+            version = "0.1.0"
+
+            [lib]
+            crate-type = ["cdylib"]
+            "#
+        );
+        fs::write(&manifest_path, cargo_toml).unwrap();
+        let pyproject_toml_content = indoc!(
+            r#"
+            [build-system]
+            requires = ["maturin>=1.0,<2.0"]
+            build-backend = "maturin"
+
+            [project]
+            name = "test-package"
+            version = "0.1.0"
+            description = """
+            A test project
+            written in Rust"""
+            requires-python = ">=3.9"
+            "#
+        );
+        fs::write(&pyproject_path, pyproject_toml_content).unwrap();
+
+        let cargo_metadata = MetadataCommand::new()
+            .manifest_path(&manifest_path)
+            .exec()
+            .unwrap();
+        let mut metadata = Metadata24::from_cargo_toml(crate_path, &cargo_metadata).unwrap();
+        let pyproject_toml = PyProjectToml::new(&pyproject_path).unwrap();
+        metadata
+            .merge_pyproject_toml(crate_path, &pyproject_toml)
+            .unwrap();
+
+        assert_eq!(
+            metadata.summary.as_deref(),
+            Some("A test project written in Rust")
+        );
+        let contents = metadata.to_file_contents().unwrap();
+        assert!(
+            contents.contains("Summary: A test project written in Rust\nRequires-Python: >=3.9\n"),
+            "unexpected METADATA:\n{contents}"
+        );
     }
 
     #[test]
@@ -1176,6 +1292,65 @@ A test project
         assert_eq!(metadata.license_files[1], PathBuf::from("LICENSE"));
         assert_eq!(metadata.license_files[2], PathBuf::from("NOTICE.md"));
         assert_eq!(metadata.license_files[3], PathBuf::from("AUTHORS.txt"));
+    }
+
+    #[test]
+    fn test_provides_extra_is_normalized() {
+        let temp_dir = TempDir::new().unwrap();
+        let crate_path = temp_dir.path();
+        let manifest_path = crate_path.join("Cargo.toml");
+        let pyproject_path = crate_path.join("pyproject.toml");
+
+        fs::create_dir(crate_path.join("src")).unwrap();
+        fs::write(crate_path.join("src/lib.rs"), "").unwrap();
+        let cargo_toml = indoc!(
+            r#"
+            [package]
+            name = "test-package"
+            version = "0.1.0"
+
+            [lib]
+            crate-type = ["cdylib"]
+            "#
+        );
+        fs::write(&manifest_path, cargo_toml).unwrap();
+        let pyproject_toml_content = indoc!(
+            r#"
+            [build-system]
+            requires = ["maturin>=1.0,<2.0"]
+            build-backend = "maturin"
+
+            [project]
+            name = "test-package"
+            version = "0.1.0"
+
+            [project.optional-dependencies]
+            Dev_Tools = ["attrs"]
+            "dev.tools" = ["boltons"]
+            "#
+        );
+        fs::write(&pyproject_path, pyproject_toml_content).unwrap();
+
+        let cargo_metadata = MetadataCommand::new()
+            .manifest_path(&manifest_path)
+            .exec()
+            .unwrap();
+        let mut metadata = Metadata24::from_cargo_toml(crate_path, &cargo_metadata).unwrap();
+        let pyproject_toml = PyProjectToml::new(&pyproject_path).unwrap();
+        metadata
+            .merge_pyproject_toml(crate_path, &pyproject_toml)
+            .unwrap();
+
+        // Metadata 2.3+ requires normalized extra names (PEP 685), and they
+        // have to match the names used in the `extra == ...` markers.
+        assert_eq!(metadata.provides_extra, &["dev-tools"]);
+        assert_eq!(
+            metadata.requires_dist,
+            &[
+                Requirement::from_str("attrs; extra == 'dev-tools'").unwrap(),
+                Requirement::from_str("boltons; extra == 'dev-tools'").unwrap(),
+            ]
+        );
     }
 
     #[test]

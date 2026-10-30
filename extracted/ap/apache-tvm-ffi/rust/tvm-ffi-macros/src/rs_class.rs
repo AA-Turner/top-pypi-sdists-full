@@ -41,6 +41,7 @@ struct RsClassArgs {
     s_eq_hash_kind: Option<LitStr>,
     child_slots: Option<LitInt>,
     child_slots_can_overflow: Option<LitBool>,
+    reflection: Option<Path>,
     tvm_ffi_crate: Option<Path>,
 }
 
@@ -58,6 +59,7 @@ impl Parse for RsClassArgs {
             s_eq_hash_kind: None,
             child_slots: None,
             child_slots_can_overflow: None,
+            reflection: None,
             tvm_ffi_crate: None,
         };
         let mut seen = Vec::new();
@@ -80,12 +82,14 @@ impl Parse for RsClassArgs {
                 "s_eq_hash_kind" => args.s_eq_hash_kind = Some(input.parse()?),
                 "child_slots" => args.child_slots = Some(input.parse()?),
                 "child_slots_can_overflow" => args.child_slots_can_overflow = Some(input.parse()?),
+                "reflection" => args.reflection = Some(input.parse()?),
                 "crate" => args.tvm_ffi_crate = Some(Path::parse_mod_style(input)?),
                 _ => {
                     return Err(syn::Error::new(
                         name.span(),
                         "expected `final`, `s_eq_hash_kind = \"<kind>\"`, `child_slots = <n>`, \
-                         `child_slots_can_overflow = <bool>` or `crate = <path>`",
+                         `child_slots_can_overflow = <bool>`, `reflection = <path>` or \
+                         `crate = <path>`",
                     ));
                 }
             }
@@ -187,6 +191,9 @@ fn expand(args: &RsClassArgs, item: &DeriveInput) -> syn::Result<TokenStream2> {
     if let Some(overflow) = &args.child_slots_can_overflow {
         derive_attrs.push(quote!(#[type_child_slots_can_overflow = #overflow]));
     }
+    if let Some(reflection) = &args.reflection {
+        derive_attrs.push(quote!(#[type_reflection(#reflection)]));
+    }
     let reflected_fields = fields.iter().map(|field| {
         if field.attrs.iter().any(|a| a.path.is_ident("reflect")) {
             quote!(#field)
@@ -202,6 +209,23 @@ fn expand(args: &RsClassArgs, item: &DeriveInput) -> syn::Result<TokenStream2> {
         }
     })?;
     let object_impl = expand_object(&object_input, &tvm_ffi, true);
+    // The parent's fields first, then the others in order, as the drop glue drops
+    // them; only through raw pointers, since some may be undefined.
+    let field_ids = fields.iter().map(|field| &field.ident);
+    let unsafe_init_impl = quote! {
+        unsafe impl #tvm_ffi::UnsafeInit for #obj {
+            unsafe fn drop_defined_fields(this: *mut Self) {
+                unsafe {
+                    <#base_ty as #tvm_ffi::UnsafeInit>::drop_defined_fields(
+                        ::core::ptr::addr_of_mut!((*this).#base_id),
+                    );
+                    #(#tvm_ffi::reflection::drop_if_defined(
+                        ::core::ptr::addr_of_mut!((*this).#field_ids),
+                    );)*
+                }
+            }
+        }
+    };
     let plain_fields = fields.iter().map(|field| {
         let mut field = (*field).clone();
         field.attrs.retain(|a| !a.path.is_ident("reflect"));
@@ -217,6 +241,8 @@ fn expand(args: &RsClassArgs, item: &DeriveInput) -> syn::Result<TokenStream2> {
         }
 
         #object_impl
+
+        #unsafe_init_impl
 
         impl ::core::ops::Deref for #obj {
             type Target = #base_ty;

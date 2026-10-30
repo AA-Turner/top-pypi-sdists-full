@@ -4,7 +4,6 @@ from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack, asynccontextmanager
 from typing import Literal
 
-import httpx
 import structlog
 from mcp import StdioServerParameters
 from mcp.client.stdio import get_default_environment
@@ -13,6 +12,7 @@ from pydantic import BaseModel
 from mistralai.extra.mcp.base import MCPClientBase
 from mistralai.extra.mcp.sse import MCPClientSSE, SSEServerParams
 from mistralai.extra.mcp.stdio import MCPClientSTDIO
+from mistralai.workflows._mistral_http import MISTRAL_HTTP
 
 # Streamable HTTP support requires mistralai>=2.8.0 (client-python#592). The plugin
 # keeps a permissive floor (>=2.0.0) to avoid forcing a relock across every in-repo
@@ -274,7 +274,7 @@ async def _open_streamable_http_client(
             async with asyncio.timeout(config.timeout):
                 logger.info("initializing mcp client", client=str(client))
                 await client.initialize(exit_stack=stack)
-        except (asyncio.TimeoutError, httpx.TimeoutException):
+        except (asyncio.TimeoutError, MISTRAL_HTTP.TimeoutException):
             logger.error("mcp client initialization timed out", client=str(client), timeout=config.timeout)
             raise RuntimeError(f"mcp client initialization timed out after {config.timeout}s: {client}")
         yield client
@@ -292,7 +292,7 @@ async def collect_tools_streamable_http(config: MCPStreamableHTTPConfig) -> list
         try:
             async with asyncio.timeout(config.timeout):
                 tools = _mcp_tools_as_dicts(await client.get_tools())
-        except (asyncio.TimeoutError, httpx.TimeoutException):
+        except (asyncio.TimeoutError, MISTRAL_HTTP.TimeoutException):
             logger.error("streamable http mcp tool listing timed out", url=config.url, timeout=config.timeout)
             raise RuntimeError(f"streamable http mcp tool listing timed out after {config.timeout}s: {config.url}")
         logger.info("collected tools from streamable http mcp", url=config.url, tool_count=len(tools))
@@ -411,7 +411,7 @@ async def execute_mcp_tool(params: ExecuteMCPToolParams) -> ExecuteMCPToolResult
             try:
                 async with asyncio.timeout(config.timeout):
                     result = await http_client.execute_tool(original_tool_name, params.tool_arguments)
-            except (asyncio.TimeoutError, httpx.TimeoutException):
+            except (asyncio.TimeoutError, MISTRAL_HTTP.TimeoutException):
                 logger.error(
                     "streamable http mcp tool execution timed out",
                     tool=original_tool_name,

@@ -8,7 +8,12 @@ from .exception_bases import ExceptionBase
 from .fsharp_collections import ComparisonIdentity_Structural, HashIdentity_Structural
 from .option import value as value_1
 from .protocols import IComparer_1, IDisposable, IEqualityComparer, IEqualityComparer_1
-from .system import ArgumentNullException__ctor_Z721C83C5, NullReferenceException__ctor
+from .system import (
+    ArgumentException__ctor_Z384F8060,
+    ArgumentNullException__ctor_Z721C83C5,
+    InvalidOperationException__ctor_Z721C83C5,
+    NullReferenceException__ctor,
+)
 from .system_text import StringBuilder__Append_Z721C83C5
 from .util import UNIT, Unit, dispose, equals, ignore, structural_hash
 
@@ -61,6 +66,14 @@ def Operators_FailurePattern(exn: Exception) -> str | None:
 
 def Operators_NullArg[_A](argument_name: str) -> _A:
     raise ArgumentNullException__ctor_Z721C83C5(argument_name)
+
+
+def Operators_InvalidArg[_A](argument_name: str, message: str) -> _A:
+    raise ArgumentException__ctor_Z384F8060(message, argument_name)
+
+
+def Operators_InvalidOp[_A](message: str) -> _A:
+    raise InvalidOperationException__ctor_Z721C83C5(message)
 
 
 def Operators_Using[T: IDisposable, R](resource: T, action: Callable[[T], R]) -> R:
@@ -199,6 +212,8 @@ __all__ = [
     "LanguagePrimitives_GenericEqualityERComparer",
     "Operators_Failure",
     "Operators_FailurePattern",
+    "Operators_InvalidArg",
+    "Operators_InvalidOp",
     "Operators_IsNotNull",
     "Operators_IsNull",
     "Operators_IsNullV",

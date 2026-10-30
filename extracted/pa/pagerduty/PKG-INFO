@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pagerduty
-Version: 7.0.1
+Version: 7.1.0
 Summary: Clients for PagerDuty's Public APIs
 Requires-Dist: httpx2
 Maintainer: Demitri Morgan, PagerDuty Community Team

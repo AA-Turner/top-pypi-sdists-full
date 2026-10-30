@@ -25,6 +25,7 @@ from sagemaker_studio.utils.spark.session.spark_config_builder import (
     apply_compatibility_mode_configs,
     build_spark_configs,
     generate_s3_access_grants_configs,
+    openlineage_supported_for_glue_version,
 )
 from sagemaker_studio.utils.spark.session.spark_session_manager import SparkSessionManager
 
@@ -97,6 +98,7 @@ class GlueSparkSessionManager(SparkSessionManager):
     def _lazy_init(self):
         _utils = InternalUtils()
         region = _utils._get_domain_region()
+        self._domain_region = region
 
         glue_override_config = self.config.overrides.get("glue", {})
         glue_endpoint_url = glue_override_config.get("endpoint_url")
@@ -178,12 +180,16 @@ class GlueSparkSessionManager(SparkSessionManager):
                 f"Loaded {len(self._connection_spark_configs)} connection-level spark configs"
             )
 
-        # Compatibility mode (FTA): same logic as sessions package —
-        # if --enable-lakeformation-fine-grained-access is false or absent, apply compat configs.
-        # NOTE: Glue Spark Connect does NOT support FGAC yet. Force compatibility mode ON
-        # regardless of the connection setting (which may have FGAC enabled for Livy sessions
-        # on the same connection with glueVersion=5.0).
-        self._is_compatibility_mode = True
+        # Compatibility mode (FTA) vs native FGAC: driven by the connection's
+        # --enable-lakeformation-fine-grained-access GlueDefaultArgument. FGAC when the
+        # flag is "true", otherwise compatibility/FTA (the default when absent). Glue 5.0+
+        # supports native FGAC over Spark Connect.
+        fgac_flag = str(
+            self._connection_default_arguments.get(
+                "--enable-lakeformation-fine-grained-access", "false"
+            )
+        ).lower()
+        self._is_compatibility_mode = fgac_flag != "true"
 
         # Extract glueConnectionNames (plural) from physicalEndpoints[0] for multi-subnet
         # failover — consistent with sessions package connection_transformer.py.
@@ -424,25 +430,35 @@ class GlueSparkSessionManager(SparkSessionManager):
             else:
                 logger.info("FTA not supported — skipping compatibility mode configs")
 
-            # Merge OpenLineage configs for Glue >= 5.0 (same as sessions package).
-            # Includes custom_environment_variables and JOB_NAME for parity.
+            # spark.glue.JOB_NAME applies to all Glue >= 5.0 (set unconditionally in
+            # the sessions package, outside the OpenLineage gate). It is NOT part of
+            # the server-side-injected lineage configs, so Glue 6.1+ must still get it.
             try:
-                if float(glue_version) >= 5.0:
-                    service_configs.update(
-                        {
-                            "spark.extraListeners": "io.openlineage.spark.agent.OpenLineageSparkListener",
-                            "spark.openlineage.transport.type": "amazon_datazone_api",
-                            "spark.openlineage.transport.domainId": self.project.domain_id,
-                            "spark.openlineage.facets.custom_environment_variables": "[AWS_DEFAULT_REGION;GLUE_VERSION;GLUE_COMMAND_CRITERIA;GLUE_PYTHON_VERSION;]",
-                            "spark.glue.accountId": account_id,
-                        }
+                if float(glue_version) >= 5.0 and user_id:
+                    service_configs["spark.glue.JOB_NAME"] = (
+                        f"Interactive/{self.project.id}/{user_id}"
                     )
-                    # JOB_NAME for interactive sessions (same as sessions package)
-                    if user_id:
-                        service_configs["spark.glue.JOB_NAME"] = (
-                            f"Interactive/{self.project.id}/{user_id}"
+            except (ValueError, TypeError):
+                pass
+
+            # Keep DataZone OpenLineage as the fallback configuration.
+            try:
+                if openlineage_supported_for_glue_version(glue_version):
+                    openlineage_configs = {
+                        "spark.extraListeners": "io.openlineage.spark.agent.OpenLineageSparkListener",
+                        "spark.openlineage.transport.type": "amazon_datazone_api",
+                        "spark.openlineage.transport.domainId": self.project.domain_id,
+                        "spark.openlineage.transport.region": self._domain_region,
+                        "spark.openlineage.columnLineage.datasetLineageEnabled": "true",
+                        "spark.openlineage.facets.custom_environment_variables": "[AWS_DEFAULT_REGION;GLUE_VERSION;GLUE_COMMAND_CRITERIA;GLUE_PYTHON_VERSION;]",
+                        "spark.glue.accountId": account_id,
+                    }
+                    if float(glue_version) >= 6.1:
+                        openlineage_configs["spark.jars"] = (
+                            "/usr/share/aws/glue-openlineage-spark/lib/GlueOpenLineageSpark.jar"
                         )
-                    logger.info("OpenLineage configs added for Glue >= 5.0")
+                    service_configs.update(openlineage_configs)
+                    logger.info("DataZone OpenLineage configs added for Glue")
             except (ValueError, TypeError):
                 pass
 
@@ -506,10 +522,6 @@ class GlueSparkSessionManager(SparkSessionManager):
             if self._connection_default_arguments:
                 default_arguments.update(self._connection_default_arguments)
                 logger.info("Connection-level GlueDefaultArgument merged into DefaultArguments")
-
-            # Force FGAC off for Spark Connect sessions (not yet supported).
-            # This overrides any connection-level setting that may have FGAC enabled for Livy.
-            default_arguments["--enable-lakeformation-fine-grained-access"] = "false"
 
             # Session ID format: {project_id}-{uuid} — matches sessions package convention.
             new_session_id = f"{self.project.id}-{uuid.uuid4()}"

@@ -17,7 +17,6 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Literal
 
-import structlog
 from mistralai.client import Mistral
 from mistralai.client.errors import MistralError
 from mistralai.client.models import AssistantMessage, ChatCompletionRequestMessage, SystemMessage, UserMessage
@@ -26,6 +25,7 @@ from mistralai.client.utils import BackoffStrategy, RetryConfig
 from pydantic import BaseModel, ConfigDict, Field, RootModel, ValidationError, model_validator
 
 from mistralai.workflows.client import get_mistral_client
+from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.auth import get_token_provider
 from mistralai.workflows.core.config import config
 from mistralai.workflows.core.graph_summary_validators import (
@@ -35,7 +35,7 @@ from mistralai.workflows.core.graph_summary_validators import (
 )
 from mistralai.workflows.core.wire_format import AtlasWireFormat, FlatNode
 
-logger = structlog.get_logger()
+logger = get_logger(__name__)
 
 SummaryStatus = Literal["pending", "disabled", "ready", "failed"]
 

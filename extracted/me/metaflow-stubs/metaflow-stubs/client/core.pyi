@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.39                                                                                #
-# Generated on 2026-09-02T21:19:46.727911                                                            #
+# MF version: 2.19.40                                                                                #
+# Generated on 2026-10-29T20:14:39.435623                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,10 +9,10 @@ from __future__ import annotations
 import metaflow
 import typing
 if typing.TYPE_CHECKING:
+    import metaflow.events
     import typing
     import tempfile
     import datetime
-    import metaflow.events
     import metaflow.client.core
     import tarfile
 
@@ -1520,7 +1520,7 @@ class Flow(MetaflowObject, metaclass=type):
             Latest successful run of this flow
         """
         ...
-    def runs(self, *tags: str) -> typing.Iterator[metaflow.client.core.Run]:
+    def runs(self, *tags: str, _filters: typing.Union[typing.Dict[str, typing.Any], None] = None, max_runs: typing.Union[int, None] = None) -> typing.Iterator[metaflow.client.core.Run]:
         """
         Returns an iterator over all `Run`s of this flow.
         
@@ -1531,7 +1531,19 @@ class Flow(MetaflowObject, metaclass=type):
         Parameters
         ----------
         tags : str
-            Tags to match.
+            Tags to match. Applied locally after listing, so this works with
+            local metadata as well as the metadata service.
+        _filters : dict, optional
+            Internal, unstable. Server-side run filters expressed in the metadata
+            service's ``field:operator`` grammar, for example
+            ``{"status:eq": "failed"}``. The grammar is specific to the metadata
+            service and has no meaning for local metadata, so it is deliberately
+            not part of the public interface -- the typed accessors built on top
+            of it are the supported way to filter. Requires a metadata service
+            with pagination and filtering support.
+        max_runs : int, optional
+            Maximum number of runs to yield, newest first. Supported by every
+            metadata provider.
         
         Yields
         ------

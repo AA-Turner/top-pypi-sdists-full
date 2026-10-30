@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-ads
-Version: 34.0.0
+Version: 35.0.0
 Summary: Client library for the Google Ads API
 Author-email: Google LLC <googleapis-packages@google.com>
 License:                             Apache License
@@ -209,34 +209,31 @@ Project-URL: Repository, https://github.com/googleads/google-ads-python
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: <3.15,>=3.9
+Requires-Python: <3.15,>=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: google-auth-oauthlib<2.0.0,>=1.0.0
-Requires-Dist: google-api-core<=3.0.0,>=2.13.0
-Requires-Dist: google-api-core<=3.0.0,>=2.22.0; python_version >= "3.13"
-Requires-Dist: googleapis-common-protos<2.0.0,>=1.56.3
-Requires-Dist: googleapis-common-protos<2.0.0,>=1.63.2; python_version >= "3.13"
+Requires-Dist: google-api-core<=3.0.0,>=2.41.0
+Requires-Dist: googleapis-common-protos<2.0.0,>=1.69.2
 Requires-Dist: grpcio<2.0.0,>=1.59.0
 Requires-Dist: grpcio<2.0.0,>=1.66.2; python_version >= "3.13"
 Requires-Dist: grpcio<2.0.0,>=1.75.1; python_version >= "3.14"
 Requires-Dist: grpcio-status<2.0.0,>=1.59.0
 Requires-Dist: grpcio-status<2.0.0,>=1.66.2; python_version >= "3.13"
 Requires-Dist: grpcio-status<2.0.0,>=1.75.1; python_version >= "3.14"
-Requires-Dist: proto-plus<2.0.0,>=1.22.3
-Requires-Dist: proto-plus<2.0.0,>=1.25.0; python_version >= "3.13"
+Requires-Dist: proto-plus<2.0.0,>=1.26.1
 Requires-Dist: PyYAML<7.0,>=5.1
-Requires-Dist: protobuf<7.0.0,>=4.25.0; python_version < "3.10"
-Requires-Dist: protobuf<8.0.0,>=4.25.0; python_version >= "3.10"
-Requires-Dist: protobuf>=5.26.1; python_version >= "3.13"
+Requires-Dist: protobuf<8.0.0,>=6.33.5
 Provides-Extra: tests
 Requires-Dist: nox>=2025.02.09; extra == "tests"
+Provides-Extra: async-rest
+Requires-Dist: google-api-core[async_rest]<=3.0.0,>=2.41.0; extra == "async-rest"
+Requires-Dist: google-auth[aiohttp]<3.0.0,>=2.60.0; extra == "async-rest"
 Dynamic: license-file
 
 Google Ads API Client Library for Python
@@ -250,7 +247,7 @@ Build Status
 
 Requirements
 ------------
-* Python 3.9+
+* Python 3.10+
 
 Installation
 ------------

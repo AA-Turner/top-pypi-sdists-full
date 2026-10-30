@@ -6,11 +6,13 @@ Desc: 修大成主页-Risk Lab-Realized Volatility; Oxford-Man Institute of Quan
 """
 
 import json
+import warnings
 
 import pandas as pd
-import requests
 import urllib3
 from bs4 import BeautifulSoup
+
+from akshare.utils import http
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -62,7 +64,7 @@ def article_oman_rv(symbol: str = "FTSE", index: str = "rk_th2") -> pd.DataFrame
     | .STOXX50E | EURO STOXX 50                             | January 03, 2000   | November 28, 2019 |
     """
     url = "https://realized.oxford-man.ox.ac.uk/theme/js/visualization-data.js?20191111113154"
-    res = requests.get(url)
+    res = http.get(url)
     soup = BeautifulSoup(res.text, "lxml")
     soup_text = soup.find("p").get_text()
     data_json = json.loads(soup_text[soup_text.find("{") : soup_text.rfind("};") + 1])
@@ -102,7 +104,7 @@ def article_oman_rv_short(symbol: str = "FTSE") -> pd.DataFrame:
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.97 Safari/537.36",
     }
 
-    res = requests.get(url, headers=headers, verify=False)
+    res = http.get(url, headers=headers, verify=False)  # noqa: S501
     soup = BeautifulSoup(res.text, "lxml")
     soup_text = soup.find("p").get_text()
     data_json = json.loads(soup_text[soup_text.find("{") : soup_text.rfind("}") + 1])
@@ -151,10 +153,10 @@ def article_rlab_rv(symbol: str = "39693") -> pd.DataFrame:
     4. “The Distribution of Exchange Rate Volatility”, by Torben Andersen, Tim Bollerslev, Francis X. Diebold, and Paul Labys. Journal of the American Statistical Association, 96 (2001), 42-55.
     5. “Econometric Analysis of Realized Volatility and Its Use in Estimating Stochastic Volatility Models”, by Ole E Barndorff‐Nielsen and Neil Shephard. Journal of the Royal Statistical Society: Series B, 64 (2002), 253-280.
     """
-    print("由于服务器在国外, 请稍后, 如果访问失败, 请使用代理工具")
+    warnings.warn("由于服务器在国外, 请稍后, 如果访问失败, 请使用代理工具")
     url = "https://dachxiu.chicagobooth.edu/data.php"
     payload = {"ticker": symbol}
-    res = requests.get(url, params=payload, verify=False)
+    res = http.get(url, params=payload, verify=False)  # noqa: S501
     soup = BeautifulSoup(res.text, "lxml")
     title_fore = (
         pd.DataFrame(soup.find("p").get_text().split(symbol)).iloc[0, 0].strip()
@@ -170,7 +172,7 @@ def article_rlab_rv(symbol: str = "39693") -> pd.DataFrame:
     temp_df = temp_df.iloc[:, 0].str.split(" ", expand=True)
     temp_df = temp_df.iloc[:, 1:]
     temp_df.iloc[:, -1] = temp_df.iloc[:, -1].str.replace(r"\n", "")
-    temp_df.reset_index(inplace=True)
+    temp_df = temp_df.reset_index()
     temp_df.index = pd.to_datetime(temp_df.iloc[:, 1], format="%Y%m%d", errors="coerce")
     temp_df = temp_df.iloc[:, 1:]
     data_se = temp_df.iloc[:, 1]

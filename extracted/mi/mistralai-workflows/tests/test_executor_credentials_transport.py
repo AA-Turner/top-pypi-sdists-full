@@ -1,6 +1,7 @@
 import json
 import time
 import uuid
+from typing import Any
 
 import httpx
 import jwt
@@ -9,7 +10,7 @@ from pydantic import SecretStr
 
 from mistralai.workflows.client import get_mistral_client
 from mistralai.workflows.core import _http_transport
-from mistralai.workflows.core.auth import ConnectorRunAs, FileTokenProvider
+from mistralai.workflows.core.auth import FileTokenProvider, RunAs
 from mistralai.workflows.core.config.config import config
 from mistralai.workflows.core.temporal.context_handler_interceptor import define_context
 from mistralai.workflows.exceptions import WorkflowError
@@ -46,7 +47,7 @@ def worker_config(monkeypatch):
 class TestExecutorCredentialsTransport:
     @pytest.mark.parametrize("explicit_headers", [False, True])
     @pytest.mark.parametrize("worker_credential", ["none", "api_key", "configured_api_key", "service_account"])
-    @pytest.mark.parametrize("run_as", [None, ConnectorRunAs.AUTO], ids=["strict", "auto"])
+    @pytest.mark.parametrize("run_as", [None, RunAs.AUTO], ids=["strict", "auto"])
     async def test_internal_exchange_and_public_executor_requests(
         self, monkeypatch, tmp_path, use_async, explicit_headers, worker_credential, run_as
     ):
@@ -119,7 +120,7 @@ class TestExecutorCredentialsTransport:
         client = get_mistral_client(
             server_url=_PUBLIC_URL,
             api_key="deployment-key",
-            run_as=ConnectorRunAs.AUTO,
+            run_as=RunAs.AUTO,
             executor_credentials_server_url=_INTERNAL_URL,
         )
         context = _context(str(uuid.uuid4()))
@@ -216,10 +217,17 @@ class TestExecutorCredentialsTransport:
 
     @staticmethod
     def _mock_http(monkeypatch, handler):
-        monkeypatch.setattr(_http_transport, "sync_transport", lambda: httpx.MockTransport(handler))
-        monkeypatch.setattr(_http_transport, "async_transport", lambda: httpx.MockTransport(handler))
-        monkeypatch.setattr(_http_transport, "sync_mounts", lambda: {})
-        monkeypatch.setattr(_http_transport, "async_mounts", lambda: {})
+        def transport(http: Any = httpx) -> Any:
+            def native_handler(request: Any) -> Any:
+                response = handler(request)
+                return http.Response(response.status_code, headers=dict(response.headers), content=response.content)
+
+            return http.MockTransport(native_handler)
+
+        monkeypatch.setattr(_http_transport, "sync_transport", transport)
+        monkeypatch.setattr(_http_transport, "async_transport", transport)
+        monkeypatch.setattr(_http_transport, "sync_mounts", lambda http=httpx: {})
+        monkeypatch.setattr(_http_transport, "async_mounts", lambda http=httpx: {})
 
 
 def test_explicit_empty_exchange_headers_disable_worker_header_fallback(monkeypatch):

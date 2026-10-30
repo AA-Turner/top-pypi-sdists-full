@@ -635,6 +635,93 @@ class TestGetServiceSpecificConfigs:
         assert configs["spark.hadoop.fs.s3.s3AccessGrants.enabled"] == "true"
         assert configs["spark.hadoop.fs.s3.s3AccessGrants.fallbackToIAM"] == "true"
 
+    def test_openlineage_skipped_for_emr_spark_8_2_and_above(self, manager):
+        """EMR 8.2+ injects OpenLineage server-side; client must not add it.
+
+        EKS resolves the label from ``spark.emr.releaseLabel``, which carries a
+        '-latest' suffix (see the ``_RELEASE_LABEL = emr-7.11.0-latest`` default),
+        so cover both the bare and '-latest'-suffixed forms.
+        """
+        manager.project = MagicMock(domain_id="dzd-test-domain")
+        for label in [
+            "emr-spark-8.2.0",
+            "emr-spark-8.2.0-latest",
+            "emr-spark-8.3.0",
+            "emr-spark-8.3.0-latest",
+            "emr-spark-9.0.0",
+        ]:
+            manager.release_label = label
+            configs = manager._get_service_specific_configs()
+            assert "spark.extraListeners" not in configs, label
+            assert "spark.openlineage.transport.type" not in configs, label
+
+    def test_openlineage_added_for_emr_spark_below_8_2(self, manager):
+        """emr-spark below 8.2.0 still passes OpenLineage from the client."""
+        manager.project = MagicMock(domain_id="dzd-test-domain")
+        for label in ["emr-spark-8.0.0", "emr-spark-8.1.0", "emr-spark-8.1.0-latest"]:
+            manager.release_label = label
+            configs = manager._get_service_specific_configs()
+            assert (
+                configs["spark.extraListeners"]
+                == "io.openlineage.spark.agent.OpenLineageSparkListener"
+            ), label
+
+    def test_openlineage_added_for_classic_emr_label(self, manager):
+        """A classic emr-7.x '-latest' label (as EKS resolves today) still passes
+        OpenLineage -- the 8.2 cutoff only applies to the emr-spark line."""
+        manager.project = MagicMock(domain_id="dzd-test-domain")
+        for label in ["emr-7.11.0-latest", "emr-7.13.0"]:
+            manager.release_label = label
+            configs = manager._get_service_specific_configs()
+            assert (
+                configs["spark.extraListeners"]
+                == "io.openlineage.spark.agent.OpenLineageSparkListener"
+            ), label
+
+
+class TestFgac:
+    """FGAC vs FTA selection driven by the connection's
+    spark.emr-containers.lakeformation.enabled flag, gated on a native-FGAC-capable release."""
+
+    def test_is_fgac_enabled_true(self, manager):
+        manager.connection_spark_configs = {"spark.emr-containers.lakeformation.enabled": "true"}
+        assert manager._is_fgac_enabled() is True
+
+    def test_is_fgac_enabled_true_mixed_case(self, manager):
+        manager.connection_spark_configs = {"spark.emr-containers.lakeformation.enabled": "True"}
+        assert manager._is_fgac_enabled() is True
+
+    def test_is_fgac_enabled_false_when_absent(self, manager):
+        manager.connection_spark_configs = {}
+        assert manager._is_fgac_enabled() is False
+
+    def test_is_fgac_enabled_false_when_explicit_false(self, manager):
+        manager.connection_spark_configs = {"spark.emr-containers.lakeformation.enabled": "false"}
+        assert manager._is_fgac_enabled() is False
+
+    def test_fgac_supported_release_skips_compatibility_configs(self, manager):
+        manager.project = MagicMock(domain_id="dzd-test")
+        manager.release_label = "emr-7.14.0-latest"
+        manager.connection_spark_configs = {"spark.emr-containers.lakeformation.enabled": "true"}
+        with patch.object(manager, "_get_s3_access_grants_configs", return_value={}):
+            configs = manager._get_service_specific_configs()
+        assert "spark.hadoop.fs.s3.credentialsResolverClass" not in configs
+        assert "spark.sql.catalog.skipLocationValidationOnCreateTable.enabled" not in configs
+
+    def test_fgac_unsupported_release_raises(self, manager):
+        manager.project = MagicMock(domain_id="dzd-test")
+        manager.release_label = "emr-7.11.0-latest"
+        manager.connection_spark_configs = {"spark.emr-containers.lakeformation.enabled": "true"}
+        with pytest.raises(RuntimeError, match="fine-grained access control requires EMR release"):
+            manager._get_service_specific_configs()
+
+    def test_fgac_missing_release_raises(self, manager):
+        manager.project = MagicMock(domain_id="dzd-test")
+        manager.release_label = ""
+        manager.connection_spark_configs = {"spark.emr-containers.lakeformation.enabled": "true"}
+        with pytest.raises(RuntimeError, match="fine-grained access control requires EMR release"):
+            manager._get_service_specific_configs()
+
 
 class TestGetS3AccessGrantsConfigs:
     """Logic lives in spark_config_builder.generate_s3_access_grants_configs and is tested

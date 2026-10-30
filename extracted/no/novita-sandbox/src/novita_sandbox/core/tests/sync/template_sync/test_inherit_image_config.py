@@ -12,11 +12,16 @@ Kept in step with the JS suite
 import base64
 import json
 import re
+import warnings
 from typing import Any, Dict, Optional
 
 import httpx
 import pytest
 
+from novita_sandbox.core.exceptions import (
+    ImageConfigException,
+    InvalidArgumentException,
+)
 from novita_sandbox.core.template.env_files import SCRIPT_PATH
 from novita_sandbox.core.template.image_config import clear_image_config_cache
 from novita_sandbox.core.template.main import TemplateBase
@@ -85,7 +90,9 @@ def _runtime_env_script(payload: Dict[str, Any]) -> str:
     """The runtime-env script, decoded back out of its RUN step."""
     for step in payload["steps"]:
         if step["type"] == "RUN" and SCRIPT_PATH in step["args"][0]:
-            encoded = re.search(r"echo ([A-Za-z0-9+/=]+) \| base64 -d", step["args"][0])
+            encoded = re.search(
+                r"echo ([A-Za-z0-9+/=]+) \| (?:command -p )?base64 -d", step["args"][0]
+            )
             return base64.b64decode(encoded.group(1)).decode()
     return ""
 
@@ -102,7 +109,7 @@ class TestInheritingWhatTheImageDeclares:
         b = t.from_image("python:3.11-slim")
 
         script = _runtime_env_script(_serialized(b))
-        assert "export PATH=" in script
+        assert "__novita_runtime_env PATH" in script
         assert "/opt/venv/bin:/usr/bin" in script
         assert "LANG" in script
 
@@ -167,9 +174,9 @@ class TestADockerfileBase:
         )
 
         script = _runtime_env_script(_serialized(b))
-        # One assignment, the Dockerfile's, with $PATH left live for the build.
-        assert 'v="/my/bin:$PATH"' in script
-        assert "/opt/conda/bin" not in script
+        # The image's PATH is installed first, then the Dockerfile extends it.
+        assert "/my/bin:$PATH" in script
+        assert "/opt/conda/bin" in script
         # A name the Dockerfile did not touch still comes from the image.
         assert "C.UTF-8" in script
 
@@ -183,7 +190,7 @@ class TestADockerfileBase:
         b = t.from_dockerfile("FROM python:3.11-slim\nWORKDIR /app\n")
 
         dirs = [s for s in _serialized(b)["steps"] if s["type"] == "WORKDIR"]
-        assert "/image-workdir" not in [d["args"][0] for d in dirs]
+        assert dirs[-1]["args"][0] == "/app"
 
 
 class TestTheCallerWinsOverTheImage:
@@ -192,17 +199,20 @@ class TestTheCallerWinsOverTheImage:
         _stub_image(monkeypatch, {"Env": ["PATH=/image/bin"]})
 
         t = TemplateBase()
-        b = t.from_image("python:3.11-slim").set_envs({"PATH": "/caller/bin"})
+        b = t.from_image("python:3.11-slim").set_envs(
+            {"PATH": "/caller/bin"}, runtime=True
+        )
 
         script = _runtime_env_script(_serialized(b))
         assert "/caller/bin" in script
-        assert "/image/bin" not in script
+        # The final caller assignment overrides the previously loaded literal.
+        assert script.index("/image/bin") < script.index("/caller/bin")
 
     def test_keeps_both_when_the_names_do_not_collide(self, monkeypatch):
         _stub_image(monkeypatch, {"Env": ["LANG=C.UTF-8"]})
 
         t = TemplateBase()
-        b = t.from_image("python:3.11-slim").set_envs({"MINE": "1"})
+        b = t.from_image("python:3.11-slim").set_envs({"MINE": "1"}, runtime=True)
 
         script = _runtime_env_script(_serialized(b))
         assert "LANG" in script
@@ -215,7 +225,7 @@ class TestTheCallerWinsOverTheImage:
         b = t.from_image("redis:7").set_workdir("/app")
 
         dirs = [s["args"][0] for s in _serialized(b)["steps"] if s["type"] == "WORKDIR"]
-        assert dirs == ["/app"]
+        assert dirs == ["/data", "/app"]
 
     def test_does_not_override_a_caller_start_command(self, monkeypatch):
         _stub_image(
@@ -239,7 +249,8 @@ class TestWhenTheImageConfigCannotBeRead:
 
         t = TemplateBase()
         b = t.from_image("ghcr.io/org/private:1")
-        payload = _serialized(b)
+        with pytest.warns(UserWarning, match="Could not read"):
+            payload = _serialized(b)
 
         assert payload["fromImage"] == "ghcr.io/org/private:1"
         assert "401" in t.image_config_failure()["error"]
@@ -275,7 +286,8 @@ class TestWhenTheImageConfigCannotBeRead:
 
         t = TemplateBase()
         b = t.from_image("arm-only:1")
-        _serialized(b)
+        with pytest.warns(UserWarning, match="Could not read"):
+            _serialized(b)
 
         assert "amd64" in t.image_config_failure()["unusable"]
 
@@ -285,15 +297,21 @@ class TestWhenTheImageConfigCannotBeRead:
         t = TemplateBase()
         b = t.from_image("ghcr.io/org/private:1")
 
-        assert _runtime_env_script(_serialized(b)) == ""
+        with pytest.warns(UserWarning, match="Could not read"):
+            payload = _serialized(b)
+
+        assert _runtime_env_script(payload) == ""
 
     def test_still_carries_the_environment_the_caller_set(self, monkeypatch):
         _stub_unreadable(monkeypatch)
 
         t = TemplateBase()
-        b = t.from_image("ghcr.io/org/private:1").set_envs({"MINE": "1"})
+        b = t.from_image("ghcr.io/org/private:1").set_envs({"MINE": "1"}, runtime=True)
 
-        assert "MINE" in _runtime_env_script(_serialized(b))
+        with pytest.warns(UserWarning, match="Could not read"):
+            payload = _serialized(b)
+
+        assert "MINE" in _runtime_env_script(payload)
 
 
 class TestWhenTheReadDoesNotApply:
@@ -316,9 +334,8 @@ class TestWhenTheReadDoesNotApply:
 
         assert calls["n"] == 0
 
-    def test_reads_once_even_when_serialized_twice(self, monkeypatch):
-        # A second read would re-apply the image's values over anything the caller
-        # set in between.
+    def test_refreshes_mutable_tag_when_serialized_twice(self, monkeypatch):
+        # Tag references can change between serializations/builds.
         reads = {"n": 0}
 
         def handler(request):
@@ -337,7 +354,7 @@ class TestWhenTheReadDoesNotApply:
         _serialized(b)
         _serialized(b)
 
-        assert reads["n"] == 1
+        assert reads["n"] == 2
 
     def test_does_not_re_apply_the_image_value_over_one_set_later(self, monkeypatch):
         _stub_image(monkeypatch, {"Env": ["PATH=/image/bin"]})
@@ -345,7 +362,7 @@ class TestWhenTheReadDoesNotApply:
         t = TemplateBase()
         b = t.from_image("python:3.11-slim")
         _serialized(b)
-        b.set_envs({"PATH": "/set/later"})
+        b.set_envs({"PATH": "/set/later"}, runtime=True)
 
         assert "/set/later" in _runtime_env_script(_serialized(b))
 
@@ -353,9 +370,7 @@ class TestWhenTheReadDoesNotApply:
         # WORKDIR is appended to the instruction list, so a duplicate would be a
         # second step rather than an overwrite. Measured: what prevents it is the
         # "caller already set one" check, which sees the step the first pass
-        # added -- the read-once flag and the process cache both also stop it, so
-        # this holds if any one of the three is removed. Asserted with the cache
-        # cleared so it is at least not the cache alone.
+        # added. Clearing the cache also exercises the complete resolution path.
         _stub_image(monkeypatch, {"WorkingDir": "/data"})
 
         t = TemplateBase()
@@ -378,3 +393,166 @@ class TestCredentials:
         assert "/private/bin" in _runtime_env_script(_serialized(b))
         expected = "Basic " + base64.b64encode(b"u:p").decode("ascii")
         assert expected in seen
+
+
+class TestOnConfigFailure:
+    """What a failed read does, which is the caller's decision.
+
+    The default stays non-fatal -- one unreachable registry must not abort a batch
+    conversion -- but "the template silently has no PATH" is exactly the outcome
+    this feature exists to prevent, so it is now reported on a channel that exists
+    without a build logger, and can be made fatal.
+    """
+
+    def test_warns_and_builds_by_default(self, monkeypatch):
+        _stub_unreadable(monkeypatch)
+
+        t = TemplateBase()
+        b = t.from_image("ghcr.io/org/private:1")
+
+        with pytest.warns(UserWarning, match="Could not read"):
+            payload = _serialized(b)
+
+        assert payload["fromImage"] == "ghcr.io/org/private:1"
+        assert t.image_config_failure() is not None
+
+    def test_raises_when_the_caller_asks_for_it(self, monkeypatch):
+        _stub_unreadable(monkeypatch)
+
+        t = TemplateBase()
+        b = t.from_image("ghcr.io/org/private:1", on_config_failure="raise")
+
+        with pytest.raises(ImageConfigException) as raised:
+            _serialized(b)
+
+        assert "ghcr.io/org/private:1" in str(raised.value)
+
+    def test_raises_again_when_the_template_is_serialized_a_second_time(
+        self, monkeypatch
+    ):
+        # Each retry must still raise, so a caller who caught the first
+        # raise would get a config-less template from the next build.
+        _stub_unreadable(monkeypatch)
+
+        t = TemplateBase()
+        b = t.from_image("ghcr.io/org/private:1", on_config_failure="raise")
+
+        for _ in range(2):
+            with pytest.raises(ImageConfigException):
+                _serialized(b)
+
+    def test_stays_quiet_when_asked_to(self, monkeypatch):
+        _stub_unreadable(monkeypatch)
+
+        t = TemplateBase()
+        b = t.from_image("ghcr.io/org/private:1", on_config_failure="ignore")
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            _serialized(b)
+
+        assert [w for w in caught if "Could not read" in str(w.message)] == []
+        # Still recorded: the mode governs reporting, not remembering.
+        assert t.image_config_failure() is not None
+
+    def test_says_nothing_when_the_config_was_read(self, monkeypatch):
+        _stub_image(monkeypatch, {"Env": ["A=1"]})
+
+        b = TemplateBase().from_image("ghcr.io/org/private:1")
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            _serialized(b)
+
+        assert [w for w in caught if "Could not read" in str(w.message)] == []
+
+    def test_rejects_an_unknown_failure_mode(self):
+        with pytest.raises(InvalidArgumentException):
+            TemplateBase().from_image("python:3", on_config_failure="explode")
+
+
+class TestRegistryTlsOptions:
+    """A self-hosted registry is routinely behind a private CA or a self-signed
+    certificate, and a read that fails verification is the same silent "my sandbox
+    has no PATH" as the 401 this module was fixed for.
+
+    Kept client-side on purpose: the platform pulls the image through
+    ``fromImageRegistry``, which carries the credentials only. A private CA needs
+    its own platform-side answer, so the payload is asserted to stay unchanged.
+    """
+
+    @staticmethod
+    def _handler(declared: Dict[str, Any]):
+        def handler(request: httpx.Request) -> httpx.Response:
+            if "/manifests/" in str(request.url):
+                return httpx.Response(200, json={"config": {"digest": "sha256:c"}})
+            return httpx.Response(200, json={"config": declared})
+
+        return handler
+
+    def _serve_recording(self, monkeypatch, declared: Dict[str, Any]) -> list:
+        seen: list = []
+        handler = self._handler(declared)
+        real_init = httpx.Client.__init__
+
+        def patched_init(client, *args, **kwargs):
+            seen.append(dict(kwargs))
+            kwargs["transport"] = httpx.MockTransport(handler)
+            real_init(client, *args, **kwargs)
+
+        monkeypatch.setattr(httpx.Client, "__init__", patched_init)
+        return seen
+
+    def test_verifies_the_registry_by_default(self, monkeypatch):
+        seen = self._serve_recording(monkeypatch, {"Env": ["HARBOR=/private/bin"]})
+
+        payload = _serialized(TemplateBase().from_image("harbor.internal/app:1"))
+
+        assert "/private/bin" in _runtime_env_script(payload)
+        assert seen[-1]["verify"] is True
+
+    def test_hands_the_ca_bundle_to_httpx(self, monkeypatch):
+        seen = self._serve_recording(monkeypatch, {"Env": ["HARBOR=/private/bin"]})
+
+        payload = _serialized(
+            TemplateBase().from_image(
+                "harbor.internal/app:1", ca_bundle="/etc/ssl/harbor-ca.pem"
+            )
+        )
+
+        assert "/private/bin" in _runtime_env_script(payload)
+        assert seen[-1]["verify"] == "/etc/ssl/harbor-ca.pem"
+
+    def test_disables_verification_only_when_asked(self, monkeypatch):
+        seen = self._serve_recording(monkeypatch, {"Env": ["HARBOR=/private/bin"]})
+
+        payload = _serialized(
+            TemplateBase().from_image("harbor.internal/app:1", insecure=True)
+        )
+
+        assert "/private/bin" in _runtime_env_script(payload)
+        assert seen[-1]["verify"] is False
+
+    def test_rejects_naming_a_ca_and_disabling_verification_at_once(self):
+        with pytest.raises(InvalidArgumentException):
+            TemplateBase().from_image(
+                "harbor.internal/app:1", ca_bundle="/ca.pem", insecure=True
+            )
+
+    def test_leaves_the_platform_payload_alone(self, monkeypatch):
+        self._serve_recording(monkeypatch, {"Env": ["A=1"]})
+
+        payload = _serialized(
+            TemplateBase().from_image(
+                "harbor.internal/app:1",
+                username="robot$x",
+                password="p",
+                ca_bundle="/ca.pem",
+            )
+        )
+
+        assert payload["fromImageRegistry"] == {
+            "type": "registry",
+            "username": "robot$x",
+            "password": "p",
+        }

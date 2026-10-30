@@ -766,6 +766,11 @@ SELECT_SOURCE_SYNC_RESULTS_FOR_VERSION = sqlalchemy.text(
     JOIN actor
       ON connection.source_id = actor.id
      AND actor.tombstone = false
+     AND actor.actor_definition_id = (
+         SELECT actor_definition_id
+         FROM actor_definition_version
+         WHERE id = CAST(:actor_definition_version_id AS uuid)
+     )
     JOIN workspace
       ON actor.workspace_id = workspace.id
      AND workspace.tombstone = false
@@ -775,16 +780,19 @@ SELECT_SOURCE_SYNC_RESULTS_FOR_VERSION = sqlalchemy.text(
       ON actor_pin.scope_id = actor.id
      AND actor_pin.scope_type = 'actor'
      AND actor_pin.key = 'connector_version'
+     AND actor_pin.resource_type = 'actor_definition'
      AND actor_pin.resource_id = actor.actor_definition_id
     LEFT JOIN scoped_configuration AS ws_pin
       ON ws_pin.scope_id = workspace.id
      AND ws_pin.scope_type = 'workspace'
      AND ws_pin.key = 'connector_version'
+     AND ws_pin.resource_type = 'actor_definition'
      AND ws_pin.resource_id = actor.actor_definition_id
     LEFT JOIN scoped_configuration AS org_pin
       ON org_pin.scope_id = workspace.organization_id
      AND org_pin.scope_type = 'organization'
      AND org_pin.key = 'connector_version'
+     AND org_pin.resource_type = 'actor_definition'
      AND org_pin.resource_id = actor.actor_definition_id
     WHERE
          jobs.config_type = 'sync'
@@ -840,6 +848,11 @@ SELECT_SOURCE_SUCCESSFUL_SYNCS_FOR_VERSION = sqlalchemy.text(
     JOIN actor
       ON connection.source_id = actor.id
      AND actor.tombstone = false
+     AND actor.actor_definition_id = (
+         SELECT actor_definition_id
+         FROM actor_definition_version
+         WHERE id = CAST(:actor_definition_version_id AS uuid)
+     )
     JOIN workspace
       ON actor.workspace_id = workspace.id
      AND workspace.tombstone = false
@@ -849,16 +862,19 @@ SELECT_SOURCE_SUCCESSFUL_SYNCS_FOR_VERSION = sqlalchemy.text(
       ON actor_pin.scope_id = actor.id
      AND actor_pin.scope_type = 'actor'
      AND actor_pin.key = 'connector_version'
+     AND actor_pin.resource_type = 'actor_definition'
      AND actor_pin.resource_id = actor.actor_definition_id
     LEFT JOIN scoped_configuration AS ws_pin
       ON ws_pin.scope_id = workspace.id
      AND ws_pin.scope_type = 'workspace'
      AND ws_pin.key = 'connector_version'
+     AND ws_pin.resource_type = 'actor_definition'
      AND ws_pin.resource_id = actor.actor_definition_id
     LEFT JOIN scoped_configuration AS org_pin
       ON org_pin.scope_id = workspace.organization_id
      AND org_pin.scope_type = 'organization'
      AND org_pin.key = 'connector_version'
+     AND org_pin.resource_type = 'actor_definition'
      AND org_pin.resource_id = actor.actor_definition_id
     WHERE
          jobs.config_type = 'sync'
@@ -916,6 +932,11 @@ SELECT_DESTINATION_SYNC_RESULTS_FOR_VERSION = sqlalchemy.text(
     JOIN actor
       ON connection.destination_id = actor.id
      AND actor.tombstone = false
+     AND actor.actor_definition_id = (
+         SELECT actor_definition_id
+         FROM actor_definition_version
+         WHERE id = CAST(:actor_definition_version_id AS uuid)
+     )
     JOIN workspace
       ON actor.workspace_id = workspace.id
      AND workspace.tombstone = false
@@ -925,16 +946,19 @@ SELECT_DESTINATION_SYNC_RESULTS_FOR_VERSION = sqlalchemy.text(
       ON actor_pin.scope_id = actor.id
      AND actor_pin.scope_type = 'actor'
      AND actor_pin.key = 'connector_version'
+     AND actor_pin.resource_type = 'actor_definition'
      AND actor_pin.resource_id = actor.actor_definition_id
     LEFT JOIN scoped_configuration AS ws_pin
       ON ws_pin.scope_id = workspace.id
      AND ws_pin.scope_type = 'workspace'
      AND ws_pin.key = 'connector_version'
+     AND ws_pin.resource_type = 'actor_definition'
      AND ws_pin.resource_id = actor.actor_definition_id
     LEFT JOIN scoped_configuration AS org_pin
       ON org_pin.scope_id = workspace.organization_id
      AND org_pin.scope_type = 'organization'
      AND org_pin.key = 'connector_version'
+     AND org_pin.resource_type = 'actor_definition'
      AND org_pin.resource_id = actor.actor_definition_id
     WHERE
          jobs.config_type = 'sync'
@@ -990,6 +1014,11 @@ SELECT_DESTINATION_SUCCESSFUL_SYNCS_FOR_VERSION = sqlalchemy.text(
     JOIN actor
       ON connection.destination_id = actor.id
      AND actor.tombstone = false
+     AND actor.actor_definition_id = (
+         SELECT actor_definition_id
+         FROM actor_definition_version
+         WHERE id = CAST(:actor_definition_version_id AS uuid)
+     )
     JOIN workspace
       ON actor.workspace_id = workspace.id
      AND workspace.tombstone = false
@@ -999,16 +1028,19 @@ SELECT_DESTINATION_SUCCESSFUL_SYNCS_FOR_VERSION = sqlalchemy.text(
       ON actor_pin.scope_id = actor.id
      AND actor_pin.scope_type = 'actor'
      AND actor_pin.key = 'connector_version'
+     AND actor_pin.resource_type = 'actor_definition'
      AND actor_pin.resource_id = actor.actor_definition_id
     LEFT JOIN scoped_configuration AS ws_pin
       ON ws_pin.scope_id = workspace.id
      AND ws_pin.scope_type = 'workspace'
      AND ws_pin.key = 'connector_version'
+     AND ws_pin.resource_type = 'actor_definition'
      AND ws_pin.resource_id = actor.actor_definition_id
     LEFT JOIN scoped_configuration AS org_pin
       ON org_pin.scope_id = workspace.organization_id
      AND org_pin.scope_type = 'organization'
      AND org_pin.key = 'connector_version'
+     AND org_pin.resource_type = 'actor_definition'
      AND org_pin.resource_id = actor.actor_definition_id
     WHERE
          jobs.config_type = 'sync'
@@ -1785,22 +1817,29 @@ _FAILED_SYNC_ATTEMPTS_FOR_CONNECTOR_SQL = """
     JOIN workspace
       ON actor.workspace_id = workspace.id
      AND workspace.tombstone = false
+     AND (
+         CAST(:organization_id AS uuid) IS NULL
+         OR workspace.organization_id = CAST(:organization_id AS uuid)
+     )
     LEFT JOIN dataplane_group
       ON workspace.dataplane_group_id = dataplane_group.id
     LEFT JOIN scoped_configuration AS actor_pin
       ON actor_pin.scope_id = actor.id
      AND actor_pin.scope_type = 'actor'
      AND actor_pin.key = 'connector_version'
+     AND actor_pin.resource_type = 'actor_definition'
      AND actor_pin.resource_id = actor.actor_definition_id
     LEFT JOIN scoped_configuration AS ws_pin
       ON ws_pin.scope_id = workspace.id
      AND ws_pin.scope_type = 'workspace'
      AND ws_pin.key = 'connector_version'
+     AND ws_pin.resource_type = 'actor_definition'
      AND ws_pin.resource_id = actor.actor_definition_id
     LEFT JOIN scoped_configuration AS org_pin
       ON org_pin.scope_id = workspace.organization_id
      AND org_pin.scope_type = 'organization'
      AND org_pin.key = 'connector_version'
+     AND org_pin.resource_type = 'actor_definition'
      AND org_pin.resource_id = actor.actor_definition_id
     WHERE
          attempts.ended_at >= :cutoff_date

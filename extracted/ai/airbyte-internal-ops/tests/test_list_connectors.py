@@ -11,6 +11,7 @@ import pytest
 
 from airbyte_ops_mcp.airbyte_repo.list_connectors import (
     CONNECTOR_PATH_PREFIX,
+    _extract_connector_names,
     format_github_actions_connector_matrix,
     get_connector_metadata,
     list_connectors,
@@ -188,6 +189,84 @@ def test_format_github_actions_connector_matrix() -> None:
 def test_format_github_actions_connector_matrix_empty() -> None:
     """Test empty connector lists produce a no-op GitHub Actions matrix."""
     assert format_github_actions_connector_matrix([]) == {"connector": [""]}
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "changed_files,expected_result",
+    [
+        pytest.param(
+            [
+                "airbyte-integrations/connectors/source-postgres/README.md",
+                "airbyte-integrations/connectors/source-postgres/CONTRIBUTING.md",
+                "airbyte-integrations/connectors/source-postgres/AGENTS.md",
+                "airbyte-integrations/connectors/source-postgres/CLAUDE.md",
+            ],
+            [],
+            id="only-root-level-connector-docs",
+        ),
+        pytest.param(
+            [
+                "airbyte-integrations/connectors/source-x/AGENTS.md",
+                "airbyte-integrations/connectors/source-x/metadata.yaml",
+            ],
+            ["source-x"],
+            id="root-doc-with-connector-file",
+        ),
+        pytest.param(
+            ["airbyte-integrations/connectors/source-x/src/README.md"],
+            ["source-x"],
+            id="nested-readme",
+        ),
+        pytest.param(
+            [
+                "airbyte-integrations/connectors/source-a/CONTRIBUTING.md",
+                "airbyte-integrations/connectors/source-b/build.gradle",
+            ],
+            ["source-b"],
+            id="ignored-doc-and-other-connector-change",
+        ),
+        pytest.param(
+            ["docs/integrations/sources/postgres.md"],
+            [],
+            id="non-connector-doc",
+        ),
+        pytest.param(
+            ["airbyte-integrations/connectors/_shared/README-java-sources.md"],
+            [],
+            id="shared-connector-doc",
+        ),
+        pytest.param(
+            ["airbyte-integrations/connectors/build.gradle"],
+            [],
+            id="connectors-root-build-file",
+        ),
+        pytest.param(
+            ["airbyte-integrations/connectors/third-party/foo/x.py"],
+            [],
+            id="third-party-connector-file",
+        ),
+        pytest.param(
+            [
+                "airbyte-integrations/connectors/_shared/README-python-connectors.md",
+                "airbyte-integrations/connectors/source-x/main.py",
+            ],
+            ["source-x"],
+            id="shared-doc-and-source-connector-change",
+        ),
+        pytest.param(
+            ["airbyte-integrations/connectors/destination-y/src/main/kotlin/A.kt"],
+            ["destination-y"],
+            id="destination-connector-change",
+        ),
+    ],
+)
+def test_extract_connector_names_ignores_root_level_docs(
+    changed_files: list[str],
+    expected_result: list[str],
+) -> None:
+    """Test root-level connector docs do not count as connector changes."""
+    assert _extract_connector_names(changed_files) == expected_result
 
 
 @pytest.mark.unit

@@ -16,13 +16,13 @@
 # OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 import base64
-import calendar
+import datetime
 import struct
 import time
 from typing import TypeVar
 
-import dns.dnssectypes
 import dns._text_util
+import dns.dnssectypes
 import dns.exception
 import dns.immutable
 import dns.name
@@ -47,7 +47,13 @@ def sigtime_to_posixtime(what):
     hour = int(what[8:10])
     minute = int(what[10:12])
     second = int(what[12:14])
-    return calendar.timegm((year, month, day, hour, minute, second, 0, 0, 0))
+    try:
+        value = datetime.datetime(
+            year, month, day, hour, minute, second, tzinfo=datetime.UTC
+        )
+    except ValueError:
+        raise BadSigTime
+    return int(value.timestamp())
 
 
 def posixtime_to_sigtime(what):
@@ -133,7 +139,7 @@ class RRSIGBase(dns.rdata.Rdata):
         key_tag = tok.get_int()
         signer = tok.get_name(origin, relativize, relativize_to)
         b64 = tok.concatenate_remaining_identifiers().encode()
-        signature = base64.b64decode(b64)
+        signature = base64.b64decode(b64, validate=True)
         return cls(
             rdclass,
             rdtype,
@@ -168,4 +174,4 @@ class RRSIGBase(dns.rdata.Rdata):
         header = parser.get_struct("!HBBIIIH")
         signer = parser.get_name(origin)
         signature = parser.get_remaining()
-        return cls(rdclass, rdtype, *header, signer, signature)  # type: ignore
+        return cls(rdclass, rdtype, *header, signer, signature)  # pyright: ignore

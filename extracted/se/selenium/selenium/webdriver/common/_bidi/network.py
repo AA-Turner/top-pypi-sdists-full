@@ -135,9 +135,11 @@ class BaseParameters(Record):
     context: str | None = field(metadata=meta("context", required=True, nullable=True, primitive="str"))
     is_blocked: bool = field(metadata=meta("isBlocked", required=True, primitive="bool"))
     navigation: str | None = field(metadata=meta("navigation", required=True, nullable=True, primitive="str"))
-    redirect_count: int = field(metadata=meta("redirectCount", required=True, primitive="int"))
+    redirect_count: int = field(
+        metadata=meta("redirectCount", required=True, primitive="int", min=0, max=9007199254740991),
+    )
     request: RequestData = field(metadata=meta("request", required=True, ref="network.RequestData"))
-    timestamp: int = field(metadata=meta("timestamp", required=True, primitive="int"))
+    timestamp: int = field(metadata=meta("timestamp", required=True, primitive="int", min=0, max=9007199254740991))
     user_context: str | None | UnsetType = field(
         default=UNSET,
         metadata=meta("userContext", nullable=True, primitive="str"),
@@ -185,11 +187,14 @@ class Cookie(Record):
     value: BytesValueValue = field(metadata=meta("value", required=True, ref="network.BytesValue"))
     domain: str = field(metadata=meta("domain", required=True, primitive="str"))
     path: str = field(metadata=meta("path", required=True, primitive="str"))
-    size: int = field(metadata=meta("size", required=True, primitive="int"))
+    size: int = field(metadata=meta("size", required=True, primitive="int", min=0, max=9007199254740991))
     http_only: bool = field(metadata=meta("httpOnly", required=True, primitive="bool"))
     secure: bool = field(metadata=meta("secure", required=True, primitive="bool"))
     same_site: SameSite = field(metadata=meta("sameSite", required=True, enum="network.SameSite"))
-    expiry: int | UnsetType = field(default=UNSET, metadata=meta("expiry", primitive="int"))
+    expiry: int | UnsetType = field(
+        default=UNSET,
+        metadata=meta("expiry", primitive="int", min=0, max=9007199254740991),
+    )
     extensions: dict[str, Any] | UnsetType = field(default=UNSET, metadata=meta("extensions"))
 
 
@@ -248,8 +253,14 @@ class Initiator(Record):
     See https://w3c.github.io/webdriver-bidi/#type-network-Initiator
     """
 
-    column_number: int | UnsetType = field(default=UNSET, metadata=meta("columnNumber", primitive="int"))
-    line_number: int | UnsetType = field(default=UNSET, metadata=meta("lineNumber", primitive="int"))
+    column_number: int | UnsetType = field(
+        default=UNSET,
+        metadata=meta("columnNumber", primitive="int", min=0, max=9007199254740991),
+    )
+    line_number: int | UnsetType = field(
+        default=UNSET,
+        metadata=meta("lineNumber", primitive="int", min=0, max=9007199254740991),
+    )
     request: str | UnsetType = field(default=UNSET, metadata=meta("request", primitive="str"))
     stack_trace: StackTrace | UnsetType = field(default=UNSET, metadata=meta("stackTrace", ref="script.StackTrace"))
     type: InitiatorType | UnsetType = field(default=UNSET, metadata=meta("type", enum="network.InitiatorType"))
@@ -268,8 +279,12 @@ class RequestData(Record):
     method: str = field(metadata=meta("method", required=True, primitive="str"))
     headers: list[Header] = field(metadata=meta("headers", required=True, ref="network.Header", is_list=True))
     cookies: list[Cookie] = field(metadata=meta("cookies", required=True, ref="network.Cookie", is_list=True))
-    headers_size: int = field(metadata=meta("headersSize", required=True, primitive="int"))
-    body_size: int | None = field(metadata=meta("bodySize", required=True, nullable=True, primitive="int"))
+    headers_size: int = field(
+        metadata=meta("headersSize", required=True, primitive="int", min=0, max=9007199254740991),
+    )
+    body_size: int | None = field(
+        metadata=meta("bodySize", required=True, nullable=True, primitive="int", min=0, max=9007199254740991),
+    )
     destination: str = field(metadata=meta("destination", required=True, primitive="str"))
     initiator_type: str | None = field(
         metadata=meta("initiatorType", required=True, nullable=True, primitive="str"),
@@ -285,7 +300,7 @@ class ResponseContent(Record):
     See https://w3c.github.io/webdriver-bidi/#type-network-ResponseContent
     """
 
-    size: int = field(metadata=meta("size", required=True, primitive="int"))
+    size: int = field(metadata=meta("size", required=True, primitive="int", min=0, max=9007199254740991))
 
 
 @register("network.ResponseData")
@@ -298,14 +313,20 @@ class ResponseData(Record):
 
     url: str = field(metadata=meta("url", required=True, primitive="str"))
     protocol: str = field(metadata=meta("protocol", required=True, primitive="str"))
-    status: int = field(metadata=meta("status", required=True, primitive="int"))
+    status: int = field(metadata=meta("status", required=True, primitive="int", min=0, max=9007199254740991))
     status_text: str = field(metadata=meta("statusText", required=True, primitive="str"))
     from_cache: bool = field(metadata=meta("fromCache", required=True, primitive="bool"))
     headers: list[Header] = field(metadata=meta("headers", required=True, ref="network.Header", is_list=True))
     mime_type: str = field(metadata=meta("mimeType", required=True, primitive="str"))
-    bytes_received: int = field(metadata=meta("bytesReceived", required=True, primitive="int"))
-    headers_size: int | None = field(metadata=meta("headersSize", required=True, nullable=True, primitive="int"))
-    body_size: int | None = field(metadata=meta("bodySize", required=True, nullable=True, primitive="int"))
+    bytes_received: int = field(
+        metadata=meta("bytesReceived", required=True, primitive="int", min=0, max=9007199254740991),
+    )
+    headers_size: int | None = field(
+        metadata=meta("headersSize", required=True, nullable=True, primitive="int", min=0, max=9007199254740991),
+    )
+    body_size: int | None = field(
+        metadata=meta("bodySize", required=True, nullable=True, primitive="int", min=0, max=9007199254740991),
+    )
     content: ResponseContent = field(metadata=meta("content", required=True, ref="network.ResponseContent"))
     auth_challenges: list[AuthChallenge] | UnsetType = field(
         default=UNSET,
@@ -326,7 +347,10 @@ class SetCookieHeader(Record):
     domain: str | UnsetType = field(default=UNSET, metadata=meta("domain", primitive="str"))
     http_only: bool | UnsetType = field(default=UNSET, metadata=meta("httpOnly", primitive="bool"))
     expiry: str | UnsetType = field(default=UNSET, metadata=meta("expiry", primitive="str"))
-    max_age: int | UnsetType = field(default=UNSET, metadata=meta("maxAge", primitive="int"))
+    max_age: int | UnsetType = field(
+        default=UNSET,
+        metadata=meta("maxAge", primitive="int", min=-9007199254740991, max=9007199254740991),
+    )
     path: str | UnsetType = field(default=UNSET, metadata=meta("path", primitive="str"))
     same_site: SameSite | UnsetType = field(default=UNSET, metadata=meta("sameSite", enum="network.SameSite"))
     secure: bool | UnsetType = field(default=UNSET, metadata=meta("secure", primitive="bool"))
@@ -371,7 +395,9 @@ class AddDataCollectorParameters(Record):
     data_types: list[DataType] = field(
         metadata=meta("dataTypes", required=True, is_list=True, enum="network.DataType"),
     )
-    max_encoded_data_size: int = field(metadata=meta("maxEncodedDataSize", required=True, primitive="int"))
+    max_encoded_data_size: int = field(
+        metadata=meta("maxEncodedDataSize", required=True, primitive="int", min=0, max=9007199254740991),
+    )
     collector_type: CollectorType | UnsetType = field(
         default=UNSET,
         metadata=meta("collectorType", enum="network.CollectorType"),
@@ -467,7 +493,10 @@ class ContinueResponseParameters(Record):
         metadata=meta("headers", ref="network.Header", is_list=True),
     )
     reason_phrase: str | UnsetType = field(default=UNSET, metadata=meta("reasonPhrase", primitive="str"))
-    status_code: int | UnsetType = field(default=UNSET, metadata=meta("statusCode", primitive="int"))
+    status_code: int | UnsetType = field(
+        default=UNSET,
+        metadata=meta("statusCode", primitive="int", min=0, max=9007199254740991),
+    )
 
 
 @register("network.DisownDataParameters")
@@ -538,7 +567,10 @@ class ProvideResponseParameters(Record):
         metadata=meta("headers", ref="network.Header", is_list=True),
     )
     reason_phrase: str | UnsetType = field(default=UNSET, metadata=meta("reasonPhrase", primitive="str"))
-    status_code: int | UnsetType = field(default=UNSET, metadata=meta("statusCode", primitive="int"))
+    status_code: int | UnsetType = field(
+        default=UNSET,
+        metadata=meta("statusCode", primitive="int", min=0, max=9007199254740991),
+    )
 
 
 @register("network.RemoveDataCollectorParameters")
@@ -604,9 +636,11 @@ class AuthRequiredParameters(Record):
     context: str | None = field(metadata=meta("context", required=True, nullable=True, primitive="str"))
     is_blocked: bool = field(metadata=meta("isBlocked", required=True, primitive="bool"))
     navigation: str | None = field(metadata=meta("navigation", required=True, nullable=True, primitive="str"))
-    redirect_count: int = field(metadata=meta("redirectCount", required=True, primitive="int"))
+    redirect_count: int = field(
+        metadata=meta("redirectCount", required=True, primitive="int", min=0, max=9007199254740991),
+    )
     request: RequestData = field(metadata=meta("request", required=True, ref="network.RequestData"))
-    timestamp: int = field(metadata=meta("timestamp", required=True, primitive="int"))
+    timestamp: int = field(metadata=meta("timestamp", required=True, primitive="int", min=0, max=9007199254740991))
     response: ResponseData = field(metadata=meta("response", required=True, ref="network.ResponseData"))
     user_context: str | None | UnsetType = field(
         default=UNSET,
@@ -629,9 +663,11 @@ class BeforeRequestSentParameters(Record):
     context: str | None = field(metadata=meta("context", required=True, nullable=True, primitive="str"))
     is_blocked: bool = field(metadata=meta("isBlocked", required=True, primitive="bool"))
     navigation: str | None = field(metadata=meta("navigation", required=True, nullable=True, primitive="str"))
-    redirect_count: int = field(metadata=meta("redirectCount", required=True, primitive="int"))
+    redirect_count: int = field(
+        metadata=meta("redirectCount", required=True, primitive="int", min=0, max=9007199254740991),
+    )
     request: RequestData = field(metadata=meta("request", required=True, ref="network.RequestData"))
-    timestamp: int = field(metadata=meta("timestamp", required=True, primitive="int"))
+    timestamp: int = field(metadata=meta("timestamp", required=True, primitive="int", min=0, max=9007199254740991))
     user_context: str | None | UnsetType = field(
         default=UNSET,
         metadata=meta("userContext", nullable=True, primitive="str"),
@@ -654,9 +690,11 @@ class FetchErrorParameters(Record):
     context: str | None = field(metadata=meta("context", required=True, nullable=True, primitive="str"))
     is_blocked: bool = field(metadata=meta("isBlocked", required=True, primitive="bool"))
     navigation: str | None = field(metadata=meta("navigation", required=True, nullable=True, primitive="str"))
-    redirect_count: int = field(metadata=meta("redirectCount", required=True, primitive="int"))
+    redirect_count: int = field(
+        metadata=meta("redirectCount", required=True, primitive="int", min=0, max=9007199254740991),
+    )
     request: RequestData = field(metadata=meta("request", required=True, ref="network.RequestData"))
-    timestamp: int = field(metadata=meta("timestamp", required=True, primitive="int"))
+    timestamp: int = field(metadata=meta("timestamp", required=True, primitive="int", min=0, max=9007199254740991))
     error_text: str = field(metadata=meta("errorText", required=True, primitive="str"))
     user_context: str | None | UnsetType = field(
         default=UNSET,
@@ -679,9 +717,11 @@ class ResponseCompletedParameters(Record):
     context: str | None = field(metadata=meta("context", required=True, nullable=True, primitive="str"))
     is_blocked: bool = field(metadata=meta("isBlocked", required=True, primitive="bool"))
     navigation: str | None = field(metadata=meta("navigation", required=True, nullable=True, primitive="str"))
-    redirect_count: int = field(metadata=meta("redirectCount", required=True, primitive="int"))
+    redirect_count: int = field(
+        metadata=meta("redirectCount", required=True, primitive="int", min=0, max=9007199254740991),
+    )
     request: RequestData = field(metadata=meta("request", required=True, ref="network.RequestData"))
-    timestamp: int = field(metadata=meta("timestamp", required=True, primitive="int"))
+    timestamp: int = field(metadata=meta("timestamp", required=True, primitive="int", min=0, max=9007199254740991))
     response: ResponseData = field(metadata=meta("response", required=True, ref="network.ResponseData"))
     user_context: str | None | UnsetType = field(
         default=UNSET,
@@ -704,9 +744,11 @@ class ResponseStartedParameters(Record):
     context: str | None = field(metadata=meta("context", required=True, nullable=True, primitive="str"))
     is_blocked: bool = field(metadata=meta("isBlocked", required=True, primitive="bool"))
     navigation: str | None = field(metadata=meta("navigation", required=True, nullable=True, primitive="str"))
-    redirect_count: int = field(metadata=meta("redirectCount", required=True, primitive="int"))
+    redirect_count: int = field(
+        metadata=meta("redirectCount", required=True, primitive="int", min=0, max=9007199254740991),
+    )
     request: RequestData = field(metadata=meta("request", required=True, ref="network.RequestData"))
-    timestamp: int = field(metadata=meta("timestamp", required=True, primitive="int"))
+    timestamp: int = field(metadata=meta("timestamp", required=True, primitive="int", min=0, max=9007199254740991))
     response: ResponseData = field(metadata=meta("response", required=True, ref="network.ResponseData"))
     user_context: str | None | UnsetType = field(
         default=UNSET,

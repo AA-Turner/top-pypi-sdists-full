@@ -57,6 +57,7 @@ class View(StrEnum):
     INHERITED = "inherited"
     SUMMARY_HISTORY = "summary_history"
     BRANCHES = "branches"
+    PICKS = "picks"
 
 
 #: What a view MEANS on a kind -- the union across both agent
@@ -98,6 +99,7 @@ VIEW_MATRIX: dict[ViewKind, frozenset[View]] = {
             View.NOTES,
             View.OVERVIEW,
             View.PAPERS,
+            View.PICKS,
             View.README,
             View.RECORD,
             View.SESSIONS,
@@ -150,6 +152,7 @@ VIEW_PURPOSE: dict[View, str] = {
     View.NOTES: "hidden operational notes: decisions, caveats, handoffs",
     View.OVERVIEW: "the complete saved Overview page: generated content, authored edits and chart data",
     View.PAPERS: "the literature attached to this project",
+    View.PICKS: "the best pick's history, newest first: who picked or cleared what, and why",
     View.README: "the repository's README at this grain",
     View.RECORD: "the raw source record, pageable; one field via view_options.field",
     View.REPRODUCE: "everything needed to run it again, plus a completeness verdict",

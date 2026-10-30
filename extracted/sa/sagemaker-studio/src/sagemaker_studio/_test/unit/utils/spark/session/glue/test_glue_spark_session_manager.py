@@ -205,8 +205,9 @@ def test_lazy_init_extracts_connection_props(
     }
     # Multi-subnet failover: glueConnectionNames from physicalEndpoints[0]
     assert manager._glue_connection_names == ["conn-a", "conn-b"]
-    # FGAC forced off for Spark Connect (regardless of connection setting)
-    assert manager._is_compatibility_mode is True
+    # Connection requests FGAC (--enable-lakeformation-fine-grained-access=true),
+    # so compatibility mode is off and native FGAC is used.
+    assert manager._is_compatibility_mode is False
 
 
 @patch("boto3.client")
@@ -347,9 +348,10 @@ def test_start_glue_session_bumps_version_to_5_1(
     assert create_call[1]["IdleTimeout"] == 15
     assert create_call[1]["SessionType"] == "SPARK_CONNECT"
     assert create_call[1]["RequestOrigin"] == "SageMakerUnifiedStudio_NotebookRun"
-    # FGAC forced off
+    # Connection's --enable-lakeformation-fine-grained-access value flows through
+    # (the manager no longer forces it off); this connection requests FGAC.
     assert (
-        create_call[1]["DefaultArguments"]["--enable-lakeformation-fine-grained-access"] == "false"
+        create_call[1]["DefaultArguments"]["--enable-lakeformation-fine-grained-access"] == "true"
     )
 
 
@@ -481,6 +483,70 @@ def test_is_fta_supported_always_true_for_5_1(manager):
     assert manager._is_fta_supported("5.1") is True
     assert manager._is_fta_supported("5.0") is True
     assert manager._is_fta_supported("4.0") is False
+
+
+@patch("boto3.client")
+@patch("boto3.Session")
+def test_lazy_init_compat_mode_true_when_fgac_flag_absent(
+    mock_session_cls, mock_boto_client, mock_internal_utils
+):
+    """No --enable-lakeformation-fine-grained-access on the connection -> compatibility (FTA)."""
+    conn = MagicMock()
+    conn._Connection__connection_data = {
+        "props": {"sparkGlueProperties": {"glueVersion": "5.1"}},
+        "configurations": [],
+        "physicalEndpoints": [],
+    }
+    mock_session_cls.return_value.client.return_value = MagicMock()
+    mgr = GlueSparkSessionManager(connection=conn)
+    mgr._lazy_init()
+    assert mgr._is_compatibility_mode is True
+
+
+@patch("boto3.client")
+@patch("boto3.Session")
+def test_lazy_init_compat_mode_true_when_fgac_flag_false(
+    mock_session_cls, mock_boto_client, mock_internal_utils
+):
+    """--enable-lakeformation-fine-grained-access=false on the connection -> compatibility (FTA)."""
+    conn = MagicMock()
+    conn._Connection__connection_data = {
+        "props": {"sparkGlueProperties": {"glueVersion": "5.1"}},
+        "configurations": [
+            {
+                "classification": "GlueDefaultArgument",
+                "properties": {"--enable-lakeformation-fine-grained-access": "false"},
+            }
+        ],
+        "physicalEndpoints": [],
+    }
+    mock_session_cls.return_value.client.return_value = MagicMock()
+    mgr = GlueSparkSessionManager(connection=conn)
+    mgr._lazy_init()
+    assert mgr._is_compatibility_mode is True
+
+
+@patch("boto3.client")
+@patch("boto3.Session")
+def test_lazy_init_compat_mode_false_when_fgac_flag_true(
+    mock_session_cls, mock_boto_client, mock_internal_utils
+):
+    """--enable-lakeformation-fine-grained-access=true on the connection -> native FGAC."""
+    conn = MagicMock()
+    conn._Connection__connection_data = {
+        "props": {"sparkGlueProperties": {"glueVersion": "5.1"}},
+        "configurations": [
+            {
+                "classification": "GlueDefaultArgument",
+                "properties": {"--enable-lakeformation-fine-grained-access": "true"},
+            }
+        ],
+        "physicalEndpoints": [],
+    }
+    mock_session_cls.return_value.client.return_value = MagicMock()
+    mgr = GlueSparkSessionManager(connection=conn)
+    mgr._lazy_init()
+    assert mgr._is_compatibility_mode is False
 
 
 def test_construct_spark_endpoint_url(manager):
@@ -1132,6 +1198,52 @@ def test_start_glue_session_uses_project_domain_id_for_openlineage(
     create_call = mock_glue_client.create_session.call_args
     conf_str = create_call[1]["DefaultArguments"]["--conf"]
     assert "spark.openlineage.transport.domainId=dzd-openlineage-test" in conf_str
+    assert "spark.openlineage.transport.region=us-east-2" in conf_str
+    assert "spark.openlineage.columnLineage.datasetLineageEnabled=true" in conf_str
+    assert "GlueOpenLineageSpark.jar" not in conf_str
+
+
+@patch("boto3.client")
+@patch("boto3.Session")
+def test_start_glue_session_passes_datazone_openlineage_for_glue_6_1(
+    mock_session_cls, mock_boto_client, mock_internal_utils
+):
+    _, mock_project = mock_internal_utils
+    mock_project.return_value.domain_id = "dzd-openlineage-test"
+    mock_project.return_value.user_id = "job-name-user"
+    mock_project.return_value.id = "proj-job"
+
+    conn = MagicMock()
+    conn._Connection__connection_data = {
+        "props": {"sparkGlueProperties": {"glueVersion": "6.1"}},
+        "configurations": [],
+        "physicalEndpoints": [],
+    }
+
+    mock_glue_client = MagicMock()
+    mock_session_cls.return_value.client.return_value = mock_glue_client
+    mock_glue_client.create_session.return_value = {"Session": {"Id": "sess-ol61"}}
+    mock_glue_client.get_session.return_value = {"Session": {"Status": "READY"}}
+    mock_glue_client.get_session_endpoint.return_value = {
+        "SparkConnect": {"Url": "sc://ep", "AuthToken": "t", "AuthTokenExpirationTime": 123}
+    }
+
+    mgr = GlueSparkSessionManager(connection=conn)
+    mgr._lazy_init()
+    mgr._start_glue_session()
+
+    create_call = mock_glue_client.create_session.call_args
+    conf_str = create_call[1]["DefaultArguments"]["--conf"]
+    assert "spark.openlineage.transport.type=amazon_datazone_api" in conf_str
+    assert "spark.openlineage.transport.domainId=dzd-openlineage-test" in conf_str
+    assert "spark.openlineage.transport.region=us-east-2" in conf_str
+    assert "spark.openlineage.columnLineage.datasetLineageEnabled=true" in conf_str
+    assert (
+        "spark.jars=/usr/share/aws/glue-openlineage-spark/lib/GlueOpenLineageSpark.jar" in conf_str
+    )
+    assert "io.openlineage.spark.agent.OpenLineageSparkListener" in conf_str
+    assert "spark.glue.accountId" in conf_str
+    assert "spark.glue.JOB_NAME=Interactive/proj-job/job-name-user" in conf_str
 
 
 @patch("boto3.client")
@@ -1317,8 +1429,9 @@ def test_start_glue_session_connection_default_args_merged(
 
     create_call = mock_glue_client.create_session.call_args
     default_args = create_call[1]["DefaultArguments"]
-    # FGAC should be forced to false even though connection had it as true
-    assert default_args["--enable-lakeformation-fine-grained-access"] == "false"
+    # Connection's --enable-lakeformation-fine-grained-access=true flows through
+    # (no longer forced off by the manager).
+    assert default_args["--enable-lakeformation-fine-grained-access"] == "true"
     # Other default arguments should be present
     assert default_args["--enable-glue-datacatalog"] == "true"
     assert default_args["--enable-auto-scaling"] == "true"

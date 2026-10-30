@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sagemaker
-Version: 3.27.0
+Version: 3.28.0
 Summary: Open source library for training and deploying models on Amazon SageMaker.
 Author: Amazon Web Services
 Project-URL: Homepage, https://github.com/aws/sagemaker-python-sdk
@@ -17,10 +17,10 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: sagemaker-core<3.0.0,>=2.27.0
-Requires-Dist: sagemaker-train<2.0.0,>=1.27.0
-Requires-Dist: sagemaker-serve<2.0.0,>=1.27.0
-Requires-Dist: sagemaker-mlops<2.0.0,>=1.27.0
+Requires-Dist: sagemaker-core<3.0.0,>=2.28.0
+Requires-Dist: sagemaker-train<2.0.0,>=1.28.0
+Requires-Dist: sagemaker-serve<2.0.0,>=1.28.0
+Requires-Dist: sagemaker-mlops<2.0.0,>=1.28.0
 Provides-Extra: train
 Requires-Dist: sagemaker-train; extra == "train"
 Provides-Extra: serve
@@ -31,6 +31,14 @@ Provides-Extra: all
 Requires-Dist: sagemaker-train; extra == "all"
 Requires-Dist: sagemaker-serve; extra == "all"
 Requires-Dist: sagemaker-mlops; extra == "all"
+Provides-Extra: torch
+Requires-Dist: sagemaker-serve[torch]; extra == "torch"
+Provides-Extra: onnx
+Requires-Dist: sagemaker-serve[onnx]; extra == "onnx"
+Provides-Extra: triton
+Requires-Dist: sagemaker-serve[triton]; extra == "triton"
+Provides-Extra: mlflow
+Requires-Dist: sagemaker-serve[mlflow]; extra == "mlflow"
 Dynamic: license-file
 
 .. image:: https://github.com/aws/sagemaker-python-sdk/raw/master/branding/icon/sagemaker-banner.png

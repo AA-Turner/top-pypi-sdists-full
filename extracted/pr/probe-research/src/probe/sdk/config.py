@@ -78,6 +78,7 @@ import os
 import stat
 import tempfile
 import time
+from collections.abc import Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -569,17 +570,24 @@ def resolve(
     workspace: str | None = None,
     project: str | None = None,
     context: str | None = None,
+    env: Mapping[str, str] | None = None,
 ) -> Settings:
-    """Merge explicit args, env, and the config file into one Settings object."""
+    """Merge explicit args, env, and the config file into one Settings object.
+
+    `env`: the variables to read in place of this process's (the Probe daemon
+    host answers one session's read with that session's key and URL, which are
+    in no `os.environ`: `probe.daemon.host_reads`). The config file is found
+    as always."""
     from .workspace_limit import Source, resolve_limit
 
+    env = os.environ if env is None else env
     file = load_context(context)
     anchor = file.get("workspace") if isinstance(file.get("workspace"), dict) else {}
-    limit = resolve_limit(file)
+    limit = resolve_limit(file, env)
     # A job limited by `PROBE_WORKSPACE_LIMIT` files what it creates into that
     # workspace too, unless PROBE_WORKSPACE says otherwise: a limited process that
     # filed into the config's pin would make work it then cannot see.
-    env_limited = limit.ref if limit is not None and limit.source is Source.ENV and os.environ.get(
+    env_limited = limit.ref if limit is not None and limit.source is Source.ENV and env.get(
         "PROBE_WORKSPACE_LIMIT", ""
     ).strip() else None
     return Settings(
@@ -588,25 +596,25 @@ def resolve(
         # that could outrank it would point production at the wrong API — while /healthz
         # still returned 200. tests/test_config_contexts.py guards this ordering.
         base_url=(
-            base_url or os.environ.get("PROBE_BASE_URL") or file.get("base_url") or DEFAULT_BASE_URL
+            base_url or env.get("PROBE_BASE_URL") or file.get("base_url") or DEFAULT_BASE_URL
         ).rstrip("/"),
-        token=token or os.environ.get("PROBE_TOKEN") or file.get("token"),
+        token=token or env.get("PROBE_TOKEN") or file.get("token"),
         # A read-only egress credential (probe_svc_) for an external product. Like
         # mcp_token it can never write; unlike it, it is team-scoped and userless.
         service_token=(
-            service_token or os.environ.get("PROBE_SERVICE_TOKEN") or file.get("service_token")
+            service_token or env.get("PROBE_SERVICE_TOKEN") or file.get("service_token")
         ),
         # Env first keeps every shell that already exports PROBE_MCP_TOKEN working
         # unchanged. Never falls back to `token`: that one can write.
-        mcp_token=mcp_token or os.environ.get("PROBE_MCP_TOKEN") or file.get("mcp_token"),
+        mcp_token=mcp_token or env.get("PROBE_MCP_TOKEN") or file.get("mcp_token"),
         ingest_token=(
-            ingest_token or os.environ.get("PROBE_INGEST_TOKEN") or file.get("ingest_token")
+            ingest_token or env.get("PROBE_INGEST_TOKEN") or file.get("ingest_token")
         ),
-        hmac_secret=(hmac_secret or os.environ.get("PROBE_HMAC_SECRET") or file.get("hmac_secret")),
+        hmac_secret=(hmac_secret or env.get("PROBE_HMAC_SECRET") or file.get("hmac_secret")),
         # Ambient anchors are a convenience, never a requirement: an explicit flag or an
         # env var always wins, so scripts and CI never depend on a developer's context.
-        workspace=workspace or os.environ.get("PROBE_WORKSPACE") or env_limited or anchor.get("id"),
-        project=project or os.environ.get("PROBE_PROJECT") or anchor.get("project"),
+        workspace=workspace or env.get("PROBE_WORKSPACE") or env_limited or anchor.get("id"),
+        project=project or env.get("PROBE_PROJECT") or anchor.get("project"),
         workspace_limit=limit,
     )
 

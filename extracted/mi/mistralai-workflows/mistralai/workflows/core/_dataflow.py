@@ -14,9 +14,10 @@ from typing import Any
 
 import libcst as cst
 import libcst.metadata as meta
-import structlog
 
-logger = structlog.get_logger()
+from mistralai.workflows.core._logger import get_logger
+
+logger = get_logger(__name__)
 
 CONTROL_FLOW_VIEW = "Control flow"
 DATA_FLOW_VIEW = "Data flow"

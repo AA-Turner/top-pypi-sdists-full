@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: oschmod
-Version: 0.4.0
+Version: 0.7.0
 Summary: Consistent chmod-style file permissions on Windows, macOS, and Linux
 Project-URL: Homepage, https://github.com/YakDriver/oschmod
 Project-URL: Issues, https://github.com/YakDriver/oschmod/issues
@@ -79,9 +79,13 @@ $ conda install -c conda-forge oschmod
 
 ***oschmod*** changes the file mode bits of each given file according to mode, which can be either a symbolic representation of changes to make, or an octal number representing the bit pattern for the new mode bits.
 
-The format of a symbolic mode is `[ugoa...][+-=][perms...]` where perms is zero or more letters from the set `rwx`. Multiple symbolic modes can be given, separated by commas.
+The format of a symbolic mode is `[ugoa...][[-+=][perms...]...]`, where perms is either zero or more letters from the set `rwxXst`, or a single letter from the set `ugo`. Multiple symbolic modes can be given, separated by commas.
 
-A combination of the letters `ugoa` controls which users' access to the file will be changed: the user who owns it (`u`), other users in the file's group (`g`), other users not in the file's group (`o`), or all users (`a`). If none of these are given, the effect is as if `a` were given.
+A combination of the letters `ugoa` controls which users' access to the file will be changed: the user who owns it (`u`), other users in the file's group (`g`), other users not in the file's group (`o`), or all users (`a`). If none of these are given, the effect is as if `a` were given. (GNU chmod also applies the umask in that case; ***oschmod*** doesn't.)
+
+The letters `rwxXst` select file mode bits for the affected users: read (`r`), write (`w`), execute or search for directories (`x`), execute/search only if the file is a directory or already has execute permission for some user (`X`), set user or group ID on execution (`s`), and restricted deletion flag or sticky bit (`t`). Instead of one or more of these letters, you can specify exactly one of the letters `ugo`: the permissions granted to the user who owns the file (`u`), the permissions granted to other users who are members of the file's group (`g`), and the permissions granted to users that are in neither of the two preceding categories (`o`).
+
+On Windows, `s` and `t` have no effect.
 
 *(Modified from the GNU manpage for chmod.)*
 
@@ -91,22 +95,36 @@ A combination of the letters `ugoa` controls which users' access to the file wil
 
 ```console
 $ oschmod -h
-usage: oschmod [-h] [-R] [-v] [--other-sid SID] [--version] mode object
+usage: oschmod [options] MODE FILE...
+       oschmod [options] --reference=RFILE FILE...
 
-Change the mode (permissions) of a file or directory
+Change the mode (permissions) of files and directories
 
 positional arguments:
-  mode             octal or symbolic mode of the object
-  object           file or directory
+  MODE FILE             MODE is octal (e.g., 640) or symbolic (e.g.,
+                        u=rw,g=r,o=, or a+rX); FILE is one or more files or
+                        directories (MODE is omitted with --reference)
 
 options:
-  -h, --help       show this help message and exit
-  -R               apply mode recursively
-  -v               verbose: show each object as its mode is set; repeat (-vv)
-                   to also show old and new modes
-  --other-sid SID  Windows only: SID that receives "other" permissions
-                   (default: S-1-5-32-545, the built-in Users group)
-  --version        show program's version number and exit
+  -h, --help            show this help message and exit
+  -R, --recursive       apply mode recursively
+  -H                    with -R, follow the object if it is a symlink, but no
+                        links below it (default)
+  -L                    with -R, follow every symlink (changes link targets,
+                        even outside the tree)
+  -P                    with -R, follow no symlinks
+  -v, --verbose         verbose: show each object as its mode is set; repeat
+                        (-vv) to also show old and new modes
+  -c, --changes         like -vv, but report only objects whose mode changed
+                        (overrides -v)
+  -f, --silent, --quiet
+                        don't print errors for individual objects (the exit
+                        status is still 1)
+  --reference RFILE     use RFILE's mode instead of a MODE argument (symlinks
+                        are followed)
+  --other-sid SID       Windows only: SID that receives "other" permissions
+                        (default: S-1-5-32-545, the built-in Users group)
+  --version             show program's version number and exit
 ```
 
 You can also run it as `python -m oschmod`.
@@ -120,8 +138,8 @@ You can use symbolic (e.g., "u+rw") or octal (e.g., "600") representations of mo
 Symbolic representation mode modifiers have three parts:
 
 1. **whom:** To whom does the modification apply? You can include zero or more of `[ugoa]*` where `a` is for all, `u` is for the file owner (i.e., "**u**ser"), `g` is for the file group, and `o` is for others. In other words, `ugo` is equivalent to `a`. Also, if you do not provide a "whom," ***oschmod*** assumes you mean `a` (everyone).
-2. **operation:** Which operation should be applied? You must include one and only one operation, `[+-=]{1}`, per modifier (although you can have multiple modifiers). `+` adds permissions, `-` removes permissions, and `=` sets permissions regardless of previous permissions. `+` and `-` modifications often depend on the current permissions.
-3. **permission:** Which permission or permissions will be affected? You can include zero or more of `[rwx]*` where `r` is for read, `w` is for write, and `x` is for execute. If you do not include a permission with `+` or `-` (e.g., `u-`), the modifier has no effect. However, if you use no permissions with `=` (e.g., `o=`), all permissions are removed.
+2. **operation:** Which operation should be applied? `+` adds permissions, `-` removes permissions, and `=` sets permissions regardless of previous permissions. You can chain operations for the same "whom" (e.g., `u+r-x`); each one applies to the result of the one before.
+3. **permission:** Which permission or permissions will be affected? You can include zero or more of `[rwxXst]*` where `r` is for read, `w` is for write, `x` is for execute, `X` is for execute only on directories and files that are already executable, `s` is set-user-ID or set-group-ID, and `t` is the sticky bit. Or you can give one of `u`, `g`, or `o` to copy that class's current permissions (e.g., `g=u`). If you do not include a permission with `+` or `-` (e.g., `u-`), the modifier has no effect. However, if you use no permissions with `=` (e.g., `o=`), all permissions are removed.
 
 **Example 1:** To give everyone execute permissions on a file (all of these are equivalent):
 
@@ -150,17 +168,29 @@ $ oschmod u+rx,go-x <file name>
 $ oschmod a+rwx,g-w,o-x <file name>
 ```
 
+**Example 5:** To make a tree readable by everyone, and make directories (but not ordinary files) enterable:
+
+```console
+$ oschmod -R a+rX <directory name>
+```
+
+**Example 6:** To give the group the same permissions as the owner, minus write:
+
+```console
+$ oschmod g=u-w <file name>
+```
+
 ### Octal representation examples
 
 For more about what octal representations mean, see [this article](https://medium.com/@dirk.avery/securing-files-on-windows-macos-and-linux-7b2b9899992) on Medium.
 
-**Example 5:** To give everyone read, write, and execute permissions on a file:
+**Example 7:** To give everyone read, write, and execute permissions on a file:
 
 ```console
 $ oschmod 777 <file name>
 ```
 
-**Example 6:** To lock down a file to just give the file owner read, write, and execute permissions and deny all permissions to everyone else:
+**Example 8:** To lock down a file to just give the file owner read, write, and execute permissions and deny all permissions to everyone else:
 
 ```console
 $ oschmod 700 <file name>
@@ -168,12 +198,36 @@ $ oschmod 700 <file name>
 
 ### Verbose output
 
-**Example 7:** Show each object as its mode is set (`-v`), or show old and new modes too (`-vv`):
+**Example 9:** Show each object as its mode is set (`-v`), or show old and new modes too (`-vv`):
 
 ```console
 $ oschmod -vv 600 secrets.txt
 secrets.txt: 0o644 (rw-r--r--) -> 0o600 (rw-------)
 ```
+
+**Example 10:** Report only objects whose mode actually changed (`-c`), and hide per-file errors (`-f`; the exit status is still 1 if anything failed):
+
+```console
+$ oschmod -c -R u=rwX,go= project
+project/notes.txt: 0o644 (rw-r--r--) -> 0o600 (rw-------)
+$ oschmod -f 600 *.pem
+```
+
+**Example 11:** Give files the same mode as another file:
+
+```console
+$ oschmod --reference=template.cfg app.cfg db.cfg
+```
+
+### Recursion and symlinks
+
+With `-R`, symlinks found inside the tree are **not** followed, so nothing outside the tree is changed. This is the same as GNU `chmod -R` and is the safe choice, especially when running as root or Administrator on a directory that others can write to. On Windows, directory junctions are treated the same way as symlinks.
+
+* `-H` (default): if the object you name is a symlink to a directory, follow it, but no links below it.
+* `-L`: follow every symlink, changing link targets wherever they are. Use this only for trees you control, for example a deployment directory that links to shared storage. Directory cycles are skipped.
+* `-P`: follow no symlinks; a symlink to a directory given on the command line is left alone.
+
+If an object can't be changed, ***oschmod*** prints an error, keeps going, and exits with status 1 at the end. A directory that can't be listed because of its current mode (e.g., `000`) gets its new mode first, so `oschmod -R u+rwx mydir` can repair it.
 
 ## Python usage
 
@@ -185,7 +239,7 @@ import oschmod
 oschmod.set_mode("myfile", "a+rwx,g-w,o-x")
 ```
 
-*Example 5* above, in Python code, could be done in two ways:
+*Example 7* above, in Python code, could be done in two ways:
 
 ```python
 import oschmod
@@ -223,7 +277,40 @@ oschmod.set_mode("myfile1", "u+x")
 oschmod.set_mode("myfile2", 0o777)
 ```
 
-`get_mode()` returns only the read/write/execute bits (`0o777`). On macOS and Linux, use `get_full_mode()` to also include set-user-ID, set-group-ID, and sticky bits (`0o7777`). Symbolic modes such as `g+w` change only read/write/execute bits and leave those special bits as they are.
+`get_mode()` returns only the read/write/execute bits (`0o777`). On macOS and Linux, use `get_full_mode()` to also include set-user-ID, set-group-ID, and sticky bits (`0o7777`). Symbolic `+` and `-` (e.g., `g+w`) leave those special bits as they are. As in GNU chmod, `=` clears them for the classes it sets: `u=` clears set-user-ID, `g=` set-group-ID, and `o=` the sticky bit. Directories keep their set-user-ID and set-group-ID bits.
+
+An invalid mode string raises `oschmod.ModeError`, a `ValueError`.
+
+### Creating private files
+
+Creating a file and then calling `set_mode()` leaves a moment when the file has default permissions; on Windows, those are usually inherited from the folder. To create a file that has its final permissions from the start, use `oschmod.open_new()`. It works like `open(path, "x")`: it fails with `FileExistsError` if anything, including a symlink, already exists at the path.
+
+```python
+import oschmod
+
+with oschmod.open_new("token.json", "w", perms=0o600) as f:
+    f.write(secret)
+
+oschmod.mkdir("keys", perms=0o700)
+```
+
+* `open_new()` returns an ordinary file object, like `open()`. `mode` can be `"w"`, `"x"`, or `"a"`, plus optional `"b"`/`"t"` and `"+"`. It also takes `open()`'s `buffering`, `encoding`, `errors`, and `newline`. Invalid arguments raise before anything is created.
+* `oschmod.mkdir()` fails with `FileExistsError` like `os.mkdir()`, and never follows a symlink.
+* `perms` takes any mode `set_mode()` accepts, such as `0o600`, `"600"`, or `"u=rw"`. The umask doesn't apply, so the result is exactly `perms`.
+* On Windows, the file or directory is created with the same protected DACL that `set_mode()` writes. `other_sid` works as it does for `set_mode()`.
+
+To give one file the same mode as another, use `oschmod.copy_mode(src, dst)`. Unlike `shutil.copymode()`, it also works on Windows.
+
+`set_mode_recursive()` skips symlinks below the path by default. Pass `follow_symlinks=True` to follow them. Errors stop the walk unless you pass `on_error`, which is called with the path and exception for each failure:
+
+```python
+import oschmod
+
+failures = []
+oschmod.set_mode_recursive(
+    "mydir", "u=rw,go=r", "u=rwx,go=rx", on_error=lambda path, exc: failures.append(path)
+)
+```
 
 Paths can be strings or any path-like object, such as `pathlib.Path`:
 
@@ -243,4 +330,7 @@ Windows has no owner/group/other mode bits, so ***oschmod*** maps them to ACL en
 * **Others** is the built-in *Users* group (`S-1-5-32-545`) by default. To use a different account, pass `other_sid` (for example, `"S-1-5-11"` for *Authenticated Users*). In Python, use `oschmod.set_mode(path, "o+r", other_sid="S-1-5-11")`; on the command line, use `--other-sid S-1-5-11`.
 * Setting a mode replaces the object's DACL with explicit entries and marks it **protected**, so permissions are no longer inherited from the parent folder, including after later changes to the parent. Any existing entry for the local SYSTEM account is kept.
 * Set-user-ID, set-group-ID, and sticky bits have no Windows equivalent and are ignored there.
+* When reading a mode, only entries for the owner, the group, and the "other" account count. Entries for groups that include everyone in "other" also count: *Everyone* always, and *Authenticated Users* when "other" is the default Users. Entries for any other account, such as *Administrators*, are ignored when reading, and removed when a mode is set (SYSTEM excepted). Pass the same `other_sid` to `get_mode()` that you use with `set_mode()`.
+* "Write" lets an account change the file's contents, not its permissions or owner. The owner can always change permissions.
+* If one account fills two roles (for example, the owner is also the group), it gets the bits of the first role, in the order owner, group, other, as on POSIX.
 * `ACCESS_DENIED` entries are not considered when reading a mode.

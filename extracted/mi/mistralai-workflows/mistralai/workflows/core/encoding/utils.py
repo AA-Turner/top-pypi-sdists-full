@@ -18,6 +18,23 @@ def is_custom_encoding_format(encoding: bytes | str) -> bool:
     return encoding in ACCEPTED_ENCODING_FORMATS
 
 
+def serialize_encoding_options(encoding_options: list[EncodedPayloadOptions]) -> bytes:
+    return b",".join(option.value.encode() for option in encoding_options)
+
+
+def parse_encoding_options(encoding_options_bytes: bytes | None) -> list[EncodedPayloadOptions]:
+    encoding_options: list[EncodedPayloadOptions] = []
+    if not encoding_options_bytes:
+        return encoding_options
+    for option in encoding_options_bytes.split(b","):
+        option_str = option.decode()
+        try:
+            encoding_options.append(EncodedPayloadOptions(option_str))
+        except ValueError:
+            raise WorkflowPayloadOffloadingException(f"Unknown encoding option {option_str}")
+    return encoding_options
+
+
 def build_temporal_payload_metadata(
     context: WorkflowContext, encoding_options: list[EncodedPayloadOptions], empty_payload: bool = False
 ) -> Dict[str, bytes]:
@@ -26,7 +43,7 @@ def build_temporal_payload_metadata(
         PayloadMetadataKeys.ENCODING: NEW_ENCODING_FORMAT.encode(),
         PayloadMetadataKeys.NAMESPACE: context.namespace.encode(),
         PayloadMetadataKeys.EXECUTION_ID: context.execution_id.encode(),
-        PayloadMetadataKeys.ENCODING_OPTIONS: b",".join(option.value.encode() for option in encoding_options),
+        PayloadMetadataKeys.ENCODING_OPTIONS: serialize_encoding_options(encoding_options),
     }
 
     if context.root_workflow_exec_id:
@@ -94,13 +111,5 @@ def build_info_from_payload_metadata(
     )
 
     empty = bool(metadata.get(PayloadMetadataKeys.EMPTY_PAYLOAD))
-    encoding_options: list[EncodedPayloadOptions] = []
-    encoding_options_bytes = metadata.get(PayloadMetadataKeys.ENCODING_OPTIONS, None)
-    if encoding_options_bytes:
-        for option in encoding_options_bytes.split(b","):
-            option_str = option.decode()
-            try:
-                encoding_options.append(EncodedPayloadOptions(option_str))
-            except ValueError:
-                raise WorkflowPayloadOffloadingException(f"Unknown encoding option {option_str}")
+    encoding_options = parse_encoding_options(metadata.get(PayloadMetadataKeys.ENCODING_OPTIONS))
     return workflow_context, encoding_options, empty

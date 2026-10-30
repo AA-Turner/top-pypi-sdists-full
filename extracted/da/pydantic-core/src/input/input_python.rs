@@ -16,7 +16,7 @@ use speedate::MicrosecondsPrecisionOverflowBehavior;
 use crate::ArgsKwargs;
 use crate::common::counter::get_counter_type;
 use crate::common::deque::{deque_maxlen, get_deque_type};
-use crate::common::frozendict::get_frozendict_type;
+use crate::common::frozendict::as_frozendict;
 use crate::common::ordered_dict::get_ordered_dict_type;
 use crate::errors::{ErrorType, ErrorTypeDefaults, InputValue, LocItem, ValError, ValResult};
 use crate::lookup_key::LookupPath;
@@ -98,6 +98,10 @@ impl<'py> Input<'py> for Bound<'py, PyAny> {
 
     fn as_python(&self) -> Option<&Bound<'py, PyAny>> {
         Some(self)
+    }
+
+    fn identity(&self) -> Option<usize> {
+        Some(self.as_ptr() as usize)
     }
 
     fn as_kwargs(&self, _py: Python<'py>) -> Option<Bound<'py, PyDict>> {
@@ -435,24 +439,16 @@ impl<'py> Input<'py> for Bound<'py, PyAny> {
     }
 
     fn strict_frozendict<'a>(&'a self) -> ValMatch<GenericPyMapping<'a, 'py>> {
-        if let Ok(frozendict_type) = get_frozendict_type(self.py())
-            && self.is_instance(frozendict_type)?
-        {
-            Ok(ValidationMatch::exact(GenericPyMapping::Mapping(
-                self.cast::<PyMapping>()?,
-            )))
+        if let Some(frozendict) = as_frozendict(self) {
+            Ok(ValidationMatch::exact(GenericPyMapping::Mapping(frozendict)))
         } else {
             Err(ValError::new(ErrorTypeDefaults::FrozenDictType, self))
         }
     }
 
     fn lax_frozendict<'a>(&'a self) -> ValMatch<GenericPyMapping<'a, 'py>> {
-        if let Ok(frozendict_type) = get_frozendict_type(self.py())
-            && self.is_instance(frozendict_type)?
-        {
-            Ok(ValidationMatch::exact(GenericPyMapping::Mapping(
-                self.cast::<PyMapping>()?,
-            )))
+        if let Some(frozendict) = as_frozendict(self) {
+            Ok(ValidationMatch::exact(GenericPyMapping::Mapping(frozendict)))
         } else if let Ok(dict) = self.cast_exact::<PyDict>() {
             Ok(ValidationMatch::lax(GenericPyMapping::Dict(dict)))
         } else if let Ok(mapping) = self.cast::<PyMapping>() {

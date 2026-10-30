@@ -67,11 +67,15 @@ class GitHubAgentWorkflow:
 
 if __name__ == "__main__":
     from mistralai.workflows.core.config.config import config
-    from mistralai.workflows.core.logging import setup_logging
+    from mistralai.workflows.core.logging import LoggerConfig, LogLevel, setup_logging
 
     setup_logging(
         log_format=config.common.log_format,
         log_level=config.common.log_level,
         app_version=config.common.app_version,
+        extra_config=[
+            LoggerConfig(name=name, level=LogLevel.WARNING)
+            for name in ("httpx", "httpcore", "asyncio", "aiocache", "urllib3")
+        ],
     )
     asyncio.run(workflows.run_worker([GitHubAgentWorkflow]))

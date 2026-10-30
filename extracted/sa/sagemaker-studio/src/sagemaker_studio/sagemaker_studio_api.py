@@ -1,12 +1,16 @@
 import os
 import pathlib
 import zipfile
-from typing import Optional
+from types import SimpleNamespace
+from typing import Any, Optional, cast
 
 from boto3 import Session
+from botocore.client import BaseClient
 
+from sagemaker_studio import local_kernel
 from sagemaker_studio.credentials import CredentialsVendingService
 from sagemaker_studio.data_models import ClientConfig
+from sagemaker_studio.exceptions import UnsupportedInModeError
 from sagemaker_studio.execution.local_execution_client import LocalExecutionClient
 from sagemaker_studio.execution.remote_execution_client import RemoteExecutionClient
 from sagemaker_studio.git import GitService
@@ -16,11 +20,49 @@ from sagemaker_studio.utils import SAGEMAKER_METADATA_JSON_PATH
 from sagemaker_studio.utils._internal import InternalUtils
 
 
+class _LocalKernelClientStandIn:
+    """
+    What :class:`SageMakerStudioAPI` holds instead of DataZone-backed AWS clients on an AWS
+    Notebook local kernel.
+
+    Building a real boto3 client resolves the credential chain (profiles, container, then
+    instance metadata over the network), which a local kernel must not do: its only credentials
+    are the ones each connection gets from the app. Nothing on a local kernel may call these
+    clients -- connections build their own -- so every operation raises
+    :class:`UnsupportedInModeError` naming the service. ``meta.region_name`` is the one attribute
+    the SDK reads without calling.
+    """
+
+    def __init__(self, service_name: str, region_name: Optional[str]):
+        self.meta = SimpleNamespace(region_name=region_name, service_name=service_name)
+
+    def __getattr__(self, name: str) -> Any:
+        if name.startswith("_"):  # introspection (copy, pickle, dir) must see a plain object
+            raise AttributeError(name)
+        raise UnsupportedInModeError(
+            f"The {self.meta.service_name} client ({name})",
+            local_kernel.current_context().mode,
+            local_kernel.RuntimeMode.REMOTE,
+            "An AWS Notebook local kernel never calls SageMaker Unified Studio control-plane "
+            "services; its connections use the credentials the app vends for them.",
+        )
+
+    def __repr__(self) -> str:
+        return f"<{type(self).__name__} {self.meta.service_name} {self.meta.region_name}>"
+
+
 class SageMakerStudioAPI:
     """
     This class provides access to various APIs and services within SageMaker Unified Studio,
     such as DataZone, Glue, Project Service, Credentials Vending Service,
     Git Service, and Execution Clients.
+
+    On an AWS Notebook local kernel (see :mod:`sagemaker_studio.local_kernel`) nothing here calls
+    DataZone: the region comes from the configuration or the environment rather than the domain,
+    and no execution client is built. The DataZone-backed service clients are
+    :class:`_LocalKernelClientStandIn` objects (a real client would resolve boto3's credential
+    chain, a network call); connections build their own clients from the credentials the app
+    vends for them.
 
     Args:
         config (ClientConfig): The configuration settings for the SageMaker Unified Studio client.
@@ -46,16 +88,35 @@ class SageMakerStudioAPI:
         """
         self.sagemaker_studio_config = config
         self._utils = InternalUtils()
-        self.default_region: str = (
-            self.sagemaker_studio_config.region or self._utils._get_domain_region() or "us-east-1"
-        )
+        kernel = local_kernel.local_kernel()
+        if kernel is not None:
+            # AWS Notebook local kernel: DataZone is not in the picture, so neither the domain's
+            # region nor the SMUS space profile is consulted. Connections carry their own region;
+            # this one only places clients a connection does not.
+            self.default_region = (
+                self.sagemaker_studio_config.region
+                or kernel.default_region
+                or os.getenv("AWS_REGION")
+                or os.getenv("AWS_DEFAULT_REGION")
+                or "us-east-1"
+            )
+        else:
+            self.default_region = (
+                self.sagemaker_studio_config.region
+                or self._utils._get_domain_region()
+                or "us-east-1"
+            )
         models_path: str = self._set_boto3_models_path_env_var()
 
         space_aws_config_path = "/home/sagemaker-user/.aws/config"
         profile_name: Optional[str]
         if self.sagemaker_studio_config.profile_name:
             profile_name = self.sagemaker_studio_config.profile_name
-        elif os.path.exists(space_aws_config_path) and os.path.exists(SAGEMAKER_METADATA_JSON_PATH):
+        elif (
+            kernel is None
+            and os.path.exists(space_aws_config_path)
+            and os.path.exists(SAGEMAKER_METADATA_JSON_PATH)
+        ):
             with open(space_aws_config_path, "r") as space_aws_config_config_file:
                 space_aws_config_config = space_aws_config_config_file.read()
                 domain_execution_role_creds_profile_name = "DomainExecutionRoleCreds"
@@ -86,16 +147,23 @@ class SageMakerStudioAPI:
         self.credentials_api = CredentialsVendingService(self.datazone_api, self.project_api)
         self.git_api = GitService(self.datazone_api, self.project_api)
 
-        execution_config = self._build_execution_config()
-        if execution_config.domain_identifier and execution_config.project_identifier:
-            if execution_config.local:
-                self.execution_client = LocalExecutionClient(execution_config)
-            else:
-                self.execution_client = RemoteExecutionClient(
-                    self.datazone_api, self.project_api, execution_config
-                )
-        else:
-            self.execution_client = None
+        self.execution_client = None
+        if kernel is None:
+            # Unchanged behaviour outside a local kernel, including the legacy ValueError when
+            # no project id can be found. A local kernel has no DataZone project to execute in.
+            execution_config = self._build_execution_config()
+            if execution_config.domain_identifier and execution_config.project_identifier:
+                if execution_config.local:
+                    self.execution_client = LocalExecutionClient(execution_config)
+                else:
+                    self.execution_client = RemoteExecutionClient(
+                        self.datazone_api, self.project_api, execution_config
+                    )
+
+    @property
+    def context(self) -> local_kernel.StudioContext:
+        """The runtime context (mode, app, sign-in observation) this SDK is operating in."""
+        return local_kernel.current_context()
 
     def _build_execution_config(self):
         execution_overrides = self.sagemaker_studio_config.overrides.get("execution", {})
@@ -149,6 +217,12 @@ class SageMakerStudioAPI:
             if override_region_name:
                 region_name = override_region_name
             endpoint_url = service_override_config.get("endpoint_url")
+
+        if local_kernel.is_local_kernel():
+            # Creating a real client resolves boto3's credential chain (profiles, container,
+            # instance metadata): a network call a local kernel must not make, and a hang or a
+            # proxy error on a laptop. Nothing on a local kernel may call these clients anyway.
+            return cast(BaseClient, _LocalKernelClientStandIn(service_name, region_name))
 
         if "environment" in service_override_config:
             region_name = service_override_config["environment"]["aws_region"]

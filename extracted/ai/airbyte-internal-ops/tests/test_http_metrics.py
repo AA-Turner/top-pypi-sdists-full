@@ -13,7 +13,7 @@ import time
 import weakref
 from pathlib import Path
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, Iterator
+from typing import TYPE_CHECKING, Iterator, NamedTuple
 
 import pytest
 
@@ -291,8 +291,7 @@ def test_two_pages_of_one_endpoint_are_not_counted_as_duplicate_requests(
     """Redaction must not reach the duplicate count.
 
     Paging is a query value, so masking before deduplicating would make every
-    paginated read look like it repeated one request -- and `cache_hits_count`
-    is derived from that count.
+    paginated read look like it repeated one request.
     """
     dump = _write_dump(
         tmp_path / "http_traffic.mitm",
@@ -305,7 +304,6 @@ def test_two_pages_of_one_endpoint_are_not_counted_as_duplicate_requests(
     metrics = http_metrics.parse_http_dump(dump)
 
     assert metrics.duplicate_flow_count == 0
-    assert metrics.cache_hits_count == 0
     # Redacted on the way out, so the two pages read as one URL in the report --
     # which is the grouping a coverage shortfall wants.
     assert metrics.unique_urls == ["https://api.example.com/v1/items?page=[redacted]"]
@@ -350,6 +348,27 @@ def test_parse_http_dump_records_which_urls_went_live(tmp_path: Path) -> None:
 
 def test_replay_hit_ratio_is_not_a_number_without_traffic() -> None:
     assert http_metrics.HttpMetrics.empty().replay_hit_ratio == "N/A"
+
+
+@requires_mitmproxy
+def test_a_parsed_dump_reports_duplicates_and_no_cache_metric(tmp_path: Path) -> None:
+    """The proxy cannot see a cache hit, so it must not claim to report one.
+
+    The duplicate-URL heuristic this replaces measured close to the opposite of
+    a cache hit: two requests to the same URL are what a working cache would
+    have collapsed into one. The duplicate count itself stays -- it is a real
+    number, just not that one. What the connector's own `requests_cache` did is
+    reported by the connector; see `tests/test_regression_connector_cache_metrics.py`.
+    """
+    dump = _write_dump(
+        tmp_path / "http_traffic.mitm",
+        [_flow("https://example.com/a"), _flow("https://example.com/a")],
+    )
+
+    metrics = http_metrics.parse_http_dump(dump)
+
+    assert metrics.duplicate_flow_count == 1
+    assert not hasattr(metrics, "cache_hits_count")
 
 
 @requires_mitmproxy
@@ -1322,3 +1341,189 @@ def test_discard_oversized_dump_drops_what_cannot_be_uploaded(tmp_path: Path) ->
 
     assert discarded == size
     assert not dump.exists()
+
+
+class _Launch(NamedTuple):
+    cmd: list[str]
+    kwargs: dict[str, object]
+
+
+@pytest.fixture
+def mitmdump_launches(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> tuple[list[_Launch], list[tuple[Path, int, int]]]:
+    """Run both launches, the CA bootstrap and the proxy, against a fake
+    mitmdump that writes its CA where its confdir says; record each launch and
+    every `chown`."""
+    launches: list[_Launch] = []
+    chowns: list[tuple[Path, int, int]] = []
+
+    class FakeProcess:
+        pid = 4242
+        returncode = 0
+
+        def poll(self) -> int | None:
+            return None
+
+        def terminate(self) -> None:
+            return None
+
+        def kill(self) -> None:
+            return None
+
+        def send_signal(self, _signal: int) -> None:
+            return None
+
+        def wait(self, timeout: float | None = None) -> int:
+            return 0
+
+    def fake_popen(cmd: list[str], **kwargs: object) -> FakeProcess:
+        launches.append(_Launch(cmd, kwargs))
+        if "--save-stream-file" not in cmd:
+            confdirs = [arg for arg in cmd if arg.startswith("confdir=")]
+            confdir = (
+                Path(confdirs[0].removeprefix("confdir="))
+                if confdirs
+                else http_metrics.MITMPROXY_DIR
+            )
+            confdir.mkdir(parents=True, exist_ok=True)
+            (confdir / http_metrics.CA_CERT_FILENAME).write_text("CA")
+        return FakeProcess()
+
+    monkeypatch.setattr(http_metrics, "MITMPROXY_DIR", tmp_path / "cli-home-mitmproxy")
+    monkeypatch.setattr(http_metrics.shutil, "which", lambda _name: "/usr/bin/mitmdump")
+    monkeypatch.setattr(http_metrics.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(http_metrics.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(
+        http_metrics, "wait_for_proxy_listener", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(
+        http_metrics.os,
+        "chown",
+        lambda path, uid, gid: chowns.append((Path(path), uid, gid)),
+    )
+    return launches, chowns
+
+
+def _name_mitmdump_user(monkeypatch: pytest.MonkeyPatch, home: Path) -> None:
+    monkeypatch.setenv(http_metrics.MITMDUMP_USER_ENV_VAR, "regression-proxy")
+
+    def getpwnam(name: str) -> SimpleNamespace:
+        assert name == "regression-proxy"
+        return SimpleNamespace(pw_uid=1500, pw_gid=1501, pw_dir=str(home))
+
+    monkeypatch.setattr(http_metrics.pwd, "getpwnam", getpwnam)
+
+
+def test_without_a_mitmdump_user_both_launches_run_as_the_cli(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mitmdump_launches: tuple[list[_Launch], list[tuple[Path, int, int]]],
+) -> None:
+    """The US runner and local runs set nothing, and nothing changes for them."""
+    monkeypatch.delenv(http_metrics.MITMDUMP_USER_ENV_VAR, raising=False)
+    launches, chowns = mitmdump_launches
+
+    with http_metrics.MitmproxyManager(tmp_path / "target").running() as session:
+        assert session is not None
+        assert session.ca_cert_path == (
+            http_metrics.MITMPROXY_DIR / http_metrics.CA_CERT_FILENAME
+        )
+
+    bootstrap, proxy = launches
+    assert bootstrap.cmd == ["/usr/bin/mitmdump", "--listen-port", bootstrap.cmd[2]]
+    assert set(bootstrap.kwargs) == {"stdout", "stderr"}
+    assert not [arg for arg in proxy.cmd if arg.startswith("confdir=")]
+    assert set(proxy.kwargs) == {"stdout", "stderr"}
+    assert chowns == []
+
+
+def test_a_named_mitmdump_user_runs_both_launches_in_its_own_confdir(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mitmdump_launches: tuple[list[_Launch], list[tuple[Path, int, int]]],
+) -> None:
+    """A container's proxied requests leave the host as mitmdump's user, which
+    the EU VM blocks from the metadata server. The CA the containers trust is
+    the one that user's mitmdump made and serves."""
+    home = tmp_path / "proxy-home"
+    _name_mitmdump_user(monkeypatch, home)
+    launches, chowns = mitmdump_launches
+    output_dir = tmp_path / "target"
+    confdir = home / ".mitmproxy"
+
+    with http_metrics.MitmproxyManager(output_dir).running() as session:
+        assert session is not None
+        assert session.ca_cert_path == confdir / http_metrics.CA_CERT_FILENAME
+
+    assert len(launches) == 2
+    for launch in launches:
+        assert launch.kwargs["user"] == 1500
+        assert launch.kwargs["group"] == 1501
+        assert launch.kwargs["extra_groups"] == []
+        assert launch.cmd[launch.cmd.index(f"confdir={confdir}") - 1] == "--set"
+    assert not http_metrics.MITMPROXY_DIR.exists()
+    dump = output_dir / "http_traffic.mitm"
+    assert dump.exists()
+    assert chowns == [(dump, 1500, 1501)]
+
+
+@requires_mitmproxy
+def test_a_named_mitmdump_user_is_given_the_replay_corpus(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mitmdump_launches: tuple[list[_Launch], list[tuple[Path, int, int]]],
+) -> None:
+    """The corpus sits in a directory only the CLI can enter."""
+    _name_mitmdump_user(monkeypatch, tmp_path / "proxy-home")
+    _launches, chowns = mitmdump_launches
+    source = _write_dump(
+        tmp_path / "control" / "http_traffic.mitm", [_flow("https://example.com/ok")]
+    )
+
+    manager = http_metrics.MitmproxyManager(tmp_path / "target", replay_from=source)
+    with manager.running() as session:
+        assert session is not None
+        corpus = session.replay_source
+        assert corpus is not None
+
+    assert (corpus.parent, 1500, 1501) in chowns
+    assert (corpus, 1500, 1501) in chowns
+
+
+def test_a_named_mitmdump_user_that_does_not_exist_stops_the_run(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mitmdump_launches: tuple[list[_Launch], list[tuple[Path, int, int]]],
+) -> None:
+    """Falling back to the CLI's own user would put the connector's proxied
+    requests back in reach of the metadata server."""
+    monkeypatch.setenv(http_metrics.MITMDUMP_USER_ENV_VAR, "no-such-user")
+
+    def getpwnam(name: str) -> SimpleNamespace:
+        raise KeyError(name)
+
+    monkeypatch.setattr(http_metrics.pwd, "getpwnam", getpwnam)
+    launches, _chowns = mitmdump_launches
+
+    manager = http_metrics.MitmproxyManager(tmp_path / "target")
+    with pytest.raises(KeyError, match="no-such-user"), manager.running():
+        pass
+
+    assert launches == []
+
+
+def test_build_mitmdump_command_names_a_confdir_only_when_given_one(
+    tmp_path: Path,
+) -> None:
+    dump = tmp_path / "http_traffic.mitm"
+
+    assert not [
+        arg
+        for arg in http_metrics.build_mitmdump_command("/usr/bin/mitmdump", 8080, dump)
+        if "confdir" in arg
+    ]
+    cmd = http_metrics.build_mitmdump_command(
+        "/usr/bin/mitmdump", 8080, dump, confdir=tmp_path / "conf"
+    )
+    assert cmd[cmd.index(f"confdir={tmp_path / 'conf'}") - 1] == "--set"

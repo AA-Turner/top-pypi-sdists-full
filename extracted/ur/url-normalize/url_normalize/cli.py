@@ -11,9 +11,10 @@ from .url_normalize import url_normalize
 
 def main() -> None:
     """Parse arguments and run url_normalize."""
-    # Force UTF-8 output to prevent UnicodeEncodeError on Windows
-    if hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
+    # Keep normal output and error diagnostics in UTF-8 on every platform.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="backslashreplace")
 
     parser = argparse.ArgumentParser(description="Normalize a URL.")
     parser.add_argument(
@@ -23,14 +24,6 @@ def main() -> None:
         version=f"%(prog)s {version('url-normalize')}",
     )
     parser.add_argument("url", help="The URL to normalize.")
-    parser.add_argument(
-        "-c",
-        "--charset",
-        default="utf-8",
-        help=(
-            "Retained for compatibility. Unicode characters use UTF-8 percent encoding."
-        ),
-    )
     parser.add_argument(
         "-s",
         "--default-scheme",
@@ -73,7 +66,6 @@ def main() -> None:
     try:
         output_url = transform_url(
             args.url,
-            charset=args.charset,
             default_scheme=args.default_scheme,
             default_domain=args.default_domain,
             filter_params=args.filter_params,

@@ -9,7 +9,7 @@ import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Any, TypeVar, cast
+from typing import Any, Literal, TypeVar, cast
 
 import numpy as np
 from fast_array_utils import stats as fau_stats
@@ -26,9 +26,9 @@ from scipy.spatial import Delaunay
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.neighbors import NearestNeighbors
 
-from squidpy._constants._constants import CoordType, Transform
 from squidpy._utils import NDArrayA
-from squidpy._validators import assert_positive
+from squidpy._validators import assert_positive, normalize_choice, options_of
+from squidpy.gr._nhood import compute_hop_adjacency_matrices
 
 __all__ = [
     "GraphMatrixT",
@@ -43,6 +43,16 @@ __all__ = [
     "DelaunayBuilder",
     "GridBuilder",
 ]
+
+_Transform = Literal["spectral", "cosine"]
+TransformLike = _Transform | None
+"""Adjacency-matrix transform, or `None` for no transform. Case-insensitive."""
+_TRANSFORMS = (*options_of(_Transform), None)
+
+
+def _as_transform(transform: TransformLike) -> TransformLike:
+    """Resolve the ``transform`` argument to its canonical spelling, accepting any casing."""
+    return normalize_choice(transform, _TRANSFORMS, name="transform")
 
 
 # Kept module-level (not folded into GraphBuilder's params): types the public
@@ -62,12 +72,12 @@ class GraphBuilder[CoordT, GraphMatrixT](ABC):
 
     def __init__(
         self,
-        transform: str | Transform | None = None,
+        transform: TransformLike = None,
         set_diag: bool = False,
         percentile: float | None = None,
         postprocessors: Sequence[GraphPostprocessor[GraphMatrixT]] = (),
     ) -> None:
-        self.transform = Transform.NONE if transform is None else Transform(transform)
+        self.transform = _as_transform(transform)
         self.set_diag = set_diag
         self.percentile = percentile
         self._postprocessors: list[GraphPostprocessor[GraphMatrixT]] = list(postprocessors)
@@ -88,7 +98,10 @@ class GraphBuilder[CoordT, GraphMatrixT](ABC):
 
     @abstractmethod
     def uns_params(self) -> dict[str, Any]:
-        """Parameters stored in :attr:`anndata.AnnData.uns` after graph construction."""
+        """Parameters stored in :attr:`anndata.AnnData.uns` after graph construction.
+
+        Values must be writable by :mod:`anndata`, e.g. a :class:`list`, not a :class:`tuple`.
+        """
 
     def combine(
         self,
@@ -162,7 +175,7 @@ class KNNBuilder(GraphBuilderCSR):
     def __init__(
         self,
         n_neighs: int = 6,
-        transform: str | Transform | None = None,
+        transform: TransformLike = None,
         set_diag: bool = False,
         percentile: float | None = None,
     ) -> None:
@@ -170,7 +183,7 @@ class KNNBuilder(GraphBuilderCSR):
         postprocessors: list[GraphPostprocessor[csr_matrix]] = []
         if percentile is not None:
             postprocessors.append(PercentilePostprocessor(percentile))
-        postprocessors.append(TransformPostprocessor(Transform.NONE if transform is None else Transform(transform)))
+        postprocessors.append(TransformPostprocessor(_as_transform(transform)))
         super().__init__(
             transform=transform,
             set_diag=set_diag,
@@ -181,9 +194,9 @@ class KNNBuilder(GraphBuilderCSR):
 
     def uns_params(self) -> dict[str, Any]:
         return {
-            "coord_type": CoordType.GENERIC.v,
+            "coord_type": "generic",
             "n_neighbors": self.n_neighs,
-            "transform": self.transform.v,
+            "transform": self.transform,
         }
 
     def build_graph(self, coords: NDArrayA) -> tuple[csr_matrix, csr_matrix]:
@@ -218,7 +231,7 @@ class RadiusBuilder(GraphBuilderCSR):
     def __init__(
         self,
         radius: float | tuple[float, float],
-        transform: str | Transform | None = None,
+        transform: TransformLike = None,
         set_diag: bool = False,
         percentile: float | None = None,
     ) -> None:
@@ -227,20 +240,21 @@ class RadiusBuilder(GraphBuilderCSR):
             postprocessors.append(DistanceIntervalPostprocessor(tuple(sorted(radius))))
         if percentile is not None:
             postprocessors.append(PercentilePostprocessor(percentile))
-        postprocessors.append(TransformPostprocessor(Transform.NONE if transform is None else Transform(transform)))
+        postprocessors.append(TransformPostprocessor(_as_transform(transform)))
         super().__init__(
             transform=transform,
             set_diag=set_diag,
             percentile=percentile,
             postprocessors=postprocessors,
         )
-        self.radius = radius
+        # Store intervals as a list: :mod:`anndata` cannot write tuples to ``uns``.
+        self.radius = list(radius) if isinstance(radius, tuple) else radius
 
     def uns_params(self) -> dict[str, Any]:
         return {
-            "coord_type": CoordType.GENERIC.v,
+            "coord_type": "generic",
             "radius": self.radius,
-            "transform": self.transform.v,
+            "transform": self.transform,
         }
 
     def build_graph(self, coords: NDArrayA) -> tuple[csr_matrix, csr_matrix]:
@@ -285,7 +299,7 @@ class DelaunayBuilder(GraphBuilderCSR):
     def __init__(
         self,
         radius: float | tuple[float, float] | None = None,
-        transform: str | Transform | None = None,
+        transform: TransformLike = None,
         set_diag: bool = False,
         percentile: float | None = None,
     ) -> None:
@@ -296,20 +310,21 @@ class DelaunayBuilder(GraphBuilderCSR):
             postprocessors.append(DistanceIntervalPostprocessor(tuple(sorted(radius))))
         if percentile is not None:
             postprocessors.append(PercentilePostprocessor(percentile))
-        postprocessors.append(TransformPostprocessor(Transform.NONE if transform is None else Transform(transform)))
+        postprocessors.append(TransformPostprocessor(_as_transform(transform)))
         super().__init__(
             transform=transform,
             set_diag=set_diag,
             percentile=percentile,
             postprocessors=postprocessors,
         )
-        self.radius = radius
+        # Store intervals as a list: :mod:`anndata` cannot write tuples to ``uns``.
+        self.radius = list(radius) if isinstance(radius, tuple) else radius
 
     def uns_params(self) -> dict[str, Any]:
         return {
-            "coord_type": CoordType.GENERIC.v,
+            "coord_type": "generic",
             "radius": self.radius,
-            "transform": self.transform.v,
+            "transform": self.transform,
         }
 
     def build_graph(self, coords: NDArrayA) -> tuple[csr_matrix, csr_matrix]:
@@ -344,12 +359,12 @@ class GridBuilder(GraphBuilderCSR):
         n_neighs: int = 6,
         n_rings: int = 1,
         delaunay: bool = False,
-        transform: str | Transform | None = None,
+        transform: TransformLike = None,
         set_diag: bool = False,
     ) -> None:
         assert_positive(n_neighs, name="n_neighs")
         assert_positive(n_rings, name="n_rings")
-        postprocessors = [TransformPostprocessor(Transform.NONE if transform is None else Transform(transform))]
+        postprocessors = [TransformPostprocessor(_as_transform(transform))]
         super().__init__(transform=transform, set_diag=set_diag, percentile=None, postprocessors=postprocessors)
         self.n_neighs = n_neighs
         self.n_rings = n_rings
@@ -357,24 +372,18 @@ class GridBuilder(GraphBuilderCSR):
 
     def uns_params(self) -> dict[str, Any]:
         return {
-            "coord_type": CoordType.GRID.v,
+            "coord_type": "grid",
             "n_neighbors": self.n_neighs,
             "n_rings": self.n_rings,
             "delaunay": self.delaunay,
-            "transform": self.transform.v,
+            "transform": self.transform,
         }
 
     def build_graph(self, coords: NDArrayA) -> tuple[csr_matrix, csr_matrix]:
         if self.n_rings > 1:
-            adj = self._base_adjacency(coords, set_diag=True)
-            res, walk = adj, adj
-            for i in range(self.n_rings - 1):
-                walk = walk @ adj
-                walk[res.nonzero()] = 0.0
-                walk.eliminate_zeros()
-                walk.data[:] = i + 2.0
-                res = res + walk
-            adj = res
+            base = self._base_adjacency(coords, set_diag=True)
+            rings = compute_hop_adjacency_matrices(base, self.n_rings)
+            adj = sum(base.dtype.type(i + 1) * ring for i, ring in enumerate(rings)).tocsr()
             adj.setdiag(float(self.set_diag))
             adj.eliminate_zeros()
 
@@ -447,7 +456,12 @@ class PercentilePostprocessor:
     percentile: float
 
     def __call__(self, adj: csr_matrix, dst: csr_matrix) -> tuple[csr_matrix, csr_matrix]:
-        threshold = np.percentile(dst.data, self.percentile)
+        # builders store explicit zeros on the diagonal; they are not edges
+        coo = dst.tocoo()
+        edges = coo.data[coo.row != coo.col]
+        if edges.size == 0:
+            return adj, dst
+        threshold = np.percentile(edges, self.percentile)
         adj[dst > threshold] = 0.0
         dst[dst > threshold] = 0.0
         return adj, dst
@@ -455,17 +469,17 @@ class PercentilePostprocessor:
 
 @dataclass(frozen=True)
 class TransformPostprocessor:
-    transform: Transform
+    transform: TransformLike
 
     def __call__(self, adj: csr_matrix, dst: csr_matrix) -> tuple[csr_matrix, csr_matrix]:
         adj.eliminate_zeros()
         dst.eliminate_zeros()
 
-        if self.transform == Transform.SPECTRAL:
+        if self.transform == "spectral":
             return cast(csr_matrix, _transform_a_spectral(adj)), dst
-        if self.transform == Transform.COSINE:
+        if self.transform == "cosine":
             return cast(csr_matrix, _transform_a_cosine(adj)), dst
-        if self.transform == Transform.NONE:
+        if self.transform is None:
             return adj, dst
 
         raise NotImplementedError(f"Transform `{self.transform}` is not yet implemented.")

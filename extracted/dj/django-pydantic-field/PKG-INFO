@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-pydantic-field
-Version: 0.5.6
+Version: 0.5.7
 Summary: Type-Safe Pydantic Schemas for Django JSONFields
 Keywords: django,pydantic,json,schema
 Author: Savva Surenkov
@@ -22,6 +22,7 @@ Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Framework :: Pydantic
 Classifier: Framework :: Pydantic :: 1
 Classifier: Framework :: Pydantic :: 2

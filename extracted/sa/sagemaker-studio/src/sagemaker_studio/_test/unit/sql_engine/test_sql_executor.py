@@ -1174,7 +1174,7 @@ class TestExecuteStatementsMetadata(unittest.TestCase):
         self.assertEqual(len(results), 1)
         self.assertIsNone(results[0].execution_metadata)
 
-    def test_error_result_has_no_metadata(self):
+    def test_error_result_has_no_metadata_without_statement_id(self):
         from sagemaker_studio.sql_engine.database_transformer import SqlStatement
 
         statements = [SqlStatement(statement="BAD SQL", statement_type="SELECT")]
@@ -1188,6 +1188,86 @@ class TestExecuteStatementsMetadata(unittest.TestCase):
         self.assertEqual(results[0].status, "error")
         self.assertEqual(results[0].error, "syntax error")
         self.assertIsNone(results[0].execution_metadata)
+
+    def test_error_result_carries_ids_from_exception(self):
+        """A failed statement whose exception has statement_id/redshift_query_id keeps them."""
+        from sagemaker_studio.sql_engine._sqlalchemy_redshift_data_api.dbapi.exceptions import (
+            StatementExecutionError,
+        )
+        from sagemaker_studio.sql_engine.database_transformer import SqlStatement
+
+        statements = [SqlStatement(statement="BAD SQL", statement_type="SELECT")]
+
+        def executor_func(stmt):
+            raise StatementExecutionError(
+                "Statement execution failed: boom", statement_id="rs-1", redshift_query_id=123
+            )
+
+        results = list(SqlExecutor.execute_statements(statements, executor_func))
+
+        self.assertEqual(results[0].status, "error")
+        self.assertEqual(
+            results[0].execution_metadata, {"statement_id": "rs-1", "redshift_query_id": 123}
+        )
+
+    def test_error_result_carries_ids_from_sqlalchemy_orig(self):
+        """SQLAlchemy wraps DB-API errors in DBAPIError; ids are read from .orig."""
+        from sqlalchemy.exc import DBAPIError
+
+        from sagemaker_studio.sql_engine._sqlalchemy_redshift_data_api.dbapi.exceptions import (
+            StatementExecutionError,
+        )
+        from sagemaker_studio.sql_engine.database_transformer import SqlStatement
+
+        statements = [SqlStatement(statement="BAD SQL", statement_type="SELECT")]
+        orig = StatementExecutionError(
+            "Statement execution failed: boom", statement_id="rs-2", redshift_query_id=456
+        )
+
+        def executor_func(stmt):
+            raise DBAPIError("BAD SQL", {}, orig)
+
+        results = list(SqlExecutor.execute_statements(statements, executor_func))
+
+        self.assertEqual(results[0].status, "error")
+        self.assertIn("boom", results[0].error)
+        self.assertEqual(
+            results[0].execution_metadata, {"statement_id": "rs-2", "redshift_query_id": 456}
+        )
+
+    def test_error_result_without_redshift_query_id_carries_statement_id_only(self):
+        """Without a non-zero redshift_query_id the error metadata is just the statement id."""
+        from sagemaker_studio.sql_engine._sqlalchemy_redshift_data_api.dbapi.exceptions import (
+            StatementExecutionError,
+        )
+        from sagemaker_studio.sql_engine.database_transformer import SqlStatement
+        from sagemaker_studio.sql_engine.sql_executor import ErrorStrategy
+
+        statements = [
+            SqlStatement(statement="BAD 1", statement_type="SELECT"),
+            SqlStatement(statement="BAD 2", statement_type="SELECT"),
+            SqlStatement(statement="BAD 3", statement_type="SELECT"),
+        ]
+        errors = iter(
+            [
+                StatementExecutionError("failed", statement_id="rs-3"),
+                StatementExecutionError("failed", statement_id="rs-4", redshift_query_id=0),
+                StatementExecutionError("failed", statement_id="rs-5", redshift_query_id=-1),
+            ]
+        )
+
+        def executor_func(stmt):
+            raise next(errors)
+
+        results = list(
+            SqlExecutor.execute_statements(
+                statements, executor_func, error_strategy=ErrorStrategy.CONTINUE_ON_ERROR
+            )
+        )
+
+        self.assertEqual(results[0].execution_metadata, {"statement_id": "rs-3"})
+        self.assertEqual(results[1].execution_metadata, {"statement_id": "rs-4"})
+        self.assertEqual(results[2].execution_metadata, {"statement_id": "rs-5"})
 
 
 class TestTeradataAvailability(unittest.TestCase):

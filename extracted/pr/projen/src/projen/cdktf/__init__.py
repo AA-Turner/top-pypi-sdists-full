@@ -260,7 +260,7 @@ class ConstructLibraryCdktf(
         :param docgen_file_path: (experimental) File path for generated docs. Default: "API.md"
         :param exclude_typescript: (experimental) Accepts a list of glob patterns. Files matching any of those patterns will be excluded from the TypeScript compiler input. By default, jsii will include all *.ts files (except .d.ts files) in the TypeScript compiler input. This can be problematic for example when the package's build or test procedure generates .ts files that cannot be compiled with jsii's compiler settings.
         :param jsii_version: (experimental) Version of the jsii compiler to use. Set to "*" if you want to manually manage the version of jsii in your project by managing updates to ``package.json`` on your own. NOTE: The jsii compiler releases since 5.0.0 are not semantically versioned and should remain on the same minor, so we recommend using a ``~`` dependency (e.g. ``~5.0.0``). Default: "~5.9.0"
-        :param publish_to_go: (experimental) Publish Go bindings to a git repository. Default: - no publishing
+        :param publish_to_go: (experimental) Publish Go bindings to a git repository. A separate repository is recommended. If ``moduleName`` refers to the source repository, set ``publishToSourceRepository`` to ``true``. Default: - no publishing
         :param publish_to_maven: (experimental) Publish to maven. Default: - no publishing
         :param publish_to_nuget: (experimental) Publish to NuGet. Default: - no publishing
         :param publish_to_pypi: (experimental) Publish to pypi. Default: - no publishing
@@ -1135,7 +1135,7 @@ class ConstructLibraryCdktfOptions(_cdk_bb21cefa.ConstructLibraryOptions):
         :param docgen_file_path: (experimental) File path for generated docs. Default: "API.md"
         :param exclude_typescript: (experimental) Accepts a list of glob patterns. Files matching any of those patterns will be excluded from the TypeScript compiler input. By default, jsii will include all *.ts files (except .d.ts files) in the TypeScript compiler input. This can be problematic for example when the package's build or test procedure generates .ts files that cannot be compiled with jsii's compiler settings.
         :param jsii_version: (experimental) Version of the jsii compiler to use. Set to "*" if you want to manually manage the version of jsii in your project by managing updates to ``package.json`` on your own. NOTE: The jsii compiler releases since 5.0.0 are not semantically versioned and should remain on the same minor, so we recommend using a ``~`` dependency (e.g. ``~5.0.0``). Default: "~5.9.0"
-        :param publish_to_go: (experimental) Publish Go bindings to a git repository. Default: - no publishing
+        :param publish_to_go: (experimental) Publish Go bindings to a git repository. A separate repository is recommended. If ``moduleName`` refers to the source repository, set ``publishToSourceRepository`` to ``true``. Default: - no publishing
         :param publish_to_maven: (experimental) Publish to maven. Default: - no publishing
         :param publish_to_nuget: (experimental) Publish to NuGet. Default: - no publishing
         :param publish_to_pypi: (experimental) Publish to pypi. Default: - no publishing
@@ -3931,6 +3931,9 @@ class ConstructLibraryCdktfOptions(_cdk_bb21cefa.ConstructLibraryOptions):
     @builtins.property
     def publish_to_go(self) -> typing.Optional["_cdk_bb21cefa.JsiiGoTarget"]:
         '''(experimental) Publish Go bindings to a git repository.
+
+        A separate repository is recommended. If ``moduleName`` refers to the source
+        repository, set ``publishToSourceRepository`` to ``true``.
 
         :default: - no publishing
 

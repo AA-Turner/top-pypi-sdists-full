@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: Expression
-Version: 5.7.0
+Version: 5.8.0
 Summary: Practical functional programming for Python 3.10+
 Project-URL: Homepage, https://github.com/cognitedata/Expression
 Author-email: Dag Brattli <dag.brattli@cognite.com>

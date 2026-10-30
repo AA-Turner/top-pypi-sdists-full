@@ -264,6 +264,35 @@ def test_a_redirection_between_command_words_fails_closed(guard, command):
 
 
 @pytest.mark.parametrize(
+    ("command", "args"),
+    [
+        # Issue 3622: `2` was read as a command word.
+        ("probe --version 2>&1", ["--version"]),
+        ("probe wizard --action update --yes > f 2>&1", ["wizard", "--action", "update", "--yes"]),
+        ("probe run get r1 2>&1 >log", ["run", "get", "r1"]),
+        ("probe run get r1 >out 2>&1 </dev/null", ["run", "get", "r1"]),
+        ("probe session status {fd}>out", ["session", "status"]),
+        ("python -m probe.cli --version 2>&1", ["--version"]),
+        # Only the trailing run: one between words, or with no file, stays.
+        ("probe wizard --action update > f --yes", ["wizard", "--action", "update", ">", "f", "--yes"]),
+        ("probe wizard --action update --yes >", ["wizard", "--action", "update", "--yes", ">"]),
+        # A quoted or escaped `>` is an argument: `logout` is the command here.
+        ("probe --spool-dir '>' logout", ["--spool-dir", ">", "logout"]),
+        ("probe --spool-dir \\> logout", ["--spool-dir", ">", "logout"]),
+        ("bash -c \"probe --version 2>&1\"", ["--version"]),
+    ],
+)
+def test_only_the_redirections_that_end_a_command_are_dropped(guard, command, args):
+    """The shared table `fixtures/pi_probe_commands.json` holds these too, for pi's port."""
+    assert list(guard._probe_invocations(command)) == [args]
+
+
+def test_a_trailing_redirection_never_hides_a_write(guard):
+    assert guard.probe_write("probe project create x 2>&1 | tee out") == "probe project create"
+    assert guard.probe_write("probe project create x &> --help") == "probe project create"
+
+
+@pytest.mark.parametrize(
     "command",
     [
         # Reads inside write groups.

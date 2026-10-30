@@ -58,6 +58,7 @@ from trilogy.core.grain_pin import (
     inline_basic,
     is_null_absorbing,
     pin_keys,
+    statement_graph,
 )
 from trilogy.core.models.author import (
     AggregateGrouping,
@@ -134,10 +135,30 @@ if TYPE_CHECKING:
 
 LOGGER_PREFIX = "[MODELS_BUILD]"
 
-# SUM-rollable aggregates: re-aggregating a precomputed value with SUM reproduces
-# the coarser-grain value. (`trilogy.core.processing.aggregate_rollup` builds on
-# this; it lives here so the datasource column lookup can use it without a cycle.)
+# Rollable aggregates re-aggregate their precomputed per-group values into the
+# coarser-grain value (`Rollup.lean`). Additive ones re-sum, so each base row
+# must sit in exactly one summary group (`Rollup.sum_exact` needs `Nodup`).
+# Idempotent ones re-apply themselves and tolerate a row read twice
+# (`Rollup.min_exact` does not). (`trilogy.core.processing.aggregate_rollup`
+# builds on this; it lives here so the datasource column lookup can use it
+# without a cycle.)
 ADDITIVE_ROLLUP_FUNCTIONS = {FunctionType.COUNT, FunctionType.SUM}
+IDEMPOTENT_ROLLUP_FUNCTIONS = {
+    FunctionType.MIN,
+    FunctionType.MAX,
+    FunctionType.BOOL_AND,
+    FunctionType.BOOL_OR,
+}
+ROLLUP_REAGGREGATES = {
+    **{f: FunctionType.SUM for f in ADDITIVE_ROLLUP_FUNCTIONS},
+    **{f: f for f in IDEMPOTENT_ROLLUP_FUNCTIONS},
+}
+
+
+def rollup_reaggregate(concept: BuildConcept) -> FunctionType:
+    """The function that re-aggregates `concept`'s precomputed values."""
+    assert isinstance(concept.lineage, BuildAggregateWrapper)
+    return ROLLUP_REAGGREGATES[concept.lineage.function.operator]
 
 
 def _gen_agg_name(parent: BuildAggregateWrapper) -> str:
@@ -1261,10 +1282,16 @@ class BuildConcept(Addressable, BuildConceptArgs, DataTyped):
 
     @property
     def zero_on_empty(self) -> bool:
-        """An aggregate whose value over no rows is 0, not NULL."""
-        return (
-            isinstance(self.lineage, BuildAggregateWrapper)
-            and self.lineage.function.operator in ZERO_ON_EMPTY_AGGREGATES
+        """An aggregate whose value over no rows is 0, not NULL. A sum of such
+        partials is too: a group it has no partial for is a group of no rows."""
+        if not isinstance(self.lineage, BuildAggregateWrapper):
+            return False
+        function = self.lineage.function
+        if function.operator in ZERO_ON_EMPTY_AGGREGATES:
+            return True
+        return function.operator == FunctionType.SUM and any(
+            isinstance(arg, BuildConcept) and arg.zero_on_empty
+            for arg in function.arguments
         )
 
     @property
@@ -1310,19 +1337,19 @@ class BuildConcept(Addressable, BuildConceptArgs, DataTyped):
         return f"{self.canonical_address}@{self.grain!s}"
 
     @cached_property
-    def additive_aggregate_signature(
+    def rollup_signature(
         self,
     ) -> tuple[FunctionType, tuple[str, ...]] | None:
-        """`(operator, sorted canonical arg addresses)` for a SUM/COUNT aggregate.
+        """`(operator, sorted canonical arg addresses)` for a rollable aggregate.
 
         Deliberately grain-free: it is the identity a precomputed aggregate shares
-        with every coarser aggregate it can SUM-roll up to. `canonical_address`
+        with every coarser aggregate it can roll up to. `canonical_address`
         cannot serve here because it bakes in the by-grain, so a summary table's
         column and the query aggregate it answers never match on it. ``None`` for
-        anything that is not an additive aggregate."""
+        anything that is not a rollable aggregate."""
         if not isinstance(self.lineage, BuildAggregateWrapper):
             return None
-        if self.lineage.function.operator not in ADDITIVE_ROLLUP_FUNCTIONS:
+        if self.lineage.function.operator not in ROLLUP_REAGGREGATES:
             return None
         return (
             self.lineage.function.operator,
@@ -2257,7 +2284,7 @@ class BuildDatasource:
     def aggregate_column_for(
         self, concept: BuildConcept
     ) -> BuildColumnAssignment | None:
-        """The column binding the same additive aggregate as `concept`, at
+        """The column binding the same rollable aggregate as `concept`, at
         whatever grain this table happens to hold it.
 
         This is the only tie between a summary table's `total_x` column and an
@@ -2266,17 +2293,17 @@ class BuildDatasource:
         differ again when the target grain is spelled as a property of the
         table's key — `carrier.name` over a `carrier.code` grain). Callers own
         the grain question; this is purely "same metric"."""
-        signature = concept.additive_aggregate_signature
+        signature = concept.rollup_signature
         if signature is None:
             return None
         for column in self.columns:
-            if column.concept.additive_aggregate_signature == signature:
+            if column.concept.rollup_signature == signature:
                 return column
         return None
 
     def rollup_column_for(self, concept: BuildConcept) -> BuildColumnAssignment | None:
         """`aggregate_column_for`, restricted to tables this concept could be
-        SUM-rolled up from — i.e. not ones strictly coarser than it, which hold
+        rolled up from — i.e. not ones strictly coarser than it, which hold
         no value that could be re-aggregated into the requested one.
 
         The comparison is against the aggregate's own `by` grain, not
@@ -2363,7 +2390,7 @@ class BuildDatasource:
                 canonical_match = x
         match = native_match or exact_match or canonical_match
         if match is None:
-            # Last tier: a finer-grain aggregate this scan will SUM-roll up.
+            # Last tier: a finer-grain aggregate this scan will roll up.
             match = self.rollup_column_for(concept)
         if match is not None:
             if use_raw_name:
@@ -2939,6 +2966,7 @@ class Factory:
         virtual_scope_salt: str | None = None,
         join_scope: JoinScope | None = None,
         select_anchors: dict[str, frozenset[str]] | None = None,
+        select_where: WhereClause | None = None,
     ):
         self.grain = grain or Grain()
         # Each output of the select this factory builds -> its row keys. A
@@ -2946,6 +2974,10 @@ class Factory:
         # resolves against the select grain (`grain_pin`). None outside a
         # select's projection and WHERE (a datasource's columns, a ROLLUP).
         self.select_anchors = select_anchors
+        # the select's WHERE: a `complete where` it implies holds the whole
+        # domain the pins are reasoned over (`statement_graph`)
+        self.select_where = select_where
+        self._pin_graph: tuple[DomainGraph, DomainGraph] | None = None
         # building a pin's own expression: it is evaluated on the select's row
         # already, so nothing inline in it is pinned again
         self._in_grain_pin = False
@@ -3354,9 +3386,18 @@ class Factory:
             owner,
             self.select_anchors,
             self.environment,
-            assemble_full_graph(self.environment, self.domain_graph),
+            self._statement_graph(),
             self._named_pin_keys,
         )
+
+    def _statement_graph(self) -> DomainGraph:
+        full = assemble_full_graph(self.environment, self.domain_graph)
+        if self._pin_graph is None or self._pin_graph[0] is not full:
+            self._pin_graph = (
+                full,
+                statement_graph(full, self.select_where, self.environment),
+            )
+        return self._pin_graph[1]
 
     def _named_pin_keys(self, address: str) -> frozenset[str]:
         known = self._pin_memo.get(address)
@@ -4484,7 +4525,11 @@ class Factory:
         anchors = select_anchors(
             base,
             self.environment,
-            assemble_full_graph(self.environment, self.domain_graph),
+            statement_graph(
+                assemble_full_graph(self.environment, self.domain_graph),
+                base.where_clause,
+                self.environment,
+            ),
         )
 
         materialized: dict[str, BuildConcept] = {}
@@ -4499,6 +4544,7 @@ class Factory:
             join_scope=self.join_scope,
             select_grouping=base.grouping,
             select_anchors=anchors,
+            select_where=base.where_clause,
         )
         # WHERE-scope twins (normalize_select_where_scope) are the local
         # concepts referenced by the WHERE but absent from the environment.
@@ -4538,6 +4584,7 @@ class Factory:
             # must not share addresses with select-scope twins
             virtual_scope_salt=WHERE_SCOPE_SALT,
             select_anchors=anchors,
+            select_where=base.where_clause,
         )
         # Build the WHERE-scope twins here so their refs resolve — in this
         # factory, like their inline equivalents, so bare aggregates co-grain

@@ -19,7 +19,7 @@ from plato.cli.vault.client import VaultConsoleError
 from plato.cli.vault.main import ApiKeyArg, ChronosUrlArg, JsonArg
 
 personas_app = typer.Typer(
-    help="The persona pool for sign-ups (email + phone per persona) in the Chronos login vault: list, set. "
+    help="The persona pool for sign-ups (email + phone per persona) in the Chronos login vault: list, show, set. "
     "`plato vault free --login-key <app>` picks the ones with no account on an app."
 )
 
@@ -68,6 +68,39 @@ def list_personas(
     for p in personas:
         table.add_row(*(escape(cell) for cell in (p.persona, p.email, p.inbox or "-", _phone_cell(p))))
     console.print(table)
+
+
+@personas_app.command("show")
+def show_persona(
+    persona: Annotated[str, typer.Argument(help="The persona's key, e.g. dana")],
+    chronos_url: ChronosUrlArg = None,
+    api_key: ApiKeyArg = None,
+    json_output: JsonArg = False,
+):
+    """One persona's whole record: email, inbox, phone, its fixture (name, gender, birth date, address, ...)
+    and its accounts. What a sign-up types into a form about the person. Holds no secret: Chronos keeps only
+    placeholders for a card, bank account or ID."""
+    with vault_main._errors(json_output):
+        vault, url = _vault(chronos_url, api_key)
+        with vault, chronos_errors(url):
+            row = vault.get_persona(persona)
+        if row is None:
+            raise VaultConsoleError(f"no persona {persona!r}: `plato vault personas list` shows them")
+
+    if json_output:
+        vault_main._print_json(row.model_dump(mode="json"))
+        return
+    console.print(f"[bold]{escape(row.persona)}[/bold]")
+    vault_main._field("email", row.email)
+    vault_main._field("inbox", row.inbox or "-")
+    vault_main._field("phone", _phone_cell(row))
+    vault_main._field("accounts", row.accounts)
+    for name, value in row.fixture.model_dump(mode="json", exclude_none=True).items():
+        if isinstance(value, dict):
+            for key, item in value.items():
+                vault_main._field(f"fixture.{name}.{key}", item)
+        else:
+            vault_main._field(f"fixture.{name}", value)
 
 
 @personas_app.command("set")

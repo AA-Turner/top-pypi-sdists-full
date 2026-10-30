@@ -648,7 +648,7 @@ class TestEndToEnd:
         )
 
         credential = await _sign(client, offers[index])
-        validation = await server.validate_credential(credential)
+        validation = await server.validate_credential(credential, request={"amount": "0.50"})
 
         assert validation.request["currency"] == currency
         assert validation.details["mode"] == "pull"
@@ -670,7 +670,7 @@ class TestEndToEnd:
         )
 
         with pytest.raises(VerificationError):
-            await server.validate_credential(mismatched)
+            await server.validate_credential(mismatched, request={"amount": "0.50"})
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -746,8 +746,8 @@ class FakeRpc:
 
     async def post(self, url: str, json: dict[str, Any]) -> httpx.Response:
         self.methods.append(json["method"])
-        if json["method"] == "tempo_simulateV1":
-            result: Any = {"blocks": [{"calls": [{"status": "0x1"}]}]}
+        if json["method"] == "eth_call":
+            result: Any = "0x"
         elif json["method"] == "eth_sendRawTransactionSync":
             raw = json["params"][0]
             assert raw.startswith("0x76")
@@ -881,7 +881,7 @@ class TestSponsoredFeeToken:
 
         assert isinstance(paid, PaymentVerified)
         assert paid.receipt.status == "success"
-        assert rpc.methods == ["tempo_simulateV1", "eth_sendRawTransactionSync"]
+        assert rpc.methods == ["eth_call", "eth_call", "eth_sendRawTransactionSync"]
         assert rpc.broadcast is not None
         assert "0x" + rpc.broadcast[4][0][0].hex() == OUSD.lower()
         assert rpc.fee_token == expected_fee_token.lower()

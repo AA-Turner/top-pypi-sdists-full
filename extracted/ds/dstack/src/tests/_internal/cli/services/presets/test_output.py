@@ -393,6 +393,7 @@ class TestFailedTrials:
         )
 
         summary = _summarize_session_trials(trials_dir)
+        assert summary is not None
 
         assert summary["count"] == 3
         # Still charted: the trial happened and its number is real.
@@ -411,6 +412,7 @@ class TestFailedTrials:
         )
 
         summary = _summarize_session_trials(trials_dir)
+        assert summary is not None
 
         assert summary["best"] is None
         assert summary["best_failed"] is None
@@ -425,6 +427,7 @@ class TestFailedTrials:
         )
 
         summary = _summarize_session_trials(trials_dir)
+        assert summary is not None
 
         assert summary["gpu"] == "MI300X:192GB:1"
 
@@ -439,6 +442,7 @@ class TestFailedTrials:
         )
 
         summary = _summarize_session_trials(trials_dir)
+        assert summary is not None
 
         assert summary["gpu"] == "H200:141GB:8 x3"
 
@@ -459,6 +463,7 @@ class TestFailedTrials:
         )
 
         summary = _summarize_session_trials(trials_dir)
+        assert summary is not None
 
         # Group order, not sorted: the roles read in the order they ran.
         assert summary["gpu"] == "H200:141GB:8 + H100:80GB:8 x2"
@@ -486,6 +491,7 @@ class TestFailedTrials:
         )
 
         summary = _summarize_session_trials(trials_dir)
+        assert summary is not None
 
         assert summary["best"] is None
         assert summary["best_failed"]["tok_s"] == 300.0
@@ -561,18 +567,3 @@ class TestFailedTrialSpark:
         assert spark.count("gold1") == 1
         assert spark.count("indian_red1") == 2
         assert "sea_green3" not in spark
-
-
-def test_warn_respects_stderr_redirect():
-    """`preset -w` suppresses store warnings during refreshes via
-    redirect_stderr; that only works while `error_console` resolves
-    `sys.stderr` at write time."""
-    import io
-    from contextlib import redirect_stderr
-
-    from dstack._internal.cli.utils.common import warn
-
-    buffer = io.StringIO()
-    with redirect_stderr(buffer):
-        warn("torn render", stderr=True)
-    assert "torn render" in buffer.getvalue()

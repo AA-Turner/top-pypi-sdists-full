@@ -188,11 +188,49 @@ def test_push_sends_the_draft_as_html_and_adopts_the_canonical_page(server, caps
     method, _route, body, _ = server.calls[-1]
     assert method == "PUT" and body["html"] == draft and "markdown" not in body
     assert body["expected_version"] == 0 and body["session_id"] == SID
+    assert body["whole_page"] is True, "a checkout pushed whole is the page the server judges no_chart"
     canonical = summary_cli.compose_draft(PAGE, SERIES)
     assert path.read_text() == canonical, "the server's canonical text replaced the unedited draft"
     assert path.with_suffix(".base").read_text() == canonical
     code, pushed, _ = _push(capsys, "--experiment", "e")
     assert pushed["pushed"] is False and pushed["detail"] == "no local edits"
+
+
+def test_a_push_the_scrubber_would_rewrite_is_refused_not_stored_broken(server, capsys, monkeypatch):
+    # T9 lane B, 10-29: `const passSig = [false, ...]` in a figure's code went
+    # through as `passSig=<redacted>, ...`, the chart threw, and push said pushed.
+    _daemon(monkeypatch)
+    out = _checkout(capsys, "--experiment", "e")
+    path = Path(out["path"])
+    code_page = PAGE.replace("</article>", "<figure><script>const passSig = [false, true];</script></figure></article>")
+    path.write_text(summary_cli.compose_draft(code_page, SERIES) + "\n")
+    puts = sum(1 for c in server.calls if c[0] == "PUT")
+    code, pushed, err = _push(capsys, "--experiment", "e")
+    assert code == 1 and pushed["pushed"] is False
+    assert "scrubber would rewrite this page near" in pushed["detail"] and "passSig" in pushed["detail"]
+    assert "passSig" in err
+    assert sum(1 for c in server.calls if c[0] == "PUT") == puts, "nothing was sent"
+    assert "passSig = [false" in path.read_text(), "the draft keeps the writer's text"
+
+
+def test_a_scrubbed_push_names_the_change_in_scrubbed_text_and_finds_it_in_a_page_blanked_whole():
+    import urllib.parse
+
+    stored_form = summary_cli._main()._stored_form
+    # A real credential is named by its marker, never echoed.
+    token = "ghp_" + "a1B2" * 9
+    page = f'<article class="ov-page"><figure><script>const ghp = "{token}";</script></figure></article>'
+    message = summary_cli.scrubbed_message("html", page, stored_form("html", page))
+    assert token not in message and "<redacted:github-token>" in message
+    # A %XX escape makes the scrubber judge the page decoded and blank it whole:
+    # the message still points at the name, not at the clean top of the page.
+    svg = urllib.parse.quote('<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>')
+    page = (f'{summary_cli.compose_draft("", [])}<article class="ov-page"><figure><img src="data:image/svg+xml,'
+            f'{svg}"><script>const isSig = [true, false];</script></figure></article>')
+    stored = stored_form("html", page)
+    assert stored.strip() == summary_cli.SCRUB_MARK
+    message = summary_cli.scrubbed_message("html", page, stored)
+    assert "isSig=<redacted>" in message and "base64-encode" in message and "data-probe" not in message
 
 
 def test_a_moved_page_merges_into_the_html_draft_with_the_same_merge3(server, capsys, monkeypatch):
@@ -394,6 +432,7 @@ def test_edit_replaces_one_exact_piece_and_writes_no_draft(server, capsys, tmp_p
     [body] = _puts(server)
     assert body["html"] == summary_cli.compose_draft(KEPT_PAGE.replace("Yes.", "Yes, by 2.1."), SERIES)
     assert body["expected_version"] == 1 and "markdown" not in body
+    assert "whole_page" not in body, "a one-command edit cannot add a chart, so it is never judged no_chart"
     assert out == {"target": "project", "label": "p", "removed": 4, "added": 12, "changed": True, "version": 2}
     assert "Yes, by 2.1." in server.pages[anchor]["html"] and KEPT in server.pages[anchor]["html"]
     assert server.pages[anchor]["series"] == SERIES, "the chart declarations ride along unchanged"

@@ -234,6 +234,24 @@ class MessageTestCase(unittest.TestCase):
 
         self.assertRaises(dns.message.TrailingJunk, bad)
 
+    def test_pointer_does_not_hide_the_following_rr(self):
+        # The answer owner name is a pointer to offset 18, the low byte of
+        # QCLASS.  The labels found there run over the pointer and the
+        # A 1.2.3.4 record after it, up to a zero byte that is followed by
+        # an A 6.6.6.6 record.  The true record after the pointer is 1.2.3.4.
+        # We should get a FORMERR when we try to go above the pointer
+        # we are following.
+        badwire = (
+            bytes.fromhex("123481800001000100000000")
+            + b"\x01a\x00\x00\x01\x00\x01"
+            + b"\xc0\x12"
+            + bytes.fromhex("000100010000012c000401020304")
+            + b"ZZZZ\x00"
+            + bytes.fromhex("000100010000012c000406060606")
+        )
+        with self.assertRaises(dns.exception.FormError):
+            dns.message.from_wire(badwire)
+
     def test_ShortHeader(self):
         def bad():
             badwire = b"\x00" * 11
@@ -494,6 +512,26 @@ class MessageTestCase(unittest.TestCase):
         r.set_rcode(dns.rcode.FORMERR)
         self.assertTrue(q.is_response(r))
 
+    def test_xfr_continuation_empty_question(self):
+        for rdtype in ("AXFR", "IXFR"):
+            q = dns.message.make_query("example.", rdtype)
+            r = dns.message.make_response(q)
+            r.question = []
+            self.assertFalse(q.is_response(r))
+            self.assertTrue(q.is_response(r, xfr_continuation=True))
+            r.flags &= ~dns.flags.QR
+            self.assertFalse(q.is_response(r, xfr_continuation=True))
+        # Only an empty question is allowed, not a different one.
+        q = dns.message.make_query("example.", "AXFR")
+        r = dns.message.make_response(dns.message.make_query("other.", "AXFR"))
+        r.id = q.id
+        self.assertFalse(q.is_response(r, xfr_continuation=True))
+        # Not an xfr query, so no effect.
+        q = dns.message.make_query("example.", "A")
+        r = dns.message.make_response(q)
+        r.question = []
+        self.assertFalse(q.is_response(r, xfr_continuation=True))
+
     def test_not_a_response(self):
         q = dns.message.QueryMessage(id=1)
         self.assertFalse(q.is_response(q))
@@ -725,6 +763,43 @@ example. 300 IN SOA . . 1 2 3 4 5
         self.assertEqual(result.canonical_name, dns.name.from_text("www.example."))
         self.assertEqual(result.minimum_ttl, 5)
         self.assertIsNone(result.answer)
+
+    def test_resolve_chaining_negative_without_soa(self):
+        # With no SOA there is no negative TTL, so a short default is used
+        # instead of the initial maximum.
+        r = dns.message.from_text("""id 1
+flags QR
+rcode NXDOMAIN
+;QUESTION
+www.example. IN A
+""")
+        result = r.resolve_chaining()
+        self.assertIsNone(result.answer)
+        self.assertEqual(result.minimum_ttl, dns.message.NEGATIVE_TTL_WITHOUT_SOA)
+        self.assertEqual(result.minimum_ttl, 300)
+        # NODATA after a CNAME, with no SOA for the canonical name.
+        r = dns.message.from_text("""id 1
+flags QR
+;QUESTION
+www.example. IN A
+;ANSWER
+www.example. 600 IN CNAME www2.example.
+""")
+        result = r.resolve_chaining()
+        self.assertIsNone(result.answer)
+        self.assertEqual(result.canonical_name, dns.name.from_text("www2.example."))
+        self.assertEqual(result.minimum_ttl, 300)
+        # A smaller CNAME TTL still wins.
+        r = dns.message.from_text("""id 1
+flags QR
+;QUESTION
+www.example. IN A
+;ANSWER
+www.example. 60 IN CNAME www2.example.
+""")
+        result = r.resolve_chaining()
+        self.assertIsNone(result.answer)
+        self.assertEqual(result.minimum_ttl, 60)
 
     def test_bad_text_questions(self):
         with self.assertRaises(dns.exception.SyntaxError):

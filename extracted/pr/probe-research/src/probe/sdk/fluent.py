@@ -328,6 +328,12 @@ def init(
         elif hit is not None:
             _exclusions.warn(_exclusions.say(_probe_config.INIT_EXCLUDED, *hit))
             run_mode = Mode.DISABLED
+    if run_mode is not Mode.DISABLED:
+        # This process does a run's work from here on, offline too: what it
+        # writes is the run's, never its agent being active (R41).
+        from . import agent_session as _agent_session
+
+        _agent_session.mark_run_process()
     if run_mode is Mode.OFFLINE:
         # Replacing an open run follows `reinit`, as for every other mode.
         return _replace_previous(

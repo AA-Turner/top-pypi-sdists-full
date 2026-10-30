@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import typing as ty
 
 from django.core import checks, exceptions
@@ -12,16 +13,36 @@ from django.db.models.lookups import Transform
 from django.db.models.query_utils import DeferredAttribute
 
 from django_pydantic_field.compat.django import BaseContainer, GenericContainer
-from django_pydantic_field.compat.pydantic import PYDANTIC_V1, ValidationErrorsTuple
+from django_pydantic_field.compat.pydantic import PYDANTIC_V1, BaseModelTuple, ValidationErrorsTuple
 from django_pydantic_field.types import SchemaAdapterResolver
 
 from . import types
 
-__all__ = ("PydanticSchemaField", "SchemaField")
+__all__ = ("PydanticDjangoJSONEncoder", "PydanticSchemaField", "SchemaField")
+
+
+class PydanticDjangoJSONEncoder(DjangoJSONEncoder):
+    """DjangoJSONEncoder subclass that adds support for Pydantic models and dataclasses."""
+
+    def default(self, o: ty.Any) -> ty.Any:
+        if isinstance(o, BaseModelTuple):
+            if hasattr(o, "model_dump"):
+                return o.model_dump(mode="json")
+            if hasattr(o, "__root__"):
+                return o.dict()["__root__"]
+            return o.dict()
+        if dataclasses.is_dataclass(o) and not isinstance(o, type):
+            return dataclasses.asdict(o)
+        return super().default(o)
 
 
 class SchemaAttribute(DeferredAttribute, ty.Generic[types.ST]):
     field: PydanticSchemaField[types.ST]
+
+    def __new__(cls, field: PydanticSchemaField[types.ST]):
+        if cls is SchemaAttribute and not field.has_default():
+            return super().__new__(UninitializedSchemaAttribute)
+        return super().__new__(cls)
 
     def __set_name__(self, owner, name):
         self.field.adapter.bind(owner, name)
@@ -41,7 +62,10 @@ class PydanticSchemaField(JSONField, SchemaAdapterResolver[types.ST]):
     adapter: types.BaseSchemaAdapter[types.ST]
 
     def __init__(self, schema=None, config=None, *args, **kwargs):
-        kwargs.setdefault("encoder", DjangoJSONEncoder)
+        encoder = kwargs.pop("encoder", None)
+        if encoder is None or encoder is DjangoJSONEncoder:
+            encoder = PydanticDjangoJSONEncoder
+        kwargs["encoder"] = encoder
 
         SchemaAdapter = self.get_schema_adapter_class()
         self.export_kwargs = export_kwargs = SchemaAdapter.extract_export_kwargs(kwargs)
@@ -66,16 +90,15 @@ class PydanticSchemaField(JSONField, SchemaAdapterResolver[types.ST]):
         if default is not NOT_PROVIDED and not callable(default):
             kwargs["default"] = self._prepare_raw_value(default, include=None, exclude=None, round_trip=True)
 
+        if kwargs.get("encoder") is PydanticDjangoJSONEncoder:
+            kwargs["encoder"] = DjangoJSONEncoder
+
         prep_schema = GenericContainer.wrap(self.adapter.prepared_schema)
         kwargs.update(schema=prep_schema, config=self.config, **self.export_kwargs)
 
         return field_name, import_path, args, kwargs
 
-    @staticmethod
-    def descriptor_class(field: PydanticSchemaField[types.ST]) -> SchemaAttribute[types.ST]:
-        if field.has_default():
-            return SchemaAttribute(field)
-        return UninitializedSchemaAttribute(field)
+    descriptor_class: type = SchemaAttribute
 
     def contribute_to_class(self, cls: types.DjangoModelType, name: str, private_only: bool = False) -> None:
         try:
@@ -91,20 +114,22 @@ class PydanticSchemaField(JSONField, SchemaAdapterResolver[types.ST]):
         except types.ImproperlyConfiguredSchema as exc:
             message = f"Cannot resolve the schema. Original error: \n{exc.args[0]}"
             performed_checks.append(checks.Error(message, obj=self, id="pydantic.E001"))
+            return performed_checks
 
         try:
-            if self.has_default():
+            if self.has_default() and not callable(self.default):
                 self.get_prep_value(self.get_default())
         except ValidationErrorsTuple as exc:
             message = f"Default value cannot be adapted to the schema. Pydantic error: \n{str(exc)}"
             performed_checks.append(checks.Error(message, obj=self, id="pydantic.E002"))
 
         if {"include", "exclude"} & self.export_kwargs.keys():
-            schema_default = self.get_default()
-            if schema_default is None:
-                prep_value = self.adapter.get_default_value()
-                if prep_value is not None:
-                    schema_default = prep_value
+            schema_default = None
+            if self.has_default():
+                if not callable(self.default):
+                    schema_default = self.get_default()
+            else:
+                schema_default = self.adapter.get_default_value()
 
             if schema_default is not None:
                 try:
@@ -151,8 +176,8 @@ class PydanticSchemaField(JSONField, SchemaAdapterResolver[types.ST]):
         value = super().value_from_object(obj)
         return self._prepare_raw_value(value)
 
-    def get_transform(self, lookup_name: str):
-        transform: ty.Any = super().get_transform(lookup_name)
+    def get_transform(self, name: str):
+        transform: ty.Any = super().get_transform(name)
         if transform is not None:
             transform = SchemaKeyTransformAdapter(transform)
         return transform
@@ -164,7 +189,7 @@ class PydanticSchemaField(JSONField, SchemaAdapterResolver[types.ST]):
         return default_value
 
     def formfield(self, form_class=None, choices_form_class=None, **kwargs):
-        field_kwargs = dict(
+        field_kwargs: dict[str, ty.Any] = dict(
             form_class=form_class or self.get_default_form_class(),
             choices_form_class=choices_form_class,
             schema=self.adapter.prepared_schema,

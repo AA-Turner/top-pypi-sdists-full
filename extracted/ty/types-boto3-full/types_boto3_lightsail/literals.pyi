@@ -82,6 +82,9 @@ __all__ = (
     "InstanceAccessProtocolType",
     "InstanceHealthReasonType",
     "InstanceHealthStateType",
+    "InstanceHealthStatusDetailNameType",
+    "InstanceHealthStatusDetailValueType",
+    "InstanceHealthStatusValueType",
     "InstanceMetadataStateType",
     "InstanceMetricNameType",
     "InstancePlatformType",
@@ -261,6 +264,13 @@ InstanceHealthReasonType = Literal[
 ]
 InstanceHealthStateType = Literal[
     "draining", "healthy", "initial", "unavailable", "unhealthy", "unused"
+]
+InstanceHealthStatusDetailNameType = Literal["reachability"]
+InstanceHealthStatusDetailValueType = Literal[
+    "failed", "initializing", "insufficient-data", "passed"
+]
+InstanceHealthStatusValueType = Literal[
+    "impaired", "initializing", "insufficient-data", "not-applicable", "ok"
 ]
 InstanceMetadataStateType = Literal["applied", "pending"]
 InstanceMetricNameType = Literal[

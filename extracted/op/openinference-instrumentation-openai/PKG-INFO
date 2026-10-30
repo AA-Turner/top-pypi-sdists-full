@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: openinference-instrumentation-openai
-Version: 0.1.66
+Version: 0.1.68
 Summary: OpenInference OpenAI Instrumentation
 Project-URL: Homepage, https://github.com/Arize-ai/openinference/tree/main/python/instrumentation/openinference-instrumentation-openai
 Author-email: OpenInference Authors <oss@arize.com>
@@ -16,10 +16,11 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: <3.15,>=3.10
+Classifier: Programming Language :: Python :: 3.15
+Requires-Python: <3.16,>=3.10
 Requires-Dist: anyio>=3.5.0
 Requires-Dist: openinference-instrumentation>=0.1.71
-Requires-Dist: openinference-semantic-conventions>=0.1.41
+Requires-Dist: openinference-semantic-conventions>=0.1.42
 Requires-Dist: opentelemetry-api
 Requires-Dist: opentelemetry-instrumentation
 Requires-Dist: opentelemetry-semantic-conventions
@@ -54,7 +55,7 @@ pip install 'openinference-instrumentation-openai[instruments]'
 ```
 
 CI tests OpenAI 2.8.0, OpenAI 3.0.0, and the latest available SDK on Python 3.10
-and 3.14. There is no SDK upper bound; the latest lane is a required compatibility
+and 3.15. There is no SDK upper bound; the latest lane is a required compatibility
 check, including when a new major version becomes available.
 
 OpenAI 3 uses `httpx2` as its default HTTP transport. `OpenAIInstrumentor` wraps
@@ -100,7 +101,7 @@ From the repository root, run the three SDK lanes (formatting, lint, types, and 
 uvx --with tox-uv tox -c python/tox.ini run -e py310-ci-openai,py310-ci-openai-v3,py310-ci-openai-latest
 ```
 
-Use `py314` in place of `py310` to run the other CI Python version. The baseline
+Use `py315` in place of `py310` to run the other CI Python version. The baseline
 SDK is pinned in `test-requirements.txt`; the `v3` and `latest` overrides live in
 `python/tox.ini` and follow the repository's dependency release-age policy.
 

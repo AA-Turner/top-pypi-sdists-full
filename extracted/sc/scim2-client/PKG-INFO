@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: scim2-client
-Version: 0.13.2
+Version: 0.14.1
 Summary: Pythonically build SCIM requests and parse SCIM responses
 Keywords: scim,scim2,provisioning,rfc7643,rfc7644,httpx2,api
 Author: Yaal Coop
@@ -207,17 +207,18 @@ License:                                  Apache License
             See the License for the specific language governing permissions and
             limitations under the License.
 Classifier: Intended Audience :: Developers
-Classifier: Development Status :: 3 - Alpha
+Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Environment :: Web Environment
 Classifier: Programming Language :: Python
 Classifier: Operating System :: OS Independent
-Requires-Dist: scim2-models>=0.10.1
+Requires-Dist: scim2-models>=0.12.4
 Requires-Dist: httpx2>=2.12 ; extra == 'httpx2'
 Requires-Dist: werkzeug>=3.1.3 ; extra == 'werkzeug'
 Requires-Python: >=3.11
@@ -228,6 +229,8 @@ Project-URL: funding, https://github.com/sponsors/python-scim
 Provides-Extra: httpx2
 Provides-Extra: werkzeug
 Description-Content-Type: text/markdown
+
+<img alt="python-scim logo" src="https://raw.githubusercontent.com/python-scim/.github/refs/heads/main/python-scim.svg" height="72" align="right">
 
 # scim2-client
 

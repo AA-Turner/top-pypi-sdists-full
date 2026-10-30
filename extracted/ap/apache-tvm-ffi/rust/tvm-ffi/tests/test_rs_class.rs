@@ -17,8 +17,8 @@
  * under the License.
  */
 use tvm_ffi::derive::Object;
-use tvm_ffi::object::ObjectRef;
-use tvm_ffi::reflection::FieldFlags;
+use tvm_ffi::object::{ObjectArc, ObjectRef, ObjectRefCore};
+use tvm_ffi::reflection::{drop_if_defined, FieldFlags, ObjectDef};
 use tvm_ffi::*;
 use tvm_ffi_sys::{TVMFFIFieldInfo, TVMFFIGetTypeInfo, TVMFFISEqHashKind, TVMFFITypeInfo};
 
@@ -26,15 +26,32 @@ use tvm_ffi_sys::{TVMFFIFieldInfo, TVMFFIGetTypeInfo, TVMFFISEqHashKind, TVMFFIT
 // structural engines, `repr` and deep copy see.
 
 /// A root type, under `ffi.Object`.
-#[rs_class("testing.rust.RsPoint", s_eq_hash_kind = "TreeNode")]
+#[rs_class(
+    "testing.rust.RsPoint",
+    s_eq_hash_kind = "TreeNode",
+    reflection = RsPointObj::reflect_methods
+)]
 pub struct RsPointObj {
     base: Object,
+    /// The x coordinate.
     pub x: i64,
-    #[reflect(writable, seq_hash_ignore)]
+    #[reflect(writable, seq_hash_ignore, doc = "A label.")]
     pub label: tvm_ffi::String,
 }
 
 def_object_ref!(pub RsPoint, ObjectRef, RsPointObj);
+
+impl RsPointObj {
+    fn reflect_methods(def: &mut ObjectDef<Self>) {
+        def.def(
+            "with_label",
+            |p: RsPoint, label: tvm_ffi::String| -> Result<RsPoint> {
+                Ok(point(p.x, label.as_str()))
+            },
+            "The point with another label.",
+        );
+    }
+}
 
 /// A subtype of a Rust-defined type, with a private field.
 #[rs_class("testing.rust.RsPoint3", final)]
@@ -73,8 +90,8 @@ pub struct RsScalarsObj {
 def_object_ref!(pub RsScalars, ObjectRef, RsScalarsObj);
 
 // `testing.TestCxxClassBase` from libtvm_ffi_testing, bound as tvm-ffi-stubgen
-// binds a complete C++ type that can have children: with a public `new` and
-// `ShallowCopy`, so that a Rust type can derive from it.
+// binds a complete C++ type that can have children: with a public `new`,
+// `ShallowCopy` and `UnsafeInit`, so that a Rust type can derive from it.
 
 #[repr(C)]
 #[derive(Object)]
@@ -102,6 +119,16 @@ impl ShallowCopy for TestCxxClassBaseObj {
     }
 }
 
+unsafe impl UnsafeInit for TestCxxClassBaseObj {
+    unsafe fn drop_defined_fields(this: *mut Self) {
+        unsafe {
+            UnsafeInit::drop_defined_fields(std::ptr::addr_of_mut!((*this).base));
+            drop_if_defined(std::ptr::addr_of_mut!((*this).v_i64));
+            drop_if_defined(std::ptr::addr_of_mut!((*this).v_i32));
+        }
+    }
+}
+
 // `def_object_ref!` takes any object type, not only an `rs_class` one.
 def_object_ref!(pub TestCxxClassBase, ObjectRef, TestCxxClassBaseObj);
 
@@ -113,6 +140,46 @@ pub struct RsCxxChildObj {
 }
 
 def_object_ref!(pub RsCxxChild, TestCxxClassBase, RsCxxChildObj);
+
+/// A type that defines its own `__ffi_init__`, over which C++ generates none.
+#[rs_class("testing.rust.RsOwnInit", final, reflection = RsOwnInitObj::reflect_methods)]
+pub struct RsOwnInitObj {
+    base: Object,
+    pub v: i64,
+}
+
+def_object_ref!(pub RsOwnInit, ObjectRef, RsOwnInitObj);
+
+impl RsOwnInitObj {
+    fn reflect_methods(def: &mut ObjectDef<Self>) {
+        def.def_static(
+            "__ffi_init__",
+            |v: i64| -> Result<RsOwnInit> { Ok(RsOwnInitObj::new(Object::new(), 2 * v).into()) },
+            "Twice `v`.",
+        );
+    }
+}
+
+/// `init_off` fields, which `__ffi_init__` leaves all-zero: a value of these types.
+#[rs_class("testing.rust.RsInitOff", final)]
+pub struct RsInitOffObj {
+    base: Object,
+    pub v: i64,
+    #[reflect(init_off)]
+    pub count: i64,
+    #[reflect(init_off)]
+    pub point: Option<RsPoint>,
+}
+
+def_object_ref!(pub RsInitOff, ObjectRef, RsInitOffObj);
+
+/// An `init_off` reference, which all-zero bytes leave undefined: its registration fails.
+#[rs_class("testing.rust.RsInitOffReference", final)]
+pub struct RsInitOffReferenceObj {
+    base: Object,
+    #[reflect(init_off)]
+    pub items: Array<i64>,
+}
 
 /// A crate that reaches tvm-ffi only through a re-export names it with `crate`.
 mod reexported {
@@ -201,6 +268,8 @@ fn register_types() {
         RsMarkerObj::type_index();
         RsScalarsObj::type_index();
         RsCxxChildObj::type_index();
+        RsOwnInitObj::type_index();
+        RsInitOffObj::type_index();
         reexported::ReexportedObj::type_index();
     });
 }
@@ -214,10 +283,12 @@ fn test_fields_are_registered_with_their_flags() {
     };
     assert_eq!(x.flags, FieldFlags::NONE.bits());
     assert_eq!(x.offset, std::mem::offset_of!(RsPointObj, x) as i64);
+    assert_eq!(x.doc.as_str(), "The x coordinate.");
     assert_eq!(
         label.flags,
         (FieldFlags::WRITABLE | FieldFlags::SEQ_HASH_IGNORE).bits()
     );
+    assert_eq!(label.doc.as_str(), "A label.");
     let metadata = unsafe { &*type_info::<RsPointObj>().metadata };
     assert_eq!(
         metadata.total_size as usize,
@@ -241,6 +312,24 @@ fn test_fields_are_registered_with_their_flags() {
         kind(type_info::<RsMarkerObj>()),
         TVMFFISEqHashKind::kTVMFFISEqHashKindTreeNode as i32
     );
+}
+
+#[test]
+fn test_reflection_registers_methods() {
+    register_types();
+    let info = type_info::<RsPointObj>();
+    assert_eq!(info.num_methods, 1);
+    let method = unsafe { &*info.methods };
+    assert_eq!(method.name.as_str(), "with_label");
+    assert_eq!(method.doc.as_str(), "The point with another label.");
+    let with_label = Function::from_type_key_method("testing.rust.RsPoint", "with_label").unwrap();
+    let relabeled = with_label
+        .call_tuple((point(4, "a"), tvm_ffi::String::from("b")))
+        .unwrap();
+    let relabeled = RsPoint::try_from(relabeled).unwrap();
+    assert_eq!((relabeled.x, relabeled.label.as_str()), (4, "b"));
+    // The subtype has no methods of its own.
+    assert_eq!(type_info::<RsPoint3Obj>().num_methods, 0);
 }
 
 #[test]
@@ -324,7 +413,8 @@ fn test_shallow_copy_and_finality_are_type_attributes() {
     assert!(!copy.same_as(&original));
     assert_eq!((copy.x, copy.label.as_str()), (3, "m"));
 
-    // C++ cannot construct the type from its fields.
+    // C++ generates `__ffi_init__` from the fields as a type attribute, not a method.
+    assert!(Function::try_from(attr(RsPointObj::type_index(), "__ffi_init__")).is_ok());
     assert!(Function::from_type_key_method("testing.rust.RsPoint", "__ffi_init__").is_err());
 }
 
@@ -357,4 +447,114 @@ fn test_crate_path_names_a_reexported_tvm_ffi() {
     assert_eq!(value.v, 5);
     assert!(ObjectRef::from(&value).same_as(&value));
     assert_eq!(field_names::<reexported::ReexportedObj>(), ["v"]);
+}
+
+fn type_attr_function(type_index: i32, name: &str) -> Function {
+    Function::try_from(get_type_attr(type_index, name).unwrap()).unwrap()
+}
+
+#[test]
+fn test_new_makes_the_object_with_its_fields_undefined() {
+    register_types();
+    let new = type_attr_function(RsPoint3Obj::type_index(), "__ffi_new__");
+    let object = ObjectRef::try_from(new.call_packed(&[]).unwrap()).unwrap();
+    assert_eq!(
+        Any::from(object.clone()).type_index(),
+        RsPoint3Obj::type_index()
+    );
+    // Reflection reads an undefined reference or string as None, as C++ reads a
+    // null `ObjectRef`, and a scalar of a new object as zero. The object then
+    // goes with its fields undefined.
+    let header: &Object = ObjectRefCore::data(&object);
+    let field = |name| {
+        FieldGetter::new(RsPoint3Obj::type_index(), name)
+            .unwrap()
+            .get_any(header)
+            .unwrap()
+    };
+    let none = TypeIndex::kTVMFFINone as i32;
+    assert_eq!(field("tags").type_index(), none);
+    assert_eq!(field("label").type_index(), none);
+    assert_eq!(i64::try_from(field("z")).unwrap(), 0);
+}
+
+#[test]
+fn test_init_constructs_the_type_from_its_fields() {
+    register_types();
+    // The fields of the parent come first, as for a C++ type.
+    let init = type_attr_function(RsPoint3Obj::type_index(), "__ffi_init__");
+    let label = || tvm_ffi::String::from("l");
+    let tags = Array::<tvm_ffi::String>::new(vec!["a".into()]);
+    let p3 = init
+        .call_tuple((1_i64, label(), 2_i64, tags.clone(), 3_i64))
+        .unwrap();
+    let p3 = RsPoint3::try_from(p3).unwrap();
+    assert_eq!((p3.x, p3.label.as_str(), p3.z, p3.tag), (1, "l", 2, 3));
+    assert!(p3.tags.same_as(&tags));
+    drop(p3);
+
+    // An object that misses a field goes with the fields set so far, and
+    // drops the reference it holds.
+    let tags_count = || ObjectArc::strong_count(ObjectRefCore::data(&tags));
+    assert_eq!(tags_count(), 1);
+    let error = init
+        .call_tuple((1_i64, label(), 2_i64, tags.clone()))
+        .err()
+        .unwrap();
+    assert!(
+        error.message().contains("missing required argument: 'tag'"),
+        "{}",
+        error.message()
+    );
+    assert_eq!(tags_count(), 1);
+
+    // A type's own `__ffi_init__` is a method, which C++ generates none over.
+    assert!(get_type_attr(RsOwnInitObj::type_index(), "__ffi_init__").is_none());
+    let own_init =
+        Function::from_type_key_method("testing.rust.RsOwnInit", "__ffi_init__").unwrap();
+    let own = RsOwnInit::try_from(own_init.call_tuple((3_i64,)).unwrap()).unwrap();
+    assert_eq!(own.v, 6);
+}
+
+#[test]
+fn test_json_graph_reads_back_the_fields() {
+    register_types();
+    let round_trip = |value: Any| {
+        let json = call(
+            "ffi.ToJSONGraphString",
+            &[AnyView::from(&value), AnyView::from(&Any::new())],
+        );
+        call("ffi.FromJSONGraphString", &[AnyView::from(&json)])
+    };
+    let p3 = point3(1, 2);
+    let back = RsPoint3::try_from(round_trip(Any::from(p3.clone()))).unwrap();
+    assert!(!back.same_as(&p3));
+    assert!(structural_equal(&back, &p3));
+    assert_eq!(
+        (back.label.as_str(), back.tags.len(), back.tag),
+        ("p3", 2, 7)
+    );
+
+    // The C++ fields of a subtype of a C++ type, which the C++ setters set.
+    let child = cxx_child(7, 8, "c");
+    let back = RsCxxChild::try_from(round_trip(Any::from(child.clone()))).unwrap();
+    assert!(!back.same_as(&child));
+    assert_eq!((back.v_i64, back.v_i32, back.name.as_str()), (7, 8, "c"));
+}
+
+#[test]
+fn test_init_off_fields_take_all_zero_bytes_as_a_value() {
+    register_types();
+    let init = type_attr_function(RsInitOffObj::type_index(), "__ffi_init__");
+    let value = RsInitOff::try_from(init.call_tuple((5_i64,)).unwrap()).unwrap();
+    assert_eq!((value.v, value.count), (5, 0));
+    assert!(value.point.is_none());
+
+    let registered = std::panic::catch_unwind(RsInitOffReferenceObj::type_index);
+    let message = registered.err().unwrap();
+    let message = message.downcast_ref::<std::string::String>().unwrap();
+    assert!(
+        message.contains("`init_off` field `items` of `testing.rust.RsInitOffReference`"),
+        "{message}"
+    );
 }

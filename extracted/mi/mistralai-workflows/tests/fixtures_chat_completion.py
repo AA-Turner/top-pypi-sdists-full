@@ -20,13 +20,12 @@ _CHAT_RESPONSE = {
 
 @activity(name="chat_completion")
 async def chat_completion_activity() -> str:
-    import httpx
-
+    from mistralai.workflows._mistral_http import MISTRAL_HTTP
     from mistralai.workflows.client import get_mistral_client
 
     client = get_mistral_client(api_key="test-key", server_url="http://test.local")
-    client.sdk_configuration.async_client._transport = httpx.MockTransport(
-        lambda _request: httpx.Response(200, json=_CHAT_RESPONSE)
+    client.sdk_configuration.async_client._transport = MISTRAL_HTTP.MockTransport(
+        lambda _request: MISTRAL_HTTP.Response(200, json=_CHAT_RESPONSE)
     )
 
     response = await client.chat.complete_async(

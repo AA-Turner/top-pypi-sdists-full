@@ -14,10 +14,10 @@ from enum import Enum
 from types import NoneType, UnionType
 from typing import Any, Sequence, Union, get_args, get_origin
 
-import structlog
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
+from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.config.config import (
     MAX_SEARCH_KEY_CHARS,
     MAX_SEARCH_KEY_VALUE_CHARS,
@@ -26,7 +26,7 @@ from mistralai.workflows.core.config.config import (
 from mistralai.workflows.core.logging import extract_error_context
 from mistralai.workflows.exceptions import ErrorCode, WorkflowsException
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 # str/bytes are Collections too, but are valid scalar leaves.
 _SCALAR_COLLECTION_TYPES = (str, bytes, bytearray)

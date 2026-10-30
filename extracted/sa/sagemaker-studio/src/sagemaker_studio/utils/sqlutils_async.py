@@ -58,6 +58,18 @@ def extract_execution_id(execution_metadata: Optional[Dict[str, Any]]) -> Option
     return execution_metadata.get("query_execution_id") or execution_metadata.get("statement_id")
 
 
+def extract_redshift_query_id(execution_metadata: Optional[Dict[str, Any]]) -> Optional[int]:
+    """Redshift's own query id (RedshiftQueryId) from the statement's execution metadata.
+
+    None for other engines and when Redshift assigned no id (the Data API reports -1 for
+    leader-node-only statements, which the cursor already drops).
+    """
+    if not execution_metadata:
+        return None
+    query_id = execution_metadata.get("redshift_query_id")
+    return query_id if isinstance(query_id, int) and query_id > 0 else None
+
+
 def build_result_prefix(project_s3_root: str, execution_id: str) -> str:
     """Deterministic result prefix rooted under the project S3 root.
 
@@ -869,6 +881,7 @@ class AsyncSqlResult:
     columns: List[str]
     first_page_rows: List[Any]
     total_rows: Optional[int] = None
+    redshift_query_id: Optional[int] = None
 
     def _first_page_parquet_b64(self) -> str:
         import base64
@@ -879,13 +892,16 @@ class AsyncSqlResult:
         return base64.b64encode(_df_to_parquet_bytes(df)).decode("utf-8")
 
     def _repr_mimebundle_(self, include=None, exclude=None):
+        payload: Dict[str, Any] = {
+            "execution_id": self.execution_id,
+            "s3_path": self.s3_path,
+            "total_rows": self.total_rows,
+            "data": self._first_page_parquet_b64(),
+        }
+        if self.redshift_query_id is not None:
+            payload["redshift_query_id"] = self.redshift_query_id
         return {
-            ASYNC_SQL_MIMETYPE: {
-                "execution_id": self.execution_id,
-                "s3_path": self.s3_path,
-                "total_rows": self.total_rows,
-                "data": self._first_page_parquet_b64(),
-            },
+            ASYNC_SQL_MIMETYPE: payload,
             "text/plain": (
                 f"[async SQL result] {len(self.first_page_rows)} rows shown -- "
                 f"full result materializing to {self.s3_path}"
@@ -915,6 +931,7 @@ def materialize_async(
     extra_retain: bool = False,
     registry: "_MaterializationRegistry" = _registry,
     rows_per_page: int = ROWS_PER_PAGE,
+    redshift_query_id: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Display the inline first page and spawn the background materialization.
 
@@ -941,6 +958,7 @@ def materialize_async(
             columns=columns,
             first_page_rows=first_page_rows,
             total_rows=total_rows,
+            redshift_query_id=redshift_query_id,
         )
     )
 
@@ -1042,6 +1060,7 @@ class AsyncResultMarker:
     """
 
     execution_id: Optional[str] = None
+    redshift_query_id: Optional[int] = None
 
 
 @dataclass
@@ -1057,6 +1076,7 @@ class StatementSpec:
     kind: str  # "result" | "dml"
     execution_id: Optional[str] = None
     rowcount: Optional[int] = None
+    redshift_query_id: Optional[int] = None
 
 
 def spec_from_result(exec_result: Any) -> "StatementSpec":
@@ -1068,7 +1088,10 @@ def spec_from_result(exec_result: Any) -> "StatementSpec":
     payload = exec_result.result
     if isinstance(payload, AsyncResultMarker):
         return StatementSpec(
-            index=exec_result.statement_index, kind="result", execution_id=payload.execution_id
+            index=exec_result.statement_index,
+            kind="result",
+            execution_id=payload.execution_id,
+            redshift_query_id=payload.redshift_query_id,
         )
     return StatementSpec(index=exec_result.statement_index, kind="dml", rowcount=payload)
 
@@ -1216,6 +1239,7 @@ def materialize_async_multi(
                 extra_retain=(multi and bind_pending_fn is not None),
                 registry=registry,
                 rows_per_page=rows_per_page,
+                redshift_query_id=getattr(spec, "redshift_query_id", None),
             )
             payloads.append(payload)
             # Collect the per-index proxy for the consolidated bind below, keyed by

@@ -178,7 +178,9 @@ def _env_writes(steps: List[dict]) -> List[Tuple[dict, str]]:
     for step in steps:
         if step["type"] != "RUN" or SCRIPT_PATH not in step["args"][0]:
             continue
-        encoded = re.search(r"echo ([A-Za-z0-9+/=]+) \| base64 -d", step["args"][0])
+        encoded = re.search(
+            r"echo ([A-Za-z0-9+/=]+) \| (?:command -p )?base64 -d", step["args"][0]
+        )
         out.append((step, base64.b64decode(encoded.group(1)).decode()))
     return out
 
@@ -186,7 +188,9 @@ def _env_writes(steps: List[dict]) -> List[Tuple[dict, str]]:
 class TestSetEnvsRuntimeVisibility:
     def test_emits_both_the_build_env_and_a_runtime_write(self):
         t = TemplateBase()
-        t.from_image("python:3.11-slim").set_envs({"PATH": "/opt/venv/bin:/usr/bin"})
+        t.from_image("python:3.11-slim").set_envs(
+            {"PATH": "/opt/venv/bin:/usr/bin"}, runtime=True
+        )
 
         steps = t._serialize(t._instructions)["steps"]
 
@@ -200,7 +204,9 @@ class TestSetEnvsRuntimeVisibility:
 
     def test_leaves_a_var_reference_for_the_build_to_expand(self):
         t = TemplateBase()
-        t.from_image("python:3.11-slim").set_envs({"PATH": "/opt/venv/bin:$PATH"})
+        t.from_image("python:3.11-slim").set_envs(
+            {"PATH": "/opt/venv/bin:$PATH"}, runtime=True
+        )
 
         _, script = _env_writes(t._serialize(t._instructions)["steps"])[0]
 
@@ -212,7 +218,7 @@ class TestSetEnvsRuntimeVisibility:
         t = TemplateBase()
         builder = t.from_image("python:3.11-slim")
         builder.set_user("user")
-        builder.set_envs({"FOO": "bar"})
+        builder.set_envs({"FOO": "bar"}, runtime=True)
 
         step, _ = _env_writes(t._serialize(t._instructions)["steps"])[0]
 
@@ -221,7 +227,7 @@ class TestSetEnvsRuntimeVisibility:
     def test_appends_the_write_last(self):
         t = TemplateBase()
         builder = t.from_image("python:3.11-slim")
-        builder.set_envs({"FOO": "bar"})
+        builder.set_envs({"FOO": "bar"}, runtime=True)
         builder.set_user("user")
 
         steps = t._serialize(t._instructions)["steps"]
@@ -233,32 +239,32 @@ class TestSetEnvsRuntimeVisibility:
     def test_one_layer_holds_every_call(self):
         t = TemplateBase()
         builder = t.from_image("python:3.11-slim")
-        builder.set_envs({"A": "1"})
-        builder.set_envs({"B": "2"})
+        builder.set_envs({"A": "1"}, runtime=True)
+        builder.set_envs({"B": "2"}, runtime=True)
 
         writes = _env_writes(t._serialize(t._instructions)["steps"])
 
         # A per-call write would have the second clobber the first's file.
         assert len(writes) == 1
-        assert "A=" in writes[0][1]
-        assert "B=" in writes[0][1]
+        assert 'A "1"' in writes[0][1]
+        assert 'B "2"' in writes[0][1]
 
     def test_a_later_call_wins_for_a_repeated_name(self):
         t = TemplateBase()
         builder = t.from_image("python:3.11-slim")
-        builder.set_envs({"PATH": "/first"})
-        builder.set_envs({"PATH": "/second"})
+        builder.set_envs({"PATH": "/first"}, runtime=True)
+        builder.set_envs({"PATH": "/second"}, runtime=True)
 
         _, script = _env_writes(t._serialize(t._instructions)["steps"])[0]
 
         assert "/second" in script
-        assert "/first" not in script
+        assert script.index("/first") < script.index("/second")
 
     def test_skips_a_name_no_shell_can_set(self):
         # `export A B='v'` is two statements, so carrying this over would set
         # something other than what was asked for.
         t = TemplateBase()
-        t.from_image("python:3.11-slim").set_envs({"A B": "v"})
+        t.from_image("python:3.11-slim").set_envs({"A B": "v"}, runtime=True)
 
         steps = t._serialize(t._instructions)["steps"]
 
@@ -273,7 +279,7 @@ class TestSetEnvsRuntimeVisibility:
 
     def test_does_not_duplicate_the_layer_when_serialized_twice(self):
         t = TemplateBase()
-        t.from_image("python:3.11-slim").set_envs({"FOO": "bar"})
+        t.from_image("python:3.11-slim").set_envs({"FOO": "bar"}, runtime=True)
 
         t._serialize(t._instructions)
         assert len(_env_writes(t._serialize(t._instructions)["steps"])) == 1

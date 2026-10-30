@@ -3,23 +3,31 @@ import json
 import warnings
 from collections import defaultdict
 from contextlib import contextmanager
+from dataclasses import dataclass
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any, Callable, DefaultDict, Iterator, List, Sequence, Type
 from uuid import UUID, uuid4
-
-import structlog
 
 if TYPE_CHECKING:
     from mistralai.workflows.core.graph_summaries import SummaryResult
     from mistralai.workflows.core.wire_format import AtlasWireFormat, FlatNode
 import temporalio.api.workflowservice.v1 as wsv1
 import tenacity
+from mistralai.extra.workflows.encoding.config import PayloadEncryptionConfig as PayloadEncryptionConfigBase
+from mistralai.extra.workflows.encoding.config import WorkflowEncodingConfig
+from mistralai.extra.workflows.encoding.payload_encoder import PayloadEncoder
 from opentelemetry.instrumentation.utils import suppress_instrumentation
 from pydantic import BaseModel, SecretStr
 from temporalio.client import Client as TemporalClient
 from temporalio.client import Interceptor
 from temporalio.common import VersioningBehavior, WorkerDeploymentVersion
-from temporalio.converter import PayloadCodec, PayloadConverter
+from temporalio.converter import (
+    DefaultFailureConverter,
+    DefaultFailureConverterWithEncodedAttributes,
+    FailureConverter,
+    PayloadCodec,
+    PayloadConverter,
+)
 from temporalio.service import RPCError, RPCStatusCode
 from temporalio.worker import PollerBehaviorSimpleMaximum, Worker, WorkerDeploymentConfig
 from temporalio.worker.workflow_sandbox import SandboxedWorkflowRunner
@@ -27,13 +35,15 @@ from temporalio.worker.workflow_sandbox import SandboxedWorkflowRunner
 from mistralai.workflows.client import translate_model
 from mistralai.workflows.core._events.event_context import EventContext
 from mistralai.workflows.core._events.event_interceptor import EventInterceptor
+from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core._registration.execution_registration_interceptor import (
     ExecutionRegistrationInterceptor,
 )
 from mistralai.workflows.core.activity import activity, get_all_temporal_activities
 from mistralai.workflows.core.auth import get_token_provider
 from mistralai.workflows.core.config import config_discovery
-from mistralai.workflows.core.config.config import AppConfig, config
+from mistralai.workflows.core.config.config import AppConfig, config, log_configuration, setup_default_logging
+from mistralai.workflows.core.config.config import WorkerConfig as WorkerSettings
 from mistralai.workflows.core.definition.workflow_definition import (
     get_workflow_definition,
 )
@@ -99,7 +109,7 @@ from mistralai.workflows.worker_client import models as wc_models
 from mistralai.workflows.worker_client.errors.sdkerror import SDKError
 from mistralai.workflows.worker_client.sdk import PrivateWorkerClient
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 
 class WorkerConfig(BaseModel):
@@ -342,6 +352,55 @@ def _get_parallel_execution_workflows(workflows: Sequence[Type]) -> list[Type]:
     if any(get_workflow_definition(workflow).on_behalf_of for workflow in workflows):
         parallel_workflows.append(OnBehalfOfParallelExecutionWorkflow)
     return parallel_workflows
+
+
+@dataclass(frozen=True, kw_only=True)
+class _WorkerPayloadEncoding:
+    payload_codec: PayloadCodec
+    failure_converter: Type[FailureConverter]
+    event_payload_encoder: PayloadEncoder | None
+    custom_event_payload_encoder: PayloadEncoder | None
+
+
+def _build_event_payload_encoder(encryption_config: PayloadEncryptionConfigBase) -> PayloadEncoder:
+    # Events don't support offloading
+    return PayloadEncoder(
+        encoding_config=WorkflowEncodingConfig(payload_encryption=encryption_config, payload_offloading=None)
+    )
+
+
+def _build_worker_payload_encoding(worker_settings: WorkerSettings) -> _WorkerPayloadEncoding:
+    encryption_config = worker_settings.temporal_payload_encryption
+    payload_codec = MistralWorkflowsPayloadCodec(
+        payload_offloading_config=worker_settings.temporal_payload_offloading,
+        payload_encryption_config=encryption_config,
+        payload_compression_config=worker_settings.temporal_payload_compression,
+    )
+    # Temporal stores failure messages and stack traces outside payloads. With full encryption they are
+    # moved into an encoded attribute, so the codec encrypts them like any other payload.
+    failure_converter: Type[FailureConverter] = (
+        DefaultFailureConverterWithEncodedAttributes
+        if worker_settings.encrypts_payloads_fully
+        else DefaultFailureConverter
+    )
+    if encryption_config is None:
+        return _WorkerPayloadEncoding(
+            payload_codec=payload_codec,
+            failure_converter=failure_converter,
+            event_payload_encoder=None,
+            custom_event_payload_encoder=None,
+        )
+    custom_event_payload_encoder = (
+        _build_event_payload_encoder(encryption_config.custom_event_config)
+        if encryption_config.custom_event_mode is not None
+        else None
+    )
+    return _WorkerPayloadEncoding(
+        payload_codec=payload_codec,
+        failure_converter=failure_converter,
+        event_payload_encoder=_build_event_payload_encoder(encryption_config),
+        custom_event_payload_encoder=custom_event_payload_encoder,
+    )
 
 
 def _create_temporal_workers(
@@ -780,28 +839,11 @@ async def _run_worker(
         # Always use custom payload converter and codec for context propagation
         # Offloading and encryption are controlled by their respective configs
         payload_converter: Type[PayloadConverter] = MistralWorkflowsPayloadConverter
-        payload_codec: PayloadCodec = MistralWorkflowsPayloadCodec(
-            payload_offloading_config=config.worker.temporal_payload_offloading,
-            payload_encryption_config=config.worker.temporal_payload_encryption,
-            payload_compression_config=config.worker.temporal_payload_compression,
-        )
+        payload_encoding = _build_worker_payload_encoding(config.worker)
 
         # Order matters: ContextHandler first (unwraps context), ExecutionRegistration before
         # Event (sets the token Event needs). Trace-context wraps both so their internal local
         # activities are traced; span-recording is innermost to serialize unwrapped/restored args.
-
-        # Create PayloadEncoder for event encryption (reuse the same encryption config)
-        event_payload_encoder = None
-        if config.worker.temporal_payload_encryption is not None:
-            from mistralai.extra.workflows.encoding.config import WorkflowEncodingConfig
-            from mistralai.extra.workflows.encoding.payload_encoder import PayloadEncoder
-
-            event_payload_encoder = PayloadEncoder(
-                encoding_config=WorkflowEncodingConfig(
-                    payload_encryption=config.worker.temporal_payload_encryption,
-                    payload_offloading=None,  # Events don't support offloading
-                )
-            )
         extra_interceptors: List[Interceptor] = [
             ContextHandlerInterceptor(),
             *get_trace_context_interceptors(),
@@ -816,10 +858,11 @@ async def _run_worker(
         temporal_client = await create_temporal_client(
             namespace=config.temporal.namespace,
             runtime=runtime,
-            payload_codec=payload_codec,
+            payload_codec=payload_encoding.payload_codec,
             payload_converter=payload_converter,
             extra_interceptors=extra_interceptors,
             add_tracing_interceptors=False,
+            failure_converter=payload_encoding.failure_converter,
         )
         # Publish the connection whose bearer refresh_temporal_api_key keeps current, so DI-provided
         # clients (plugin activities) ride it instead of opening an unrefreshed parallel connection.
@@ -878,7 +921,8 @@ async def _run_worker(
                 worker_client.events,
                 worker_client,
                 events_api_version=config.worker.events_api_version,
-                payload_encoder=event_payload_encoder,
+                payload_encoder=payload_encoding.event_payload_encoder,
+                custom_event_payload_encoder=payload_encoding.custom_event_payload_encoder,
             ),
         ):
             register_task = tg.create_task(
@@ -1028,6 +1072,8 @@ async def run_worker(
         api_key: Optional API key for the Mistral API authentication (sent as Bearer token)
         namespace: Optional namespace to use for the worker
     """
+    setup_default_logging()
+    log_configuration()
     original_config = config.model_copy(deep=True)
 
     def _revert_config() -> None:

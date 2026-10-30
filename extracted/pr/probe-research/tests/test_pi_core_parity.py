@@ -98,6 +98,15 @@ def test_the_stored_states_and_the_recorders_are_session_markers():
     assert set(ts_object(STATE, "Recorder").values()) == set(session_marker.RECORDERS)
 
 
+def test_the_capture_word_pi_waits_out_is_the_clis():
+    """`CaptureReason` (daemon.ts) is the reading pi's footer looks at again until
+    the recorder claims the session (#3619). Renamed in `capture_state.REASONS`
+    alone, the looks would stop and the footer say "not capturing" again."""
+    from probe.cli import capture_state
+
+    assert set(ts_object(PI_CORE / "daemon.ts", "CaptureReason").values()) <= set(capture_state.REASONS)
+
+
 def test_every_printed_word_maps_back_to_its_stored_state():
     """The CLI prints `on`/`read`; pi's `parseState` must read both vocabularies."""
     aliases = dict(re.findall(r'if \(raw === "([\w-]+)"\) return "([\w-]+)";', STATE.read_text(encoding="utf-8")))

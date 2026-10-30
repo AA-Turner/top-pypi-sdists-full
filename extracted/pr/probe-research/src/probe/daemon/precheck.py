@@ -140,6 +140,10 @@ OWNERS: dict[str, str] = {
     # A message to one of the researcher's own running sessions (G7): an
     # orchestrator's, never the daemon's (it would speak into another session).
     "session send": RESEARCHER,
+    # Deleting a captured session, and undoing it (research-os 0411): the
+    # researcher's alone, from their own terminal; the CLI refuses an agent's
+    # shell and the daemon, the server the daemon's and assistant's keys.
+    "session delete": RESEARCHER, "session undelete": RESEARCHER,
     "setup": SETUP, "wizard": SETUP, "update": SETUP, "uninstall": SETUP,
     # `probe repair`: the install pipeline in repair mode -- the machine's plumbing.
     "repair": SETUP,
@@ -243,6 +247,8 @@ _SUMMARY_IS_THE_RESEARCHERS = ("`--summary` is the researcher's own block on the
 _PROJECT_DESCRIPTION_IS_THE_SERVERS = "a project's description is written by the server once a run finishes under it"
 _HOSTING_IS_THE_RESEARCHERS = ("`--upload` stores the dataset's bytes in Probe against the team's hosted-data cap: "
                                "that is the researcher's call - register it as a reference without it")
+_DOCTOR_FIX_IS_THE_RESEARCHERS = ("`--fix` changes this machine's setup (it approves Probe's hooks in Codex and "
+                                  "converts folder defaults): the researcher's to run - plain `probe doctor` reads")
 _TEAM_NOTE_IS_A_QUESTION = ("`--team` writes the team note directly; change it in its file instead, where "
                             "the researcher sees each change first")
 #: Options that turn a read into a write of a local file the command is pointed
@@ -273,6 +279,7 @@ _FORBIDDEN_OPTIONS = {
     **{(path, "team"): _TEAM_NOTE_IS_A_QUESTION for path in ("notes append", "notes edit")},
     # C8: hosting puts the bytes in Probe, against the team's hosted-data cap.
     ("dataset add", "upload"): _HOSTING_IS_THE_RESEARCHERS,
+    ("doctor", "fix"): _DOCTOR_FIX_IS_THE_RESEARCHERS,
 }
 #: Per command, the parameters whose value is a local file the command reads and
 #: sends (uploads, or reads as a body). Named by the command's MEANING, not by a
@@ -453,6 +460,32 @@ def _parse(argv: list[str], root: Any) -> Parsed:
         raise ParseError(str(exc.format_message())) from None
     return Parsed(path=" ".join(path), params=dict(ctx.params), root_options=root_options, argv=list(argv),
                   help=_help_flag(cmd, ctx))
+
+
+def command_context(argv: list[str]) -> Any | None:
+    """`probe <argv>`'s command parsed as the CLI parses it to run it: strictly,
+    defaults applied, under contexts named as the CLI names them (`probe run
+    get`), so a usage error raised while it runs words itself as the CLI's
+    (`host_reads`). None for a root option, a group, help, or words click
+    refuses: the CLI then says why, itself."""
+    from typer._click.core import Context
+
+    root = _root()
+    root_options, path, args, cmd = _walk(argv, root)
+    if root_options or not path or getattr(cmd, "commands", None):
+        return None
+    parent = Context(root, info_name="probe", **root.context_settings)
+    group = root
+    for name in path[:-1]:
+        group = group.commands[name]
+        parent = Context(group, info_name=name, parent=parent, **group.context_settings)
+    try:
+        probe = cmd.make_context(path[-1], list(args), parent=parent, resilient_parsing=True)
+        if _help_flag(cmd, probe):
+            return None  # strictly parsed, the help flag would print the help: the CLI's to print
+        return cmd.make_context(path[-1], list(args), parent=parent)
+    except Exception:  # noqa: BLE001 -- a usage error (or anything click refuses) is the CLI's to word
+        return None
 
 
 def asks_help(argv: list[str]) -> bool:

@@ -98,7 +98,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "S311", "S603", "D", "PLR0915"]
+"tests/**" = ["S101", "S103", "S311", "S603", "D", "PLR0915"]  # S103: tests set permissive modes on purpose
 "oschmod/__init__.py" = ["S311"]  # perm_test uses random only for a throwaway filename
 
 [tool.mypy]
@@ -107,11 +107,11 @@ strict = true
 warn_unreachable = false
 
 [[tool.mypy.overrides]]
-module = ["win32security", "ntsecuritycon", "pywintypes"]
+module = ["win32security", "ntsecuritycon", "pywintypes", "win32file", "win32api"]
 ignore_missing_imports = true
 
 [tool.bumpversion]
-current_version = "0.4.0"
+current_version = "0.7.0"
 commit = false
 tag = false
 

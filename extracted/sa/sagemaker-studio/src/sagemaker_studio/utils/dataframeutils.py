@@ -7,6 +7,7 @@ from typing import Optional
 
 import pandas as pd
 
+from sagemaker_studio import local_kernel
 from sagemaker_studio.utils.sqlutils import _ensure_project
 
 logger = logging.getLogger()
@@ -587,9 +588,18 @@ def _patch_pandas():
     - df.to_catalog_table() for writing DataFrames to catalogs
 
     After importing dataframeutils, these methods become available directly on pandas.
+
+    Not on an AWS Notebook local kernel, which has no project connection for them to go through;
+    decided at import from the environment the app sets (``AWS_NOTEBOOK_APP_URL``).
     """
     import pandas as pd
 
+    if local_kernel.is_local_kernel():
+        logger.info(
+            "AWS Notebook local kernel: pandas.read_catalog_table and DataFrame.to_catalog_table "
+            "are not installed"
+        )
+        return
     pd.read_catalog_table = read_catalog_table
     pd.DataFrame.to_catalog_table = to_catalog_table
 

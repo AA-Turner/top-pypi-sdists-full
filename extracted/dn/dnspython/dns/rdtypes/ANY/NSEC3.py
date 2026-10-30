@@ -18,6 +18,7 @@
 import base64
 import binascii
 import struct
+import sys
 
 import dns.immutable
 import dns.name
@@ -50,14 +51,19 @@ class NSEC3(dns.rdata.Rdata):
         self.flags = self._as_uint8(flags)
         self.iterations = self._as_uint16(iterations)
         self.salt = self._as_bytes(salt, True, 255)
-        self.next = self._as_bytes(next, True, 255)
+        # RFC 5155 section 3.1.6: the hash length is 1 to 255 octets.
+        self.next = self._as_bytes(next, True, 255, empty_ok=False)
         if not isinstance(windows, Bitmap):
             windows = Bitmap(windows)
         self.windows = tuple(windows.windows)
 
     def _next_text(self):
-        next = base64.b32hexencode(self.next).lower().decode()
-        next = next.rstrip("=")
+        if sys.version_info >= (3, 15):
+            next = base64.b32hexencode(self.next, padded=False).lower().decode()
+        else:
+            # Remove this workaround when Python 3.15 is the minimum version.
+            next = base64.b32hexencode(self.next).lower().decode()
+            next = next.rstrip("=")
         return next
 
     def to_styled_text(self, style: dns.rdata.RdataStyle) -> str:
@@ -85,9 +91,20 @@ class NSEC3(dns.rdata.Rdata):
         next = tok.get_string().encode("ascii").upper()
         if next.endswith(b"="):
             raise binascii.Error("Incorrect padding")
-        if len(next) % 8 != 0:
-            next += b"=" * (8 - len(next) % 8)
-        next = base64.b32hexdecode(next)
+        if sys.version_info >= (3, 15):
+            next = base64.b32hexdecode(next, padded=False, canonical=True)
+        else:
+            # Remove this workaround when Python 3.15 is the minimum version.
+            padded = next
+            if len(padded) % 8 != 0:
+                padded += b"=" * (8 - len(padded) % 8)
+            decoded = base64.b32hexdecode(padded)
+            # A non-canonical spelling whose final base32hex character has non-zero
+            # unused bits decodes to the same hash as the canonical one, so to_text
+            # would not reproduce the input (RFC 4648 section 3.5).
+            if base64.b32hexencode(decoded).rstrip(b"=") != next:
+                raise binascii.Error("non-canonical base32hex")
+            next = decoded
         bitmap = Bitmap.from_text(tok)
         return cls(rdclass, rdtype, algorithm, flags, iterations, salt, next, bitmap)
 

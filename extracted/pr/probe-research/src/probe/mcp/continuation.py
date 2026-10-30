@@ -16,7 +16,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from .budget import Budget, serialize
+from .budget import Budget, count_tokens, serialize
 from .contract import EntityType, EnvelopeState, MissingMarker
 from .delivery_context import delivery_context
 
@@ -323,11 +323,17 @@ def _advance_state(state: dict, native: str) -> dict:
 
 
 def _read(
-    call: Callable[[dict], dict], arguments: dict, state: dict, request: str | Request
+    call: Callable[[dict], dict],
+    arguments: dict,
+    state: dict,
+    request: str | Request,
+    *,
+    reserve: int = 0,
 ) -> dict:
     # `request` rides along so a source that sizes its page around a stand-in
-    # cursor encodes that stand-in exactly as delivery will encode the real one.
-    with delivery_context(state.get("source_snapshot"), request) as delivery:
+    # cursor encodes that stand-in exactly as delivery will encode the real one;
+    # `reserve`, so one that fits exactly leaves room for a batch's wrapper.
+    with delivery_context(state.get("source_snapshot"), request, reserve) as delivery:
         payload = call(arguments)
     if delivery.snapshot is not None:
         state["source_snapshot"] = delivery.snapshot
@@ -706,7 +712,10 @@ def _batch(
     while index < len(refs):
         one = refs[index]
         one_args = {**native_args, "refs": [one]}
-        result = _read(call, one_args, state, request)
+        # What this item's row adds around its own page: the ref echo, the row
+        # list and `missing`, and the item index its cursor carries.
+        reserve = count_tokens(serialize({"rows": [{"ref": one}], "missing": [], "i": index})) + 8
+        result = _read(call, one_args, state, request, reserve=reserve)
         is_missing = isinstance(result.get("missing"), list) and not result.get("rows")
         item_state = {**state, "index": index}
 

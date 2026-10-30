@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-genai
-Version: 2.33.0
+Version: 2.34.0
 Summary: GenAI Python SDK
 Author-email: Google LLC <googleapis-packages@google.com>
 License-Expression: Apache-2.0
@@ -9,14 +9,14 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: anyio<5.0.0,>=4.8.0

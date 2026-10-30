@@ -9,12 +9,10 @@ from __future__ import annotations
 
 from typing import Any
 
-import structlog
 from pydantic import BaseModel
 
-from mistralai.workflows.core._events.event_context import EventContext
-from mistralai.workflows.core._events.event_utils import create_base_event_fields
-from mistralai.workflows.core.activity import activity
+from mistralai.workflows.core._events.event_activities import emitter_activity, publish_emitter_event
+from mistralai.workflows.core._events.event_utils import create_emitter_event_fields
 from mistralai.workflows.protocol.v1.events import (
     CustomTaskCompleted,
     CustomTaskCompletedAttributes,
@@ -24,10 +22,7 @@ from mistralai.workflows.protocol.v1.events import (
     CustomTaskStartedAttributes,
     Failure,
     JSONPayload,
-    WorkflowEvent,
 )
-
-logger = structlog.get_logger(__name__)
 
 CONNECTOR_AUTH_TASK_TYPE = "connector_auth"
 
@@ -60,17 +55,7 @@ def _connector_payload(
     return payload
 
 
-async def _publish_event(event: WorkflowEvent, label: str) -> None:
-    context = EventContext.get_singleton()
-    if not context:
-        return
-    try:
-        await context.publish_event(event)
-    except Exception as e:
-        logger.warning("Failed to emit connector_auth event", event=label, error=str(e))
-
-
-@activity(name="__emit_connector_auth_started")
+@emitter_activity(name="__emit_connector_auth_started")
 async def _emit_connector_auth_started(
     task_id: str,
     connector_name: str,
@@ -78,9 +63,9 @@ async def _emit_connector_auth_started(
     auth_url: str,
     credentials_name: str | None = None,
 ) -> ConnectorAuthMarkerResult:
-    await _publish_event(
-        CustomTaskStarted(
-            **create_base_event_fields(),
+    await publish_emitter_event(
+        lambda: CustomTaskStarted(
+            **create_emitter_event_fields("payload"),
             attributes=CustomTaskStartedAttributes(
                 custom_task_id=task_id,
                 custom_task_type=CONNECTOR_AUTH_TASK_TYPE,
@@ -93,8 +78,7 @@ async def _emit_connector_auth_started(
                     )
                 ),
             ),
-        ),
-        label="started",
+        )
     )
     return ConnectorAuthMarkerResult(
         task_id=task_id,
@@ -105,16 +89,16 @@ async def _emit_connector_auth_started(
     )
 
 
-@activity(name="__emit_connector_auth_completed")
+@emitter_activity(name="__emit_connector_auth_completed")
 async def _emit_connector_auth_completed(
     task_id: str,
     connector_name: str,
     connector_id: str,
     credentials_name: str | None = None,
 ) -> ConnectorAuthMarkerResult:
-    await _publish_event(
-        CustomTaskCompleted(
-            **create_base_event_fields(),
+    await publish_emitter_event(
+        lambda: CustomTaskCompleted(
+            **create_emitter_event_fields("payload"),
             attributes=CustomTaskCompletedAttributes(
                 custom_task_id=task_id,
                 custom_task_type=CONNECTOR_AUTH_TASK_TYPE,
@@ -127,8 +111,7 @@ async def _emit_connector_auth_completed(
                     )
                 ),
             ),
-        ),
-        label="completed",
+        )
     )
     return ConnectorAuthMarkerResult(
         task_id=task_id,
@@ -138,7 +121,7 @@ async def _emit_connector_auth_completed(
     )
 
 
-@activity(name="__emit_connector_auth_failed")
+@emitter_activity(name="__emit_connector_auth_failed")
 async def _emit_connector_auth_failed(
     task_id: str,
     connector_name: str,
@@ -146,16 +129,15 @@ async def _emit_connector_auth_failed(
     error: str,
     credentials_name: str | None = None,
 ) -> ConnectorAuthMarkerResult:
-    await _publish_event(
-        CustomTaskFailed(
-            **create_base_event_fields(),
+    await publish_emitter_event(
+        lambda: CustomTaskFailed(
+            **create_emitter_event_fields("payload"),
             attributes=CustomTaskFailedAttributes(
                 custom_task_id=task_id,
                 custom_task_type=CONNECTOR_AUTH_TASK_TYPE,
                 failure=Failure(message=f"[{connector_id}:{connector_name}] {error}"),
             ),
-        ),
-        label="failed",
+        )
     )
     return ConnectorAuthMarkerResult(
         task_id=task_id,

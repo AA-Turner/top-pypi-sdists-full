@@ -28,9 +28,11 @@ from __future__ import annotations
 # the module docstring above.
 __all__: list[str] = []
 
+import atexit
 import json
 import logging
 import os
+import secrets
 import shutil
 import signal
 import socket
@@ -52,7 +54,7 @@ from airbyte.exceptions import PyAirbyteInputError
 from airbyte_cdk.models.connector_metadata import MetadataFile
 from airbyte_cdk.utils.connector_paths import find_connector_root_from_name
 from airbyte_cdk.utils.docker import build_connector_image, verify_docker_installation
-from airbyte_protocol.models import ConfiguredAirbyteCatalog
+from airbyte_protocol.models import AirbyteCatalog, ConfiguredAirbyteCatalog
 from cyclopts import Parameter
 from fastmcp_extensions.cli import (
     exit_with_error,
@@ -87,8 +89,13 @@ from airbyte_ops_mcp.connection_config_retriever import (
     residency_for_dataplane_group,
 )
 from airbyte_ops_mcp.connection_config_retriever.residency import (
+    EU_RUNNER_EU_ONLY_MESSAGE,
     EU_RUNNER_REQUIRED_MESSAGE,
     is_running_on_eu_runner,
+)
+from airbyte_ops_mcp.connector_secrets import (
+    DEFAULT_GCP_PROJECT_ID,
+    ConnectorSecretsUnavailableError,
 )
 from airbyte_ops_mcp.constants import (
     CLOUD_SQL_INSTANCE,
@@ -128,20 +135,36 @@ from airbyte_ops_mcp.regression_tests.case_validate import (
     runs_from_needs,
     wait_and_merge,
 )
-from airbyte_ops_mcp.regression_tests.cdk_secrets import get_first_config_from_secrets
+from airbyte_ops_mcp.regression_tests.cdk_secrets import (
+    get_integration_test_config_from_secrets,
+)
 from airbyte_ops_mcp.regression_tests.ci_output import (
     ComparisonOutcome,
     command_result_succeeded,
+    config_error_streams,
+    could_not_test,
+    describe_could_not_test,
+    describe_not_exercised,
+    describe_setup_error,
     evaluate_comparison_outcome,
     generate_regression_report,
     generate_single_version_report,
     is_github_actions,
+    not_exercised_streams,
+    run_readable_fields,
+    stopped_early_sides,
+    target_errors_only_from,
+    undefined_streams,
     write_github_output,
     write_github_outputs,
     write_github_summary,
     write_json_output,
 )
 from airbyte_ops_mcp.regression_tests.config_overrides import (
+    InjectedCatalogs,
+    InjectedSyncMode,
+    StreamsNotDiscoveredError,
+    build_injected_catalogs,
     filter_configured_catalog_file,
 )
 from airbyte_ops_mcp.regression_tests.connection_fetcher import (
@@ -158,9 +181,12 @@ from airbyte_ops_mcp.regression_tests.connection_secret_retriever import (
     should_use_secret_retriever,
 )
 from airbyte_ops_mcp.regression_tests.connector_runner import (
+    DEFAULT_TIMEOUT_SECONDS,
     ConnectorRunner,
     ensure_image_available,
+    proxy_trust_gap,
 )
+from airbyte_ops_mcp.regression_tests.eu_runner.cli import eu_runner_app
 from airbyte_ops_mcp.regression_tests.http_metrics import (
     DEFAULT_MAX_REPLAY_DUMP_SIZE_MB,
     DEFAULT_REPLAY_EXTRA,
@@ -168,18 +194,27 @@ from airbyte_ops_mcp.regression_tests.http_metrics import (
     MitmproxyManager,
     ReplayOptions,
     discard_oversized_dump,
+    parse_connector_cache_metrics,
     parse_http_dump,
+)
+from airbyte_ops_mcp.regression_tests.masking import (
+    MaskPolicy,
+    mask_input_state,
 )
 from airbyte_ops_mcp.regression_tests.models import (
     Command,
     ComparableOutputs,
     ConnectorUnderTest,
     ExecutionInputs,
+    OutputMode,
+    StoppedEarly,
     TargetOrControl,
     duplicate_stream_names,
     get_primary_keys_per_stream,
     split_records_per_stream,
 )
+from airbyte_ops_mcp.regression_tests.normalization import stream_label, to_stream_id
+from airbyte_ops_mcp.regression_tests.read_budget import ReadBudget
 from airbyte_ops_mcp.regression_tests.regression import (
     ComparisonResult,
     RecordComparisonSummary,
@@ -187,6 +222,10 @@ from airbyte_ops_mcp.regression_tests.regression import (
     compare_final_states,
     compare_specs,
     run_record_comparisons_from_files,
+)
+from airbyte_ops_mcp.regression_tests.regression.comparators import (
+    _read_records_file,
+    _scan_pk_integrity,
 )
 from airbyte_ops_mcp.regression_tests.report import (
     HTML_REPORT_FILENAME,
@@ -221,6 +260,19 @@ from airbyte_ops_mcp.regression_tests.repro_case import (
 from airbyte_ops_mcp.regression_tests.sandbox_support import (
     run_sandbox_support_check,
 )
+from airbyte_ops_mcp.regression_tests.seed_state import (
+    seed_state_error,
+    seeded_streams,
+)
+from airbyte_ops_mcp.regression_tests.validation.catalog_validators import (
+    validate_cursors_exist_in_schema,
+    validate_primary_keys_exist_in_schema,
+)
+from airbyte_ops_mcp.regression_tests.validation.record_validators import (
+    check_incremental_cursor,
+    check_record_schema,
+    declared_types,
+)
 from airbyte_ops_mcp.telemetry import track_regression_test
 from airbyte_ops_mcp.tier_cache import resolve_workspace
 
@@ -236,6 +288,7 @@ connector_app = App(
     name="connector", help="Deployed connector operations in Airbyte Cloud."
 )
 cloud_app.command(connector_app)
+connector_app.command(eu_runner_app)
 
 # Create the db sub-app under cloud
 db_app = App(name="db", help="Database operations for Airbyte Cloud Prod DB Replica.")
@@ -983,6 +1036,94 @@ def _parse_extra_env(pairs: list[str] | None) -> dict[str, str]:
     return parsed
 
 
+_DEBUG_LOG_LEVELS = frozenset({"DEBUG", "TRACE"})
+
+
+def _private_dir(prefix: str) -> Path:
+    """A temp directory for the connector's secrets, removed when the CLI exits.
+
+    `mkdtemp` makes it 0700. On a runner the VM dies with the job; on a laptop
+    nothing else would remove it, and it holds the config and the raw state.
+    `atexit` runs on a normal exit and on Ctrl-C, not on SIGTERM or `kill -9`,
+    so a run killed that way still leaves the directory behind.
+    """
+    path = Path(tempfile.mkdtemp(prefix=prefix))
+    atexit.register(shutil.rmtree, path, ignore_errors=True)
+    return path
+
+
+def _without_debug_logs(
+    *, enable_debug_logs: bool, extra_env: dict[str, str]
+) -> tuple[dict[str, str], list[str]]:
+    """The container env without a debug log level, and the settings dropped.
+
+    Debug logs are off on masked runs for now, to keep masking simple. A
+    `LOG_LEVEL` passed through `--extra-env` reaches the connector exactly as
+    `--enable-debug-logs` does, so a DEBUG or TRACE one is dropped too.
+    """
+    dropped = ["--enable-debug-logs"] if enable_debug_logs else []
+    level = extra_env.get("LOG_LEVEL")
+    if level is not None and level.strip().upper() in _DEBUG_LOG_LEVELS:
+        dropped.append(f"LOG_LEVEL={level} from --extra-env")
+        extra_env = {
+            key: value for key, value in extra_env.items() if key != "LOG_LEVEL"
+        }
+    return extra_env, dropped
+
+
+# The masking key's length: HMAC-SHA256's block is 64 bytes, and 32 random
+# bytes is the full strength of the hash it feeds.
+MASK_KEY_BYTES = 32
+
+
+def _resolve_mask_key(mask_key_path: str | None) -> bytes:
+    """The key every token of this run is hashed under.
+
+    From the file when given: the workflow makes one key per run and hands
+    every command the path, so the four commands' tokens pair and the key
+    itself goes through no argument the runner would print. Without it a
+    fresh key for this process, so a run by hand pairs its own two sides and
+    nothing else. The key is returned, never printed; the errors name the
+    file, not what it held.
+    """
+    if mask_key_path is None:
+        return secrets.token_bytes(MASK_KEY_BYTES)
+    try:
+        text = Path(mask_key_path).read_text().strip()
+    except OSError as exc:
+        error = f"--mask-key-path cannot be read: {exc}"
+    else:
+        try:
+            key = bytes.fromhex(text)
+        except ValueError:
+            key = b""
+        if len(key) == MASK_KEY_BYTES:
+            return key
+        error = (
+            f"--mask-key-path must hold the run's masking key as "
+            f"{2 * MASK_KEY_BYTES} hex characters: {mask_key_path}"
+        )
+    write_github_output("success", False)
+    write_github_output("error", error)
+    exit_with_error(error)
+
+
+def _mask_policy(
+    catalog: Any, output_mode: OutputMode, mask_key: bytes | None
+) -> MaskPolicy | None:
+    """The policy a masked run masks `catalog`'s streams under; `None` on a raw run.
+
+    A masked run without a key is a programming error, not a raw run:
+    refusing it keeps a missing key from writing output under the wrong
+    mode.
+    """
+    if output_mode != "masked":
+        return None
+    if mask_key is None:
+        raise ValueError("A masked run needs its masking key")
+    return MaskPolicy.from_configured_catalog(catalog, key=mask_key)
+
+
 def _run_connector_command(
     connector_image: str,
     command: Command,
@@ -994,6 +1135,10 @@ def _run_connector_command(
     proxy_url: str | None = None,
     ca_cert_path: Path | None = None,
     enable_debug_logs: bool = False,
+    timeout_seconds: int | None = None,
+    max_records: int | None = None,
+    output_mode: OutputMode = "raw",
+    mask_key: bytes | None = None,
     extra_env: dict[str, str] | None = None,
 ) -> tuple[dict, ComparableOutputs]:
     """Run a connector command and return its results and its declared objects.
@@ -1018,10 +1163,24 @@ def _run_connector_command(
             it. Without it every HTTPS request through the proxy fails TLS
             verification and the capture comes back near-empty.
         enable_debug_logs: If `True`, pass `LOG_LEVEL=DEBUG` to the connector container.
+        timeout_seconds: How long the container may run before the harness stops
+            it and reports the run as stopped early; the runner's default when
+            `None`.
+        max_records: Stop the container after this many RECORD messages and
+            report the run as stopped early; no cap when `None`.
+        output_mode: `masked` masks every stdout line as it is written,
+            under a policy built from the configured catalog that masks primary
+            keys and keeps a cursor readable only when its declared type is an
+            integer or a date; `raw` writes the output as emitted.
+        mask_key: The run's masking key, which every token is hashed under;
+            both sides of a comparison are given the same one. Required on a
+            masked run, unused on a raw one.
         extra_env: Additional environment variables for the connector container.
 
     Returns:
-        The flattened results, and the objects the connector declared.
+        The flattened results, and the objects the connector declared. A run
+        the harness stopped carries `stopped_early` -- its reason, the records
+        kept and the seconds it ran -- and `None` there otherwise.
     """
     connector = ConnectorUnderTest.from_image_name(connector_image, target_or_control)
 
@@ -1049,8 +1208,16 @@ def _run_connector_command(
         environment_variables=container_env or None,
     )
 
+    mask_policy = _mask_policy(configured_catalog, output_mode, mask_key)
     runner = ConnectorRunner(
-        execution_inputs, proxy_url=proxy_url, ca_cert_path=ca_cert_path
+        execution_inputs,
+        timeout_seconds=(
+            DEFAULT_TIMEOUT_SECONDS if timeout_seconds is None else timeout_seconds
+        ),
+        proxy_url=proxy_url,
+        ca_cert_path=ca_cert_path,
+        max_records=max_records,
+        mask_policy=mask_policy,
     )
     result = runner.run()
 
@@ -1067,7 +1234,33 @@ def _run_connector_command(
             k.value: v for k, v in result.get_message_count_per_type().items()
         },
         "record_counts_per_stream": result.get_record_count_per_stream(),
+        "stopped_early": (
+            result.stopped_early.to_dict() if result.stopped_early else None
+        ),
+        "output_mode": output_mode,
     }
+    if mask_policy is not None and command.needs_catalog():
+        # Per stream, what the mask left readable and why, for the report. Only
+        # a command that reads records has a schema-enriched catalog and output
+        # to keep readable; anywhere else every stream reads `schema missing`.
+        result_dict["readable_fields"] = {
+            name: info.to_dict() for name, info in mask_policy.streams.items()
+        }
+
+    # Under `http_metrics` because that is what they are, but set here rather
+    # than in `_run_with_optional_http_metrics`: the connector's own cache is
+    # measurable with or without the proxy, so gating it on the proxy would
+    # hide the one metric that needs none. The wrapper merges its proxy
+    # counters into whatever is already here. Read off the summary that
+    # `save_artifacts` collected above, not off a second walk of stdout: a
+    # `read`'s stdout is the dataset.
+    connector_cache = parse_connector_cache_metrics(result.summary.analytics)
+    if connector_cache is not None:
+        result_dict["http_metrics"] = {
+            "connector_request_count": connector_cache.request_count,
+            "connector_cache_hits_count": connector_cache.cache_hits_count,
+            "connector_cache_hit_ratio": connector_cache.cache_hit_ratio,
+        }
 
     # For CHECK, include the parsed connectionStatus from the Airbyte protocol.
     # The CDK exits 0 regardless of check outcome; the real pass/fail signal
@@ -1084,6 +1277,66 @@ def _run_connector_command(
     return result_dict, ComparableOutputs.from_execution_result(result)
 
 
+def _read_not_started(
+    connector_image: str,
+    command: Command,
+    output_dir: Path,
+    output_mode: OutputMode,
+) -> tuple[dict, ComparableOutputs]:
+    """The result of a side whose deadline passed before its turn came.
+
+    No container runs: a read given no time would only push the comparison and
+    the report past the step's own timeout. The side reads like any other run
+    stopped at its deadline -- a clean exit, `stopped_early` with reason
+    `timeout` and no records -- so the verdict is incomplete, never a pass,
+    and the report is still written. Its output files exist, empty but for a
+    note in stderr, so every reader of a run's files finds them, and it
+    carries the run's `output_mode`, so the report still says how the run's
+    output was written.
+    """
+    output_dir.mkdir(parents=True, exist_ok=True)
+    stdout_path = output_dir / "stdout.txt"
+    stderr_path = output_dir / "stderr.txt"
+    stdout_path.write_text("")
+    note = (
+        f"{connector_image} was not started: nothing was left of --read-timeout "
+        "for its read"
+    )
+    stderr_path.write_text(f"{note}\n")
+    print_warning(note)
+    return (
+        {
+            "connector": connector_image,
+            "command": command.value,
+            "success": True,
+            "exit_code": 0,
+            "stdout_file": str(stdout_path),
+            "stderr_file": str(stderr_path),
+            "message_counts": {},
+            "record_counts_per_stream": {},
+            "stopped_early": StoppedEarly(
+                reason="timeout", records_seen=0, elapsed_s=0.0
+            ).to_dict(),
+            "output_mode": output_mode,
+        },
+        ComparableOutputs(),
+    )
+
+
+def _record_read_share(result: dict, share_s: int | None, budget_s: int) -> None:
+    """Name the share of `--read-timeout` a side stopped at, for its report line.
+
+    Only on a deadline stop under the budget: a capped side stopped for
+    another reason, and a side that finished needs no excuse. `share_s` 0 is a
+    side that never started. A copy replaces the entry rather than adding to
+    it, since the dict may be shared with whoever produced it.
+    """
+    stopped = result.get("stopped_early")
+    if share_s is None or not stopped or stopped.get("reason") != "timeout":
+        return
+    result["stopped_early"] = {**stopped, "share_s": share_s, "budget_s": budget_s}
+
+
 def _annotate_run_verdict(command: str, result: dict[str, Any]) -> dict[str, Any]:
     """Copy a run result with `success` as the verdict, exit status kept separately.
 
@@ -1091,16 +1344,74 @@ def _annotate_run_verdict(command: str, result: dict[str, Any]) -> dict[str, Any
     nothing about whether the connector could connect -- the CDK exits 0 even when a
     check fails. Any payload read as the verdict must therefore not expose the exit
     status under `success`, at any nesting level. The raw value stays available as
-    `exited_cleanly`; for every command but `check` the two are equal.
+    `exited_cleanly`; for every command but `check` the two are equal -- except on
+    a side the harness stopped early, including one it never started for lack of
+    time: that side read part of what it would have, so its `success` is false,
+    as the run's is, and `stopped_early` says why.
 
     Returns a copy: callers pass the unannotated originals to the report generator,
     which reads `success` as the exit status.
     """
     return {
         **result,
-        "success": command_result_succeeded(command, result),
+        "success": (
+            command_result_succeeded(command, result)
+            and not result.get("stopped_early")
+        ),
         "exited_cleanly": result["success"],
     }
+
+
+# The lists in the run's JSON payload that hold record values: missing and
+# duplicated primary keys, and the field diffs of paired records. Named alike,
+# so a new example list is covered without a change here.
+_EXAMPLE_LIST_SUFFIX = "_examples"
+# What a raw run's printed payload says in place of a stream's state diff.
+_STATE_DIFF_OMITTED = (
+    "Omitted from the job log on a raw run; both versions' state messages are "
+    "in the saved artifacts"
+)
+
+
+def _without_examples(payload: dict[str, Any]) -> dict[str, Any]:
+    """A copy of the payload with every example list emptied, keys kept, and
+    each stream's final-state diff replaced by a `diff_omitted` note.
+
+    The job log outlives the artifacts and is not masked, so on a raw run the
+    printed payload carries the shape and the counts of what was found and
+    none of the record values; `examples_omitted` says why the lists are
+    empty. The state diff is the one diff that holds customer values rather
+    than types: a moved cursor puts both sides' values, and any partition
+    value, in its `values_changed` entry, where catalog and spec diffs hold
+    schema. The `regression_report` output and the artifacts keep the full
+    payload: the artifact is where the detail belongs.
+    """
+
+    def strip(value: Any, key: str = "") -> Any:
+        if isinstance(value, dict):
+            return {name: strip(item, name) for name, item in value.items()}
+        if isinstance(value, list):
+            if key.endswith(_EXAMPLE_LIST_SUFFIX):
+                return []
+            return [strip(item) for item in value]
+        return value
+
+    stripped = strip(payload)
+    final_state = stripped.get("comparison", {}).get("final_state")
+    if isinstance(final_state, dict):
+        for entry in final_state.get("streams", {}).values():
+            if isinstance(entry, dict) and "diff" in entry:
+                del entry["diff"]
+                entry["diff_omitted"] = _STATE_DIFF_OMITTED
+    return {**stripped, "examples_omitted": True}
+
+
+def _printable_payload(
+    payload: dict[str, Any], output_mode: OutputMode
+) -> dict[str, Any]:
+    """The payload as `print_json` may show it: whole on a masked run, where
+    every example is a token, and without its examples on a raw run."""
+    return payload if output_mode == "masked" else _without_examples(payload)
 
 
 # The checks the output comparisons contribute, named for the row a reviewer
@@ -1139,6 +1450,9 @@ def _compare_outputs(
     outcome: ComparisonOutcome,
     control_outputs: ComparableOutputs,
     target_outputs: ComparableOutputs,
+    partial: bool = False,
+    no_control_streams: tuple[str, ...] = (),
+    could_not_test: bool = False,
 ) -> tuple[tuple[CheckResult, ...], tuple[DiffBlock, ...], dict[str, Any]]:
     """Compare what the two versions produced, for the commands that produce it.
 
@@ -1168,13 +1482,17 @@ def _compare_outputs(
         outcome: The already-evaluated command outcome.
         control_outputs: What the control version produced.
         target_outputs: What the target version produced.
+        partial: Whether a side was stopped early. Only the final-state check
+            is affected: the states of a stopped read are checkpoints from
+            wherever each side got to, so the check is reported rather than
+            folded.
 
     Returns:
         The checks to fold into the verdict, the diff blocks that show what they
         found, and the comparison detail for the run's JSON payload -- all empty
         when there was nothing to compare.
     """
-    if not outcome.success:
+    if not outcome.success and not could_not_test:
         return (), (), {}
 
     if command == "spec":
@@ -1185,7 +1503,10 @@ def _compare_outputs(
 
     if command == "read":
         return _final_state_comparison(
-            control_outputs.final_states, target_outputs.final_states
+            control_outputs.final_states,
+            target_outputs.final_states,
+            partial,
+            no_control_streams,
         )
 
     return (), (), {}
@@ -1260,26 +1581,62 @@ def _catalog_comparison(
 def _final_state_comparison(
     control_states: dict[tuple[str | None, str], Any] | None,
     target_states: dict[tuple[str | None, str], Any] | None,
+    partial: bool = False,
+    no_control_streams: tuple[str, ...] = (),
 ) -> tuple[tuple[CheckResult, ...], tuple[DiffBlock, ...], dict[str, Any]]:
     """Run the final-state comparison and shape it for every surface."""
-    result = compare_final_states(control_states, target_states)
+    excluded = set(no_control_streams)
+    compared_control = (
+        {key: value for key, value in control_states.items() if key[1] not in excluded}
+        if control_states is not None
+        else None
+    )
+    compared_target = (
+        {key: value for key, value in target_states.items() if key[1] not in excluded}
+        if target_states is not None
+        else None
+    )
+    result = compare_final_states(compared_control, compared_target)
 
     # Structural findings first, then the value-only ones: the check lists
     # everything it found, and the summary quotes the front of that list.
     findings = [*result.errors, *result.warnings]
 
+    summary = _change_summary(result.message, findings)
+    not_compared = sorted(no_control_streams)
+    if not_compared:
+        summary += (
+            f"; {len(not_compared)} stream(s) read by the target only were not "
+            f"compared: {', '.join(not_compared)}"
+        )
+    passed = result.passed
+    if partial and not result.inconclusive:
+        # Under a stop neither side emitted a *final* state: what each left
+        # behind is the checkpoint it had reached, and the two were cut at
+        # different points -- so a state present on one side only, a cursor
+        # that differs, or two that agree, says where each stopped, not what
+        # changed. Never a pass, for the same reason the count row is not.
+        passed = False
+        summary += (
+            " (inconclusive on a stopped-early read: these are the checkpoints "
+            "each side had reached, not final states)"
+        )
+
     check = CheckResult(
         name=_FINAL_STATE_CHECK,
-        passed=result.passed,
-        # Two ways a non-passing state check does not gate. A cursor that only
+        passed=passed,
+        # Three ways a non-passing state check does not gate. A cursor that only
         # advanced: until HTTP replay lands, the two versions call the live API
         # in separate runs and a timestamp cursor moves between them on its own.
-        # And a read with no state on either side, where there was nothing to
-        # compare rather than something wrong.
+        # A read with no state on either side, where there was nothing to
+        # compare rather than something wrong. And a read that was stopped
+        # early, whose states are not final.
         severity=(
-            "diagnostic" if result.value_only or result.inconclusive else "strict"
+            "diagnostic"
+            if partial or result.value_only or result.inconclusive
+            else "strict"
         ),
-        summary=_change_summary(result.message, findings),
+        summary=summary,
         details=tuple(findings),
     )
 
@@ -1293,7 +1650,9 @@ def _final_state_comparison(
         ),
     )
 
-    return (check,), blocks, {"final_state": _final_state_detail(result)}
+    detail = _final_state_detail(result)
+    detail["not_compared"] = not_compared
+    return (check,), blocks, {"final_state": detail}
 
 
 def _stream_diff_blocks(
@@ -1613,6 +1972,17 @@ def _fetch_control_image_from_metadata(connector_name: str) -> str | None:
     return f"{docker_repository}:{docker_image_tag}"
 
 
+def _existing_http_metrics(result: dict[str, Any]) -> dict[str, object]:
+    """The HTTP metrics a run already reported, for a payload that adds to them.
+
+    `_run_connector_command` sets the connector's own cache counters, which need
+    no proxy; the proxy counters are added here afterwards. Overwriting rather
+    than merging would silently drop the connector's numbers on every
+    comparison run -- the runs most likely to be read.
+    """
+    return dict(result.get("http_metrics") or {})
+
+
 def _run_with_optional_http_metrics(
     connector_image: str,
     command: Command,
@@ -1628,11 +1998,16 @@ def _run_with_optional_http_metrics(
     replay_from: Path | None = None,
     replay_options: ReplayOptions | None = None,
     stream_large_bodies: str = DEFAULT_STREAM_LARGE_BODIES,
+    timeout_seconds: int | None = None,
+    max_records: int | None = None,
+    output_mode: OutputMode = "raw",
+    mask_key: bytes | None = None,
 ) -> tuple[dict, ComparableOutputs]:
     """Run a connector command with optional HTTP metrics capture.
 
     When enable_http_metrics is True, starts mitmproxy to capture HTTP traffic.
-    If mitmproxy fails to start, falls back to running without metrics.
+    If mitmproxy fails to start, or the image cannot trust its CA (see
+    `proxy_trust_gap`), falls back to running without metrics.
 
     Args:
         connector_image: Full connector image name with tag.
@@ -1655,14 +2030,29 @@ def _run_with_optional_http_metrics(
         replay_options: Replay tuning; defaults apply when omitted.
         stream_large_bodies: Body-size threshold above which mitmproxy streams
             rather than records a body.
+        timeout_seconds: Passed through to `_run_connector_command`. At 0 the
+            deadline has already passed, and neither the proxy nor the
+            container starts (see `_read_not_started`).
+        max_records: Passed through to `_run_connector_command`.
+        output_mode: Passed through to `_run_connector_command`.
+        mask_key: Passed through to `_run_connector_command`.
 
     Returns:
         What `_run_connector_command` returns, with `http_metrics` added to the
         results dict when they were captured -- plus `http_dump_file`, the dump
         this run recorded, which is what a subsequent run replays from.
     """
-    if not enable_http_metrics:
-        return _run_connector_command(
+    if timeout_seconds is not None and timeout_seconds <= 0:
+        return _read_not_started(connector_image, command, output_dir, output_mode)
+
+    # An image the proxy's CA cannot be handed to runs direct, as with capture
+    # off: through the proxy each of its HTTPS calls would fail verification,
+    # which reads as a connector bug. Its requests then read as not captured.
+    capture_gap = proxy_trust_gap(connector_image) if enable_http_metrics else None
+    if capture_gap:
+        print_warning(f"Running without HTTP capture: {capture_gap}")
+    if not enable_http_metrics or capture_gap:
+        result, comparable = _run_connector_command(
             connector_image=connector_image,
             command=command,
             output_dir=output_dir,
@@ -1671,8 +2061,20 @@ def _run_with_optional_http_metrics(
             catalog_path=catalog_path,
             state_path=state_path,
             enable_debug_logs=enable_debug_logs,
+            timeout_seconds=timeout_seconds,
+            max_records=max_records,
+            output_mode=output_mode,
+            mask_key=mask_key,
             extra_env=extra_env,
         )
+        if capture_gap:
+            skipped = {"capture_skipped_reason": capture_gap}
+            if replay_expected:
+                skipped["replay_skipped_reason"] = (
+                    f"{capture_gap}, so nothing could be replayed"
+                )
+            result["http_metrics"] = {**_existing_http_metrics(result), **skipped}
+        return result, comparable
 
     # The manager rather than `MitmproxyManager.start`: the reason a startup
     # failed and the fact that a shutdown had to be killed are only reachable
@@ -1702,6 +2104,10 @@ def _run_with_optional_http_metrics(
                 catalog_path=catalog_path,
                 state_path=state_path,
                 enable_debug_logs=enable_debug_logs,
+                timeout_seconds=timeout_seconds,
+                max_records=max_records,
+                output_mode=output_mode,
+                mask_key=mask_key,
                 extra_env=extra_env,
             )
             if replay_expected:
@@ -1719,9 +2125,10 @@ def _run_with_optional_http_metrics(
                 # load, and those point at a code fix where the hardcoded
                 # string tells a reader to install mitmproxy.
                 result["http_metrics"] = {
+                    **_existing_http_metrics(result),
                     "replay_skipped_reason": (
                         f"{startup_failure}, so nothing could be replayed"
-                    )
+                    ),
                 }
             return result, comparable
 
@@ -1751,6 +2158,10 @@ def _run_with_optional_http_metrics(
             proxy_url=session.proxy_url,
             ca_cert_path=session.ca_cert_path,
             enable_debug_logs=enable_debug_logs,
+            timeout_seconds=timeout_seconds,
+            max_records=max_records,
+            output_mode=output_mode,
+            mask_key=mask_key,
             extra_env=extra_env,
         )
 
@@ -1770,17 +2181,17 @@ def _run_with_optional_http_metrics(
 
     http_metrics = parse_http_dump(dump_file_path, replay_source)
     metrics_payload: dict[str, object] = {
+        # Whatever the connector reported about its own cache, which
+        # `_run_connector_command` set and this must not drop: the two are
+        # different metrics of different things, and the report shows both.
+        **_existing_http_metrics(result),
         "flow_count": http_metrics.flow_count,
         "duplicate_flow_count": http_metrics.duplicate_flow_count,
-        # Carried into the report because it is the number that tells a
-        # reviewer whether a record difference is a real regression or
-        # upstream drift. Today it is a duplicate-URL heuristic; it only
-        # becomes exact once HTTP replay lands.
-        "cache_hits_count": http_metrics.cache_hits_count,
-        "cache_hit_ratio": http_metrics.cache_hit_ratio,
         # On a replaying target run, `live_flow_count` is the acceptance
         # criterion for replay -- so it belongs in the report rather than
-        # only in the raw dump.
+        # only in the raw dump. `replay_hit_ratio` is what the legacy report
+        # called its cache-hit ratio: the share mitmproxy served from the
+        # recording, a property of the harness rather than of the connector.
         "replayed_flow_count": http_metrics.replayed_flow_count,
         "live_flow_count": http_metrics.live_flow_count,
         "replay_hit_ratio": http_metrics.replay_hit_ratio,
@@ -1870,6 +2281,7 @@ def _compare_read_records(
     target_result: dict,
     control_result: dict,
     catalog_file: Path | None,
+    target_record_files: dict[str, Path] | None = None,
 ) -> tuple[RecordComparisonSummary | None, str | None]:
     """Run record-level comparisons between control and target read outputs.
 
@@ -1879,14 +2291,16 @@ def _compare_read_records(
     fall back to a directional record count comparison.
 
     Each run's stdout is first split into per-stream record files (a single
-    streaming pass), and the comparison then loads one stream at a time, so
-    memory stays bounded by the largest stream instead of the full output
-    of both runs. The per-stream files land next to each run's stdout and
-    double as debugging artifacts. Within one stream, both sides are
-    materialized as parsed messages plus dict copies plus PK indexes --
-    measured at roughly 13 bytes resident per byte of record JSON, so a
-    single stream of ~500 MB of records is the practical ceiling on a
-    standard 7 GB runner. Start here when debugging an OOM.
+    streaming pass), and the comparison then takes one stream at a time.
+    The per-stream files land next to each run's stdout and double as
+    debugging artifacts. Within one stream the records stay on disk: each
+    check reads them back from the file, and the field comparison keeps
+    only a position and a fingerprint per record, loading a PK's records
+    back only where the two versions' fingerprints differ. Peak memory is
+    the largest stream's PK indexes -- a few hundred bytes per record --
+    not its records: a synthetic PayPal-shaped stream of 40k records
+    (~127 MB a side) added ~35 MB to the process, where holding both sides
+    had added ~2.8 GB. Start here when debugging an OOM.
 
     Returns:
         `(summary, skip_reason)`. The summary is None when the comparison
@@ -1925,7 +2339,7 @@ def _compare_read_records(
         control_record_files = split_records_per_stream(
             Path(control_result["stdout_file"])
         )
-        target_record_files = split_records_per_stream(
+        target_record_files = target_record_files or split_records_per_stream(
             Path(target_result["stdout_file"])
         )
 
@@ -1933,6 +2347,13 @@ def _compare_read_records(
             control_record_files=control_record_files,
             target_record_files=target_record_files,
             primary_keys_per_stream=primary_keys,
+            # The two outputs end at different points when a side was
+            # stopped, so counts and PK presence are reported, not folded.
+            partial=bool(
+                stopped_early_sides(
+                    ("control", control_result), ("target", target_result)
+                )
+            ),
         )
         summary.warnings[:0] = collision_warnings
     except Exception as exc:
@@ -1945,7 +2366,12 @@ def _compare_read_records(
             errors=[f"Record comparison errored: {exc!r}"],
         )
 
-    if summary.passed:
+    if summary.passed and summary.partial:
+        print_success(
+            "Record comparison passed on a stopped-early read (PK integrity and "
+            "field values on shared PKs; counts and PK presence are diagnostic)"
+        )
+    elif summary.passed:
         print_success("Record comparison passed (counts, PKs, field values)")
     else:
         print_error("Record comparison failed:")
@@ -1955,6 +2381,306 @@ def _compare_read_records(
         print_warning(warning)
 
     return summary, None
+
+
+@connector_app.command(name="build-target-image")
+def build_target_image(
+    connector_name: Annotated[
+        str,
+        Parameter(help="Connector to build from source (e.g., 'source-pokeapi')."),
+    ],
+    repo_root: Annotated[
+        str | None,
+        Parameter(
+            help="Path to the airbyte repo root, when it cannot be auto-detected."
+        ),
+    ] = None,
+) -> None:
+    """Build the image `regression-test --connector-name` would build, and nothing else.
+
+    Writes the image to the `image` GitHub output. CI builds here, in a job
+    that holds no credentials, because a Java connector's build runs the pull
+    request's own Gradle on the host. The job that holds the credentials loads
+    the image and passes it to `regression-test` as `--test-image`.
+    """
+    built_image = _build_connector_image_from_source(
+        connector_name=connector_name,
+        repo_root=Path(repo_root) if repo_root else None,
+        tag="dev",
+    )
+    if not built_image:
+        exit_with_error(f"Failed to build image for {connector_name}")
+    write_github_output("image", built_image)
+
+
+def _iter_record_data(path: Path):
+    with path.open() as records_file:
+        for line in records_file:
+            message = json.loads(line)
+            record = message.get("record")
+            data = record.get("data") if isinstance(record, dict) else None
+            if isinstance(data, dict):
+                yield data
+
+
+def _record_count(path: Path) -> int:
+    return sum(1 for _ in _iter_record_data(path))
+
+
+def _new_stream_record_checks(
+    *,
+    stream_names: tuple[str, ...],
+    record_files: dict[str, Path],
+    catalog_file: Path | None,
+    target_outputs: ComparableOutputs,
+    record_comparison: RecordComparisonSummary | None,
+    masked: bool,
+    mask_policy: MaskPolicy | None,
+    stopped: bool,
+) -> tuple[tuple[CheckResult, ...], dict[str, dict[str, Any]], bool]:
+    configured_catalog = (
+        ConfiguredAirbyteCatalog.model_validate_json(catalog_file.read_text())
+        if catalog_file is not None and catalog_file.exists()
+        else None
+    )
+    configured = {
+        item.stream.name: item
+        for item in (configured_catalog.streams if configured_catalog else [])
+    }
+    primary_keys = (
+        get_primary_keys_per_stream(configured_catalog) if configured_catalog else {}
+    )
+    stream_results: dict[str, dict[str, Any]] = {}
+    schema_summaries: list[str] = []
+    pk_summaries: list[str] = []
+    cursor_summaries: list[str] = []
+    schema_failed = False
+    pk_failed = False
+    cursor_failed = False
+    cursor_diagnostic = False
+    schema_diagnostic = False
+    regression_found = False
+    has_pk = False
+    has_incremental = False
+
+    for name in stream_names:
+        path = record_files.get(name)
+        if path is None:
+            continue
+        count = _record_count(path)
+        if not count:
+            continue
+        item = configured.get(name)
+        stream = item.stream if item else None
+        result: dict[str, Any] = {
+            "records": count,
+            "partial": stopped,
+            "schema_mismatched_records": None,
+            "undeclared_field_records": None,
+            "pk_null": None,
+            "pk_duplicates": None,
+            "null_cursor_records": None,
+            "state_has_cursor_value": None,
+            "state_below_max": None,
+        }
+        stream_results[name] = result
+        try:
+            if stream is None:
+                raise ValueError("configured stream missing")
+            schema_result = check_record_schema(
+                _iter_record_data(path), stream.json_schema or {}, masked=masked
+            )
+            result["schema_mismatched_records"] = schema_result.mismatched_records
+            result["undeclared_field_records"] = schema_result.undeclared_field_records
+            if schema_result.mismatched_records:
+                schema_failed = True
+                regression_found = True
+            elif schema_result.undeclared_field_records:
+                schema_diagnostic = True
+            if schema_result.undeclared_field_records:
+                schema_summaries.append(
+                    f"{name}: {schema_result.undeclared_field_records} record(s) "
+                    "have undeclared field(s)"
+                )
+            properties = (stream.json_schema or {}).get("properties", {})
+            for field_name, mismatch_count in sorted(
+                schema_result.mismatches_by_field.items()
+            ):
+                observed_types = schema_result.observed_types_by_field.get(field_name)
+                observed = ", ".join(observed_types) if observed_types else "unknown"
+                declared = declared_types(properties.get(field_name))
+                expected = (
+                    "unconstrained" if declared is None else "|".join(sorted(declared))
+                )
+                schema_summaries.append(
+                    f"{name}.{field_name}: {mismatch_count} record(s), observed "
+                    f"{observed}, declared {expected}"
+                )
+            if (
+                stopped
+                and not schema_result.mismatched_records
+                and not schema_result.undeclared_field_records
+            ):
+                schema_summaries.append(
+                    f"{name}: exercised (partial), record checks passed"
+                )
+        except Exception as exc:
+            schema_failed = True
+            schema_summaries.append(f"{name}: errored ({type(exc).__name__})")
+
+        pk_paths = primary_keys.get(name)
+        if pk_paths:
+            has_pk = True
+            try:
+                for pk_path in pk_paths:
+                    catalog_stream = stream.model_copy(
+                        update={"source_defined_primary_key": [pk_path]}
+                    )
+                    validation = validate_primary_keys_exist_in_schema(
+                        AirbyteCatalog(streams=[catalog_stream])
+                    )
+                    if not validation.passed:
+                        pk_failed = True
+                        regression_found = True
+                        pk_summaries.append(
+                            f"{name}: primary key {'.'.join(pk_path)} missing from schema"
+                        )
+                if record_comparison is not None:
+                    integrity = (
+                        record_comparison.target_pk_uniqueness.stream_results.get(name)
+                    )
+                    presence = record_comparison.pk_presence.stream_results.get(name)
+                    null_count = integrity.records_missing_pk if integrity else 0
+                    duplicate_count = integrity.duplicate_pk_count if integrity else 0
+                    presence_detail = (
+                        "presence pass"
+                        if presence is None or presence.passed
+                        else "presence failed"
+                    )
+                else:
+                    integrity = _scan_pk_integrity(_read_records_file(path), pk_paths)
+                    null_count = integrity.records_missing_pk
+                    duplicate_count = len(integrity.duplicates)
+                    presence_detail = "presence not compared"
+                result["pk_null"] = null_count
+                result["pk_duplicates"] = duplicate_count
+                pk_failed |= bool(null_count or duplicate_count)
+                regression_found |= bool(null_count or duplicate_count)
+                control_note = (
+                    " (stream not read by control)"
+                    if record_comparison is not None and duplicate_count
+                    else ""
+                )
+                pk_summaries.append(
+                    f"{name}: {null_count} null/missing PK record(s), "
+                    f"{duplicate_count} duplicate PK group(s){control_note}, "
+                    f"{presence_detail}"
+                )
+            except Exception as exc:
+                pk_failed = True
+                pk_summaries.append(f"{name}: errored ({type(exc).__name__})")
+
+        cursor_path = (
+            list(item.cursor_field or [])
+            if item and item.cursor_field
+            else list(stream.default_cursor_field or [])
+            if stream and stream.source_defined_cursor
+            else []
+        )
+        sync_mode = (
+            item.sync_mode.value
+            if item is not None and hasattr(item.sync_mode, "value")
+            else item.sync_mode
+            if item is not None
+            else None
+        )
+        incremental = bool(sync_mode == "incremental" and cursor_path)
+        if incremental:
+            has_incremental = True
+            try:
+                validation = validate_cursors_exist_in_schema(
+                    AirbyteCatalog(streams=[stream]),
+                    cursor_paths_by_stream={name: cursor_path},
+                )
+                if not validation.passed:
+                    cursor_failed = True
+                    regression_found = True
+                    cursor_summaries.append(
+                        f"{name}: cursor {'.'.join(cursor_path)} missing from schema"
+                    )
+                state = (target_outputs.final_states or {}).get(
+                    (stream.namespace, stream.name)
+                )
+                cursor_readable = (
+                    mask_policy.cursor_readable(name)
+                    if masked and mask_policy is not None
+                    else not masked
+                )
+                cursor_result = check_incremental_cursor(
+                    _iter_record_data(path),
+                    cursor_path,
+                    state,
+                    cursor_readable=cursor_readable,
+                    stopped=stopped,
+                )
+                result["null_cursor_records"] = cursor_result.null_cursor_records
+                result["state_has_cursor_value"] = cursor_result.state_has_cursor_value
+                result["state_below_max"] = cursor_result.state_below_max
+                cursor_failed |= cursor_result.strict_failed
+                regression_found |= cursor_result.strict_failed
+                diagnostics = []
+                if cursor_result.null_cursor_records:
+                    diagnostics.append(
+                        f"{cursor_result.null_cursor_records} null/missing cursor record(s)"
+                    )
+                if cursor_result.state_below_max:
+                    diagnostics.append("state below maximum record cursor")
+                if cursor_result.cursor_key_not_found:
+                    diagnostics.append("cursor key not found in state")
+                if diagnostics:
+                    cursor_diagnostic = True
+                cursor_summaries.append(
+                    f"{name}: {'; '.join(diagnostics) if diagnostics else 'cursor checks passed'}"
+                )
+            except Exception as exc:
+                cursor_failed = True
+                cursor_summaries.append(f"{name}: errored ({type(exc).__name__})")
+
+    checks: list[CheckResult] = []
+    if stream_results:
+        checks.append(
+            CheckResult(
+                name="Record schema (new streams)",
+                passed=not (schema_failed or schema_diagnostic),
+                severity="diagnostic"
+                if schema_diagnostic and not schema_failed
+                else "strict",
+                summary="; ".join(schema_summaries)
+                or (
+                    f"{len(stream_results)} new stream(s): declared top-level types match"
+                ),
+            )
+        )
+    if has_pk:
+        checks.append(
+            CheckResult(
+                name="Primary key (new streams)",
+                passed=not pk_failed,
+                summary="; ".join(pk_summaries),
+            )
+        )
+    if has_incremental:
+        checks.append(
+            CheckResult(
+                name="Incremental cursor (new streams)",
+                passed=not (cursor_failed or cursor_diagnostic),
+                severity="diagnostic"
+                if cursor_diagnostic and not cursor_failed
+                else "strict",
+                summary="; ".join(cursor_summaries),
+            )
+        )
+    return tuple(checks), stream_results, regression_found
 
 
 @connector_app.command(name="regression-test")
@@ -1981,7 +2707,8 @@ def regression_test(
         str | None,
         Parameter(
             help="Test connector image with tag (e.g., airbyte/source-github:1.0.0). "
-            "This is the image under test - in comparison mode, it's compared against control_image."
+            "When provided with connector_name, this image takes precedence over "
+            "building from source. In comparison mode, it's compared against control_image."
         ),
     ] = None,
     control_image: Annotated[
@@ -1995,7 +2722,8 @@ def regression_test(
         str | None,
         Parameter(
             help="Connector name to build image from source (e.g., 'source-pokeapi'). "
-            "If provided, builds the image locally with tag 'dev'. "
+            "If provided without test_image, builds the image locally with tag 'dev'. "
+            "When both are provided, test_image takes precedence and no build occurs. "
             "For comparison tests (default), this builds the target image. "
             "For single-version tests (skip_compare=True), this builds the test image."
         ),
@@ -2038,11 +2766,13 @@ def regression_test(
     enable_http_metrics: Annotated[
         bool,
         Parameter(
-            help="Capture HTTP traffic metrics via mitmproxy. Requires mitmdump to "
-            "be installed; without it the run proceeds without metrics. Only used "
-            "in comparison mode, where HTTP replay turns it on anyway -- set this "
-            "to record traffic while running both versions live "
-            "(--no-http-replay)."
+            help="Capture HTTP traffic via mitmproxy. Comparison mode always "
+            "captures, with or without replay -- the per-version request counts "
+            "come from the capture -- so this flag adds nothing there, and "
+            "`--skip-compare` runs a single version without a proxy. Requires "
+            "mitmdump to be installed; without it, and for an image with no "
+            "certifi bundle to trust the proxy with (a Java or Kotlin "
+            "connector), the run proceeds without metrics."
         ),
     ] = False,
     enable_http_replay: Annotated[
@@ -2050,12 +2780,12 @@ def regression_test(
         Parameter(
             negative="--no-http-replay",
             help="Replay the control run's recorded HTTP responses for the target "
-            "run, so both versions see identical upstream data. Implies "
-            "--enable-http-metrics. Defaults to `True` in comparison mode; has no "
-            "effect with `--skip-compare`, which has no control run to replay "
-            "from. Pass --no-http-replay to run both versions against the live "
-            "API, which is the fallback whenever replay cannot be delivered "
-            "anyway.",
+            "run, so both versions see identical upstream data. Defaults to "
+            "`True` in comparison mode; has no effect with `--skip-compare`, "
+            "which has no control run to replay from. Pass --no-http-replay to "
+            "run both versions against the live API, which is the fallback "
+            "whenever replay cannot be delivered anyway; the traffic is still "
+            "captured, so the report keeps its per-version request counts.",
         ),
     ] = None,
     http_replay_max_body: Annotated[
@@ -2066,7 +2796,7 @@ def regression_test(
             "for a connector with large pages, at the cost of replay memory. "
             "Accepts a mitmproxy size such as '1m' or '10m' -- never a bare number, "
             "which means bytes. Unlike the other --http-replay-* options this one "
-            "governs recording, so it applies with --enable-http-metrics alone."
+            "governs recording, so it applies to every comparison, replay or not."
         ),
     ] = DEFAULT_STREAM_LARGE_BODIES,
     http_replay_max_dump_size_mb: Annotated[
@@ -2118,11 +2848,34 @@ def regression_test(
             "This is useful to limit data volume by testing only specific streams."
         ),
     ] = None,
+    discover_missing_streams: Annotated[
+        bool,
+        Parameter(
+            help="Read selected streams the configured catalog does not have, such "
+            "as a stream the PR adds: READ discovers them on the version under test "
+            "and adds them to the catalog. A stream the control version also "
+            "discovers is read by both versions and compared; one it does not "
+            "discover has no control side and is read by the target only. Needs "
+            "--selected-streams. A selected stream the target does not discover "
+            "fails the run before READ, as a setup error."
+        ),
+    ] = False,
+    injected_sync_mode: Annotated[
+        InjectedSyncMode | None,
+        Parameter(
+            help="Sync mode for streams added by --discover-missing-streams. "
+            "Default: full refresh where the stream supports it. `incremental` "
+            "uses the stream's default cursor and falls back to full refresh, "
+            "with a note, for a stream that cannot be read incrementally."
+        ),
+    ] = None,
     enable_debug_logs: Annotated[
         bool,
         Parameter(
             help="Enable debug-level logging for regression test output. "
-            "Also passed as `LOG_LEVEL=DEBUG` to the connector Docker container."
+            "Also passed as `LOG_LEVEL=DEBUG` to the connector Docker container. "
+            "Switched off on a masked run for now: `--output-mode masked`, or a "
+            "`--connection-id` run that leaves the mode unset."
         ),
     ] = False,
     extra_env: Annotated[
@@ -2132,7 +2885,8 @@ def regression_test(
                 "Additional KEY=VALUE environment variables for the connector "
                 "containers. In comparison mode, applies to both target and "
                 "control. Values are visible in the debug log of the `docker run` "
-                "command; do not use for secrets."
+                "command; do not use for secrets. `LOG_LEVEL=DEBUG` or `TRACE` here "
+                "counts as debug logs and is dropped on a masked run."
             )
         ),
     ] = None,
@@ -2146,6 +2900,67 @@ def regression_test(
             "the command is `read`. Ignored when `--state-path` is explicitly provided.",
         ),
     ] = None,
+    read_timeout: Annotated[
+        int,
+        Parameter(
+            help="The read deadline in seconds. A read still running at its "
+            "deadline is stopped, keeps what it had written, and is reported as "
+            "stopped early. In comparison mode it is the budget for the whole "
+            "`read` command, from its start to its report: the two versions read "
+            "one after the other and share it, ten minutes (or a tenth of the "
+            "budget, if less) is kept for the comparison and the report, the "
+            "control may use up to 60% of the read time left when it starts, and "
+            "the target gets the rest; a version with no time left does not "
+            "start. In single-version mode it covers the command the same way, "
+            "with the same reserve, and the one read gets the rest. Only "
+            "applies to `read`. In CI set it below the step's own "
+            "timeout, so the comparison and the report still run on the partial "
+            "output instead of the step being killed with nothing to show."
+        ),
+    ] = DEFAULT_TIMEOUT_SECONDS,
+    max_records: Annotated[
+        int | None,
+        Parameter(
+            help="Stop each side of the read when a RECORD message arrives past "
+            "this many; the record past the cap is not kept, and a read of no "
+            "more than this many is complete. Bounds a read of a large "
+            "connection; a read the cap stops is a smoke test of the records "
+            "read before the cap, not a full regression, and the report says so "
+            "on each side that stopped early. Has no effect unless the command "
+            "is `read`."
+        ),
+    ] = None,
+    output_mode: Annotated[
+        Literal["masked", "raw"] | None,
+        Parameter(
+            help="How the connector output is written to disk. `masked` "
+            "masks every record value as a type-and-length token in the write "
+            "pass -- primary keys are masked and a cursor stays readable only "
+            "when its declared type is an integer or a date; DEBUG, TRACE, ERROR "
+            "and FATAL log messages, stack traces, error internals and every "
+            "stderr line keep only their length, while INFO and WARN log messages, "
+            "a TRACE error's message and the CONNECTION_STATUS message stay "
+            "readable. `raw` keeps the output as the connector emitted it. "
+            "Unset is `masked` on a `--connection-id` run, which reads a "
+            "customer's data, and `raw` otherwise; pass `raw` to keep a "
+            "connection run's output as emitted, or `masked` to mask a GSM or "
+            "local run. Debug logs are off on a masked run for now: "
+            "`--enable-debug-logs`, and `LOG_LEVEL=DEBUG` or `TRACE` in "
+            "`--extra-env`, are dropped with a note and the run goes on."
+        ),
+    ] = None,
+    mask_key_path: Annotated[
+        str | None,
+        Parameter(
+            help="A file holding the run's masking key as 64 hex characters. "
+            "Every command of one run (spec, check, discover, read) is given "
+            "the same path, so their tokens pair within the run and with no "
+            "other run's; without it the CLI makes a fresh key for this "
+            "process, so a run by hand pairs its own two sides and nothing "
+            "else. The key is never printed or written to any output. Ignored "
+            "on a raw run."
+        ),
+    ] = None,
     repro_case_dir: Annotated[
         str | None,
         Parameter(
@@ -2156,7 +2971,8 @@ def regression_test(
             "satisfies them (see --repro-goal). Writes the verdict to "
             "`result.json` in the output directory. Requires `--command read`, "
             "--config-path, --sandbox-scenario and comparison mode; run the "
-            "command under `sandbox exec`."
+            "command under `sandbox exec`. Runs raw: `--output-mode masked` is "
+            "refused."
         ),
     ] = None,
     repro_goal: Annotated[
@@ -2201,7 +3017,84 @@ def regression_test(
     You can provide config/catalog either via file paths OR via a connection_id
     that fetches them from Airbyte Cloud.
     """
+    # Before anything else: `--read-timeout` covers the whole command, so the
+    # setup below spends it as surely as the reads do.
+    read_budget = ReadBudget.start(read_timeout)
     parsed_extra_env = _parse_extra_env(extra_env)
+
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    cmd = Command(command)
+
+    if read_timeout <= 0:
+        write_github_output("success", False)
+        write_github_output(
+            "error", "--read-timeout must be a positive number of seconds"
+        )
+        exit_with_error("--read-timeout must be a positive number of seconds")
+    if max_records is not None and max_records < 1:
+        write_github_output("success", False)
+        write_github_output("error", "--max-records must be at least 1")
+        exit_with_error("--max-records must be at least 1")
+    if max_records is not None and cmd is not Command.READ:
+        print_warning("--max-records only applies to `read`; ignoring it")
+        max_records = None
+    if max_records is not None:
+        print_success(
+            f"Capping each read at {max_records} record(s): a read that goes "
+            "past them is stopped there, and its comparison covers only the "
+            "records read before the cap"
+        )
+    connection_residency: str | None = None
+    if connection_id:
+        try:
+            connection_residency = get_connection_residency(connection_id)
+        except _RESIDENCY_LOOKUP_ERRORS as exc:
+            message = _describe_residency_lookup_error(connection_id, exc)
+            write_github_output("success", False)
+            write_github_output("error", message)
+            exit_with_error(message)
+        if connection_residency == "eu" and output_mode == "raw":
+            message = (
+                "EU-resident connections always run masked; output_mode=raw is refused."
+            )
+            write_github_output("success", False)
+            write_github_output("error", message)
+            exit_with_error(message)
+        if connection_residency == "eu":
+            _refuse_eu_connection_off_eu_runner(connection_id, connection_residency)
+            output_mode = "masked"
+        else:
+            _refuse_non_eu_connection_on_eu_runner(connection_id)
+    if output_mode is None:
+        # A connection reads a customer's data, so unset is masked there and
+        # `raw` is the opt-in; a GSM or local config is the team's own. Kept
+        # apart from an explicit value until here so the EU run path can
+        # resolve an unset mode by residency.
+        output_mode = "masked" if connection_id else "raw"
+        if output_mode == "masked":
+            print_success(
+                "Output mode: masked (the default for a connection run); pass "
+                "--output-mode raw to keep the output as emitted"
+            )
+    if output_mode == "masked":
+        parsed_extra_env, dropped = _without_debug_logs(
+            enable_debug_logs=enable_debug_logs, extra_env=parsed_extra_env
+        )
+        if dropped:
+            enable_debug_logs = False
+            print_warning(
+                "Debug logs are off on masked runs; ignoring " + " and ".join(dropped)
+            )
+        print_success(
+            "Masking connector output: record values become tokens; primary keys "
+            "are masked; only integer and date cursors stay readable"
+        )
+    # The one key every policy of this invocation masks under, resolved before
+    # anything is fetched so a bad key file fails the run in seconds. A raw
+    # run has none, and does not read the file it may have been given.
+    mask_key = _resolve_mask_key(mask_key_path) if output_mode == "masked" else None
 
     # Configure debug logging for the regression test harness when requested
     if enable_debug_logs:
@@ -2210,11 +3103,6 @@ def regression_test(
             format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
             force=True,
         )
-
-    output_path = Path(output_dir)
-    output_path.mkdir(parents=True, exist_ok=True)
-
-    cmd = Command(command)
 
     repro_case: ReproCase | None = None
     sandbox: SandboxCli | None = None
@@ -2225,6 +3113,7 @@ def regression_test(
             sandbox_scenario=sandbox_scenario,
             skip_compare=skip_compare,
             connection_id=connection_id,
+            output_mode=output_mode,
             config_path=config_path,
             catalog_path=catalog_path,
             state_path=state_path,
@@ -2262,20 +3151,22 @@ def regression_test(
         replay_enabled = False
     else:
         replay_enabled = True if enable_http_replay is None else enable_http_replay
+        # Every comparison captures, replay or not: the per-version request
+        # counts come from the capture, and a `--no-http-replay` run is the one
+        # where they matter most. Replay stays a separate decision; a
+        # reproduction case keeps the capture off (see above), and an image
+        # that cannot trust the proxy runs without it.
+        if repro_case is None:
+            enable_http_metrics = True
 
-    # Replay is a use of the capture, not a separate mechanism, so it turns the
-    # capture on rather than erroring.
-    if replay_enabled:
-        enable_http_metrics = True
-    elif (
-        http_replay_reuse
-        or strict_replay
-        or http_replay_ignore_params
-        or http_replay_max_dump_size_mb != DEFAULT_MAX_REPLAY_DUMP_SIZE_MB
+    if not replay_enabled and (
+        http_replay_reuse or strict_replay or http_replay_ignore_params
     ):
         # Otherwise someone debugging poor coverage with --strict-replay alone
-        # concludes strict mode found nothing wrong. `--http-replay-max-body` is
-        # deliberately not in this list: it governs recording and applies anyway.
+        # concludes strict mode found nothing wrong. `--http-replay-max-body`
+        # and `--http-replay-max-dump-size-mb` are deliberately not in this
+        # list: the first governs recording and the second decides whether a
+        # recorded dump is kept, and every comparison records.
         print_warning(
             "Replay tuning flags do nothing with --no-http-replay; ignoring them"
         )
@@ -2294,6 +3185,7 @@ def regression_test(
     config_file: Path | None = None
     catalog_file: Path | None = None
     state_file = Path(state_path) if state_path else None
+    connection_image: str | None = None
 
     selected_stream_names: set[str] = (
         {s.strip() for s in selected_streams.split(",") if s.strip()}
@@ -2317,15 +3209,8 @@ def regression_test(
             "Control image is only used in comparison mode."
         )
 
-    # If connector_name is provided, build the image from source
-    if connector_name:
-        if resolved_test_image:
-            write_github_output("success", False)
-            write_github_output(
-                "error", "Cannot specify both test_image and connector_name"
-            )
-            exit_with_error("Cannot specify both --test-image and --connector-name")
-
+    built_test_image_locally = False
+    if connector_name and not resolved_test_image:
         repo_root_path = Path(repo_root) if repo_root else None
         built_image = _build_connector_image_from_source(
             connector_name=connector_name,
@@ -2338,6 +3223,7 @@ def regression_test(
             write_github_output("error", f"Failed to build image for {connector_name}")
             exit_with_error(f"Failed to build image for {connector_name}")
         resolved_test_image = built_image
+        built_test_image_locally = True
 
     if connection_id:
         if config_path or catalog_path:
@@ -2348,9 +3234,6 @@ def regression_test(
             exit_with_error(
                 "Cannot specify both connection_id and config_path/catalog_path"
             )
-
-        if should_use_secret_retriever():
-            _refuse_eu_connection_off_eu_runner(connection_id)
 
         print_success(f"Fetching config/catalog from connection: {connection_id}")
         connection_data = fetch_connection_data(connection_id)
@@ -2482,8 +3365,16 @@ def regression_test(
                 print_error(f"Failed to fetch connection state: {exc}")
                 print_success("Falling back to cold read (no state)")
 
+        # The output directory is uploaded whole as the run's artifact, so the
+        # config -- the one object that carries the secrets -- is written to a
+        # private directory outside it, as the GSM path below already does. A
+        # masked run keeps the raw state there too: the artifact gets a copy
+        # masked under the same rule as the records.
         config_file, catalog_file, state_file_from_conn = save_connection_data_to_files(
-            connection_data, output_path / "connection_data"
+            connection_data,
+            output_path / "connection_data",
+            config_dir=_private_dir("connection-config-"),
+            mask_policy=_mask_policy(connection_data.catalog, output_mode, mask_key),
         )
 
         if state_file_from_conn and not state_file:
@@ -2493,6 +3384,8 @@ def regression_test(
             f"Fetched config for source: {connection_data.source_name} "
             f"with {len(connection_data.stream_names)} streams"
         )
+
+        connection_image = connection_data.connector_image
 
         # Auto-detect test/control image from connection if not provided
         if not resolved_test_image and connection_data.connector_image:
@@ -2510,12 +3403,25 @@ def regression_test(
         config_file = Path(config_path)
         catalog_file = Path(catalog_path) if catalog_path else None
     elif connector_name:
-        # Fallback: fetch integration test secrets from GSM using PyAirbyte API
+        # Prefer the default config secret, falling back to other GSM secrets.
         print_success(
             f"No connection_id or config_path provided. "
             f"Attempting to fetch integration test config from GSM for {connector_name}..."
         )
-        gsm_config = get_first_config_from_secrets(connector_name)
+        gsm_unavailable_message = None
+        try:
+            gsm_config = get_integration_test_config_from_secrets(connector_name)
+        except ConnectorSecretsUnavailableError as exc:
+            gsm_unavailable_message = (
+                f"{exc} Or pass a connection_id to test against a customer connection."
+            )
+            if cmd != Command.SPEC:
+                write_github_output("success", False)
+                write_github_output("error", gsm_unavailable_message)
+                exit_with_error(gsm_unavailable_message)
+            print_error(gsm_unavailable_message)
+            gsm_config = None
+
         if gsm_config:
             # Write config to a temp file (not in output_path to avoid artifact upload)
             gsm_config_dir = Path(
@@ -2523,18 +3429,30 @@ def regression_test(
             )
             gsm_config_dir.chmod(0o700)
             gsm_config_file = gsm_config_dir / "config.json"
-            gsm_config_file.write_text(json.dumps(gsm_config, indent=2))
+            gsm_config_file.write_text(json.dumps(gsm_config.config, indent=2))
             gsm_config_file.chmod(0o600)
             config_file = gsm_config_file
             # Use catalog_path if provided (e.g., generated from discover output)
             catalog_file = Path(catalog_path) if catalog_path else None
             print_success(
-                f"Fetched integration test config from GSM for {connector_name}"
+                f"Fetched integration test config from GSM secret "
+                f"{gsm_config.secret_name} for {connector_name}"
             )
         else:
-            print_error(
-                f"Failed to fetch integration test config from GSM for {connector_name}."
-            )
+            if gsm_unavailable_message is None:
+                msg = (
+                    f"No usable GSM integration-test secret was found for "
+                    f"{connector_name} in {DEFAULT_GCP_PROJECT_ID}. "
+                    f"The secret may be missing, have no enabled version, or contain "
+                    f"an empty placeholder (every value blank or null). Pass a "
+                    f"connection_id to test against a customer connection, or have "
+                    f"the connector's integration-test secret added or refreshed."
+                )
+                if cmd != Command.SPEC:
+                    write_github_output("success", False)
+                    write_github_output("error", msg)
+                    exit_with_error(msg)
+                print_error(msg)
             config_file = None
             # Use catalog_path if provided (e.g., generated from discover output)
             catalog_file = Path(catalog_path) if catalog_path else None
@@ -2569,8 +3487,7 @@ def regression_test(
         )
 
     # Pull images if they weren't just built locally
-    # If connector_name was provided, we just built the test image locally
-    if not connector_name and not ensure_image_available(resolved_test_image):
+    if not built_test_image_locally and not ensure_image_available(resolved_test_image):
         write_github_output("success", False)
         write_github_output("error", f"Failed to pull image: {resolved_test_image}")
         exit_with_error(f"Failed to pull test image: {resolved_test_image}")
@@ -2586,18 +3503,103 @@ def regression_test(
             f"Failed to pull control connector image: {resolved_control_image}"
         )
 
-    # Apply selected_streams filter to catalog if requested
-    if selected_stream_names and catalog_file:
+    if discover_missing_streams and not selected_stream_names:
+        error_msg = (
+            "--discover-missing-streams needs --selected-streams naming the "
+            "streams to add to the catalog."
+        )
+        write_github_output("success", False)
+        write_github_output("error", error_msg)
+        exit_with_error(error_msg)
+
+    # Streams the connection does not sync yet, typically one the PR adds, are
+    # configured from DISCOVER. The two versions can then get different
+    # catalogs: a stream with no control side goes to the target only.
+    control_catalog_file = catalog_file
+    injection: InjectedCatalogs | None = None
+    if discover_missing_streams and cmd.needs_catalog():
+        injected = _inject_discovered_streams(
+            catalog_file=catalog_file,
+            selected_stream_names=selected_stream_names,
+            test_image=resolved_test_image,
+            reference_image=(
+                resolved_control_image
+                if not skip_compare
+                else connection_image
+                or (
+                    _fetch_control_image_from_metadata(connector_name)
+                    if connector_name
+                    else None
+                )
+            ),
+            skip_compare=skip_compare,
+            config_file=config_file,
+            output_path=output_path,
+            enable_debug_logs=enable_debug_logs,
+            extra_env=parsed_extra_env,
+            sync_mode=injected_sync_mode,
+            output_mode=output_mode,
+            mask_key=mask_key,
+        )
+        if injected is not None:
+            catalog_file, control_catalog_file, injection = injected
+
+    # Apply selected_streams filter to catalog if requested. Commands that read
+    # no catalog skip it under --discover-missing-streams: the connection's
+    # catalog does not have the streams being added, so the filter would fail
+    # SPEC, CHECK and DISCOVER on a stream only READ will configure.
+    if (
+        selected_stream_names
+        and catalog_file
+        and injection is None
+        and not (discover_missing_streams and not cmd.needs_catalog())
+    ):
         print_success(
             f"Filtering catalog to {len(selected_stream_names)} selected streams: "
             f"{', '.join(sorted(selected_stream_names))}"
         )
         filter_configured_catalog_file(catalog_file, selected_stream_names)
 
+    # A seed the catalog cannot apply would run as a cold read that the log
+    # and the report still called seeded. A reproduction case brings its own
+    # catalog and state, judged when the case is loaded.
+    if cmd == Command.READ and state_path and repro_case is None:
+        seed_error, unseeded_streams = _judge_seed_file(Path(state_path), catalog_file)
+        if seed_error:
+            write_github_output("success", False)
+            write_github_output("error", seed_error)
+            exit_with_error(seed_error)
+        for stream_name in unseeded_streams:
+            print_warning(
+                f"The configured catalog does not sync '{stream_name}' "
+                "incrementally, so the connector will ignore its seeded state"
+            )
+
     # Upgrade READ → READ_WITH_STATE when a state file is available
+    state_seeded = cmd == Command.READ and bool(state_path)
     if cmd == Command.READ and state_file:
         cmd = Command.READ_WITH_STATE
-        print_success("State available — using read-with-state (warm read)")
+        if state_seeded:
+            print_success(
+                f"Using seeded state from {state_file} — read-with-state starts "
+                "from its cursors, not the connection's"
+            )
+        else:
+            print_success("State available — using read-with-state (warm read)")
+
+    # Only a read runs long enough for the deadline to matter, and only a read
+    # has partial output worth keeping when it does.
+    read_timeout_seconds = (
+        read_timeout if cmd in (Command.READ, Command.READ_WITH_STATE) else None
+    )
+
+    # The report embeds the connection's input state; in a masked run it is
+    # masked under the catalog the run uses and under the run's key, so its
+    # tokens are the ones the records carry. A seeded state shows its outline
+    # only (`_seed_outline`).
+    report_mask_policy = _mask_policy(
+        _load_json_file(catalog_file) if catalog_file else None, output_mode, mask_key
+    )
 
     # Track telemetry for the regression test
     # Extract version from image tag (e.g., "airbyte/source-github:1.0.0" -> "1.0.0")
@@ -2623,6 +3625,9 @@ def regression_test(
             "connection_id": connection_id,
             "skip_compare": skip_compare,
             "with_state": cmd == Command.READ_WITH_STATE,
+            "state_seeded": state_seeded,
+            "max_records": max_records,
+            "output_mode": output_mode,
         },
     )
 
@@ -2630,31 +3635,60 @@ def regression_test(
     if skip_compare:
         # Single-version mode: run only the connector image. There is no control
         # to compare its spec or catalog against, so the declared objects go
-        # unread here.
-        result, _ = _run_connector_command(
-            connector_image=resolved_test_image,
-            command=cmd,
-            output_dir=output_path,
-            target_or_control=TargetOrControl.TARGET,
-            config_path=config_file,
-            catalog_path=catalog_file,
-            state_path=state_file,
-            enable_debug_logs=enable_debug_logs,
-            extra_env=parsed_extra_env,
+        # unread here. Its read keeps the same reserve as a comparison's, so
+        # the report is written before the step's own timeout.
+        single_timeout_s = (
+            read_budget.read_time_left_s() if read_timeout_seconds is not None else None
         )
+        if single_timeout_s is not None and single_timeout_s <= 0:
+            result, _ = _read_not_started(
+                resolved_test_image, cmd, output_path, output_mode
+            )
+        else:
+            result, _ = _run_connector_command(
+                connector_image=resolved_test_image,
+                command=cmd,
+                output_dir=output_path,
+                target_or_control=TargetOrControl.TARGET,
+                config_path=config_file,
+                catalog_path=catalog_file,
+                state_path=state_file,
+                enable_debug_logs=enable_debug_logs,
+                timeout_seconds=single_timeout_s,
+                output_mode=output_mode,
+                mask_key=mask_key,
+                extra_env=parsed_extra_env,
+                max_records=max_records,
+            )
+        _record_read_share(result, single_timeout_s, read_timeout)
 
         # Same per-version rule as comparison mode: for CHECK the exit code alone
         # is not the verdict, connectionStatus is.
         annotated_result = _annotate_run_verdict(command, result)
-        single_success = bool(annotated_result["success"])
+        # A read the harness stopped is never a pass: what it read is reported,
+        # and `incomplete` says why `success` is false.
+        incomplete = bool(stopped_early_sides(("single", result)))
+        single_success = bool(annotated_result["success"]) and not incomplete
+        annotated_result["success"] = single_success
+        annotated_result["incomplete"] = incomplete
+        # Carried for the workflow's sake; the rule needs a control to compare
+        # catalogs against, so a lone run never trips it.
+        annotated_result["not_exercised"] = False
+        annotated_result["setup_error"] = False
+        annotated_result["could_not_test"] = False
 
-        print_json(annotated_result)
+        print_json(_printable_payload(annotated_result, output_mode))
 
         single_outputs: dict[str, object] = {
             "success": single_success,
             "connector": resolved_test_image,
             "command": command,
             "exit_code": result["exit_code"],
+            "incomplete": incomplete,
+            "not_exercised": False,
+            "setup_error": False,
+            "could_not_test": False,
+            "output_mode": output_mode,
         }
         if command == "check":
             # Named to match the comparison-mode output the workflow summary reads.
@@ -2680,7 +3714,11 @@ def regression_test(
             result=result,
             configured_streams=_configured_stream_names(cmd, catalog_file),
             connection_objects=_collect_connection_objects(
-                catalog_file, state_file, output_path / "airbyte_messages"
+                catalog_file,
+                state_file,
+                output_path / "airbyte_messages",
+                state_seeded=state_seeded,
+                mask_policy=report_mask_policy,
             ),
         )
         html_report_path = write_html_report(report_model, output_path)
@@ -2689,7 +3727,12 @@ def regression_test(
         # Write the concise summary to GITHUB_STEP_SUMMARY (if env var exists)
         write_github_summary(render_inline_summary(report_model))
 
-        if single_success:
+        if incomplete:
+            print_error(
+                f"Single-version regression test incomplete for "
+                f"{resolved_test_image}: the read was stopped early."
+            )
+        elif single_success:
             print_success(
                 f"Single-version regression test passed for {resolved_test_image}"
             )
@@ -2721,7 +3764,19 @@ def regression_test(
         target_output = output_path / "target"
         control_output = output_path / "control"
 
+        # The control reads `control_catalog_file`: the configured catalog, or
+        # under --discover-missing-streams one without the target-only streams
+        # (set above). The NOT EXERCISED rule below judges the difference.
+
+        # A read's two sides share `--read-timeout` with the comparison and
+        # the report, each taking its share as it starts (see `ReadBudget`):
+        # given the whole budget each, two long reads back to back outlast the
+        # step, which then dies with no report. Other commands keep the
+        # runner's default.
         control_sandbox = _restore_sandbox_baseline(sandbox, sandbox_scenario)
+        control_timeout_s = (
+            read_budget.control_share_s() if read_timeout_seconds is not None else None
+        )
         control_result, control_outputs = _run_with_optional_http_metrics(
             connector_image=resolved_control_image,  # type: ignore[arg-type]
             command=cmd,
@@ -2729,12 +3784,17 @@ def regression_test(
             target_or_control=TargetOrControl.CONTROL,
             enable_http_metrics=enable_http_metrics,
             config_path=config_file,
-            catalog_path=catalog_file,
+            catalog_path=control_catalog_file,
             state_path=state_file,
             enable_debug_logs=enable_debug_logs,
             extra_env=parsed_extra_env,
             stream_large_bodies=http_replay_max_body,
+            timeout_seconds=control_timeout_s,
+            max_records=max_records,
+            output_mode=output_mode,
+            mask_key=mask_key,
         )
+        _record_read_share(control_result, control_timeout_s, read_timeout)
         control_sandbox = _check_sandbox_twin_gaps(
             sandbox, sandbox_scenario, control_sandbox, repro_case
         )
@@ -2750,6 +3810,9 @@ def regression_test(
                 )
 
         target_sandbox = _restore_sandbox_baseline(sandbox, sandbox_scenario)
+        target_timeout_s = (
+            read_budget.target_share_s() if read_timeout_seconds is not None else None
+        )
         target_result, target_outputs = _run_with_optional_http_metrics(
             connector_image=resolved_test_image,
             command=cmd,
@@ -2765,7 +3828,12 @@ def regression_test(
             replay_from=replay_from,
             replay_options=replay_options,
             stream_large_bodies=http_replay_max_body,
+            timeout_seconds=target_timeout_s,
+            max_records=max_records,
+            output_mode=output_mode,
+            mask_key=mask_key,
         )
+        _record_read_share(target_result, target_timeout_s, read_timeout)
         target_sandbox = _check_sandbox_twin_gaps(
             sandbox, sandbox_scenario, target_sandbox, repro_case
         )
@@ -2780,6 +3848,39 @@ def regression_test(
         )
 
         outcome = evaluate_comparison_outcome(command, target_result, control_result)
+        # A side the harness stopped makes the run incomplete: the comparison
+        # sees part of what each version would have emitted, so it can still
+        # find a regression but can never clear one.
+        incomplete = bool(
+            stopped_early_sides(("control", control_result), ("target", target_result))
+        )
+        # A stream only the target read and read nothing from proves nothing
+        # about the change: never a pass, whatever the compared streams say.
+        target_only_streams = _target_only_stream_names(
+            cmd, catalog_file, control_catalog_file
+        )
+        setup_error_streams = undefined_streams(
+            target_only_streams,
+            target_outputs.stream_statuses or {},
+            target_result.get("record_counts_per_stream", {}),
+            target_outputs.stream_errors or {},
+        )
+        config_errors = config_error_streams(
+            target_only_streams, target_outputs.stream_errors or {}
+        )
+        unexercised = not_exercised_streams(
+            target_only_streams,
+            target_result.get("record_counts_per_stream", {}),
+            excluded_streams=(*setup_error_streams, *config_errors),
+        )
+        not_exercised = bool(unexercised)
+        setup_error = bool(setup_error_streams)
+        could_not_test_result = could_not_test(
+            target_only_streams, target_outputs.stream_errors or {}
+        )
+        setup_error_clears_regression = setup_error and target_errors_only_from(
+            target_only_streams, target_outputs.stream_errors or {}
+        )
 
         # A reproduction case replaces the record and final-state comparisons
         # for a read: each side is held to the case's expectations instead of
@@ -2809,6 +3910,30 @@ def regression_test(
         # itself stays the pure exit-status/connectionStatus layer — the
         # folded verdict lives in `success`/`regression_detected` below.
         record_comparison: RecordComparisonSummary | None = None
+        target_record_files: dict[str, Path] | None = None
+        new_record_checks: tuple[CheckResult, ...] = ()
+        record_checks_payload: dict[str, dict[str, Any]] = {}
+        record_checks_regression = False
+        if (
+            cmd in (Command.READ, Command.READ_WITH_STATE)
+            and bool(target_result.get("success"))
+            and reproduction is None
+            and not skip_record_comparison
+            and target_only_streams
+        ):
+            try:
+                target_record_files = split_records_per_stream(
+                    Path(target_result["stdout_file"])
+                )
+            except Exception as exc:
+                record_checks_regression = False
+                new_record_checks = (
+                    CheckResult(
+                        name="Record schema (new streams)",
+                        passed=False,
+                        summary=f"errored ({type(exc).__name__})",
+                    ),
+                )
         # A skipped comparison must be visible on the report surfaces, not
         # only on stdout: without this row the run reads as a pass that
         # compared records. Diagnostic, because the skip is not a regression.
@@ -2823,6 +3948,7 @@ def regression_test(
                 target_result=target_result,
                 control_result=control_result,
                 catalog_file=catalog_file,
+                target_record_files=target_record_files,
             )
             if record_comparison is None and skip_reason is not None:
                 record_comparison_skipped = CheckResult(
@@ -2846,9 +3972,36 @@ def regression_test(
                 severity="diagnostic",
                 summary="Skipped (--skip-record-comparison); records were not compared",
             )
+        if target_record_files is not None:
+            try:
+                (
+                    new_record_checks,
+                    record_checks_payload,
+                    record_checks_regression,
+                ) = _new_stream_record_checks(
+                    stream_names=target_only_streams,
+                    record_files=target_record_files,
+                    catalog_file=catalog_file,
+                    target_outputs=target_outputs,
+                    record_comparison=record_comparison,
+                    masked=output_mode == "masked",
+                    mask_policy=report_mask_policy,
+                    stopped=bool(stopped_early_sides(("target", target_result))),
+                )
+            except Exception as exc:
+                record_checks_regression = False
+                new_record_checks = (
+                    CheckResult(
+                        name="Record schema (new streams)",
+                        passed=False,
+                        summary=f"errored ({type(exc).__name__})",
+                    ),
+                )
+
         record_comparison_failed = (
             record_comparison is not None and not record_comparison.passed
         )
+        record_checks_failed = bool(failed_checks(new_record_checks))
         # An errored comparison fails the run (fail closed) but as
         # INCONCLUSIVE, like both_failed: a comparator crash must not tell a
         # connector developer their change caused a regression.
@@ -2870,20 +4023,52 @@ def regression_test(
                 outcome=outcome,
                 control_outputs=control_outputs,
                 target_outputs=target_outputs,
+                partial=incomplete,
+                no_control_streams=target_only_streams,
+                could_not_test=could_not_test_result,
             )
         failed_comparisons = failed_checks(comparison_checks)
 
+        # `regression_detected` stays with the strict checks: an incomplete run
+        # fails without claiming a regression it did not see.
         success = (
-            outcome.success and not record_comparison_failed and not failed_comparisons
+            outcome.success
+            and not record_comparison_failed
+            and not record_checks_failed
+            and not failed_comparisons
+            and not incomplete
+            and not not_exercised
+            and not setup_error
+            and not could_not_test_result
         )
         regression_detected = (
-            outcome.regression_detected
+            (
+                outcome.regression_detected
+                and not setup_error_clears_regression
+                and not could_not_test_result
+            )
             or (record_comparison_failed and not comparison_errored)
+            or record_checks_regression
             or bool(failed_comparisons)
         )
         if reproduction is not None:
-            success = reproduction.success
-            regression_detected = reproduction.regression_detected
+            success = (
+                reproduction.success
+                and not incomplete
+                and not not_exercised
+                and not setup_error
+                and not could_not_test_result
+            )
+            regression_detected = (
+                (
+                    reproduction.regression_detected
+                    and not setup_error_clears_regression
+                    and not could_not_test_result
+                )
+                or (record_comparison_failed and not comparison_errored)
+                or record_checks_regression
+                or bool(failed_comparisons)
+            )
         # In case mode a failing control is the evidence sought, so "both
         # failed" would misread a "not fixed" verdict as inconclusive.
         both_failed = outcome.both_failed and reproduction is None
@@ -2901,7 +4086,17 @@ def regression_test(
             # `regression_detected` -- which is false for an inconclusive run.
             "success": success,
             "both_failed": both_failed,
+            "incomplete": incomplete,
+            "not_exercised": not_exercised,
+            "setup_error": setup_error,
+            "could_not_test": could_not_test_result,
+            "output_mode": output_mode,
         }
+        if record_checks_payload:
+            combined_result["record_checks"] = record_checks_payload
+        readable_fields = run_readable_fields(target_result, control_result)
+        if readable_fields is not None:
+            combined_result["readable_fields"] = readable_fields
         if record_comparison is not None:
             combined_result["record_comparison"] = record_comparison.to_dict()
         if comparison_detail:
@@ -2909,7 +4104,7 @@ def regression_test(
         if reproduction is not None:
             combined_result["reproduction"] = reproduction.to_dict()
 
-        print_json(combined_result)
+        print_json(_printable_payload(combined_result, output_mode))
 
         gh_outputs: dict[str, object] = {
             "success": success,
@@ -2920,6 +4115,11 @@ def regression_test(
             "control_exit_code": control_result["exit_code"],
             "regression_detected": regression_detected,
             "both_failed": both_failed,
+            "incomplete": incomplete,
+            "not_exercised": not_exercised,
+            "setup_error": setup_error,
+            "could_not_test": could_not_test_result,
+            "output_mode": output_mode,
         }
 
         if command == "check":
@@ -2931,6 +4131,9 @@ def regression_test(
             )
 
         if record_comparison is not None:
+            # The record comparison's own verdict: on an incomplete run it says
+            # the strict checks passed on what was read, so it can be true
+            # while `success` is false.
             gh_outputs["record_comparison_passed"] = record_comparison.passed
 
         if reproduction is not None:
@@ -2956,11 +4159,26 @@ def regression_test(
             )
             print_success(f"Wrote reproduction result: {result_path}")
 
+        report_target_result = {
+            **target_result,
+            "setup_error": setup_error,
+            "setup_error_clears_regression": setup_error_clears_regression,
+            "record_checks_regression": record_checks_regression,
+            "could_not_test": could_not_test_result,
+            "setup_error_detail": describe_setup_error(setup_error_streams),
+            "could_not_test_detail": describe_could_not_test(
+                config_errors, target_outputs.stream_errors or {}
+            ),
+            "excluded_not_exercised_streams": (
+                *setup_error_streams,
+                *config_errors,
+            ),
+        }
         report_path = generate_regression_report(
             target_image=resolved_test_image,
             control_image=resolved_control_image,  # type: ignore[arg-type]
             command=command,
-            target_result=target_result,
+            target_result=report_target_result,
             control_result=control_result,
             output_dir=output_path,
             record_comparison=(
@@ -2972,10 +4190,16 @@ def regression_test(
             # two surfaces show one.
             comparison_findings=[
                 (check.status, f"{check.name}: {check.summary}")
-                for check in comparison_checks
+                for check in (*comparison_checks, *new_record_checks)
                 if check.status in {"fail", "warn"}
             ],
+            inconclusive_findings=[
+                f"{check.name}: {check.summary}"
+                for check in new_record_checks
+                if check.status == "fail" and not record_checks_regression
+            ],
             reproduction=reproduction,
+            target_only_streams=target_only_streams,
         )
         print_success(f"Generated regression report: {report_path}")
 
@@ -2987,20 +4211,26 @@ def regression_test(
             target_image=resolved_test_image,
             control_image=resolved_control_image,  # type: ignore[arg-type]
             command=command,
-            target_result=target_result,
+            target_result=report_target_result,
             control_result=control_result,
             outcome=outcome,
             record_comparison=record_comparison,
             extra_checks=(
+                *new_record_checks,
                 *comparison_checks,
                 *([record_comparison_skipped] if record_comparison_skipped else []),
             ),
             extra_diff_blocks=comparison_diff_blocks,
             configured_streams=_configured_stream_names(cmd, catalog_file),
             connection_objects=_collect_connection_objects(
-                catalog_file, state_file, target_output / "airbyte_messages"
+                catalog_file,
+                state_file,
+                target_output / "airbyte_messages",
+                state_seeded=state_seeded,
+                mask_policy=report_mask_policy,
             ),
             reproduction=reproduction,
+            target_only_streams=target_only_streams,
         )
         html_report_path = write_html_report(report_model, output_path)
         print_success(f"Generated regression HTML report: {html_report_path}")
@@ -3008,7 +4238,27 @@ def regression_test(
         # Write the concise summary to GITHUB_STEP_SUMMARY (if env var exists)
         write_github_summary(render_inline_summary(report_model))
 
-        if reproduction is not None:
+        if incomplete:
+            print_error(
+                f"Regression test incomplete for {resolved_test_image} vs "
+                f"{resolved_control_image}: a read was stopped early, so the "
+                + (
+                    "records read show a regression."
+                    if regression_detected
+                    else "records read could not clear the target."
+                )
+            )
+        elif not_exercised:
+            print_error(
+                f"Regression test not exercised for {resolved_test_image} vs "
+                f"{resolved_control_image}: {describe_not_exercised(unexercised)}"
+                + (
+                    "; the streams both versions read show a regression."
+                    if regression_detected
+                    else "; the PR's new code path never ran."
+                )
+            )
+        elif reproduction is not None:
             report_line = (
                 f"Reproduction case {repro_case.name if repro_case else ''}: "
                 f"{reproduction.label} -- {reproduction.detail}"
@@ -3076,6 +4326,7 @@ def _repro_case_argument_error(
     sandbox_scenario: str | None,
     skip_compare: bool,
     connection_id: str | None,
+    output_mode: OutputMode,
     config_path: str | None,
     catalog_path: str | None,
     state_path: str | None,
@@ -3094,6 +4345,13 @@ def _repro_case_argument_error(
         return "Reproduction cases need comparison mode; drop --skip-compare"
     if connection_id:
         return "Reproduction cases cannot use --connection-id"
+    if output_mode == "masked":
+        # The case is judged on raw values: masked records would read as
+        # missing, and a masked error as not the expected one.
+        return (
+            "Reproduction cases run raw: the sandbox holds no customer data and "
+            "the case's expectations are raw values; drop --output-mode masked"
+        )
     if not config_path:
         return "Reproduction cases need --config-path (from regression-case-setup)"
     if catalog_path or state_path:
@@ -3492,6 +4750,198 @@ def _split_csv(value: str | None) -> list[str]:
     return [item.strip() for item in (value or "").split(",") if item.strip()]
 
 
+def _discovered_catalog(
+    connector_image: str,
+    target_or_control: TargetOrControl,
+    output_dir: Path,
+    config_file: Path | None,
+    enable_debug_logs: bool,
+    extra_env: dict[str, str] | None,
+    output_mode: OutputMode,
+    mask_key: bytes | None,
+) -> dict[str, Any] | None:
+    """Run DISCOVER and return the catalog as a protocol dict, or `None` if none came."""
+    _, outputs = _run_connector_command(
+        connector_image=connector_image,
+        command=Command.DISCOVER,
+        output_dir=output_dir,
+        target_or_control=target_or_control,
+        config_path=config_file,
+        enable_debug_logs=enable_debug_logs,
+        output_mode=output_mode,
+        mask_key=mask_key,
+        extra_env=extra_env,
+    )
+    if outputs.catalog is None:
+        return None
+    return outputs.catalog.model_dump(mode="json", exclude_none=True)
+
+
+def _inject_discovered_streams(
+    *,
+    catalog_file: Path | None,
+    selected_stream_names: set[str],
+    test_image: str,
+    reference_image: str | None,
+    skip_compare: bool,
+    config_file: Path | None,
+    output_path: Path,
+    enable_debug_logs: bool,
+    extra_env: dict[str, str] | None,
+    sync_mode: InjectedSyncMode | None,
+    output_mode: OutputMode,
+    mask_key: bytes | None,
+) -> tuple[Path, Path, InjectedCatalogs] | None:
+    """Add the selected streams the configured catalog lacks, from DISCOVER.
+
+    The target's DISCOVER configures the streams. The reference version's
+    DISCOVER -- the control image, or in single-version mode the released
+    image -- says whether each one is new: a stream it also discovers is only
+    unselected on the connection, so both versions read it. Without the
+    reference catalog the novelty is unknown and the stream is read by the
+    target only, as if new, and reported as unknown.
+
+    A selected stream already in the catalog that the reference version does
+    not discover is kept from the control, as a new stream would be. That is
+    what a run without a connection needs: its catalog comes from the target's
+    DISCOVER, so the PR's new streams are in it already.
+
+    Returns:
+        The target catalog path, the control catalog path and the
+        classification, or `None` when neither catalog would change.
+    """
+    configured = (
+        json.loads(catalog_file.read_text())
+        if catalog_file is not None and catalog_file.exists()
+        else None
+    )
+    configured_names = {
+        stream.get("stream", stream).get("name", "")
+        for stream in (configured or {}).get("streams", [])
+    }
+    missing = selected_stream_names - configured_names
+
+    discover_dir = output_path / "discover_for_injection"
+    target_catalog = _discovered_catalog(
+        test_image,
+        TargetOrControl.TARGET,
+        discover_dir / "target",
+        config_file,
+        enable_debug_logs,
+        extra_env,
+        output_mode,
+        mask_key,
+    )
+    if target_catalog is None and not missing:
+        print_warning(
+            f"{test_image} returned no catalog from DISCOVER; the selected streams "
+            "are read as configured"
+        )
+        return None
+    if target_catalog is None:
+        error_msg = (
+            f"{test_image} returned no catalog from DISCOVER, so the selected "
+            "streams missing from the configured catalog cannot be added."
+        )
+        write_github_output("success", False)
+        write_github_output("setup_error", True)
+        write_github_output("error", error_msg)
+        exit_with_error(error_msg)
+
+    reference_catalog: dict[str, Any] | None = None
+    if reference_image and reference_image != test_image:
+        if skip_compare and not ensure_image_available(reference_image):
+            print_warning(
+                f"Could not pull {reference_image}; whether the added streams are "
+                "new is unknown, so they are read by the target only"
+            )
+        else:
+            reference_catalog = _discovered_catalog(
+                reference_image,
+                TargetOrControl.CONTROL,
+                discover_dir / "control",
+                config_file,
+                enable_debug_logs,
+                extra_env,
+                output_mode,
+                mask_key,
+            )
+            if reference_catalog is None:
+                print_warning(
+                    f"{reference_image} returned no catalog from DISCOVER; whether "
+                    "the added streams are new is unknown, so they are read by the "
+                    "target only"
+                )
+    else:
+        print_warning(
+            "No control version to compare the discovered streams with; whether "
+            "the added streams are new is unknown, so they are read by the target "
+            "only"
+        )
+
+    try:
+        injection = build_injected_catalogs(
+            configured,
+            selected_stream_names,
+            target_catalog,
+            reference_catalog,
+            sync_mode=sync_mode,
+        )
+    except StreamsNotDiscoveredError as exc:
+        write_github_output("success", False)
+        write_github_output("setup_error", True)
+        write_github_output("error", str(exc))
+        exit_with_error(f"Setup error: {exc}")
+    if not injection.changes_anything:
+        return None
+
+    if not skip_compare and not injection.control_catalog["streams"]:
+        error_msg = (
+            "Every selected stream has no control side: "
+            f"{', '.join(injection.target_only_streams)}. The control version would "
+            "read nothing, so add one stream the connection already syncs to "
+            "--selected-streams. --skip-compare is no substitute: without a control, "
+            "a new stream that returns no records passes."
+        )
+        write_github_output("success", False)
+        write_github_output("setup_error", True)
+        write_github_output("error", error_msg)
+        exit_with_error(error_msg)
+
+    catalog_dir = output_path / "connection_data"
+    catalog_dir.mkdir(parents=True, exist_ok=True)
+    target_catalog_file = (
+        catalog_file if catalog_file is not None else catalog_dir / "catalog.json"
+    )
+    control_catalog_file = target_catalog_file.with_name("control_catalog.json")
+    target_catalog_file.write_text(json.dumps(injection.target_catalog, indent=2))
+    control_catalog_file.write_text(json.dumps(injection.control_catalog, indent=2))
+    # The image novelty was decided against: the control, a pinned connection
+    # version or metadata.yaml, so a reader never has to guess which.
+    summary = {
+        **injection.to_dict(),
+        "reference_image": reference_image if reference_catalog is not None else None,
+    }
+    (output_path / "stream_injection.json").write_text(json.dumps(summary, indent=2))
+    write_github_output("stream_injection", json.dumps(summary))
+
+    for label, names in (
+        (f"new, not in {reference_image}, target only", injection.new_streams),
+        (f"already in {reference_image}, read by both", injection.shared_streams),
+        ("novelty unknown, target only", injection.unknown_streams),
+    ):
+        if names:
+            print_success(f"Added stream(s) ({label}): {', '.join(names)}")
+    if injection.kept_target_only:
+        print_success(
+            f"Kept from the control (not in {reference_image}, target only): "
+            f"{', '.join(injection.kept_target_only)}"
+        )
+    for note in injection.notes:
+        print_warning(note)
+    return target_catalog_file, control_catalog_file, injection
+
+
 def _configured_stream_names(
     command: Command, catalog_file: Path | None
 ) -> tuple[str, ...]:
@@ -3528,37 +4978,204 @@ def _configured_stream_names(
     )
 
 
+def _configured_streams_by_id(catalog: Any) -> dict[tuple[str | None, str], dict]:
+    """A configured catalog's stream entries, keyed by `(namespace, name)`.
+
+    Keyed as `to_stream_id` keys a stream, so `users` in two namespaces is two
+    entries. An entry without a stream name is skipped.
+    """
+    streams = catalog.get("streams", []) if isinstance(catalog, dict) else []
+    return {
+        to_stream_id(
+            stream["stream"].get("namespace"), stream["stream"]["name"]
+        ): stream
+        for stream in streams
+        if isinstance(stream, dict)
+        and isinstance(stream.get("stream"), dict)
+        and isinstance(stream["stream"].get("name"), str)
+    }
+
+
+def _target_only_stream_names(
+    command: Command, target_catalog: Path | None, control_catalog: Path | None
+) -> tuple[str, ...]:
+    """The streams configured for the target and not for the control.
+
+    One of these that returns no records makes a comparison read NOT
+    EXERCISED (see `not_exercised_streams`). Both sides read the same catalog
+    today, so this is empty and the rule is dormant; it fires once a run
+    configures a catalog per side, with the streams a connector PR adds on
+    the target's only.
+    """
+    if control_catalog == target_catalog:
+        return ()
+
+    control = set(_configured_stream_names(command, control_catalog))
+
+    return tuple(
+        stream
+        for stream in _configured_stream_names(command, target_catalog)
+        if stream not in control
+    )
+
+
+def _judge_seed_file(
+    state_file: Path, catalog_file: Path | None
+) -> tuple[str | None, list[str]]:
+    """Why `--state-path` cannot seed this read, and the seeded streams it will not reach.
+
+    A connector ignores the state of a stream it syncs as full_refresh, so a
+    seed is refused when none of the streams it names is one the configured
+    catalog syncs incrementally -- the catalog generated from DISCOVER when
+    there is no connection puts every stream on full_refresh, and
+    `--selected-streams` can drop a seeded stream -- since the read would be
+    cold while the log and the report called it seeded. A seeded stream the
+    catalog reads in full is returned for a warning; the rest still seed.
+    Streams match on namespace and name, as the connector matches a state to
+    its stream: a seed for `public.users` is not taken by an incremental
+    `reporting.users`. A seed in another shape (a GLOBAL state, say) names no
+    stream the harness can match, and is held only to the coarse rule that
+    some stream syncs incrementally. Without a catalog there is nothing to
+    judge against, and the read fails on its own.
+
+    Returns:
+        The error, or `None`; and the seeded streams the catalog reads in full,
+        as `namespace.name` labels.
+    """
+    try:
+        text = state_file.read_text()
+        state = json.loads(text)
+    except (OSError, ValueError) as exc:
+        return f"--state-path cannot be read as JSON: {exc}", []
+    if state == []:
+        return (
+            "--state-path holds an empty list, which seeds nothing; drop it for "
+            "a cold read",
+            [],
+        )
+    if catalog_file is None:
+        return None, []
+    try:
+        catalog = json.loads(catalog_file.read_text())
+    except (OSError, ValueError) as exc:
+        return f"--catalog-path cannot be read as JSON: {exc}", []
+    incremental = {
+        stream_id
+        for stream_id, stream in _configured_streams_by_id(catalog).items()
+        if stream.get("sync_mode") == "incremental"
+    }
+    fix = (
+        "A catalog generated from DISCOVER puts every stream on full_refresh; "
+        "give --connection-id so the catalog is the connection's own, or a "
+        "--catalog-path that syncs the seeded streams incrementally"
+    )
+    if seed_state_error(text) is not None:
+        if incremental:
+            return None, []
+        return (
+            "--state-path cannot seed this read: no stream of the configured "
+            "catalog syncs incrementally, so the connector would ignore the "
+            f"state and the run would still report it as seeded. {fix}",
+            [],
+        )
+    seeded = [to_stream_id(*stream) for stream in seeded_streams(text)]
+    if not set(seeded) & incremental:
+        named = ", ".join(stream_label(*stream) for stream in seeded)
+        synced = (
+            ", ".join(sorted(stream_label(*stream) for stream in incremental))
+            or "no stream"
+        )
+        return (
+            f"--state-path cannot seed this read: it names {named}, and the "
+            f"configured catalog syncs {synced} incrementally, so the connector "
+            "would ignore the state and the run would still report it as "
+            f"seeded. {fix}",
+            [],
+        )
+    return None, [
+        stream_label(*stream) for stream in seeded if stream not in incremental
+    ]
+
+
+def _seed_outline(seed_text: str, catalog_file: Path | None) -> str:
+    """What the report shows of a seeded state: the streams it names, no value.
+
+    A seed is customer state, and the report is an uploaded artifact, so the
+    `State (seeded)` block lists each seeded stream's namespace and name with
+    the sync mode and cursor field the configured catalog gives it; a stream
+    the catalog does not configure has neither. A seed that is not a list of
+    STREAM messages names no stream to list, and gives an empty outline, so
+    the block is left off.
+    """
+    if seed_state_error(seed_text) is not None:
+        return ""
+    try:
+        catalog = json.loads(catalog_file.read_text()) if catalog_file else None
+    except (OSError, ValueError):
+        catalog = None
+    configured = _configured_streams_by_id(catalog)
+    outline = []
+    for namespace, name in seeded_streams(seed_text):
+        stream = configured.get(to_stream_id(namespace, name), {})
+        cursor_field = stream.get("cursor_field") or stream.get("stream", {}).get(
+            "default_cursor_field"
+        )
+        outline.append(
+            {
+                "namespace": namespace,
+                "name": name,
+                "sync_mode": stream.get("sync_mode"),
+                "cursor_field": cursor_field or [],
+            }
+        )
+    return json.dumps(outline)
+
+
 def _collect_connection_objects(
     catalog_file: Path | None,
     state_file: Path | None,
     messages_dir: Path | None,
+    *,
+    state_seeded: bool = False,
+    mask_policy: MaskPolicy | None = None,
 ) -> tuple[DiffBlock, ...]:
     """Gather the objects the run was given or discovered, for the report.
 
     The connector config is deliberately absent: it is the one object that
     carries secrets, and the report is an artifact anyone with repo access can
-    download.
+    download. A seeded state is customer state the caller brought, so its
+    values are left out too: only the streams it names are shown (see
+    `_seed_outline`).
 
     Args:
         catalog_file: The configured catalog handed to the run.
         state_file: The state handed to the run, for a warm read.
         messages_dir: The target side's `airbyte_messages` directory, which
             holds the catalog the connector discovered.
+        state_seeded: Whether the caller chose the state (`--state-path`)
+            rather than the run fetching the connection's own. The label says
+            so, since a reader otherwise assumes the connection's cursors.
+        mask_policy: The masked run's policy, under which the connection's
+            own state is masked before it goes on the page (a seeded state
+            shows its outline only, in either mode); the file itself is the
+            raw one the connector read. A state that does not parse is left
+            off the page rather than embedded raw. `None` in a raw run.
 
     Returns:
         One JSON block per object that exists, in the order a reader wants them.
     """
-    sources: list[tuple[str, Path | None]] = [
-        ("Configured catalog (input)", catalog_file),
-        ("State (input)", state_file),
+    sources: list[tuple[str, Path | None, bool]] = [
+        ("Configured catalog (input)", catalog_file, False),
+        ("State (seeded)" if state_seeded else "State (input)", state_file, True),
         (
             "Discovered catalog (from the target)",
             (messages_dir / "catalog.jsonl") if messages_dir else None,
+            False,
         ),
     ]
 
     blocks: list[DiffBlock] = []
-    for title, path in sources:
+    for title, path, is_state in sources:
         if path is None or not path.is_file():
             continue
 
@@ -3566,6 +5183,15 @@ def _collect_connection_objects(
             payload = path.read_text()
         except OSError:
             continue
+
+        if is_state and state_seeded:
+            payload = _seed_outline(payload, catalog_file)
+        elif is_state and mask_policy is not None:
+            try:
+                state = json.loads(payload)
+            except ValueError:
+                continue
+            payload = json.dumps(mask_input_state(state, mask_policy), indent=2)
 
         if payload.strip():
             blocks.append(build_json_block(title, payload))
@@ -3756,22 +5382,12 @@ def _describe_residency_lookup_error(connection_id: str, exc: Exception) -> str:
     )
 
 
-def _refuse_eu_connection_off_eu_runner(connection_id: str) -> None:
+def _refuse_eu_connection_off_eu_runner(connection_id: str, residency: str) -> None:
     """Exit before any fetch if an EU connection is used off the EU runner.
 
-    The retriever refuses such a connection too, but only after the public API
-    has returned its config and catalog. Checking here keeps them off a US
-    runner. A failed lookup also exits, since the retriever needs the same
-    replica.
+    This check runs before the public API returns config or catalog, keeping
+    them off a US runner.
     """
-    try:
-        residency = get_connection_residency(connection_id)
-    except _RESIDENCY_LOOKUP_ERRORS as exc:
-        message = _describe_residency_lookup_error(connection_id, exc)
-        write_github_output("success", False)
-        write_github_output("error", message)
-        exit_with_error(message)
-
     if residency == "eu" and not is_running_on_eu_runner():
         message = (
             f"{EU_RUNNER_REQUIRED_MESSAGE}; connection ID {connection_id} was "
@@ -3784,6 +5400,22 @@ def _refuse_eu_connection_off_eu_runner(connection_id: str) -> None:
             "Use a connection from a non-EU workspace, or use GSM-based "
             "integration test credentials instead (by omitting --connection-id)."
         )
+
+
+def _refuse_non_eu_connection_on_eu_runner(connection_id: str) -> None:
+    """Exit before any fetch if a non-EU connection is used on the EU runner.
+
+    The mirror of `_refuse_eu_connection_off_eu_runner`, so each runner reads
+    only connections in the data region their customer chose.
+    """
+    if is_running_on_eu_runner():
+        message = (
+            f"{EU_RUNNER_EU_ONLY_MESSAGE}; connection ID {connection_id} was "
+            "refused before its config or catalog was fetched."
+        )
+        write_github_output("success", False)
+        write_github_output("error", message)
+        exit_with_error(message)
 
 
 @connection_app.command(name="get-region")

@@ -562,6 +562,7 @@ async def lancamento_produtos_as(task: RpaProcessoEntradaDTO) -> RpaRetornoProce
         log_etapa(etapa, "Fechando a janela de listagem...")
         await fechar_janela_listagem_produtos()
 
+        await worker_sleep(10)
         mensagem = mensagem_sucesso_controle(config)
         log_etapa("SUCESSO", mensagem, "bold green")
         return retorno_sucesso(mensagem)

@@ -107,12 +107,16 @@ fn format_violations(sql: &str, violations: &[Violation]) -> String {
 
         let code = format!("{}", violation.code);
         let mut group = Level::WARNING
-            .primary_title(&violation.message)
+            .primary_title(violation.message.as_ref())
             .id(&code)
             .element(snippet);
 
+        if let Some(note) = &violation.note {
+            group = group.element(Level::NOTE.message(note.as_ref()));
+        }
+
         if let Some(help) = &violation.help {
-            group = group.element(Level::HELP.message(help));
+            group = group.element(Level::HELP.message(help.as_ref()));
         }
 
         if let Some(fix) = &violation.fix {

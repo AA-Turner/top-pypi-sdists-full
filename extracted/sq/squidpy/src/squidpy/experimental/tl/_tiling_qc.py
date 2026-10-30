@@ -27,79 +27,31 @@ in :mod:`squidpy.experimental.im._tiling`, so this scales to
 from __future__ import annotations
 
 import math
-from collections.abc import Mapping
-from dataclasses import asdict, dataclass
-from typing import Any, Literal
+from typing import Literal
 
 import anndata as ad
-import dask
 import numpy as np
 import pandas as pd
 import spatialdata as sd
 import xarray as xr
-from dask.diagnostics import ProgressBar
 from numba import njit
 from skimage.measure import find_contours, regionprops
 from sklearn.neighbors import BallTree
 from spatialdata._logging import logger as logg
 from spatialdata.models import TableModel
 
-from squidpy._utils import _get_n_cores
+from squidpy._validators import assert_non_negative, assert_positive
 from squidpy.experimental.im._tiling import (
+    _run_tiled,
     build_tile_specs,
     compute_cell_info,
     compute_cell_info_multiscale,
     compute_cell_info_tiled,
     extract_labels_tile_lazy,
 )
-from squidpy.experimental.tl._tiling_stitch import _STITCH_COLUMNS, _STITCH_PARAM_KEYS, StitchParams
 from squidpy.experimental.utils._labels import resolve_labels_array
-from squidpy.experimental.utils._params import resolve_params
 
-__all__ = ["TilingQCParams", "calculate_tiling_qc"]
-
-
-@dataclass(slots=True, frozen=True)
-class TilingQCParams:
-    """Advanced tuning knobs for :func:`~squidpy.experimental.tl.calculate_tiling_qc`.
-
-    Pass an instance (or a ``Mapping`` of field names to values) as
-    ``tiling_qc_params`` to override.  Frozen so that validation done in
-    ``__post_init__`` cannot be silently bypassed by later mutation.
-    """
-
-    distance_tol: float = 0.75
-    """Maximum perpendicular distance (pixels) from the fitted line for a contour point to count as straight."""
-
-    min_area: int = 20
-    """Cells smaller than this (pixels at analysis resolution) are skipped (NaN scores)."""
-
-    max_contour_points: int = 500
-    """Cap on contour resolution; longer contours are arc-length-resampled before the O(n^2) collinearity scan."""
-
-    def __post_init__(self) -> None:
-        # frozen=True forbids direct assignment; use object.__setattr__ for coercion.
-        object.__setattr__(self, "distance_tol", float(self.distance_tol))
-        object.__setattr__(self, "min_area", int(self.min_area))
-        object.__setattr__(self, "max_contour_points", int(self.max_contour_points))
-        if self.distance_tol < 0:
-            raise ValueError(f"`distance_tol` must be >= 0, got {self.distance_tol}.")
-        if self.min_area < 1:
-            raise ValueError(f"`min_area` must be >= 1, got {self.min_area}.")
-        if self.max_contour_points < 3:
-            raise ValueError(
-                f"`max_contour_points` must be >= 3 (collinearity needs 3 points), got {self.max_contour_points}."
-            )
-
-
-_QC_DEFAULTS = TilingQCParams()
-
-
-def _resolve_qc_params(qc_params: TilingQCParams | Mapping[str, Any] | None) -> TilingQCParams:
-    """Normalise the ``tiling_qc_params`` argument to a :class:`TilingQCParams` instance."""
-    if qc_params is None:
-        return _QC_DEFAULTS
-    return resolve_params(qc_params, TilingQCParams, label="`tiling_qc_params`")
+__all__ = ["calculate_tiling_qc"]
 
 
 # Standard consistency factor sd ~ 1.4826 x MAD for normal distributions.
@@ -109,24 +61,6 @@ _TILE_SCORE_COLUMNS = ["max_straight_edge_ratio", "cardinal_alignment_score", "c
 _POST_SCORE_COLUMNS = ["smoothed_cut_score", "is_outlier", "nhood_outlier_fraction"]
 _SCORE_COLUMNS = _TILE_SCORE_COLUMNS + _POST_SCORE_COLUMNS
 _NAN_TILE_SCORES = dict.fromkeys(_TILE_SCORE_COLUMNS, np.nan)
-
-
-def _has_distributed_client() -> bool:
-    """Return True iff a ``dask.distributed.Client`` is active in this process.
-
-    Mirrors the public dask idiom: if a Client is in scope, ``dask.compute``
-    will pick it up automatically — we only need to know whether to fall
-    back to the local threaded scheduler.
-    """
-    try:
-        # ImportError guards against partial dask installs without the distributed extra;
-        # ValueError is what get_client() raises when no Client is currently active.
-        from dask.distributed import get_client
-
-        get_client()
-    except (ImportError, ValueError):
-        return False
-    return True
 
 
 # Core geometry
@@ -217,8 +151,8 @@ def _resample_contour(contour: np.ndarray, max_points: int) -> np.ndarray:
 
 def _longest_collinear_segment(
     contour: np.ndarray,
-    distance_tol: float = _QC_DEFAULTS.distance_tol,
-    max_contour_points: int = _QC_DEFAULTS.max_contour_points,
+    distance_tol: float = 0.75,
+    max_contour_points: int = 500,
 ) -> tuple[float, float]:
     """Find the longest collinear run of contour points.
 
@@ -310,8 +244,8 @@ def _cardinal_alignment(angle: float) -> float:
 def _straight_edge_metrics(
     contour: np.ndarray,
     cell_area: float,
-    distance_tol: float = _QC_DEFAULTS.distance_tol,
-    max_contour_points: int = _QC_DEFAULTS.max_contour_points,
+    distance_tol: float = 0.75,
+    max_contour_points: int = 500,
 ) -> tuple[float, float, float]:
     """Compute straight-edge metrics for a single cell contour.
 
@@ -350,10 +284,10 @@ def _straight_edge_metrics(
 
 def _score_tile(
     tile_labels: np.ndarray,
-    distance_tol: float = _QC_DEFAULTS.distance_tol,
-    min_area: int = _QC_DEFAULTS.min_area,
+    distance_tol: float = 0.75,
+    min_area: int = 20,
     downsample: int = 1,
-    max_contour_points: int = _QC_DEFAULTS.max_contour_points,
+    max_contour_points: int = 500,
 ) -> pd.DataFrame:
     """Compute tiling QC metrics for all cells in a numpy label tile.
 
@@ -370,7 +304,7 @@ def _score_tile(
         Factor by which to downsample each cell's bounding-box crop
         before contour extraction.  ``1`` = full resolution, ``2`` =
         half, etc.  Straight edges are scale-invariant so moderate
-        downsampling (2–4x) is safe and much faster for large cells.
+        downsampling (2-4x) is safe and much faster for large cells.
 
     Returns
     -------
@@ -423,6 +357,7 @@ def _score_tile(
 
 def _compute_centroids_for_labels(
     sdata: sd.SpatialData,
+    *,
     labels_key: str,
     labels_da: xr.DataArray,
     scale: str | None,
@@ -451,6 +386,7 @@ _METHOD_KEY = "tiling_qc"
 
 def calculate_tiling_qc(
     sdata: sd.SpatialData,
+    *,
     labels_key: str,
     scale: str | None = None,
     tile_size: int = 2048,
@@ -461,10 +397,12 @@ def calculate_tiling_qc(
     nmads_cut: float = 1.5,
     nmads_smoothed: float = 3,
     n_neighbors: int = 10,
-    tiling_qc_params: TilingQCParams | Mapping[str, Any] | None = None,
     n_jobs: int = -1,
     table_key_added: str | None = None,
     inplace: bool = True,
+    distance_tol: float = 0.75,
+    min_area: int = 20,
+    max_contour_points: int = 500,
 ) -> ad.AnnData | None:
     """Score cells for tile-boundary segmentation artifacts.
 
@@ -515,14 +453,10 @@ def calculate_tiling_qc(
         perfect grid each cell has 8 immediate neighbours; the default
         of 10 leaves a little wiggle room for biological irregularity
         without wasting compute on distant cells.
-    tiling_qc_params
-        Advanced tuning knobs as a :class:`TilingQCParams` instance or
-        a ``Mapping`` of its field names to values.  See
-        :class:`TilingQCParams` for each field's meaning and default.
-        ``None`` (default) uses all defaults.
     n_jobs
-        Number of threads for tile processing.  ``-1`` (default) uses
-        all available CPUs.  Ignored when an active
+        Number of threads for tile processing.  ``-1`` uses
+        all available CPUs; ``0`` and values below ``-1`` raise.
+        Ignored when an active
         ``dask.distributed.Client`` is in scope (the client's own
         worker pool is used instead).
     table_key_added
@@ -531,6 +465,15 @@ def calculate_tiling_qc(
     inplace
         If ``True``, store result in ``sdata.tables``.  Otherwise
         return the AnnData directly.
+    distance_tol
+        Maximum perpendicular distance (pixels) from the fitted line for a
+        contour point to count as straight.
+    min_area
+        Cells smaller than this (pixels at analysis resolution) are skipped
+        (NaN scores).
+    max_contour_points
+        Cap on contour resolution; longer contours are arc-length-resampled
+        before the O(n^2) collinearity scan.
 
     Returns
     -------
@@ -554,10 +497,10 @@ def calculate_tiling_qc(
 
     Notes
     -----
-    Tile processing is parallelised via :func:`dask.compute`.  When an
-    active ``dask.distributed.Client`` is in scope it is picked up
-    automatically and used for execution; otherwise a local threaded
-    scheduler with ``n_jobs`` workers is used.
+    Tile processing is parallelised via dask.  When an active
+    ``dask.distributed.Client`` is in scope it is picked up automatically
+    and used for execution; otherwise a local threaded scheduler with
+    ``n_jobs`` workers is used (the per-tile work releases the GIL).
 
     If you invoke this function from inside a dask worker task (e.g.,
     via ``client.submit(calculate_tiling_qc, ...)``), wrap the call in
@@ -570,17 +513,22 @@ def calculate_tiling_qc(
         raise ValueError(f"Labels key '{labels_key}' not found, valid keys: {list(sdata.labels.keys())}")
     if not outlier_use_cut and not outlier_use_smoothed:
         raise ValueError("At least one outlier gate must be enabled (outlier_use_cut or outlier_use_smoothed).")
-    if outlier_use_cut and nmads_cut <= 0:
-        raise ValueError(f"nmads_cut must be positive, got {nmads_cut}.")
-    if outlier_use_smoothed and nmads_smoothed <= 0:
-        raise ValueError(f"nmads_smoothed must be positive, got {nmads_smoothed}.")
+    if outlier_use_cut:
+        assert_positive(nmads_cut, name="nmads_cut")
+    if outlier_use_smoothed:
+        assert_positive(nmads_smoothed, name="nmads_smoothed")
     if n_neighbors < 1:
         raise ValueError(f"n_neighbors must be >= 1, got {n_neighbors}.")
-    qc_params = _resolve_qc_params(tiling_qc_params)
+    distance_tol = float(distance_tol)
+    assert_non_negative(distance_tol, name="distance_tol")
+    min_area, max_contour_points = int(min_area), int(max_contour_points)
+    assert_positive(min_area, name="min_area")
+    if max_contour_points < 3:  # the floor is 3, not 1, so no helper fits
+        raise ValueError(f"`max_contour_points` must be >= 3 (collinearity needs 3 points), got {max_contour_points}.")
 
-    labels_da = resolve_labels_array(sdata, labels_key, scale)
+    labels_da = resolve_labels_array(sdata, labels_key=labels_key, scale=scale)
 
-    cell_info = _compute_centroids_for_labels(sdata, labels_key, labels_da, scale)
+    cell_info = _compute_centroids_for_labels(sdata, labels_key=labels_key, labels_da=labels_da, scale=scale)
     if not cell_info:
         raise ValueError("No cells found in labels (all zeros).")
 
@@ -592,30 +540,18 @@ def calculate_tiling_qc(
         f"Tiling QC: {len(specs)} tiles ({tile_size}x{tile_size}, margin={overlap_margin}, downsample={downsample}x)."
     )
 
-    @dask.delayed
     def _process_one(spec):
         tile_lbl = extract_labels_tile_lazy(labels_da, spec)
         return _score_tile(
             tile_lbl,
-            distance_tol=qc_params.distance_tol,
-            min_area=qc_params.min_area,
+            distance_tol=distance_tol,
+            min_area=min_area,
             downsample=downsample,
-            max_contour_points=qc_params.max_contour_points,
+            max_contour_points=max_contour_points,
         )
 
-    tasks = [_process_one(spec) for spec in specs]
-
-    if _has_distributed_client():
-        if n_jobs != -1:
-            logg.warning(
-                "`n_jobs` is ignored when an active dask.distributed Client is in scope. "
-                "Parallelism is controlled by the client."
-            )
-        results = dask.compute(*tasks)
-    else:
-        num_workers = _get_n_cores(n_jobs)
-        with ProgressBar():
-            results = dask.compute(*tasks, scheduler="threads", num_workers=num_workers)
+    # `_score_tile` is numba `nogil`, so threads scale (no process/pickle cost).
+    results = _run_tiled(specs, _process_one, n_jobs=n_jobs, kind="threads", desc="tiles")
 
     tile_dfs = [df for df in results if not df.empty]
 
@@ -652,7 +588,7 @@ def calculate_tiling_qc(
         combined["smoothed_cut_score"] = smoothed
 
         # Build is_outlier from enabled gates (AND when both active).
-        # A gate whose MAD is degenerate has no signal — treat it as a
+        # A gate whose MAD is degenerate has no signal - treat it as a
         # no-op so it cannot poison the other gate's result.  If no gate
         # produced a meaningful filter, fall back to "no outliers".
         is_outlier = np.ones(n_cells, dtype=bool)
@@ -683,7 +619,8 @@ def calculate_tiling_qc(
     adata = ad.AnnData(
         X=np.empty((n_cells, 0), dtype=np.float32),
     )
-    adata.obs_names = [f"cell_{i}" for i in combined.index]
+    # obs_names are the cell's label-image ID, matching calculate_image_features.
+    adata.obs_names = [str(i) for i in combined.index]
 
     adata.obs["region"] = pd.Categorical([labels_key] * n_cells)
     adata.obs["label_id"] = combined.index.values
@@ -712,18 +649,20 @@ def calculate_tiling_qc(
         "nmads_cut": nmads_cut,
         "nmads_smoothed": nmads_smoothed,
         "n_neighbors": n_neighbors,
-        "tiling_qc_params": asdict(qc_params),
+        "distance_tol": distance_tol,
+        "min_area": min_area,
+        "max_contour_points": max_contour_points,
     }
 
     if inplace:
         table_key = table_key_added if table_key_added is not None else f"{labels_key}_qc"
-        _warn_if_dropping_stitch_columns(sdata, table_key, labels_key)
+        _warn_if_dropping_stitch_columns(sdata, table_key=table_key, labels_key=labels_key)
         sdata.tables[table_key] = TableModel.parse(adata)
         return None
     return adata
 
 
-def _warn_if_dropping_stitch_columns(sdata: sd.SpatialData, table_key: str, labels_key: str) -> None:
+def _warn_if_dropping_stitch_columns(sdata: sd.SpatialData, *, table_key: str, labels_key: str) -> None:
     """Warn if re-running QC would drop downstream stitch results.
 
     ``calculate_tiling_qc`` replaces the QC table wholesale, so any columns
@@ -734,23 +673,18 @@ def _warn_if_dropping_stitch_columns(sdata: sd.SpatialData, table_key: str, labe
     """
     if table_key not in sdata.tables:
         return
-    existing = sdata.tables[table_key]
-    present = [c for c in _STITCH_COLUMNS if c in existing.obs.columns]
-    if not present:
+    stitch = sdata.tables[table_key].uns.get("tiling_stitch")
+    if stitch is None:
         return
-
-    prev_params = existing.uns.get("tiling_stitch", {}) if hasattr(existing, "uns") else {}
+    params = dict(stitch["params"])
+    # tables written before the stitch knobs were flattened keep them nested
+    params |= params.pop("stitch_params", None) or {}
     parts = [f"labels_key={labels_key!r}"]
-    parts.extend(f"{k}={v!r}" for k, v in prev_params.items() if k in _STITCH_PARAM_KEYS)
-    nested = prev_params.get("stitch_params")
-    if isinstance(nested, dict) and nested:
-        defaults = asdict(StitchParams())
-        diff = {k: v for k, v in nested.items() if k in defaults and defaults[k] != v}
-        if diff:
-            parts.append(f"stitch_params={diff!r}")
+    if table_key != f"{labels_key}_qc":
+        parts.append(f"qc_table_key={table_key!r}")
+    parts.extend(f"{k}={v!r}" for k, v in params.items())
     rerun = f"sq.experimental.tl.assign_stitch_groups(sdata, {', '.join(parts)})"
     logg.warning(
-        f"Re-running calculate_tiling_qc dropped previous stitch columns "
-        f"({', '.join(present)}) from sdata.tables[{table_key!r}].  "
+        f"Re-running calculate_tiling_qc dropped the previous stitch columns from sdata.tables[{table_key!r}].  "
         f"To restore them, run: {rerun}"
     )

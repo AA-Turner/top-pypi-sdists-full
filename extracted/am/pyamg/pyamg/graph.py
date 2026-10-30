@@ -62,7 +62,7 @@ def maximal_independent_set(G, algo='serial', k=None):
     G = asgraph(G)
     N = G.shape[0]
 
-    mis = np.empty(N, dtype='intc')
+    mis = np.empty(N, dtype=G.indptr.dtype)
     mis[:] = -1
 
     if k is None:
@@ -109,7 +109,7 @@ def vertex_coloring(G, method='MIS'):
     G = asgraph(G)
     N = G.shape[0]
 
-    coloring = np.empty(N, dtype='intc')
+    coloring = np.empty(N, dtype=G.indptr.dtype)
 
     if method == 'MIS':
         fn = amg_core.vertex_coloring_mis
@@ -174,22 +174,22 @@ def bellman_ford(G, centers, method='standard', tiebreaking=True):
     if G.dtype == complex:
         raise ValueError('Bellman-Ford is defined only for real weights.')
 
-    centers = np.asarray(centers, dtype=np.int32)
+    centers = np.asarray(centers, dtype=G.indptr.dtype)
     num_clusters = len(centers)
 
     # allocate space for returns and working arrays
-    distances = np.full(n, np.inf, dtype=G.dtype)  # distance to cluster center (inf)
-    nearest = np.full(n, -1, dtype=np.int32)       # nearest center, cluster membership (-1)
-    predecessors = np.full(n, -1, dtype=np.int32)  # predecessor on the shortest path (-1)
-    distances[centers] = 0                         # distance = 0 at centers
-    nearest[centers] = np.arange(num_clusters)     # number the membership
+    distances = np.full(n, np.inf, dtype=G.dtype)        # distance to cluster center (inf)
+    nearest = np.full(n, -1, dtype=G.indptr.dtype)       # nearest center, membership (-1)
+    predecessors = np.full(n, -1, dtype=G.indptr.dtype)  # predecessor on shortest path (-1)
+    distances[centers] = 0                               # distance = 0 at centers
+    nearest[centers] = np.arange(num_clusters)           # number the membership
 
     if method == 'standard':
         amg_core.bellman_ford(n, G.indptr, G.indices, G.data, centers,  # IN
                               distances, nearest, predecessors)         # OUT
     elif method == 'balanced':
-        predecessors_count = np.full(n, 0, dtype=np.int32)
-        cluster_size = np.full(num_clusters, 1, dtype=np.int32)
+        predecessors_count = np.full(n, 0, dtype=G.indptr.dtype)
+        cluster_size = np.full(num_clusters, 1, dtype=G.indptr.dtype)
         amg_core.bellman_ford_balanced(n, G.indptr, G.indices, G.data, centers,  # IN
                                        distances, nearest, predecessors,         # OUT
                                        predecessors_count, cluster_size,         # OUT
@@ -242,9 +242,9 @@ def lloyd_cluster(G, centers, maxiter=5):
 
     if np.isscalar(centers):
         centers = np.random.permutation(n)[:centers]
-        centers = np.int32(centers)
+        centers = centers.astype(G.indptr.dtype)
     else:
-        centers = np.asarray(centers, dtype=np.int32)
+        centers = np.asarray(centers, dtype=G.indptr.dtype)
 
     num_clusters = len(centers)
 
@@ -258,8 +258,8 @@ def lloyd_cluster(G, centers, maxiter=5):
         raise ValueError(f'invalid center index {centers.max()}')
 
     distances = np.full(n, np.inf, dtype=G.dtype)
-    clusters = np.full(n, -1, dtype=np.int32)
-    predecessors = np.full(n, -1, dtype=np.int32)
+    clusters = np.full(n, -1, dtype=G.indptr.dtype)
+    predecessors = np.full(n, -1, dtype=G.indptr.dtype)
     distances[centers] = 0
     clusters[centers] = np.arange(num_clusters)
     changed = True
@@ -339,9 +339,9 @@ def balanced_lloyd_cluster(G, centers, maxiter=5, rebalance_iters=5, tiebreaking
 
     if np.isscalar(centers):
         centers = np.random.permutation(n)[:centers]  # same as np.random.choice()
-        centers = np.int32(centers)
+        centers = centers.astype(G.indptr.dtype)
     else:
-        centers = np.asarray(centers, dtype=np.int32)
+        centers = np.asarray(centers, dtype=G.indptr.dtype)
 
     num_clusters = len(centers)
 
@@ -358,24 +358,20 @@ def balanced_lloyd_cluster(G, centers, maxiter=5, rebalance_iters=5, tiebreaking
     # empty() values are initialized in the kernel
     maxsize = int(12*np.ceil(n / num_clusters))
 
-    d = np.full(n, np.inf, dtype=G.dtype)         # distance to cluster center (inf)
-    m = np.full(n, -1, dtype=np.int32)            # cluster membership or index (-1)
-    p = np.full(n, -1, dtype=np.int32)            # predecessor on the shortest path (-1)
-    pc = np.full(n, 0, dtype=np.int32)            # predecessor count (0)
-    s = np.full(num_clusters, 1, dtype=np.int32)  # cluster size (1)
-    d[centers] = 0                                # distance = 0 at centers
-    m[centers] = np.arange(num_clusters)          # number the membership
+    d = np.full(n, np.inf, dtype=G.dtype)               # distance to cluster center (inf)
+    m = np.full(n, -1, dtype=G.indptr.dtype)            # cluster membership or index (-1)
+    p = np.full(n, -1, dtype=G.indptr.dtype)            # predecessor on shortest path (-1)
+    pc = np.full(n, 0, dtype=G.indptr.dtype)            # predecessor count (0)
+    s = np.full(num_clusters, 1, dtype=G.indptr.dtype)  # cluster size (1)
+    d[centers] = 0                                      # distance = 0 at centers
+    m[centers] = np.arange(num_clusters)                # number the membership
 
-    Cptr = np.empty(num_clusters, dtype=np.int32)    # ptr to start in C for each cluster
-    CC = np.empty(n, dtype=np.int32)                 # FW global index for current cluster
+    Cptr = np.empty(num_clusters, dtype=G.indptr.dtype)  # ptr to start in C per cluster
+    CC = np.empty(n, dtype=G.indptr.dtype)               # FW global index, current cluster
 
-    D = np.empty(maxsize*maxsize, dtype=G.dtype)     # FW distance array
-    P = np.empty(maxsize*maxsize, dtype=np.int32)    # FW predecessor array
-    L = np.empty(n, dtype=np.int32)                  # FW local index for current cluster
-    q = np.empty(maxsize, dtype=G.dtype)             # FW work array for d**2
-
-    # global work array for distances
-    dist_all = np.empty((num_clusters, maxsize*maxsize), dtype=G.dtype, order='C')
+    P = np.empty(maxsize*maxsize, dtype=G.indptr.dtype)  # FW predecessor array
+    L = np.empty(n, dtype=G.indptr.dtype)                # FW local index, current cluster
+    q = np.empty(maxsize, dtype=G.dtype)                 # FW work array for d**2
 
     for riter in range(rebalance_iters+1):
 
@@ -404,8 +400,10 @@ def balanced_lloyd_cluster(G, centers, maxiter=5, rebalance_iters=5, tiebreaking
                 raise ValueError('Encountered a disconnected nodes from m or d:  '
                                  f'{m.min()=} {d.min()=})')
 
+            # FW distances, one N x N block per cluster (see _cluster_nodes)
+            dist_all = np.empty(np.sum(s.astype(np.int64)**2), dtype=G.dtype)
             changed2 = amg_core.center_nodes(n, G.indptr, G.indices, G.data,
-                                             Cptr, D, P, CC, L, q,
+                                             Cptr, dist_all, P, CC, L, q,
                                              centers, d, m, p, pc, s)
 
             it += 1
@@ -423,18 +421,7 @@ def balanced_lloyd_cluster(G, centers, maxiter=5, rebalance_iters=5, tiebreaking
         if num_clusters < 2:
             break
 
-        # calculate distances
-        dist_all.fill(np.inf)
-        for a in range(num_clusters):
-            N = s[a]  # cluster size
-            Nloc = Cptr[a]+N
-            if Nloc >= G.shape[0]:
-                Nloc = None
-            P.fill(-1)
-            amg_core.floyd_warshall(G.shape[0], G.indptr, G.indices, G.data,
-                                    dist_all[a, :].ravel(), P, CC[Cptr[a]:Nloc], L,
-                                    m, a, N)
-        # rebalance
+        # rebalance (dist_all is from the last center_nodes call; m is unchanged since)
         centers, rebalance_change = _rebalance(G, centers, m, d, dist_all, num_clusters)
 
         # rebalance did nothing
@@ -458,7 +445,8 @@ def _rebalance(G, c, m, d, dist_all, num_clusters):
     d : array
         Distance to cluster center.
     dist_all : array
-        Node-to-node distance for every node in each cluster.
+        Node-to-node distance for every node in each cluster, stored as
+        one N x N block per cluster (see _cluster_nodes).
     num_clusters : int
         Number of clusters (= number centers).
 
@@ -515,60 +503,47 @@ def _rebalance(G, c, m, d, dist_all, num_clusters):
     return newc, rebalance_change
 
 
+def _cluster_nodes(m, num_clusters):
+    """Group nodes by cluster.
+
+    Nodes of cluster a are order[ptr[a]:ptr[a+1]], in ascending order, and
+    their N x N distances are dist_all[dptr[a]:dptr[a+1]].
+
+    Note: this matches the local ordering of dist_all from center_nodes().
+    """
+    order = np.argsort(m, kind='stable').astype(m.dtype)
+    sizes = np.bincount(m, minlength=num_clusters).astype(m.dtype)
+    ptr = np.zeros(num_clusters + 1, dtype=m.dtype)
+    ptr[1:] = np.cumsum(sizes)
+    dptr = np.zeros(num_clusters + 1, dtype=m.dtype)
+    dptr[1:] = np.cumsum(sizes**2)
+    return order, ptr, dptr
+
+
 def _elimination_penalty(A, m, d, dist_all, num_clusters):
     """Calculate elimination penalty.
 
-    see _rebalance()
+    see _rebalance() and amg_core.elimination_penalty()
     """
-    Acol = A.tocsc()
-
-    # pylint: disable=too-many-nested-blocks
-    E = np.inf * np.ones(num_clusters)
-    for a in range(num_clusters):
-        E[a] = 0
-        Va = np.int32(np.where(m == a)[0])
-        N = len(Va)
-
-        for iloc, _ in enumerate(Va):
-            dmin = np.inf
-            for jloc, j in enumerate(Va):
-                for k in Acol[:, [j]].indices:
-                    if m[k] != m[j]:
-                        jiloc = jloc * N + iloc
-                        dmin = min(d[k] + A[k, j] + dist_all[a, jiloc], dmin)
-            E[a] += dmin**2
-        E[a] -= np.sum(d[Va]**2)
+    A = A.tocsr()
+    order, ptr, dptr = _cluster_nodes(m, num_clusters)
+    b = np.empty(len(m), dtype=d.dtype)  # work array
+    E = np.empty(num_clusters, dtype=d.dtype)
+    amg_core.elimination_penalty(len(m), A.indptr, A.indices, A.data, m, d,
+                                 dist_all, order, ptr, dptr, b, E)
     return E
 
 
 def _split_improvement(m, d, dist_all, num_clusters):
     """Calculate split improvement.
 
-    see _rebalance()
+    see _rebalance() and amg_core.split_improvement()
     """
-    S = np.inf * np.ones(num_clusters)
-    I = -1 * np.ones(num_clusters, dtype=np.int32)  # better cluster centers if split
-    J = -1 * np.ones(num_clusters, dtype=np.int32)  # better cluster centers if split
-    for a in range(num_clusters):
-        S[a] = np.inf
-        Va = np.int32(np.where(m == a)[0])
-        N = len(Va)
-
-        for iloc, i in enumerate(Va):
-            for jloc, j in enumerate(Va):
-                Snew = 0
-                for kloc, _ in enumerate(Va):
-                    ikloc = iloc * N + kloc
-                    jkloc = jloc * N + kloc
-                    if dist_all[a, ikloc] < dist_all[a, jkloc]:
-                        Snew = Snew + dist_all[a, ikloc]**2
-                    else:
-                        Snew = Snew + dist_all[a, jkloc]**2
-                if Snew < S[a]:
-                    S[a] = Snew
-                    I[a] = i
-                    J[a] = j
-        S[a] = np.sum(d[Va]**2) - S[a]
+    order, ptr, dptr = _cluster_nodes(m, num_clusters)
+    S = np.empty(num_clusters, dtype=d.dtype)
+    I = np.empty(num_clusters, dtype=m.dtype)  # better cluster centers if split
+    J = np.empty(num_clusters, dtype=m.dtype)  # better cluster centers if split
+    amg_core.split_improvement(d, dist_all, order, ptr, dptr, S, I, J)
     return S, I, J
 
 

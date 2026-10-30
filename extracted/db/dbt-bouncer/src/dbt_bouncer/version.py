@@ -5,4 +5,4 @@ def version() -> str:
         str: The version of `dbt-bouncer`.
 
     """
-    return "4.4.0"
+    return "4.5.0"

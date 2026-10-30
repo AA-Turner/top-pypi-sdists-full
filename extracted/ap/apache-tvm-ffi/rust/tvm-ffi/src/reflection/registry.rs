@@ -21,14 +21,18 @@
 //!
 //! [`ObjectDef`] fills the same type table entries as C++ `refl::ObjectDef<T>`
 //! and Python `_register_py_class`: the type metadata, one record per field
-//! with C ABI getter and setter, and the `__ffi_shallow_copy__` and
-//! `__ffi_type_final__` type attributes. Through them the C++ structural
-//! equality, hashing and mutation, `repr`, deep copy and Python's
-//! generated classes reach the fields of a Rust type.
+//! with C ABI getter and setter, one record per method, and the
+//! `__ffi_shallow_copy__` and `__ffi_type_final__` type attributes; for an
+//! `#[rs_class]` type also the creator, and from it the `__ffi_new__` and
+//! `__ffi_init__` type attributes. Through them the C++ structural equality,
+//! hashing and mutation, `repr`, deep copy, JSON graphs and Python's generated
+//! classes reach the fields and methods of a Rust type, and construct it.
 //!
-//! Only `#[derive(Object)]` calls [`ObjectDef`], for a `#[type_register]`
-//! type with `#[reflect]` fields; the derive guarantees that each registered
-//! field's type and offset match.
+//! Only `#[derive(Object)]` creates an [`ObjectDef`], for a `#[type_register]`
+//! type with `#[reflect]` fields or a `#[type_reflection]` function; the
+//! derive guarantees that each registered field's type and offset match. The
+//! `#[type_reflection]` function receives the builder to register methods
+//! with [`ObjectDef::def`] and [`ObjectDef::def_static`].
 
 use std::ffi::c_void;
 use std::marker::PhantomData;
@@ -36,14 +40,16 @@ use std::mem::{align_of, size_of};
 use std::ops::BitOr;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 
+use crate::function_internal::AsPackedCallable;
 use crate::object::{Object, ObjectArc, ObjectCore, ObjectRef, ObjectRefCore};
 use crate::tvm_ffi_sys::{
     TVMFFIAny, TVMFFIByteArray, TVMFFIFieldFlagBitMask, TVMFFIFieldInfo, TVMFFIFieldSetter,
-    TVMFFIGetTypeInfo, TVMFFIObject, TVMFFISEqHashKind, TVMFFITypeIndex, TVMFFITypeMetadata,
-    TVMFFITypeRegisterAttr, TVMFFITypeRegisterField, TVMFFITypeRegisterMetadata,
+    TVMFFIGetTypeInfo, TVMFFIMethodInfo, TVMFFIObject, TVMFFIObjectCreator, TVMFFIObjectHandle,
+    TVMFFISEqHashKind, TVMFFITypeIndex, TVMFFITypeMetadata, TVMFFITypeRegisterAttr,
+    TVMFFITypeRegisterField, TVMFFITypeRegisterMetadata, TVMFFITypeRegisterMethod,
 };
-use crate::type_traits::AnyCompatible;
-use crate::{Any, Error, Function, Result, INTERNAL_ERROR, TYPE_ERROR};
+use crate::type_traits::{type_schema_metadata, AnyCompatible};
+use crate::{Any, Error, Function, Result, INTERNAL_ERROR, TYPE_ERROR, VALUE_ERROR};
 
 /// A copy of an object's own fields under a fresh object header (the C++ copy
 /// constructor), which `__ffi_shallow_copy__` returns.
@@ -139,15 +145,39 @@ impl BitOr for FieldFlags {
     }
 }
 
-/// Registers the reflection of the object type `N` (C++ `refl::ObjectDef<N>`)
-/// for `#[derive(Object)]`: the metadata on construction, then each field in
-/// call order, then the type attributes.
+/// Registers the reflection of the object type `N`, as C++ `refl::ObjectDef<N>`
+/// does: the metadata, each `#[reflect]` field, the methods and the type
+/// attributes.
 ///
-/// When `N` already has metadata in the type table, every call is a no-op.
-#[doc(hidden)]
+/// `#[derive(Object)]` creates one while it registers a `#[type_register]`
+/// type and passes it to the function `#[type_reflection(path)]` names, which
+/// registers methods with [`ObjectDef::def`] and [`ObjectDef::def_static`]:
+///
+/// ```ignore
+/// #[type_reflection(PointObj::reflect_methods)]
+/// struct PointObj { /* ... */ }
+///
+/// impl PointObj {
+///     fn reflect_methods(def: &mut ObjectDef<Self>) {
+///         def.def("norm1", |p: Point| -> Result<i64> { Ok(p.x.abs() + p.y.abs()) }, "The L1 norm.")
+///             .def_static("origin", || -> Result<Point> { Ok(origin()) }, "");
+///     }
+/// }
+/// ```
+///
+/// That function runs under the registration lock, before `N::type_index()`
+/// returns, so it must not call `type_index()` of `N` or of another Rust type
+/// that is not registered yet. When `N` already has metadata in the type
+/// table, every call is a no-op.
 pub struct ObjectDef<N: ObjectCore> {
     type_index: i32,
     fresh: bool,
+    /// The creator registered in the metadata, from which `finish` registers
+    /// `__ffi_new__` and `__ffi_init__`.
+    creator: Option<TVMFFIObjectCreator>,
+    /// The first failed method registration, which `finish` reports.
+    error: Option<Error>,
+    method_names: Vec<String>,
     _object: PhantomData<N>,
 }
 
@@ -156,13 +186,21 @@ impl<N: ObjectCore> ObjectDef<N> {
     /// derive registers `N`'s type index, before `N::type_index()` returns.
     ///
     /// `kind` of `None` takes the nearest ancestor's kind, as a C++ subclass
-    /// inherits `_type_s_eq_hash_kind`.
+    /// inherits `_type_s_eq_hash_kind`. `creator`, as C++ `ObjectDef` takes
+    /// the default or `UnsafeInit` constructor, makes an object of `N` for
+    /// reflection to fill (`unsafe_init_creator::<N>` for an `#[rs_class]`).
     ///
     /// # Safety
     ///
     /// The caller holds `TYPE_REGISTRATION` for the builder's lifetime, and
-    /// `type_index` is `N`'s.
-    pub unsafe fn registering(type_index: i32, kind: Option<SEqHashKind>) -> Result<Self> {
+    /// `type_index` is `N`'s. `creator` returns an owned handle of an object of
+    /// `N` that the field setters can fill.
+    #[doc(hidden)]
+    pub unsafe fn registering(
+        type_index: i32,
+        kind: Option<SEqHashKind>,
+        creator: Option<TVMFFIObjectCreator>,
+    ) -> Result<Self> {
         let info = TVMFFIGetTypeInfo(type_index);
         crate::ensure!(
             !info.is_null(),
@@ -178,7 +216,7 @@ impl<N: ObjectCore> ObjectDef<N> {
             };
             let metadata = TVMFFITypeMetadata {
                 doc: TVMFFIByteArray::from_str(""),
-                creator: None,
+                creator,
                 total_size: size_of::<N>() as i32,
                 structural_eq_hash_kind: kind,
             };
@@ -187,31 +225,48 @@ impl<N: ObjectCore> ObjectDef<N> {
         Ok(Self {
             type_index,
             fresh,
+            creator,
+            error: None,
+            method_names: Vec::new(),
             _object: PhantomData,
         })
     }
 
     /// Registers the field of type `F` at byte offset `offset` in `N` under
-    /// `name`, which must be unique in `N`.
+    /// `name`, which must be unique in `N`, with its doc string (an empty one
+    /// records none).
     ///
     /// # Safety
     ///
     /// `offset` is `std::mem::offset_of!` of a field of `N` whose type is `F`:
     /// the registered getter and setter read and write an `F` there.
+    #[doc(hidden)]
     pub unsafe fn field<F: AnyCompatible>(
         self,
         name: &str,
+        doc: &str,
         offset: usize,
         flags: FieldFlags,
     ) -> Result<Self> {
         if !self.fresh {
             return Ok(self);
         }
-        let (static_type_index, schema) = field_type_info(&F::type_str());
-        let metadata = format!(r#"{{"type_schema":{}}}"#, json_string(&schema));
+        // `__ffi_init__` leaves an `init_off` field as the creator made it, all-zero.
+        if self.creator.is_some() && flags.bits() & FieldFlags::INIT_OFF.bits() != 0 {
+            let zero = std::mem::MaybeUninit::<F>::zeroed();
+            crate::ensure!(
+                !unsafe { F::is_undefined(zero.as_ptr()) },
+                VALUE_ERROR,
+                "`init_off` field `{name}` of `{}` stays all-zero after `__ffi_init__`, which \
+                 is no value of `{}`",
+                N::TYPE_KEY,
+                F::type_str()
+            );
+        }
+        let metadata = type_schema_metadata(&F::type_schema());
         let info = TVMFFIFieldInfo {
             name: unsafe { TVMFFIByteArray::from_str(name) },
-            doc: unsafe { TVMFFIByteArray::from_str("") },
+            doc: unsafe { TVMFFIByteArray::from_str(doc) },
             metadata: unsafe { TVMFFIByteArray::from_str(&metadata) },
             flags: flags.bits(),
             size: size_of::<F>() as i64,
@@ -220,7 +275,7 @@ impl<N: ObjectCore> ObjectDef<N> {
             getter: Some(field_getter::<F>),
             setter: field_setter::<F> as TVMFFIFieldSetter as *mut c_void,
             default_value_or_factory: TVMFFIAny::new(),
-            field_static_type_index: static_type_index,
+            field_static_type_index: field_static_type_index(&F::type_str()),
         };
         // The table copies the strings before returning.
         crate::check_safe_call!(unsafe { TVMFFITypeRegisterField(self.type_index, &info) })?;
@@ -230,6 +285,7 @@ impl<N: ObjectCore> ObjectDef<N> {
     /// Registers `__ffi_shallow_copy__`, which reflected mutation (copy on
     /// write through the field setters) needs; C++ `ObjectDef` registers the
     /// copy constructor.
+    #[doc(hidden)]
     pub fn shallow_copy(self) -> Result<Self>
     where
         N: ShallowCopy,
@@ -246,11 +302,102 @@ impl<N: ObjectCore> ObjectDef<N> {
         Ok(self)
     }
 
-    /// Registers `__ffi_type_final__`, which no other registered metadata
-    /// exposes.
+    /// Registers `func`, a typed function as for [`Function::from_typed`]
+    /// whose first parameter is the object, as the method `name` of `N`,
+    /// which must be unique in `N`, with its type schema and `doc`, as C++
+    /// `ObjectDef::def` does. A failed registration is reported when the
+    /// type's registration finishes.
+    pub fn def<F, I, O>(&mut self, name: &str, func: F, doc: &str) -> &mut Self
+    where
+        F: AsPackedCallable<I, O> + 'static,
+    {
+        self.method(name, func, doc, false)
+    }
+
+    /// Registers `func` as the static method `name` of `N`, as C++
+    /// `ObjectDef::def_static` does; otherwise as [`ObjectDef::def`].
+    pub fn def_static<F, I, O>(&mut self, name: &str, func: F, doc: &str) -> &mut Self
+    where
+        F: AsPackedCallable<I, O> + 'static,
+    {
+        self.method(name, func, doc, true)
+    }
+
+    fn method<F, I, O>(&mut self, name: &str, func: F, doc: &str, is_static: bool) -> &mut Self
+    where
+        F: AsPackedCallable<I, O> + 'static,
+    {
+        if !self.fresh || self.error.is_some() {
+            return self;
+        }
+        if self.method_names.iter().any(|n| n == name) {
+            self.error = Some(Error::new(
+                VALUE_ERROR,
+                &format!("duplicate method `{name}` of `{}`", N::TYPE_KEY),
+                "",
+            ));
+            return self;
+        }
+        self.method_names.push(name.to_string());
+        let metadata = type_schema_metadata(&F::type_schema());
+        let func = Function::from_typed(func);
+        let flags = if is_static {
+            TVMFFIFieldFlagBitMask::kTVMFFIFieldFlagBitMaskIsStaticMethod as i64
+        } else {
+            0
+        };
+        let mut method = TVMFFIAny::new();
+        // SAFETY: the strings outlive the call, which copies them, and the
+        // table takes its own reference to the function.
+        let registered = unsafe {
+            <Function as AnyCompatible>::copy_to_any_view(&func, &mut method);
+            let info = TVMFFIMethodInfo {
+                name: TVMFFIByteArray::from_str(name),
+                doc: TVMFFIByteArray::from_str(doc),
+                metadata: TVMFFIByteArray::from_str(&metadata),
+                flags,
+                method,
+            };
+            crate::check_safe_call!(TVMFFITypeRegisterMethod(self.type_index, &info))
+        };
+        if let Err(error) = registered {
+            self.error = Some(Error::new(
+                error.kind(),
+                &format!("registering method `{name}`: {}", error.message()),
+                "",
+            ));
+        }
+        self
+    }
+
+    /// Registers, as C++ `ObjectDef` does, `__ffi_new__` from the creator and
+    /// `__ffi_init__` from the fields unless the type defines its own, then
+    /// `__ffi_type_final__`, which no other registered metadata exposes; and
+    /// reports the first failed method registration.
+    #[doc(hidden)]
     pub fn finish(self) -> Result<()> {
+        if let Some(error) = self.error {
+            return Err(error);
+        }
         if !self.fresh {
             return Ok(());
+        }
+        if let Some(creator) = self.creator {
+            let new = Function::from_typed(move || -> Result<ObjectRef> {
+                let mut handle: TVMFFIObjectHandle = std::ptr::null_mut();
+                crate::check_safe_call!(unsafe { creator(&mut handle) })?;
+                // SAFETY: the creator returns an owned handle, which `ObjectRef` views.
+                Ok(unsafe { ObjectRef::from_data(ObjectArc::from_raw(handle.cast::<Object>())) })
+            });
+            register_type_attr(self.type_index, "__ffi_new__", Any::from(new))?;
+            // C++ `ObjectDef` looks `ffi._RegisterFFIInit` up the same way, in case
+            // it is not registered yet.
+            let explicit_init = self.method_names.iter().any(|name| name == "__ffi_init__");
+            if !explicit_init {
+                if let Ok(register_init) = Function::get_global("ffi._RegisterFFIInit") {
+                    register_init.call_tuple((self.type_index,))?;
+                }
+            }
         }
         register_type_attr(
             self.type_index,
@@ -315,7 +462,13 @@ unsafe extern "C" fn field_getter<F: AnyCompatible>(
     result: *mut TVMFFIAny,
 ) -> i32 {
     let read = catch_unwind(AssertUnwindSafe(|| {
-        let value: Any = (*field.cast::<F>()).to_any();
+        let field = field.cast::<F>();
+        // An undefined field reads as None, as a null `ObjectRef` does in C++.
+        let value = if F::is_undefined(field) {
+            Any::new()
+        } else {
+            (*field).to_any()
+        };
         std::ptr::write(result, Any::into_raw_ffi_any(value));
     }));
     match read {
@@ -337,7 +490,13 @@ unsafe extern "C" fn field_setter<F: AnyCompatible>(
     let written = catch_unwind(AssertUnwindSafe(|| {
         match F::try_cast_from_any_view(&*value) {
             Ok(converted) => {
-                *field.cast::<F>() = converted;
+                let field = field.cast::<F>();
+                // An undefined field holds no value to drop.
+                if F::is_undefined(field) {
+                    field.write(converted);
+                } else {
+                    *field = converted;
+                }
                 None
             }
             Err(()) => Some(Error::new(
@@ -364,135 +523,74 @@ unsafe extern "C" fn field_setter<F: AnyCompatible>(
     -1
 }
 
-/// The static type index and the JSON type schema of a field, from the Rust type's `type_str()`
-/// (the names `AnyCompatible` reports, such as `int`, `ffi.String`, `Array<my.Node>`), as C++
-/// `TypeTraits<T>::field_static_type_index` and `TypeTraits<T>::TypeSchema()` state them.
-fn field_type_info(type_str: &str) -> (i32, String) {
+/// The static type index of a field, from the Rust type's `type_str()` (the names
+/// `AnyCompatible` reports, such as `int`, `ffi.String`, `Array<my.Node>`), as C++
+/// `TypeTraits<T>::field_static_type_index` states it.
+fn field_static_type_index(type_str: &str) -> i32 {
     use TVMFFITypeIndex::*;
     /// C++ `TypeIndex::kTVMFFIAny`, the static index of a field holding any value.
     const ANY: i32 = -1;
-    let (name, args) = split_generic(type_str);
-    let args: Vec<String> = args.iter().map(|arg| field_type_info(arg).1).collect();
-    let schema = |key: &str| match args.is_empty() {
-        true => format!(r#"{{"type":"{key}"}}"#),
-        false => format!(r#"{{"type":"{key}","args":[{}]}}"#, args.join(",")),
-    };
-    match name {
-        "None" => (kTVMFFINone as i32, schema("None")),
-        "int" => (kTVMFFIInt as i32, schema("int")),
-        "bool" => (kTVMFFIBool as i32, schema("bool")),
-        "float" => (kTVMFFIFloat as i32, schema("float")),
-        "void*" => (kTVMFFIOpaquePtr as i32, schema("void*")),
-        "DataType" => (kTVMFFIDataType as i32, schema("DataType")),
-        "Device" => (kTVMFFIDevice as i32, schema("Device")),
-        "DLTensor*" => (kTVMFFIDLTensorPtr as i32, schema("DLTensor*")),
-        "Any" => (ANY, schema("Any")),
+    let origin = type_str.split('<').next().unwrap_or(type_str).trim();
+    match origin {
+        "None" => kTVMFFINone as i32,
+        "int" => kTVMFFIInt as i32,
+        "bool" => kTVMFFIBool as i32,
+        "float" => kTVMFFIFloat as i32,
+        "void*" => kTVMFFIOpaquePtr as i32,
+        "DataType" => kTVMFFIDataType as i32,
+        "Device" => kTVMFFIDevice as i32,
+        "DLTensor*" => kTVMFFIDLTensorPtr as i32,
         // C++ `String`, `Bytes` and `BigInt` fields are typed `Any` statically (they have
         // inline forms), as is `Optional<T>`.
-        "ffi.String" | "ffi.Bytes" => (ANY, schema(name)),
-        "BigInt" => (ANY, schema("ffi.BigInt")),
-        "Optional" => (ANY, schema("Optional")),
-        "ffi.Function" => (kTVMFFIFunction as i32, schema(name)),
-        "ffi.Shape" => (kTVMFFIShape as i32, schema(name)),
-        "Array" => (kTVMFFIArray as i32, schema("ffi.Array")),
-        "List" => (kTVMFFIList as i32, schema("ffi.List")),
-        // Any other object reference, `Map` and `Dict` included, is typed `Object` statically.
-        "Map" => (kTVMFFIStaticObjectBegin as i32, schema("ffi.Map")),
-        "Dict" => (kTVMFFIStaticObjectBegin as i32, schema("ffi.Dict")),
-        _ => (kTVMFFIStaticObjectBegin as i32, schema(name)),
+        "ffi.String" | "ffi.Bytes" | "BigInt" | "Optional" => ANY,
+        "ffi.Function" => kTVMFFIFunction as i32,
+        "ffi.Shape" => kTVMFFIShape as i32,
+        "Array" => kTVMFFIArray as i32,
+        "List" => kTVMFFIList as i32,
+        // Any other object reference, `Map` included, is typed `Object` statically.
+        _ => kTVMFFIStaticObjectBegin as i32,
     }
-}
-
-/// `Name<A, B<C>>` as (`Name`, [`A`, `B<C>`]); a plain name has no arguments.
-fn split_generic(type_str: &str) -> (&str, Vec<&str>) {
-    let Some(open) = type_str.find('<') else {
-        return (type_str.trim(), Vec::new());
-    };
-    let Some(inner) = type_str[open + 1..].strip_suffix('>') else {
-        return (type_str.trim(), Vec::new());
-    };
-    let mut args = Vec::new();
-    let (mut depth, mut start) = (0usize, 0usize);
-    for (index, byte) in inner.bytes().enumerate() {
-        match byte {
-            b'<' => depth += 1,
-            b'>' => depth = depth.saturating_sub(1),
-            b',' if depth == 0 => {
-                args.push(inner[start..index].trim());
-                start = index + 1;
-            }
-            _ => {}
-        }
-    }
-    args.push(inner[start..].trim());
-    (type_str[..open].trim(), args)
-}
-
-/// `text` as a JSON string literal.
-fn json_string(text: &str) -> String {
-    let mut out = String::with_capacity(text.len() + 2);
-    out.push('"');
-    for ch in text.chars() {
-        match ch {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            ch if (ch as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", ch as u32)),
-            ch => out.push(ch),
-        }
-    }
-    out.push('"');
-    out
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{field_type_info, json_string, split_generic};
+    use super::field_static_type_index;
+    use crate::type_traits::{type_schema_metadata, AnyCompatible};
+    use crate::{Array, List, Map};
 
     #[test]
-    fn generic_names_split_at_top_level_commas() {
-        assert_eq!(split_generic("int"), ("int", vec![]));
-        assert_eq!(split_generic("Array<my.Node>"), ("Array", vec!["my.Node"]));
-        assert_eq!(
-            split_generic("Map<ffi.String, Array<my.Node>>"),
-            ("Map", vec!["ffi.String", "Array<my.Node>"])
-        );
+    fn field_static_type_indices_follow_the_cpp_type_traits() {
+        assert_eq!(field_static_type_index("int"), 1);
+        assert_eq!(field_static_type_index("ffi.String"), -1);
+        assert_eq!(field_static_type_index("Optional<my.Node>"), -1);
+        assert_eq!(field_static_type_index("my.Node"), 64);
+        assert_eq!(field_static_type_index("Array<my.Node>"), 71);
+        assert_eq!(field_static_type_index("List<int>"), 75);
+        assert_eq!(field_static_type_index("Map<ffi.String, int>"), 64);
     }
 
     #[test]
     fn field_schemas_follow_the_cpp_type_traits() {
-        assert_eq!(field_type_info("int"), (1, r#"{"type":"int"}"#.into()));
         assert_eq!(
-            field_type_info("ffi.String"),
-            (-1, r#"{"type":"ffi.String"}"#.into())
+            <Map<crate::String, i64>>::type_schema(),
+            r#"{"type":"ffi.Map","args":[{"type":"ffi.String"},{"type":"int"}]}"#
         );
         assert_eq!(
-            field_type_info("my.Node"),
-            (64, r#"{"type":"my.Node"}"#.into())
+            <List<i64>>::type_schema(),
+            r#"{"type":"ffi.List","args":[{"type":"int"}]}"#
         );
         assert_eq!(
-            field_type_info("Array<my.Node>"),
-            (
-                71,
-                r#"{"type":"ffi.Array","args":[{"type":"my.Node"}]}"#.into()
-            )
+            <Option<Array<crate::String>>>::type_schema(),
+            r#"{"type":"Optional","args":[{"type":"ffi.Array","args":[{"type":"ffi.String"}]}]}"#
         );
         assert_eq!(
-            field_type_info("Map<ffi.String, int>"),
-            (
-                64,
-                r#"{"type":"ffi.Map","args":[{"type":"ffi.String"},{"type":"int"}]}"#.into()
-            )
+            type_schema_metadata(r#"{"type":"int"}"#),
+            r#"{"type_schema":"{\"type\":\"int\"}"}"#
         );
+        // As C++ `EscapeStringJSON`, `/`, `\b` and DEL are escaped too.
         assert_eq!(
-            field_type_info("Optional<my.Node>"),
-            (
-                -1,
-                r#"{"type":"Optional","args":[{"type":"my.Node"}]}"#.into()
-            )
+            type_schema_metadata("a/b\u{8}\u{7f}"),
+            r#"{"type_schema":"a\/b\b\u007f"}"#
         );
-        assert_eq!(json_string(r#"{"type":"int"}"#), r#""{\"type\":\"int\"}""#);
     }
 }

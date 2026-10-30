@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ko-speech-tools
-Version: 0.1.0
+Version: 0.1.1
 Summary: Korean speech/NLP tools
 Author: Enno Hermann
 Author-email: Enno Hermann <enno.hermann@gmail.com>
@@ -10,12 +10,12 @@ License-File: LICENSES/BSD-2-Clause.txt
 License-File: LICENSES/CC0-1.0.txt
 License-File: LICENSES/MIT.txt
 License-File: REUSE.toml
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Development Status :: 3 - Alpha
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: POSIX :: Linux
@@ -24,9 +24,9 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Topic :: Multimedia :: Sound/Audio :: Speech
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Dist: mecab-ko>=1.0.2 ; extra == 'g2p'
-Requires-Python: >=3.10
-Project-URL: issues, https://github.com/eginhard/ko-speech-tools/issues
+Requires-Python: >=3.11
 Project-URL: repository, https://github.com/eginhard/ko-speech-tools
+Project-URL: issues, https://github.com/eginhard/ko-speech-tools/issues
 Provides-Extra: g2p
 Description-Content-Type: text/markdown
 

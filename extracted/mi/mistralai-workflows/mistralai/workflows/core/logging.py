@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from structlog.typing import EventDict, Processor
 
 from mistralai.workflows.core._events.event_utils import try_get_lineage_workflow_exec_id
+from mistralai.workflows.core._logger import _to_stdlib_call
 from mistralai.workflows.worker_client.errors import SDKError
 
 
@@ -145,9 +146,44 @@ def _build_shared_processors(inject_otel_trace: bool) -> list[Processor]:
     return processors
 
 
+class _HostEventMessage(str):
+    """The text of an SDK event logged in host mode, carrying the event's fields for SDK formatters.
+
+    It is the record's ``msg``: host handlers and exporters get a plain string from ``getMessage()``
+    and the record has no extra attribute, so a host's own OTel handler exports nothing new.
+    """
+
+    fields: dict[str, Any]
+
+
+def _to_host_stdlib_call(logger: Any, method_name: str, event_dict: EventDict) -> tuple[tuple[str], dict[str, Any]]:
+    """Hand the event to the stdlib logger as text, keeping its fields in the message for SDK formatters."""
+    fields = {key: value for key, value in event_dict.items() if key not in ("exc_info", "stack_info")}
+    (text,), kwargs = _to_stdlib_call(logger, method_name, event_dict)
+    if type(logger).findCaller is not logging.Logger.findCaller:
+        # structlog's stdlib logger class (loggers created after ``LoggerFactory``) skips its own
+        # frames to find the caller; the stacklevel offset is only for plain stdlib loggers.
+        del kwargs["stacklevel"]
+    message = _HostEventMessage(text)
+    message.fields = fields
+    return (message,), kwargs
+
+
+def _restore_host_event_fields(_logger: Any, _method_name: str, event_dict: EventDict) -> EventDict:
+    """Give SDK formatters (the OTLP JSON one) the fields of an event logged in host mode, not its text."""
+    message = getattr(event_dict.get("_record"), "msg", None)
+    if not isinstance(message, _HostEventMessage):
+        return event_dict
+    restored = {**event_dict, **message.fields}
+    # The record's stack was taken at the call; StackInfoRenderer would take a new one here.
+    if stack := restored.pop("stack_info", None):
+        restored["stack"] = stack
+    return restored
+
+
 def _build_formatter(renderer: Processor) -> structlog.stdlib.ProcessorFormatter:
     return structlog.stdlib.ProcessorFormatter(
-        foreign_pre_chain=_shared_processors,
+        foreign_pre_chain=[_restore_host_event_fields, *_shared_processors],
         processors=[
             structlog.stdlib.ProcessorFormatter.remove_processors_meta,
             structlog.processors.format_exc_info,
@@ -203,6 +239,34 @@ def setup_logging(
         for logger_config in extra_config:
             logger = logging.getLogger(logger_config.name)
             logger.setLevel(_get_log_level_value(logger_config.level))
+
+
+def route_logs_to_host_logging(inject_otel_trace: bool = False) -> None:
+    """Send structlog events through the host's stdlib logging as text, leaving the root logger as it is.
+
+    For a process that set up stdlib logging itself but not structlog: its handlers, levels and
+    formatters stay, and the SDK's events reach them through the stdlib logger they name, as one
+    text line with the exception and call site on the record (as before ``setup_logging``). The
+    event's fields also ride in the record's message, so the OTLP log export still gets them as JSON fields.
+    The host can still configure structlog later; no logger keeps this configuration cached.
+    """
+    global _shared_processors
+    _shared_processors = _build_shared_processors(inject_otel_trace)
+
+    structlog.configure(
+        processors=[
+            structlog.stdlib.filter_by_level,
+            structlog.contextvars.merge_contextvars,
+            structlog.stdlib.PositionalArgumentsFormatter(),
+            _add_temporal_context_processor,
+            *([_add_otel_trace_processor] if inject_otel_trace else []),
+            _to_host_stdlib_call,
+        ],
+        wrapper_class=structlog.stdlib.BoundLogger,
+        context_class=dict,
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        cache_logger_on_first_use=False,
+    )
 
 
 def extract_error_context(exc: Exception) -> ErrorContext:

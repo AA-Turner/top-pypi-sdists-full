@@ -23,7 +23,8 @@ import time
 import urllib
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
-from hashlib import sha256
+from contextlib import contextmanager
+from hashlib import sha1, sha256
 from importlib.metadata import version
 from importlib.resources import files  # nosemgrep: python.lang.compatibility.python37.python37-compatibility-importlib2
 from io import BytesIO
@@ -472,6 +473,29 @@ def batch_by_property_callback(items, property_callback: Callable[..., int], bat
             yield current_batch
 
 
+@contextmanager
+def event_loop():
+    """Provide an asyncio event loop, closing it on exit if this context created it.
+
+    This is required to support Python 3.14, where asyncio.get_event_loop() raises a RuntimeError
+    when there is no running loop instead of implicitly creating one. If a loop is already running
+    it is reused and left open (the caller does not own it); otherwise a new loop is created and
+    closed on exit to avoid leaking event loops.
+    """
+    try:
+        loop = asyncio.get_running_loop()
+        created = False
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        created = True
+    try:
+        yield loop
+    finally:
+        if created:
+            loop.close()
+
+
 class AsyncUtils:
     """Utility class for async functions."""
 
@@ -548,7 +572,7 @@ class AsyncUtils:
 
         @functools.wraps(func)
         async def wrapper(self, *args, **kwargs):
-            return await asyncio.get_event_loop().run_in_executor(
+            return await asyncio.get_running_loop().run_in_executor(
                 AsyncUtils._thread_pool_executor, lambda: func(self, *args, **kwargs)
             )
 
@@ -679,3 +703,15 @@ def get_dictionary_diff(d1: dict, d2: dict, path: str = "") -> set[str]:
             diffs.add(key_path)
 
     return diffs
+
+
+def create_hash_suffix(string_to_hash: str):
+    """Create 16digit hash string."""
+    return (
+        string_to_hash
+        if string_to_hash == "HeadNode"
+        # A nosec comment is appended to the following line in order to disable the B324 check.
+        # The sha1 is used just as a hashing function.
+        # [B324:hashlib] Use of weak MD4, MD5, or SHA1 hash for security. Consider usedforsecurity=False
+        else sha1(string_to_hash.encode("utf-8")).hexdigest()[:16].capitalize()  # nosec nosemgrep
+    )

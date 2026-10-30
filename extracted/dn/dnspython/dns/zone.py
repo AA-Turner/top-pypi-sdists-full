@@ -1127,7 +1127,7 @@ class WritableVersion(Version):
         rdtype: dns.rdatatype.RdataType,
         covers: dns.rdatatype.RdataType,
     ) -> None:
-        node = self._maybe_cow(name)
+        node, name = self._maybe_cow_with_name(name)
         node.delete_rdataset(self.zone.rdclass, rdtype, covers)
         if len(node) == 0:
             del self.nodes[name]
@@ -1217,14 +1217,16 @@ class Transaction(dns.transaction.Transaction):
         else:
             assert self.version is not None
             version = cast(WritableVersion, self.version)
-            return len(version.changed) > 0
+            return len(version.changed) > 0 or (
+                self.replacement and len(self.zone.nodes) > 0
+            )
 
     def _end_transaction(self, commit):
         assert self.zone is not None
         assert self.version is not None
         if self.read_only:
             self.zone._end_read(self)  # pyright: ignore
-        elif commit and len(cast(WritableVersion, self.version).changed) > 0:
+        elif commit and self._changed():
             if self.make_immutable:
                 factory = self.manager.immutable_version_factory  # type: ignore
                 if factory is None:
@@ -1518,6 +1520,17 @@ def from_xfr(
             rdclass = r.answer[0].rdclass
             z = zone_factory(origin, rdclass, relativize=relativize)
         for rrset in r.answer:
+            # Apply the checks that dns.xfr.Inbound and a zone transaction would,
+            # as the messages yielded by dns.query.xfr() are not filtered.
+            if z.origin is not None:
+                name = rrset.name.derelativize(z.origin)
+                if not name.is_subdomain(z.origin):
+                    # Ignore glue that is not a subdomain of the origin.
+                    continue
+                if rrset.rdtype == dns.rdatatype.SOA and name != z.origin:
+                    raise dns.exception.FormError("non-origin SOA in zone transfer")
+            if rrset.rdclass != z.rdclass:
+                raise dns.exception.FormError("wrong rdclass in zone transfer")
             znode = z.nodes.get(rrset.name)
             if not znode:
                 znode = z.node_factory()

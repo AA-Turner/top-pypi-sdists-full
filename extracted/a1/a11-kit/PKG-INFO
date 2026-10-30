@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: a11-kit
-Version: 0.7.9
+Version: 0.7.11
 Summary: A streaming action runtime for AI agents, model serving, and multimodal APIs
 Keywords: agents,generative-ai,llm,model-serving,streaming
 Author-Email: Curiosity Stack <hello@curiositystack.dev>

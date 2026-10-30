@@ -184,13 +184,14 @@ TOKEN_CAP = {"max_amount": "1", "max_amount_decimals": 6}
             id="cap-currency-pin-case-insensitive",
         ),
         pytest.param({}, make_challenge(currency=USDC), None, id="no-cap-any-currency"),
-        # chain pin (the default configuration pins mainnet)
-        pytest.param({}, make_challenge(chain_id=CHAIN_ID), None, id="chain-pinned"),
+        # chain pin: as mppx, an unpinned client pays on the challenge's chain
+        pytest.param({}, make_challenge(chain_id=CHAIN_ID), None, id="chain-mainnet"),
+        pytest.param({}, make_challenge(chain_id=TESTNET_CHAIN_ID), None, id="chain-follows"),
         pytest.param(
-            {},
-            make_challenge(chain_id=TESTNET_CHAIN_ID),
-            f"client is restricted to {CHAIN_ID}",
-            id="chain-mismatch",
+            {"allowed_chain_ids": [TESTNET_CHAIN_ID]},
+            make_challenge(),
+            "Chain ID not allowed: 4217",
+            id="chainless-challenge-checks-default-against-allowlist",
         ),
         pytest.param(
             {"chain_id": TESTNET_CHAIN_ID},
@@ -345,6 +346,65 @@ async def test_rejected_charge_is_never_signed() -> None:
     create.assert_not_called()
 
 
+# A recipient with extra hex digits would spill into the transfer's amount word.
+OVERLONG_RECIPIENT = "0x" + RECIPIENT[2:].lower().zfill(64) + f"{10**30:064x}"
+
+
+@pytest.mark.parametrize(
+    "challenge",
+    [
+        pytest.param(make_challenge(amount="1", recipient=OVERLONG_RECIPIENT), id="primary"),
+        pytest.param(
+            make_challenge(
+                amount="200",
+                splits=[{"amount": "100", "recipient": OVERLONG_RECIPIENT}],
+            ),
+            id="split",
+        ),
+        pytest.param(make_challenge(amount="1", recipient="0x1234"), id="short"),
+        pytest.param(make_challenge(amount="1", splits=True), id="splits-not-a-list"),  # type: ignore[arg-type]
+    ],
+)
+async def test_malformed_recipient_is_never_signed(challenge: Challenge) -> None:
+    method = make_method(max_atomic_amount=1000)
+
+    assert method.can_handle_challenge(challenge) is False
+    with (
+        patch("mpp.methods.tempo.client._rpc_call", AsyncMock()) as rpc,
+        patch("pytempo.TempoTransaction.create") as create,
+    ):
+        with pytest.raises(ValueError, match="not a valid address|must be a list"):
+            await method.create_credential(challenge)
+
+    rpc.assert_not_called()
+    create.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("to", "amount"),
+    [
+        pytest.param(OVERLONG_RECIPIENT, 1, id="overlong-recipient"),
+        pytest.param(RECIPIENT, 1 << 256, id="amount-overflow"),
+        pytest.param(RECIPIENT, -1, id="negative-amount"),
+    ],
+)
+def test_transfer_encoding_rejects_values_that_overflow_a_word(to: str, amount: int) -> None:
+    method = make_method()
+    memo = "0x" + "00" * 32
+
+    with pytest.raises(ValueError):
+        method._encode_transfer(to, amount)
+    with pytest.raises(ValueError):
+        method._encode_transfer_with_memo(to, amount, memo)
+
+
+def test_transfer_encoding_is_one_word_per_argument() -> None:
+    data = make_method()._encode_transfer(RECIPIENT, 1000)
+
+    assert len(data) == 2 + 8 + 64 * 2
+    assert data.endswith(f"{1000:064x}")
+
+
 @pytest.mark.parametrize(
     ("max_amount", "cap"),
     [
@@ -400,9 +460,9 @@ UNDER = {"amount": "1000"}
         ),
         pytest.param(
             {},
-            [{"chain_id": TESTNET_CHAIN_ID}, {"chain_id": CHAIN_ID}],
+            [{"chain_id": 1}, {"chain_id": TESTNET_CHAIN_ID}],
             1,
-            id="wrong-then-right-chain",
+            id="unknown-then-known-chain",
         ),
         pytest.param(
             {"chain_id": TESTNET_CHAIN_ID},
@@ -413,9 +473,9 @@ UNDER = {"amount": "1000"}
         pytest.param({"max_atomic_amount": 1000}, [OVER, {"amount": "2000"}], None, id="all-over"),
         pytest.param(
             {},
-            [{"chain_id": TESTNET_CHAIN_ID}, {"chain_id": 1}],
+            [{"chain_id": 1}, {"chain_id": 5}],
             None,
-            id="all-wrong-chain",
+            id="all-unknown-chain",
         ),
         pytest.param(
             TOKEN_CAP, [{"amount": "1000001"}, {"amount": "2000000"}], None, id="token-all-over"
@@ -460,6 +520,15 @@ def test_challenge_selection_skips_offers_outside_policy(
     mcp_challenge, mcp_method = mcp._match_challenge(mcp_challenges)
     assert mcp_challenge.id == f"offer-{expected}"
     assert mcp_method is method
+
+
+def test_rpc_pinned_client_selects_a_chainless_challenge_before_resolving() -> None:
+    """A chain pinned by rpc_url alone is checked against allowed_chain_ids at signing,
+    once its RPC answers, not refused during selection."""
+    method = make_method(rpc_url="https://rpc.custom", allowed_chain_ids=[TESTNET_CHAIN_ID])
+    assert method.can_handle_challenge(make_challenge())
+    method._cached_chain_ids["https://rpc.custom"] = CHAIN_ID
+    assert not method.can_handle_challenge(make_challenge())
 
 
 @pytest.mark.parametrize(

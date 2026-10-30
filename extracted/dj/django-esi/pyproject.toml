@@ -10,12 +10,13 @@ keywords = [
 ]
 license = { file = "LICENSE" }
 authors = [ { name = "Alliance Auth", email = "adarnof@gmail.com" } ]
-requires-python = ">=3.10,<3.15"
+requires-python = ">=3.10,<3.16"
 classifiers = [
     "Environment :: Web Environment",
     "Framework :: Django",
     "Framework :: Django :: 5.2",
     "Framework :: Django :: 6.0",
+    "Framework :: Django :: 6.1",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Operating System :: OS Independent",
@@ -26,6 +27,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Internet :: WWW/HTTP",
     "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
 ]
@@ -40,6 +42,12 @@ dependencies = [
     "requests>=2.26",            # No longer used by Django-ESI, kept for apps relying on it, to be removed
     "requests-oauthlib>=0.8",    # No longer used by Django-ESI, kept for apps relying on it, to be removed
     "tenacity",
+]
+optional-dependencies.dev = [
+    "celery-types",
+    "djlint",
+    "flake8",
+    "isort",
 ]
 optional-dependencies.docs = [
     "docutils==0.22",           # Held 0.22 for Sphinx RTD Theme 3.1

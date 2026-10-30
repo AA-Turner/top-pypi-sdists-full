@@ -27,6 +27,7 @@ class FinancialTransaction(BaseModel):
         "ACH",
         "WIRE",
         "STABLECOIN",
+        "INTRA_BANK",
         "BALANCE_OR_FUNDING",
         "FEE",
         "REWARD",
@@ -97,9 +98,6 @@ class CardTransaction(Transaction):
 
     family: Literal["CARD"]
     """CARD - Card Transaction"""
-
-    status: Literal["PENDING", "SETTLED", "DECLINED", "REVERSED", "CANCELED", "RETURNED"]  # type: ignore
-    """The status of the transaction"""
 
     updated: datetime  # type: ignore
     """ISO 8601 timestamp of when the transaction was last updated"""

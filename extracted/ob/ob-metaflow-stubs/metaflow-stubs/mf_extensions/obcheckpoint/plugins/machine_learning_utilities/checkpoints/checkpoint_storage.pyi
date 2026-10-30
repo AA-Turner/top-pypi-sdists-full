@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.39.1+obcheckpoint(0.2.14);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-10-28T20:25:48.000578                                                            #
+# MF version: 2.19.39.2+obcheckpoint(0.2.14);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-10-29T12:38:34.486108                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,10 +9,10 @@ from __future__ import annotations
 import typing
 import metaflow
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastore.core
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.checkpoint_storage
-    import metaflow.datastore.datastore_storage
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastore.core
+    import metaflow.datastore.datastore_storage
 
 from ..exceptions import KeyNotCompatibleWithObjectException as KeyNotCompatibleWithObjectException
 from ..utils.identity_utils import pathspec_hash as pathspec_hash

@@ -240,7 +240,7 @@ class InitConnect:
         pass
 
     @classmethod
-    def pack_req(cls, client_ver, client_id, recv_notify, is_encrypt, push_proto_fmt, ai_type=0):
+    def pack_req(cls, client_ver, client_id, recv_notify, is_encrypt, push_proto_fmt, ai_type=0, token=''):
 
         from ..common.pb.InitConnect_pb2 import Request
         req = Request()
@@ -250,6 +250,9 @@ class InitConnect:
         req.c2s.pushProtoFmt = push_proto_fmt
         req.c2s.programmingLanguage = 'Python'
         req.c2s.aiType = ai_type
+
+        if token:
+            req.c2s.token = token
 
         if is_encrypt:
             req.c2s.packetEncAlgo = Common_pb2.PacketEncAlgo_AES_CBC

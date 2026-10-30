@@ -419,3 +419,373 @@ fn artifact_link_index_binding_preserves_tolerant_read_model_coercions() {
         assert_eq!(projected["edges"][1]["uses"], json!(5000));
     });
 }
+
+#[test]
+fn artifact_link_collision_bindings_round_trip() {
+    pyo3::prepare_freethreaded_python();
+    Python::with_gil(|py| {
+        let module = PyModule::new_bound(py, "sase_core_rs").unwrap();
+        sase_core_rs(py, &module).unwrap();
+        for name in [
+            "artifact_link_collision_wire_schema_version",
+            "artifact_link_quarantine_wire_schema_version",
+            "artifact_link_collision_partition",
+            "artifact_link_quarantine_record_path",
+            "artifact_link_quarantine_record_canonical_json",
+            "artifact_link_quarantine_record_validate",
+        ] {
+            assert!(module.getattr(name).is_ok(), "missing {name}");
+        }
+        assert_eq!(py_artifact_link_collision_wire_schema_version(), 1);
+        assert_eq!(py_artifact_link_quarantine_wire_schema_version(), 1);
+
+        let op_id = "a".repeat(32);
+        let event = |target: &str| {
+            json!({
+                "schema_version": 1,
+                "project_key": "gh_acme__widget",
+                "operation_id": op_id,
+                "created_by": "agent:reader",
+                "origin": "read",
+                "created_at": "2026-09-09T12:00:00Z",
+                "kind": {
+                    "type": "observation",
+                    "edge": {
+                        "kind": "directed",
+                        "source_ref": "agent:reader",
+                        "relation": "read",
+                        "target_ref": target,
+                    },
+                    "description": "read the artifact",
+                    "occurrences": 1,
+                },
+            })
+        };
+        let durable_event = event("plan:202609/a.md");
+        let replay_event = event("plan:202609/b.md");
+        let durable_dict = request_dict(py, durable_event.clone());
+        let replay_dict = request_dict(py, replay_event.clone());
+        let durable_canonical =
+            py_artifact_link_event_canonical_json(&durable_dict).unwrap();
+        let replay_canonical =
+            py_artifact_link_event_canonical_json(&replay_dict).unwrap();
+        let durable_digest =
+            py_artifact_link_event_digest(&durable_dict).unwrap();
+        let replay_digest =
+            py_artifact_link_event_digest(&replay_dict).unwrap();
+        assert_ne!(durable_digest, replay_digest);
+
+        let candidate = |event: serde_json::Value,
+                         canonical: &str,
+                         digest: &str,
+                         tier: &str,
+                         evidence: serde_json::Value| {
+            json!({
+                "event": event,
+                "digest": digest,
+                "canonical_json": canonical,
+                "tier": tier,
+                "evidence": evidence,
+                "source_locator": format!("{tier}:root"),
+            })
+        };
+        let partition_request = request_dict(
+            py,
+            json!({
+                "schema_version": 1,
+                "candidates": [
+                    candidate(
+                        replay_event.clone(),
+                        &replay_canonical,
+                        &replay_digest,
+                        "incoming",
+                        json!({}),
+                    ),
+                    candidate(
+                        durable_event.clone(),
+                        &durable_canonical,
+                        &durable_digest,
+                        "durable",
+                        json!({}),
+                    ),
+                ],
+            }),
+        );
+        let partition_obj =
+            py_artifact_link_collision_partition(py, &partition_request)
+                .unwrap();
+        let partition = py_to_json_value(partition_obj.bind(py)).unwrap();
+        assert_eq!(partition["schema_version"], json!(1));
+        assert_eq!(partition["groups"].as_array().unwrap().len(), 1);
+        let group = &partition["groups"][0];
+        assert_eq!(group["basis"], json!("durable_beats_incoming"));
+        assert_eq!(group["rejected"].as_array().unwrap().len(), 1);
+        assert_eq!(group["accepted"]["digest"], json!(durable_digest));
+        assert_eq!(group["rejected"][0]["digest"], json!(replay_digest));
+
+        let mut historical_candidates: Vec<(
+            serde_json::Value,
+            String,
+            String,
+        )> = [
+            "plan:202610/one.md",
+            "plan:202610/two.md",
+            "plan:202610/three.md",
+        ]
+        .into_iter()
+        .map(|target| {
+            let event = event(target);
+            let dict = request_dict(py, event.clone());
+            let canonical =
+                py_artifact_link_event_canonical_json(&dict).unwrap();
+            let digest = py_artifact_link_event_digest(&dict).unwrap();
+            (event, canonical, digest)
+        })
+        .collect();
+        historical_candidates.sort_by(|left, right| left.2.cmp(&right.2));
+        let first_commit = "a".repeat(40);
+        let second_commit = "b".repeat(40);
+        let third_commit = "c".repeat(40);
+        let historical_partition_request = request_dict(
+            py,
+            json!({
+                "schema_version": 1,
+                "candidates": [
+                    candidate(
+                        historical_candidates[0].0.clone(),
+                        &historical_candidates[0].1,
+                        &historical_candidates[0].2,
+                        "durable",
+                        json!({
+                            "history_complete": true,
+                            "first_commit_id": first_commit.clone(),
+                            "first_commit_at": "2026-10-27T12:00:00Z",
+                            "ancestor_commit_ids": [],
+                        }),
+                    ),
+                    candidate(
+                        historical_candidates[1].0.clone(),
+                        &historical_candidates[1].1,
+                        &historical_candidates[1].2,
+                        "durable",
+                        json!({
+                            "history_complete": true,
+                            "first_commit_id": second_commit.clone(),
+                            "first_commit_at": "2026-10-27T11:00:00Z",
+                            "ancestor_commit_ids": [],
+                        }),
+                    ),
+                    candidate(
+                        historical_candidates[2].0.clone(),
+                        &historical_candidates[2].1,
+                        &historical_candidates[2].2,
+                        "durable",
+                        json!({
+                            "history_complete": true,
+                            "first_commit_id": third_commit.clone(),
+                            "first_commit_at": "2026-10-27T10:00:00Z",
+                            "ancestor_commit_ids": [first_commit.clone()],
+                        }),
+                    ),
+                ],
+            }),
+        );
+        let historical_partition_obj = py_artifact_link_collision_partition(
+            py,
+            &historical_partition_request,
+        )
+        .unwrap();
+        let historical_partition =
+            py_to_json_value(historical_partition_obj.bind(py)).unwrap();
+        let historical_group = &historical_partition["groups"][0];
+        assert_eq!(
+            historical_group["basis"],
+            json!("historical_commit_time_wins")
+        );
+        assert_eq!(
+            historical_group["accepted"]["digest"],
+            json!(historical_candidates[1].2)
+        );
+        let descendant_finding = historical_group["rejected"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|finding| {
+                finding["digest"] == json!(historical_candidates[2].2)
+            })
+            .expect("descendant is reported as rejected");
+        assert_eq!(
+            descendant_finding["basis"],
+            json!("historical_ancestor_wins")
+        );
+
+        let repeated_event = event("plan:202610/repeated.md");
+        let competitor_event = event("plan:202610/competitor.md");
+        let repeated_dict = request_dict(py, repeated_event.clone());
+        let competitor_dict = request_dict(py, competitor_event.clone());
+        let repeated_canonical =
+            py_artifact_link_event_canonical_json(&repeated_dict).unwrap();
+        let competitor_canonical =
+            py_artifact_link_event_canonical_json(&competitor_dict).unwrap();
+        let repeated_digest =
+            py_artifact_link_event_digest(&repeated_dict).unwrap();
+        let competitor_digest =
+            py_artifact_link_event_digest(&competitor_dict).unwrap();
+        let early_commit = "a".repeat(40);
+        let competitor_commit = "b".repeat(40);
+        let late_copy_commit = "c".repeat(40);
+        let copy_chronology_request = request_dict(
+            py,
+            json!({
+                "schema_version": 1,
+                "candidates": [
+                    candidate(
+                        repeated_event.clone(),
+                        &repeated_canonical,
+                        &repeated_digest,
+                        "durable",
+                        json!({
+                            "history_complete": true,
+                            "first_commit_id": early_commit,
+                            "first_commit_at": "2026-10-27T10:00:00Z",
+                            "ancestor_commit_ids": [],
+                        }),
+                    ),
+                    candidate(
+                        repeated_event.clone(),
+                        &repeated_canonical,
+                        &repeated_digest,
+                        "durable",
+                        json!({
+                            "history_complete": true,
+                            "first_commit_id": late_copy_commit,
+                            "first_commit_at": "2026-10-27T12:00:00Z",
+                            "ancestor_commit_ids": [competitor_commit],
+                        }),
+                    ),
+                    candidate(
+                        competitor_event.clone(),
+                        &competitor_canonical,
+                        &competitor_digest,
+                        "durable",
+                        json!({
+                            "history_complete": true,
+                            "first_commit_id": competitor_commit,
+                            "first_commit_at": "2026-10-27T11:00:00Z",
+                            "ancestor_commit_ids": [],
+                        }),
+                    ),
+                ],
+            }),
+        );
+        let copy_chronology_obj =
+            py_artifact_link_collision_partition(py, &copy_chronology_request)
+                .unwrap();
+        let copy_chronology =
+            py_to_json_value(copy_chronology_obj.bind(py)).unwrap();
+        let copy_group = &copy_chronology["groups"][0];
+        assert_eq!(copy_group["accepted"]["digest"], json!(repeated_digest));
+        assert_eq!(copy_group["basis"], json!("historical_commit_time_wins"));
+
+        let first_copy_commit = "d".repeat(40);
+        let skewed_copy_commit = "e".repeat(40);
+        let independent_commit = "f".repeat(40);
+        let skewed_copy_request = request_dict(
+            py,
+            json!({
+                "schema_version": 1,
+                "candidates": [
+                    candidate(
+                        repeated_event.clone(),
+                        &repeated_canonical,
+                        &repeated_digest,
+                        "durable",
+                        json!({
+                            "history_complete": true,
+                            "first_commit_id": first_copy_commit.clone(),
+                            "first_commit_at": "2026-10-27T12:00:00Z",
+                            "ancestor_commit_ids": [],
+                        }),
+                    ),
+                    candidate(
+                        repeated_event.clone(),
+                        &repeated_canonical,
+                        &repeated_digest,
+                        "durable",
+                        json!({
+                            "history_complete": true,
+                            "first_commit_id": skewed_copy_commit,
+                            "first_commit_at": "2026-10-27T10:00:00Z",
+                            "ancestor_commit_ids": [first_copy_commit],
+                        }),
+                    ),
+                    candidate(
+                        competitor_event.clone(),
+                        &competitor_canonical,
+                        &competitor_digest,
+                        "durable",
+                        json!({
+                            "history_complete": true,
+                            "first_commit_id": independent_commit,
+                            "first_commit_at": "2026-10-27T11:00:00Z",
+                            "ancestor_commit_ids": [],
+                        }),
+                    ),
+                ],
+            }),
+        );
+        let skewed_copy_obj =
+            py_artifact_link_collision_partition(py, &skewed_copy_request)
+                .unwrap();
+        let skewed_copy = py_to_json_value(skewed_copy_obj.bind(py)).unwrap();
+        let skewed_group = &skewed_copy["groups"][0];
+        assert_eq!(
+            skewed_group["accepted"]["digest"],
+            json!(competitor_digest)
+        );
+        assert_eq!(skewed_group["basis"], json!("historical_commit_time_wins"));
+        let repeated_finding = skewed_group["rejected"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|finding| finding["digest"] == json!(repeated_digest))
+            .expect("the repeated payload is rejected");
+        assert_eq!(
+            repeated_finding["basis"],
+            json!("historical_commit_time_wins")
+        );
+
+        let path =
+            py_artifact_link_quarantine_record_path(&op_id, &replay_digest)
+                .unwrap();
+        assert_eq!(
+            path,
+            format!("link-events/quarantine/v1/{op_id}/{replay_digest}.json")
+        );
+
+        let record = request_dict(
+            py,
+            json!({
+                "schema_version": 1,
+                "project_key": "gh_acme__widget",
+                "operation_id": op_id,
+                "accepted_digest": durable_digest,
+                "rejected_digest": replay_digest,
+                "rejected_event": replay_event,
+                "rejected_canonical_json": replay_canonical,
+                "selection_basis": "durable_beats_incoming",
+                "ambiguity": [],
+                "source_locator": "incoming:root",
+                "detail": "durable beats incoming",
+            }),
+        );
+        let validated_obj =
+            py_artifact_link_quarantine_record_validate(py, &record).unwrap();
+        let validated = py_to_json_value(validated_obj.bind(py)).unwrap();
+        assert_eq!(validated["rejected_digest"], json!(replay_digest));
+        let canonical =
+            py_artifact_link_quarantine_record_canonical_json(&record).unwrap();
+        assert!(canonical.ends_with('\n'));
+        assert!(canonical.contains(&replay_digest));
+    });
+}

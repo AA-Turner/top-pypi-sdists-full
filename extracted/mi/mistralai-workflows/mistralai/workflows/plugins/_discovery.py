@@ -5,7 +5,7 @@ import pkgutil
 from importlib.metadata import packages_distributions, version
 from typing import TYPE_CHECKING, NamedTuple, cast
 
-import structlog
+from mistralai.workflows.core._logger import get_logger
 
 if TYPE_CHECKING:
     from typing import Type
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 PLUGIN_NAMESPACE = cast(str, __package__)  # cast so it's not typed as optional str
 SELF = __name__.split(".")[-1]
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 
 class ContributionInfo(NamedTuple):

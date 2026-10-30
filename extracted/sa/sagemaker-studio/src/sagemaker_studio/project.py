@@ -1,12 +1,19 @@
+import logging
 from dataclasses import dataclass, field
 from typing import List, Optional
 
+from sagemaker_studio import local_kernel
 from sagemaker_studio.connections import ConnectionService
 from sagemaker_studio.connections.connection import Connection
+from sagemaker_studio.connections.providers.app_api import LOCAL_DOMAIN_ID, LOCAL_SCOPE_ID
 from sagemaker_studio.data_models import ClientConfig
+from sagemaker_studio.exceptions import UnsupportedInModeError
 from sagemaker_studio.execution.utils import RemoteExecutionUtils
+from sagemaker_studio.local_kernel import RuntimeMode
 from sagemaker_studio.sagemaker_studio_api import SageMakerStudioAPI
 from sagemaker_studio.utils._internal import InternalUtils
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -14,6 +21,13 @@ class Project:
     """
     Represents a SageMaker Unified Studio project. Project allows a user to retrieve information about a project,
     including its connections, databases, tables, S3 paths, IAM roles, and more.
+
+    On an AWS Notebook local kernel (see :mod:`sagemaker_studio.local_kernel`) ``Project()``
+    stands for the open notebook workspace: connections resolve by id and are listed through the
+    app's API (:mod:`~sagemaker_studio.connections.providers.app_api`) and no DataZone call is
+    made. Members only DataZone can answer (S3 paths, KMS key, MLflow server, IAM role, user id,
+    connections by name or type) raise :class:`~sagemaker_studio.exceptions.UnsupportedInModeError`
+    there.
 
     Attributes:
         id (Optional[str]): The unique identifier of the project.
@@ -61,8 +75,63 @@ class Project:
         self.name = name
         self.id = id
         self.config = config
-        self._initialize_project()
+        kernel = local_kernel.local_kernel()
+        if kernel is not None:
+            if name or id or domain_id:
+                raise UnsupportedInModeError(
+                    "DataZone projects",
+                    kernel.context().mode,
+                    RuntimeMode.REMOTE,
+                    "An AWS Notebook local kernel has no SageMaker Unified Studio project; its "
+                    "connections come from the AWS Notebook app, so call Project() without a "
+                    "name, id or domain_id.",
+                )
+            self._datazone_backed = False
+            self._initialize_local_project(kernel)
+        else:
+            self._datazone_backed = True
+            self._initialize_project()
         self.s3 = _ProjectS3Path(self)
+
+    def _initialize_local_project(self, kernel: local_kernel.LocalKernel) -> None:
+        """
+        Build the Project of an AWS Notebook local kernel: connections through the app's API,
+        no DataZone. An injected ``ClientConfig(connection_provider=...)`` takes precedence.
+        """
+        provider = self.config.connection_provider or kernel.connection_provider()
+        self._connection_provider = provider
+        self.domain_id = getattr(provider, "domain_id", None) or LOCAL_DOMAIN_ID
+        self.id = getattr(provider, "project_id", None) or LOCAL_SCOPE_ID
+        self.name = LOCAL_SCOPE_ID
+        self.project_status = "LOCAL"
+        self.project_profile_id = ""
+        self.domain_unit_id = LOCAL_SCOPE_ID
+        self._connection_service = ConnectionService(
+            project_id=str(self.id),
+            domain_id=str(self.domain_id),
+            datazone_api=None,
+            glue_api=self._sagemaker_studio_api.glue_api,
+            secrets_manager_api=self._sagemaker_studio_api.secrets_manager_api,
+            kms_api=self._sagemaker_studio_api.kms_api,
+            project_config=self.config,
+            provider=provider,
+        )
+        self._is_express_mode = False
+        logger.debug(
+            "Project built for a local kernel from the %r connection provider",
+            getattr(provider, "name", type(provider).__name__),
+        )
+
+    def _require_datazone(self, feature: str) -> None:
+        """Refuse a member only DataZone can answer when this Project is not DataZone-backed."""
+        if not getattr(self, "_datazone_backed", True):
+            raise UnsupportedInModeError(
+                feature,
+                local_kernel.current_context().mode,
+                RuntimeMode.REMOTE,
+                "Only a SageMaker Unified Studio project provides this; an AWS Notebook local "
+                "kernel works from the connections the app vends.",
+            )
 
     def _initialize_project(self):
         if not self.domain_id:
@@ -122,6 +191,7 @@ class Project:
         Returns:
             str: The KMS key ARN.
         """
+        self._require_datazone("The project KMS key")
         return self._utils._get_project_kms_key_arn(
             project_api=self._sagemaker_studio_api.project_api,
             datazone_api=self._sagemaker_studio_api.datazone_api,
@@ -137,6 +207,7 @@ class Project:
         Returns:
             str: The MLflow tracking server ARN.
         """
+        self._require_datazone("The MLflow tracking server")
         return self._utils._get_mlflow_tracking_server_arn(
             datazone_api=self._sagemaker_studio_api.datazone_api,
             domain_id=str(self.domain_id),
@@ -206,7 +277,12 @@ class Project:
 
         Returns:
             str: The IAM role ARN.
+
+        Raises:
+            UnsupportedInModeError: On an AWS Notebook local kernel, which has no project role;
+                each connection there uses the credentials the app vends for it.
         """
+        self._require_datazone("The project IAM role")
         if not hasattr(self, "_cached_iam_role"):
             project_iam_connection = self._get_iam_connection_name()
             connection = self.connection(name=project_iam_connection)
@@ -223,7 +299,12 @@ class Project:
 
         Returns:
             str: The user ID.
+
+        Raises:
+            UnsupportedInModeError: On an AWS Notebook local kernel; there is no SageMaker
+                Unified Studio user to identify.
         """
+        self._require_datazone("The SageMaker Unified Studio user id")
         return self._utils._get_user_id()
 
     @property
@@ -233,7 +314,12 @@ class Project:
 
         Returns:
             str: The path of shared files.
+
+        Raises:
+            UnsupportedInModeError: On an AWS Notebook local kernel; the shared files path is a
+                SageMaker Unified Studio project's ``default.s3_shared`` connection.
         """
+        self._require_datazone("The shared files path")
         try:
             connection = self.connection(name="default.s3_shared")
             if connection:
@@ -386,6 +472,7 @@ class _ProjectS3Path:
             str: The S3 path of the specified environment.
         """
         environment_id = environment_id.strip("/")
+        self._project._require_datazone("Project environment S3 paths")
         # Check if the environment exists
         self._project._sagemaker_studio_api.datazone_api.get_environment(
             domainIdentifier=self._project.domain_id, identifier=environment_id
@@ -394,6 +481,7 @@ class _ProjectS3Path:
         return f"{self._get_project_s3_path()}/{environment_id}"
 
     def _get_path(self, blueprint_name, blueprint_path):
+        self._project._require_datazone("Project S3 paths")
         # Check if the environment for this path exists
         if self._project._sagemaker_studio_api.project_api.is_default_environment_present(
             domain_identifier=self._project.domain_id,  # type: ignore
@@ -409,6 +497,7 @@ class _ProjectS3Path:
             )
 
     def _get_project_s3_path(self):
+        self._project._require_datazone("The project S3 root")
         return self._project._utils._get_project_s3_path(
             project_api=self._project._sagemaker_studio_api.project_api,
             datazone_api=self._project._sagemaker_studio_api.datazone_api,

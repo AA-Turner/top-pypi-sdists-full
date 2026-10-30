@@ -9,6 +9,8 @@ no sweep scanned that status. The handshake below is what closes it.
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from datetime import datetime, timedelta
@@ -735,8 +737,11 @@ class TestTerminalWritesAreFenced:
             "a superseded attempt's finish closed the live one"
         )
         assert [w["path"] for w in app.fenced_writes] == [f"/v1/runs/{old.id}"]
-        (dead,) = old_client.journal.failed()
-        assert dead[1]["method"] == "PATCH"
+        # Set aside, not dead-lettered (T24): no retry can ever land it, and a
+        # dead letter nagged every session start.
+        assert old_client.journal.failed() == []
+        (kept,) = (old_client.journal.dir / "discarded").glob("*.json")
+        assert json.loads(kept.read_text())["method"] == "PATCH"
 
     def test_the_deferred_finish_carries_the_epoch(self, app, tmp_path):
         from tests.conftest import make_client

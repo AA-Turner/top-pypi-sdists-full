@@ -1,4 +1,4 @@
-__lazy_modules__ = ["django.http"]  # py3,16
+__lazy_modules__ = ["django.http", "esi.managers"]  # py3.15
 
 import logging
 from typing import TYPE_CHECKING
@@ -13,12 +13,16 @@ from esi.models import CallbackRedirect, Token
 from .decorators import tokens_required
 
 if TYPE_CHECKING:  # py3.14
-    from django.http import HttpResponseRedirect
+    from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
+
+    from esi.managers import TokenQueryset
 
 logger = logging.getLogger(__name__)
 
 
-def sso_redirect(request, scopes=None, return_to=None) -> "HttpResponseRedirect":
+def sso_redirect(
+    request: "HttpRequest", scopes: list[str] | str | None = None, return_to: str | None = None
+) -> "HttpResponseRedirect":
     """
     Generates a :model:`esi.CallbackRedirect` for the specified request.
     Redirects to EVE for login.
@@ -30,7 +34,7 @@ def sso_redirect(request, scopes=None, return_to=None) -> "HttpResponseRedirect"
         request.session.session_key[:5] if request.session.session_key else '[no key]'
     )
     if scopes is None:
-        scopes: list = []
+        scopes = []
     elif isinstance(scopes, str):
         scopes = list([scopes])
 
@@ -63,7 +67,7 @@ def sso_redirect(request, scopes=None, return_to=None) -> "HttpResponseRedirect"
     return redirect(redirect_url)
 
 
-def receive_callback(request) -> "HttpResponseBadRequest | HttpResponseRedirect":
+def receive_callback(request: "HttpRequest") -> "HttpResponseBadRequest | HttpResponseRedirect":
     """
     Parses SSO callback, validates, retrieves :model:`esi.Token`,
     and internally redirects to the target url.
@@ -95,13 +99,13 @@ def receive_callback(request) -> "HttpResponseBadRequest | HttpResponseRedirect"
     return redirect(callback.url)
 
 
-def select_token(request, scopes='', new=False):
+def select_token(request: "HttpRequest", scopes: list[str] | str = '', new: bool = False) -> "HttpResponse":
     """
     Presents the user with a selection of applicable tokens for the requested view.
     """
 
     @tokens_required(scopes=scopes, new=new)
-    def _token_list(r, tokens):
+    def _token_list(r: "HttpRequest", tokens: "TokenQueryset") -> "HttpResponse":
         # Single Scope as string will break the Parser in the template
         if isinstance(scopes, str):
             scopes_output = [scopes]
@@ -110,8 +114,8 @@ def select_token(request, scopes='', new=False):
 
         # fake distint on character_name to not show duplicates
         # MySQL doesn't support distint on field.
-        token_output = []
-        _characters = set()
+        token_output: list[Token] = []
+        _characters: set[str] = set()
         for t in tokens:
             if t.character_name in _characters:
                 continue

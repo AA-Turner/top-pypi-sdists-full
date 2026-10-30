@@ -1,5 +1,5 @@
 use std::ffi::OsString;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use _pipdeptree::{
     ProcessError, ProcessOutput, ProcessRequest, ProcessRunner, SystemProcessRunner,
@@ -12,6 +12,7 @@ fn builds_process_requests() {
         .in_directory("work")
         .with_stdin(b"input".to_vec())
         .with_timeout(Duration::from_secs(2))
+        .with_output_limit(64)
         .without_environment(["FIRST", "SECOND"])
         .with_environment([("THIRD", "value")]);
 
@@ -23,6 +24,7 @@ fn builds_process_requests() {
             current_dir: Some("work".into()),
             stdin: b"input".to_vec(),
             timeout: Some(Duration::from_secs(2)),
+            output_limit: 64,
             removed_environment: vec![OsString::from("FIRST"), OsString::from("SECOND")],
             added_environment: vec![(OsString::from("THIRD"), OsString::from("value"))],
         }
@@ -199,6 +201,76 @@ fn times_out_system_processes() {
     assert_eq!(error, ProcessError::TimedOut);
 }
 
+#[rstest]
+#[case::child_killed("time.sleep(60)")]
+#[case::child_exited("")]
+fn times_out_while_a_grandchild_holds_the_output(#[case] child_rest: &str) {
+    let script = format!(
+        "import subprocess, sys, time\n\
+         subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'], \
+         stdout=sys.stdout, stderr=sys.stderr)\n\
+         {child_rest}"
+    );
+    let started = Instant::now();
+
+    let error = SystemProcessRunner
+        .run(&ProcessRequest::new(python(), ["-c", &script]).with_timeout(Duration::from_secs(3)))
+        .unwrap_err();
+
+    assert_eq!(
+        (error, started.elapsed() < Duration::from_secs(30)),
+        (ProcessError::TimedOut, true)
+    );
+}
+
+#[rstest]
+#[case::stdout("import sys; sys.stdout.write('x' * 1001)")]
+#[case::stderr("import sys; sys.stderr.write('x' * 1001)")]
+fn rejects_output_over_the_limit(#[case] script: &str) {
+    let error = SystemProcessRunner
+        .run(&ProcessRequest::new(python(), ["-c", script]).with_output_limit(1000))
+        .unwrap_err();
+
+    assert_eq!(
+        error,
+        ProcessError::Failed("output exceeds 1000 bytes".to_string())
+    );
+}
+
+#[test]
+fn keeps_output_at_the_limit() {
+    let output = SystemProcessRunner
+        .run(
+            &ProcessRequest::new(python(), ["-c", "import sys; sys.stdout.write('x' * 1000)"])
+                .with_output_limit(1000),
+        )
+        .unwrap();
+
+    assert_eq!(output.stdout, vec![b'x'; 1000]);
+}
+
+#[test]
+fn stops_children_that_write_past_the_limit() {
+    let error = SystemProcessRunner
+        .run(
+            &ProcessRequest::new(
+                python(),
+                [
+                    "-c",
+                    "import sys\nwhile True: sys.stdout.write('x' * 65536)",
+                ],
+            )
+            .with_output_limit(1000)
+            .with_timeout(Duration::from_secs(60)),
+        )
+        .unwrap_err();
+
+    assert_eq!(
+        error,
+        ProcessError::Failed("output exceeds 1000 bytes".to_string())
+    );
+}
+
 #[test]
 fn reports_missing_processes() {
     let error = SystemProcessRunner
@@ -222,6 +294,63 @@ fn reports_process_start_failures() {
         .unwrap_err();
 
     assert!(matches!(error, ProcessError::Failed(message) if !message.is_empty()));
+}
+
+#[cfg(unix)]
+#[test]
+fn skips_programs_in_the_working_directory() {
+    let project = tempfile::tempdir().unwrap();
+    write_probe(project.path(), 0o755);
+    let search = format!("{}:", std::env::var("PATH").unwrap());
+
+    let error = temp_env::with_var("PATH", Some(search), || {
+        SystemProcessRunner
+            .run(
+                &ProcessRequest::new("pipdeptree-path-probe", std::iter::empty::<&str>())
+                    .in_directory(project.path()),
+            )
+            .unwrap_err()
+    });
+
+    assert_eq!(error, ProcessError::NotFound);
+}
+
+#[cfg(unix)]
+#[test]
+fn skips_programs_without_execute_permission() {
+    let (skipped, found, project) = (
+        tempfile::tempdir().unwrap(),
+        tempfile::tempdir().unwrap(),
+        tempfile::tempdir().unwrap(),
+    );
+    write_probe(skipped.path(), 0o644);
+    write_probe(found.path(), 0o755);
+    let search = std::env::join_paths(
+        [skipped.path().to_path_buf(), found.path().to_path_buf()]
+            .into_iter()
+            .chain(std::env::split_paths(&std::env::var_os("PATH").unwrap())),
+    )
+    .unwrap();
+
+    let output = temp_env::with_var("PATH", Some(search), || {
+        SystemProcessRunner
+            .run(
+                &ProcessRequest::new("pipdeptree-path-probe", std::iter::empty::<&str>())
+                    .in_directory(project.path()),
+            )
+            .unwrap()
+    });
+
+    assert_eq!((output.success, output.stdout), (true, b"probe\n".to_vec()));
+}
+
+#[cfg(unix)]
+fn write_probe(directory: &std::path::Path, mode: u32) {
+    use std::os::unix::fs::PermissionsExt as _;
+
+    let probe = directory.join("pipdeptree-path-probe");
+    std::fs::write(&probe, "#!/bin/sh\necho probe\n").unwrap();
+    std::fs::set_permissions(&probe, std::fs::Permissions::from_mode(mode)).unwrap();
 }
 
 const fn python() -> &'static str {

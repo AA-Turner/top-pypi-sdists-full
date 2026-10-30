@@ -1,8 +1,11 @@
 from typing import Any
 
 from pydantic import BaseModel
+from temporalio.exceptions import ApplicationError
 
+from mistralai.workflows.core._events.event_activities import _emit_task_completed, _emit_task_started
 from mistralai.workflows.core.activity import activity
+from mistralai.workflows.core.execution.local_activity import run_activities_locally
 from mistralai.workflows.core.task import task
 from mistralai.workflows.core.workflow import workflow
 
@@ -126,6 +129,14 @@ class TaskInWorkflowWorkflow:
             )
 
 
+@workflow.define(name="failing_task_in_workflow")
+class FailingTaskInWorkflowWorkflow:
+    @workflow.entrypoint
+    async def run(self) -> None:
+        async with task("failing_workflow_task"):
+            raise ApplicationError("Task body failed", non_retryable=True)
+
+
 @workflow.define(name="failing_task_workflow")
 class FailingTaskWorkflow:
     @workflow.entrypoint
@@ -191,3 +202,20 @@ class TaskSpanningActivitiesWorkflow:
                 "final_status": t.state.status,
                 "activity_results": results,
             }
+
+
+@activity(name="emit_task_from_user_activity")
+async def emit_task_from_user_activity() -> None:
+    await _emit_task_started("task-from-activity", "custom", {})
+    await _emit_task_completed("task-from-activity", "custom", {})
+
+
+@workflow.define(name="emitter_in_user_activity_workflow")
+class EmitterInUserActivityWorkflow:
+    @workflow.entrypoint
+    async def run(self, run_locally: bool) -> None:
+        if not run_locally:
+            await emit_task_from_user_activity()
+            return
+        with run_activities_locally():
+            await emit_task_from_user_activity()

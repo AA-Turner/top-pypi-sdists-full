@@ -10,26 +10,20 @@ Apple documents only the Recovery mode sequences; the DFU sequences below are th
 """
 
 import asyncio
-import sys
 import time
 from collections.abc import Awaitable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Callable, Optional, cast
+from typing import Callable, Optional
 
 from rich.console import Console
 from rich.live import Live
 from rich.text import Text
 
 from pymobiledevice3 import usbmux
-from pymobiledevice3.irecv._usb import APPLE_VENDOR_ID, Mode, UsbDevice, find
+from pymobiledevice3.irecv._usb import APPLE_VENDOR_ID, KIS_PRODUCT_ID, Mode
+from pymobiledevice3.usb import list_devices, uses_iokit
 
-if sys.platform == "darwin":
-    from ioregistry.ioentry import get_io_services_by_type
-else:
-    get_io_services_by_type = None
-
-KIS_PRODUCT_ID = 0x1881  # A16 and later in DFU mode (libirecovery 4472436)
 POLL_INTERVAL = 0.1
 
 
@@ -54,19 +48,18 @@ class _UsbEntry:
 def _usb_devices() -> list[_UsbEntry]:
     """Every USB device on the host.
 
-    On macOS this asks IOKit: libusb does not list a device in KIS mode there (Apple's KIS driver claims it), so
-    an A16-or-later device in DFU mode would look absent. IOKit also has each device's serial number at hand.
+    On macOS this goes through IOKit: libusb does not list a device in KIS mode there (Apple's KIS driver claims
+    it), so an A16-or-later device in DFU mode would look absent. IOKit also has each device's serial number at
+    hand without opening the device; libusb would have to open it, so it is left out there.
     """
-    if get_io_services_by_type is not None:
-        return [
-            _UsbEntry(
-                cast(int, entry.properties.get("idVendor", 0)),
-                cast(int, entry.properties.get("idProduct", 0)),
-                cast(Optional[str], entry.properties.get("USB Serial Number")),
-            )
-            for entry in get_io_services_by_type("IOUSBHostDevice")
-        ]
-    return [_UsbEntry(device.idVendor, device.idProduct) for device in cast(list[UsbDevice], list(find(find_all=True)))]
+    iokit = uses_iokit()
+    entries: list[_UsbEntry] = []
+    for device in list_devices():
+        try:
+            entries.append(_UsbEntry(device.idVendor, device.idProduct, device.serial_number if iokit else None))
+        finally:
+            device.close()
+    return entries
 
 
 def special_mode_states(devices: Optional[list[_UsbEntry]] = None) -> set[UsbState]:
@@ -97,7 +90,7 @@ async def current_state(udid: Optional[str]) -> UsbState:
             return state
     if udid is None:
         return UsbState.GONE
-    if get_io_services_by_type is not None:
+    if uses_iokit():
         # IOKit spells the UDID without its separator; the same snapshot answers right away
         wanted = udid.replace("-", "")
         return UsbState.NORMAL if any(device.serial == wanted for device in devices) else UsbState.GONE
@@ -115,6 +108,8 @@ class Step:
     seconds: float
     # stop the countdown early once the device reaches one of these
     until: frozenset[UsbState] = frozenset()
+    # the host restarts the device once this step's countdown ends
+    restart_after: bool = False
 
 
 @dataclass(frozen=True)
@@ -139,6 +134,23 @@ FACE_ID_IPHONE = ButtonSequence(
             until=_SCREEN_BLACK,
         ),
         Step("Keep holding SIDE, and also press and [b]hold VOLUME DOWN[/b]", 5),
+        Step("[b]Release SIDE[/b], keep holding VOLUME DOWN", 10, until=_IN_DFU),
+    ),
+)
+
+# iPhone 8 and later, booted: the host restarts it instead of the quick VOLUME UP, VOLUME DOWN, SIDE presses.
+# SIDE is pressed only once the phone went down, as SIDE with VOLUME DOWN on a running phone brings up Emergency SOS.
+FACE_ID_IPHONE_ASSISTED = ButtonSequence(
+    name="iPhone 8 or later",
+    buttons="VOLUME DOWN and the SIDE button",
+    steps=(
+        Step(
+            "Press and [b]hold VOLUME DOWN[/b] (only that); this computer then restarts the phone",
+            3,
+            restart_after=True,
+        ),
+        Step("Keep holding VOLUME DOWN while the phone restarts", 30, until=_SCREEN_BLACK),
+        Step("Keep holding VOLUME DOWN, and also press and [b]hold SIDE[/b]", 5),
         Step("[b]Release SIDE[/b], keep holding VOLUME DOWN", 10, until=_IN_DFU),
     ),
 )
@@ -182,13 +194,17 @@ IPAD_WITHOUT_HOME_BUTTON = ButtonSequence(
 )
 
 
-def iphone_sequence(product_type: str) -> Optional[ButtonSequence]:
-    """The sequence for an iPhone ``product_type`` (e.g. ``iPhone18,4``), or None for anything else."""
+def iphone_sequence(product_type: str, assisted: bool = False) -> Optional[ButtonSequence]:
+    """
+    The sequence for an iPhone ``product_type`` (e.g. ``iPhone18,4``), or None for anything else.
+
+    :param assisted: the host can restart the device (it is booted), so a sequence relying on that may be returned
+    """
     if not product_type.startswith("iPhone"):
         return None
     major = int(product_type[len("iPhone") :].split(",")[0])
     if major >= 10:
-        return FACE_ID_IPHONE
+        return FACE_ID_IPHONE_ASSISTED if assisted else FACE_ID_IPHONE
     if major == 9:
         return IPHONE_7
     return HOME_BUTTON
@@ -233,8 +249,17 @@ async def _countdown(
     return current
 
 
-async def run_sequence(console: Console, sequence: ButtonSequence, udid: Optional[str]) -> GuideResult:
-    """Show each step with its countdown and report where the device ended up."""
+async def run_sequence(
+    console: Console,
+    sequence: ButtonSequence,
+    udid: Optional[str],
+    restart: Optional[Callable[[], Awaitable[None]]] = None,
+) -> GuideResult:
+    """
+    Show each step with its countdown and report where the device ended up.
+
+    :param restart: restarts the device, for a step with ``restart_after``
+    """
 
     async def state() -> UsbState:
         return await current_state(udid)
@@ -243,6 +268,10 @@ async def run_sequence(console: Console, sequence: ButtonSequence, udid: Optiona
     current = await state()
     for index, step in enumerate(sequence.steps, start=1):
         current = await _countdown(console, step, index, total, state)
+        if step.restart_after:
+            if restart is None:
+                raise ValueError(f"{sequence.name}: a step restarts the device, but no way to restart it was given")
+            await restart()
     # the device may need a moment to enumerate after the last release
     deadline = time.monotonic() + 3
     while current not in _IN_DFU and time.monotonic() < deadline:

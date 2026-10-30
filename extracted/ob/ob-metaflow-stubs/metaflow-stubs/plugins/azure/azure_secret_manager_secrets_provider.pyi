@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.39.1+obcheckpoint(0.2.14);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-10-28T20:25:47.944026                                                            #
+# MF version: 2.19.39.2+obcheckpoint(0.2.14);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-10-29T12:38:34.430732                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -10,9 +10,9 @@ import abc
 import metaflow
 import typing
 if typing.TYPE_CHECKING:
-    import abc
     import metaflow.plugins.secrets
     import metaflow.exception
+    import abc
 
 from ..secrets import SecretsProvider as SecretsProvider
 from ...exception import MetaflowException as MetaflowException

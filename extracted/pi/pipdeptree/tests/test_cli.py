@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+import io
 import json
 import os
 import re
 import runpy
 import shutil
+import subprocess  # ruff: ignore[suspicious-subprocess-import] # pip only runs as a child process
 import sys
 import tarfile
 import tempfile
+import textwrap
+import venv
 import webbrowser
 import zipfile
 from functools import partial
@@ -140,6 +144,28 @@ def test_cli_bare_version(
     assert capsys.readouterr().out == f"{__version__}\n"
 
 
+@pytest.mark.parametrize(
+    "errors", [pytest.param("strict", id="strict"), pytest.param("surrogateescape", id="surrogateescape")]
+)
+def test_cli_escapes_characters_stdout_cannot_encode(
+    entry_point: Callable[[Sequence[str] | None], int | None],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    errors: str,
+) -> None:
+    for directory, name, version in (("app-2.0", "app", "2.0"), ("demo-0.1", "demoé", "0.1")):
+        (tmp_path / f"{directory}.dist-info").mkdir()
+        (tmp_path / f"{directory}.dist-info" / "METADATA").write_text(
+            f"Name: {name}\nVersion: {version}\n", encoding="utf-8"
+        )
+    output: Final = io.BytesIO()
+    monkeypatch.setattr(sys, "stdout", io.TextIOWrapper(output, encoding="ascii", errors=errors, write_through=True))
+
+    code = entry_point(["--path", str(tmp_path)])
+
+    assert (code, output.getvalue()) == (0, f"app==2.0{os.linesep}demo\\xe9==0.1{os.linesep}".encode())
+
+
 def test_cli_error(
     entry_point: Callable[[Sequence[str] | None], int | None], capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -224,33 +250,52 @@ def test_cli_graphviz_binary_terminal(
 
 
 @pytest.fixture
-def terminal_browser(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
+def browser(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
     opener = create_autospec(webbrowser.open, return_value=True)
     monkeypatch.setattr(webbrowser, "open", opener)
-    monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
     return opener
 
 
+@pytest.mark.parametrize(
+    ("format_args", "expected"),
+    [
+        pytest.param(["--graph-output", "svg"], b"<?xml", id="svg"),
+        pytest.param(
+            ["--metadata", "Summary", "--graph-output", "ps"], "(café)".encode("latin-1"), id="ps-latin-1-label"
+        ),
+    ],
+)
 def test_cli_graphviz_text_terminal(
     entry_point: Callable[[Sequence[str] | None], int | None],
-    package_path: Path,
-    terminal_browser: MagicMock,
-    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    browser: MagicMock,
+    capsysbinary: pytest.CaptureFixture[bytes],
+    format_args: list[str],
+    expected: bytes,
 ) -> None:
-    code = entry_point(["--path", str(package_path), "--graph-output", "svg"])
+    (tmp_path / "demo-1.dist-info").mkdir()
+    (tmp_path / "demo-1.dist-info" / "METADATA").write_text("Name: demo\nVersion: 1\nSummary: café\n", encoding="utf-8")
+    monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
 
-    assert (code, capsys.readouterr().out.startswith("<?xml"), terminal_browser.called) == (0, True, False)
+    code = entry_point(["--path", str(tmp_path), *format_args])
+
+    assert (code, expected in capsysbinary.readouterr().out, browser.called) == (0, True, False)
 
 
 def test_cli_help_with_graphviz_format(
     entry_point: Callable[[Sequence[str] | None], int | None],
-    terminal_browser: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+    browser: MagicMock,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    # pytest installs the capture stream only when the test body starts, so a fixture cannot patch it.
+    monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
+
     with pytest.raises(SystemExit, match="0"):
         entry_point(["--graph-output", "png", "--help"])
 
-    assert ("Usage:" in capsys.readouterr().out, terminal_browser.called) == (True, False)
+    assert ("Usage:" in capsys.readouterr().out, browser.called) == (True, False)
 
 
 def test_cli_lock(
@@ -320,7 +365,7 @@ def test_cli_index_local_source_leaves_index_sdist_unbuilt(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     built: Final = tmp_path / "built"
-    _write_dynamic_project(tmp_path / "remote-1", "remote", built)
+    _write_dynamic_project(tmp_path / "remote-1", "remote", built, "hooks")
     index: Final = tmp_path / "index"
     index.mkdir()
     with tarfile.open(index / "remote-1.tar.gz", "w:gz") as archive:
@@ -336,13 +381,47 @@ def test_cli_index_local_source_leaves_index_sdist_unbuilt(
     assert (built.exists(), "remote: every version in range was rejected" in capsys.readouterr().err) == (False, True)
 
 
+@pytest.mark.parametrize(
+    ("mode", "expected"),
+    [
+        pytest.param("silence", (0, False), id="silence"),
+        pytest.param("suppress", (0, True), id="suppress"),
+        pytest.param("fail", (1, True), id="fail"),
+    ],
+)
+def test_cli_index_warns_about_requirements_index_option(
+    entry_point: Callable[[Sequence[str] | None], int | None],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    mode: str,
+    expected: tuple[int, bool],
+) -> None:
+    requirements: Final = tmp_path / "requirements.txt"
+    requirements.write_text("-i https://private.example/simple\n")
+    monkeypatch.setenv("NAB_CACHE_DIR", str(tmp_path / "cache"))
+
+    code: Final = entry_point(["--warn", mode, "from-index", "--requirements", str(requirements)])
+    warning: Final = ":1: from-index ignores -i in requirements files; pass --index-url on the command line\n"
+
+    assert (code, capsys.readouterr().err.endswith(warning)) == expected
+
+
+@pytest.mark.parametrize(
+    "backend_path",
+    [
+        pytest.param("hooks", id="subdirectory"),
+        pytest.param(".", id="project-root"),
+    ],
+)
 def test_cli_index_builds_dynamic_local_source(
     entry_point: Callable[[Sequence[str] | None], int | None],
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
+    backend_path: str,
 ) -> None:
-    _write_dynamic_project(tmp_path / "local", "local", tmp_path / "built")
+    _write_dynamic_project(tmp_path / "local", "local", tmp_path / "built", backend_path)
     index: Final = tmp_path / "index"
     index.mkdir()
     monkeypatch.setenv("NAB_CACHE_DIR", str(tmp_path / "cache"))
@@ -353,14 +432,66 @@ def test_cli_index_builds_dynamic_local_source(
     assert (code, capsys.readouterr().out) == (0, "local==1\n")
 
 
-def _write_dynamic_project(directory: Path, name: str, marker: Path) -> None:
-    (directory / "hooks").mkdir(parents=True)
+@pytest.mark.parametrize(
+    "source",
+    [
+        pytest.param(lambda root: [str(root / "local")], id="absolute"),
+        pytest.param(lambda _: [f".{os.sep}local"], id="relative"),
+        pytest.param(lambda _: ["--requirements", "requirements.txt"], id="requirements-file"),
+    ],
+)
+def test_cli_index_local_source_native_path(
+    entry_point: Callable[[Sequence[str] | None], int | None],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    source: Callable[[Path], list[str]],
+) -> None:
+    (tmp_path / "local").mkdir()
+    (tmp_path / "local" / "pyproject.toml").write_text('[project]\nname = "local"\nversion = "1"\n')
+    (tmp_path / "requirements.txt").write_text(f"{tmp_path / 'local'}\n")
+    index: Final = tmp_path / "index"
+    index.mkdir()
+    monkeypatch.setenv("NAB_CACHE_DIR", str(tmp_path / "cache"))
+    monkeypatch.chdir(tmp_path)
+
+    code: Final = entry_point(["from-index", *source(tmp_path), "--index-url", index.as_uri()])
+
+    assert (code, capsys.readouterr().out) == (0, "local==1\n")
+
+
+@pytest.mark.parametrize(
+    ("content", "expected"),
+    [
+        pytest.param("demo ==\n", "{path}:1: invalid requirement\n", id="invalid-line"),
+        pytest.param("-r requirements.txt\n", "recursive requirements include: {path}\n", id="recursive"),
+    ],
+)
+def test_cli_index_requirements_error_names_plain_path(
+    entry_point: Callable[[Sequence[str] | None], int | None],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    content: str,
+    expected: str,
+) -> None:
+    requirements: Final = tmp_path / "requirements.txt"
+    requirements.write_text(content)
+    monkeypatch.chdir(tmp_path)
+
+    code: Final = entry_point(["from-index", "--requirements", "requirements.txt"])
+
+    assert (code, capsys.readouterr().err) == (1, expected.format(path=requirements.resolve()))
+
+
+def _write_dynamic_project(directory: Path, name: str, marker: Path, backend_path: str) -> None:
+    (directory / backend_path).mkdir(parents=True)
     (directory / "pyproject.toml").write_text(
-        '[build-system]\nrequires = []\nbuild-backend = "backend"\nbackend-path = ["hooks"]\n'
+        f'[build-system]\nrequires = []\nbuild-backend = "backend"\nbackend-path = ["{backend_path}"]\n'
         f'[project]\nname = "{name}"\nversion = "1"\ndynamic = ["dependencies"]\n'
     )
     (directory / "PKG-INFO").write_text(f"Metadata-Version: 2.1\nName: {name}\nVersion: 1\n")
-    (directory / "hooks" / "backend.py").write_text(
+    (directory / backend_path / "backend.py").write_text(
         f"import os\nopen({str(marker)!r}, 'w').close()\n"
         "def prepare_metadata_for_build_wheel(metadata_directory, config_settings=None):\n"
         f"    os.mkdir(os.path.join(metadata_directory, '{name}-1.dist-info'))\n"
@@ -465,3 +596,48 @@ def test_cli_defaults_to_rich_on_terminals(
     out = capsys.readouterr().out
 
     assert (code, "\x1b[" in out, "┗━━" in out) == (0, True, True)
+
+
+def test_cli_freeze_editable_installs_with_pip(
+    entry_point: Callable[[Sequence[str] | None], int | None],
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    project = tmp_path / "proj"
+    project.mkdir()
+    # pip installs an editable project offline only when it needs no build requirements.
+    (project / "backend.py").write_text(
+        textwrap.dedent("""\
+            import pathlib
+            import zipfile
+
+
+            def build_editable(wheel_directory, config_settings=None, metadata_directory=None):
+                with zipfile.ZipFile(pathlib.Path(wheel_directory) / "demo-1-py3-none-any.whl", "w") as wheel:
+                    wheel.writestr("demo-1.dist-info/METADATA", "Metadata-Version: 2.1\\nName: demo\\nVersion: 1\\n")
+                    wheel.writestr("demo-1.dist-info/WHEEL", "Wheel-Version: 1\\nRoot-Is-Purelib: true\\n")
+                    wheel.writestr("demo-1.dist-info/RECORD", "")
+                return "demo-1-py3-none-any.whl"
+        """),
+        encoding="utf-8",
+    )
+    (project / "pyproject.toml").write_text(
+        '[build-system]\nrequires = []\nbuild-backend = "backend"\nbackend-path = ["."]\n', encoding="utf-8"
+    )
+    builder = venv.EnvBuilder(with_pip=True)
+    environment = tmp_path / "venv"
+    python = builder.ensure_directories(environment).env_exe
+    builder.create(environment)
+    subprocess.run([python, "-m", "pip", "install", "-q", "--no-index", "-e", str(project)], check=True)
+    entry_point(["--python", python, "--freeze", "--packages", "demo"])
+    requirements = tmp_path / "requirements.txt"
+    requirements.write_text(capsys.readouterr().out, encoding="utf-8")
+
+    install = subprocess.run(
+        [python, "-m", "pip", "install", "--dry-run", "--no-deps", "--no-index", "-r", str(requirements)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert (install.returncode, "Would install demo-1" in install.stdout) == (0, True), install.stderr

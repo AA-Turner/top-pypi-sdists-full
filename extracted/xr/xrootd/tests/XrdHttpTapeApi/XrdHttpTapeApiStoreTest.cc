@@ -12,7 +12,9 @@
 
 #include "XrdHttpTapeApiStore.hh"
 
+#include <cerrno>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <memory>
@@ -28,12 +30,16 @@ class TapeApiStoreTest : public testing::Test
   protected:
     void SetUp() override
     {
-      char path[] = "/tmp/xrd-http-tape-api.XXXXXX";
-      const char *created = mkdtemp(path);
-      ASSERT_NE(created, nullptr);
+      const fs::path tmpdir = fs::temp_directory_path();
+      std::string path = (tmpdir / "xrd-http-tape-api.XXXXXX").string();
+      const char *created = mkdtemp(path.data());
+      if (!created)
+        FAIL() << "cannot create a temporary directory in " << tmpdir.string()
+               << ": " << std::strerror(errno);
       m_root = created;
       m_store = std::make_unique<XrdHttpTapeApiStore>(m_root);
-      ASSERT_TRUE(m_store->Initialize());
+      if (!m_store->Initialize())
+        FAIL() << "cannot initialize the tape API store in " << m_root;
     }
 
     void TearDown() override

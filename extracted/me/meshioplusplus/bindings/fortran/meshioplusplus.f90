@@ -61,10 +61,25 @@ module meshioplusplus
     public :: mio_mesh_cad_num_merged_faces, mio_mesh_cad_get_merged_face
     public :: mio_mesh_cad_num_tolerance_uses, mio_mesh_cad_get_tolerance_use
     public :: mio_mesh_cad_num_lopped_corners, mio_mesh_cad_get_lopped_corner
+    public :: mio_mesh_cad_num_untangled, mio_mesh_cad_get_quad_stats
+    public :: mio_mesh_cad_min_metric_angle
     public :: mio_mesh_cad_lopped_corner_reason
     public :: MIO_MESH_CAD_METRIC_MEAN, MIO_MESH_CAD_METRIC_VARYING
     public :: MIO_MESH_CAD_TOLERANCE_CLOSED_START, MIO_MESH_CAD_TOLERANCE_CORNER
-    public :: MIO_MESH_CAD_TOLERANCE_PROJECTION
+    public :: MIO_MESH_CAD_TOLERANCE_PROJECTION, MIO_MESH_CAD_TOLERANCE_PAIRING
+    public :: MIO_MESH_CAD_QUADS_NONE, MIO_MESH_CAD_QUADS_DOMINANT, MIO_MESH_CAD_QUADS_ALL
+    public :: MIO_MESH_CAD_QUAD_PAIRS_MATCHING, MIO_MESH_CAD_QUAD_PAIRS_GREEDY
+    public :: mio_project_to_cad, mio_project_to_cad_report, mio_project_to_cad_outside_trim
+    public :: mio_boundary_layer, mio_boundary_layer_report
+    public :: mio_extrude, mio_revolve, mio_sweep_report
+    public :: mio_mirror, mio_mirror_report
+    public :: mio_tetrahedralize, mio_tetrahedralize_report, mio_has_netgen
+    public :: mio_has_mmg, mio_has_mmg_elas, mio_mmg_index_bits
+    public :: mio_adapt, mio_mmg_report, mio_metric_from_hessian
+    public :: mio_discretize_levelset, mio_mesh_domain, mio_move
+    public :: mio_error_size_report
+    public :: mio_conformity_report
+    public :: MIO_CONFORMITY_CONFORMING, MIO_CONFORMITY_WELD, MIO_CONFORMITY_PROXIMITY
     public :: MIO_MESH_CAD_OK, MIO_MESH_CAD_EMPTY, MIO_MESH_CAD_OPEN_LOOP
     public :: MIO_MESH_CAD_SELF_INTERSECTING, MIO_MESH_CAD_DEGENERATE
     public :: MIO_MESH_CAD_PROJECTION_FAILED, MIO_MESH_CAD_BUDGET_EXCEEDED
@@ -86,6 +101,11 @@ module meshioplusplus
     public :: mio_cylinder, mio_reference_cells
     public :: mio_reference_triangle, mio_ngon, mio_annulus, mio_lshape
     public :: mio_plate_with_hole, mio_honeycomb
+    public :: mio_line, mio_circle, mio_helix, mio_sphere_points, mio_box_points
+    public :: mio_tetra_sphere, mio_octa_sphere, mio_cube_sphere, mio_geo_sphere
+    public :: mio_torus, mio_moebius, mio_tube, mio_cone, mio_capsule
+    public :: mio_box_surface, mio_platonic, mio_ball, mio_spherical_shell
+    public :: mio_pipe, mio_fichera, mio_solid_torus
     public :: mio_frame, mio_render_settings, mio_text_settings, mio_rgba
     public :: mio_detect_color_depth
     public :: mio_data_array_info
@@ -450,7 +470,9 @@ module meshioplusplus
         integer(c_int64_t) :: resegment_rounds = 2
         integer(c_int32_t) :: layout_snap_to_features = 1
         integer(c_int32_t) :: validate_by_surface_sampling = 1
-        integer(c_int64_t) :: reserved(8) = 0
+        integer(c_int32_t) :: constrain_primitives = 0
+        integer(c_int32_t) :: reserved32 = 0
+        integer(c_int64_t) :: reserved(7) = 0
     end type
 
     !> Interop mirror of C `mio_fit_cad_report_ex3` (v17.12.0, 184 bytes).
@@ -469,7 +491,9 @@ module meshioplusplus
         real(c_double) :: max_freeform_distance = 0.0_c_double
         real(c_double) :: rms_freeform_distance = 0.0_c_double
         integer(c_int64_t) :: num_face_records = 0
-        integer(c_int64_t) :: reserved(10) = 0
+        integer(c_int64_t) :: num_constrained_primitives = 0
+        integer(c_int64_t) :: num_constraint_groups = 0
+        integer(c_int64_t) :: reserved(8) = 0
     end type
 
     !> Interop mirror of C `mio_iga_opts` (the subdivisions default to 1 and
@@ -499,7 +523,311 @@ module meshioplusplus
     integer, parameter :: MIO_MESH_CAD_METRIC_MEAN = 0, MIO_MESH_CAD_METRIC_VARYING = 1
     !> Where a declared tolerance accepted a gap (v17.20.0, mio_mesh_cad_tolerance_where).
     integer, parameter :: MIO_MESH_CAD_TOLERANCE_CLOSED_START = 0, MIO_MESH_CAD_TOLERANCE_CORNER = 1, &
-                          MIO_MESH_CAD_TOLERANCE_PROJECTION = 2
+                          MIO_MESH_CAD_TOLERANCE_PROJECTION = 2, MIO_MESH_CAD_TOLERANCE_PAIRING = 3
+    !> Quadrilaterals (roadmap 6.8, mio_mesh_cad_quads).
+    integer, parameter :: MIO_MESH_CAD_QUADS_NONE = 0, MIO_MESH_CAD_QUADS_DOMINANT = 1, &
+                          MIO_MESH_CAD_QUADS_ALL = 2
+    !> How triangles pair into quads (roadmap 6.8.1, mio_mesh_cad_quad_pairs).
+    integer, parameter :: MIO_MESH_CAD_QUAD_PAIRS_MATCHING = 0, MIO_MESH_CAD_QUAD_PAIRS_GREEDY = 1
+
+    !> Interop mirror of C `mio_project_to_cad_opts` (64 bytes with 8-byte
+    !> pointers, checked by `mio_project_to_cad`; roadmap 6.10.1).
+    type, bind(c) :: mio_project_to_cad_opts_t
+        type(c_ptr) :: face_array = c_null_ptr
+        type(c_ptr) :: edge_array = c_null_ptr
+        real(c_double) :: max_distance = 0.0_c_double
+        integer(c_int32_t) :: trim_samples = 16
+        integer(c_int32_t) :: reserved_pad = 0
+        integer(c_int64_t) :: reserved(4) = 0
+    end type
+
+    !> `mio_project_to_cad_report` (96 bytes): what `mio_project_to_cad` did.
+    type, bind(c) :: mio_project_to_cad_report
+        integer(c_int64_t) :: num_projected = 0
+        integer(c_int64_t) :: num_on_edges = 0
+        integer(c_int64_t) :: num_corners = 0
+        integer(c_int64_t) :: num_ambiguous = 0
+        integer(c_int64_t) :: num_too_far = 0
+        integer(c_int64_t) :: num_failed = 0
+        integer(c_int64_t) :: num_outside_trim = 0
+        real(c_double) :: max_move = 0.0_c_double
+        !> Of those on edges, onto the edge's own 3-D curve.
+        integer(c_int64_t) :: num_on_curves = 0
+        integer(c_int64_t) :: reserved(3) = 0
+    end type
+
+    !> Interop mirror of C `mio_error_size_opts` (80 bytes with 8-byte
+    !> pointers, checked by `error_size`; roadmap 6.10.2).
+    type, bind(c) :: mio_error_size_opts_t
+        type(c_ptr) :: error_array = c_null_ptr
+        real(c_double) :: target_error = 0.0_c_double
+        real(c_double) :: order = 1.0_c_double
+        real(c_double) :: min_size = 0.0_c_double
+        real(c_double) :: max_size = 0.0_c_double
+        type(c_ptr) :: output = c_null_ptr
+        integer(c_int32_t) :: overwrite = 0
+        integer(c_int32_t) :: reserved_pad = 0
+        integer(c_int64_t) :: reserved(3) = 0
+    end type
+
+    !> `mio_error_size_report` (64 bytes): what `error_size` did.
+    type, bind(c) :: mio_error_size_report
+        integer(c_int64_t) :: num_cells = 0
+        integer(c_int64_t) :: num_skipped = 0
+        integer(c_int64_t) :: num_clamped = 0
+        real(c_double) :: min_size = 0.0_c_double
+        real(c_double) :: max_size = 0.0_c_double
+        integer(c_int64_t) :: reserved(3) = 0
+    end type
+
+    !> `mio_conformity_mode`: the `interface_mode` of a conformity report.
+    integer(c_int32_t), parameter :: MIO_CONFORMITY_CONFORMING = 0
+    integer(c_int32_t), parameter :: MIO_CONFORMITY_WELD = 1
+    integer(c_int32_t), parameter :: MIO_CONFORMITY_PROXIMITY = 2
+
+    !> Interop mirror of C `mio_conformity_opts` (48 bytes, checked by
+    !> `check_conformity`; roadmap 3.2.1).
+    type, bind(c) :: mio_conformity_opts_t
+        real(c_double) :: tolerance = 1.0e-9_c_double
+        integer(c_int32_t) :: attach_flags = 1
+        integer(c_int32_t) :: reserved32 = 0
+        integer(c_int64_t) :: reserved(4) = 0
+    end type
+
+    !> `mio_conformity_report` (104 bytes): what `check_conformity` found.
+    type, bind(c) :: mio_conformity_report
+        integer(c_int64_t) :: dimension = 0
+        integer(c_int64_t) :: num_hanging_nodes = 0
+        integer(c_int64_t) :: num_t_junctions = 0
+        integer(c_int64_t) :: num_partial_overlaps = 0
+        integer(c_int64_t) :: num_unwelded_facets = 0
+        integer(c_int64_t) :: num_boundary_facets = 0
+        integer(c_int64_t) :: num_non_manifold_facets = 0
+        integer(c_int32_t) :: conforming = 0
+        integer(c_int32_t) :: interface_mode = 0
+        integer(c_int64_t) :: num_warnings = 0
+        integer(c_int64_t) :: reserved(4) = 0
+    end type
+
+    !> Interop mirror of C `mio_boundary_layer_opts` (64 bytes; roadmap 6.9).
+    type, bind(c) :: mio_boundary_layer_opts_t
+        real(c_double) :: first_height = 0.0_c_double
+        real(c_double) :: growth = 1.2_c_double
+        real(c_double) :: collision_fraction = 0.45_c_double
+        integer(c_int32_t) :: num_layers = 3
+        integer(c_int32_t) :: reverse = 0
+        integer(c_int32_t) :: smooth_iterations = 5
+        integer(c_int32_t) :: max_shrink = 6
+        integer(c_int32_t) :: collapse = 0
+        integer(c_int32_t) :: normal_smooth_iterations = 0
+        integer(c_int32_t) :: front_check = 1
+        integer(c_int32_t) :: reserved_pad = 0
+        integer(c_int64_t) :: reserved(1) = 0
+    end type
+
+    !> `mio_boundary_layer_report` (128 bytes): what `mio_boundary_layer` did.
+    type, bind(c) :: mio_boundary_layer_report
+        integer(c_int64_t) :: num_cells = 0
+        integer(c_int64_t) :: num_wedges = 0
+        integer(c_int64_t) :: num_hexahedra = 0
+        integer(c_int64_t) :: num_pyramids = 0
+        integer(c_int64_t) :: num_tetrahedra = 0
+        integer(c_int64_t) :: num_shrunk = 0
+        integer(c_int64_t) :: num_collapsed = 0
+        integer(c_int64_t) :: num_not_visible = 0
+        real(c_double) :: min_scaled_jacobian = 0.0_c_double
+        real(c_double) :: min_thickness = 0.0_c_double
+        real(c_double) :: max_thickness = 0.0_c_double
+        integer(c_int32_t) :: cap_closed = 0
+        integer(c_int32_t) :: reserved_pad = 0
+        !> With `collapse='layers'`, the points that grow fewer layers than asked.
+        integer(c_int64_t) :: num_fewer_layers = 0
+        !> Last-layer face pairs the front test found crossing or touching.
+        integer(c_int64_t) :: num_front_crossings = 0
+        integer(c_int64_t) :: reserved(2) = 0
+    end type
+
+    !> Interop mirror of C `mio_extrude_opts` (96 bytes with 8-byte pointers;
+    !> roadmap 3.1.2). `offsets` is borrowed for one call.
+    type, bind(c) :: mio_extrude_opts_t
+        real(c_double) :: direction(3) = [0.0_c_double, 0.0_c_double, 1.0_c_double]
+        real(c_double) :: ratio = 1.0_c_double
+        type(c_ptr) :: offsets = c_null_ptr
+        integer(c_int64_t) :: num_offsets = 0
+        integer(c_int64_t) :: max_cells = 20000000_c_int64_t
+        integer(c_int32_t) :: num_layers = 1
+        integer(c_int32_t) :: record_layers = 0
+        integer(c_int64_t) :: reserved(4) = 0
+    end type
+
+    !> Interop mirror of C `mio_revolve_opts` (112 bytes; roadmap 3.1.3).
+    type, bind(c) :: mio_revolve_opts_t
+        real(c_double) :: axis_point(3) = 0.0_c_double
+        real(c_double) :: axis(3) = [0.0_c_double, 1.0_c_double, 0.0_c_double]
+        real(c_double) :: angle = 360.0_c_double
+        real(c_double) :: tolerance = 1.0e-9_c_double
+        integer(c_int64_t) :: max_cells = 20000000_c_int64_t
+        integer(c_int32_t) :: num_layers = 16
+        integer(c_int32_t) :: record_layers = 0
+        integer(c_int64_t) :: reserved(4) = 0
+    end type
+
+    !> `mio_sweep_report` (128 bytes): what `mio_extrude` and `mio_revolve` did.
+    type, bind(c) :: mio_sweep_report
+        integer(c_int64_t) :: num_cells = 0
+        integer(c_int64_t) :: num_hexahedra = 0
+        integer(c_int64_t) :: num_wedges = 0
+        integer(c_int64_t) :: num_pyramids = 0
+        integer(c_int64_t) :: num_tetrahedra = 0
+        integer(c_int64_t) :: num_quads = 0
+        integer(c_int64_t) :: num_triangles = 0
+        integer(c_int64_t) :: num_flipped = 0
+        integer(c_int64_t) :: num_on_axis = 0
+        integer(c_int64_t) :: num_warnings = 0
+        real(c_double) :: min_scaled_jacobian = 0.0_c_double
+        integer(c_int32_t) :: full = 0
+        integer(c_int32_t) :: reserved32 = 0
+        integer(c_int64_t) :: reserved(4) = 0
+    end type
+
+    !> Interop mirror of C `mio_mirror_opts` (104 bytes; roadmap 3.2.5).
+    type, bind(c) :: mio_mirror_opts_t
+        real(c_double) :: origin(3) = 0.0_c_double
+        real(c_double) :: normal(3) = [1.0_c_double, 0.0_c_double, 0.0_c_double]
+        real(c_double) :: tolerance = 1.0e-9_c_double
+        integer(c_int32_t) :: keep_original = 0
+        integer(c_int32_t) :: weld = 1
+        integer(c_int32_t) :: reflect_vector_data = 0
+        integer(c_int32_t) :: reserved32 = 0
+        integer(c_int64_t) :: reserved(4) = 0
+    end type
+
+    !> `mio_mirror_report` (72 bytes): what `mio_mirror` did.
+    type, bind(c) :: mio_mirror_report
+        integer(c_int64_t) :: num_flipped_cells = 0
+        integer(c_int64_t) :: num_points_on_plane = 0
+        integer(c_int64_t) :: num_dropped_cells = 0
+        integer(c_int64_t) :: num_dropped_sides = 0
+        integer(c_int64_t) :: num_warnings = 0
+        integer(c_int64_t) :: reserved(4) = 0
+    end type
+
+    !> Interop mirror of C `mio_tetrahedralize_opts` (80 bytes with 8-byte
+    !> pointers, checked by `mio_tetrahedralize`; roadmap 6.7).
+    type, bind(c) :: mio_tetrahedralize_opts_t
+        real(c_double) :: max_size = 0.0_c_double
+        real(c_double) :: max_volume = 0.0_c_double
+        real(c_double) :: grading = 0.3_c_double
+        integer(c_int64_t) :: max_cells = 50000000_c_int64_t
+        type(c_ptr) :: face_array = c_null_ptr
+        integer(c_int32_t) :: backend = 0
+        integer(c_int32_t) :: optimize_steps = 3
+        integer(c_int64_t) :: reserved(4) = 0
+    end type
+
+    !> `mio_tetrahedralize_report` (128 bytes): what `mio_tetrahedralize` did.
+    !> `backend` is 1 for Netgen, 2 for the octree backend.
+    type, bind(c) :: mio_tetrahedralize_report
+        integer(c_int64_t) :: num_tetrahedra = 0
+        integer(c_int64_t) :: num_points = 0
+        integer(c_int64_t) :: num_new_points = 0
+        integer(c_int64_t) :: num_regions = 0
+        integer(c_int64_t) :: num_boundary_triangles = 0
+        real(c_double) :: hausdorff_to_surface = 0.0_c_double
+        real(c_double) :: min_dihedral_deg = 0.0_c_double
+        real(c_double) :: max_dihedral_deg = 0.0_c_double
+        real(c_double) :: volume = 0.0_c_double
+        integer(c_int32_t) :: boundary_preserved = 0
+        integer(c_int32_t) :: backend = 0
+        integer(c_int64_t) :: reserved(6) = 0
+    end type
+
+    !> Interop mirror of C `mio_mmg_params` (168 bytes): the parameters every
+    !> MMG operation shares. A negative size leaves MMG's default.
+    type, bind(c) :: mio_mmg_params_t
+        real(c_double) :: hmin = -1.0_c_double
+        real(c_double) :: hmax = -1.0_c_double
+        real(c_double) :: hausd = -1.0_c_double
+        real(c_double) :: hgrad = -1.0_c_double
+        real(c_double) :: hgradreq = -1.0_c_double
+        real(c_double) :: angle_detection = 45.0_c_double
+        integer(c_int32_t) :: optim = 0
+        integer(c_int32_t) :: noinsert = 0
+        integer(c_int32_t) :: noswap = 0
+        integer(c_int32_t) :: nomove = 0
+        integer(c_int32_t) :: nosurf = 0
+        integer(c_int32_t) :: nreg = 0
+        integer(c_int32_t) :: opnbdy = 0
+        integer(c_int32_t) :: verbose = -1
+        integer(c_int64_t) :: mem = -1
+        type(c_ptr) :: frozen = c_null_ptr
+        integer(c_int64_t) :: num_frozen = 0
+        type(c_ptr) :: required = c_null_ptr
+        integer(c_int64_t) :: num_required = 0
+        type(c_ptr) :: local = c_null_ptr
+        integer(c_int64_t) :: num_local = 0
+        integer(c_int64_t) :: reserved(4) = 0
+    end type
+
+    !> Interop mirror of C `mio_adapt_opts` (224 bytes).
+    type, bind(c) :: mio_adapt_opts_t
+        type(mio_mmg_params_t) :: params
+        real(c_double) :: hsiz = -1.0_c_double
+        type(c_ptr) :: size = c_null_ptr
+        type(c_ptr) :: metric = c_null_ptr
+        integer(c_int64_t) :: reserved(4) = 0
+    end type
+
+    !> Interop mirror of C `mio_discretize_levelset_opts` (240 bytes).
+    type, bind(c) :: mio_discretize_levelset_opts_t
+        type(mio_mmg_params_t) :: params
+        type(c_ptr) :: level_set = c_null_ptr
+        real(c_double) :: isovalue = 0.0_c_double
+        real(c_double) :: remove_small_components = -1.0_c_double
+        type(c_ptr) :: materials = c_null_ptr
+        integer(c_int64_t) :: num_materials = 0
+        integer(c_int64_t) :: reserved(4) = 0
+    end type
+
+    !> Interop mirror of C `mio_mesh_domain_opts` (232 bytes).
+    type, bind(c) :: mio_mesh_domain_opts_t
+        type(mio_mmg_params_t) :: params
+        real(c_double) :: hsiz = -1.0_c_double
+        type(c_ptr) :: size = c_null_ptr
+        type(c_ptr) :: holes = c_null_ptr
+        integer(c_int64_t) :: num_holes = 0
+        integer(c_int64_t) :: reserved(4) = 0
+    end type
+
+    !> Interop mirror of C `mio_move_opts` (232 bytes).
+    type, bind(c) :: mio_move_opts_t
+        type(mio_mmg_params_t) :: params
+        type(c_ptr) :: displacement = c_null_ptr
+        type(c_ptr) :: moving = c_null_ptr
+        integer(c_int64_t) :: num_moving = 0
+        integer(c_int32_t) :: lagrangian = 1
+        integer(c_int32_t) :: reserved_pad = 0
+        integer(c_int64_t) :: reserved(4) = 0
+    end type
+
+    !> `mio_mmg_report` (192 bytes): what an MMG operation did. `status` is 0
+    !> for MMG5_SUCCESS, 1 for MMG5_LOWFAILURE (a valid mesh MMG could not
+    !> finish); `library` is 'mmg2d', 'mmgs' or 'mmg3d', NUL-terminated.
+    type, bind(c) :: mio_mmg_report
+        integer(c_int32_t) :: status = 0
+        integer(c_int32_t) :: reserved_pad = 0
+        character(kind=c_char) :: library(8) = c_null_char
+        integer(c_int64_t) :: num_points_in = 0
+        integer(c_int64_t) :: num_points_out = 0
+        integer(c_int64_t) :: num_elements_in = 0
+        integer(c_int64_t) :: num_elements_out = 0
+        real(c_double) :: quality_min = 0.0_c_double
+        real(c_double) :: quality_mean = 0.0_c_double
+        real(c_double) :: quality_max = 0.0_c_double
+        integer(c_int64_t) :: quality_histogram(10) = 0
+        integer(c_int64_t) :: num_warnings = 0
+        integer(c_int64_t) :: reserved(4) = 0
+    end type
 
     !> Interop mirror of C `mio_mesh_cad_surface_opts` (104 bytes, checked once
     !> per process by `check_mesh_cad_layout`). Filled by
@@ -528,7 +856,8 @@ module meshioplusplus
     !> with 8-byte pointers, checked by `check_mesh_cad_layout`): the metric,
     !> virtual edges, given sizes and the background, borrowed for one call;
     !> since v17.20.0 the reparametrisation threshold, model tolerances,
-    !> virtual faces and corner lopping from its reserved tail.
+    !> virtual faces and corner lopping, the metric source (roadmap 6.10.2),
+    !> untangling (6.6.3) and quads (6.8) from its reserved tail.
     type, bind(c) :: mio_mesh_cad_surface_opts_ex_t
         integer(c_int32_t) :: metric = 0
         integer(c_int32_t) :: virtual_edges = 0
@@ -544,8 +873,13 @@ module meshioplusplus
         integer(c_int32_t) :: model_tolerances = 0
         integer(c_int32_t) :: virtual_faces = 0
         integer(c_int32_t) :: lop_corners = 0
-        integer(c_int32_t) :: reserved_pad = 0
-        integer(c_int64_t) :: reserved(5) = 0
+        integer(c_int32_t) :: untangle = 0
+        type(c_ptr) :: metric_background = c_null_ptr
+        type(c_ptr) :: metric_array = c_null_ptr
+        real(c_double) :: metric_error = 0
+        integer(c_int32_t) :: quads = 0
+        integer(c_int32_t) :: quad_pairs = 0
+        integer(c_int64_t) :: reserved(1) = 0
     end type
 
     !> `mio_mesh_cad_surface_report` (200 bytes; field order and types are ABI,
@@ -811,7 +1145,9 @@ module meshioplusplus
         integer(c_int32_t) :: attach_occupancy = 0
         integer(c_int32_t) :: sign = 1
         integer(c_int32_t) :: watertight_check = 1
-        integer(c_int64_t) :: reserved(6) = 0
+        integer(c_int32_t) :: plane = 0
+        integer(c_int32_t) :: reserved32 = 0
+        integer(c_int64_t) :: reserved(5) = 0
     end type
 
     !> Interop mirror of C `mio_gen_opts`, the options of the parametric
@@ -830,7 +1166,11 @@ module meshioplusplus
         integer(c_int32_t) :: pad = 0
         real(c_double) :: radius2 = 0.5_c_double
         real(c_double) :: angle = 6.283185307179586_c_double
-        integer(c_int64_t) :: reserved(4) = 0
+        integer(c_int32_t) :: num_twists = 1
+        integer(c_int32_t) :: complete = 0
+        real(c_double) :: ratio = 1.0_c_double
+        integer(c_int64_t) :: seed = 0
+        integer(c_int64_t) :: reserved(1) = 0
     end type
 
     !> Interop mirror of C `mio_octree_opts`. Same ABI rules as above.
@@ -912,7 +1252,7 @@ module meshioplusplus
         integer(c_int32_t) :: attach_distance = 1
         integer(c_int32_t) :: attach_quality = 0
         integer(c_int32_t) :: pillow = 1
-        integer(c_int32_t) :: reserved32 = 0
+        integer(c_int32_t) :: hex_grading = 0
         integer(c_int64_t) :: reserved(4) = 0
     end type
 
@@ -961,7 +1301,8 @@ module meshioplusplus
         integer(c_int64_t) :: num_flips = 0
         integer(c_int64_t) :: num_winding_rechecks = 0
         integer(c_int64_t) :: num_warnings = 0
-        integer(c_int64_t) :: reserved(8) = 0
+        integer(c_int64_t) :: num_winding_skipped = 0
+        integer(c_int64_t) :: reserved(7) = 0
     end type
 
     !> Interop mirror of C `mio_compute_sdf_opts`. Same ABI rules as above. For
@@ -1490,6 +1831,8 @@ module meshioplusplus
         procedure :: gradient => mesh_gradient
         procedure :: hessian => mesh_hessian
         procedure :: estimate_error => mesh_estimate_error
+        procedure :: error_size => mesh_error_size
+        procedure :: check_conformity => mesh_check_conformity
         procedure :: remesh => mesh_remesh
         procedure :: curvature => mesh_curvature
         procedure :: normals => mesh_normals
@@ -3286,6 +3629,132 @@ module meshioplusplus
             type(c_ptr) :: r
         end function
 
+        function c_mio_line(opts) bind(c, name="mio_line") result(r)
+            import :: c_ptr, mio_gen_opts_t
+            type(mio_gen_opts_t), intent(in) :: opts
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_circle(opts) bind(c, name="mio_circle") result(r)
+            import :: c_ptr, mio_gen_opts_t
+            type(mio_gen_opts_t), intent(in) :: opts
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_helix(opts) bind(c, name="mio_helix") result(r)
+            import :: c_ptr, mio_gen_opts_t
+            type(mio_gen_opts_t), intent(in) :: opts
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_sphere_points(opts) bind(c, name="mio_sphere_points") result(r)
+            import :: c_ptr, mio_gen_opts_t
+            type(mio_gen_opts_t), intent(in) :: opts
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_box_points(opts) bind(c, name="mio_box_points") result(r)
+            import :: c_ptr, mio_gen_opts_t
+            type(mio_gen_opts_t), intent(in) :: opts
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_tetra_sphere(opts) bind(c, name="mio_tetra_sphere") result(r)
+            import :: c_ptr, mio_gen_opts_t
+            type(mio_gen_opts_t), intent(in) :: opts
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_octa_sphere(opts) bind(c, name="mio_octa_sphere") result(r)
+            import :: c_ptr, mio_gen_opts_t
+            type(mio_gen_opts_t), intent(in) :: opts
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_cube_sphere(opts) bind(c, name="mio_cube_sphere") result(r)
+            import :: c_ptr, mio_gen_opts_t
+            type(mio_gen_opts_t), intent(in) :: opts
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_geo_sphere(opts) bind(c, name="mio_geo_sphere") result(r)
+            import :: c_ptr, mio_gen_opts_t
+            type(mio_gen_opts_t), intent(in) :: opts
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_torus(opts) bind(c, name="mio_torus") result(r)
+            import :: c_ptr, mio_gen_opts_t
+            type(mio_gen_opts_t), intent(in) :: opts
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_moebius(opts) bind(c, name="mio_moebius") result(r)
+            import :: c_ptr, mio_gen_opts_t
+            type(mio_gen_opts_t), intent(in) :: opts
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_tube(opts) bind(c, name="mio_tube") result(r)
+            import :: c_ptr, mio_gen_opts_t
+            type(mio_gen_opts_t), intent(in) :: opts
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_cone(opts) bind(c, name="mio_cone") result(r)
+            import :: c_ptr, mio_gen_opts_t
+            type(mio_gen_opts_t), intent(in) :: opts
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_capsule(opts) bind(c, name="mio_capsule") result(r)
+            import :: c_ptr, mio_gen_opts_t
+            type(mio_gen_opts_t), intent(in) :: opts
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_box_surface(opts) bind(c, name="mio_box_surface") result(r)
+            import :: c_ptr, mio_gen_opts_t
+            type(mio_gen_opts_t), intent(in) :: opts
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_platonic(opts) bind(c, name="mio_platonic") result(r)
+            import :: c_ptr, mio_gen_opts_t
+            type(mio_gen_opts_t), intent(in) :: opts
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_ball(opts) bind(c, name="mio_ball") result(r)
+            import :: c_ptr, mio_gen_opts_t
+            type(mio_gen_opts_t), intent(in) :: opts
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_spherical_shell(opts) bind(c, name="mio_spherical_shell") result(r)
+            import :: c_ptr, mio_gen_opts_t
+            type(mio_gen_opts_t), intent(in) :: opts
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_pipe(opts) bind(c, name="mio_pipe") result(r)
+            import :: c_ptr, mio_gen_opts_t
+            type(mio_gen_opts_t), intent(in) :: opts
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_fichera(opts) bind(c, name="mio_fichera") result(r)
+            import :: c_ptr, mio_gen_opts_t
+            type(mio_gen_opts_t), intent(in) :: opts
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_solid_torus(opts) bind(c, name="mio_solid_torus") result(r)
+            import :: c_ptr, mio_gen_opts_t
+            type(mio_gen_opts_t), intent(in) :: opts
+            type(c_ptr) :: r
+        end function
+
         function c_mio_reference_cells(types, pairs) bind(c, name="mio_reference_cells") result(r)
             import :: c_ptr, c_char, c_int32_t
             character(kind=c_char), intent(in) :: types(*)
@@ -4457,6 +4926,155 @@ module meshioplusplus
             type(c_ptr) :: h
         end function
 
+        function c_mio_project_to_cad(mesh, info, opts, report) &
+                bind(c, name="mio_project_to_cad") result(h)
+            import :: c_ptr, mio_project_to_cad_opts_t, mio_project_to_cad_report
+            type(c_ptr), value :: mesh, info
+            type(mio_project_to_cad_opts_t), intent(in) :: opts
+            type(mio_project_to_cad_report), intent(out) :: report
+            type(c_ptr) :: h
+        end function
+
+        function c_mio_boundary_layer(mesh, opts, report) &
+                bind(c, name="mio_boundary_layer") result(h)
+            import :: c_ptr, mio_boundary_layer_opts_t, mio_boundary_layer_report
+            type(c_ptr), value :: mesh
+            type(mio_boundary_layer_opts_t), intent(in) :: opts
+            type(mio_boundary_layer_report), intent(out) :: report
+            type(c_ptr) :: h
+        end function
+
+        function c_mio_extrude(mesh, opts, report) bind(c, name="mio_extrude") result(h)
+            import :: c_ptr, mio_extrude_opts_t, mio_sweep_report
+            type(c_ptr), value :: mesh
+            type(mio_extrude_opts_t), intent(in) :: opts
+            type(mio_sweep_report), intent(out) :: report
+            type(c_ptr) :: h
+        end function
+
+        function c_mio_revolve(mesh, opts, report) bind(c, name="mio_revolve") result(h)
+            import :: c_ptr, mio_revolve_opts_t, mio_sweep_report
+            type(c_ptr), value :: mesh
+            type(mio_revolve_opts_t), intent(in) :: opts
+            type(mio_sweep_report), intent(out) :: report
+            type(c_ptr) :: h
+        end function
+
+        function c_mio_mirror(mesh, opts, report) bind(c, name="mio_mirror") result(h)
+            import :: c_ptr, mio_mirror_opts_t, mio_mirror_report
+            type(c_ptr), value :: mesh
+            type(mio_mirror_opts_t), intent(in) :: opts
+            type(mio_mirror_report), intent(out) :: report
+            type(c_ptr) :: h
+        end function
+
+        function c_mio_tetrahedralize(mesh, opts, report) &
+                bind(c, name="mio_tetrahedralize") result(h)
+            import :: c_ptr, mio_tetrahedralize_opts_t, mio_tetrahedralize_report
+            type(c_ptr), value :: mesh
+            type(mio_tetrahedralize_opts_t), intent(in) :: opts
+            type(mio_tetrahedralize_report), intent(out) :: report
+            type(c_ptr) :: h
+        end function
+
+        function c_mio_has_netgen() bind(c, name="mio_has_netgen") result(r)
+            import :: c_int
+            integer(c_int) :: r
+        end function
+
+        function c_mio_has_mmg() bind(c, name="mio_has_mmg") result(r)
+            import :: c_int
+            integer(c_int) :: r
+        end function
+
+        function c_mio_adapt(mesh, opts, report) bind(c, name="mio_adapt") result(h)
+            import :: c_ptr, mio_adapt_opts_t, mio_mmg_report
+            type(c_ptr), value :: mesh
+            type(mio_adapt_opts_t), intent(in) :: opts
+            type(mio_mmg_report), intent(out) :: report
+            type(c_ptr) :: h
+        end function
+
+        function c_mio_discretize_levelset(mesh, opts, report) &
+                bind(c, name="mio_discretize_levelset") result(h)
+            import :: c_ptr, mio_discretize_levelset_opts_t, mio_mmg_report
+            type(c_ptr), value :: mesh
+            type(mio_discretize_levelset_opts_t), intent(in) :: opts
+            type(mio_mmg_report), intent(out) :: report
+            type(c_ptr) :: h
+        end function
+
+        function c_mio_move(mesh, opts, report) bind(c, name="mio_move") result(h)
+            import :: c_ptr, mio_move_opts_t, mio_mmg_report
+            type(c_ptr), value :: mesh
+            type(mio_move_opts_t), intent(in) :: opts
+            type(mio_mmg_report), intent(out) :: report
+            type(c_ptr) :: h
+        end function
+
+        function c_mio_mesh_domain(mesh, opts, report, num_subdomains, num_holes) &
+                bind(c, name="mio_mesh_domain") result(h)
+            import :: c_ptr, c_int64_t, mio_mesh_domain_opts_t, mio_mmg_report
+            type(c_ptr), value :: mesh
+            type(mio_mesh_domain_opts_t), intent(in) :: opts
+            type(mio_mmg_report), intent(out) :: report
+            integer(c_int64_t), intent(out) :: num_subdomains, num_holes
+            type(c_ptr) :: h
+        end function
+
+        function c_mio_metric_from_hessian(mesh, hessian, error, hmin, hmax, output) &
+                bind(c, name="mio_metric_from_hessian") result(h)
+            import :: c_ptr, c_double, c_char
+            type(c_ptr), value :: mesh
+            character(kind=c_char), intent(in) :: hessian(*), output(*)
+            real(c_double), value :: error, hmin, hmax
+            type(c_ptr) :: h
+        end function
+
+        function c_mio_has_mmg_elas() bind(c, name="mio_has_mmg_elas") result(r)
+            import :: c_int
+            integer(c_int) :: r
+        end function
+
+        function c_mio_mmg_index_bits() bind(c, name="mio_mmg_index_bits") result(r)
+            import :: c_int
+            integer(c_int) :: r
+        end function
+
+        function c_mio_check_conformity(mesh, opts, report) &
+                bind(c, name="mio_check_conformity") result(h)
+            import :: c_ptr, mio_conformity_opts_t, mio_conformity_report
+            type(c_ptr), value :: mesh
+            type(mio_conformity_opts_t), intent(in) :: opts
+            type(mio_conformity_report), intent(out) :: report
+            type(c_ptr) :: h
+        end function
+
+        function c_mio_check_conformity_warnings(buf, buflen) &
+                bind(c, name="mio_check_conformity_warnings") result(n)
+            import :: c_char, c_int64_t
+            character(c_char), intent(out) :: buf(*)
+            integer(c_int64_t), value :: buflen
+            integer(c_int64_t) :: n
+        end function
+
+        function c_mio_error_size(mesh, opts, report) &
+                bind(c, name="mio_error_size") result(h)
+            import :: c_ptr, mio_error_size_opts_t, mio_error_size_report
+            type(c_ptr), value :: mesh
+            type(mio_error_size_opts_t), intent(in) :: opts
+            type(mio_error_size_report), intent(out) :: report
+            type(c_ptr) :: h
+        end function
+
+        function c_mio_project_to_cad_outside_trim(points, n) &
+                bind(c, name="mio_project_to_cad_outside_trim") result(m)
+            import :: c_int64_t
+            integer(c_int64_t), intent(out) :: points(*)
+            integer(c_int64_t), value :: n
+            integer(c_int64_t) :: m
+        end function
+
         function c_mio_mesh_cad_surface_num_reparametrised() &
                 bind(c, name="mio_mesh_cad_surface_num_reparametrised") result(m)
             import :: c_int64_t
@@ -4509,6 +5127,26 @@ module meshioplusplus
                 bind(c, name="mio_mesh_cad_surface_num_lopped_corners") result(m)
             import :: c_int64_t
             integer(c_int64_t) :: m
+        end function
+
+        function c_mio_mesh_cad_surface_num_untangled() &
+                bind(c, name="mio_mesh_cad_surface_num_untangled") result(m)
+            import :: c_int64_t
+            integer(c_int64_t) :: m
+        end function
+
+        function c_mio_mesh_cad_surface_min_metric_angle() &
+                bind(c, name="mio_mesh_cad_surface_min_metric_angle") result(a)
+            import :: c_double
+            real(c_double) :: a
+        end function
+
+        function c_mio_mesh_cad_surface_quad_stats(nq, left, sj) &
+                bind(c, name="mio_mesh_cad_surface_quad_stats") result(st)
+            import :: c_int64_t, c_double, c_int
+            integer(c_int64_t), intent(out) :: nq, left
+            real(c_double), intent(out) :: sj
+            integer(c_int) :: st
         end function
 
         function c_mio_mesh_cad_surface_lopped_corner(idx, face, point, angle, lfs0, radius, &
@@ -5203,6 +5841,261 @@ contains
     function mio_has_occt() result(has)
         logical :: has
         has = c_mio_has_occt() /= 0
+    end function
+
+    !> Whether the library carries the Netgen backend `mio_tetrahedralize` needs.
+    function mio_has_netgen() result(has)
+        logical :: has
+        has = c_mio_has_netgen() /= 0
+    end function
+
+    !> Whether the library carries the MMG backend (adapt, discretize_levelset,
+    !> mesh_domain, move): a build with MESHIOPLUSPLUS_WITH_MMG.
+    function mio_has_mmg() result(has)
+        logical :: has
+        has = c_mio_has_mmg() /= 0
+    end function
+
+    !> Remesh `mesh` to a size or a metric with MMG (roadmap 3.2.1; doc/mmg.md):
+    !> mmg3d for tetrahedra, mmg2d for a planar triangle mesh, mmgs for another
+    !> triangle surface. Give at most one of `hsiz` (a constant edge size),
+    !> `size_field` (a one-component point-data name) and `metric` (a six-component
+    !> point-data name, three in 2-D, in the lower-triangle order of a Medit
+    !> .sol). `hmin`, `hmax`, `hausd`, `hgrad` and `angle_detection` (45; 0
+    !> off) are MMG's; `frozen` lists 1-based points MMG must keep and
+    !> `required` the regions whose entities it must keep. Cell and side
+    !> regions come back under their names. Without MMG (`mio_has_mmg()` is
+    !> false) it fails naming MESHIOPLUSPLUS_WITH_MMG.
+    function mio_adapt(mesh, hsiz, size_field, metric, hmin, hmax, hausd, hgrad, angle_detection, &
+                       frozen, required, report, stat, errmsg) result(out)
+        type(mio_mesh), intent(in) :: mesh
+        real(real64), intent(in), optional :: hsiz, hmin, hmax, hausd, hgrad, angle_detection
+        character(*), intent(in), optional :: size_field, metric
+        integer(int64), intent(in), optional :: frozen(:)
+        character(*), intent(in), optional :: required(:)
+        type(mio_mmg_report), intent(out), optional :: report
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        type(mio_adapt_opts_t) :: opts
+        type(mio_mmg_report) :: rep
+        ! NUL-terminated copies and the id buffer must outlive the call.
+        character(kind=c_char, len=:), allocatable, target :: size_c, metric_c
+        character(kind=c_char, len=:), allocatable, target :: required_c(:)
+        type(c_ptr), allocatable, target :: required_p(:)
+        integer(c_int64_t), allocatable, target :: frozen_ids(:)
+        integer :: k
+        if (c_sizeof(c_null_ptr) == 8_c_size_t .and. &
+            (c_sizeof(opts) /= 224_c_size_t .or. c_sizeof(rep) /= 192_c_size_t)) then
+            write (error_unit, '(a)') 'meshio++: adapt layout mismatch'
+            error stop 1
+        end if
+        if (present(hsiz)) opts%hsiz = real(hsiz, c_double)
+        if (present(hmin)) opts%params%hmin = real(hmin, c_double)
+        if (present(hmax)) opts%params%hmax = real(hmax, c_double)
+        if (present(hausd)) opts%params%hausd = real(hausd, c_double)
+        if (present(hgrad)) opts%params%hgrad = real(hgrad, c_double)
+        if (present(angle_detection)) opts%params%angle_detection = real(angle_detection, c_double)
+        if (present(size_field)) then
+            size_c = c_str(size_field)
+            opts%size = c_loc(size_c(1:1))
+        end if
+        if (present(metric)) then
+            metric_c = c_str(metric)
+            opts%metric = c_loc(metric_c(1:1))
+        end if
+        if (present(frozen)) then
+            allocate (frozen_ids(max(size(frozen), 1)))
+            frozen_ids = 0_c_int64_t
+            if (size(frozen) > 0) frozen_ids(1:size(frozen)) = int(frozen, c_int64_t) - 1_c_int64_t
+            opts%params%frozen = c_loc(frozen_ids(1))
+            opts%params%num_frozen = int(size(frozen), c_int64_t)
+        end if
+        if (present(required)) then
+            if (size(required) > 0) then
+                allocate (character(kind=c_char, len=len(required) + 1) :: required_c(size(required)))
+                allocate (required_p(size(required)))
+                do k = 1, size(required)
+                    required_c(k) = trim(required(k))//c_null_char
+                    required_p(k) = c_loc(required_c(k))
+                end do
+                opts%params%required = c_loc(required_p(1))
+                opts%params%num_required = int(size(required), c_int64_t)
+            end if
+        end if
+        out%handle = c_mio_adapt(mesh%handle, opts, rep)
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('adapt', mio_error_message(), stat, errmsg)
+            return
+        end if
+        if (present(report)) report = rep
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Embed the isovalue (0) of the point-data level set `level_set` in
+    !> `mesh` and remesh both sides with MMG (roadmap 3.2.2). The elements
+    !> carry MMG's references as cell data medit:ref (3 inside, 2 outside) and
+    !> the cell regions inside/outside; the interface is the side region
+    !> "interface". `hausd` and `hmax` are MMG's.
+    function mio_discretize_levelset(mesh, level_set, isovalue, hausd, hmax, report, stat, &
+                                     errmsg) result(out)
+        type(mio_mesh), intent(in) :: mesh
+        character(*), intent(in) :: level_set
+        real(real64), intent(in), optional :: isovalue, hausd, hmax
+        type(mio_mmg_report), intent(out), optional :: report
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        type(mio_discretize_levelset_opts_t) :: opts
+        type(mio_mmg_report) :: rep
+        character(kind=c_char, len=:), allocatable, target :: name_c
+        if (c_sizeof(c_null_ptr) == 8_c_size_t .and. c_sizeof(opts) /= 240_c_size_t) then
+            write (error_unit, '(a)') 'meshio++: discretize_levelset layout mismatch'
+            error stop 1
+        end if
+        name_c = c_str(level_set)
+        opts%level_set = c_loc(name_c(1:1))
+        if (present(isovalue)) opts%isovalue = real(isovalue, c_double)
+        if (present(hausd)) opts%params%hausd = real(hausd, c_double)
+        if (present(hmax)) opts%params%hmax = real(hmax, c_double)
+        out%handle = c_mio_discretize_levelset(mesh%handle, opts, rep)
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('discretize_levelset', mio_error_message(), stat, errmsg)
+            return
+        end if
+        if (present(report)) report = rep
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Triangulate the planar domain bounded by the line cells of `boundary`
+    !> with MMG (roadmap 3.2.3), at the edge size `hsiz`. `holes(2, k)` holds a
+    !> point inside each hole, whose region is left out; each enclosed region
+    !> is a cell region subdomain:<k>.
+    function mio_mesh_domain(boundary, hsiz, holes, report, num_subdomains, stat, errmsg) &
+            result(out)
+        type(mio_mesh), intent(in) :: boundary
+        real(real64), intent(in), optional :: hsiz
+        real(real64), intent(in), optional :: holes(:, :)
+        type(mio_mmg_report), intent(out), optional :: report
+        integer(int64), intent(out), optional :: num_subdomains
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        type(mio_mesh_domain_opts_t) :: opts
+        type(mio_mmg_report) :: rep
+        real(c_double), allocatable, target :: xy(:)
+        integer(c_int64_t) :: nsub, nholes
+        if (c_sizeof(c_null_ptr) == 8_c_size_t .and. c_sizeof(opts) /= 232_c_size_t) then
+            write (error_unit, '(a)') 'meshio++: mesh_domain layout mismatch'
+            error stop 1
+        end if
+        if (present(hsiz)) opts%hsiz = real(hsiz, c_double)
+        if (present(holes)) then
+            if (size(holes, 2) > 0) then
+                allocate (xy(2*size(holes, 2)))
+                xy = real(reshape(holes(1:2, :), [2*size(holes, 2)]), c_double)
+                opts%holes = c_loc(xy(1))
+                opts%num_holes = int(size(holes, 2), c_int64_t)
+            end if
+        end if
+        out%handle = c_mio_mesh_domain(boundary%handle, opts, rep, nsub, nholes)
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('mesh_domain', mio_error_message(), stat, errmsg)
+            return
+        end if
+        if (present(report)) report = rep
+        if (present(num_subdomains)) num_subdomains = int(nsub, int64)
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Move `mesh` by the point-data vector `displacement` of the boundary
+    !> facets of the regions `moving`, remeshing as it deforms (MMG's
+    !> Lagrangian mode, roadmap 3.2.4): MMG extends the displacement inward by
+    !> linear elasticity (ELAS) and keeps the rest of the boundary in place.
+    !> `lagrangian` is MMG's lag (0, 1 the default, or 2). Fails naming
+    !> MESHIOPLUSPLUS_WITH_MMG without MMG, or ELAS without it.
+    function mio_move(mesh, displacement, moving, lagrangian, report, stat, errmsg) result(out)
+        type(mio_mesh), intent(in) :: mesh
+        character(*), intent(in) :: displacement
+        character(*), intent(in) :: moving(:)
+        integer, intent(in), optional :: lagrangian
+        type(mio_mmg_report), intent(out), optional :: report
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        type(mio_move_opts_t) :: opts
+        type(mio_mmg_report) :: rep
+        character(kind=c_char, len=:), allocatable, target :: name_c
+        character(kind=c_char, len=:), allocatable, target :: moving_c(:)
+        type(c_ptr), allocatable, target :: moving_p(:)
+        integer :: k
+        if (c_sizeof(c_null_ptr) == 8_c_size_t .and. c_sizeof(opts) /= 232_c_size_t) then
+            write (error_unit, '(a)') 'meshio++: move layout mismatch'
+            error stop 1
+        end if
+        name_c = c_str(displacement)
+        opts%displacement = c_loc(name_c(1:1))
+        if (size(moving) > 0) then
+            allocate (character(kind=c_char, len=len(moving) + 1) :: moving_c(size(moving)))
+            allocate (moving_p(size(moving)))
+            do k = 1, size(moving)
+                moving_c(k) = trim(moving(k))//c_null_char
+                moving_p(k) = c_loc(moving_c(k))
+            end do
+            opts%moving = c_loc(moving_p(1))
+            opts%num_moving = int(size(moving), c_int64_t)
+        end if
+        if (present(lagrangian)) opts%lagrangian = int(lagrangian, c_int32_t)
+        out%handle = c_mio_move(mesh%handle, opts, rep)
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('move', mio_error_message(), stat, errmsg)
+            return
+        end if
+        if (present(report)) report = rep
+        call clear_status(stat, errmsg)
+    end function
+
+    !> The anisotropic metric of the row-major point-data Hessian `hessian`
+    !> ((n, 9), or (n, 4) in 2-D) for `mio_adapt`, as point data `output`
+    !> ('metric'): M = c/error |H|, its sizes clamped to [hmin, hmax]. Needs no
+    !> MMG.
+    function mio_metric_from_hessian(mesh, hessian, error, hmin, hmax, output, stat, errmsg) &
+            result(out)
+        type(mio_mesh), intent(in) :: mesh
+        character(*), intent(in) :: hessian
+        real(real64), intent(in), optional :: error, hmin, hmax
+        character(*), intent(in), optional :: output
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        real(c_double) :: e, lo, hi
+        character(:), allocatable :: name
+        e = 1.0e-2_c_double
+        lo = 1.0e-3_c_double
+        hi = 1.0_c_double
+        if (present(error)) e = real(error, c_double)
+        if (present(hmin)) lo = real(hmin, c_double)
+        if (present(hmax)) hi = real(hmax, c_double)
+        name = 'metric'
+        if (present(output)) name = output
+        out%handle = c_mio_metric_from_hessian(mesh%handle, c_str(hessian), e, lo, hi, c_str(name))
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('metric_from_hessian', mio_error_message(), stat, errmsg)
+            return
+        end if
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Whether the linked MMG has ELAS, which `move` needs.
+    function mio_has_mmg_elas() result(has)
+        logical :: has
+        has = c_mio_has_mmg_elas() /= 0
+    end function
+
+    !> The width in bits of the linked MMG's MMG5_int (32 or 64), 0 without MMG.
+    function mio_mmg_index_bits() result(bits)
+        integer :: bits
+        bits = int(c_mio_mmg_index_bits())
     end function
 
     function mio_pipeline_has_json() result(has)
@@ -6308,6 +7201,108 @@ contains
         call clear_status(stat, errmsg)
     end function
 
+    !> A per-point size field from the per-cell error indicator `error_array`
+    !> (default "error:zz", what `estimate_error` writes) by the adaptive
+    !> procedure of Zienkiewicz and Zhu (1987; roadmap 6.10.2): with N cells
+    !> evaluated, a cell of diameter h and indicator eta asks
+    !> h * (target_error / sqrt(N) / eta)**(1 / order) (`order` default 1),
+    !> clamped to [`min_size`, `max_size`] (0: no bound); a point takes the
+    !> least of its cells' (NaN where none is evaluated), written as point data
+    !> `output` (default "size", what `mesh_cad_surface`'s `background`
+    !> reads). The optional `report` counts the cells evaluated, skipped and
+    !> clamped and the least and greatest size written.
+    function mesh_error_size(self, target_error, error_array, order, min_size, max_size, &
+                             output, overwrite, report, stat, errmsg) result(out)
+        class(mio_mesh), intent(in) :: self
+        real(real64), intent(in) :: target_error
+        character(*), intent(in), optional :: error_array, output
+        real(real64), intent(in), optional :: order, min_size, max_size
+        logical, intent(in), optional :: overwrite
+        type(mio_error_size_report), intent(out), optional :: report
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        type(mio_error_size_opts_t) :: opts
+        type(mio_error_size_report) :: rep
+        character(kind=c_char, len=:), allocatable, target :: aname, oname
+        if (c_sizeof(c_null_ptr) == 8_c_size_t .and. &
+            (c_sizeof(opts) /= 80_c_size_t .or. c_sizeof(rep) /= 64_c_size_t)) then
+            write (error_unit, '(a)') 'meshio++: error_size layout mismatch'
+            error stop 1
+        end if
+        opts%target_error = real(target_error, c_double)
+        if (present(error_array)) then
+            aname = c_str(error_array)
+            opts%error_array = c_loc(aname(1:1))
+        end if
+        if (present(order)) opts%order = real(order, c_double)
+        if (present(min_size)) opts%min_size = real(min_size, c_double)
+        if (present(max_size)) opts%max_size = real(max_size, c_double)
+        if (present(output)) then
+            oname = c_str(output)
+            opts%output = c_loc(oname(1:1))
+        end if
+        if (present(overwrite)) opts%overwrite = merge(1_c_int32_t, 0_c_int32_t, overwrite)
+        out%handle = c_mio_error_size(self%handle, opts, rep)
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('error_size', mio_error_message(), stat, errmsg)
+            return
+        end if
+        if (present(report)) report = rep
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Whether the mesh is conforming (roadmap 3.2.1): its volume cells (else
+    !> its 2-D cells) are checked for hanging nodes (a point on a volume cell's
+    !> face or edge that the cell does not use), T-junctions (the same on a 2-D
+    !> cell's edge), partly overlapping and unwelded pairs of unmatched facets.
+    !> `tolerance` (default 1e-9) is a fraction of the examined facets'
+    !> bounding-box diagonal; with `attach_flags` (default true) the result
+    !> carries the Int64 point data `conformity:hanging` (1 hanging node, 2
+    !> T-junction). The optional `report` holds the counts, `conforming` and
+    !> `interface_mode` (a MIO_CONFORMITY_* code: the find_interface mode that
+    !> suits the mesh); `warnings` receives what was not examined, one per line.
+    function mesh_check_conformity(self, tolerance, attach_flags, report, warnings, &
+                                   stat, errmsg) result(out)
+        class(mio_mesh), intent(in) :: self
+        real(real64), intent(in), optional :: tolerance
+        logical, intent(in), optional :: attach_flags
+        type(mio_conformity_report), intent(out), optional :: report
+        character(:), allocatable, intent(out), optional :: warnings
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        type(mio_conformity_opts_t) :: opts
+        type(mio_conformity_report) :: rep
+        character(c_char), allocatable :: wbuf(:)
+        integer(c_int64_t) :: n
+        if (c_sizeof(opts) /= 48_c_size_t .or. c_sizeof(rep) /= 104_c_size_t) then
+            write (error_unit, '(a)') 'meshio++: check_conformity layout mismatch'
+            error stop 1
+        end if
+        if (present(tolerance)) opts%tolerance = real(tolerance, c_double)
+        if (present(attach_flags)) opts%attach_flags = merge(1_c_int32_t, 0_c_int32_t, attach_flags)
+        out%handle = c_mio_check_conformity(self%handle, opts, rep)
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('check_conformity', mio_error_message(), stat, errmsg)
+            return
+        end if
+        if (present(report)) report = rep
+        if (present(warnings)) then
+            warnings = ''
+            ! String rule 5: query the length with an empty buffer, then copy.
+            allocate (wbuf(1))
+            n = c_mio_check_conformity_warnings(wbuf, 0_c_int64_t)
+            if (n > 0 .and. n < int(huge(0) - 1, c_int64_t)) then
+                deallocate (wbuf)
+                allocate (wbuf(int(n) + 1))
+                n = c_mio_check_conformity_warnings(wbuf, n + 1)
+                if (n > 0) warnings = from_c_buf(wbuf, int(n))
+            end if
+        end if
+        call clear_status(stat, errmsg)
+    end function
+
     !> Remesh a surface by approximated centroidal Voronoi diagram (ACVD)
     !> clustering: replace its triangulation with a new, near-uniformly-sized,
     !> well-shaped one at `num_clusters` vertices. Unlike every other
@@ -6671,7 +7666,8 @@ contains
                           num_network_patches, num_network_edges, &
                           num_extraordinary_vertices, num_resegmented, num_escalations, &
                           max_g1_angle_deg, max_freeform_distance, rms_freeform_distance, &
-                          num_face_records) result(out)
+                          num_face_records, constrain_primitives, &
+                          num_constrained_primitives, num_constraint_groups) result(out)
         class(mio_mesh), intent(in) :: self
         character(*), intent(in), optional :: step_path
         real(real64), intent(in), optional :: tolerance, mesh_deflection
@@ -6730,6 +7726,8 @@ contains
         integer(int64), intent(out), optional :: num_network_edges, num_extraordinary_vertices
         integer(int64), intent(out), optional :: num_resegmented, num_escalations
         integer(int64), intent(out), optional :: num_face_records
+        logical, intent(in), optional :: constrain_primitives
+        integer(int64), intent(out), optional :: num_constrained_primitives, num_constraint_groups
         type(mio_mesh) :: out
         type(c_ptr) :: res, path_ptr
         type(mio_fit_cad_opts_t) :: opts
@@ -6799,6 +7797,8 @@ contains
             merge(1_c_int32_t, 0_c_int32_t, layout_snap_to_features)
         if (present(validate_by_surface_sampling)) opts_ex2%validate_by_surface_sampling = &
             merge(1_c_int32_t, 0_c_int32_t, validate_by_surface_sampling)
+        if (present(constrain_primitives)) opts_ex2%constrain_primitives = &
+            merge(1_c_int32_t, 0_c_int32_t, constrain_primitives)
         if (present(refine_segmentation)) &
             opts_ex%refine_segmentation = merge(1_c_int32_t, 0_c_int32_t, refine_segmentation)
         if (present(max_refine_iterations)) &
@@ -6936,6 +7936,10 @@ contains
         if (present(rms_freeform_distance)) &
             rms_freeform_distance = real(report_ex3%rms_freeform_distance, real64)
         if (present(num_face_records)) num_face_records = int(report_ex3%num_face_records, int64)
+        if (present(num_constrained_primitives)) &
+            num_constrained_primitives = int(report_ex3%num_constrained_primitives, int64)
+        if (present(num_constraint_groups)) &
+            num_constraint_groups = int(report_ex3%num_constraint_groups, int64)
         call clear_status(stat, errmsg)
     end function
 
@@ -8294,7 +9298,8 @@ contains
     end function
 
     !> Fill the options shared by the generators and run the one named by `which`.
-    function gen_run(which, opts, cell_type, split, order, max_cells, stat, errmsg) result(out)
+    function gen_run(which, opts, cell_type, split, order, max_cells, stat, errmsg, complete) &
+        result(out)
         character(*), intent(in) :: which
         type(mio_gen_opts_t), intent(inout) :: opts
         character(*), intent(in), optional :: cell_type, split
@@ -8302,10 +9307,14 @@ contains
         integer(int64), intent(in), optional :: max_cells
         integer, intent(out), optional :: stat
         character(:), allocatable, intent(out), optional :: errmsg
+        logical, intent(in), optional :: complete
         type(mio_mesh) :: out
         integer(c_int32_t) :: code
         call check_gen_opts_layout()
         if (present(order)) opts%order = int(order, c_int32_t)
+        if (present(complete)) then
+            if (complete) opts%complete = 1
+        end if
         if (present(max_cells)) opts%max_cells = int(max_cells, c_int64_t)
         if (present(cell_type)) then
             code = gen_cell_code(cell_type)
@@ -8338,6 +9347,27 @@ contains
         case ('lshape'); out%handle = c_mio_lshape(opts)
         case ('plate_with_hole'); out%handle = c_mio_plate_with_hole(opts)
         case ('honeycomb'); out%handle = c_mio_honeycomb(opts)
+        case ('line'); out%handle = c_mio_line(opts)
+        case ('circle'); out%handle = c_mio_circle(opts)
+        case ('helix'); out%handle = c_mio_helix(opts)
+        case ('sphere_points'); out%handle = c_mio_sphere_points(opts)
+        case ('box_points'); out%handle = c_mio_box_points(opts)
+        case ('tetra_sphere'); out%handle = c_mio_tetra_sphere(opts)
+        case ('octa_sphere'); out%handle = c_mio_octa_sphere(opts)
+        case ('cube_sphere'); out%handle = c_mio_cube_sphere(opts)
+        case ('geo_sphere'); out%handle = c_mio_geo_sphere(opts)
+        case ('torus'); out%handle = c_mio_torus(opts)
+        case ('moebius'); out%handle = c_mio_moebius(opts)
+        case ('tube'); out%handle = c_mio_tube(opts)
+        case ('cone'); out%handle = c_mio_cone(opts)
+        case ('capsule'); out%handle = c_mio_capsule(opts)
+        case ('box_surface'); out%handle = c_mio_box_surface(opts)
+        case ('platonic'); out%handle = c_mio_platonic(opts)
+        case ('ball'); out%handle = c_mio_ball(opts)
+        case ('spherical_shell'); out%handle = c_mio_spherical_shell(opts)
+        case ('pipe'); out%handle = c_mio_pipe(opts)
+        case ('fichera'); out%handle = c_mio_fichera(opts)
+        case ('solid_torus'); out%handle = c_mio_solid_torus(opts)
         case default; out%handle = c_mio_cylinder(opts)
         end select
         if (.not. c_associated(out%handle)) then
@@ -8352,7 +9382,7 @@ contains
     !> ('zigzag', 'up', 'down', 'center') picks the triangle layout; `order` 2
     !> gives quadratic cells. Side regions xmin, xmax, ymin, ymax.
     function mio_rectangle(dims, lengths, origin, cell_type, split, order, max_cells, &
-                           stat, errmsg) result(out)
+                           stat, errmsg, complete) result(out)
         integer, intent(in), optional :: dims(2)
         real(real64), intent(in), optional :: lengths(2), origin(3)
         character(*), intent(in), optional :: cell_type, split
@@ -8360,18 +9390,19 @@ contains
         integer(int64), intent(in), optional :: max_cells
         integer, intent(out), optional :: stat
         character(:), allocatable, intent(out), optional :: errmsg
+        logical, intent(in), optional :: complete
         type(mio_mesh) :: out
         type(mio_gen_opts_t) :: opts
         opts%counts = 1
         if (present(dims)) opts%counts(1:2) = int(dims, c_int64_t)
         if (present(lengths)) opts%lengths(1:2) = real(lengths, c_double)
         if (present(origin)) opts%origin = real(origin, c_double)
-        out = gen_run('rectangle', opts, cell_type, split, order, max_cells, stat, errmsg)
+        out = gen_run('rectangle', opts, cell_type, split, order, max_cells, stat, errmsg, complete=complete)
     end function
 
     !> A regular 3-D grid of `dims` = (nx, ny, nz) hexahedra (default), 'tetra'
     !> (six per cell) or 'wedge' cells. Side regions xmin ... zmax.
-    function mio_box(dims, lengths, origin, cell_type, order, max_cells, stat, errmsg) &
+    function mio_box(dims, lengths, origin, cell_type, order, max_cells, stat, errmsg, complete) &
         result(out)
         integer, intent(in), optional :: dims(3)
         real(real64), intent(in), optional :: lengths(3), origin(3)
@@ -8380,6 +9411,7 @@ contains
         integer(int64), intent(in), optional :: max_cells
         integer, intent(out), optional :: stat
         character(:), allocatable, intent(out), optional :: errmsg
+        logical, intent(in), optional :: complete
         type(mio_mesh) :: out
         type(mio_gen_opts_t) :: opts
         opts%counts = 1
@@ -8387,12 +9419,12 @@ contains
         if (present(lengths)) opts%lengths = real(lengths, c_double)
         if (present(origin)) opts%origin = real(origin, c_double)
         out = gen_run('box', opts, cell_type, order=order, max_cells=max_cells, &
-                      stat=stat, errmsg=errmsg)
+                      stat=stat, errmsg=errmsg, complete=complete)
     end function
 
     !> A disk of `n` x `n` quads (default) or `n` rings of triangles; side
     !> region rim. `center` places it.
-    function mio_disk(radius, n, center, cell_type, order, max_cells, stat, errmsg) &
+    function mio_disk(radius, n, center, cell_type, order, max_cells, stat, errmsg, complete) &
         result(out)
         real(real64), intent(in), optional :: radius, center(3)
         integer, intent(in), optional :: n
@@ -8401,18 +9433,19 @@ contains
         integer(int64), intent(in), optional :: max_cells
         integer, intent(out), optional :: stat
         character(:), allocatable, intent(out), optional :: errmsg
+        logical, intent(in), optional :: complete
         type(mio_mesh) :: out
         type(mio_gen_opts_t) :: opts
         if (present(radius)) opts%radius = real(radius, c_double)
         if (present(n)) opts%counts(1) = int(n, c_int64_t)
         if (present(center)) opts%origin = real(center, c_double)
         out = gen_run('disk', opts, cell_type, order=order, max_cells=max_cells, &
-                      stat=stat, errmsg=errmsg)
+                      stat=stat, errmsg=errmsg, complete=complete)
     end function
 
     !> A latitude / longitude sphere surface with `nu` points per ring and `nv`
     !> bands, oriented outward. `cell_type` is 'triangle' (default) or 'quad'.
-    function mio_uv_sphere(radius, nu, nv, center, cell_type, order, max_cells, stat, errmsg) &
+    function mio_uv_sphere(radius, nu, nv, center, cell_type, order, max_cells, stat, errmsg, complete) &
         result(out)
         real(real64), intent(in), optional :: radius, center(3)
         integer, intent(in), optional :: nu, nv
@@ -8421,6 +9454,7 @@ contains
         integer(int64), intent(in), optional :: max_cells
         integer, intent(out), optional :: stat
         character(:), allocatable, intent(out), optional :: errmsg
+        logical, intent(in), optional :: complete
         type(mio_mesh) :: out
         type(mio_gen_opts_t) :: opts
         opts%counts(1) = 16
@@ -8430,12 +9464,12 @@ contains
         if (present(nv)) opts%counts(2) = int(nv, c_int64_t)
         if (present(center)) opts%origin = real(center, c_double)
         out = gen_run('uv_sphere', opts, cell_type, order=order, max_cells=max_cells, &
-                      stat=stat, errmsg=errmsg)
+                      stat=stat, errmsg=errmsg, complete=complete)
     end function
 
     !> An icosahedron-based sphere surface: 20 * 4**subdivisions triangles,
     !> oriented outward.
-    function mio_icosa_sphere(radius, subdivisions, center, order, max_cells, stat, errmsg) &
+    function mio_icosa_sphere(radius, subdivisions, center, order, max_cells, stat, errmsg, complete) &
         result(out)
         real(real64), intent(in), optional :: radius, center(3)
         integer, intent(in), optional :: subdivisions
@@ -8443,6 +9477,7 @@ contains
         integer(int64), intent(in), optional :: max_cells
         integer, intent(out), optional :: stat
         character(:), allocatable, intent(out), optional :: errmsg
+        logical, intent(in), optional :: complete
         type(mio_mesh) :: out
         type(mio_gen_opts_t) :: opts
         opts%counts(1) = 2
@@ -8450,13 +9485,13 @@ contains
         if (present(subdivisions)) opts%counts(1) = int(subdivisions, c_int64_t)
         if (present(center)) opts%origin = real(center, c_double)
         out = gen_run('icosa_sphere', opts, order=order, max_cells=max_cells, &
-                      stat=stat, errmsg=errmsg)
+                      stat=stat, errmsg=errmsg, complete=complete)
     end function
 
     !> A solid cylinder along z of `nxy` cells across and `nz` layers:
     !> 'hexahedron' (default) or 'wedge' cells; side regions side, top, bottom.
     function mio_cylinder(radius, height, nxy, nz, center, cell_type, order, max_cells, &
-                          stat, errmsg) result(out)
+                          stat, errmsg, complete) result(out)
         real(real64), intent(in), optional :: radius, height, center(3)
         integer, intent(in), optional :: nxy, nz
         character(*), intent(in), optional :: cell_type
@@ -8464,6 +9499,7 @@ contains
         integer(int64), intent(in), optional :: max_cells
         integer, intent(out), optional :: stat
         character(:), allocatable, intent(out), optional :: errmsg
+        logical, intent(in), optional :: complete
         type(mio_mesh) :: out
         type(mio_gen_opts_t) :: opts
         if (present(radius)) opts%radius = real(radius, c_double)
@@ -8472,13 +9508,13 @@ contains
         if (present(nz)) opts%counts(2) = int(nz, c_int64_t)
         if (present(center)) opts%origin = real(center, c_double)
         out = gen_run('cylinder', opts, cell_type, order=order, max_cells=max_cells, &
-                      stat=stat, errmsg=errmsg)
+                      stat=stat, errmsg=errmsg, complete=complete)
     end function
 
     !> The reference triangle (0,0) (1,0) (0,1) scaled by `lengths` (default 1, 1)
     !> and refined into `n` * `n` triangles at z = origin(3). Side regions ymin,
     !> xmin, hypotenuse.
-    function mio_reference_triangle(n, lengths, origin, order, max_cells, stat, errmsg) &
+    function mio_reference_triangle(n, lengths, origin, order, max_cells, stat, errmsg, complete) &
         result(out)
         integer, intent(in), optional :: n
         real(real64), intent(in), optional :: lengths(2), origin(3)
@@ -8486,6 +9522,7 @@ contains
         integer(int64), intent(in), optional :: max_cells
         integer, intent(out), optional :: stat
         character(:), allocatable, intent(out), optional :: errmsg
+        logical, intent(in), optional :: complete
         type(mio_mesh) :: out
         type(mio_gen_opts_t) :: opts
         opts%counts(1) = 4
@@ -8493,12 +9530,12 @@ contains
         if (present(lengths)) opts%lengths(1:2) = real(lengths, c_double)
         if (present(origin)) opts%origin = real(origin, c_double)
         out = gen_run('reference_triangle', opts, order=order, max_cells=max_cells, &
-                      stat=stat, errmsg=errmsg)
+                      stat=stat, errmsg=errmsg, complete=complete)
     end function
 
     !> A regular polygon of `sides` sides fanned from its centre (`rings` = 1) or
     !> refined into `rings` rings of triangles; side region rim.
-    function mio_ngon(sides, radius, rings, center, order, max_cells, stat, errmsg) &
+    function mio_ngon(sides, radius, rings, center, order, max_cells, stat, errmsg, complete) &
         result(out)
         integer, intent(in), optional :: sides, rings
         real(real64), intent(in), optional :: radius, center(3)
@@ -8506,6 +9543,7 @@ contains
         integer(int64), intent(in), optional :: max_cells
         integer, intent(out), optional :: stat
         character(:), allocatable, intent(out), optional :: errmsg
+        logical, intent(in), optional :: complete
         type(mio_mesh) :: out
         type(mio_gen_opts_t) :: opts
         opts%counts(1) = 6
@@ -8514,14 +9552,14 @@ contains
         if (present(rings)) opts%counts(2) = int(rings, c_int64_t)
         if (present(radius)) opts%radius = real(radius, c_double)
         if (present(center)) opts%origin = real(center, c_double)
-        out = gen_run('ngon', opts, order=order, max_cells=max_cells, stat=stat, errmsg=errmsg)
+        out = gen_run('ngon', opts, order=order, max_cells=max_cells, stat=stat, errmsg=errmsg, complete=complete)
     end function
 
     !> An annulus (or a sector of `angle` radians) of `ntheta` x `nr` quads
     !> (default) or triangles. Side regions inner, outer and, for a sector, start
     !> and end.
     function mio_annulus(inner_radius, outer_radius, ntheta, nr, angle, center, &
-                         cell_type, order, max_cells, stat, errmsg) result(out)
+                         cell_type, order, max_cells, stat, errmsg, complete) result(out)
         real(real64), intent(in), optional :: inner_radius, outer_radius, angle, center(3)
         integer, intent(in), optional :: ntheta, nr
         character(*), intent(in), optional :: cell_type
@@ -8529,6 +9567,7 @@ contains
         integer(int64), intent(in), optional :: max_cells
         integer, intent(out), optional :: stat
         character(:), allocatable, intent(out), optional :: errmsg
+        logical, intent(in), optional :: complete
         type(mio_mesh) :: out
         type(mio_gen_opts_t) :: opts
         opts%counts(1) = 16
@@ -8540,13 +9579,13 @@ contains
         if (present(angle)) opts%angle = real(angle, c_double)
         if (present(center)) opts%origin = real(center, c_double)
         out = gen_run('annulus', opts, cell_type, order=order, max_cells=max_cells, &
-                      stat=stat, errmsg=errmsg)
+                      stat=stat, errmsg=errmsg, complete=complete)
     end function
 
     !> The square of side `size` (default 2) around `center` minus its fourth
     !> quadrant (x > 0, y < 0); `n` cells along half a side. Side regions xmin,
     !> xmax, ymin, ymax, notch_x, notch_y.
-    function mio_lshape(n, size, center, cell_type, order, max_cells, stat, errmsg) &
+    function mio_lshape(n, size, center, cell_type, order, max_cells, stat, errmsg, complete) &
         result(out)
         integer, intent(in), optional :: n
         real(real64), intent(in), optional :: size, center(3)
@@ -8555,6 +9594,7 @@ contains
         integer(int64), intent(in), optional :: max_cells
         integer, intent(out), optional :: stat
         character(:), allocatable, intent(out), optional :: errmsg
+        logical, intent(in), optional :: complete
         type(mio_mesh) :: out
         type(mio_gen_opts_t) :: opts
         opts%counts(1) = 4
@@ -8563,13 +9603,13 @@ contains
         if (present(size)) opts%lengths(1) = real(size, c_double)
         if (present(center)) opts%origin = real(center, c_double)
         out = gen_run('lshape', opts, cell_type, order=order, max_cells=max_cells, &
-                      stat=stat, errmsg=errmsg)
+                      stat=stat, errmsg=errmsg, complete=complete)
     end function
 
     !> A square plate of side `size` around a circular hole of `radius`, in four
     !> quad blocks of `nt` x `nr` cells. Side regions hole, xmin, xmax, ymin, ymax.
     function mio_plate_with_hole(radius, size, nt, nr, center, cell_type, order, &
-                                 max_cells, stat, errmsg) result(out)
+                                 max_cells, stat, errmsg, complete) result(out)
         real(real64), intent(in), optional :: radius, size, center(3)
         integer, intent(in), optional :: nt, nr
         character(*), intent(in), optional :: cell_type
@@ -8577,6 +9617,7 @@ contains
         integer(int64), intent(in), optional :: max_cells
         integer, intent(out), optional :: stat
         character(:), allocatable, intent(out), optional :: errmsg
+        logical, intent(in), optional :: complete
         type(mio_mesh) :: out
         type(mio_gen_opts_t) :: opts
         opts%counts(1) = 8
@@ -8588,7 +9629,7 @@ contains
         if (present(nr)) opts%counts(2) = int(nr, c_int64_t)
         if (present(center)) opts%origin = real(center, c_double)
         out = gen_run('plate_with_hole', opts, cell_type, order=order, max_cells=max_cells, &
-                      stat=stat, errmsg=errmsg)
+                      stat=stat, errmsg=errmsg, complete=complete)
     end function
 
     !> A tiling of `dims` = (nx, ny) pointy-top hexagons of side `edge` as one
@@ -8606,6 +9647,489 @@ contains
         if (present(edge)) opts%lengths(1) = real(edge, c_double)
         if (present(origin)) opts%origin = real(origin, c_double)
         out = gen_run('honeycomb', opts, max_cells=max_cells, stat=stat, errmsg=errmsg)
+    end function
+
+    !> A straight segment of `n` (default 8) line cells from `start_point` to `end_point`
+    !> (default the origin to (1, 0, 0)); point regions start and end.
+    function mio_line(n, start_point, end_point, order, max_cells, stat, errmsg, complete) &
+        result(out)
+        integer, intent(in), optional :: n
+        real(real64), intent(in), optional :: start_point(3), end_point(3)
+        integer, intent(in), optional :: order
+        integer(int64), intent(in), optional :: max_cells
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        logical, intent(in), optional :: complete
+        type(mio_mesh) :: out
+        type(mio_gen_opts_t) :: opts
+        opts%lengths = [1.0_c_double, 0.0_c_double, 0.0_c_double]
+        if (present(n)) opts%counts(1) = int(n, c_int64_t)
+        if (present(start_point)) opts%origin = real(start_point, c_double)
+        if (present(end_point)) opts%lengths = real(end_point, c_double)
+        out = gen_run('line', opts, order=order, max_cells=max_cells, &
+                      stat=stat, errmsg=errmsg, complete=complete)
+    end function
+
+    !> A closed polyline of `n` (default 16) line cells on a circle in the
+    !> z = center(3) plane.
+    function mio_circle(radius, n, center, order, max_cells, stat, errmsg, complete) &
+        result(out)
+        real(real64), intent(in), optional :: radius, center(3)
+        integer, intent(in), optional :: n
+        integer, intent(in), optional :: order
+        integer(int64), intent(in), optional :: max_cells
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        logical, intent(in), optional :: complete
+        type(mio_mesh) :: out
+        type(mio_gen_opts_t) :: opts
+        opts%counts(1) = 16
+        if (present(radius)) opts%radius = real(radius, c_double)
+        if (present(n)) opts%counts(1) = int(n, c_int64_t)
+        if (present(center)) opts%origin = real(center, c_double)
+        out = gen_run('circle', opts, order=order, max_cells=max_cells, &
+                      stat=stat, errmsg=errmsg, complete=complete)
+    end function
+
+    !> A helix of `n` (default 32) line cells around the z axis: `turns`
+    !> (default 2) turns rising `pitch` (default 1) per turn; point regions start, end.
+    function mio_helix(radius, pitch, turns, n, center, order, max_cells, stat, errmsg, complete) &
+        result(out)
+        real(real64), intent(in), optional :: radius, pitch, turns, center(3)
+        integer, intent(in), optional :: n
+        integer, intent(in), optional :: order
+        integer(int64), intent(in), optional :: max_cells
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        logical, intent(in), optional :: complete
+        type(mio_mesh) :: out
+        type(mio_gen_opts_t) :: opts
+        opts%counts(1) = 32
+        opts%angle = 4.0_c_double * 3.141592653589793_c_double
+        if (present(radius)) opts%radius = real(radius, c_double)
+        if (present(pitch)) opts%height = real(pitch, c_double)
+        if (present(turns)) opts%angle = real(turns, c_double) * 2.0_c_double * 3.141592653589793_c_double
+        if (present(n)) opts%counts(1) = int(n, c_int64_t)
+        if (present(center)) opts%origin = real(center, c_double)
+        out = gen_run('helix', opts, order=order, max_cells=max_cells, &
+                      stat=stat, errmsg=errmsg, complete=complete)
+    end function
+
+    !> `n` (default 100) points on a sphere on a Fibonacci lattice, as vertex cells.
+    function mio_sphere_points(n, radius, center, max_cells, stat, errmsg) &
+        result(out)
+        integer, intent(in), optional :: n
+        real(real64), intent(in), optional :: radius, center(3)
+        integer(int64), intent(in), optional :: max_cells
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        type(mio_gen_opts_t) :: opts
+        opts%counts(1) = 100
+        if (present(n)) opts%counts(1) = int(n, c_int64_t)
+        if (present(radius)) opts%radius = real(radius, c_double)
+        if (present(center)) opts%origin = real(center, c_double)
+        out = gen_run('sphere_points', opts, max_cells=max_cells, stat=stat, errmsg=errmsg)
+    end function
+
+    !> `n` (default 100) points drawn uniformly in a box from splitmix64 seeded
+    !> with `seed` (default 0), as vertex cells.
+    function mio_box_points(n, lengths, origin, seed, max_cells, stat, errmsg) &
+        result(out)
+        integer, intent(in), optional :: n
+        real(real64), intent(in), optional :: lengths(3), origin(3)
+        integer(int64), intent(in), optional :: seed
+        integer(int64), intent(in), optional :: max_cells
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        type(mio_gen_opts_t) :: opts
+        opts%counts(1) = 100
+        if (present(n)) opts%counts(1) = int(n, c_int64_t)
+        if (present(lengths)) opts%lengths = real(lengths, c_double)
+        if (present(origin)) opts%origin = real(origin, c_double)
+        if (present(seed)) opts%seed = int(seed, c_int64_t)
+        out = gen_run('box_points', opts, max_cells=max_cells, stat=stat, errmsg=errmsg)
+    end function
+
+    !> A sphere surface from a subdivided tetrahedron: 4 * 4**subdivisions triangles.
+    function mio_tetra_sphere(radius, subdivisions, center, order, max_cells, stat, errmsg, complete) &
+        result(out)
+        real(real64), intent(in), optional :: radius, center(3)
+        integer, intent(in), optional :: subdivisions
+        integer, intent(in), optional :: order
+        integer(int64), intent(in), optional :: max_cells
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        logical, intent(in), optional :: complete
+        type(mio_mesh) :: out
+        type(mio_gen_opts_t) :: opts
+        opts%counts(1) = 3
+        if (present(radius)) opts%radius = real(radius, c_double)
+        if (present(subdivisions)) opts%counts(1) = int(subdivisions, c_int64_t)
+        if (present(center)) opts%origin = real(center, c_double)
+        out = gen_run('tetra_sphere', opts, order=order, max_cells=max_cells, &
+                      stat=stat, errmsg=errmsg, complete=complete)
+    end function
+
+    !> A sphere surface from a subdivided octahedron: 8 * 4**subdivisions triangles.
+    function mio_octa_sphere(radius, subdivisions, center, order, max_cells, stat, errmsg, complete) &
+        result(out)
+        real(real64), intent(in), optional :: radius, center(3)
+        integer, intent(in), optional :: subdivisions
+        integer, intent(in), optional :: order
+        integer(int64), intent(in), optional :: max_cells
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        logical, intent(in), optional :: complete
+        type(mio_mesh) :: out
+        type(mio_gen_opts_t) :: opts
+        opts%counts(1) = 2
+        if (present(radius)) opts%radius = real(radius, c_double)
+        if (present(subdivisions)) opts%counts(1) = int(subdivisions, c_int64_t)
+        if (present(center)) opts%origin = real(center, c_double)
+        out = gen_run('octa_sphere', opts, order=order, max_cells=max_cells, &
+                      stat=stat, errmsg=errmsg, complete=complete)
+    end function
+
+    !> A sphere surface from a cube's six faces of `n` x `n` (default 4) quads
+    !> (default) or triangles.
+    function mio_cube_sphere(radius, n, center, cell_type, order, max_cells, stat, errmsg, complete) &
+        result(out)
+        real(real64), intent(in), optional :: radius, center(3)
+        integer, intent(in), optional :: n
+        character(*), intent(in), optional :: cell_type
+        integer, intent(in), optional :: order
+        integer(int64), intent(in), optional :: max_cells
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        logical, intent(in), optional :: complete
+        type(mio_mesh) :: out
+        type(mio_gen_opts_t) :: opts
+        opts%counts(1) = 4
+        if (present(radius)) opts%radius = real(radius, c_double)
+        if (present(n)) opts%counts(1) = int(n, c_int64_t)
+        if (present(center)) opts%origin = real(center, c_double)
+        out = gen_run('cube_sphere', opts, cell_type, order=order, max_cells=max_cells, &
+                      stat=stat, errmsg=errmsg, complete=complete)
+    end function
+
+    !> A geodesic sphere of frequency `n` (default 4): 20 * n**2 triangles.
+    function mio_geo_sphere(radius, n, center, order, max_cells, stat, errmsg, complete) &
+        result(out)
+        real(real64), intent(in), optional :: radius, center(3)
+        integer, intent(in), optional :: n
+        integer, intent(in), optional :: order
+        integer(int64), intent(in), optional :: max_cells
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        logical, intent(in), optional :: complete
+        type(mio_mesh) :: out
+        type(mio_gen_opts_t) :: opts
+        opts%counts(1) = 4
+        if (present(radius)) opts%radius = real(radius, c_double)
+        if (present(n)) opts%counts(1) = int(n, c_int64_t)
+        if (present(center)) opts%origin = real(center, c_double)
+        out = gen_run('geo_sphere', opts, order=order, max_cells=max_cells, &
+                      stat=stat, errmsg=errmsg, complete=complete)
+    end function
+
+    !> A torus around the z axis with `nu` x `nv` (default 32 x 16) cells.
+    function mio_torus(major_radius, minor_radius, nu, nv, center, cell_type, order, max_cells, stat, errmsg, complete) &
+        result(out)
+        real(real64), intent(in), optional :: major_radius, minor_radius, center(3)
+        integer, intent(in), optional :: nu, nv
+        character(*), intent(in), optional :: cell_type
+        integer, intent(in), optional :: order
+        integer(int64), intent(in), optional :: max_cells
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        logical, intent(in), optional :: complete
+        type(mio_mesh) :: out
+        type(mio_gen_opts_t) :: opts
+        opts%counts(1) = 32
+        opts%counts(2) = 16
+        opts%radius2 = 0.25_c_double
+        if (present(major_radius)) opts%radius = real(major_radius, c_double)
+        if (present(minor_radius)) opts%radius2 = real(minor_radius, c_double)
+        if (present(nu)) opts%counts(1) = int(nu, c_int64_t)
+        if (present(nv)) opts%counts(2) = int(nv, c_int64_t)
+        if (present(center)) opts%origin = real(center, c_double)
+        out = gen_run('torus', opts, cell_type, order=order, max_cells=max_cells, &
+                      stat=stat, errmsg=errmsg, complete=complete)
+    end function
+
+    !> A Moebius band with `num_twists` (default 1) half-twists, `nu` x `nv`
+    !> (default 32 x 4) cells; side region boundary.
+    function mio_moebius(radius, width, nu, nv, num_twists, center, cell_type, order, max_cells, stat, errmsg, complete) &
+        result(out)
+        real(real64), intent(in), optional :: radius, width, center(3)
+        integer, intent(in), optional :: nu, nv, num_twists
+        character(*), intent(in), optional :: cell_type
+        integer, intent(in), optional :: order
+        integer(int64), intent(in), optional :: max_cells
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        logical, intent(in), optional :: complete
+        type(mio_mesh) :: out
+        type(mio_gen_opts_t) :: opts
+        opts%counts(1) = 32
+        opts%counts(2) = 4
+        if (present(radius)) opts%radius = real(radius, c_double)
+        if (present(width)) opts%radius2 = real(width, c_double)
+        if (present(nu)) opts%counts(1) = int(nu, c_int64_t)
+        if (present(nv)) opts%counts(2) = int(nv, c_int64_t)
+        if (present(num_twists)) opts%num_twists = int(num_twists, c_int32_t)
+        if (present(center)) opts%origin = real(center, c_double)
+        out = gen_run('moebius', opts, cell_type, order=order, max_cells=max_cells, &
+                      stat=stat, errmsg=errmsg, complete=complete)
+    end function
+
+    !> An open cylinder surface of `ntheta` x `nz` (default 16 x 4) cells; side
+    !> regions bottom and top.
+    function mio_tube(radius, height, ntheta, nz, center, cell_type, order, max_cells, stat, errmsg, complete) &
+        result(out)
+        real(real64), intent(in), optional :: radius, height, center(3)
+        integer, intent(in), optional :: ntheta, nz
+        character(*), intent(in), optional :: cell_type
+        integer, intent(in), optional :: order
+        integer(int64), intent(in), optional :: max_cells
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        logical, intent(in), optional :: complete
+        type(mio_mesh) :: out
+        type(mio_gen_opts_t) :: opts
+        opts%counts(1) = 16
+        opts%counts(2) = 4
+        if (present(radius)) opts%radius = real(radius, c_double)
+        if (present(height)) opts%height = real(height, c_double)
+        if (present(ntheta)) opts%counts(1) = int(ntheta, c_int64_t)
+        if (present(nz)) opts%counts(2) = int(nz, c_int64_t)
+        if (present(center)) opts%origin = real(center, c_double)
+        out = gen_run('tube', opts, cell_type, order=order, max_cells=max_cells, &
+                      stat=stat, errmsg=errmsg, complete=complete)
+    end function
+
+    !> A closed cone surface of `ntheta` cells around and `nz` rings on the slant
+    !> and the base (default 16, 4); cell regions side and base.
+    function mio_cone(radius, height, ntheta, nz, center, cell_type, order, max_cells, stat, errmsg, complete) &
+        result(out)
+        real(real64), intent(in), optional :: radius, height, center(3)
+        integer, intent(in), optional :: ntheta, nz
+        character(*), intent(in), optional :: cell_type
+        integer, intent(in), optional :: order
+        integer(int64), intent(in), optional :: max_cells
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        logical, intent(in), optional :: complete
+        type(mio_mesh) :: out
+        type(mio_gen_opts_t) :: opts
+        opts%counts(1) = 16
+        opts%counts(2) = 4
+        if (present(radius)) opts%radius = real(radius, c_double)
+        if (present(height)) opts%height = real(height, c_double)
+        if (present(ntheta)) opts%counts(1) = int(ntheta, c_int64_t)
+        if (present(nz)) opts%counts(2) = int(nz, c_int64_t)
+        if (present(center)) opts%origin = real(center, c_double)
+        out = gen_run('cone', opts, cell_type, order=order, max_cells=max_cells, &
+                      stat=stat, errmsg=errmsg, complete=complete)
+    end function
+
+    !> A capsule: a cylinder of `height` closed by two hemispheres; `ntheta`, `nz`
+    !> and `ncap` (default 16, 4, 4) rings.
+    function mio_capsule(radius, height, ntheta, nz, ncap, center, cell_type, order, max_cells, stat, errmsg, complete) &
+        result(out)
+        real(real64), intent(in), optional :: radius, height, center(3)
+        integer, intent(in), optional :: ntheta, nz, ncap
+        character(*), intent(in), optional :: cell_type
+        integer, intent(in), optional :: order
+        integer(int64), intent(in), optional :: max_cells
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        logical, intent(in), optional :: complete
+        type(mio_mesh) :: out
+        type(mio_gen_opts_t) :: opts
+        opts%counts = [16_c_int64_t, 4_c_int64_t, 4_c_int64_t]
+        opts%radius = 0.5_c_double
+        if (present(radius)) opts%radius = real(radius, c_double)
+        if (present(height)) opts%height = real(height, c_double)
+        if (present(ntheta)) opts%counts(1) = int(ntheta, c_int64_t)
+        if (present(nz)) opts%counts(2) = int(nz, c_int64_t)
+        if (present(ncap)) opts%counts(3) = int(ncap, c_int64_t)
+        if (present(center)) opts%origin = real(center, c_double)
+        out = gen_run('capsule', opts, cell_type, order=order, max_cells=max_cells, &
+                      stat=stat, errmsg=errmsg, complete=complete)
+    end function
+
+    !> The boundary of a box of `dims` (default 1, 1, 1) cells as a closed
+    !> surface; cell regions xmin ... zmax.
+    function mio_box_surface(dims, lengths, origin, cell_type, order, max_cells, stat, errmsg, complete) &
+        result(out)
+        integer, intent(in), optional :: dims(3)
+        real(real64), intent(in), optional :: lengths(3), origin(3)
+        character(*), intent(in), optional :: cell_type
+        integer, intent(in), optional :: order
+        integer(int64), intent(in), optional :: max_cells
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        logical, intent(in), optional :: complete
+        type(mio_mesh) :: out
+        type(mio_gen_opts_t) :: opts
+        opts%counts = 1
+        if (present(dims)) opts%counts = int(dims, c_int64_t)
+        if (present(lengths)) opts%lengths = real(lengths, c_double)
+        if (present(origin)) opts%origin = real(origin, c_double)
+        out = gen_run('box_surface', opts, cell_type, order=order, max_cells=max_cells, &
+                      stat=stat, errmsg=errmsg, complete=complete)
+    end function
+
+    !> A ball of hexahedra (default) or 'tetra' by the seven-block butterfly, `n`
+    !> (default 4) cells from the centre to the surface; side region surface.
+    function mio_ball(radius, n, center, cell_type, order, max_cells, stat, errmsg, complete) &
+        result(out)
+        real(real64), intent(in), optional :: radius, center(3)
+        integer, intent(in), optional :: n
+        character(*), intent(in), optional :: cell_type
+        integer, intent(in), optional :: order
+        integer(int64), intent(in), optional :: max_cells
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        logical, intent(in), optional :: complete
+        type(mio_mesh) :: out
+        type(mio_gen_opts_t) :: opts
+        opts%counts(1) = 4
+        if (present(radius)) opts%radius = real(radius, c_double)
+        if (present(n)) opts%counts(1) = int(n, c_int64_t)
+        if (present(center)) opts%origin = real(center, c_double)
+        out = gen_run('ball', opts, cell_type, order=order, max_cells=max_cells, &
+                      stat=stat, errmsg=errmsg, complete=complete)
+    end function
+
+    !> A thick spherical shell of hexahedra, `n` (default 4) cells per cube
+    !> edge and `nr` (default 2) layers graded by `ratio`; side regions inner, outer.
+    function mio_spherical_shell(inner_radius, outer_radius, n, nr, ratio, center, order, max_cells, stat, errmsg, complete) &
+        result(out)
+        real(real64), intent(in), optional :: inner_radius, outer_radius, ratio, center(3)
+        integer, intent(in), optional :: n, nr
+        integer, intent(in), optional :: order
+        integer(int64), intent(in), optional :: max_cells
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        logical, intent(in), optional :: complete
+        type(mio_mesh) :: out
+        type(mio_gen_opts_t) :: opts
+        opts%counts(1) = 4
+        opts%counts(2) = 2
+        if (present(inner_radius)) opts%radius2 = real(inner_radius, c_double)
+        if (present(outer_radius)) opts%radius = real(outer_radius, c_double)
+        if (present(n)) opts%counts(1) = int(n, c_int64_t)
+        if (present(nr)) opts%counts(2) = int(nr, c_int64_t)
+        if (present(ratio)) opts%ratio = real(ratio, c_double)
+        if (present(center)) opts%origin = real(center, c_double)
+        out = gen_run('spherical_shell', opts, order=order, max_cells=max_cells, &
+                      stat=stat, errmsg=errmsg, complete=complete)
+    end function
+
+    !> A thick-walled pipe of hexahedra: `ntheta`, `nr`, `nz` (default 16, 2, 4)
+    !> cells; side regions inner, outer, bottom, top.
+    function mio_pipe(inner_radius, outer_radius, height, ntheta, nr, nz, ratio, center, order, max_cells, stat, errmsg, complete) &
+        result(out)
+        real(real64), intent(in), optional :: inner_radius, outer_radius, height, ratio, center(3)
+        integer, intent(in), optional :: ntheta, nr, nz
+        integer, intent(in), optional :: order
+        integer(int64), intent(in), optional :: max_cells
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        logical, intent(in), optional :: complete
+        type(mio_mesh) :: out
+        type(mio_gen_opts_t) :: opts
+        opts%counts = [16_c_int64_t, 2_c_int64_t, 4_c_int64_t]
+        if (present(inner_radius)) opts%radius2 = real(inner_radius, c_double)
+        if (present(outer_radius)) opts%radius = real(outer_radius, c_double)
+        if (present(height)) opts%height = real(height, c_double)
+        if (present(ntheta)) opts%counts(1) = int(ntheta, c_int64_t)
+        if (present(nr)) opts%counts(2) = int(nr, c_int64_t)
+        if (present(nz)) opts%counts(3) = int(nz, c_int64_t)
+        if (present(ratio)) opts%ratio = real(ratio, c_double)
+        if (present(center)) opts%origin = real(center, c_double)
+        out = gen_run('pipe', opts, order=order, max_cells=max_cells, &
+                      stat=stat, errmsg=errmsg, complete=complete)
+    end function
+
+    !> The Fichera corner: the cube of side `size` (default 2) minus its positive
+    !> octant, `n` (default 2) cells per half side; side regions xmin ... zmax, notch_*.
+    function mio_fichera(n, size, center, cell_type, order, max_cells, stat, errmsg, complete) &
+        result(out)
+        integer, intent(in), optional :: n
+        real(real64), intent(in), optional :: size, center(3)
+        character(*), intent(in), optional :: cell_type
+        integer, intent(in), optional :: order
+        integer(int64), intent(in), optional :: max_cells
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        logical, intent(in), optional :: complete
+        type(mio_mesh) :: out
+        type(mio_gen_opts_t) :: opts
+        opts%counts(1) = 2
+        opts%lengths(1) = 2.0_c_double
+        if (present(n)) opts%counts(1) = int(n, c_int64_t)
+        if (present(size)) opts%lengths(1) = real(size, c_double)
+        if (present(center)) opts%origin = real(center, c_double)
+        out = gen_run('fichera', opts, cell_type, order=order, max_cells=max_cells, &
+                      stat=stat, errmsg=errmsg, complete=complete)
+    end function
+
+    !> A solid torus of hexahedra: `n` (default 4) cells across the tube and
+    !> `nu` (default 32) around the axis; side region surface.
+    function mio_solid_torus(major_radius, minor_radius, n, nu, center, order, max_cells, stat, errmsg, complete) &
+        result(out)
+        real(real64), intent(in), optional :: major_radius, minor_radius, center(3)
+        integer, intent(in), optional :: n, nu
+        integer, intent(in), optional :: order
+        integer(int64), intent(in), optional :: max_cells
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        logical, intent(in), optional :: complete
+        type(mio_mesh) :: out
+        type(mio_gen_opts_t) :: opts
+        opts%counts(1) = 4
+        opts%counts(2) = 32
+        opts%radius2 = 0.25_c_double
+        if (present(major_radius)) opts%radius = real(major_radius, c_double)
+        if (present(minor_radius)) opts%radius2 = real(minor_radius, c_double)
+        if (present(n)) opts%counts(1) = int(n, c_int64_t)
+        if (present(nu)) opts%counts(2) = int(nu, c_int64_t)
+        if (present(center)) opts%origin = real(center, c_double)
+        out = gen_run('solid_torus', opts, order=order, max_cells=max_cells, &
+                      stat=stat, errmsg=errmsg, complete=complete)
+    end function
+
+    !> A platonic solid's surface, one cell per face: `name` is 'tetrahedron',
+    !> 'cube', 'octahedron', 'dodecahedron' or 'icosahedron' (default).
+    function mio_platonic(name, radius, center, max_cells, stat, errmsg) result(out)
+        character(*), intent(in), optional :: name
+        real(real64), intent(in), optional :: radius, center(3)
+        integer(int64), intent(in), optional :: max_cells
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        type(mio_gen_opts_t) :: opts
+        opts%counts(1) = 20
+        if (present(name)) then
+            select case (trim(name))
+            case ('tetrahedron'); opts%counts(1) = 4
+            case ('cube'); opts%counts(1) = 6
+            case ('octahedron'); opts%counts(1) = 8
+            case ('dodecahedron'); opts%counts(1) = 12
+            case ('icosahedron'); opts%counts(1) = 20
+            case default
+                call handle_failure('platonic', 'unknown name '//trim(name), stat, errmsg)
+                return
+            end select
+        end if
+        if (present(radius)) opts%radius = real(radius, c_double)
+        if (present(center)) opts%origin = real(center, c_double)
+        out = gen_run('platonic', opts, max_cells=max_cells, stat=stat, errmsg=errmsg)
     end function
 
     !> One cell of each type named in `types` (comma-separated meshio names; every
@@ -8639,15 +10163,17 @@ contains
     !> 'surface' (only cells a triangle passes through) or 'inside' (only cells
     !> whose centre is inside the surface). The lattice geometry comes back
     !> through the optional `dims`/`origin`/`spacing`/`num_occupied` arguments.
+    !> `plane` ('auto', 'xy', 'xz' or 'yz') is the plane of a 2-D skin
+    !> (resolution(3) = 0); 'auto' takes the axis of zero extent.
     function mesh_voxelize(self, resolution, cell_size, bounds, padding, &
                            padding_relative, fill, sign, watertight_check, &
                            attach_occupancy, max_cells, &
-                           dims, origin, spacing, num_occupied, stat, errmsg) result(out)
+                           dims, origin, spacing, num_occupied, stat, errmsg, plane) result(out)
         class(mio_mesh), intent(in) :: self
         integer, intent(in), optional :: resolution(3)
         real(real64), intent(in), optional :: cell_size, bounds(6)
         real(real64), intent(in), optional :: padding, padding_relative
-        character(*), intent(in), optional :: fill, sign, watertight_check
+        character(*), intent(in), optional :: fill, sign, watertight_check, plane
         logical, intent(in), optional :: attach_occupancy
         integer(int64), intent(in), optional :: max_cells
         integer(int64), intent(out), optional :: dims(3), num_occupied
@@ -8705,6 +10231,17 @@ contains
                 call handle_failure('voxelize', &
                                     'unknown watertight check '//trim(watertight_check), &
                                     stat, errmsg)
+                return
+            end select
+        end if
+        if (present(plane)) then
+            select case (trim(plane))
+            case ('', 'auto'); opts%plane = 0
+            case ('xy'); opts%plane = 1
+            case ('xz'); opts%plane = 2
+            case ('yz'); opts%plane = 3
+            case default
+                call handle_failure('voxelize', 'unknown plane '//trim(plane), stat, errmsg)
                 return
             end select
         end if
@@ -8881,8 +10418,9 @@ contains
     !> from `mio_octree_mesh_opts_init`, i.e. from the C side. The string
     !> options are `output` ('tet' default, 'castellated' or 'hex'),
     !> `conformity` ('stuffing' default or 'cleaving'), `skin_grading`
-    !> ('graded' default or 'uniform') and `fill` ('inside' default, 'all' or
-    !> 'cover'); an unknown one fails by name. The whole summary comes back
+    !> ('graded' default or 'uniform'), `fill` ('inside' default, 'all' or
+    !> 'cover') and `hex_grading` ('uniform' default or 'graded', the hexahedral
+    !> output); an unknown one fails by name. The whole summary comes back
     !> through the optional `report` (a `mio_octree_mesh_report`), and the
     !> run's warnings, one per line, through the optional `warnings`.
     function mesh_octree_mesh(self, output, min_size, max_size, max_level, bounds, padding, &
@@ -8892,10 +10430,11 @@ contains
                               surface_size, winding_threshold, winding_beta, conformity, &
                               alpha_long, alpha_short, preserve_features, fit_iterations, &
                               dihedral_floor_guard, fill, keep_outside, attach_distance, &
-                              attach_quality, pillow, untangle_iterations, max_cells, &
-                              max_tets, report, warnings, stat, errmsg) result(out)
+                              attach_quality, pillow, hex_grading, untangle_iterations, &
+                              max_cells, max_tets, report, warnings, stat, errmsg) result(out)
         class(mio_mesh), intent(in) :: self
         character(*), intent(in), optional :: output, skin_grading, conformity, fill
+        character(*), intent(in), optional :: hex_grading
         character(*), intent(in), optional :: size_array, surface_region
         real(real64), intent(in), optional :: min_size, max_size, bounds(6)
         real(real64), intent(in), optional :: padding, padding_relative
@@ -8951,6 +10490,16 @@ contains
             case ('uniform'); opts%skin_grading = 1
             case default
                 call handle_failure('octree_mesh', 'unknown skin grading '//trim(skin_grading), &
+                                    stat, errmsg)
+                return
+            end select
+        end if
+        if (present(hex_grading)) then
+            select case (trim(hex_grading))
+            case ('', 'uniform'); opts%hex_grading = 0
+            case ('graded'); opts%hex_grading = 1
+            case default
+                call handle_failure('octree_mesh', 'unknown hex grading '//trim(hex_grading), &
                                     stat, errmsg)
                 return
             end select
@@ -12191,7 +13740,20 @@ contains
     !> `virtual_faces` meshes slivers with a neighbour and `lop_corners` lops
     !> acute corners in place of concentric shells (v17.20.0; read back by
     !> `mio_mesh_cad_get_reparametrised`, `_merged_face`, `_tolerance_use`,
-    !> `_lopped_corner`).
+    !> `_lopped_corner`). A `metric_background` mesh whose 9-component point
+    !> data `metric_array` is a field's Hessian (or whose 1-component one is
+    !> the field, its Hessian then taken), with the target interpolation
+    !> error `metric_error`, sizes the triangles by an anisotropic metric
+    !> (roadmap 6.10.2, `mio_mesh_cad_min_metric_angle`). `untangle` moves a
+    !> face's own high-order nodes (quads' too) to untangle a folded curved
+    !> element before it is straightened (6.6.3, `mio_mesh_cad_num_untangled`);
+    !> `quads` (`MIO_MESH_CAD_QUADS_*`) recombines the triangles into a
+    !> quad-dominant or all-quad mesh (6.8, `mio_mesh_cad_get_quad_stats`;
+    !> `order` 2 or 3 writes quad9 or quad16; all-quad takes no
+    !> `virtual_edges`), pairing them by `quad_pairs`
+    !> (`MIO_MESH_CAD_QUAD_PAIRS_*`, 6.8.1: a maximum matching, the default,
+    !> or greedily). `reparam_condition_number`, `virtual_faces` and
+    !> `metric_background` take every order.
     function format_info_mesh_cad_surface(self, target_size, max_chordal_deviation, &
                                           min_points_per_edge, tolerance, record_face_ids, &
                                           edges, match_unreferenced_trims, strict, max_points, &
@@ -12201,7 +13763,9 @@ contains
                                           face_size_faces, face_sizes, edge_size_edges, &
                                           edge_sizes, background, background_array, metric, &
                                           virtual_edges, reparam_condition_number, &
-                                          model_tolerances, virtual_faces, lop_corners) &
+                                          model_tolerances, virtual_faces, lop_corners, &
+                                          metric_background, metric_array, metric_error, &
+                                          untangle, quads, quad_pairs) &
         result(out)
         class(mio_format_info), intent(in) :: self
         real(real64), intent(in) :: target_size
@@ -12216,6 +13780,11 @@ contains
         logical, intent(in), optional :: virtual_edges
         real(real64), intent(in), optional :: reparam_condition_number
         logical, intent(in), optional :: model_tolerances, virtual_faces, lop_corners
+        class(mio_mesh), intent(in), optional :: metric_background
+        character(*), intent(in), optional :: metric_array
+        real(real64), intent(in), optional :: metric_error
+        logical, intent(in), optional :: untangle
+        integer, intent(in), optional :: quads, quad_pairs
         integer(int64), intent(in), optional :: min_points_per_edge, max_points
         logical, intent(in), optional :: record_face_ids, edges, match_unreferenced_trims, strict
         type(mio_mesh_cad_surface_report), intent(out), optional :: report
@@ -12228,7 +13797,7 @@ contains
         type(mio_mesh_cad_surface_opts_ex_t) :: ex
         integer(c_int64_t), allocatable, target :: fidx(:), eidx(:)
         real(c_double), allocatable, target :: fsz(:), esz(:)
-        character(kind=c_char, len=:), allocatable, target :: bname
+        character(kind=c_char, len=:), allocatable, target :: bname, mname
         character(kind=c_char), allocatable :: wbuf(:)
         integer(c_int64_t) :: n
 
@@ -12301,6 +13870,15 @@ contains
             bname = c_str(background_array)
             ex%background_array = c_loc(bname(1:1))
         end if
+        if (present(metric_background)) ex%metric_background = metric_background%handle
+        if (present(metric_array)) then
+            mname = c_str(metric_array)
+            ex%metric_array = c_loc(mname(1:1))
+        end if
+        if (present(metric_error)) ex%metric_error = real(metric_error, c_double)
+        if (present(untangle)) ex%untangle = merge(1_c_int32_t, 0_c_int32_t, untangle)
+        if (present(quads)) ex%quads = int(quads, c_int32_t)
+        if (present(quad_pairs)) ex%quad_pairs = int(quad_pairs, c_int32_t)
 
         out%handle = c_mio_mesh_cad_surface2(self%handle, opts, ex, crep)
         if (.not. c_associated(out%handle)) then
@@ -12347,7 +13925,7 @@ contains
 
     !> Reparametrised face record `idx` (1-based): its face (1-based), its
     !> condition number and its flattening's, and `method` (1 conformal, 2
-    !> mean-value, 0 declined); `stat` nonzero when out of range.
+    !> mean-value, 3 annulus, 0 declined); `stat` nonzero when out of range.
     subroutine mio_mesh_cad_get_reparametrised(idx, face, condition_number, &
                                                condition_number_disc, method, stat)
         integer, intent(in) :: idx
@@ -12420,6 +13998,356 @@ contains
     !> How many corners this thread's last call lopped (v17.20.0).
     integer function mio_mesh_cad_num_lopped_corners() result(n)
         n = int(c_mio_mesh_cad_surface_num_lopped_corners())
+    end function
+
+    !> How many curved elements this thread's last call kept curved by
+    !> untangling (roadmap 6.6.3).
+    integer function mio_mesh_cad_num_untangled() result(n)
+        n = int(c_mio_mesh_cad_surface_num_untangled())
+    end function
+
+    !> This thread's last call's quads, the triangles left beside them and the
+    !> least scaled Jacobian of a quad (roadmap 6.8).
+    subroutine mio_mesh_cad_get_quad_stats(num_quads, num_leftover_triangles, &
+                                           min_scaled_jacobian, stat)
+        integer(int64), intent(out) :: num_quads, num_leftover_triangles
+        real(real64), intent(out) :: min_scaled_jacobian
+        integer, intent(out), optional :: stat
+        integer(c_int64_t) :: nq, left
+        real(c_double) :: sj
+        integer(c_int) :: st
+        st = c_mio_mesh_cad_surface_quad_stats(nq, left, sj)
+        num_quads = int(nq, int64)
+        num_leftover_triangles = int(left, int64)
+        min_scaled_jacobian = real(sj, real64)
+        if (present(stat)) stat = int(st)
+    end subroutine
+
+    !> With a `metric_background`, the least corner angle (degrees) of a cell
+    !> of this thread's last call measured in the metric at its centroid, the
+    !> measure refinement judges by; 0 without one (roadmap 6.10.2).
+    function mio_mesh_cad_min_metric_angle() result(angle)
+        real(real64) :: angle
+        angle = real(c_mio_mesh_cad_surface_min_metric_angle(), real64)
+    end function
+
+    !> Move every point of `mesh` onto the CAD face or edge its cells name
+    !> (`cad:face` on triangles and quads, `cad:edge` on lines, as
+    !> mesh_cad_surface writes them) of the B-rep `info` (roadmap 6.10.1): a
+    !> point on one edge's lines onto that edge, on two or more onto the
+    !> lowest, a point whose cells name one face onto its surface; a point on
+    !> two faces and no edge stays. `face_array` and `edge_array` rename the
+    !> cell data, `max_distance` leaves a point farther than it, and
+    !> `trim_samples` samples the trims per knot span. The optional `report`
+    !> counts what was done (`num_on_curves` of the points on edges went onto
+    !> the edge's own 3-D curve); `mio_project_to_cad_outside_trim` lists the
+    !> points projected outside their face's trims.
+    function mio_project_to_cad(mesh, info, face_array, edge_array, max_distance, &
+                                trim_samples, report, stat, errmsg) result(out)
+        type(mio_mesh), intent(in) :: mesh
+        type(mio_format_info), intent(in) :: info
+        character(*), intent(in), optional :: face_array, edge_array
+        real(real64), intent(in), optional :: max_distance
+        integer, intent(in), optional :: trim_samples
+        type(mio_project_to_cad_report), intent(out), optional :: report
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        type(mio_project_to_cad_opts_t) :: opts
+        type(mio_project_to_cad_report) :: rep
+        character(kind=c_char, len=:), allocatable, target :: fname, ename
+        if (c_sizeof(c_null_ptr) == 8_c_size_t .and. &
+            (c_sizeof(opts) /= 64_c_size_t .or. c_sizeof(rep) /= 96_c_size_t)) then
+            write (error_unit, '(a)') 'meshio++: project_to_cad layout mismatch'
+            error stop 1
+        end if
+        if (present(face_array)) then
+            fname = c_str(face_array)
+            opts%face_array = c_loc(fname(1:1))
+        end if
+        if (present(edge_array)) then
+            ename = c_str(edge_array)
+            opts%edge_array = c_loc(ename(1:1))
+        end if
+        if (present(max_distance)) opts%max_distance = real(max_distance, c_double)
+        if (present(trim_samples)) opts%trim_samples = int(trim_samples, c_int32_t)
+        out%handle = c_mio_project_to_cad(mesh%handle, info%handle, opts, rep)
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('project_to_cad', mio_error_message(), stat, errmsg)
+            return
+        end if
+        if (present(report)) report = rep
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Grow prismatic boundary layers from the triangle and quad surface `mesh`
+    !> (roadmap 6.9): `num_layers` layers (default 3), the first
+    !> `first_height` thick and each next `growth` (1.2) times the one before,
+    !> along each point's most normal normal (against the faces' normals with
+    !> `reverse`), stopped at `collision_fraction` (0.45) of the distance to
+    !> the surface, smoothed `smooth_iterations` (5) times, the points of a
+    !> folding cell halved `max_shrink` (6) times and then collapsed
+    !> (`collapse='points'`, the default) or its top layer dropped
+    !> (`collapse='layers'`). `normal_smooth_iterations` (0) Laplacian passes
+    !> smooth the directions; `front_check` (.true.) tests the last layer's
+    !> faces against each other and the surface. The optional `report` counts
+    !> the cells and what was shrunk.
+    function mio_boundary_layer(mesh, first_height, num_layers, growth, reverse, &
+                                collision_fraction, smooth_iterations, max_shrink, report, &
+                                stat, errmsg, collapse, normal_smooth_iterations, &
+                                front_check) result(out)
+        type(mio_mesh), intent(in) :: mesh
+        real(real64), intent(in) :: first_height
+        integer, intent(in), optional :: num_layers, smooth_iterations, max_shrink
+        real(real64), intent(in), optional :: growth, collision_fraction
+        logical, intent(in), optional :: reverse
+        character(*), intent(in), optional :: collapse
+        integer, intent(in), optional :: normal_smooth_iterations
+        logical, intent(in), optional :: front_check
+        type(mio_boundary_layer_report), intent(out), optional :: report
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        type(mio_boundary_layer_opts_t) :: opts
+        type(mio_boundary_layer_report) :: rep
+        if (c_sizeof(opts) /= 64_c_size_t .or. c_sizeof(rep) /= 128_c_size_t) then
+            write (error_unit, '(a)') 'meshio++: boundary_layer layout mismatch'
+            error stop 1
+        end if
+        opts%first_height = real(first_height, c_double)
+        if (present(num_layers)) opts%num_layers = int(num_layers, c_int32_t)
+        if (present(growth)) opts%growth = real(growth, c_double)
+        if (present(reverse)) opts%reverse = merge(1_c_int32_t, 0_c_int32_t, reverse)
+        if (present(collision_fraction)) &
+            opts%collision_fraction = real(collision_fraction, c_double)
+        if (present(smooth_iterations)) opts%smooth_iterations = int(smooth_iterations, c_int32_t)
+        if (present(max_shrink)) opts%max_shrink = int(max_shrink, c_int32_t)
+        if (present(collapse)) then
+            select case (trim(collapse))
+            case ('points')
+                opts%collapse = 0
+            case ('layers')
+                opts%collapse = 1
+            case default
+                call handle_failure('boundary_layer', "collapse must be 'points' or 'layers'", &
+                                    stat, errmsg)
+                return
+            end select
+        end if
+        if (present(normal_smooth_iterations)) &
+            opts%normal_smooth_iterations = int(normal_smooth_iterations, c_int32_t)
+        if (present(front_check)) opts%front_check = merge(1_c_int32_t, 0_c_int32_t, front_check)
+        out%handle = c_mio_boundary_layer(mesh%handle, opts, rep)
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('boundary_layer', mio_error_message(), stat, errmsg)
+            return
+        end if
+        if (present(report)) report = rep
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Sweep the triangles and quads of `mesh` into wedges and hexahedra (or,
+    !> with no 2-D cells, its lines into quads) along `direction` (default
+    !> [0, 0, 1], the whole displacement) in `num_layers` (1) layers spaced
+    !> uniformly, by the geometric `ratio` (1), or at the explicit `offsets`
+    !> (fractions, increasing, ending at 1) (roadmap 3.1.2). The result holds
+    !> the swept cells only, with side regions bottom, top and side;
+    !> `record_layers` attaches extrude:layer. The optional `report` counts
+    !> the cells.
+    function mio_extrude(mesh, direction, num_layers, ratio, offsets, record_layers, max_cells, &
+                         report, stat, errmsg) result(out)
+        type(mio_mesh), intent(in) :: mesh
+        real(real64), intent(in), optional :: direction(3), ratio
+        integer, intent(in), optional :: num_layers
+        real(real64), intent(in), optional :: offsets(:)
+        logical, intent(in), optional :: record_layers
+        integer(int64), intent(in), optional :: max_cells
+        type(mio_sweep_report), intent(out), optional :: report
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        type(mio_extrude_opts_t) :: opts
+        type(mio_sweep_report) :: rep
+        real(c_double), allocatable, target :: offs(:)
+        if ((c_sizeof(c_null_ptr) == 8_c_size_t .and. c_sizeof(opts) /= 96_c_size_t) .or. &
+            c_sizeof(rep) /= 128_c_size_t) then
+            write (error_unit, '(a)') 'meshio++: extrude layout mismatch'
+            error stop 1
+        end if
+        if (present(direction)) opts%direction = real(direction, c_double)
+        if (present(num_layers)) opts%num_layers = int(num_layers, c_int32_t)
+        if (present(ratio)) opts%ratio = real(ratio, c_double)
+        if (present(offsets)) then
+            if (size(offsets) > 0) then
+                offs = real(offsets, c_double)
+                opts%offsets = c_loc(offs(1))
+                opts%num_offsets = int(size(offs), c_int64_t)
+            end if
+        end if
+        if (present(record_layers)) &
+            opts%record_layers = merge(1_c_int32_t, 0_c_int32_t, record_layers)
+        if (present(max_cells)) opts%max_cells = int(max_cells, c_int64_t)
+        out%handle = c_mio_extrude(mesh%handle, opts, rep)
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('extrude', mio_error_message(), stat, errmsg)
+            return
+        end if
+        if (present(report)) report = rep
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Sweep `mesh` (a surface or a curve) around the axis through
+    !> `axis_point` (default the origin) along `axis` ([0, 1, 0]) by `angle`
+    !> (360) degrees in `num_layers` (16) steps (roadmap 3.1.3). Points within
+    !> `tolerance` (1e-9 of the bounding-box diagonal) of the axis stay put and
+    !> the cells around them collapse. Side regions start, end (a partial
+    !> turn) and side.
+    function mio_revolve(mesh, axis, axis_point, angle, num_layers, tolerance, record_layers, &
+                         max_cells, report, stat, errmsg) result(out)
+        type(mio_mesh), intent(in) :: mesh
+        real(real64), intent(in), optional :: axis(3), axis_point(3), angle, tolerance
+        integer, intent(in), optional :: num_layers
+        logical, intent(in), optional :: record_layers
+        integer(int64), intent(in), optional :: max_cells
+        type(mio_sweep_report), intent(out), optional :: report
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        type(mio_revolve_opts_t) :: opts
+        type(mio_sweep_report) :: rep
+        if (c_sizeof(opts) /= 112_c_size_t .or. c_sizeof(rep) /= 128_c_size_t) then
+            write (error_unit, '(a)') 'meshio++: revolve layout mismatch'
+            error stop 1
+        end if
+        if (present(axis)) opts%axis = real(axis, c_double)
+        if (present(axis_point)) opts%axis_point = real(axis_point, c_double)
+        if (present(angle)) opts%angle = real(angle, c_double)
+        if (present(num_layers)) opts%num_layers = int(num_layers, c_int32_t)
+        if (present(tolerance)) opts%tolerance = real(tolerance, c_double)
+        if (present(record_layers)) &
+            opts%record_layers = merge(1_c_int32_t, 0_c_int32_t, record_layers)
+        if (present(max_cells)) opts%max_cells = int(max_cells, c_int64_t)
+        out%handle = c_mio_revolve(mesh%handle, opts, rep)
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('revolve', mio_error_message(), stat, errmsg)
+            return
+        end if
+        if (present(report)) report = rep
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Reflect `mesh` across the plane through `origin` (default the origin)
+    !> with `normal` ([1, 0, 0]), every cell right side out (roadmap 3.2.5):
+    !> nodes permuted, side region entries moved to their facets' new numbers.
+    !> With `keep_original` the input followed by its image, the points on the
+    !> plane shared when `weld` (.true.); `reflect_vector_data` reflects float
+    !> vector and tensor data.
+    function mio_mirror(mesh, origin, normal, keep_original, weld, tolerance, &
+                        reflect_vector_data, report, stat, errmsg) result(out)
+        type(mio_mesh), intent(in) :: mesh
+        real(real64), intent(in), optional :: origin(3), normal(3), tolerance
+        logical, intent(in), optional :: keep_original, weld, reflect_vector_data
+        type(mio_mirror_report), intent(out), optional :: report
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        type(mio_mirror_opts_t) :: opts
+        type(mio_mirror_report) :: rep
+        if (c_sizeof(opts) /= 104_c_size_t .or. c_sizeof(rep) /= 72_c_size_t) then
+            write (error_unit, '(a)') 'meshio++: mirror layout mismatch'
+            error stop 1
+        end if
+        if (present(origin)) opts%origin = real(origin, c_double)
+        if (present(normal)) opts%normal = real(normal, c_double)
+        if (present(tolerance)) opts%tolerance = real(tolerance, c_double)
+        if (present(keep_original)) &
+            opts%keep_original = merge(1_c_int32_t, 0_c_int32_t, keep_original)
+        if (present(weld)) opts%weld = merge(1_c_int32_t, 0_c_int32_t, weld)
+        if (present(reflect_vector_data)) &
+            opts%reflect_vector_data = merge(1_c_int32_t, 0_c_int32_t, reflect_vector_data)
+        out%handle = c_mio_mirror(mesh%handle, opts, rep)
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('mirror', mio_error_message(), stat, errmsg)
+            return
+        end if
+        if (present(report)) report = rep
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Fill the closed, manifold, consistently oriented triangle surface `mesh`
+    !> with tetrahedra (roadmap 6.7): through Netgen its triangles and points
+    !> are kept exactly, through the native octree backend its boundary is
+    !> fitted within `report%hausdorff_to_surface`. Each shell bounds a region
+    !> (a box inside a box gives two). `max_size`
+    !> and `max_volume` (0: none) bound the tetrahedra, `grading` (0.3) is how
+    !> fast the size grows inward, `optimize_steps` (3) the backend's volume
+    !> optimisation passes, `max_cells` (50000000) the refusal bound,
+    !> `face_array` ('cad:face') the CAD face data carried to the triangles,
+    !> and `backend` 'auto' (default: Netgen when built in, else the octree
+    !> backend), 'netgen' or 'octree'. 'netgen' without Netgen
+    !> (`mio_has_netgen()` is false) fails naming MESHIOPLUSPLUS_WITH_NETGEN.
+    function mio_tetrahedralize(mesh, max_size, max_volume, grading, optimize_steps, max_cells, &
+                                face_array, backend, report, stat, errmsg) result(out)
+        type(mio_mesh), intent(in) :: mesh
+        real(real64), intent(in), optional :: max_size, max_volume, grading
+        integer, intent(in), optional :: optimize_steps
+        integer(int64), intent(in), optional :: max_cells
+        character(*), intent(in), optional :: face_array, backend
+        type(mio_tetrahedralize_report), intent(out), optional :: report
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        type(mio_tetrahedralize_opts_t) :: opts
+        type(mio_tetrahedralize_report) :: rep
+        character(kind=c_char, len=:), allocatable, target :: fname
+        if (c_sizeof(c_null_ptr) == 8_c_size_t .and. &
+            (c_sizeof(opts) /= 80_c_size_t .or. c_sizeof(rep) /= 128_c_size_t)) then
+            write (error_unit, '(a)') 'meshio++: tetrahedralize layout mismatch'
+            error stop 1
+        end if
+        if (present(max_size)) opts%max_size = real(max_size, c_double)
+        if (present(max_volume)) opts%max_volume = real(max_volume, c_double)
+        if (present(grading)) opts%grading = real(grading, c_double)
+        if (present(optimize_steps)) opts%optimize_steps = int(optimize_steps, c_int32_t)
+        if (present(max_cells)) opts%max_cells = int(max_cells, c_int64_t)
+        if (present(face_array)) then
+            fname = c_str(face_array)
+            opts%face_array = c_loc(fname(1:1))
+        end if
+        if (present(backend)) then
+            select case (trim(backend))
+            case ('auto')
+                opts%backend = 0
+            case ('netgen')
+                opts%backend = 1
+            case ('octree')
+                opts%backend = 2
+            case default
+                call handle_failure('tetrahedralize', &
+                                    "backend must be 'auto', 'netgen' or 'octree'", stat, errmsg)
+                return
+            end select
+        end if
+        out%handle = c_mio_tetrahedralize(mesh%handle, opts, rep)
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('tetrahedralize', mio_error_message(), stat, errmsg)
+            return
+        end if
+        if (present(report)) report = rep
+        call clear_status(stat, errmsg)
+    end function
+
+    !> The points (1-based) this thread's last `mio_project_to_cad` projected
+    !> outside their face's trims, ascending.
+    function mio_project_to_cad_outside_trim() result(points)
+        integer(int64), allocatable :: points(:)
+        integer(c_int64_t) :: n
+        integer(c_int64_t), allocatable :: buf(:)
+        integer(c_int64_t) :: dummy(1)
+        n = c_mio_project_to_cad_outside_trim(dummy, 0_c_int64_t)
+        allocate (buf(max(n, 1_c_int64_t)))
+        if (n > 0) n = c_mio_project_to_cad_outside_trim(buf, n)
+        points = int(buf(1:max(n, 0_c_int64_t)), int64) + 1_int64
     end function
 
     !> Lopped corner `idx` (1-based): its face and mesh point (1-based), its

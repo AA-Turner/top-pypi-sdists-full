@@ -84,6 +84,9 @@ from langsmith._internal._background_thread import (
 from langsmith._internal._background_thread import (
     tracing_control_thread_func as _tracing_control_thread_func,
 )
+from langsmith._internal._beta_decorator import (
+    LangSmithDeprecationWarning as _LangSmithDeprecationWarning,
+)
 from langsmith._internal._beta_decorator import deprecated as _deprecated
 from langsmith._internal._beta_decorator import (
     suppress_deprecation_warning as _suppress_deprecation_warning,
@@ -1036,6 +1039,9 @@ class Client:
         otel_enabled: Optional[bool] = None,
         tracing_sampling_rate: Optional[float] = None,
         workspace_id: Optional[str] = None,
+        profile: Optional[str] = None,
+        profile_config_path: Optional[str] = None,
+        prefer_profile_auth: bool = False,
         max_batch_size_bytes: Optional[int] = None,
         headers: Optional[dict[str, str]] = None,
         tracing_error_callback: Optional[Callable[[Exception], None]] = None,
@@ -1157,6 +1163,10 @@ class Client:
             workspace_id: The workspace ID.
 
                 Required for org-scoped API keys.
+            profile: CLI login profile to use instead of `LANGSMITH_PROFILE`.
+            profile_config_path: CLI config file to use instead of `LANGSMITH_CONFIG_FILE`.
+            prefer_profile_auth: Prefer profile credentials, endpoint and workspace over
+                environment values when profile credentials exist; explicit arguments win.
             max_batch_size_bytes: The maximum size of a batch of runs in bytes.
 
                 If not provided, the default is set by the server.
@@ -1240,8 +1250,23 @@ class Client:
         env_api_url = _get_langsmith_env_var_uncached("ENDPOINT")
         env_api_key = _get_langsmith_env_var_uncached("API_KEY")
         env_workspace_id = _get_langsmith_env_var_uncached("WORKSPACE_ID")
-        profile_config = _profiles.load_profile_client_config()
-        api_url_ = api_url if api_url is not None else env_api_url or profile_config.api_url
+        profile_config = _profiles.load_profile_client_config(profile=profile, config_path=profile_config_path)
+        use_profile = (
+            prefer_profile_auth and api_key is None and (profile_config.has_oauth or profile_config.api_key is not None)
+        )
+        profile_api_url = profile_config.api_url
+        profile_workspace_id = profile_config.workspace_id
+        if use_profile:
+            # Profile credentials must only be sent to the profile's endpoint.
+            # Never mix in environment endpoint/workspace values, which may point
+            # at a different deployment; fall back to the default endpoint instead.
+            env_api_key = None
+            env_api_url = None
+            env_workspace_id = None
+            profile_api_url = profile_api_url or _profiles.DEFAULT_API_URL
+            # Empty string (rather than None) stops the env var fallback downstream.
+            profile_workspace_id = profile_workspace_id or ""
+        api_url_ = api_url if api_url is not None else env_api_url or profile_api_url
         explicit_or_env_api_key = api_key if api_key is not None else env_api_key
         profile_auth_enabled = api_key is None and env_api_key is None
         use_profile_oauth = profile_auth_enabled and profile_config.has_oauth
@@ -1252,7 +1277,7 @@ class Client:
             if use_profile_oauth
             else profile_config.api_key
         )
-        workspace_id_ = workspace_id if workspace_id is not None else env_workspace_id or profile_config.workspace_id
+        workspace_id_ = workspace_id if workspace_id is not None else env_workspace_id or profile_workspace_id
         self._oauth_access_token = profile_config.oauth_access_token if use_profile_oauth else None
         self._profile_auth: Optional[_profiles.ProfileAuth] = None
         self._profile_auth_headers: dict[str, str] = {}
@@ -1279,7 +1304,7 @@ class Client:
                 )
                 self._profile_auth_headers = self._profile_auth.current_auth_headers()
                 self._oauth_access_token = self._profile_auth.oauth_access_token
-            self.api_key = ls_utils.get_api_key(api_key_)
+            self.api_key = None if use_profile_oauth else ls_utils.get_api_key(api_key_)
             _validate_api_key_if_hosted(
                 self.api_url,
                 self.api_key
@@ -1930,11 +1955,21 @@ class Client:
         """
         self._ensure_profile_auth()
         request_kwargs = request_kwargs or {}
-        headers = {
-            **self._headers,
+        caller_headers = {
             **request_kwargs.get("headers", {}),
             **kwargs.get("headers", {}),
         }
+        headers = {**self._headers, **caller_headers}
+        url = _construct_url(self.api_url, pathname)
+        if (
+            self._workspace_id
+            and "X-Tenant-Id" not in caller_headers
+            and headers.get(X_API_KEY) != self.api_key
+            and urllib_parse.urlsplit(url).netloc != urllib_parse.urlsplit(self.api_url).netloc
+        ):
+            # Workspace ids are per instance: a replica with its own key on another host
+            # drops the inherited one.
+            headers.pop("X-Tenant-Id", None)
         if self._profile_auth is not None:
             headers = self._profile_auth.prepare_request_headers(headers)
         request_kwargs = {
@@ -1970,7 +2005,7 @@ class Client:
                     with ls_utils.filter_logs(_urllib3_logger, logging_filters):
                         response = self.session.request(
                             method,
-                            _construct_url(self.api_url, pathname),
+                            url,
                             stream=False,
                             **request_kwargs,
                         )
@@ -7571,7 +7606,7 @@ class Client:
                     "Resolving a run from an ID without passing project_id is"
                     " deprecated and will raise an error in a future release."
                     " Pass project_id explicitly.",
-                    DeprecationWarning,
+                    _LangSmithDeprecationWarning,
                     stacklevel=3,
                 )
             # Suppressed: the caller passed a run ID to (a)evaluate_run(), which
@@ -8422,10 +8457,7 @@ class Client:
                 f"{api_url}/feedback/tokens",
                 request_kwargs={
                     "data": body,
-                    "headers": {
-                        **self._headers,
-                        X_API_KEY: api_key or self.api_key,
-                    },
+                    "headers": {X_API_KEY: api_key or self.api_key},
                 },
             )
             ls_utils.raise_for_status_with_text(response)
@@ -8968,7 +9000,7 @@ class Client:
                 "The run_ids parameter of add_runs_to_annotation_queue() is deprecated and will be removed after Jan 31, 2027. "
                 "Use the runs parameter with RunKey objects instead. "
                 "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-add-runs for the migration guide.",
-                DeprecationWarning,
+                _LangSmithDeprecationWarning,
                 stacklevel=2,
             )
             path = f"/annotation-queues/{_as_uuid(queue_id, 'queue_id')}/runs"
@@ -11493,6 +11525,9 @@ def _apply_auth_overrides(
         headers["X-Service-Key"] = service_key
     if tenant_id is not None:
         headers["X-Tenant-Id"] = tenant_id
+    else:
+        # Inherited: request_with_retries re-adds it unless the host differs.
+        headers.pop("X-Tenant-Id", None)
     if authorization is not None:
         headers["Authorization"] = authorization
     if cookie is not None:

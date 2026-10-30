@@ -262,9 +262,9 @@ async def test_resolved_secret_reaches_headers_but_is_never_logged(
     # Secrets must not appear in structured logs or console output.
     assert NOTION_SECRET not in caplog.text
     assert AUTH_SECRET not in caplog.text
-    combined = capsys.readouterr()
-    assert NOTION_SECRET not in combined.err
-    assert AUTH_SECRET not in combined.err
+    console = capsys.readouterr()
+    assert NOTION_SECRET not in console.out + console.err
+    assert AUTH_SECRET not in console.out + console.err
 
 
 @pytest.mark.asyncio

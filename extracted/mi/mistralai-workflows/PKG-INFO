@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: mistralai-workflows
-Version: 3.16.0
+Version: 3.17.0
 Summary: Mistral Workflows - Build reliable AI workflows with Python
 Project-URL: Homepage, https://mistral.ai
 Project-URL: Documentation, https://docs.mistral.ai/workflows/getting-started/introduction
@@ -20,7 +20,7 @@ Requires-Dist: asynciolimiter<2.0.0,>=1.2.0
 Requires-Dist: httpx<1.0.0,>=0.27.0
 Requires-Dist: jsonpatch<2.0.0,>=1.33
 Requires-Dist: libcst<2,>=1.9.0
-Requires-Dist: mistralai<3.0.0,>=2.9.3
+Requires-Dist: mistralai<4.0.0,>=2.9.3
 Requires-Dist: opentelemetry-api<2.0.0,>=1.30.0
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.30.0
 Requires-Dist: opentelemetry-instrumentation-httpx>=0.60b1
@@ -37,7 +37,6 @@ Requires-Dist: tenacity<10.0.0,>=9.1.2
 Requires-Dist: urllib3>=2.8.0
 Provides-Extra: all
 Requires-Dist: aiocache<1.0.0,>=0.12.3; extra == 'all'
-Requires-Dist: mcp<2.0.0,>=1.27.2; extra == 'all'
 Requires-Dist: mistralai-workflows-plugins-evaluations<1.0.0,>=0.5.0; extra == 'all'
 Requires-Dist: mistralai-workflows-plugins-mistralai<4.0.0,>=3.0.0a1; extra == 'all'
 Requires-Dist: mistralai-workflows-plugins-webhook<4.0.0,>=3.0.0a1; extra == 'all'
@@ -46,7 +45,6 @@ Requires-Dist: mistralai[workflow-payload-encryption]; extra == 'all'
 Requires-Dist: mistralai[workflow-payload-offloading]; extra == 'all'
 Provides-Extra: all-plugins
 Requires-Dist: aiocache<1.0.0,>=0.12.3; extra == 'all-plugins'
-Requires-Dist: mcp<2.0.0,>=1.27.2; extra == 'all-plugins'
 Requires-Dist: mistralai-workflows-plugins-evaluations<1.0.0,>=0.5.0; extra == 'all-plugins'
 Requires-Dist: mistralai-workflows-plugins-mistralai<4.0.0,>=3.0.0a1; extra == 'all-plugins'
 Requires-Dist: mistralai-workflows-plugins-webhook<4.0.0,>=3.0.0a1; extra == 'all-plugins'
@@ -65,7 +63,6 @@ Provides-Extra: gcs
 Requires-Dist: mistralai[workflow-payload-offloading-gcs]; extra == 'gcs'
 Provides-Extra: mistralai
 Requires-Dist: aiocache<1.0.0,>=0.12.3; extra == 'mistralai'
-Requires-Dist: mcp<2.0.0,>=1.27.2; extra == 'mistralai'
 Requires-Dist: mistralai-workflows-plugins-mistralai<4.0.0,>=3.0.0a1; extra == 'mistralai'
 Provides-Extra: s3
 Requires-Dist: mistralai[workflow-payload-offloading-s3]; extra == 's3'

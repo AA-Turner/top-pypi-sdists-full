@@ -2175,6 +2175,10 @@ def _convert_to_dataframe_proto(
             return dataframe_pb2.DataFrameOperand(
                 value_bool=value,
             )
+        if isinstance(value, float):
+            return dataframe_pb2.DataFrameOperand(
+                value_double=value,
+            )
         if isinstance(value, int):
             return dataframe_pb2.DataFrameOperand(
                 value_int=value,
@@ -2324,6 +2328,8 @@ def _convert_from_dataframe_proto(
             return value.value_string
         if value.HasField("value_int"):
             return value.value_int
+        if value.HasField("value_double"):
+            return value.value_double
         if value.HasField("value_bool"):
             return value.value_bool
         if value.HasField("value_none"):

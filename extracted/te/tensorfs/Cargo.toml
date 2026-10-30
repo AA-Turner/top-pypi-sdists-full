@@ -7,7 +7,7 @@ exclude = ["vendor/faer"]
 members = ["crates/platform", "crates/protocol", "crates/tensorfs", "crates/tensorfs-py", "crates/varena"]
 
 [workspace.package]
-version = "0.13.7"
+version = "0.13.14"
 edition = "2024"
 rust-version = "1.99"
 license = "MIT"

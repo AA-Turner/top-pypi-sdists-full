@@ -1,0 +1,64 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - "*"
+
+jobs:
+  lint:
+    name: Run linters
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Setup Hatch
+        run: pipx install hatch
+
+      - name: Run static analysis
+        run: hatch check code
+
+      - name: Verify formatting
+        run: hatch check fmt
+
+  tests:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          [
+            "3.10",
+            "3.11",
+            "3.12",
+            "3.13",
+            "3.14",
+            "3.15",
+            "pypy3.10",
+            "pypy3.11",
+            "pypy3.12",
+          ]
+
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install Hatch
+        uses: pypa/hatch@install
+
+      - name: Run tests
+        run: hatch test -i py=${{ matrix.python-version }} --cover

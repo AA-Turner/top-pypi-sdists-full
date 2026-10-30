@@ -1,20 +1,91 @@
 [build-system]
-build-backend = "setuptools.build_meta"
+build-backend = "mesonpy"
 requires = [
-    "setuptools>=42",
-    "setuptools_scm[toml]==8.3.0",
-    "pybind11>=2.8.0",
+    "meson-python",
+    "pybind11>=2.12.0,<4.0.0a0",
+    "numpy>=2.0.0,<3.0.0a0",
     "wheel",
+    "versioningit",
 ]
 
-[tool.setuptools_scm]
-version_scheme = "no-guess-dev"
-version_file = "pyamg/version.py"
+[project]
+name = "pyamg"
+dynamic = ["version"]
+authors = [
+    {name = "Nathan Bell"},
+    {name = "Luke Olson", email = "luke.olson@gmail.com"},
+    {name = "Jacob Schroder"},
+    {name = "Ben Southworth"},
+]
+maintainers = [
+    {name = "Luke Olson", email = "luke.olson@gmail.com"},
+    {name = "Jacob Schroder"},
+    {name = "Ben Southworth"},
+]
+description = "PyAMG: Algebraic Multigrid Solvers in Python"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT License"}
+keywords = ["algebraic multigrid", "AMG", "sparse matrix", "preconditioning"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: C++",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Education",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "numpy>=1.23.5",
+    "scipy>=1.15.0"
+]
+
+[project.optional-dependencies]
+build = [
+    "meson-python",
+    "meson",
+    "ninja",
+    "pybind11",
+]
+style = [
+    "ruff",
+]
+test = [
+    "pytest",
+]
+
+[project.urls]
+Homepage = "https://github.com/pyamg/pyamg"
+Documentation = "https://pyamg.readthedocs.io"
+Repository = "https://github.com/pyamg/pyamg.git"
+Issues = "https://github.com/pyamg/pyamg/issues"
+Changelog = "https://github.com/pyamg/pyamg/blob/main/changelog.md"
+
+[tool.versioningit.next-version]
+method = "smallest"
+
+[tool.versioningit.format]
+distance = "{next_version}.dev{distance}+{vcs}{rev}"
+dirty = "{base_version}+d{build_date:%Y%m%d}"
+distance-dirty = "{next_version}.dev{distance}+{vcs}{rev}.d{build_date:%Y%m%d}"
 
 [tool.ruff]
 line-length = 92
 indent-width = 4
-preview = true
+preview = false
 exclude = [
     "pyamg/version.py",
     "pyamg/amg_core/bindthem.py",
@@ -55,10 +126,11 @@ ignore = [
     "PLR2004", # magic-value-comparison
     "PLR1702", # too-many-nested-blocks
     "PLW2901", # redefined-loop-name
-    "PLR6201", # literal-membership 
+    "PLR6201", # literal-membership
     "B028",    # no-explicit-stacklevel
     "PLR6104", # non-augmented-assignment
     "NPY002",  # numpy-legacy-random
+    "RUF069",  # unreliable-float-equality
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -66,9 +138,16 @@ ignore = [
     "test*.py" = ["N802", "N803", "D101", "D102", "D103", "E221", "PLC0415", "PLR6301",
                   "NPY002"]
     "**/tests/__init__.py" = ["D104"]
+    "__init__.py" = ["RUF067"]
     "docs/logo/pyamg_logo.py" = ["PLR0916"]
     "pyamg/util/utils.py" = ["PLC2701"]
     "pyamg/amg_core/__init__.py" = ["RUF022"]
+    "pyamg/classical/classical.py" = ["B006"]
+    "pyamg/classical/air.py" = ["B006"]
+    "pyamg/aggregation/adaptive.py" = ["B006"]
+    "pyamg/aggregation/aggregation.py" = ["B006"]
+    "pyamg/aggregation/pairwise.py" = ["B006"]
+    "pyamg/aggregation/rootnode.py" = ["B006"]
 
 [tool.ruff.lint.pep8-naming]
 ignore-names = [
@@ -87,3 +166,27 @@ ignore-names = [
 docstring-quotes = "double"
 inline-quotes = "single"
 multiline-quotes = "double"
+
+[tool.coverage.run]
+branch = true
+source_pkgs = [
+    "pyamg",
+]
+omit = [
+    "*/tests/*",
+    "*__init__.py",
+    "*/pyamg/amg_core/bindthem.py",
+    "*/pyamg/gallery/demo.py",
+]
+
+[tool.coverage.paths]
+# use repo paths
+source = [
+    "pyamg/",
+    "*/site-packages/pyamg/",
+]
+
+[tool.pytest.ini_options]
+addopts = [
+    "--ignore=pyamg/amg_core/bindthem.py",
+]

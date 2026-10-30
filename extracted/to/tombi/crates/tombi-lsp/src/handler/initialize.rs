@@ -23,8 +23,8 @@ pub async fn handle_initialize(
     backend: &Backend,
     params: InitializeParams,
 ) -> Result<InitializeResult, tower_lsp_server::jsonrpc::Error> {
-    log::debug!("handle_initialize");
-    log::trace!("{:?}", params);
+    log::info!("handle_initialize");
+    log::debug!("{:?}", params);
 
     let InitializeParams {
         capabilities: client_capabilities,

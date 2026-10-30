@@ -11,6 +11,7 @@ import pytest
 
 from lib_layered_config.adapters.path_resolvers.default import DefaultPathResolver
 from lib_layered_config.domain.deploy_permissions import DeployPermissions
+from lib_layered_config.domain.identifiers import Layer
 from lib_layered_config.examples import deploy as deploy_module
 from lib_layered_config.examples.deploy import DeployAction, DeployResult, deploy_config
 from tests.support import LayeredSandbox, create_layered_sandbox
@@ -231,13 +232,20 @@ def test_deploy_requires_source_file(tmp_path: Path) -> None:
 
 @os_agnostic
 def test_validate_target_normalises_known_names() -> None:
-    assert deploy_module._validate_target("APP") == "app"
+    assert deploy_module._validate_target("APP") is Layer.APP
 
 
 @os_agnostic
 def test_validate_target_rejects_unknown_names() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"^Unsupported deployment target:  twilight $"):
         deploy_module._validate_target(" twilight ")
+
+
+@os_agnostic
+@pytest.mark.parametrize("name", ["defaults", "dotenv", "env"])
+def test_validate_target_refuses_a_layer_deploy_does_not_write(name: str) -> None:
+    with pytest.raises(ValueError, match=f"^Unsupported deployment target: {name}$"):
+        deploy_module._validate_target(name)
 
 
 @os_agnostic
@@ -262,74 +270,43 @@ def test_strategy_for_defaults_to_linux_strategy() -> None:
 
 
 @os_agnostic
-def test_deployment_strategy_iterates_known_targets(tmp_path: Path) -> None:
-    sandbox = create_layered_sandbox(tmp_path, vendor=VENDOR, app=APP, slug=SLUG, platform="linux")
-    resolver = DefaultPathResolver(
-        vendor=VENDOR, app=APP, slug=SLUG, env=sandbox.env, platform="linux", hostname="penguin"
-    )
-    strategy = deploy_module.LinuxDeployment(resolver)
-
-    destinations = list(strategy.iter_destinations(["app", "user"]))
-
-    assert destinations[-1].as_posix().endswith("config.toml")
+def test_strategy_for_selects_windows_for_any_win_platform() -> None:
+    resolver = DefaultPathResolver(vendor=VENDOR, app=APP, slug=SLUG, platform="win64")
+    assert isinstance(deploy_module._strategy_for(resolver), deploy_module.WindowsDeployment)
 
 
 @os_agnostic
-def test_deployment_strategy_raises_on_unknown_target(tmp_path: Path) -> None:
-    sandbox = create_layered_sandbox(tmp_path, vendor=VENDOR, app=APP, slug=SLUG, platform="linux")
-    resolver = DefaultPathResolver(
-        vendor=VENDOR, app=APP, slug=SLUG, env=sandbox.env, platform="linux", hostname="penguin"
-    )
-    strategy = deploy_module.LinuxDeployment(resolver)
-
-    with pytest.raises(ValueError):
-        list(strategy.iter_destinations(["mystery"]))
+@pytest.mark.parametrize("platform", ["freebsd", "macos", "sunos5"])
+def test_strategy_for_deploys_the_linux_layout_for_a_platform_with_no_layout(platform: str) -> None:
+    resolver = DefaultPathResolver(vendor=VENDOR, app=APP, slug=SLUG, platform=platform)
+    assert type(deploy_module._strategy_for(resolver)) is deploy_module.LinuxDeployment
 
 
 @os_agnostic
-def test_deployment_strategy_skips_none_destinations(tmp_path: Path) -> None:
+def test_destinations_carry_the_layer_each_target_names(tmp_path: Path) -> None:
     sandbox = create_layered_sandbox(tmp_path, vendor=VENDOR, app=APP, slug=SLUG, platform="linux")
     resolver = DefaultPathResolver(
         vendor=VENDOR, app=APP, slug=SLUG, env=sandbox.env, platform="linux", hostname="penguin"
     )
 
-    class NullStrategy(deploy_module.DeploymentStrategy):
-        def destination_for(self, target: str) -> Path | None:  # pragma: no cover - abstract contract
-            return None
+    destinations = list(deploy_module._destinations_for(resolver, ["User", "HOST", "app"]))
 
-    strategy = NullStrategy(resolver)
-
-    assert list(strategy.iter_destinations(["app"])) == []
+    assert [destination.layer for destination in destinations] == [Layer.USER, Layer.HOST, Layer.APP]
+    assert destinations[1].path.name == "penguin.toml"
 
 
 @os_agnostic
-def test_platform_family_identifies_windows_strings() -> None:
-    assert deploy_module._platform_family("win64") == "windows"
+@pytest.mark.parametrize("platform", ["linux", "darwin", "win32"])
+def test_every_platform_layout_gives_each_deploy_target_a_destination(tmp_path: Path, platform: str) -> None:
+    sandbox = create_layered_sandbox(tmp_path, vendor=VENDOR, app=APP, slug=SLUG, platform=platform)
+    resolver = DefaultPathResolver(
+        vendor=VENDOR, app=APP, slug=SLUG, env=sandbox.env, platform=platform, hostname="penguin"
+    )
 
+    destinations = list(deploy_module._destinations_for(resolver, ["app", "host", "user"]))
 
-@os_agnostic
-def test_platform_family_identifies_mac_strings() -> None:
-    assert deploy_module._platform_family("darwin") == "mac"
-
-
-@os_agnostic
-def test_platform_family_falls_back_to_linux_for_other_names() -> None:
-    assert deploy_module._platform_family("freebsd") == "linux"
-
-
-@os_agnostic
-def test_destinations_skip_none(monkeypatch: pytest.MonkeyPatch) -> None:
-    class DummyResolver(DefaultPathResolver):
-        pass
-
-    class NullStrategy:
-        def destination_for(self, target: str) -> Path | None:
-            return None
-
-    resolver = DummyResolver(vendor=VENDOR, app=APP, slug=SLUG)
-    monkeypatch.setattr(deploy_module, "_strategy_for", lambda *_: NullStrategy())
-
-    assert list(deploy_module._destinations_for(resolver, ["app"])) == []
+    assert [destination.layer for destination in destinations] == [Layer.APP, Layer.HOST, Layer.USER]
+    assert [destination.path.name for destination in destinations] == ["config.toml", "penguin.toml", "config.toml"]
 
 
 @os_agnostic
@@ -614,7 +591,7 @@ def test_next_available_path_returns_simple_suffix_when_not_exists(tmp_path: Pat
     base = tmp_path / "config.toml"
     base.write_text("content", encoding="utf-8")
 
-    result = deploy_module._next_available_path(base, ".bak")
+    result = deploy_module._next_available_path(base, deploy_module._Sidecar.BACKUP)
 
     assert result == tmp_path / "config.toml.bak"
 
@@ -626,7 +603,7 @@ def test_next_available_path_returns_numbered_suffix_when_exists(tmp_path: Path)
     bak = tmp_path / "config.toml.bak"
     bak.write_text("old backup", encoding="utf-8")
 
-    result = deploy_module._next_available_path(base, ".bak")
+    result = deploy_module._next_available_path(base, deploy_module._Sidecar.BACKUP)
 
     assert result == tmp_path / "config.toml.bak.1"
 
@@ -639,7 +616,7 @@ def test_next_available_path_increments_suffix_number(tmp_path: Path) -> None:
     (tmp_path / "config.toml.bak.1").write_text("bak1", encoding="utf-8")
     (tmp_path / "config.toml.bak.2").write_text("bak2", encoding="utf-8")
 
-    result = deploy_module._next_available_path(base, ".bak")
+    result = deploy_module._next_available_path(base, deploy_module._Sidecar.BACKUP)
 
     assert result == tmp_path / "config.toml.bak.3"
 

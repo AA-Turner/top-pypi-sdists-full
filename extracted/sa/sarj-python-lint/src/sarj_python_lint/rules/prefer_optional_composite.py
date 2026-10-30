@@ -17,7 +17,7 @@ from sarj_python_lint.rule_base import (
     Severity,
     is_suppressed,
 )
-from sarj_python_lint.rules._annotation_semantics import AnnotationSemantics, bit_or_members
+from sarj_python_lint.rules._annotation_semantics import AnnotationSemantics, bit_or_members, scope_bound_names
 from sarj_python_lint.rules._paths import is_test_path
 from sarj_python_lint.rules._pydantic_field_contract import unique_members
 
@@ -30,6 +30,8 @@ if TYPE_CHECKING:
 _MIN_GROUP = 2
 _TYPING = ("typing", "typing_extensions")
 _MAX_ALIAS_DEPTH = 32
+_PYDANTIC_BASES = frozenset({"pydantic.BaseModel", "pydantic.main.BaseModel"})
+_ANNOTATION_NAMES = frozenset({"__annotations__", "__annotate__", "__annotate_func__"})
 
 
 @final
@@ -54,8 +56,8 @@ class PreferOptionalComposite(Rule):
         autofix=AutofixPolicy.NONE,
         limitations=(
             "This is a broad modeling review warning, not proof of an all-or-nothing invariant or an invalid runtime state. A shared underscore-delimited prefix and at least two explicitly nullable fields are the deterministic trigger; independent same-prefix settings can also match and should remain independent when that is their contract.",
-            "Checks stable direct module-level source-declared Pydantic BaseModels, plain direct dataclasses and TypedDicts. This advisory relationship follows unshadowed imports and explicit namespace writes, without proving the runtime effects of unrelated callbacks. PEP 604, Optional, Union, Annotated, quoted annotations and bounded module type aliases are recognized; container-element nullability alone is not field nullability. ClassVar and InitVar metadata are excluded. A required or unresolved same-prefix sibling prevents grouping that broader prefix.",
-            "Larger overlapping groups take precedence, with the longest common prefix for the same field set. Each field belongs to at most one finding. Inherited/generic models, unknown decorators or namespaces, rebound owners, tests, generated and vendor code are excluded.",
+            "Checks stable direct module-level source-declared Pydantic BaseModels, plain direct dataclasses and TypedDicts. This advisory relationship follows unshadowed runtime model imports and explicit namespace writes, without proving the runtime effects of unrelated callbacks. PEP 604, Optional, Union, Annotated, quoted annotations and bounded module type aliases are recognized; container-element nullability alone is not field nullability. Runtime ClassVar metadata and dataclass InitVar/KW_ONLY metadata are excluded; dataclasses retain Annotated metadata wrappers and PEP 695 metadata aliases as fields. A required or unresolved same-prefix sibling prevents grouping that broader prefix.",
+            "Larger overlapping groups take precedence, with the longest common prefix for the same field set. Each field belongs to at most one finding. Inherited/generic models, unknown decorators or namespaces, replaced annotation providers, rebound owners, tests, generated and vendor code are excluded.",
             "The rule does not infer relationships from shared suffixes, enforce non-null child fields or automatically nest public models. SARJ510 owns proven tag-dependent variant payloads.",
         ),
         examples=(
@@ -104,10 +106,18 @@ class PreferOptionalComposite(Rule):
         if provenance.wildcard or provenance.dynamic_namespace:
             return []
         findings: list[Diagnostic] = []
+        pydantic_imports_stable = _pydantic_imports_stable(context, provenance)
         for model in context.tree.body:
-            if not isinstance(model, ast.ClassDef) or provenance.binding(model.name, model) is not model:
+            if (
+                not isinstance(model, ast.ClassDef)
+                or provenance.binding(model.name, model) is not model
+                or model.name in provenance.mutated
+                or not _ANNOTATION_NAMES.isdisjoint(scope_bound_names(model.body))
+            ):
                 continue
-            if not _pydantic_record(model, context, provenance) and not _plain_record(model, provenance):
+            if not (pydantic_imports_stable and _pydantic_record(model, context, provenance)) and not _plain_record(
+                model, context, provenance
+            ):
                 continue
             findings.extend(_model_diagnostics(model, context, self.code))
         return findings
@@ -116,7 +126,7 @@ class PreferOptionalComposite(Rule):
 def _model_diagnostics(model: ast.ClassDef, context: PythonFileContext, code: str) -> list[Diagnostic]:
     fields = _optional_fields(model, context)
     findings: list[Diagnostic] = []
-    for prefix, group in _field_groups(fields, _required_names(model, fields)):
+    for prefix, group in _field_groups(fields, _required_names(model, fields, context)):
         anchor = group[0]
         if is_suppressed(context.source_lines, anchor.lineno, code):
             continue
@@ -155,20 +165,71 @@ def _pydantic_base(base: ast.expr, context: PythonFileContext, provenance: Resou
     root = base
     while isinstance(root, ast.Attribute):
         root = root.value
+    if not isinstance(root, ast.Name) or root.id in provenance.mutated:
+        return False
+    binding = provenance.runtime_binding(root.id, base)
+    statement = provenance.parents.get(binding) if isinstance(binding, ast.alias) else None
     return (
-        isinstance(root, ast.Name)
-        and root.id not in provenance.mutated
-        and context.module_imports.resolved_qualified_name(base) in {"pydantic.BaseModel", "pydantic.main.BaseModel"}
+        isinstance(statement, ast.Import | ast.ImportFrom)
+        and provenance.parents.get(statement) is context.tree
+        and _stable_qualified_name(base, context) in _PYDANTIC_BASES
     )
 
 
-def _plain_record(model: ast.ClassDef, provenance: ResourceProvenance) -> bool:
+def _pydantic_imports_stable(context: PythonFileContext, provenance: ResourceProvenance) -> bool:
+    tree = context.tree
+    if tree is None or not tree.body:
+        return False
+    for name, target in context.module_imports.bindings.items():
+        qualified = f"{target.module}.{target.symbol}" if target.symbol is not None else target.module
+        if qualified not in _PYDANTIC_BASES | {"pydantic", "pydantic.main"} or name not in provenance.reads:
+            continue
+        binding = provenance.runtime_binding(name, tree.body[0])
+        if not isinstance(binding, ast.alias):
+            return False
+        for read in provenance.reads.get(name, ()):
+            resolved = provenance.runtime_binding(name, read)
+            lexical = provenance.binding(name, read)
+            uncertain_class_capture = (
+                resolved is None and lexical is not None and isinstance(provenance.scope(lexical), ast.ClassDef)
+            )
+            if (
+                resolved is binding or (resolved is None and lexical is binding) or uncertain_class_capture
+            ) and not _pydantic_import_read(read, context):
+                return False
+    return True
+
+
+def _pydantic_import_read(read: ast.Name, context: PythonFileContext) -> bool:
+    reference: ast.expr = read
+    parent = context.parents.get(reference)
+    while isinstance(parent, ast.Attribute) and parent.value is reference:
+        reference, parent = parent, context.parents.get(parent)
+    qualified = context.module_imports.resolved_qualified_name(reference)
+    if qualified is not None and not any(
+        qualified == base or qualified.startswith(f"{base}.") for base in _PYDANTIC_BASES
+    ):
+        return True
+    if (isinstance(parent, ast.Call) and parent.func is reference) or (
+        isinstance(parent, ast.ClassDef) and reference in parent.bases
+    ):
+        return True
+    while isinstance(parent, ast.expr) and not isinstance(parent, ast.Call):
+        reference, parent = parent, context.parents.get(parent)
+    return (isinstance(parent, ast.AnnAssign | ast.arg) and parent.annotation is reference) or (
+        isinstance(parent, ast.FunctionDef | ast.AsyncFunctionDef) and parent.returns is reference
+    )
+
+
+def _plain_record(model: ast.ClassDef, context: PythonFileContext, provenance: ResourceProvenance) -> bool:
     if model.type_params or any(not _plain_member(member) for member in model.body):
         return False
     if len(model.decorator_list) == 1 and not model.bases and not model.keywords:
         decorator = model.decorator_list[0]
         target = decorator.func if isinstance(decorator, ast.Call) else decorator
-        return provenance.imported(target, "dataclasses.dataclass")
+        return _stable_qualified_name(target, context) == "dataclasses.dataclass" and provenance.imported(
+            target, "dataclasses.dataclass"
+        )
     return (
         not model.decorator_list
         and len(model.bases) == 1
@@ -188,11 +249,7 @@ def _plain_member(member: ast.stmt) -> bool:
 
 def _optional_fields(model: ast.ClassDef, context: PythonFileContext) -> list[ast.AnnAssign]:
     unique = unique_members(model)
-    class_names = {
-        member.target.id
-        for member in model.body
-        if isinstance(member, ast.AnnAssign) and isinstance(member.target, ast.Name)
-    }
+    class_names = scope_bound_names(model.body)
     fields: list[ast.AnnAssign] = []
     for member in model.body:
         if not isinstance(member, ast.AnnAssign) or not isinstance(member.target, ast.Name):
@@ -200,16 +257,50 @@ def _optional_fields(model: ast.ClassDef, context: PythonFileContext) -> list[as
         name = member.target.id
         if name.startswith("_") or name not in unique or "_" not in name:
             continue
-        if _optional_annotation(member.annotation, class_names, context):
+        if _optional_annotation(member.annotation, class_names, context, dataclass=bool(model.decorator_list)):
             fields.append(member)
     return fields
 
 
-def _optional_annotation(annotation: ast.expr, class_names: set[str], context: PythonFileContext) -> bool:
+def _optional_annotation(
+    annotation: ast.expr, class_names: set[str], context: PythonFileContext, *, dataclass: bool
+) -> bool:
+    parsed = _unshadowed_annotation(annotation, class_names)
+    return (
+        parsed is not None
+        and not _metadata_annotation(parsed, context, dataclass=dataclass)
+        and _nullable(parsed, context)
+    )
+
+
+def _unshadowed_annotation(annotation: ast.expr, class_names: set[str]) -> ast.expr | None:
     parsed = AnnotationSemantics.parse(annotation)
     if parsed is None or any(isinstance(node, ast.Name) and node.id in class_names for node in ast.walk(parsed)):
-        return False
-    return not _metadata_annotation(parsed, context) and _nullable(annotation, context)
+        return None
+    return parsed
+
+
+def _stable_qualified_name(expression: ast.expr, context: PythonFileContext) -> str | None:
+    qualified = context.module_imports.resolved_qualified_name(expression)
+    if qualified is None:
+        return None
+    root = expression
+    while isinstance(root, ast.Attribute):
+        root = root.value
+    tree = context.tree
+    if (
+        not isinstance(root, ast.Name)
+        or tree is None
+        or not tree.body
+        or not isinstance(context.static_resource_provenance.runtime_binding(root.id, tree.body[0]), ast.alias)
+    ):
+        return None
+    owner = qualified.partition(".")[0]
+    for name in context.static_resource_provenance.mutated:
+        binding = context.module_imports.bindings.get(name)
+        if binding is not None and binding.module.partition(".")[0] == owner:
+            return None
+    return qualified
 
 
 def _nullable(annotation: ast.expr, context: PythonFileContext, *, seen: frozenset[str] = frozenset()) -> bool:
@@ -226,7 +317,10 @@ def _nullable(annotation: ast.expr, context: PythonFileContext, *, seen: frozens
         return _nullable_union(bit_or_members(parsed), context, seen)
     if not isinstance(parsed, ast.Subscript):
         return False
-    wrapper = context.module_imports.resolved_symbol(parsed.value, sources=frozenset(_TYPING))
+    qualified = _stable_qualified_name(parsed.value, context)
+    wrapper = (
+        qualified.rpartition(".")[2] if qualified is not None and qualified.rpartition(".")[0] in _TYPING else None
+    )
     if wrapper == "Optional":
         return True
     members = parsed.slice.elts if isinstance(parsed.slice, ast.Tuple) else [parsed.slice]
@@ -246,30 +340,65 @@ def _nullable_union(members: list[ast.expr], context: PythonFileContext, seen: f
     )
 
 
-def _required_names(model: ast.ClassDef, optional: list[ast.AnnAssign]) -> frozenset[str]:
+def _required_names(model: ast.ClassDef, optional: list[ast.AnnAssign], context: PythonFileContext) -> frozenset[str]:
     optional_nodes = {id(member) for member in optional}
-    return frozenset(
-        member.target.id
-        for member in model.body
-        if isinstance(member, ast.AnnAssign)
-        and isinstance(member.target, ast.Name)
-        and id(member) not in optional_nodes
-        and not member.target.id.startswith("_")
-    )
+    class_names = scope_bound_names(model.body)
+    required: set[str] = set()
+    for member in model.body:
+        if (
+            not isinstance(member, ast.AnnAssign)
+            or not isinstance(member.target, ast.Name)
+            or id(member) in optional_nodes
+            or member.target.id.startswith("_")
+        ):
+            continue
+        parsed = _unshadowed_annotation(member.annotation, class_names)
+        if parsed is None or not _metadata_annotation(parsed, context, dataclass=bool(model.decorator_list)):
+            required.add(member.target.id)
+    return frozenset(required)
 
 
-def _metadata_annotation(annotation: ast.expr, context: PythonFileContext) -> bool:
-    resolved = context.annotation_semantics.resolve_alias(annotation)
-    if not isinstance(resolved, ast.Subscript):
+def _metadata_annotation(
+    annotation: ast.expr,
+    context: PythonFileContext,
+    *,
+    dataclass: bool,
+    seen: frozenset[str] = frozenset(),
+) -> bool:
+    if len(seen) >= _MAX_ALIAS_DEPTH:
         return False
-    qualified = context.module_imports.resolved_qualified_name(resolved.value)
-    if qualified in {f"{module}.ClassVar" for module in _TYPING} | {"dataclasses.InitVar"}:
+    resolved = AnnotationSemantics.parse(annotation)
+    if isinstance(resolved, ast.Name) and resolved.id in context.annotation_semantics.aliases:
+        bindings = context.static_resource_provenance.bindings.get(context.tree, {}).get(resolved.id, ())
+        if resolved.id in seen or len(bindings) != 1 or not isinstance(context.parents.get(bindings[0]), ast.AnnAssign):
+            return False
+        return _metadata_annotation(
+            context.annotation_semantics.aliases[resolved.id],
+            context,
+            dataclass=dataclass,
+            seen=seen | {resolved.id},
+        )
+    if resolved is None:
+        return False
+    target = resolved.value if isinstance(resolved, ast.Subscript) else resolved
+    qualified = _stable_qualified_name(target, context)
+    if qualified in {f"{module}.ClassVar" for module in _TYPING} or (
+        dataclass
+        and (
+            qualified == "dataclasses.InitVar"
+            or (qualified == "dataclasses.KW_ONLY" and not isinstance(resolved, ast.Subscript))
+        )
+    ):
         return True
-    if qualified in {f"{module}.Annotated" for module in _TYPING}:
+    if (
+        not dataclass
+        and isinstance(resolved, ast.Subscript)
+        and qualified in {f"{module}.Annotated" for module in _TYPING}
+    ):
         first = (
             resolved.slice.elts[0] if isinstance(resolved.slice, ast.Tuple) and resolved.slice.elts else resolved.slice
         )
-        return _metadata_annotation(first, context)
+        return _metadata_annotation(first, context, dataclass=dataclass, seen=seen)
     return False
 
 

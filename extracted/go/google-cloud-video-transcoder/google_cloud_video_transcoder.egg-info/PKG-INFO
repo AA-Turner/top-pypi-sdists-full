@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-video-transcoder
-Version: 1.22.0
+Version: 1.23.0
 Summary: Google Cloud Video Transcoder API client library
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-video-transcoder
 Author: Google LLC
@@ -46,9 +46,7 @@ Python Client for Transcoder
 |stable| |pypi| |versions|
 
 `Transcoder`_: This API converts video files into formats suitable for consumer
-distribution. For more information, see the <a
-href="https://cloud.google.com/transcoder/docs/concepts/overview">Transcoder
-API overview</a>.
+distribution.
 
 - `Client Library Documentation`_
 - `Product Documentation`_

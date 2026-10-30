@@ -128,6 +128,8 @@ class Info(Record):
     url: str = field(metadata=meta("url", required=True, primitive="str"))
     user_context: str = field(metadata=meta("userContext", required=True, primitive="str"))
     parent: str | None | UnsetType = field(default=UNSET, metadata=meta("parent", nullable=True, primitive="str"))
+    moz_name: str | UnsetType = field(default=UNSET, metadata=meta("moz:name", primitive="str"))
+    moz_scope: str | UnsetType = field(default=UNSET, metadata=meta("moz:scope", primitive="str"))
 
 
 @register("browsingContext.AccessibilityLocator")
@@ -189,7 +191,10 @@ class InnerTextLocator(Record):
         default=UNSET,
         metadata=meta("matchType", enum="browsingContext.InnerTextLocatorMatchType"),
     )
-    max_depth: int | UnsetType = field(default=UNSET, metadata=meta("maxDepth", primitive="int"))
+    max_depth: int | UnsetType = field(
+        default=UNSET,
+        metadata=meta("maxDepth", primitive="int", min=0, max=9007199254740991),
+    )
 
 
 @register("browsingContext.XPathLocator")
@@ -214,7 +219,7 @@ class BaseNavigationInfo(Record):
 
     context: str = field(metadata=meta("context", required=True, primitive="str"))
     navigation: str | None = field(metadata=meta("navigation", required=True, nullable=True, primitive="str"))
-    timestamp: int = field(metadata=meta("timestamp", required=True, primitive="int"))
+    timestamp: int = field(metadata=meta("timestamp", required=True, primitive="int", min=0, max=9007199254740991))
     url: str = field(metadata=meta("url", required=True, primitive="str"))
     user_context: str | UnsetType = field(default=UNSET, metadata=meta("userContext", primitive="str"))
 
@@ -229,7 +234,7 @@ class NavigationInfo(Record):
 
     context: str = field(metadata=meta("context", required=True, primitive="str"))
     navigation: str | None = field(metadata=meta("navigation", required=True, nullable=True, primitive="str"))
-    timestamp: int = field(metadata=meta("timestamp", required=True, primitive="int"))
+    timestamp: int = field(metadata=meta("timestamp", required=True, primitive="int", min=0, max=9007199254740991))
     url: str = field(metadata=meta("url", required=True, primitive="str"))
     user_context: str | UnsetType = field(default=UNSET, metadata=meta("userContext", primitive="str"))
 
@@ -281,7 +286,7 @@ class ImageFormat(Record):
     """
 
     type: str = field(metadata=meta("type", required=True, primitive="str"))
-    quality: float | UnsetType = field(default=UNSET, metadata=meta("quality", primitive="float"))
+    quality: float | UnsetType = field(default=UNSET, metadata=meta("quality", primitive="float", min=0, max=1))
 
 
 @register("browsingContext.ImageSize")
@@ -292,8 +297,14 @@ class ImageSize(Record):
     See https://w3c.github.io/webdriver-bidi/#cddl-type-browsingcontextimagesize
     """
 
-    max_width: int | UnsetType = field(default=UNSET, metadata=meta("maxWidth", primitive="int"))
-    max_height: int | UnsetType = field(default=UNSET, metadata=meta("maxHeight", primitive="int"))
+    max_width: int | UnsetType = field(
+        default=UNSET,
+        metadata=meta("maxWidth", primitive="int", min=1, max=9007199254740991),
+    )
+    max_height: int | UnsetType = field(
+        default=UNSET,
+        metadata=meta("maxHeight", primitive="int", min=1, max=9007199254740991),
+    )
 
 
 @register("browsingContext.ElementClipRectangle")
@@ -380,8 +391,12 @@ class GetTreeParameters(Record):
     See https://w3c.github.io/webdriver-bidi/#cddl-type-browsingcontextgettreeparameters
     """
 
-    max_depth: int | UnsetType = field(default=UNSET, metadata=meta("maxDepth", primitive="int"))
+    max_depth: int | UnsetType = field(
+        default=UNSET,
+        metadata=meta("maxDepth", primitive="int", min=0, max=9007199254740991),
+    )
     root: str | UnsetType = field(default=UNSET, metadata=meta("root", primitive="str"))
+    moz_scope: str | UnsetType = field(default=UNSET, metadata=meta("moz:scope", primitive="str"))
 
 
 @register("browsingContext.GetTreeResult")
@@ -418,7 +433,10 @@ class LocateNodesParameters(Record):
 
     context: str = field(metadata=meta("context", required=True, primitive="str"))
     locator: LocatorValue = field(metadata=meta("locator", required=True, ref="browsingContext.Locator"))
-    max_node_count: int | UnsetType = field(default=UNSET, metadata=meta("maxNodeCount", primitive="int"))
+    max_node_count: int | UnsetType = field(
+        default=UNSET,
+        metadata=meta("maxNodeCount", primitive="int", min=1, max=9007199254740991),
+    )
     serialization_options: SerializationOptions | UnsetType = field(
         default=UNSET,
         metadata=meta("serializationOptions", ref="script.SerializationOptions"),
@@ -493,7 +511,7 @@ class PrintParameters(Record):
         metadata=meta("page", ref="browsingContext.PrintPageParameters"),
     )
     page_ranges: list[Any] | UnsetType = field(default=UNSET, metadata=meta("pageRanges", is_list=True))
-    scale: float | UnsetType = field(default=UNSET, metadata=meta("scale", primitive="float"))
+    scale: float | UnsetType = field(default=UNSET, metadata=meta("scale", primitive="float", min=0.1, max=2))
     shrink_to_fit: bool | UnsetType = field(default=UNSET, metadata=meta("shrinkToFit", primitive="bool"))
 
 
@@ -505,10 +523,10 @@ class PrintMarginParameters(Record):
     See https://w3c.github.io/webdriver-bidi/#cddl-type-browsingcontextprintmarginparameters
     """
 
-    bottom: float | UnsetType = field(default=UNSET, metadata=meta("bottom", primitive="float"))
-    left: float | UnsetType = field(default=UNSET, metadata=meta("left", primitive="float"))
-    right: float | UnsetType = field(default=UNSET, metadata=meta("right", primitive="float"))
-    top: float | UnsetType = field(default=UNSET, metadata=meta("top", primitive="float"))
+    bottom: float | UnsetType = field(default=UNSET, metadata=meta("bottom", primitive="float", min=0))
+    left: float | UnsetType = field(default=UNSET, metadata=meta("left", primitive="float", min=0))
+    right: float | UnsetType = field(default=UNSET, metadata=meta("right", primitive="float", min=0))
+    top: float | UnsetType = field(default=UNSET, metadata=meta("top", primitive="float", min=0))
 
 
 @register("browsingContext.PrintPageParameters")
@@ -519,8 +537,8 @@ class PrintPageParameters(Record):
     See https://w3c.github.io/webdriver-bidi/#cddl-type-browsingcontextprintpageparameters
     """
 
-    height: float | UnsetType = field(default=UNSET, metadata=meta("height", primitive="float"))
-    width: float | UnsetType = field(default=UNSET, metadata=meta("width", primitive="float"))
+    height: float | UnsetType = field(default=UNSET, metadata=meta("height", primitive="float", min=0.0352))
+    width: float | UnsetType = field(default=UNSET, metadata=meta("width", primitive="float", min=0.0352))
 
 
 @register("browsingContext.PrintResult")
@@ -581,7 +599,7 @@ class SetViewportParameters(Record):
     )
     device_pixel_ratio: float | None | UnsetType = field(
         default=UNSET,
-        metadata=meta("devicePixelRatio", nullable=True, primitive="float"),
+        metadata=meta("devicePixelRatio", nullable=True, primitive="float", min=0, exclusive_min=True),
     )
     user_contexts: list[str] | UnsetType = field(
         default=UNSET,
@@ -597,8 +615,8 @@ class Viewport(Record):
     See https://w3c.github.io/webdriver-bidi/#cddl-type-browsingcontextviewport
     """
 
-    width: int = field(metadata=meta("width", required=True, primitive="int"))
-    height: int = field(metadata=meta("height", required=True, primitive="int"))
+    width: int = field(metadata=meta("width", required=True, primitive="int", min=0, max=9007199254740991))
+    height: int = field(metadata=meta("height", required=True, primitive="int", min=0, max=9007199254740991))
 
 
 @register("browsingContext.StartScreencastParameters")
@@ -627,9 +645,18 @@ class MediaTrackConstraints(Record):
     See https://w3c.github.io/webdriver-bidi/#cddl-type-browsingcontextmediatrackconstraints
     """
 
-    width: int | UnsetType = field(default=UNSET, metadata=meta("width", primitive="int"))
-    height: int | UnsetType = field(default=UNSET, metadata=meta("height", primitive="int"))
-    frame_rate: int | UnsetType = field(default=UNSET, metadata=meta("frameRate", primitive="int"))
+    width: int | UnsetType = field(
+        default=UNSET,
+        metadata=meta("width", primitive="int", min=0, max=9007199254740991),
+    )
+    height: int | UnsetType = field(
+        default=UNSET,
+        metadata=meta("height", primitive="int", min=0, max=9007199254740991),
+    )
+    frame_rate: int | UnsetType = field(
+        default=UNSET,
+        metadata=meta("frameRate", primitive="int", min=0, max=9007199254740991),
+    )
 
 
 @register("browsingContext.StartScreencastResult")
@@ -676,7 +703,9 @@ class TraverseHistoryParameters(Record):
     """
 
     context: str = field(metadata=meta("context", required=True, primitive="str"))
-    delta: int = field(metadata=meta("delta", required=True, primitive="int"))
+    delta: int = field(
+        metadata=meta("delta", required=True, primitive="int", min=-9007199254740991, max=9007199254740991),
+    )
 
 
 @register("browsingContext.HistoryUpdatedParameters")
@@ -688,7 +717,7 @@ class HistoryUpdatedParameters(Record):
     """
 
     context: str = field(metadata=meta("context", required=True, primitive="str"))
-    timestamp: int = field(metadata=meta("timestamp", required=True, primitive="int"))
+    timestamp: int = field(metadata=meta("timestamp", required=True, primitive="int", min=0, max=9007199254740991))
     url: str = field(metadata=meta("url", required=True, primitive="str"))
     user_context: str | UnsetType = field(default=UNSET, metadata=meta("userContext", primitive="str"))
 
@@ -705,7 +734,7 @@ class DownloadWillBeginParams(Record):
     suggested_filename: str = field(metadata=meta("suggestedFilename", required=True, primitive="str"))
     context: str = field(metadata=meta("context", required=True, primitive="str"))
     navigation: str | None = field(metadata=meta("navigation", required=True, nullable=True, primitive="str"))
-    timestamp: int = field(metadata=meta("timestamp", required=True, primitive="int"))
+    timestamp: int = field(metadata=meta("timestamp", required=True, primitive="int", min=0, max=9007199254740991))
     url: str = field(metadata=meta("url", required=True, primitive="str"))
     user_context: str | UnsetType = field(default=UNSET, metadata=meta("userContext", primitive="str"))
 
@@ -774,7 +803,7 @@ class DownloadEndParamsCanceledParams(Record):
     download: str = field(metadata=meta("download", required=True, primitive="str"))
     context: str = field(metadata=meta("context", required=True, primitive="str"))
     navigation: str | None = field(metadata=meta("navigation", required=True, nullable=True, primitive="str"))
-    timestamp: int = field(metadata=meta("timestamp", required=True, primitive="int"))
+    timestamp: int = field(metadata=meta("timestamp", required=True, primitive="int", min=0, max=9007199254740991))
     url: str = field(metadata=meta("url", required=True, primitive="str"))
     status: str = field(default="canceled", init=False, metadata=meta("status", required=True, fixed="canceled"))
     user_context: str | UnsetType = field(default=UNSET, metadata=meta("userContext", primitive="str"))
@@ -787,7 +816,7 @@ class DownloadEndParamsCompleteParams(Record):
     filepath: str | None = field(metadata=meta("filepath", required=True, nullable=True, primitive="str"))
     context: str = field(metadata=meta("context", required=True, primitive="str"))
     navigation: str | None = field(metadata=meta("navigation", required=True, nullable=True, primitive="str"))
-    timestamp: int = field(metadata=meta("timestamp", required=True, primitive="int"))
+    timestamp: int = field(metadata=meta("timestamp", required=True, primitive="int", min=0, max=9007199254740991))
     url: str = field(metadata=meta("url", required=True, primitive="str"))
     status: str = field(default="complete", init=False, metadata=meta("status", required=True, fixed="complete"))
     user_context: str | UnsetType = field(default=UNSET, metadata=meta("userContext", primitive="str"))
@@ -962,12 +991,17 @@ class BrowsingContext(Domain):
         )
         return self._execute("browsingContext.create", params=params, result=CreateResult)
 
-    def get_tree(self, max_depth: int | UnsetType = UNSET, root: str | UnsetType = UNSET) -> GetTreeResult:
+    def get_tree(
+        self,
+        max_depth: int | UnsetType = UNSET,
+        root: str | UnsetType = UNSET,
+        moz_scope: str | UnsetType = UNSET,
+    ) -> GetTreeResult:
         """Execute browsingContext.getTree (internal, unsupported).
 
         See https://w3c.github.io/webdriver-bidi/#command-browsingContext-getTree
         """
-        params = GetTreeParameters(max_depth=max_depth, root=root)
+        params = GetTreeParameters(max_depth=max_depth, root=root, moz_scope=moz_scope)
         return self._execute("browsingContext.getTree", params=params, result=GetTreeResult)
 
     def handle_user_prompt(

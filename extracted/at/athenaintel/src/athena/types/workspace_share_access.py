@@ -2,4 +2,4 @@
 
 import typing
 
-WorkspaceShareAccess = typing.Union[typing.Literal["view", "edit"], typing.Any]
+WorkspaceShareAccess = typing.Union[typing.Literal["view", "edit", "none"], typing.Any]

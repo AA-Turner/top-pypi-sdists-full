@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import io
 from pathlib import Path
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Final, NamedTuple
 
 from ...domain.errors import InvalidFormatError
 from ...domain.redaction import NotSensitiveKeys
@@ -30,10 +30,16 @@ from .._nested_keys import assign_nested
 from .._path_probe import PathKind, checked_kind, config_path_unreadable, current_directory, probe_path
 from .._text_decoding import decode_utf8
 from .._value_coercion import coerce_value
-from ..file_loaders.structured import directory_not_config_file, ensure_within_size_cap
+from ..file_loaders.structured import directory_not_config_file, read_capped_bytes
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
+
+__all__ = [
+    "DOTENV_LAYER",
+    "DefaultDotEnvLoader",
+]
+
 
 # Constants for dotenv parsing
 _QUOTE_CHARS: Final[frozenset[str]] = frozenset({'"', "'"})
@@ -51,9 +57,9 @@ def _log_dotenv_loaded(path: Path, keys: Mapping[str, object]) -> None:
     log_debug("dotenv_loaded", layer=DOTENV_LAYER, path=str(path), keys=sorted(keys.keys()))
 
 
-def _log_dotenv_missing() -> None:
-    """Log that no dotenv file was found in the search path."""
-    log_debug("dotenv_not_found", layer=DOTENV_LAYER, path=None)
+def _log_dotenv_missing(path: Path | None = None) -> None:
+    """Log that no dotenv file was found: in the search path, or at the explicit *path* given."""
+    log_debug("dotenv_not_found", layer=DOTENV_LAYER, path=None if path is None else str(path))
 
 
 def _log_dotenv_error(path: Path, line_number: int) -> None:
@@ -102,13 +108,17 @@ class DefaultDotEnvLoader:
         return {}
 
     def _load_explicit(self, path: Path) -> Mapping[str, object]:
-        """Load a specific dotenv file without directory search."""
+        """Load a specific dotenv file without directory search.
+
+        A FIFO or device is read like a file, so ``--env-file <(...)`` works; a path that does not
+        exist loads nothing.
+        """
         self.last_loaded_path = None
         kind = checked_kind(path)
         if kind is PathKind.DIRECTORY:
             raise directory_not_config_file(path)
-        if kind is not PathKind.FILE:
-            _log_dotenv_missing()
+        if kind is PathKind.MISSING:
+            _log_dotenv_missing(path)
             return {}
         self.last_loaded_path = str(path)
         data = _parse_dotenv(path, not_sensitive=self._not_sensitive)
@@ -122,7 +132,11 @@ def _build_search_list(start_dir: str | None, extras: Iterable[Path]) -> list[Pa
 
 
 def _iter_candidates(start_dir: str | None) -> Iterable[Path]:
-    """Yield `.env` paths from start_dir upward to filesystem root; none when there is no start."""
+    """Yield `.env` paths from start_dir upward to the filesystem root.
+
+    Without a start_dir the search starts in the current directory; it yields nothing only when
+    the current directory cannot be resolved.
+    """
     base = Path(start_dir) if start_dir else current_directory()
     if base is None:
         return
@@ -140,13 +154,13 @@ def _parse_dotenv(path: Path, *, not_sensitive: NotSensitiveKeys = NotSensitiveK
     Raises:
         InvalidFormatError: On malformed lines or bytes, or when the file is larger than
             :data:`~lib_layered_config.adapters.file_loaders.structured.MAX_CONFIG_FILE_BYTES`
-            (checked before the file is read, the same cap and refusal shape structured
-            configuration files use), or when it cannot be read.
+            (a regular file is sized before it is read, a FIFO or device is read to one byte past
+            the cap; the same cap and refusal shape structured configuration files use), or when
+            it cannot be read.
     """
     result: dict[str, object] = {}
     try:
-        ensure_within_size_cap(str(path), path.stat().st_size)
-        raw = path.read_bytes()
+        raw = read_capped_bytes(path)
     except OSError as error:
         raise config_path_unreadable(path, error) from error
     text = decode_utf8(raw, path=path)
@@ -155,9 +169,8 @@ def _parse_dotenv(path: Path, *, not_sensitive: NotSensitiveKeys = NotSensitiveK
         entry = _split_line(raw_line, line_number, path)
         if entry is None:
             continue
-        key, raw_value = entry
-        value = _dotenv_value(key, raw_value, not_sensitive=not_sensitive)
-        assign_nested(result, key, value, error_cls=InvalidFormatError)
+        value = _dotenv_value(entry.key, entry.raw_value, not_sensitive=not_sensitive)
+        assign_nested(result, entry.key, value, error_cls=InvalidFormatError)
     return result
 
 
@@ -166,7 +179,14 @@ def _is_ignorable(line: str) -> bool:
     return not line or line.startswith(_COMMENT_CHAR)
 
 
-def _split_line(raw_line: str, line_number: int, path: Path) -> tuple[str, str] | None:
+class _DotenvEntry(NamedTuple):
+    """One ``KEY=value`` line: the stripped key and the stripped, not yet converted value."""
+
+    key: str
+    raw_value: str
+
+
+def _split_line(raw_line: str, line_number: int, path: Path) -> _DotenvEntry | None:
     """Return a dotenv line's key and raw value, or None for a blank or comment line.
 
     Raises:
@@ -179,7 +199,7 @@ def _split_line(raw_line: str, line_number: int, path: Path) -> tuple[str, str] 
         _log_dotenv_error(path, line_number)
         raise InvalidFormatError(f"Malformed line {line_number} in {path}")
     key, value = line.split(_KEY_VALUE_DELIMITER, 1)
-    return key.strip(), value.strip()
+    return _DotenvEntry(key=key.strip(), raw_value=value.strip())
 
 
 def _dotenv_value(key: str, raw: str, *, not_sensitive: NotSensitiveKeys = NotSensitiveKeys.NONE) -> object:

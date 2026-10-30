@@ -59,6 +59,9 @@ with patch("sagemaker_studio.Project"):
         build_spark_configs,
         extract_connection_spark_configs,
         generate_s3_access_grants_configs,
+        openlineage_supported_for_emr_release,
+        openlineage_supported_for_glue_version,
+        supports_native_fgac,
     )
 
 # Put `sys.modules` back as this module found it. The stand-ins above are needed
@@ -505,3 +508,106 @@ class TestGenerateS3AccessGrantsConfigs:
     def test_returns_empty_when_project_is_none(self):
         """Callers pass getattr(self, "project", None), so None must not raise."""
         assert generate_s3_access_grants_configs(None) == {}
+
+
+class TestOpenlineageSupportedForGlueVersion:
+    def test_glue_5_and_6_0_supported(self):
+        assert openlineage_supported_for_glue_version("5.0") is True
+        assert openlineage_supported_for_glue_version("5.1") is True
+        assert openlineage_supported_for_glue_version("6.0") is True
+
+    def test_glue_6_1_and_above_supported(self):
+        assert openlineage_supported_for_glue_version("6.1") is True
+        assert openlineage_supported_for_glue_version("6.2") is True
+        assert openlineage_supported_for_glue_version("7.0") is True
+
+    def test_below_glue_5_not_supported(self):
+        assert openlineage_supported_for_glue_version("4.0") is False
+        assert openlineage_supported_for_glue_version("3.0") is False
+
+    def test_invalid_version_not_supported(self):
+        assert openlineage_supported_for_glue_version(None) is False
+        assert openlineage_supported_for_glue_version("not-a-number") is False
+
+
+class TestOpenlineageSupportedForEmrRelease:
+    def test_emr_spark_below_8_2_supported(self):
+        assert openlineage_supported_for_emr_release("emr-spark-8.0.0") is True
+        assert openlineage_supported_for_emr_release("emr-spark-8.1.0") is True
+        assert openlineage_supported_for_emr_release("emr-spark-7.11.0") is True
+
+    def test_emr_spark_8_2_and_above_not_supported(self):
+        assert openlineage_supported_for_emr_release("emr-spark-8.2.0") is False
+        assert openlineage_supported_for_emr_release("emr-spark-8.3.0") is False
+        assert openlineage_supported_for_emr_release("emr-spark-9.0.0") is False
+
+    def test_classic_emr_labels_always_supported(self):
+        # emr-7.x never trips the emr-spark-8.2 cutoff.
+        assert openlineage_supported_for_emr_release("emr-7.13.0") is True
+        assert openlineage_supported_for_emr_release("emr-6.15.0") is True
+
+    def test_latest_suffix_and_unknown_labels_supported(self):
+        # A classic emr-7.x '-latest' label parses to [7, 11, 0] and never trips
+        # the emr-spark-8.2 cutoff, so OpenLineage is still passed.
+        assert openlineage_supported_for_emr_release("emr-7.11.0-latest") is True
+        # Truly unparseable labels keep prior behaviour (OpenLineage passed).
+        assert openlineage_supported_for_emr_release(None) is True
+        assert openlineage_supported_for_emr_release("garbage") is True
+
+    def test_emr_spark_latest_suffix_8_2_not_supported(self):
+        # Real EMR-on-EKS labels carry a '-latest' suffix; the 8.2 cutoff must
+        # still fire for 'emr-spark-8.2.0-latest' (regression: previously the
+        # suffix made the label unparseable and OpenLineage was wrongly passed).
+        assert openlineage_supported_for_emr_release("emr-spark-8.2.0-latest") is False
+        assert openlineage_supported_for_emr_release("emr-spark-8.3.0-latest") is False
+        assert openlineage_supported_for_emr_release("emr-spark-8.1.0-latest") is True
+
+    def test_emr_spark_partial_version_label(self):
+        # A two-component label like 'emr-spark-8.2' must not be treated as less
+        # than the three-component cutoff [8, 2, 0] by lexicographic comparison.
+        assert openlineage_supported_for_emr_release("emr-spark-8.2") is False
+        assert openlineage_supported_for_emr_release("emr-spark-8.1") is True
+        # Major-version-only labels compare correctly after length normalization.
+        assert openlineage_supported_for_emr_release("emr-spark-9") is False
+        assert openlineage_supported_for_emr_release("emr-spark-10.0.0") is False
+
+    def test_emr_spark_non_numeric_component_label(self):
+        # A non-numeric component stops parsing at the first bad part, keeping
+        # only the numeric prefix (e.g. 'emr-spark-8.x.0' -> [8]). [8] is below
+        # the cutoff [8, 2, 0] after padding, so OpenLineage stays supported.
+        assert openlineage_supported_for_emr_release("emr-spark-8.x.0") is True
+        # A component that is numeric-then-garbage also stops at that part.
+        assert openlineage_supported_for_emr_release("emr-spark-8.2x.0") is True
+        # Fully non-numeric after the prefix parses to nothing -> prior behaviour.
+        assert openlineage_supported_for_emr_release("emr-spark-abc") is True
+
+
+# -------------------------------------------------------------------
+# Tests for supports_native_fgac
+# -------------------------------------------------------------------
+
+
+class TestSupportsNativeFgac:
+    @pytest.mark.parametrize(
+        "release_label,expected",
+        [
+            ("emr-7.14.0", True),
+            ("emr-7.14.0-latest", True),
+            ("emr-8.0.0", True),
+            ("emr-7.13.0", False),
+            ("emr-7.11.0-latest", False),
+            ("emr-7.8.0", False),
+            ("emr-spark-8.1.0", True),
+            ("emr-spark-8.1.0-latest", True),
+            ("emr-spark-9.0.0", True),
+            ("emr-spark-8.0.0", False),
+            ("emr-spark-7.8.0", False),
+            ("", False),
+            (None, False),
+            ("garbage", False),
+            ("emr-", False),
+            ("emr-spark-", False),
+        ],
+    )
+    def test_threshold(self, release_label, expected):
+        assert supports_native_fgac(release_label) is expected

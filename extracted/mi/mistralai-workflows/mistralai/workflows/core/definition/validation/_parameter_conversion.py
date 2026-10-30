@@ -1,15 +1,15 @@
 from collections.abc import Sequence
 from typing import Any, Type, cast
 
-import structlog
 from pydantic import BaseModel, RootModel, ValidationError
 
+from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.definition.validation._schema_generator import (
     _is_bare_union_of_basemodels,
     _is_basemodel_subclass,
 )
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 
 def _normalize_params(

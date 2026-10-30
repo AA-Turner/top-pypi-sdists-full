@@ -1,7 +1,7 @@
 //! Sources: parse, pin, list and select their members, and download remote ones.
 //!
 //! `hf://<org>/<repo>[@<revision>][/<path>]`, `civitai://<version>[/<file id>]`, a
-//! huggingface.co or civitai.com URL, any other https URL (one file), or a local file or
+//! huggingface.co, civitai.com or civitai.red URL, any other https URL (one file), or a local file or
 //! directory. A revision pins to its full commit; members carry the provider's sha256.
 
 use std::collections::BTreeMap;
@@ -186,7 +186,8 @@ pub fn parse(raw: &str) -> Result<Spec> {
                 "{raw}: a Hugging Face URL names a repository, a tree or a file"
             )),
         },
-        "civitai.com" => {
+        // civitai.red serves the same versions (mature ones too) through civitai.com's API.
+        "civitai.com" | "www.civitai.com" | "civitai.red" | "www.civitai.red" => {
             let version = query
                 .split('&')
                 .find_map(|q| q.strip_prefix("modelVersionId="));
@@ -411,8 +412,11 @@ struct Lfs {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct CivitaiVersion {
     files: Vec<CivitaiFile>,
+    #[serde(default)]
+    trained_words: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -434,6 +438,9 @@ pub struct Listing {
     pub root: String,
     pub exact: bool,
     pub members: Vec<Member>,
+    /// The words its provider says a LoRA's prompt uses (Civitai's `trainedWords`): display
+    /// metadata for the Hub, never the header.
+    pub trigger: Vec<String>,
 }
 
 pub fn list(spec: &Spec, access: &Access) -> Result<Listing> {
@@ -516,6 +523,7 @@ fn list_in(spec: &Spec, access: &Scope<'_>) -> Result<Listing> {
                 root: if exact { String::new() } else { path.clone() },
                 exact,
                 members,
+                trigger: vec![],
             })
         }
         Spec::Civitai { version, file } => {
@@ -562,6 +570,7 @@ fn list_in(spec: &Spec, access: &Scope<'_>) -> Result<Listing> {
                 root: String::new(),
                 exact: true,
                 members: vec![member],
+                trigger: doc.trained_words.iter().map(|w| w.trim().to_owned()).filter(|w| !w.is_empty()).collect(),
             })
         }
         Spec::Url(url) => {
@@ -589,6 +598,7 @@ fn list_in(spec: &Spec, access: &Scope<'_>) -> Result<Listing> {
                 root: String::new(),
                 exact: true,
                 members: vec![member],
+                trigger: vec![],
             })
         }
         Spec::Local(path) => {
@@ -617,6 +627,7 @@ fn list_in(spec: &Spec, access: &Scope<'_>) -> Result<Listing> {
                 root: String::new(),
                 exact,
                 members,
+                trigger: vec![],
             })
         }
     }

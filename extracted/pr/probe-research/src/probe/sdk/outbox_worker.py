@@ -95,9 +95,22 @@ _BACKOFF_START_SECONDS, _BACKOFF_CAP_SECONDS = durable.RETRY_BACKOFF
 #: magnitude slower than the backoff loop, and a still-rejected credential just
 #: re-stamps the block and goes quiet again.
 _AUTH_RETRY_COOLDOWN_SECONDS = 300.0
-#: Longer than Client._drainer_kick_interval, so an op whose kick the writer's
-#: throttle swallowed is seen by the lingering worker before it exits.
+#: Between two looks at an upload still in the waiting room, or at ops held
+#: back behind one.
 _EXIT_GRACE_SECONDS = 1.5
+#: How long a worker that found its queue empty stays, looking every
+#: _LINGER_POLL_SECONDS for new work, before it exits (#3625). A training loop
+#: queues an op every second or two: a worker that left after one 1.5 s look
+#: was started again by the next one, 38 starts and 37.5 CPU-s in 155 s. Far
+#: longer than Client._drainer_kick_interval, so an op whose kick the writer's
+#: throttle swallowed is seen too, and a dying writer's last op (prod smoke
+#: 2026-08-06). One look costs a status.json read and the listing of an empty
+#: `ops/`; the drain lock is not held meanwhile, so `finish()` never waits on it.
+_LINGER_SECONDS = 30.0
+_LINGER_POLL_SECONDS = 0.5
+#: Test-only override of _LINGER_SECONDS (seconds; at least one look is always
+#: taken). Nothing in production sets it.
+LINGER_ENV = "PROBE_OUTBOX_LINGER_S"
 _LOG_NAME = "drainer.log"
 #: How many looks, `_EXIT_GRACE_SECONDS` apart (~30 s in all), a worker takes at
 #: uploads still in the waiting room -- or at ops held back behind one -- before
@@ -305,6 +318,45 @@ def _work_arrived(journal, fresh: dict) -> bool:
     )
 
 
+class LingerEnd(StrEnum):
+    """Why a worker's linger (`_linger`) ended before its time was up."""
+
+    WORK = "work"  # an op arrived: drain it
+    WAITING = "waiting"  # an upload in the waiting room: look at it as before
+    ASKED = "asked"  # a stop or a pause: the top of the loop reads which
+
+
+def _linger_polls() -> int:
+    """How many looks the linger takes: _LINGER_SECONDS (or LINGER_ENV) of
+    them, _LINGER_POLL_SECONDS apart, and never none."""
+    try:
+        seconds = float(os.environ.get(LINGER_ENV) or _LINGER_SECONDS)
+    except ValueError:
+        seconds = _LINGER_SECONDS
+    if not 0 <= seconds <= _LINGER_SECONDS:  # nan and inf included
+        seconds = _LINGER_SECONDS
+    return max(1, int(seconds / _LINGER_POLL_SECONDS + 0.5))
+
+
+def _linger(journal, *, waiting: bool) -> LingerEnd | None:
+    """Stay a while with the queue empty, looking for new work (`_work_arrived`),
+    or -- ``waiting`` -- an upload in the waiting room, a stop file or a pause:
+    what ended it, or None when nothing came. Counted looks, not a deadline:
+    the same stay however the wall clock jumps."""
+    from .journal import Journal
+
+    for _ in range(_linger_polls()):
+        time.sleep(_LINGER_POLL_SECONDS)
+        fresh = Journal.read_status(str(journal.dir), credential_queues=False) or {}
+        if _work_arrived(journal, fresh):
+            return LingerEnd.WORK
+        if waiting and fresh.get("waiting"):
+            return LingerEnd.WAITING
+        if _stop_path(journal).exists() or journal.paused:
+            return LingerEnd.ASKED
+    return None
+
+
 def _asked_to_stop(journal) -> bool:
     """A producer left a stop file (see `ready_for`). Exit only if this worker
     lacks a kind it names; either way the request is consumed, so the worker
@@ -343,20 +395,23 @@ def _lease_is_free(journal, path: str | None = None) -> bool:
         handle.close()
 
 
-def _env_fingerprints() -> set:
+def _env_fingerprints(environ=None) -> set:
     """The fingerprints this process's environment credential goes by: its
     `PROBE_TOKEN`'s, and its `PROBE_INGEST_TOKEN`'s alone (an ingest-only
-    job's queue is named by it, `Client._credential_queue_name`)."""
+    job's queue is named by it, `Client._credential_queue_name`).
+    ``environ``: another process's variables instead of this one's."""
     from .journal import credential_fingerprint
 
-    token = os.environ.get("PROBE_TOKEN") or None
-    ingest = os.environ.get("PROBE_INGEST_TOKEN") or None
+    env = os.environ if environ is None else environ
+    token = env.get("PROBE_TOKEN") or None
+    ingest = env.get("PROBE_INGEST_TOKEN") or None
     return {fp for fp in (credential_fingerprint(token, None), credential_fingerprint(None, ingest)) if fp}
 
 
-def env_fingerprints() -> set:
-    """The fingerprints of this process's environment credentials."""
-    return _env_fingerprints()
+def env_fingerprints(environ=None) -> set:
+    """The fingerprints of this process's environment credentials (``environ``:
+    another process's, as the Probe daemon host reads one session's)."""
+    return _env_fingerprints(environ)
 
 
 def _holds_the_queues_credential(journal) -> bool:
@@ -651,6 +706,7 @@ def _worker_env() -> dict:
     (`journal._settings_for_op`) and a dead one held the job's writes for good
     (a customer's Mac, 2026-10-23). Any other env credential inherits: it is
     the only way the worker can hold it."""
+    from .agent_session import EVENT_AT_ENV, RUN_PROCESS_ENV
     from .journal import credential_fingerprint
     from .transport import _IDEMPOTENCY_ENV
 
@@ -659,6 +715,11 @@ def _worker_env() -> dict:
     # numbering its replays from the same base reuses those keys for other
     # writes, which the server refuses (422) and the drain dead-letters.
     env.pop(_IDEMPOTENCY_ENV, None)
+    # Its PROBE_EVENT_AT dates ITS work: a worker dates each op by its own
+    # queue time, and a request outside an op must not inherit the command's.
+    env.pop(EVENT_AT_ENV, None)
+    # Likewise a run process's mark: each op says whether a run made it (R41).
+    env.pop(RUN_PROCESS_ENV, None)
     if not (env.get("PROBE_TOKEN") or env.get("PROBE_INGEST_TOKEN")):
         return env
     for var, fingerprint in (
@@ -1368,21 +1429,20 @@ def _run_leased(journal) -> int:
                 waiting_passes += 1
                 time.sleep(_EXIT_GRACE_SECONDS)
                 continue
-            # Grace pass (prod smoke 2026-08-06): a writer's LAST op can land
-            # after that re-read, and if the writer dies a moment later there
-            # is no next command to re-kick anything. Linger one beat -- wider
-            # than the client's kick throttle -- and look once more.
-            time.sleep(_EXIT_GRACE_SECONDS)
-            fresh = Journal.read_status(str(journal.dir), credential_queues=False) or {}
-            if _work_arrived(journal, fresh):
-                continue
-            if fresh.get("waiting") and waiting_passes < _WAITING_PASSES:
-                # An upload that arrived during the grace sleep, perhaps being
-                # scanned by a promote-only child that will not deliver it.
+            # Linger (_LINGER_SECONDS): a writer's LAST op can land after that
+            # re-read, and if the writer dies a moment later there is no next
+            # command to re-kick anything (prod smoke 2026-08-06); and a writer
+            # that lives queues its next op in a second or two, which this
+            # worker takes instead of exiting for the next kick to start another.
+            ended = _linger(journal, waiting=waiting_passes < _WAITING_PASSES)
+            if ended is None:
+                _report(OutboxOutcome.DRAINED)
+                return 0
+            if ended == LingerEnd.WAITING:
+                # An upload that arrived meanwhile, perhaps being scanned by a
+                # promote-only child that will not deliver it.
                 waiting_passes += 1
-                continue
-            _report(OutboxOutcome.DRAINED)
-            return 0
+            continue
         if (
             (report.credential_held or report.credential_refused or report.close_held)
             and not (

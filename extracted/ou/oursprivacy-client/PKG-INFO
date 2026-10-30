@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: oursprivacy-client
-Version: 2.1.0
+Version: 2.2.0
 Summary: The official Python library for the ours-privacy API
 Project-URL: Homepage, https://github.com/with-ours/ingest-sdk-python
 Project-URL: Repository, https://github.com/with-ours/ingest-sdk-python
@@ -22,7 +22,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
-Requires-Dist: anyio<5,>=3.5.0
+Requires-Dist: anyio<5,>=4.14.2
 Requires-Dist: certifi>=2026.10.19
 Requires-Dist: distro<2,>=1.7.0
 Requires-Dist: httpx2<3,>=2.12.0

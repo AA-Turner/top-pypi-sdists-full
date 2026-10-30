@@ -8,7 +8,7 @@ import re
 from datetime import UTC, datetime
 from functools import cache
 from pathlib import Path
-from typing import Any
+from typing import Any, override
 
 from pyrig_runtime.core.strings import regex_find
 from pyrig_runtime.core.wrappers import safe_call
@@ -39,6 +39,7 @@ class LicenseConfigFile(StringConfigFile):
     use in other generated files.
     """
 
+    @override
     def content(self) -> str:
         """Return the MIT license text.
 
@@ -47,21 +48,68 @@ class LicenseConfigFile(StringConfigFile):
         """
         return self.license()
 
+    @override
     def extension(self) -> str:
         """Return an empty string — LICENSE has no file extension."""
         return ""
 
+    @override
     def extension_separator(self) -> str:
         """Return an empty string — no separator is needed without an extension."""
         return ""
 
+    @override
     def parent_path(self) -> Path:
         """Return the project root as the parent directory."""
         return Path()
 
+    @override
     def stem(self) -> str:
         """Return `'LICENSE'`."""
         return "LICENSE"
+
+    @classmethod
+    @cache
+    def spdx_identifier(cls) -> str:
+        """Return the SPDX license identifier detected from the LICENSE file content.
+
+        The result is cached per class and is not recomputed if the file
+        content changes afterward.
+
+        Returns:
+            The matched SPDX identifier (e.g., `"MIT"`, `"Apache-2.0"`), or
+            `"LicenseRef-Custom"` if no standard license is recognized.
+
+        Raises:
+            FileNotFoundError: If the file does not exist.
+        """
+        licenses, _ = cls().analyze_license_text()
+        return next(iter(licenses["licenses"]), "LicenseRef-Custom")
+
+    def license_badge(self) -> str:
+        """Return a Markdown image-link badge for the project license.
+
+        Returns:
+            Markdown string in the form
+            `[![License](<badge_url>)](<repo_url>/blob/main/LICENSE)`.
+        """
+        badge_url = self.license_badge_url()
+        repo_url = RemoteVersionController.I.repo_url()
+        return make_linked_badge_markdown(
+            image_url=badge_url,
+            link_url=f"{repo_url}/blob/main/{self.stem()}",
+            alt_text="License",
+        )
+
+    def analyze_license_text(self) -> tuple[dict[str, dict[str, Any]], float]:
+        """Analyze the files text and return the detected licenses and confidence score.
+
+        Returns:
+            A tuple containing:
+            - A dictionary with license information.
+            - A float representing the confidence score.
+        """
+        return analyse_license_text(self.read_content())
 
     def license(self) -> str:
         """Return the MIT license text with year and repository owner substituted."""
@@ -87,25 +135,6 @@ class LicenseConfigFile(StringConfigFile):
             )
         )
 
-    def license_template(self) -> str:
-        """Return the raw MIT license template text."""
-        return resource_content(self.license_template.__name__.upper(), resources)
-
-    def license_badge(self) -> str:
-        """Return a Markdown image-link badge for the project license.
-
-        Returns:
-            Markdown string in the form
-            `[![License](<badge_url>)](<repo_url>/blob/main/LICENSE)`.
-        """
-        badge_url = self.license_badge_url()
-        repo_url = RemoteVersionController.I.repo_url()
-        return make_linked_badge_markdown(
-            image_url=badge_url,
-            link_url=f"{repo_url}/blob/main/{self.stem()}",
-            alt_text="License",
-        )
-
     def license_badge_url(self) -> str:
         """Return the shields.io badge image URL for the repository license.
 
@@ -119,33 +148,17 @@ class LicenseConfigFile(StringConfigFile):
         )
         return f"https://img.shields.io/github/license/{owner}/{repo}"
 
-    @classmethod
-    @cache
-    def spdx_identifier(cls) -> str:
-        """Return the SPDX license identifier detected from the LICENSE file content.
-
-        The result is cached per class and is not recomputed if the file
-        content changes afterward.
+    def fullname_placeholder(self) -> str:
+        """Return the placeholder for the repository owner in the license text.
 
         Returns:
-            The matched SPDX identifier (e.g., `"MIT"`, `"Apache-2.0"`), or
-            `"LicenseRef-Custom"` if no standard license is recognized.
-
-        Raises:
-            FileNotFoundError: If the file does not exist.
+            The `[fullname]` placeholder string.
         """
-        licenses, _ = cls().analyze_license_text()
-        return next(iter(licenses["licenses"]), "LicenseRef-Custom")
+        return "[fullname]"
 
-    def analyze_license_text(self) -> tuple[dict[str, dict[str, Any]], float]:
-        """Analyze the files text and return the detected licenses and confidence score.
-
-        Returns:
-            A tuple containing:
-            - A dictionary with license information.
-            - A float representing the confidence score.
-        """
-        return analyse_license_text(self.read_content())
+    def license_template(self) -> str:
+        """Return the raw MIT license template text."""
+        return resource_content(self.license_template.__name__.upper(), resources)
 
     def year_placeholder(self) -> str:
         """Return the placeholder for the year in the license text.
@@ -154,11 +167,3 @@ class LicenseConfigFile(StringConfigFile):
             The `[year]` placeholder string.
         """
         return "[year]"
-
-    def fullname_placeholder(self) -> str:
-        """Return the placeholder for the repository owner in the license text.
-
-        Returns:
-            The `[fullname]` placeholder string.
-        """
-        return "[fullname]"

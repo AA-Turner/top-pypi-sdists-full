@@ -10,6 +10,14 @@ from .project_import_status_enum import ProjectImportStatusEnum
 
 
 class ProjectImport(UncheckedBaseModel):
+    """
+    Detail serializer for async project imports.
+
+    Note: ``tasks`` (raw request payload) is intentionally omitted from the public
+    API for payload size and data-exposure safety. Use ``task_ids`` when
+    ``return_task_ids`` was requested on create.
+    """
+
     annotation_count: typing.Optional[int] = None
     commit_to_project: typing.Optional[bool] = None
     could_be_tasks_list: typing.Optional[bool] = None
@@ -36,10 +44,9 @@ class ProjectImport(UncheckedBaseModel):
     status: typing.Optional[ProjectImportStatusEnum] = None
     task_count: typing.Optional[int] = None
     task_ids: typing.Optional[typing.Any] = None
-    tasks: typing.Optional[typing.Any] = None
     updated_at: typing.Optional[dt.datetime] = pydantic.Field(default=None)
     """
-    Updated time
+    Last time import progress or terminal status was updated
     """
 
     url: typing.Optional[str] = None

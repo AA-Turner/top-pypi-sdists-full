@@ -3,12 +3,12 @@ from datetime import timedelta
 from types import NoneType
 from typing import TYPE_CHECKING, Any, Literal, Type, overload
 
-import structlog
 import temporalio.workflow
 from pydantic import BaseModel
 from temporalio.workflow import ChildWorkflowHandle as TemporalChildWorkflowHandle
 from temporalio.workflow import ParentClosePolicy
 
+from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.definition.validation._validator import get_function_signature_type_hints
 from mistralai.workflows.core.definition.workflow_definition import (
     _get_workflow_entrypoint_method,
@@ -31,7 +31,7 @@ if TYPE_CHECKING:
         def first_execution_run_id(self) -> NoReturn: ...
 
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 
 def _coerce_workflow_result(return_value: Any, entrypoint_method: Any) -> Any:

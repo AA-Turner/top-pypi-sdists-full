@@ -310,6 +310,10 @@ def convert_to_device_color(
     if isinstance(r, Sequence):
         assert not isinstance(r, str)
         r, g, b = r
+    # checked before scaling, so that the error shows the value that was passed
+    for component in (r,) if g == -1 else (r, g, b):
+        if not 0 <= component <= 255:
+            raise ValueError(f"color component {component} not in range [0, 255]")
     if (r, g, b) == (0, 0, 0) or g == -1:
         return DeviceGray(r / 255)
     return DeviceRGB(r / 255, g / 255, b / 255)
@@ -366,6 +370,10 @@ def color_from_hex_string(hexstr: str) -> DeviceRGB | DeviceGray:
 
     hlen = len(hexstr)
 
+    # int(..., 16) also accepts "_", "+", "-" and spaces: "#1 2345" would give #012345
+    if any(char not in "0123456789abcdefABCDEF" for char in hexstr[1:]):
+        raise ValueError(f"{hexstr} could not be interpreted as a RGB(A) hex string")
+
     if hlen == 4:  # #RGB
         r = int(hexstr[1] * 2, 16)
         g = int(hexstr[2] * 2, 16)
@@ -402,6 +410,8 @@ def color_from_rgb_string(rgbstr: str) -> DeviceRGB | DeviceGray:
 
     Args:
         rgbstr (str): of the form `rgb(R, G, B)` or `rgb(R, G, B, A)`.
+            R, G and B can also be css percentages, as in `rgb(100%, 0%, 50%)`,
+            clamped to 0%-100%.
 
     Returns:
         DeviceRGB representation of the color.
@@ -417,12 +427,21 @@ def color_from_rgb_string(rgbstr: str) -> DeviceRGB | DeviceGray:
     rgbstr = rgbstr[4:-1]
     colors = rgbstr.split(",")
 
+    def component(value: str) -> int:
+        value = value.strip()
+        if value.endswith("%"):
+            # like css, a percentage outside 0%-100% is clamped
+            percentage = min(max(float(value[:-1]), 0.0), 100.0)
+            return round(percentage * 255 / 100)
+        return int(value)
+
     if len(colors) == 3:
-        r, g, b = (int(c) for c in colors)
+        r, g, b = (component(c) for c in colors)
         return rgb8(r, g, b, a=None)
 
     if len(colors) == 4:
-        return rgb8(*[int(c) for c in colors])
+        r, g, b = (component(c) for c in colors[:3])
+        return rgb8(r, g, b, int(colors[3]))
 
     raise ValueError(f"{rgbstr} could not be interpreted as a rgb(R, G, B[, A]) color")
 

@@ -25,6 +25,8 @@ from sagemaker_studio.utils.spark.session.spark_config_builder import (
     build_spark_configs,
     extract_connection_spark_configs,
     generate_s3_access_grants_configs,
+    openlineage_supported_for_emr_release,
+    supports_native_fgac,
 )
 from sagemaker_studio.utils.spark.session.spark_session_manager import SparkSessionManager
 
@@ -241,18 +243,53 @@ class EmrEksSparkSessionManager(SparkSessionManager):
             self.stop()
             raise
 
+    def _is_fgac_enabled(self) -> bool:
+        """Whether the connection requests native Lake Formation FGAC.
+
+        Reads spark.emr-containers.lakeformation.enabled from the connection's
+        spark-defaults (the EMR-EKS connection FGAC signal). FGAC only when
+        explicitly "true"; absent/"false" means FTA/compatibility mode.
+        """
+        value = (self.connection_spark_configs or {}).get(
+            "spark.emr-containers.lakeformation.enabled", "false"
+        )
+        return str(value).lower() == "true"
+
     def _get_service_specific_configs(self) -> dict:
         """Build EMR on EKS-specific spark configs (Layer 2).
 
-        Includes compatibility mode configs, OpenLineage for data lineage tracking, and
-        S3 Access Grants (same as EC2/Glue, minus Glue-specific spark.glue.* keys).
-        OpenLineage can be disabled via ClientConfig(overrides={"emr-containers": {"enable_open_lineage": False}}).
+        Applies FTA/compatibility-mode configs unless the connection requests native
+        FGAC (spark.emr-containers.lakeformation.enabled=true), in which case the
+        compat configs are skipped and the endpoint's Lake Formation security
+        configuration drives enforcement. Includes OpenLineage for data lineage
+        tracking, and S3 Access Grants (same as EC2/Glue, minus Glue-specific
+        spark.glue.* keys). OpenLineage can be disabled via
+        ClientConfig(overrides={"emr-containers": {"enable_open_lineage": False}}).
         """
-        configs = apply_compatibility_mode_configs({})
+        if self._is_fgac_enabled():
+            if not supports_native_fgac(self.release_label):
+                raise RuntimeError(
+                    "Lake Formation fine-grained access control requires EMR release "
+                    f">= emr-7.14 / emr-spark-8.1; release '{self.release_label}' is not supported. "
+                    "To use FTA/compatibility mode, set "
+                    "spark.emr-containers.lakeformation.enabled=false on the connection."
+                )
+            logger.info("Native FGAC active — compatibility mode configs not applied")
+            configs = {}
+        else:
+            configs = apply_compatibility_mode_configs({})
 
-        # OpenLineage configs for data lineage (mirrors EC2/Glue session manager)
+        # OpenLineage for releases below emr-spark-8.2.0 (mirrors EC2/Glue).
+        # Also honours the ClientConfig toggle.
         emr_containers_config = self.config.overrides.get("emr-containers", {})
-        if emr_containers_config.get("enable_open_lineage", True):
+        if not emr_containers_config.get("enable_open_lineage", True):
+            logger.info("OpenLineage disabled via ClientConfig overrides")
+        elif not openlineage_supported_for_emr_release(self.release_label):
+            logger.info(
+                f"OpenLineage injected server-side for release {self.release_label}; "
+                "client configs not added"
+            )
+        else:
             try:
                 configs.update(
                     {
@@ -264,8 +301,6 @@ class EmrEksSparkSessionManager(SparkSessionManager):
                 logger.info("OpenLineage configs added for EMR on EKS")
             except Exception as e:
                 logger.warning(f"Failed to add OpenLineage configs: {e}")
-        else:
-            logger.info("OpenLineage disabled via ClientConfig overrides")
 
         configs.update(self._get_s3_access_grants_configs())
 

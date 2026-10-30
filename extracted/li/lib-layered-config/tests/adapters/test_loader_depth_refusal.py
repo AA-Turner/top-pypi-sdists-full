@@ -1,20 +1,24 @@
 """A file nested deeper than its parser allows says so, rather than calling the file invalid.
 
 Every parser stops at some nesting depth: rtoml at 80 levels, orjson at 1024, PyYAML at Python's
-recursion limit. Reported as "<path> is not valid TOML", a well-formed file reads as broken and the
-user goes looking for a typo. The refusal names the depth instead, with the position when the
-parser gives one; a genuinely malformed file keeps the "is not valid" message.
+recursion limit; the stdlib TOML and JSON backends keep rtoml's and orjson's limits. Reported as
+"<path> is not valid TOML", a well-formed file reads as broken and the user goes looking for a
+typo. The refusal names the depth instead, with the position when the parser gives one; a
+genuinely malformed file keeps the "is not valid" message.
 """
 
 from __future__ import annotations
 
+import importlib
 import importlib.util
 from typing import TYPE_CHECKING
 
 import pytest
 
+from lib_layered_config.adapters.file_loaders._toml_backend import RtomlParser, TomliParser
 from lib_layered_config.adapters.file_loaders.structured import JSONFileLoader, TOMLFileLoader, YAMLFileLoader
 from lib_layered_config.domain.errors import InvalidFormatError
+from lib_layered_config.domain.json_codec import JsonCodec, OrjsonCodec, StdlibCodec
 from tests.support.os_markers import os_agnostic
 
 if TYPE_CHECKING:
@@ -45,17 +49,57 @@ def _refusal(tmp_path: Path, name: str, text: str, loader: FileLoader) -> tuple[
     ],
     ids=["array", "inline-table", "table-header", "dotted-key"],
 )
-def test_a_toml_file_nested_too_deep_says_so(tmp_path: Path, text: str, where: str) -> None:
-    path, message = _refusal(tmp_path, "deep.toml", text, TOMLFileLoader())
+def test_a_toml_file_nested_too_deep_says_so_with_rtoml_s_position(tmp_path: Path, text: str, where: str) -> None:
+    rtoml = pytest.importorskip("rtoml")
+
+    path, message = _refusal(tmp_path, "deep.toml", text, TOMLFileLoader(RtomlParser(rtoml)))
 
     assert message == f"{path} nests deeper than the TOML parser allows{where}"
 
 
 @os_agnostic
-def test_a_json_file_nested_too_deep_says_so(tmp_path: Path) -> None:
-    path, message = _refusal(tmp_path, "deep.json", '{"x": ' + "[" * 1100 + "]" * 1100 + "}", JSONFileLoader())
+@pytest.mark.skipif(importlib.util.find_spec("tomllib") is None, reason="tomllib needs Python 3.11")
+@pytest.mark.parametrize(
+    "text",
+    [
+        "x = " + "[" * 120 + "1" + "]" * 120 + "\n",
+        "x = " + "{a = " * 120 + "1" + "}" * 120 + "\n",
+        "[" + ".".join(["a"] * 120) + "]\nk = 1\n",
+        ".".join(["a"] * 120) + " = 1\n",
+    ],
+    ids=["array", "inline-table", "table-header", "dotted-key"],
+)
+def test_a_toml_file_nested_too_deep_says_so_with_tomllib(tmp_path: Path, text: str) -> None:
+    parser = TomliParser(importlib.import_module("tomllib"))
 
-    assert message.startswith(f"{path} nests deeper than the JSON parser allows (line 1, column ")
+    path, message = _refusal(tmp_path, "deep.toml", text, TOMLFileLoader(parser))
+
+    assert message == f"{path} nests deeper than the TOML parser allows"
+
+
+def _json_codecs() -> list[JsonCodec]:
+    codecs: list[JsonCodec] = [StdlibCodec()]
+    if importlib.util.find_spec("orjson") is not None:
+        codecs.append(OrjsonCodec(importlib.import_module("orjson")))
+    return codecs
+
+
+@os_agnostic
+@pytest.mark.parametrize("codec", _json_codecs(), ids=lambda codec: type(codec).__name__)
+def test_a_json_file_nested_too_deep_names_orjson_s_position(tmp_path: Path, codec: JsonCodec) -> None:
+    deep = '{"x": ' + "[" * 1100 + "]" * 1100 + "}"
+
+    path, message = _refusal(tmp_path, "deep.json", deep, JSONFileLoader(codec))
+
+    assert message == f"{path} nests deeper than the JSON parser allows (line 1, column 1031)"
+
+
+@os_agnostic
+@pytest.mark.parametrize("text", ['{"x": NaN}', '{"x": 1e400}'], ids=["nan", "infinity"])
+def test_the_stdlib_codec_calls_a_json_file_orjson_refuses_invalid(tmp_path: Path, text: str) -> None:
+    path, message = _refusal(tmp_path, "bad.json", text, JSONFileLoader(StdlibCodec()))
+
+    assert message == f"{path} is not valid JSON"
 
 
 @_needs_yaml

@@ -1,11 +1,9 @@
+use std::alloc::Layout;
 use std::alloc::alloc;
 use std::alloc::dealloc;
 use std::alloc::handle_alloc_error;
-use std::alloc::Layout;
 use std::marker::PhantomData;
-use std::mem;
-use std::ptr::NonNull;
-use std::ptr::{self};
+use std::ptr;
 
 /// Maximum number of nodes parked on the free list
 const FREE_LIST_CAPACITY: usize = 256;
@@ -42,7 +40,7 @@ pub struct Node<T> {
 
 /// A doubly-linked list with an internal, bounded free-list for node reuse.
 pub struct LinkedList<T> {
-    sentinel: NonNull<Links>,
+    sentinel: ptr::NonNull<Links>,
     free_head: *mut Links,
     free_len: usize,
     len: usize,
@@ -61,7 +59,7 @@ impl<T> LinkedList<T> {
     /// - The caller must not use `node` again as an "unlinked" node until it is
     ///   unlinked again.
     #[inline]
-    unsafe fn push_front_node(&mut self, node: NonNull<Links>) {
+    unsafe fn push_front_node(&mut self, node: ptr::NonNull<Links>) {
         let s = self.sentinel.as_ptr();
         let n = node.as_ptr();
         unsafe {
@@ -80,7 +78,7 @@ impl<T> LinkedList<T> {
     ///
     /// Same contract as [`push_front_node`](Self::push_front_node).
     #[inline]
-    unsafe fn push_back_node(&mut self, node: NonNull<Links>) {
+    unsafe fn push_back_node(&mut self, node: ptr::NonNull<Links>) {
         let s = self.sentinel.as_ptr();
         let n = node.as_ptr();
         unsafe {
@@ -95,7 +93,7 @@ impl<T> LinkedList<T> {
 
     /// Removes and returns the node at the front of the list, if any.
     #[inline]
-    fn pop_front_node(&mut self) -> Option<NonNull<Links>> {
+    fn pop_front_node(&mut self) -> Option<ptr::NonNull<Links>> {
         if self.len == 0 {
             return None;
         }
@@ -110,12 +108,12 @@ impl<T> LinkedList<T> {
         };
         self.len -= 1;
         // SAFETY: read from a valid node above, so non-null.
-        Some(unsafe { NonNull::new_unchecked(node) })
+        Some(unsafe { ptr::NonNull::new_unchecked(node) })
     }
 
     /// Removes and returns the node at the back of the list, if any.
     #[inline]
-    fn pop_back_node(&mut self) -> Option<NonNull<Links>> {
+    fn pop_back_node(&mut self) -> Option<ptr::NonNull<Links>> {
         if self.len == 0 {
             return None;
         }
@@ -130,7 +128,7 @@ impl<T> LinkedList<T> {
         };
         self.len -= 1;
         // SAFETY: read from a valid node above, so non-null.
-        Some(unsafe { NonNull::new_unchecked(node) })
+        Some(unsafe { ptr::NonNull::new_unchecked(node) })
     }
 
     /// Unlinks `node` from the list, without deallocating or reading its element.
@@ -139,7 +137,7 @@ impl<T> LinkedList<T> {
     ///
     /// `node` must point to a node currently linked into this list (not the sentinel).
     #[inline]
-    unsafe fn unlink_node(&mut self, node: NonNull<Links>) {
+    unsafe fn unlink_node(&mut self, node: ptr::NonNull<Links>) {
         let n = node.as_ptr();
         unsafe {
             // SAFETY: `n` linked per fn contract; `prev`/`next` valid.
@@ -182,7 +180,7 @@ impl<T> LinkedList<T> {
     /// `node` must point to a node whose `element` is initialized and which is
     /// no longer linked into the list (already unlinked by the caller).
     #[inline]
-    unsafe fn take_element_and_recycle(&mut self, node: NonNull<Links>) -> T {
+    unsafe fn take_element_and_recycle(&mut self, node: ptr::NonNull<Links>) -> T {
         let node_ptr = node.as_ptr() as *mut Node<T>;
         // SAFETY: `element` initialized per fn contract; `ptr::read` doesn't drop.
         let element = unsafe { ptr::read(&(*node_ptr).element) };
@@ -197,7 +195,7 @@ impl<T> LinkedList<T> {
     ///
     /// `node` must point to a node currently linked into this list
     #[inline]
-    unsafe fn remove_node(&mut self, node: NonNull<Links>) -> T {
+    unsafe fn remove_node(&mut self, node: ptr::NonNull<Links>) -> T {
         // SAFETY: caller guarantees `node` is linked.
         unsafe { self.unlink_node(node) };
         self.len -= 1;
@@ -212,20 +210,23 @@ impl<T> LinkedList<T> {
     fn drop_nodes(&mut self) {
         let s = self.sentinel.as_ptr();
         while self.len != 0 {
-            unsafe {
+            let element = unsafe {
                 // SAFETY: `self.len != 0`, so `(*s).next` points to a real node.
                 let node = (*s).next;
                 let second = (*node).next;
                 (*second).prev = s;
                 (*s).next = second;
 
-                let node_ptr = node as *mut Node<T>;
                 // SAFETY: layout-compatible (see `Node` docs); `element` still init.
-                ptr::drop_in_place(&mut (*node_ptr).element);
-                // SAFETY: element dropped above; node already unlinked.
+                let element = ptr::read(&(*(node as *mut Node<T>)).element);
+                // SAFETY: element moved out above; node already unlinked.
                 self.recycle_node(node);
-            }
+                element
+            };
             self.len -= 1;
+            // Dropped last: if this panics, the list is already consistent and
+            // the drop guard can carry on.
+            drop(element);
         }
     }
 
@@ -302,7 +303,7 @@ impl<T> LinkedList<T> {
             p
         };
         // SAFETY: non-null checked above (or diverged).
-        let sentinel = unsafe { NonNull::new_unchecked(raw) };
+        let sentinel = unsafe { ptr::NonNull::new_unchecked(raw) };
         LinkedList {
             sentinel,
             free_head: ptr::null_mut(),
@@ -348,7 +349,7 @@ impl<T> LinkedList<T> {
         let node = unsafe { (*s).next };
         // SAFETY: non-null above; layout-compatible (see `Node` docs).
         Some(Cursor(unsafe {
-            NonNull::new_unchecked(node as *mut Node<T>)
+            ptr::NonNull::new_unchecked(node as *mut Node<T>)
         }))
     }
 
@@ -364,7 +365,7 @@ impl<T> LinkedList<T> {
         let node = unsafe { (*s).prev };
         // SAFETY: same as `cursor_front`.
         Some(Cursor(unsafe {
-            NonNull::new_unchecked(node as *mut Node<T>)
+            ptr::NonNull::new_unchecked(node as *mut Node<T>)
         }))
     }
 
@@ -373,13 +374,13 @@ impl<T> LinkedList<T> {
     pub fn push_front(&mut self, elt: T) -> Cursor<T> {
         let node = self.get_node(elt);
         // SAFETY: `get_node` never returns null.
-        let links = unsafe { NonNull::new_unchecked(node as *mut Links) };
+        let links = unsafe { ptr::NonNull::new_unchecked(node as *mut Links) };
 
         // SAFETY: freshly obtained node, unlinked (see `push_front_node` contract).
         unsafe { self.push_front_node(links) };
         self.len += 1;
         // SAFETY: same pointer validated above.
-        Cursor(unsafe { NonNull::new_unchecked(node) })
+        Cursor(unsafe { ptr::NonNull::new_unchecked(node) })
     }
 
     /// Removes and returns the front element, or `None` if the list is empty.
@@ -397,14 +398,14 @@ impl<T> LinkedList<T> {
     pub fn push_back(&mut self, elt: T) -> Cursor<T> {
         let node = self.get_node(elt);
         // SAFETY: `get_node` always returns a non-null, freshly-usable `Node<T>` pointer.
-        let links = unsafe { NonNull::new_unchecked(node as *mut Links) };
+        let links = unsafe { ptr::NonNull::new_unchecked(node as *mut Links) };
 
         // SAFETY: `links` refers to a node that was just obtained and is
         // not linked into any list yet.
         unsafe { self.push_back_node(links) };
         self.len += 1;
         // SAFETY: `node` is the same non-null pointer validated above.
-        Cursor(unsafe { NonNull::new_unchecked(node) })
+        Cursor(unsafe { ptr::NonNull::new_unchecked(node) })
     }
 
     /// Removes and returns the back element, or `None` if the list is empty.
@@ -439,17 +440,22 @@ impl<T> LinkedList<T> {
     }
 }
 
-// Guard ensures that if dropping an element panics, we still free
-// the free-list allocations instead of leaking them (the sentinel
-// is freed unconditionally below regardless of panics).
+// Frees the rest of the list when it goes out of scope, which also covers an
+// element destructor panicking in `LinkedList::drop`: the remaining elements,
+// the free list and the sentinel are freed either way.
 struct DropGuard<'a, T>(&'a mut LinkedList<T>);
 
 impl<'a, T> Drop for DropGuard<'a, T> {
     fn drop(&mut self) {
         self.0.drop_nodes();
-        // SAFETY: `self` is being torn down during unwind; no other
-        // references to the free list exist, satisfying `drop_freelist`'s contract.
-        unsafe { self.0.drop_freelist() };
+        unsafe {
+            // SAFETY: the list is being destroyed; no other references to the
+            // free list exist, satisfying `drop_freelist`'s contract.
+            self.0.drop_freelist();
+            // SAFETY: `sentinel` was allocated in `new` with exactly this
+            // layout and is never dereferenced after this point.
+            dealloc(self.0.sentinel.as_ptr() as *mut u8, Layout::new::<Links>());
+        }
     }
 }
 
@@ -457,16 +463,7 @@ impl<T> Drop for LinkedList<T> {
     fn drop(&mut self) {
         let guard = DropGuard(self);
         guard.0.drop_nodes();
-        // SAFETY: `drop_nodes` completed without panicking; the free list is
-        // only touched here and then never again (guard is forgotten next).
-        unsafe { guard.0.drop_freelist() };
-        mem::forget(guard);
-        // SAFETY: `self.sentinel` was allocated in `new` with exactly this
-        // layout (`Layout::new::<Links>()`), and after this point `self` is
-        // being destroyed, so the pointer is never dereferenced again.
-        unsafe {
-            dealloc(self.sentinel.as_ptr() as *mut u8, Layout::new::<Links>());
-        }
+        // `guard` drops here and frees the free list and the sentinel.
     }
 }
 
@@ -478,7 +475,7 @@ impl<T> Drop for LinkedList<T> {
 /// later access or reposition that node via [`Cursor::element`],
 /// [`Cursor::move_to_front`], [`Cursor::move_to_back`], or [`Cursor::unlink`].
 ///
-/// `#[repr(transparent)]` over `NonNull<Node<T>>` means a `Cursor<T>` has the
+/// `#[repr(transparent)]` over `ptr::NonNull<Node<T>>` means a `Cursor<T>` has the
 /// exact same layout as the raw pointer it wraps — no extra state is tracked,
 /// so the cursor does *not* know which `LinkedList` it came from, whether the
 /// node is still linked, or whether other `Cursor`s alias the same node. All
@@ -489,9 +486,9 @@ impl<T> Drop for LinkedList<T> {
 /// equality (`PartialEq`/`Eq`) compares the underlying pointer, i.e. identity
 /// of the node, not the value of the element.
 #[repr(transparent)]
-pub struct Cursor<T>(NonNull<Node<T>>);
+pub struct Cursor<T>(ptr::NonNull<Node<T>>);
 
-// `NonNull<Node<T>>` is just a pointer; copying it is always safe.
+// `ptr::NonNull<Node<T>>` is just a pointer; copying it is always safe.
 impl<T> Clone for Cursor<T> {
     #[inline]
     fn clone(&self) -> Self {
@@ -516,10 +513,10 @@ impl<T> Cursor<T> {
     /// Relies on `#[repr(C)]` on `Node<T>` placing `links` at offset 0, so the
     /// cast is always valid regardless of `T`.
     #[inline]
-    fn links(&self) -> NonNull<Links> {
+    fn links(&self) -> ptr::NonNull<Links> {
         let ptr = self.0.as_ptr() as *mut Links;
-        // SAFETY: `self.0` is `NonNull`, so the reinterpreted pointer is non-null too.
-        unsafe { NonNull::new_unchecked(ptr) }
+        // SAFETY: `self.0` is `ptr::NonNull`, so the reinterpreted pointer is non-null too.
+        unsafe { ptr::NonNull::new_unchecked(ptr) }
     }
 
     /// Returns a reference to the node's element, with a caller-chosen lifetime.
@@ -621,7 +618,7 @@ impl<T> Cursor<T> {
 pub struct RawIter<T> {
     next: *mut Links,
     len: usize,
-    _marker: PhantomData<NonNull<Node<T>>>,
+    _marker: PhantomData<ptr::NonNull<Node<T>>>,
 }
 
 impl<T> Iterator for RawIter<T> {
@@ -641,7 +638,7 @@ impl<T> Iterator for RawIter<T> {
         self.next = unsafe { (*node).next };
         // SAFETY: `node` is non-null (came from a valid linked `Links`), and
         // by `#[repr(C)]` on `Node<T>` a `*mut Links` is a valid `*mut Node<T>`.
-        let cursor = Cursor(unsafe { NonNull::new_unchecked(node as *mut Node<T>) });
+        let cursor = Cursor(unsafe { ptr::NonNull::new_unchecked(node as *mut Node<T>) });
         Some(cursor)
     }
 
@@ -659,3 +656,36 @@ unsafe impl<T: Send + Send> Send for RawIter<T> {}
 unsafe impl<T: Sync + Sync> Sync for RawIter<T> {}
 unsafe impl<T: Send + Send> Send for Cursor<T> {}
 unsafe impl<T: Sync + Sync> Sync for Cursor<T> {}
+
+#[cfg(test)]
+mod tests {
+    use super::LinkedList;
+
+    #[test]
+    fn a_panicking_element_drop_still_frees_every_node() {
+        struct Bomb {
+            panics: bool,
+            _label: String,
+        }
+        impl Drop for Bomb {
+            fn drop(&mut self) {
+                if self.panics {
+                    panic!("boom");
+                }
+            }
+        }
+
+        let mut list = LinkedList::new();
+        for i in 0..6 {
+            list.push_back(Bomb {
+                panics: i == 2,
+                _label: i.to_string(),
+            });
+        }
+        list.pop_back(); // leave a node on the free list too
+        let dropped = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || drop(list)));
+        assert!(dropped.is_err());
+        // the other elements, the free list and the sentinel are freed; under
+        // Miri this also checks that nothing leaks
+    }
+}

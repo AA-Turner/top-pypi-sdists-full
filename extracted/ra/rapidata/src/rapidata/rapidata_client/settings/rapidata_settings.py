@@ -4,24 +4,42 @@
 
 from rapidata.rapidata_client.settings.no_shuffle import NoShuffleSetting
 from rapidata.rapidata_client.settings.mute_video import MuteVideoSetting
-from rapidata.rapidata_client.settings.free_text_minimum_characters import FreeTextMinimumCharactersSetting
-from rapidata.rapidata_client.settings.free_text_max_characters import FreeTextMaxCharactersSetting
-from rapidata.rapidata_client.settings.swap_context_instruction import SwapContextInstructionSetting
-from rapidata.rapidata_client.settings.play_percentage_video import PlayPercentageVideoSetting
+from rapidata.rapidata_client.settings.free_text_minimum_characters import (
+    FreeTextMinimumCharactersSetting,
+)
+from rapidata.rapidata_client.settings.free_text_max_characters import (
+    FreeTextMaxCharactersSetting,
+)
+from rapidata.rapidata_client.settings.swap_context_instruction import (
+    SwapContextInstructionSetting,
+)
+from rapidata.rapidata_client.settings.play_percentage_video import (
+    PlayPercentageVideoSetting,
+)
 from rapidata.rapidata_client.settings.markdown import MarkdownSetting
 from rapidata.rapidata_client.settings.allow_neither_both import AllowNeitherBothSetting
-from rapidata.rapidata_client.settings.original_language_only import OriginalLanguageOnlySetting
+from rapidata.rapidata_client.settings.original_language_only import (
+    OriginalLanguageOnlySetting,
+)
 from rapidata.rapidata_client.settings.no_mistake_option import NoMistakeOptionSetting
 from rapidata.rapidata_client.settings.disable_autoloop import DisableAutoloopSetting
-from rapidata.rapidata_client.settings.no_instruction_display import NoInstructionDisplaySetting
+from rapidata.rapidata_client.settings.no_instruction_display import (
+    NoInstructionDisplaySetting,
+)
 from rapidata.rapidata_client.settings.keyboard_numeric import KeyboardNumericSetting
 from rapidata.rapidata_client.settings.locate_max_points import LocateMaxPointsSetting
 from rapidata.rapidata_client.settings.locate_min_points import LocateMinPointsSetting
 from rapidata.rapidata_client.settings.reference_overlay import ReferenceOverlaySetting
 from rapidata.rapidata_client.settings.compare_panorama import ComparePanoramaSetting
-from rapidata.rapidata_client.settings.compare_equirectangular import CompareEquirectangularSetting
-from rapidata.rapidata_client.settings.classify_equirectangular import ClassifyEquirectangularSetting
-from rapidata.rapidata_client.settings.translate_text_assets import TranslateTextAssetsSetting
+from rapidata.rapidata_client.settings.compare_equirectangular import (
+    CompareEquirectangularSetting,
+)
+from rapidata.rapidata_client.settings.classify_equirectangular import (
+    ClassifyEquirectangularSetting,
+)
+from rapidata.rapidata_client.settings.translate_text_assets import (
+    TranslateTextAssetsSetting,
+)
 from rapidata.rapidata_client.settings.pin_context_media import PinContextMediaSetting
 
 
@@ -47,7 +65,7 @@ class RapidataSettings:
         KeyboardNumeric (KeyboardNumericSetting): Changes the virtual keyboard input type to numeric-only for free text input fields. Useful when expecting numeric answers.
         LocateMaxPoints (LocateMaxPointsSetting): Sets the maximum number of points a user can place on a locate task. Once the limit is reached, no more points can be added.
         LocateMinPoints (LocateMinPointsSetting): Sets the minimum number of points required for a valid locate submission. The submit button is disabled until enough points are placed.
-        ReferenceOverlay (ReferenceOverlaySetting): Shows a single reference image over both image options, then reveals the edits. Annotators can toggle between the reference and edits. Use with compare tasks that have two image options and one image reference.
+        ReferenceOverlay (ReferenceOverlaySetting): Shows a single reference image over both image options until the annotator toggles to the edits. Annotators can toggle between the reference and edits. Use with compare tasks that have two image options and one image reference.
         ComparePanorama (ComparePanoramaSetting): Enables panorama comparison mode for compare tasks. Renders a special panoramic image viewer instead of the standard comparison view.
         CompareEquirectangular (CompareEquirectangularSetting): Enables equirectangular (360-degree) image comparison mode for compare tasks. Renders a special spherical viewer instead of the standard comparison view.
         ClassifyEquirectangular (ClassifyEquirectangularSetting): Enables equirectangular (360-degree) image mode for classify tasks. Renders a single spherical viewer instead of the standard image view.

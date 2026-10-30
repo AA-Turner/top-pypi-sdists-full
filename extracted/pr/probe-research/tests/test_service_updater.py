@@ -332,7 +332,7 @@ def test_a_run_or_a_setup_defers_the_update(service_home, machine, held, reason,
     assert autoupdate_state(service_home.home)["last_skip"]["reason"] == skip
 
 
-def test_a_running_action_defers_the_update_and_the_update_holds_the_slot(service_home, machine):
+def test_a_running_action_defers_the_update_and_an_action_waits_for_the_update(service_home, machine):
     gate = service_home.home / "release"
     machine.plan("logout", steps=[{"wait": str(gate)}])
     service_home.start()
@@ -343,20 +343,40 @@ def test_a_running_action_defers_the_update_and_the_update_holds_the_slot(servic
         _check_now(conn)
         assert _done(conn)[-1]["deferred"] == "action_running"
         gate.touch()
-    # The other way round: while the update step runs, an action is busy.
+    # The other way round: an action asked for while the update step holds the
+    # slot is queued, never refused (the app opens, starting a cycle, and a
+    # setting is changed at once), and runs once that step lets go.
     slow = service_home.home / "update-may-finish"
     machine.plan("update", steps=[{"wait": str(slow)}])
     with service_home.connect() as conn:
         assert wait_for(lambda: conn.call(Method.STATUS)["actions"]["running"] is None, 5.0)
         assert _check_now(conn)["outcome"] == "started"
         wait_for(lambda: machine.calls("update"), 10.0)
+        answer = conn.call(Method.ACTION_RUN, {"action": "logout", "params": {}, "client_request_id": "b"})
+        waiting = answer["action_id"]
+        assert answer == {"action_id": waiting, "queued": True}
+        assert conn.call(Method.ACTION_STATUS, {"action_id": waiting})["state"] == "queued"
+        assert conn.call(Method.STATUS)["actions"] == {"running": None, "queued": [waiting]}
+        # An Update while the update runs is that same work: still busy.
         with pytest.raises(client.ServiceError) as raised:
-            conn.call(Method.ACTION_RUN, {"action": "logout", "params": {}, "client_request_id": "b"})
+            conn.call(Method.ACTION_RUN, {"action": "update", "params": {}, "client_request_id": "c"})
         assert raised.value.code == -32010 and raised.value.data["holder"]["kind"] == "update"
         with pytest.raises(client.ServiceError) as stop:
             conn.call(Method.STOP)
         assert stop.value.data == {"reason": "updating"}
+        time.sleep(0.5)
+        assert len(machine.calls("logout")) == 1, "nothing runs under the update"
+        released = time.time()
         slow.touch()
+        assert wait_for(
+            lambda: conn.call(Method.ACTION_STATUS, {"action_id": waiting})["state"] == "done", 20.0
+        ), service_home.log()
+        status = conn.call(Method.ACTION_STATUS, {"action_id": waiting})
+    assert status["done"]["ok"] is True, status
+    assert machine.calls("logout")[1]["at"] >= released
+    journal = [json.loads(line) for line in (paths.actions_dir() / f"{waiting}.jsonl").read_text().splitlines()]
+    assert [line["type"] for line in journal][:3] == ["accepted", "queued", "child"]
+    assert journal[1]["holder"]["kind"] == "update"
 
 
 def test_a_cli_start_waits_for_the_barrier(service_home):
@@ -638,6 +658,75 @@ def test_a_restart_for_a_new_cli_waits_for_a_running_action(service_home, machin
     with service_home.connect() as conn:
         status = conn.call(Method.ACTION_STATUS, {"action_id": action_id})
     assert status["state"] == "done" and status["done"]["ok"] is True, status
+
+
+def test_actions_queued_behind_an_update_run_in_order_before_its_restart(service_home, machine):
+    """Settings changed while a cycle installs a new CLI wait in line, run in
+    the order they were asked for once the update step lets go, and the restart
+    onto the new CLI comes after the last of them: none is lost to it."""
+    machine.plan("version", stdout={"cli_version": "9.9.9"})
+    slow = service_home.home / "update-may-finish"
+    machine.plan("update", steps=[{"wait": str(slow)}])
+    # The last one still runs when the cycle ends: the restart must wait for it.
+    last = service_home.home / "last-may-finish"
+    machine.plan("workspace_limit", steps=[{"wait": str(last)}])
+    first = service_home.start()
+    with service_home.connect() as conn:
+        conn.call(Method.EVENTS_SUBSCRIBE, {"topics": [*UPDATE_TOPICS, "action.done"]})
+        _check_now(conn)
+        wait_for(lambda: machine.calls("update"), 10.0)
+        asked = [
+            ("session_default", {"state": "read"}, "default"),
+            ("recorder", {"who_records": "daemon"}, "recorder"),
+            ("workspace_limit", {"workspace": None}, "limit"),
+        ]
+        ids = []
+        for action, params, crid in asked:
+            answer = conn.call(Method.ACTION_RUN, {"action": action, "params": params, "client_request_id": crid})
+            assert answer.get("queued") is True, answer
+            ids.append(answer["action_id"])
+        assert conn.call(Method.STATUS)["actions"]["queued"] == ids
+        slow.touch()
+        seen = events_until(conn, lambda e: e["topic"] == "update.done", 30.0)
+        last.touch()
+        seen += events_until(conn, lambda e: e["topic"] == "service.stopping", 30.0)
+    done = [e["action_id"] for e in seen if e["topic"] == "action.done"]
+    assert done == ids, service_home.log()
+    assert seen[-1] == {"topic": "service.stopping", "reason": "update"}
+    update_done = next(e for e in seen if e["topic"] == "update.done")
+    assert update_done["restart"] is True
+    ran = [call["action"] for call in machine.calls() if call["action"] in {a for a, _p, _c in asked}]
+    assert ran == [action for action, _p, _c in asked]
+    assert "restarting once the running and queued actions end" in service_home.log()
+    assert service_home.wait_exit(first["pid"], 5.0)
+    service_home.start()
+    with service_home.connect() as conn:
+        statuses = [conn.call(Method.ACTION_STATUS, {"action_id": i}) for i in ids]
+    assert [(s["state"], s["done"]["ok"]) for s in statuses] == [("done", True)] * 3, statuses
+
+
+def test_a_setting_waits_for_a_person_s_update_action(service_home, machine):
+    """The app's Update runs as an action and holds the slot as a cycle does: a
+    setting changed meanwhile waits for it, then runs."""
+    gate = service_home.home / "update-may-finish"
+    machine.plan("update", steps=[{"wait": str(gate)}])
+    service_home.start()
+    with service_home.connect() as conn:
+        update = conn.call(Method.ACTION_RUN, {"action": "update", "params": {}, "client_request_id": "button"})
+        wait_for(lambda: machine.calls("update"), 10.0)
+        answer = conn.call(
+            Method.ACTION_RUN, {"action": "session_default", "params": {"state": "on"}, "client_request_id": "on"}
+        )
+        assert answer == {"action_id": answer["action_id"], "queued": True}
+        released = time.time()
+        gate.touch()
+        assert wait_for(
+            lambda: conn.call(Method.ACTION_STATUS, {"action_id": answer["action_id"]})["state"] == "done", 20.0
+        ), service_home.log()
+        statuses = [conn.call(Method.ACTION_STATUS, {"action_id": i}) for i in (update["action_id"], answer["action_id"])]
+    assert [s["done"]["ok"] for s in statuses] == [True, True], statuses
+    (setting,) = machine.calls("session_default")
+    assert setting["at"] >= released and json.loads(setting["stdin"]) == {"state": "on"}
 
 
 def test_a_person_s_update_action_that_installs_a_new_cli_restarts_the_service(service_home, machine):

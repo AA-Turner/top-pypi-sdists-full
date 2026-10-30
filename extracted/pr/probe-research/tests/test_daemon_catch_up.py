@@ -136,18 +136,18 @@ def _file_event(text: str) -> store_mod.StoredEvent:
                                  is_error=False, side_file=None, chars=len(text), bite=None, offset=7)
 
 
-def test_the_reader_sees_a_file_change_as_its_first_line():
+def test_a_file_change_is_its_first_line_for_reader_and_writer_alike():
+    """One render for both daemons (swarm friction T17, R40): the writer no longer
+    gets the diff either; it opens the event when it cares."""
     diff = "changed /w/train.py (1,200 -> 1,350 bytes)\n@@ -1 +1 @@\n-lr = 1e-3\n+lr = 3e-4"
     ev = _file_event(diff)
-    shown = bite_mod.render_for_reader(ev)
+    shown = bite_mod.render(ev)
     assert shown == ("[file changed · folders:7:0] changed /w/train.py (1,200 -> 1,350 bytes) · 3 more lines: "
                      "session op=open event_id=folders:7:0")
-    assert "lr = 3e-4" in bite_mod.render(ev)  # the writer still gets the diff
     long = _file_event("changed /w/train.log (10 -> 9,000 bytes)\n" + "step 1 loss 0.5\n" * 400)
-    assert bite_mod.reader_shown_chars(long) < 200 < bite_mod.shown_chars(long)
-    assert bite_mod.reader_shown_chars(ev) <= bite_mod.shown_chars(ev)
+    assert len(bite_mod.render(long)) <= bite_mod.shown_chars(long) < 200
     bare = _file_event("new file /w/empty.txt (0 bytes)")
-    assert bite_mod.render_for_reader(bare) == "[file changed · folders:7:0] new file /w/empty.txt (0 bytes)"
+    assert bite_mod.render(bare) == "[file changed · folders:7:0] new file /w/empty.txt (0 bytes)"
 
 
 def test_one_long_turn_starts_the_reader_at_the_first_new_event(tmp_path):

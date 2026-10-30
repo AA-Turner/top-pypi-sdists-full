@@ -1,20 +1,22 @@
 from __future__ import annotations
 
-__lazy_modules__ = ["httpx2._types"]  # py3,15
+__lazy_modules__ = ["httpx2", "httpx2._client", "httpx2._types"]  # py3,15
 
-import datetime as dt
 import logging
+from datetime import timedelta
 from hashlib import md5
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
-from httpx2 import URL, Client, Response
-from httpx2._client import USE_CLIENT_DEFAULT, UseClientDefault
-
-if TYPE_CHECKING:  # py3.14
-    from httpx2._types import AuthTypes, CookieTypes, HeaderTypes, QueryParamTypes, RequestExtensions, TimeoutTypes
+from httpx2 import Client, Response
+from httpx2._client import USE_CLIENT_DEFAULT
 
 from django.core.cache import cache
 from django.utils import timezone
+
+if TYPE_CHECKING:  # py3.14
+    from httpx2 import URL
+    from httpx2._client import UseClientDefault
+    from httpx2._types import AuthTypes, CookieTypes, HeaderTypes, QueryParamTypes, RequestExtensions, TimeoutTypes
 
 logger = logging.getLogger(__name__)
 
@@ -39,11 +41,11 @@ class SpecCachingClient(Client):
         target = expire_time.replace(hour=11, minute=30, second=0, microsecond=0)
 
         if expire_time >= target:
-            target += dt.timedelta(days=1)
+            target += timedelta(days=1)
 
         return int((target - expire_time).total_seconds())
 
-    def _get_spec_cache(self, url):
+    def _get_spec_cache(self, url: URL | str) -> Response | Literal[False]:
         cached_response = cache.get(self._get_api_cache_key(url), False)
         if cached_response and not self._spec_contains_expected_elements(cached_response):
             cache.delete(self._get_api_cache_key(url))
@@ -51,7 +53,7 @@ class SpecCachingClient(Client):
             return False
         return cached_response
 
-    def _set_spec_cache(self, url, body) -> None:
+    def _set_spec_cache(self, url: URL | str, body: Response) -> None:
         ttl = self._get_seconds_to_dt()
         cache.set(self._get_api_cache_key(url), body, ttl)
 
@@ -82,7 +84,7 @@ class SpecCachingClient(Client):
 
         return True
 
-    def _get_api_cache_key(self, url: str) -> str:
+    def _get_api_cache_key(self, url: URL | str) -> str:
         """
             provide a unique token for the spec url with compat date.
         """

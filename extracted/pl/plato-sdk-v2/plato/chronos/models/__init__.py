@@ -5009,6 +5009,8 @@ class FixtureIdentityOutput(BaseModel):
     model_config = ConfigDict(
         extra="allow",
     )
+    first_name: Annotated[str | None, Field(title="First Name")] = None
+    last_name: Annotated[str | None, Field(title="Last Name")] = None
     dob: Annotated[str | None, Field(title="Dob")] = None
     address_line1: Annotated[AddressLine1 | None, Field(title="Address Line1")] = None
     address_line2: Annotated[AddressLine2 | None, Field(title="Address Line2")] = None

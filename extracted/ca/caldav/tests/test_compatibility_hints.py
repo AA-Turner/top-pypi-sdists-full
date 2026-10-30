@@ -11,6 +11,7 @@ import warnings
 
 import pytest
 
+from caldav import compatibility_hints as ch
 from caldav.compatibility_hints import VALID_SUPPORT_LEVELS, FeatureSet, write_delay
 from caldav.config import resolve_features as _resolve_features
 
@@ -549,16 +550,12 @@ class TestResolveFeatures:
         assert _resolve_features(None) is None
 
     def test_string_resolves_profile(self) -> None:
-        import caldav.compatibility_hints as ch
-
         result = _resolve_features("synology")
         assert result == ch.synology
         # deepcopy ensures the caller cannot mutate the shared profile
         assert result is not ch.synology
 
     def test_string_with_prefix(self) -> None:
-        import caldav.compatibility_hints as ch
-
         result = _resolve_features("compatibility_hints.synology")
         assert result == ch.synology
         assert result is not ch.synology
@@ -569,8 +566,6 @@ class TestResolveFeatures:
         assert result is features
 
     def test_base_with_overrides(self) -> None:
-        import caldav.compatibility_hints as ch
-
         original_sync_token = ch.synology.get("sync-token")
         features = {
             "base": "synology",
@@ -614,8 +609,6 @@ class TestRenamedProfiles:
     """
 
     def test_bedework_profile_was_version_stamped(self) -> None:
-        import caldav.compatibility_hints as ch
-
         assert hasattr(ch, "bedework_3_10_3")
         assert not hasattr(ch, "bedework")
 
@@ -638,11 +631,39 @@ class TestRenamedProfiles:
         assert "bedework_3_10_3" in str(exc_info.value)
 
     def test_new_name_resolves(self) -> None:
-        import caldav.compatibility_hints as ch
-
         result = _resolve_features("bedework_3_10_3")
         assert result == ch.bedework_3_10_3
         assert result is not ch.bedework_3_10_3
+
+    def test_zimbra_profile_was_version_stamped(self) -> None:
+        assert hasattr(ch, "zimbra_8_8")
+        assert hasattr(ch, "zimbra_10_1")
+        assert "zimbra" not in vars(ch)
+
+    def test_deprecated_zimbra_name_still_resolves(self) -> None:
+        """A config naming the old profile gets a FutureWarning: a
+        DeprecationWarning raised inside caldav.config is hidden by Python's
+        default filters, so the user would never be told to update it."""
+        for name in ("zimbra", "compatibility_hints.zimbra"):
+            with pytest.warns(FutureWarning, match="zimbra_10_1"):
+                assert _resolve_features(name) == ch.zimbra_8_8
+        with pytest.warns(FutureWarning, match="zimbra_8_8"):
+            result = _resolve_features({"base": "zimbra", "sync-token": "full"})
+        assert result["sync-token"] == "full"
+
+    def test_deprecated_zimbra_attribute_still_resolves(self) -> None:
+        with pytest.warns(DeprecationWarning, match="zimbra_8_8"):
+            assert ch.zimbra is ch.zimbra_8_8
+        with pytest.warns(DeprecationWarning, match="zimbra_8_8"):
+            from caldav.compatibility_hints import zimbra
+        assert zimbra is ch.zimbra_8_8
+        with pytest.raises(AttributeError):
+            ch.no_such_profile  # noqa: B018
+
+    def test_zimbra_10_1_refuses_a_taken_uid_with_412(self) -> None:
+        assert ch.zimbra_10_1["save.no-uid-conflict"]["status"] == 412
+        assert ch.zimbra_8_8["save.no-uid-conflict"] == {"support": "full"}
+        assert ch.zimbra_10_1["save-load.stable-url"] == ch.zimbra_8_8["save-load.stable-url"]
 
     def test_unknown_profile_names_the_offender(self) -> None:
         with pytest.raises(ValueError) as exc_info:
@@ -914,6 +935,171 @@ class TestSynchronousWrite:
         observed = FeatureSet()
         observed.set_feature("synchronous-write", {"support": "full", "save-load-delay": 0})
         assert declared.compare(observed) == []
+
+
+def _profiles() -> dict[str, dict]:
+    from caldav import compatibility_hints
+
+    return {
+        name: profile
+        for name, profile in vars(compatibility_hints).items()
+        if isinstance(profile, dict) and not name.startswith("_") and name.islower()
+    }
+
+
+class TestSupportedComponents:
+    """``supported-components``: the CALDAV:supported-calendar-component-set property.
+
+    A grouping node, like ``auth``: its children ask separate questions that
+    cannot be derived from each other, so it carries no verdict of its own.
+    Up to 3.6.0 the property's existence was ``get-supported-components``.
+    """
+
+    def test_the_grouping_node_has_no_default(self) -> None:
+        assert "supported-components" in FeatureSet.FEATURES
+        assert "default" not in FeatureSet.FEATURES["supported-components"]
+
+    def test_no_profile_hints_the_grouping_node(self) -> None:
+        """A hint on it would reach every child through the ancestor walk."""
+        for name, profile in _profiles().items():
+            assert "supported-components" not in profile, name
+
+    def test_property_exists_defaults_to_full(self) -> None:
+        assert FeatureSet.FEATURES["supported-components.property-exists"]["default"] == {
+            "support": "full"
+        }
+        assert FeatureSet().is_supported("supported-components.property-exists")
+
+    def test_the_old_name_is_gone(self) -> None:
+        assert "get-supported-components" not in FeatureSet.FEATURES
+
+    def test_an_absent_property_leaves_the_grouping_node_alone(self) -> None:
+        features = FeatureSet({"supported-components.property-exists": {"support": "unsupported"}})
+        assert features.is_supported("supported-components")
+
+    @pytest.mark.parametrize("value", [{"support": "unsupported"}, "unsupported"])
+    def test_the_old_name_is_a_deprecated_alias(self, value: dict | str) -> None:
+        """``get-supported-components`` shipped in 3.2.0, so configurations carrying it keep working."""
+        with pytest.warns(DeprecationWarning, match="supported-components.property-exists"):
+            features = FeatureSet({"get-supported-components": value})
+        assert features.is_supported("supported-components.property-exists", str) == "unsupported"
+        assert "get-supported-components" not in features.dotted_feature_set_list()
+
+    @pytest.mark.parametrize("method", [None, "copy_feature_set", "copyFeatureSet", "set_feature"])
+    def test_the_old_name_warning_points_at_the_caller(self, method: str | None) -> None:
+        old = {"support": "unsupported"}
+        fs = FeatureSet({})
+        with warnings.catch_warnings(record=True) as rec:
+            warnings.simplefilter("always")
+            if method is None:
+                fs = FeatureSet({"get-supported-components": old})
+            elif method == "set_feature":
+                fs.set_feature("get-supported-components", "unsupported")
+            else:
+                getattr(fs, method)({"get-supported-components": old})
+        [warning] = [w for w in rec if "supported-components.property-exists" in str(w.message)]
+        assert warning.filename == __file__
+        assert fs.is_supported("supported-components.property-exists", str) == "unsupported"
+
+    @pytest.mark.parametrize("value", [False, True, {"support": "unsupported"}])
+    def test_set_feature_with_the_old_name_and_a_bool_or_dict(self, value: bool | dict) -> None:
+        """3.6.0 code calling ``set_feature('get-supported-components', False)`` gets a warning, not an AssertionError."""
+        fs = FeatureSet({})
+        with warnings.catch_warnings(record=True) as rec:
+            warnings.simplefilter("always")
+            fs.set_feature("get-supported-components", value)
+        [warning] = [w for w in rec if "supported-components.property-exists" in str(w.message)]
+        assert warning.filename == __file__
+        expected = "full" if value is True else "unsupported"
+        assert fs.is_supported("supported-components.property-exists", str) == expected
+
+    def test_is_supported_with_the_old_name(self) -> None:
+        fs = FeatureSet({"supported-components.property-exists": {"support": "unsupported"}})
+        with warnings.catch_warnings(record=True) as rec:
+            warnings.simplefilter("always")
+            assert fs.is_supported("get-supported-components", str) == "unsupported"
+        [warning] = [w for w in rec if "supported-components.property-exists" in str(w.message)]
+        assert warning.filename == __file__
+
+    @pytest.mark.parametrize("profile", ["robur", "purelymail"])
+    def test_profiles_without_the_property(self, profile: str) -> None:
+        features = FeatureSet(_resolve_features(profile))
+        assert not features.is_supported("supported-components.property-exists")
+
+
+class TestComponentSetFeatures:
+    """Three questions about the component set, asked in three places.
+
+    - ``supported-components.property-exists``: does a calendar report it?
+    - ``supported-components.honoured``: does the server accept exactly what
+      the property lists - every type when it is absent (RFC 4791 section 5.2.3)?
+    - ``create-calendar.with-supported-component-types``: does a MKCALENDAR
+      naming a set give a calendar with that set, and ``.multiple`` when the
+      set names several types?
+    """
+
+    HONOURED = "supported-components.honoured"
+    EXISTS = "supported-components.property-exists"
+    CREATE = "create-calendar.with-supported-component-types"
+    MULTIPLE = "create-calendar.with-supported-component-types.multiple"
+
+    @pytest.mark.parametrize("feature", [HONOURED, EXISTS, CREATE, MULTIPLE])
+    def test_defaults_to_full(self, feature: str) -> None:
+        assert FeatureSet.FEATURES[feature]["default"] == {"support": "full"}
+        assert FeatureSet().is_supported(feature, str) == "full"
+
+    def test_an_absent_property_says_nothing_about_obedience(self) -> None:
+        """The property is optional, so nothing below its absence is moot."""
+        features = FeatureSet({self.EXISTS: {"support": "unsupported"}})
+        assert features.is_supported(self.HONOURED, str) == "full"
+        assert features.is_supported("supported-components", str) == "full"
+
+    def test_disobedience_says_nothing_about_existence(self) -> None:
+        features = FeatureSet({self.HONOURED: {"support": "broken"}})
+        assert features.is_supported(self.EXISTS, str) == "full"
+        assert features.is_supported("supported-components", str) == "full"
+
+    def test_collapse_keeps_both_children(self) -> None:
+        features = FeatureSet(
+            {self.EXISTS: {"support": "unsupported"}, self.HONOURED: {"support": "unsupported"}}
+        )
+        listed = features.dotted_feature_set_list()
+        assert self.EXISTS in listed
+        assert self.HONOURED in listed
+        assert "supported-components" not in listed
+
+    def test_a_refused_multiple_leaves_creation_alone(self) -> None:
+        """CCS: one type per calendar, but that one type is honoured."""
+        features = FeatureSet({self.MULTIPLE: {"support": "unsupported"}})
+        assert features.is_supported(self.CREATE, str) == "full"
+
+    @pytest.mark.parametrize("ancestor", ["create-calendar", CREATE])
+    def test_multiple_inherits_an_unprobeable_ancestor(self, ancestor: str) -> None:
+        features = FeatureSet({ancestor: {"support": "unsupported"}})
+        assert features.is_supported(self.MULTIPLE, str) == "unsupported"
+
+    @pytest.mark.parametrize(
+        ("profile", "expected"),
+        [
+            ## advertised, not obeyed: a VEVENT goes into a VTODO-only calendar
+            ("bedework_3_10_3", {CREATE: "full", HONOURED: "broken"}),
+            ("davical", {CREATE: "full", HONOURED: "broken"}),
+            ("synology", {CREATE: "full", HONOURED: "broken"}),
+            ("stalwart", {CREATE: "full", HONOURED: "broken"}),
+            ## the calendar is VEVENT-only, whatever was asked for
+            ("bedework_5_0_0", {CREATE: "unsupported", HONOURED: "full"}),
+            ("sogo", {CREATE: "unsupported", EXISTS: "full"}),
+            ("gmx", {CREATE: "unsupported", MULTIPLE: "unknown"}),
+            ("yahoo", {CREATE: "unknown"}),
+            ("ccs", {CREATE: "full", MULTIPLE: "unsupported"}),
+            ("robur", {EXISTS: "unsupported", HONOURED: "broken"}),
+            ("purelymail", {EXISTS: "unsupported", HONOURED: "broken"}),
+        ],
+    )
+    def test_profiles(self, profile: str, expected: dict[str, str]) -> None:
+        features = FeatureSet(_resolve_features(profile))
+        for feature, support in expected.items():
+            assert features.is_supported(feature, str) == support, feature
 
 
 class TestObservationBool:

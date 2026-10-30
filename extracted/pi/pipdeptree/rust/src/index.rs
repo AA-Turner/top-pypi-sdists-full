@@ -1,10 +1,11 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use pep508_rs::{Requirement, VerbatimUrl, VersionOrUrl};
+use pep508_rs::{Pep508Error, Requirement, VerbatimUrl, VersionOrUrl, expand_env_vars};
+use percent_encoding::percent_decode_str;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::{PyAnyMethods, PyModule};
 use pyo3::types::{
@@ -16,13 +17,16 @@ use tempfile::tempdir;
 use url::Url;
 
 use crate::Error;
-use crate::metadata::{Discovered, Package, ResolvedDeclaration, ResolvedEdge};
+use crate::metadata::{
+    Discovered, DiscoveryWarning, Package, ResolvedDeclaration, ResolvedEdge, printable_lines,
+};
 
 const RESOLVER_IMPORT_ERROR: &str =
     "The from-index subcommand requires nab, nab-index and nab-project";
 const PYPI_NAME: &str = "pypi";
 const PYPI_URL: &str = "https://pypi.org/simple";
 const GIT_SCHEMES: [&str; 5] = ["git+https", "git+ssh", "git+http", "git+file", "git+git"];
+const SOURCE_CONSTRAINT_ERROR: &str = "source requirements cannot be constraints";
 
 #[derive(Debug, Default)]
 struct Inputs {
@@ -31,6 +35,8 @@ struct Inputs {
     local_sources: Vec<LocalSource>,
     vcs_sources: Vec<VcsSource>,
     indexes: Option<Vec<Index>>,
+    parsed_files: HashSet<(PathBuf, bool)>,
+    warnings: Vec<DiscoveryWarning>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -50,6 +56,20 @@ struct LocalSource {
 struct VcsSource {
     name: String,
     url: String,
+}
+
+#[derive(Clone, Copy)]
+struct Location<'a> {
+    file: &'a Path,
+    line: usize,
+}
+
+impl<'a> Location<'a> {
+    fn directory(self) -> &'a Path {
+        self.file
+            .parent()
+            .expect("canonical source file has a parent")
+    }
 }
 
 struct ResolverModules<'py> {
@@ -128,6 +148,74 @@ pub fn resolve(
     pyproject_files: &[PathBuf],
     index_url: Option<&str>,
     extra_index_urls: &[String],
+    warnings: &mut Vec<DiscoveryWarning>,
+) -> Result<Discovered, Error> {
+    // Nab logs what it skips while reading the index, such as a release whose metadata does not
+    // parse, quoting that metadata. Without a handler, Python's last-resort handler writes the
+    // record to stderr unescaped and regardless of --warn.
+    let queue = PyModule::import(py, "queue")?
+        .getattr("SimpleQueue")?
+        .call0()?;
+    let handler = PyModule::import(py, "logging.handlers")?
+        .getattr("QueueHandler")?
+        .call1((&queue,))?;
+    handler.call_method1("setLevel", ("WARNING",))?;
+    let logging = PyModule::import(py, "logging")?;
+    // The top-level loggers Nab's modules log under, as listed in nab.output._NAB_LOGGERS.
+    let loggers = [
+        "nab",
+        "nab_markersets",
+        "nab_provider",
+        "nab_project",
+        "nab_index",
+        "nab_resolver",
+    ]
+    .into_iter()
+    .map(|name| logging.call_method1("getLogger", (name,)))
+    .collect::<PyResult<Vec<_>>>()?;
+    for logger in &loggers {
+        logger.call_method1("addHandler", (&handler,))?;
+    }
+    let resolved = resolve_requirements(
+        py,
+        requirements,
+        requirement_files,
+        pyproject_files,
+        index_url,
+        extra_index_urls,
+        warnings,
+    );
+    for logger in &loggers {
+        logger.call_method1("removeHandler", (&handler,))?;
+    }
+    let mut messages = Vec::new();
+    while !queue.call_method0("empty")?.extract::<bool>()? {
+        let record = queue.call_method0("get_nowait")?;
+        messages.push(printable_lines(
+            &record.call_method0("getMessage")?.extract::<String>()?,
+        ));
+    }
+    if !messages.is_empty() {
+        warnings.push(DiscoveryWarning {
+            message: format!(
+                "Warning: the resolver reported:\n{}\n{}\n",
+                messages.join("\n"),
+                "-".repeat(72)
+            ),
+            failure: false,
+        });
+    }
+    resolved
+}
+
+fn resolve_requirements(
+    py: Python<'_>,
+    requirements: &[String],
+    requirement_files: &[PathBuf],
+    pyproject_files: &[PathBuf],
+    index_url: Option<&str>,
+    extra_index_urls: &[String],
+    warnings: &mut Vec<DiscoveryWarning>,
 ) -> Result<Discovered, Error> {
     let indexes = resolve_indexes(index_url, extra_index_urls);
     let result =
@@ -150,8 +238,9 @@ pub fn resolve(
                 parse_requirements_file(require_file(path)?, false, &mut inputs, &mut Vec::new())?;
             }
             for requirement in requirements {
-                parse_requirement(requirement, Path::new("."), false, &mut inputs)?;
+                parse_requirement(requirement, None, false, &mut inputs)?;
             }
+            warnings.append(&mut inputs.warnings);
             let directory = tempdir()?;
             let path = directory.path().join("pyproject.toml");
             fs::write(&path, render_pyproject(&inputs))?;
@@ -164,27 +253,20 @@ pub fn resolve(
 }
 
 fn resolve_indexes(index_url: Option<&str>, extra_index_urls: &[String]) -> Option<Vec<Index>> {
-    // Empty values fall through so `PIP_INDEX_URL=` keeps the PyPI default, like pip's or-chain.
+    // An empty variable counts as unset, so `PIP_INDEX_URL=` keeps the PyPI default like pip's
+    // or-chain, and `PIP_EXTRA_INDEX_URL=` leaves `UV_EXTRA_INDEX_URL` in effect.
+    let variable = |name| env::var(name).ok().filter(|value| !value.is_empty());
     let primary = index_url
         .map(ToOwned::to_owned)
         .filter(|value| !value.is_empty())
-        .or_else(|| {
-            env::var("PIP_INDEX_URL")
-                .ok()
-                .filter(|value| !value.is_empty())
-        })
-        .or_else(|| {
-            env::var("UV_INDEX_URL")
-                .ok()
-                .filter(|value| !value.is_empty())
-        });
+        .or_else(|| variable("PIP_INDEX_URL"))
+        .or_else(|| variable("UV_INDEX_URL"));
     let extras = if extra_index_urls.is_empty() {
-        env::var("PIP_EXTRA_INDEX_URL")
-            .or_else(|_| env::var("UV_EXTRA_INDEX_URL"))
-            .map_or_else(
-                |_| Vec::new(),
-                |value| value.split_whitespace().map(ToOwned::to_owned).collect(),
-            )
+        variable("PIP_EXTRA_INDEX_URL")
+            .or_else(|| variable("UV_EXTRA_INDEX_URL"))
+            .map_or_else(Vec::new, |value| {
+                value.split_whitespace().map(ToOwned::to_owned).collect()
+            })
     } else {
         extra_index_urls.to_vec()
     };
@@ -233,17 +315,38 @@ fn parse_requirements_file(
     inputs: &mut Inputs,
     stack: &mut Vec<PathBuf>,
 ) -> Result<(), Error> {
-    let path = path.canonicalize()?;
+    // Each include recurses on the caller's thread, so a long chain of distinct files would
+    // overflow its stack; hand-written layouts nest a few levels.
+    const MAX_DEPTH: usize = 100;
+    let path = dunce::canonicalize(path)?;
     if stack.contains(&path) {
         return Err(Error::message(format!(
             "recursive requirements include: {}",
             path.display()
         )));
     }
+    // A repeated include adds the same entries, and a file reached along many include paths
+    // would otherwise be parsed once per path.
+    if !inputs.parsed_files.insert((path.clone(), constraint)) {
+        return Ok(());
+    }
+    if stack.len() == MAX_DEPTH {
+        return Err(Error::message(format!(
+            "requirements include nested deeper than {MAX_DEPTH} levels: {}",
+            path.display()
+        )));
+    }
     stack.push(path.clone());
     let content = fs::read_to_string(&path)?;
     let mut logical = String::new();
-    for raw_line in content.lines() {
+    let mut location = Location {
+        file: &path,
+        line: 0,
+    };
+    for (index, raw_line) in content.lines().enumerate() {
+        if logical.is_empty() {
+            location.line = index + 1;
+        }
         let line = raw_line.trim();
         if line.ends_with('\\') {
             logical.push_str(line.trim_end_matches('\\').trim_end());
@@ -253,14 +356,14 @@ fn parse_requirements_file(
         logical.push_str(line);
         let line = strip_comment(&logical).trim();
         (!line.is_empty())
-            .then(|| parse_requirements_line(line, &path, constraint, inputs, stack))
+            .then(|| parse_requirements_line(line, location, constraint, inputs, stack))
             .transpose()?;
         logical.clear();
     }
     if !logical.trim().is_empty() {
         parse_requirements_line(
             strip_comment(&logical).trim(),
-            &path,
+            location,
             constraint,
             inputs,
             stack,
@@ -272,12 +375,12 @@ fn parse_requirements_file(
 
 fn parse_requirements_line(
     line: &str,
-    source: &Path,
+    location: Location<'_>,
     constraint: bool,
     inputs: &mut Inputs,
     stack: &mut Vec<PathBuf>,
 ) -> Result<(), Error> {
-    let base = source.parent().expect("canonical source file has a parent");
+    let base = location.directory();
     // pip treats -r inside a constraints file as another constraints file.
     if let Some(value) = option_value(line, "-r", "--requirement") {
         return parse_requirements_file(&base.join(value), constraint, inputs, stack);
@@ -286,6 +389,9 @@ fn parse_requirements_line(
         return parse_requirements_file(&base.join(value), true, inputs, stack);
     }
     if let Some(value) = option_value(line, "-e", "--editable") {
+        if constraint {
+            return Err(Error::message(SOURCE_CONSTRAINT_ERROR));
+        }
         // pip accepts editable VCS URLs; the resolver has no editable mode for them, so they
         // map to plain VCS sources like the Python engine did.
         if value.trim_start().starts_with("git+") {
@@ -294,34 +400,63 @@ fn parse_requirements_line(
         return add_local_source(value, base, true, inputs);
     }
     if line.starts_with('-') {
+        // pip applies an index option here to the whole install, while the resolve reads its
+        // indexes from the command line and environment, so skipping one changes the index used.
+        let (option, flag) = match line.split([' ', '\t', '=']).next() {
+            Some(option @ ("--index-url" | "--extra-index-url")) => (option, option),
+            Some(option) if option.starts_with("-i") => ("-i", "--index-url"),
+            _ => return Ok(()),
+        };
+        inputs.warnings.push(DiscoveryWarning {
+            message: format!(
+                "Warning: {}:{}: from-index ignores {option} in requirements files; pass {flag} on \
+                 the command line\n",
+                location.file.display(),
+                location.line
+            ),
+            failure: true,
+        });
         return Ok(());
     }
     let requirement = line.split(" --hash=").next().unwrap_or(line).trim();
-    parse_requirement(requirement, base, constraint, inputs)
+    parse_requirement(requirement, Some(location), constraint, inputs)
 }
 
 fn parse_requirement(
     raw: &str,
-    base: &Path,
+    location: Option<Location<'_>>,
     constraint: bool,
     inputs: &mut Inputs,
 ) -> Result<(), Error> {
+    // The parser's error repeats the whole input. An include can name a file that holds a
+    // credential rather than requirements, so a line read from a file is reported by location.
+    let invalid = |error: Pep508Error<VerbatimUrl>| {
+        Error::message(location.map_or_else(
+            || error.to_string(),
+            |location| {
+                format!(
+                    "{}:{}: invalid requirement",
+                    location.file.display(),
+                    location.line
+                )
+            },
+        ))
+    };
     let requirement = match Requirement::<VerbatimUrl>::from_str(raw) {
         Ok(requirement) => requirement,
-        Err(error) if looks_like_source(raw) && raw.contains(" @ ") => {
-            return Err(Error::message(error.to_string()));
-        }
+        Err(error) if looks_like_source(raw) && raw.contains(" @ ") => return Err(invalid(error)),
         Err(_) if looks_like_source(raw) => {
             if constraint {
-                return Err(Error::message("source requirements cannot be constraints"));
+                return Err(Error::message(SOURCE_CONSTRAINT_ERROR));
             }
+            let base = location.map_or_else(|| Path::new("."), Location::directory);
             return translate_source(raw, base, inputs);
         }
-        Err(error) => return Err(Error::message(error.to_string())),
+        Err(error) => return Err(invalid(error)),
     };
     if constraint {
         if matches!(requirement.version_or_url, Some(VersionOrUrl::Url(_))) {
-            return Err(Error::message("source requirements cannot be constraints"));
+            return Err(Error::message(SOURCE_CONSTRAINT_ERROR));
         }
         if !requirement.extras.is_empty() {
             return Err(Error::message(format!(
@@ -375,10 +510,7 @@ fn translate_url(name: String, url: &VerbatimUrl, inputs: &mut Inputs) -> Result
         return Ok(());
     }
     if url.scheme() == "file" {
-        let path = url
-            .to_file_path()
-            .map_err(|()| Error::message(format!("invalid local file URL: {value}")))?;
-        return add_local_source_path(&path, false, inputs);
+        return add_local_source_path(&file_url_path(&expand_env_vars(&value))?, false, inputs);
     }
     Err(Error::message(format!(
         "URL requirements are not supported by the index resolver: {name} @ {value}"
@@ -391,17 +523,62 @@ fn add_local_source(
     editable: bool,
     inputs: &mut Inputs,
 ) -> Result<(), Error> {
-    let path = PathBuf::from(raw);
-    let path = if path.is_absolute() {
-        path
+    let path = if raw.starts_with("file:") {
+        file_url_path(raw)?
     } else {
-        base.join(path)
+        let path = PathBuf::from(raw);
+        if path.is_absolute() {
+            path
+        } else {
+            base.join(path)
+        }
     };
     add_local_source_path(&path, editable, inputs)
 }
 
+// pip's url_to_path keeps the path of a file: URL that has no authority as written, so
+// file:pkg and file:./pkg stay relative and resolve against the working directory.
+fn file_url_path(url: &str) -> Result<PathBuf, Error> {
+    let invalid = || Error::message(format!("invalid local file URL: {url}"));
+    match url.get("file:".len()..) {
+        Some(path) if !path.starts_with("//") => {
+            let path = path.find(['?', '#']).map_or(path, |end| &path[..end]);
+            let path = percent_decode_str(path)
+                .decode_utf8()
+                .map_err(|_| invalid())?;
+            Ok(PathBuf::from(strip_drive_slash(&path)))
+        }
+        _ => Url::parse(url)
+            .ok()
+            .and_then(|url| url.to_file_path().ok())
+            .ok_or_else(invalid),
+    }
+}
+
+// pip drops the slash urlsplit leaves before a drive letter, so file:/C:/pkg reads C:/pkg.
+#[cfg(windows)]
+fn strip_drive_slash(path: &str) -> &str {
+    match path.as_bytes() {
+        [b'/', drive, b':', rest @ ..]
+            if drive.is_ascii_alphabetic() && matches!(rest, [] | [b'/', ..]) =>
+        {
+            &path[1..]
+        }
+        _ => path,
+    }
+}
+
+#[cfg(not(windows))]
+const fn strip_drive_slash(path: &str) -> &str {
+    path
+}
+
 fn add_local_source_path(path: &Path, editable: bool, inputs: &mut Inputs) -> Result<(), Error> {
-    let path = path.canonicalize()?;
+    // std's canonicalize gives a \\?\ path on Windows, where "." does not resolve, so the build
+    // frontend rejects backend-path = ["."]; dunce returns the plain form when one exists.
+    let path = dunce::canonicalize(path).map_err(|error| {
+        Error::message(format!("editable/local source {}: {error}", path.display()))
+    })?;
     let pyproject = path.join("pyproject.toml");
     if !pyproject.is_file() {
         return Err(Error::message(format!(
@@ -647,7 +824,7 @@ fn adapt_result(result: &pyo3::Bound<'_, pyo3::PyAny>) -> Result<Discovered, Err
     let packages = versions
         .iter()
         .map(|(name, version)| Package::synthetic(name, version, &[]))
-        .collect();
+        .collect::<Result<_, _>>()?;
     Ok(Discovered {
         packages,
         warnings: Vec::new(),
@@ -695,11 +872,12 @@ fn strip_comment(line: &str) -> &str {
 }
 
 fn looks_like_source(requirement: &str) -> bool {
-    // A local source is spelled ./, ../, an absolute path, a file: URL or a VCS URL, matching
-    // what pip accepts; no filesystem probe is needed to recognize one.
+    // A local source is spelled ./, ../, .\, ..\, an absolute path, a file: URL or a VCS URL,
+    // matching what pip accepts; no filesystem probe is needed to recognize one.
     let requirement = requirement.trim();
     requirement.contains("://")
-        || ["./", "../", "/", "file:", "git+"]
+        || Path::new(requirement).is_absolute()
+        || ["./", "../", ".\\", "..\\", "/", "file:", "git+"]
             .iter()
             .any(|prefix| requirement.starts_with(prefix))
 }

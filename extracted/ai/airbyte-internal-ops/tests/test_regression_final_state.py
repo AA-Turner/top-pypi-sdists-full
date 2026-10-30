@@ -16,6 +16,7 @@ from typing import Any
 
 import pytest
 
+from airbyte_ops_mcp.regression_tests.masking import mask_value
 from airbyte_ops_mcp.regression_tests.models import (
     LEGACY_STATE_KEY,
     SHARED_STATE_KEY,
@@ -25,6 +26,7 @@ from airbyte_ops_mcp.regression_tests.models import (
     TargetOrControl,
 )
 from airbyte_ops_mcp.regression_tests.regression import compare_final_states
+from tests.test_masking import KEY
 
 pytestmark = pytest.mark.unit
 
@@ -734,3 +736,48 @@ def test_a_legacy_to_per_stream_state_migration_fails_once_per_key(tmp_path):
         "State for users is missing on the control",
     ]
     assert result.message == "Final state: 4 streams with state on one side only"
+
+
+# ---------------------------------------------------------------------------
+# Masked states: the token carries the type the diff can no longer see
+# ---------------------------------------------------------------------------
+
+
+def test_two_tokens_of_the_same_type_are_a_moved_cursor():
+    """A masked timestamp that advanced is still only a value change."""
+    result = compare_final_states(
+        _ids({"users": {"updated_at": mask_value("2024-01-01T00:00:00Z", key=KEY)}}),
+        _ids({"users": {"updated_at": mask_value("2024-01-01T00:05:00Z", key=KEY)}}),
+    )
+
+    assert result.passed is False
+    assert result.value_only is True
+    assert result.errors == []
+    assert result.warnings == ["State for users changed value"]
+
+
+def test_two_tokens_of_different_types_are_a_changed_shape():
+    """Both sides are strings to DeepDiff, so the type change hides in
+    `values_changed`; the token's prefix says a timestamp became an integer,
+    which fails exactly as the raw values would."""
+    result = compare_final_states(
+        _ids({"users": {"updated_at": mask_value("2024-01-01", key=KEY)}}),
+        _ids({"users": {"updated_at": mask_value(1704067200, key=KEY)}}),
+    )
+
+    assert result.passed is False
+    assert result.value_only is False
+    assert result.errors == ["State for users changed shape"]
+    assert result.warnings == []
+
+
+def test_a_token_against_a_raw_value_is_a_moved_value_as_before():
+    """Only two tokens can disagree on a type; a raw string beside a token is
+    the value-only verdict the unmasked rule already gives two strings."""
+    result = compare_final_states(
+        _ids({"users": {"updated_at": "2024-01-01"}}),
+        _ids({"users": {"updated_at": mask_value("2024-01-02", key=KEY)}}),
+    )
+
+    assert result.value_only is True
+    assert result.warnings == ["State for users changed value"]

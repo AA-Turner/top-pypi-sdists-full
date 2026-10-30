@@ -236,8 +236,9 @@ pub(crate) use sase_core::agent_session_manifest::{
 };
 pub(crate) use sase_core::agent_stats::{
     query_activity_stats as core_query_activity_stats,
+    query_macro_usage as core_query_macro_usage,
     query_run_stats as core_query_run_stats, AgentActivityStatsRequestWire,
-    AgentRunStatsRequestWire,
+    AgentRunStatsRequestWire, MACRO_USAGE_WIRE_SCHEMA_VERSION,
 };
 pub(crate) use sase_core::agent_tab::{
     build_agent_tab_catalog as core_build_agent_tab_catalog,
@@ -574,6 +575,7 @@ pub(crate) use sase_core::continuation::{
     consume_conditional_completion_request as core_consume_conditional_completion,
     decide_resume_adoption as core_decide_resume_adoption,
     evaluate_conditional_completion as core_evaluate_conditional_completion,
+    evaluate_prepared_starter_coverage as core_evaluate_prepared_starter_coverage,
     freeze_continuation_policy as core_freeze_continuation_policy,
     invalidate_conditional_completion_request as core_invalidate_conditional_completion,
     new_continuation_delivery_record as core_new_continuation_delivery_record,
@@ -611,7 +613,7 @@ pub(crate) use sase_core::continuation::{
     ContinuationPolicyResolutionRequestWire, ContinuationReplayPlanRequestWire,
     ContinuationResumeAdoptionRequestWire, ContinuationRetentionRequestWire,
     DiagnosticManifestWire, LaunchRequesterContinuationWire, MonitorResultWire,
-    CONTINUATION_WIRE_SCHEMA_VERSION,
+    PreparedStarterCoverageRequestWire, CONTINUATION_WIRE_SCHEMA_VERSION,
 };
 pub(crate) use sase_core::disk_cleanup_outcome::{
     normalize_disk_cleanup_outcome as core_normalize_disk_cleanup_outcome,
@@ -652,6 +654,7 @@ pub(crate) use sase_core::finalizer::{
     aggregate_finalizer_outcomes as core_aggregate_finalizer_outcomes,
     assess_repository_landing_proof as core_assess_repository_landing_proof,
     authenticate_finalizer_plan as core_authenticate_finalizer_plan,
+    check_repository_action as core_check_repository_action,
     finalizer_context_digest as core_finalizer_context_digest,
     finalizer_digest_json_value as core_finalizer_digest_json_value,
     finalizer_instance_spec_digest as core_finalizer_instance_spec_digest,
@@ -661,15 +664,17 @@ pub(crate) use sase_core::finalizer::{
     resolve_finalizer_plan as core_resolve_finalizer_plan,
     select_remaining_commit_obligations as core_select_remaining_commit_obligations,
     validate_finalizer_context as core_validate_finalizer_context,
+    validate_finalizer_handoff as core_validate_finalizer_handoff,
     validate_finalizer_instance_spec as core_validate_finalizer_instance_spec,
     validate_finalizer_plan as core_validate_finalizer_plan,
     validate_finalizer_provider_spec as core_validate_finalizer_provider_spec,
     validate_finalizer_submission as core_validate_finalizer_submission,
     FinalizerAssignedBeadWire, FinalizerContextWire, FinalizerError,
-    FinalizerInstanceResultWire, FinalizerInstanceSpecWire,
-    FinalizerNodeViewRequestWire, FinalizerPlanInputWire, FinalizerPlanWire,
-    FinalizerProviderSpecWire, FinalizerSubmissionEnvelopeWire,
-    RemainingCommitWorkRequestWire, RepositoryLandingProofRequestWire,
+    FinalizerHandoffWire, FinalizerInstanceResultWire,
+    FinalizerInstanceSpecWire, FinalizerNodeViewRequestWire,
+    FinalizerPlanInputWire, FinalizerPlanWire, FinalizerProviderSpecWire,
+    FinalizerSubmissionEnvelopeWire, RemainingCommitWorkRequestWire,
+    RepositoryActionCheckRequestWire, RepositoryLandingProofRequestWire,
     RunViewError, FINALIZER_WIRE_SCHEMA_VERSION,
 };
 pub(crate) use sase_core::fleet_attention::{

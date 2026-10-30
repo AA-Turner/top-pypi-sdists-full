@@ -84,6 +84,7 @@ async function getExactChromeTab(extension, page) {
         const tabs = (await chrome.tabs.query({})).filter(
           (candidate) => candidate.url === expectedUrl
         );
+        const failures = [];
         const matches = (
           await Promise.all(
             tabs.map(async (candidate) => {
@@ -97,6 +98,11 @@ async function getExactChromeTab(extension, page) {
                 });
                 return results[0]?.result === true ? candidate : null;
               } catch (error) {
+                // A live tab can reject extension injection (for example on a
+                // browser-protected page). Keep that cause if no probe matches;
+                // otherwise it misleadingly looks like the capture tab vanished.
+                // Another same-URL tab failing must not discard a valid match.
+                failures.push(`tab ${candidate.id}: ${error.message || error}`);
                 return null;
               }
             })
@@ -104,7 +110,8 @@ async function getExactChromeTab(extension, page) {
         ).filter(Boolean);
         if (matches.length !== 1) {
           throw new Error(
-            `expected one Chrome tab for target ${expectedTargetId}, found ${matches.length}`
+            `expected one Chrome tab for target ${expectedTargetId}, found ${matches.length}` +
+            (failures.length ? `; scripting failed: ${failures.join("; ")}` : "")
           );
         }
         return matches[0];
@@ -157,25 +164,21 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
     `[singlefile] saving exact target=${targetId} tab=${tab.id} url=${tab.url}`
   );
   const helperPage = await page.browser().newPage();
-  let releaseDownloadLock;
+  let releaseSinglefileLock;
   let downloadedPath;
   let originalProfileOptions;
   let captureStarted = false;
   let captureError = null;
   try {
-    // Download behavior belongs to the live CDP connection. The launch
-    // connection has already disconnected, so relying on it sends extension
-    // downloads into the user's default Downloads folder. Share the existing
-    // browser-download lock and use GUID names to avoid same-title collisions.
+    // Only SingleFile's temporary shared profile and toolbar action need
+    // serialization. Chrome's persistent owner keeps GUID download routing;
+    // holding a browser-wide lock here stalled unrelated WACZ exports.
     const lockStartedAt = Date.now();
-    console.error("[singlefile] phase=download-lock waiting");
-    releaseDownloadLock = await chromeUtils.acquireSessionLock(
-      path.join(CHROME_DOWNLOADS_DIR, ".download.lock"), timeoutMs
+    console.error("[singlefile] phase=singlefile-lock waiting");
+    releaseSinglefileLock = await chromeUtils.acquireSessionLock(
+      path.join(CHROME_DOWNLOADS_DIR, ".singlefile.lock"), timeoutMs
     );
-    console.error(`[singlefile] phase=download-lock elapsed_ms=${Date.now() - lockStartedAt}`);
-    await chromeUtils.sendBrowserCommand(page.browser(), "Browser.setDownloadBehavior", {
-      behavior: "allowAndName", downloadPath: CHROME_DOWNLOADS_DIR, eventsEnabled: true,
-    });
+    console.error(`[singlefile] phase=singlefile-lock elapsed_ms=${Date.now() - lockStartedAt}`);
     console.error(`[singlefile] phase=helper-navigation started elapsed_ms=${Date.now() - saveStartedAt}`);
     await helperPage.goto(
       `chrome-extension://${extension.id}${SERVICE_WORKER_WAKE_PATH}`
@@ -185,7 +188,7 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
     // Font pruning also drops fonts used only by other media rules and walks
     // every element's computed/pseudo-element styles. Preserve those fonts too.
     // Use its normal configuration API, restoring the persona's preferences
-    // after this capture while still holding the browser download lock.
+    // after this capture while still holding the SingleFile profile lock.
     console.error(`[singlefile] phase=helper-profile started elapsed_ms=${Date.now() - saveStartedAt}`);
     originalProfileOptions = await helperPage.evaluate(async (tabId) => {
       const [result] = await chrome.scripting.executeScript({
@@ -356,18 +359,13 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
       if (!captureError) throw error;
       console.error(`SingleFile profile restoration failed: ${error.stack || error.message}`);
     } finally {
-      if (releaseDownloadLock) {
-        await chromeUtils.sendBrowserCommand(page.browser(), "Browser.setDownloadBehavior", {
-          behavior: "allow", downloadPath: CHROME_DOWNLOADS_DIR, eventsEnabled: true,
-        }).catch(() => {});
-        releaseDownloadLock();
-      }
+      releaseSinglefileLock?.();
       await helperPage.close({ runBeforeUnload: false }).catch(() => {});
     }
   }
   // The exact GUID download is complete and exclusively ours. Restore browser
   // state before publishing to an archive filesystem: a slow mount must not
-  // hold the browser-wide download lock and stall other snapshot captures.
+  // hold the SingleFile profile lock and stall other SingleFile captures.
   console.error(`[singlefile] phase=browser-released elapsed_ms=${Date.now() - saveStartedAt}`);
   const stat = await fs.promises.stat(downloadedPath);
   console.error(`[singlefile] phase=file-stat completed elapsed_ms=${Date.now() - saveStartedAt}`);

@@ -53,7 +53,6 @@ from scim2_client.errors import UnexpectedContentFormatException
 from scim2_client.errors import UnexpectedContentTypeException
 from scim2_client.errors import UnexpectedStatusCodeException
 from scim2_client.errors import request_validation_exception
-from scim2_client.errors import server_error_exception
 
 ResourceT = TypeVar("ResourceT", bound=Resource[Any])
 MethodT = TypeVar("MethodT", bound=Callable[..., Any])
@@ -62,10 +61,6 @@ ScimObjectT = TypeVar("ScimObjectT", bound=ScimObject)
 
 NOT_MODIFIED = 304
 
-BASE_HEADERS = {
-    "Accept": "application/scim+json",
-    "Content-Type": "application/scim+json",
-}
 CONFIG_RESOURCES = (ResourceType, Schema, ServiceProviderConfig)
 
 # The sub-delims, ':' and '@' that RFC 3986 §3.3 allows in a path segment.
@@ -998,9 +993,9 @@ class SCIMClient:
     ) -> ScimObject | dict[str, Any] | None:
         """Build the object a server response describes, and check it on the way.
 
-        This is what an engine calls once it has performed a request. The content type,
-        the :class:`~scim2_models.Error` the server may have returned, the status code and
-        the payload are examined in that order.
+        This is what an engine calls once it has performed a request. A failure without
+        :class:`~scim2_models.Error`, the content type, the :class:`~scim2_models.Error` the
+        server may have returned, the status code and the payload are examined in that order.
 
         :param payload: The decoded body of the response, or :data:`None` when it carried none.
         :param status_code: The HTTP status code of the response.
@@ -1026,15 +1021,12 @@ class SCIMClient:
         # https://datatracker.ietf.org/doc/html/rfc7644.html#section-3.12
 
         no_content_status_codes = [204, 205, 304]
-        if status_code in no_content_status_codes:
-            response_payload = None
-
-        else:
-            if payload is not None:
-                self._check_content_types(headers)
-            response_payload = payload
+        response_payload = None if status_code in no_content_status_codes else payload
 
         self._check_failure(status_code, response_payload)
+
+        if response_payload is not None:
+            self._check_content_types(headers)
 
         if check_response_payload is None:
             check_response_payload = self.check_response_payload
@@ -1054,7 +1046,7 @@ class SCIMClient:
                 raise scim_exc from exc
 
             if raise_scim_errors:
-                raise server_error_exception(error, scim_ctx=scim_ctx)
+                raise SCIMException.from_error(error, scim_ctx=scim_ctx)
             return error
 
         self._check_status_codes(status_code, expected_status_codes)
@@ -1128,7 +1120,7 @@ class SCIMClient:
             return self._parse_json(response) if response.text else None
         except (ValueError, RecursionError) as exc:
             self._check_failure(response.status_code, None)
-            raise UnexpectedContentFormatException(source=response) from exc
+            raise UnexpectedContentFormatException() from exc
 
     def _read_response(
         self,
@@ -1153,8 +1145,7 @@ class SCIMClient:
             )
 
         except (SCIMClientException, SCIMException) as exc:
-            # SCIMException comes from scim2-models and has no 'source' attribute.
-            exc.source = response  # type: ignore[union-attr]
+            exc.response = response
             raise
 
     @staticmethod

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: dstack
-Version: 0.22.5
+Version: 0.22.6
 Summary: dstack is an open-source orchestration engine for running AI workloads on any cloud or on-premises.
 Project-URL: Homepage, https://dstack.ai
 Project-URL: Source, https://github.com/dstackai/dstack
@@ -22,7 +22,7 @@ Requires-Dist: cryptography
 Requires-Dist: cursor
 Requires-Dist: filelock
 Requires-Dist: gitpython
-Requires-Dist: gpuhunt==0.1.34
+Requires-Dist: gpuhunt==0.1.35
 Requires-Dist: ignore-python>=0.2.0
 Requires-Dist: jsonschema
 Requires-Dist: packaging
@@ -30,7 +30,7 @@ Requires-Dist: paramiko>=3.2.0
 Requires-Dist: psutil
 Requires-Dist: pydantic>=2.12
 Requires-Dist: python-dateutil
-Requires-Dist: python-multipart>=0.0.16
+Requires-Dist: python-multipart>=0.0.31
 Requires-Dist: pyyaml
 Requires-Dist: questionary>=2.0.1
 Requires-Dist: requests
@@ -50,7 +50,7 @@ Requires-Dist: alembic>=1.16.0; extra == 'all'
 Requires-Dist: asyncpg; extra == 'all'
 Requires-Dist: azure-identity>=1.12.0; extra == 'all'
 Requires-Dist: azure-mgmt-authorization>=3.0.0; extra == 'all'
-Requires-Dist: azure-mgmt-compute>=29.1.0; extra == 'all'
+Requires-Dist: azure-mgmt-compute>=38.0.0; extra == 'all'
 Requires-Dist: azure-mgmt-msi>=7.0.0; extra == 'all'
 Requires-Dist: azure-mgmt-network<28.0.0,>=23.0.0; extra == 'all'
 Requires-Dist: azure-mgmt-resource>=22.0.0; extra == 'all'
@@ -134,7 +134,7 @@ Requires-Dist: alembic>=1.16.0; extra == 'azure'
 Requires-Dist: asyncpg; extra == 'azure'
 Requires-Dist: azure-identity>=1.12.0; extra == 'azure'
 Requires-Dist: azure-mgmt-authorization>=3.0.0; extra == 'azure'
-Requires-Dist: azure-mgmt-compute>=29.1.0; extra == 'azure'
+Requires-Dist: azure-mgmt-compute>=38.0.0; extra == 'azure'
 Requires-Dist: azure-mgmt-msi>=7.0.0; extra == 'azure'
 Requires-Dist: azure-mgmt-network<28.0.0,>=23.0.0; extra == 'azure'
 Requires-Dist: azure-mgmt-resource>=22.0.0; extra == 'azure'

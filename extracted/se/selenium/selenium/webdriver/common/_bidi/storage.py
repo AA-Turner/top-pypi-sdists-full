@@ -59,11 +59,17 @@ class CookieFilter(Record):
     value: BytesValueValue | UnsetType = field(default=UNSET, metadata=meta("value", ref="network.BytesValue"))
     domain: str | UnsetType = field(default=UNSET, metadata=meta("domain", primitive="str"))
     path: str | UnsetType = field(default=UNSET, metadata=meta("path", primitive="str"))
-    size: int | UnsetType = field(default=UNSET, metadata=meta("size", primitive="int"))
+    size: int | UnsetType = field(
+        default=UNSET,
+        metadata=meta("size", primitive="int", min=0, max=9007199254740991),
+    )
     http_only: bool | UnsetType = field(default=UNSET, metadata=meta("httpOnly", primitive="bool"))
     secure: bool | UnsetType = field(default=UNSET, metadata=meta("secure", primitive="bool"))
     same_site: SameSite | UnsetType = field(default=UNSET, metadata=meta("sameSite", enum="network.SameSite"))
-    expiry: int | UnsetType = field(default=UNSET, metadata=meta("expiry", primitive="int"))
+    expiry: int | UnsetType = field(
+        default=UNSET,
+        metadata=meta("expiry", primitive="int", min=0, max=9007199254740991),
+    )
     extensions: dict[str, Any] | UnsetType = field(default=UNSET, metadata=meta("extensions"))
 
 
@@ -137,7 +143,10 @@ class PartialCookie(Record):
     http_only: bool | UnsetType = field(default=UNSET, metadata=meta("httpOnly", primitive="bool"))
     secure: bool | UnsetType = field(default=UNSET, metadata=meta("secure", primitive="bool"))
     same_site: SameSite | UnsetType = field(default=UNSET, metadata=meta("sameSite", enum="network.SameSite"))
-    expiry: int | UnsetType = field(default=UNSET, metadata=meta("expiry", primitive="int"))
+    expiry: int | UnsetType = field(
+        default=UNSET,
+        metadata=meta("expiry", primitive="int", min=0, max=9007199254740991),
+    )
     extensions: dict[str, Any] | UnsetType = field(default=UNSET, metadata=meta("extensions"))
 
 

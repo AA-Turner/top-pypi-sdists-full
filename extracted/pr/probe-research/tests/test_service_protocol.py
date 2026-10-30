@@ -149,7 +149,7 @@ def test_response_shapes(service_home):
         assert set(status) == {
             "service_version", "pid", "started_at", "state", "sessions", "app_clients", "update",
             "actions", "discovering_until", "hook_hosts", "hook_queue", "recorders", "workers", "runs",
-            "watched", "background", "imports", "statusline", "notes", "watch", "daemon_host",
+            "watched", "background", "imports", "statusline", "notes", "watch", "daemon_host", "codex_trust",
         }
         assert status["runs"] == [] and status["workers"] == [] and status["imports"] == []
         # The daemon host (plan daemon-in-service): none until a session's daemon starts.
@@ -162,6 +162,8 @@ def test_response_shapes(service_home):
         }
         assert set(status["statusline"]) == {"folders", "waiting", "running", "children", "followed", "followups", "last"}
         assert set(status["notes"]) == {"running", "waiting", "runs", "last"}
+        # Probe's hooks in Codex, kept approved (#3617): nothing of Probe's in this Codex.
+        assert set(status["codex_trust"]) == {"state", "asks", "approved", "retry_at", "last"}
         assert set(status["update"]) == {
             "enabled", "last_check", "last_result", "next_check", "in_progress", "cycle_id", "step", "deferred",
             "deferred_since", "guard", "app",
@@ -169,7 +171,7 @@ def test_response_shapes(service_home):
         # The desktop app's update check, which the service decides (#3321): the
         # app reads this to know whether a check is due and why.
         assert set(status["update"]["app"]) == {"due", "reason", "last_check", "listening", "last"}
-        assert status["actions"] == {"running": None}
+        assert status["actions"] == {"running": None, "queued": []}
         assert status["app_clients"] == 1
         assert conn.call(
             Method.SESSION_REGISTER,

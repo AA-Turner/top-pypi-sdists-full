@@ -9,6 +9,8 @@ from mistralai.workflows.core.encoding.utils import (
     build_info_from_payload_metadata,
     build_temporal_payload_metadata,
     is_custom_encoding_format,
+    parse_encoding_options,
+    serialize_encoding_options,
 )
 
 __all__ = [
@@ -19,5 +21,7 @@ __all__ = [
     "is_custom_encoding_format",
     "build_temporal_payload_metadata",
     "build_info_from_payload_metadata",
+    "parse_encoding_options",
+    "serialize_encoding_options",
     "TraceEncoder",
 ]

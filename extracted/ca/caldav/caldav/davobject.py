@@ -23,7 +23,7 @@ from .elements.base import BaseElement
 from .lib import error
 from .lib.error import errmsg
 from .lib.python_utilities import to_wire
-from .lib.url import URL, requote_path
+from .lib.url import URL, quote_href
 
 _CC = TypeVar("_CC", bound="CalendarObjectResource")
 log = logging.getLogger("caldav")
@@ -143,9 +143,8 @@ class DAVObject:
         """
         if self.client is None:
             return False
-        from caldav.async_davclient import AsyncDAVClient
-
-        return isinstance(self.client, AsyncDAVClient)
+        # `is True` is deliberate: a Mock attribute must count as False.
+        return getattr(self.client, "is_async", False) is True
 
     def children(
         self, type: str | None = None
@@ -196,7 +195,7 @@ class DAVObject:
                 url = URL(path)
                 if url.hostname is None:
                     # Quote when path is not a full URL
-                    path = requote_path(path) if self._preserve_at else quote(path)
+                    path = quote_href(path, preserve_at=self._preserve_at)
                 # TODO: investigate the RFCs thoroughly - why does a "get
                 # members of this collection"-request also return the
                 # collection URL itself?

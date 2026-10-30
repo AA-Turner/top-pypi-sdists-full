@@ -14,8 +14,11 @@ from mistralai.client.models.connectortoolresultmetadata import (
 from mistralai.client.models.mcptool import MCPTool
 from mistralai.client.models.mcptoolmeta import MCPToolMeta
 from mistralai.client.models.mcpuitoolmeta import MCPUIToolMeta
+from mistralai.extra.workflows.encoding.config import PayloadEncryptionMode
+from pydantic import SecretStr
 
-from mistralai.workflows.core.auth import ConnectorRunAs
+from mistralai.workflows.core.auth import RunAs
+from mistralai.workflows.core.config.config import PayloadEncryptionConfig, config
 from mistralai.workflows.core.temporal.context_handler_interceptor import define_context
 from mistralai.workflows.models import WorkflowContext
 from mistralai.workflows.plugins.mistralai.connectors.activities import (
@@ -69,7 +72,7 @@ class TestConnectorCredentialResolution:
                 run_as="deployment",
             )
 
-        mock_get_client.assert_called_once_with(run_as=ConnectorRunAs.DEPLOYMENT)
+        mock_get_client.assert_called_once_with(run_as=RunAs.DEPLOYMENT)
 
     @pytest.mark.parametrize("on_behalf_of", [True, False])
     @pytest.mark.asyncio
@@ -91,7 +94,7 @@ class TestConnectorCredentialResolution:
                 arguments={"issue_id": "123"},
             )
 
-        mock_get_client.assert_called_once_with(run_as=ConnectorRunAs.AUTO)
+        mock_get_client.assert_called_once_with(run_as=RunAs.AUTO)
 
 
 class TestConnectorToolCallErrorHandling:
@@ -385,6 +388,63 @@ class TestConnectorToolCallMcpApps:
         assert isinstance(failed_event, CustomTaskFailed)
         assert failed_event.attributes.custom_task_id == started_event.attributes.custom_task_id
         assert failed_event.attributes.custom_task_type == "mcp_app"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "encryption_mode, expected_message",
+        [
+            pytest.param(None, "s3cret tool error", id="unencrypted"),
+            pytest.param(PayloadEncryptionMode.FULL, "RuntimeError", id="full"),
+        ],
+    )
+    async def test_connector_tool_call_failed_event_follows_encryption_mode(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        encryption_mode: PayloadEncryptionMode | None,
+        expected_message: str,
+    ) -> None:
+        encryption_config = (
+            PayloadEncryptionConfig(mode=encryption_mode, main_key=SecretStr("00" * 32)) if encryption_mode else None
+        )
+        monkeypatch.setattr(config.worker, "temporal_payload_encryption", encryption_config)
+        publisher = MagicMock()
+
+        with (
+            patch("mistralai.workflows.plugins.mistralai.connectors.activities.get_mistral_client") as mock_get_client,
+            patch(
+                "mistralai.workflows.plugins.mistralai.connectors.mcp_apps.BackgroundEventPublisher.get_current",
+                return_value=publisher,
+            ),
+            patch(
+                "temporalio.activity.info",
+                return_value=MagicMock(activity_id="activity-id"),
+            ),
+            patch(
+                "mistralai.workflows.plugins.mistralai.connectors.mcp_apps.create_base_event_fields",
+                return_value={
+                    "event_id": "event-id",
+                    "root_workflow_exec_id": "workflow-id",
+                    "parent_workflow_exec_id": None,
+                    "workflow_exec_id": "workflow-id",
+                    "workflow_run_id": "run-id",
+                    "workflow_name": "workflow-name",
+                },
+            ),
+        ):
+            mock_client = AsyncMock()
+            mock_client.beta.connectors.call_tool_async.side_effect = RuntimeError("s3cret tool error")
+            mock_get_client.return_value = mock_client
+
+            with pytest.raises(RuntimeError):
+                await connector_tool_call.__wrapped__(
+                    connector_id_or_name="mcp_apps_test",
+                    tool_name="debug-tool",
+                    mcp_ui_resource_uri="ui://debug/app",
+                )
+
+        failed_event = publisher.publish_event_background.call_args_list[-1].args[0]
+        assert isinstance(failed_event, CustomTaskFailed)
+        assert failed_event.attributes.failure.message == expected_message
 
 
 # Mirrors ts/packages/integrations-api-client/src/integrations/mcp/ui-resource.test.ts

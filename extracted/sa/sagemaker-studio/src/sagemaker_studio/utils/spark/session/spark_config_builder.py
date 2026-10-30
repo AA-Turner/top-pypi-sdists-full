@@ -21,6 +21,95 @@ _stage = _utils._get_datazone_stage()
 
 logger = logging.getLogger("SparkConnect")
 
+# EMR-on-EKS still uses the server-side cutoff.
+EMR_SPARK_RELEASE_OPENLINEAGE_SERVER_SIDE = "emr-spark-8.2.0"
+
+
+def _parse_emr_release_version(release_label: str):
+    """Extract the numeric version tuple from an EMR release label.
+
+    Handles both 'emr-X.Y.Z' and 'emr-spark-X.Y.Z' formats, including a trailing
+    '-latest' (or any other non-numeric suffix) such as 'emr-spark-8.2.0-latest'.
+    Returns a list of ints (e.g. [8, 2, 0]) or None if no numeric components can
+    be parsed.
+    """
+    if not release_label or not isinstance(release_label, str):
+        return None
+    if release_label.startswith("emr-spark-"):
+        version_str = release_label[len("emr-spark-") :]
+    elif release_label.startswith("emr-"):
+        version_str = release_label[len("emr-") :]
+    else:
+        return None
+    # Strip a trailing suffix like '-latest' (e.g. 'emr-spark-8.2.0-latest').
+    version_str = version_str.split("-", 1)[0]
+    components = []
+    for part in version_str.split("."):
+        try:
+            components.append(int(part))
+        except (ValueError, TypeError):
+            # Stop at the first non-numeric component (defensive); keep what we have.
+            break
+    return components or None
+
+
+def openlineage_supported_for_glue_version(glue_version) -> bool:
+    """Return True when SMUS supports DataZone OpenLineage for this Glue version."""
+    try:
+        version = float(glue_version)
+    except (ValueError, TypeError):
+        return False
+    return version >= 5.0
+
+
+def openlineage_supported_for_emr_release(release_label: str) -> bool:
+    """Return True if the client should pass OpenLineage configs for this EMR release.
+
+    Client-supported below emr-spark-8.2.0. Classic emr-7.x labels and
+    unparseable/unknown labels keep the prior behaviour (return True).
+    """
+    current = _parse_emr_release_version(release_label)
+    cutoff = _parse_emr_release_version(EMR_SPARK_RELEASE_OPENLINEAGE_SERVER_SIDE)
+    # Only the emr-spark line reaches 8.2+; a classic emr-7.x label never trips
+    # the server-side cutoff and keeps passing OpenLineage.
+    if (
+        current is None
+        or not isinstance(release_label, str)
+        or not release_label.startswith("emr-spark-")
+    ):
+        return True
+    # Normalize lengths so a partial label (e.g. 'emr-spark-8.2' -> [8, 2]) is
+    # not treated as less than the cutoff ([8, 2, 0]) by lexicographic list
+    # comparison. Pad the shorter list with zeros before comparing.
+    n = max(len(current), len(cutoff))
+    current = current + [0] * (n - len(current))
+    cutoff = cutoff + [0] * (n - len(cutoff))
+    return current < cutoff
+
+
+def supports_native_fgac(release_label: str) -> bool:
+    """Whether an EMR release natively supports Lake Formation FGAC over Spark Connect.
+
+    Native FGAC requires EMR >= 7.14 (classic emr-7.x line) or emr-spark >= 8.1
+    (emr-spark line) -- a higher threshold than FTA/compatibility mode (emr-7.8.0).
+    Used by the EMR-S/EMR-EC2/EMR-EKS session managers to fail closed when a
+    connection requests FGAC on a release too old to enforce it. A trailing
+    '-latest' suffix is tolerated (handled by _parse_emr_release_version).
+    Unknown/empty labels return False.
+    """
+    version = _parse_emr_release_version(release_label)
+    if version is None:
+        return False
+    if release_label.startswith("emr-spark-"):
+        threshold = [8, 1]
+    else:  # classic emr-7.x line
+        threshold = [7, 14]
+    n = max(len(version), len(threshold))
+    version = version + [0] * (n - len(version))
+    threshold = threshold + [0] * (n - len(threshold))
+    return version >= threshold
+
+
 DEFAULT_SPARK_PROPS = {
     "spark.hive.metastore.client.factory.class": "com.amazonaws.glue.catalog.metastore.AWSGlueDataCatalogHiveClientFactory",
     "spark.sql.catalogImplementation": "hive",

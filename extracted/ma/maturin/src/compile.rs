@@ -542,6 +542,7 @@ fn configure_platform_linker_args(
             configure_macos_pyo3_linker_args(
                 cargo_rustc,
                 rustflags,
+                target,
                 bridge_model,
                 module_name,
                 python_interpreter,
@@ -587,6 +588,7 @@ fn configure_platform_linker_args(
 fn configure_macos_pyo3_linker_args(
     cargo_rustc: &mut cargo_options::Rustc,
     rustflags: &mut cargo_config2::Flags,
+    target: &Target,
     bridge_model: &BridgeModel,
     module_name: &str,
     python_interpreter: Option<&PythonInterpreter>,
@@ -616,11 +618,17 @@ fn configure_macos_pyo3_linker_args(
     let stable_abi_suffix = python_interpreter.and_then(|i| {
         bridge_model
             .stable_abi_for_interpreter(i)
-            .map(|stable_abi| stable_abi.kind.to_string())
+            .map(|stable_abi| {
+                let min_version = stable_abi
+                    .version
+                    .min_version()
+                    .unwrap_or((i.major as u8, i.minor as u8));
+                target.stable_abi_extension_suffix(stable_abi.kind, min_version, Some(i))
+            })
     });
 
     let so_filename = if let Some(suffix) = stable_abi_suffix {
-        format!("{module_name}.{suffix}.so")
+        format!("{module_name}{suffix}")
     } else {
         python_interpreter
             .expect("missing python interpreter for non-abi3 wheel build")
@@ -804,6 +812,10 @@ fn create_build_command(
                     target_triple.to_string()
                 };
                 build.cargo.target = vec![zig_triple];
+                if target.is_macos() && !context.project.editable {
+                    let (deployment_target, _) = macos_deployment_target(context, target_triple);
+                    build.macosx_deployment_target = Some(deployment_target);
+                }
             }
             build.build_command()?
         }
@@ -913,7 +925,8 @@ fn configure_pyo3_env(
             && (force_target_abi || !interpreter.runnable)
             && env::var_os("PYO3_CONFIG_FILE").is_none()
         {
-            let pyo3_config = interpreter.pyo3_config_file(target, stable_abi, use_target_abi);
+            let pyo3_config =
+                interpreter.pyo3_config_file_with_platform(target, stable_abi, use_target_abi);
             let maturin_target_dir = ensure_target_maturin_dir(&context.project.target_dir);
             let config_file = maturin_target_dir.join(format!(
                 "pyo3-config-{}-{}.{}{}.txt",
@@ -954,30 +967,33 @@ fn configure_pyo3_env(
         && target.is_macos()
         && env::var_os("MACOSX_DEPLOYMENT_TARGET").is_none()
     {
-        let target_config = context
-            .project
-            .pyproject_toml
-            .as_ref()
-            .and_then(|x| x.target_config(target_triple));
-        let deployment_target = if let Some(deployment_target) = target_config
-            .as_ref()
-            .and_then(|config| config.macos_deployment_target.as_ref())
-        {
-            eprintln!(
-                "💻 Using `MACOSX_DEPLOYMENT_TARGET={deployment_target}` for {target_triple} by configuration"
-            );
-            deployment_target.clone()
-        } else {
-            let (major, minor) = rustc_macosx_target_version(target_triple);
-            eprintln!(
-                "💻 Using `MACOSX_DEPLOYMENT_TARGET={major}.{minor}` for {target_triple} by default"
-            );
-            format!("{major}.{minor}")
-        };
+        let (deployment_target, source) = macos_deployment_target(context, target_triple);
+        eprintln!(
+            "💻 Using `MACOSX_DEPLOYMENT_TARGET={deployment_target}` for {target_triple} by {source}"
+        );
         build_command.env("MACOSX_DEPLOYMENT_TARGET", deployment_target);
     }
 
     Ok(())
+}
+
+fn macos_deployment_target(context: &BuildContext, target_triple: &str) -> (String, &'static str) {
+    if let Ok(deployment_target) = env::var("MACOSX_DEPLOYMENT_TARGET") {
+        return (deployment_target, "environment");
+    }
+    let target_config = context
+        .project
+        .pyproject_toml
+        .as_ref()
+        .and_then(|x| x.target_config(target_triple));
+    if let Some(deployment_target) = target_config
+        .as_ref()
+        .and_then(|config| config.macos_deployment_target.as_ref())
+    {
+        return (deployment_target.clone(), "configuration");
+    }
+    let (major, minor) = rustc_macosx_target_version(target_triple);
+    (format!("{major}.{minor}"), "default")
 }
 
 fn compile_target(

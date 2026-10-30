@@ -11,7 +11,13 @@ The SDK is organized into three main modules:
 - desktop: Desktop environment interaction tools
 """
 
-__version__ = "1.0.0"
+from importlib import metadata as _metadata
+
+try:
+    __version__ = _metadata.version("novita-sandbox")
+except _metadata.PackageNotFoundError:
+    __version__ = "0.0.0"
+
 __author__ = "Novita"
 __email__ = "support@novita.ai"
 

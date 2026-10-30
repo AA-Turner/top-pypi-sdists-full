@@ -18,7 +18,7 @@ class WorkspaceAccessResponseOut(UniversalBaseModel):
 
     workspace_access: str = pydantic.Field()
     """
-    Workspace access level that was set ('view' or 'edit')
+    Workspace access level now on the asset: 'view', 'edit', or 'none' when the workspace-wide share was removed
     """
 
     if IS_PYDANTIC_V2:

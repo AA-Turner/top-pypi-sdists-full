@@ -5,6 +5,25 @@ from .data_models import ClientConfig  # noqa: F401
 from .database.database import Database  # noqa: F401
 from .database.table import Column, Table  # noqa: F401
 from .domain import Domain  # noqa: F401
+from .exceptions import (  # noqa: F401
+    AccessDeniedError,
+    CatalogUnavailableError,
+    CredentialsExpiredError,
+    CredentialsUnavailableError,
+    LocalAppError,
+    LocalAppUnavailableError,
+    StudioContextError,
+    UnsupportedInModeError,
+)
+from .local_kernel import (  # noqa: F401
+    RuntimeMode,
+    StudioContext,
+    configure_local_kernel,
+    current_context,
+    is_local_kernel,
+    reset_local_kernel,
+    runtime_mode,
+)
 from .project import Project  # noqa: F401
 from .sagemaker_studio_api import SageMakerStudioAPI  # noqa: F401
 from .utils import dataframeutils  # noqa: F401

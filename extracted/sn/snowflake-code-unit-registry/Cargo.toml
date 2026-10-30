@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/scai-error-derive", "crates/scai-log", "crates/scai-state-core", "crates/scai-state-python"]
 
 [workspace.package]
-version = "0.9.5"
+version = "0.9.7"
 edition = "2021"
 license = "SEE LICENSE IN LICENSE"
 repository = "https://github.com/snowflake-eng/scai-state"
@@ -20,6 +20,10 @@ uuid = { version = "1.0", features = ["v4"] }
 fs2 = "0.4"
 sqlparser = "0.63"
 criterion = { version = "0.8", features = ["html_reports"] }
+# No default features: they add `resolve-http` (reqwest/rustls/aws-lc-rs) for
+# remote `$ref`s, and the registry schema only uses local `#/definitions`.
+# crates/scai-state-csharp/tests/no_network_deps.rs keeps them out.
+jsonschema = { version = "0.59", default-features = false }
 
 [profile.profiling]
 inherits = "release"

@@ -281,7 +281,7 @@ def test_an_html_push_meets_the_servers_own_refusals():
     route = f"/v1/projects/{PROJECT}/experiments/{SVM}/summary"
     assert fake.html_checks == "server"
     for html, code, words in (
-        ("<p>ok</p><script>alert(1)</script>", "script_refused", "PROBE.lineChart"),
+        ("<p>ok</p><script>alert(1)</script>", "script_refused", "inside the <figure> it draws"),
         ("<h1>Title</h1><p>ok</p>", "page_refused", "<h1>"),
         (_page("acc", metric="val_loss"), "series_refused", "val_loss"),
         (_page().replace("<p>An SVM", '<p onclick="x()">An SVM'), "script_refused", "onclick"),

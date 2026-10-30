@@ -16,6 +16,14 @@ included) or a FIFO is skipped, and a file is opened without following one. The
 first look is a baseline: files that were there before the daemon started are
 not "new". The walk runs off the event loop (`check_async`); the store is
 touched only on it.
+
+What is not looked at (swarm friction T17, measured on one long session's
+store, 10-28: file events were 78% of its event text): a package tree or a
+cache (a folder holding CACHEDIR.TAG or a `*.dist-info` child: a `pip install
+--target` and a uv cache, 20.3%), and a folder the agent only `cd`'d into to
+read (`cd ~/repo && git log | head`: other repos whose shared checkouts moved,
+28.7%). A file that changed at two checks in a row is growing (a log, a status
+file: 10.6%): one GROWING line, then one `changed` line once it stops.
 """
 
 from __future__ import annotations
@@ -58,6 +66,51 @@ _SYSTEM_TREES = tuple(Path(p) for p in (
 ))
 SKIP_DIRS = {".git", "node_modules", ".venv", "venv", "__pycache__", ".mypy_cache", ".pytest_cache", ".ruff_cache",
              ".tox", "dist", "build", ".cache", "wandb", ".ipynb_checkpoints", "site-packages"}
+#: A folder holding this file is a cache (uv's, cargo's, pytest's: the Cache
+#: Directory Tagging spec), never walked.
+CACHE_TAG = "CACHEDIR.TAG"
+#: A folder holding a child folder named so is a package tree (`pip install
+#: --target`, a site-packages by another name), never walked. An `*.egg-info`
+#: counts only when there are two or more: one is a source tree's own (`pip
+#: install -e .` writes `<name>.egg-info` beside the code).
+PACKAGE_INFO = ".dist-info"
+EGG_INFO = ".egg-info"
+#: A changed file that also changed at the check before is growing: one line says
+#: so, then nothing until it has been quiet for QUIET_CHECKS checks (or the
+#: session ends), and then one `changed` line whose open shows the whole change
+#: since it started growing (R35). Wording NEW
+#: (fixtures/daemon_prompts/bite/file-growing.NEW.md).
+GROWING = "growing {path} ({before:,} -> {after:,} bytes, {delta:+,}): one changed line follows once it stops"
+QUIET_CHECKS = 2
+#: Store fact: how many folder checks this session's store has had (`files.changed_at`).
+CHECKS = "folder_checks"
+#: The commands that only read: a folder the agent `cd`'d into to run only these
+#: (`_reads_only`) is not a working folder. Not when one rewrites a file it
+#: names (`_in_place`: `sed -i`, `yq -i`, `sort -o`, ...), nor `find` with an
+#: action that writes or runs; `git` with a verb that leaves the files alone.
+READ_COMMANDS = frozenset({
+    "ag", "awk", "basename", "bat", "cat", "cmp", "column", "cut", "date", "df", "diff", "dirname", "du", "echo",
+    "egrep", "false", "fd", "fgrep", "file", "gawk", "grep", "head", "hexdump", "jq", "less", "ls", "md5sum", "more",
+    "nl", "od", "printf", "pwd", "readlink", "realpath", "rg", "sed", "sha1sum", "sha256sum", "sleep", "sort",
+    "stat", "strings", "tail", "test", "tr", "tree", "true", "type", "uniq", "wc", "which", "xxd", "yq", "[",
+})
+GIT_READ_VERBS = frozenset({
+    "blame", "branch", "cat-file", "describe", "diff", "fetch", "grep", "log", "ls-files", "ls-tree", "reflog",
+    "remote", "rev-list", "rev-parse", "shortlog", "show", "status",
+})
+#: `kubectl` reads the cluster, never a file, with these (its options take values
+#: before the verb, so it is judged by its words: a read verb and no other).
+KUBECTL_READ_VERBS = frozenset({"api-resources", "auth", "describe", "explain", "get", "logs", "top", "version"})
+_KUBECTL_OTHER_VERBS = frozenset({"annotate", "apply", "attach", "cordon", "cp", "create", "debug", "delete", "drain",
+                                  "edit", "exec", "label", "patch", "port-forward", "replace", "rollout", "run",
+                                  "scale", "set", "uncordon"})
+#: Words that open or close a compound command (`if ...; then`, `do ... done`):
+#: not commands themselves. A loop or case header names words, not a command.
+_SHELL_WORDS = frozenset({"!", "{", "}", "do", "done", "elif", "else", "esac", "fi", "if", "then", "time", "until",
+                          "while"})
+_SHELL_HEADERS = frozenset({"case", "for", "select"})
+_FIND_ACTIONS = frozenset({"-delete", "-exec", "-execdir", "-ok", "-okdir", "-fprint", "-fprint0", "-fprintf",
+                           "-fls"})
 log = logging.getLogger("probe.daemon.folders")
 #: The errors `working_folders` has warned about, in this process.
 _SKIPPED: set[tuple[str, str]] = set()
@@ -154,6 +207,25 @@ def _ok_folder(path: Path, home: Path, cwd: Path | None = None) -> bool:
 _REDIRECTS = {">", ">>", ">|", "&>", "&>>", "1>", "2>", "1>>", "2>>"}
 
 
+def _short_flag(words: list[str], letter: str) -> bool:
+    """Whether one of `words` is a short flag group holding `letter` (`-i`, `-Ei`, `-i.bak`)."""
+    return any(w.startswith("-") and not w.startswith("--") and letter in w[1:] for w in words)
+
+
+def _in_place(head: str, words: list[str]) -> bool:
+    """Whether `head words...` rewrites a file it names (`sed -i`/`-Ei`, `yq -i`,
+    `sort -o`, `awk -i inplace`, `uniq IN OUT`), though `head` mostly reads."""
+    if head in ("sed", "yq"):
+        return _short_flag(words, "i") or any(w.startswith(("--in-place", "--inplace")) for w in words)
+    if head == "sort":
+        return _short_flag(words, "o") or any(w.startswith("--output") for w in words)
+    if head in ("awk", "gawk"):
+        return "inplace" in words or any(w.startswith("--include=inplace") for w in words)
+    if head == "uniq":
+        return len([w for w in words if not w.startswith("-")]) >= 2
+    return False
+
+
 def written_paths(command: str) -> list[str]:
     """Paths a shell command WRITES (R5: shlex tokens, never first-word heads):
     redirect targets, `tee FILE`, `sed -i ... FILE`, and the destination of `cp`
@@ -177,7 +249,7 @@ def written_paths(command: str) -> list[str]:
         args = [w for w in words[1:] if not w.startswith("-")]
         if head == "tee":
             out.extend(args)
-        elif head == "sed" and any(w == "-i" or w.startswith("-i") or w == "--in-place" for w in words[1:]):
+        elif head == "sed" and _in_place(head, words[1:]):
             out.extend(args[1:] if args else [])
         elif head in ("cp", "mv", "install", "rsync") and len(args) >= 2:
             out.append(args[-1])
@@ -225,13 +297,77 @@ def working_folders(store: Store, cwd: Path, home: Path) -> list[Path]:
     return kept or ([cwd.resolve()] if _is_dir(cwd) else [])
 
 
+def _reads_only(command: str, folder: Path) -> bool:
+    """Whether `command` (what ran after a `cd` into `folder`) only reads there:
+    every simple command in it, a command substitution's included, is a
+    READ_COMMANDS one, and nothing is redirected into `folder` (a redirect to
+    /dev/null, another stream or an absolute path elsewhere is not; that path's
+    folder is a working folder of its own, `written_paths`). Nothing at all (a
+    bare `cd`), or anything it cannot tell, is not."""
+    try:
+        lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|<>()")
+        lexer.whitespace_split = True
+        tokens = list(lexer)
+    except ValueError:
+        return False
+    inside = os.path.normpath(str(folder))
+    segments: list[list[str]] = [[]]
+    i = 0
+    while i < len(tokens):
+        tok = tokens[i]
+        if tok in _REDIRECTS or (tok.endswith(">") and tok.rstrip(">").isdigit()) or tok in (">&", "<", "<<"):
+            target = tokens[i + 1] if i + 1 < len(tokens) else ""
+            elsewhere = target == "/dev/null" or target.startswith("&") or target.isdigit() or tok in ("<", "<<")
+            if not elsewhere:
+                path = os.path.expanduser(target)
+                elsewhere = os.path.isabs(path) and not (os.path.normpath(path) + "/").startswith(inside + "/")
+            if not elsewhere:
+                return False
+            i += 2
+            continue
+        if tok in (";", "&&", "||", "|", "&", "\n", "(", ")"):
+            segments.append([])
+        else:
+            segments[-1].append(tok)
+        i += 1
+    words_seen = False
+    for words in segments:
+        while words and (re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", words[0]) or words[0] in _SHELL_WORDS):
+            words = words[1:]
+        if not words or words[0] in _SHELL_HEADERS:
+            continue
+        words_seen = True
+        head = words[0].rsplit("/", 1)[-1]
+        if head == "git":
+            rest = words[1:]
+            while rest and rest[0].startswith("-"):
+                rest = rest[2:] if rest[0] in ("-C", "-c") else rest[1:]
+            if not rest or rest[0] not in GIT_READ_VERBS:
+                return False
+        elif head == "kubectl":
+            if not KUBECTL_READ_VERBS.intersection(words[1:]) or _KUBECTL_OTHER_VERBS.intersection(words[1:]):
+                return False
+        elif _in_place(head, words[1:]):
+            return False
+        elif head == "find":
+            if any(w in _FIND_ACTIONS for w in words[1:]):
+                return False
+        elif head not in READ_COMMANDS:
+            return False
+    return words_seen
+
+
 def _row_folders(row, cwd: Path, home: Path, found: list[Path]) -> None:
-    """The folders one stored tool call names, added to `found`."""
+    """The folders one stored tool call names, added to `found`. A folder `cd`'d
+    into only to read (`_reads_only`) is not one; one written in still is."""
     base = Path(row["cwd"]) if row["cwd"] else cwd
-    for match in _CD_RE.findall(row["command"] or ""):
-        target = Path(os.path.expanduser(match.strip("'\"")))
+    command = row["command"] or ""
+    cds = list(_CD_RE.finditer(command))
+    for n, found_cd in enumerate(cds):
+        target = Path(os.path.expanduser(found_cd.group(1).strip("'\"")))
         target = target if target.is_absolute() else base / target
-        if _ok_folder(target, home, cwd) and target.resolve() not in found:
+        after = command[found_cd.end():cds[n + 1].start() if n + 1 < len(cds) else len(command)]
+        if _ok_folder(target, home, cwd) and target.resolve() not in found and not _reads_only(after, target):
             found.append(target.resolve())
         base = target if _is_dir(target) else base
     for written in written_paths(row["command"] or ""):
@@ -254,10 +390,19 @@ def _row_folders(row, cwd: Path, home: Path, found: list[Path]) -> None:
                 found.append(folder.resolve())
 
 
+def _package_tree(dirs: list[str], files: list[str]) -> bool:
+    """A folder that is a cache or a package tree (CACHE_TAG, PACKAGE_INFO, EGG_INFO)."""
+    return (CACHE_TAG in files or any(d.endswith(PACKAGE_INFO) for d in dirs)
+            or sum(d.endswith(EGG_INFO) for d in dirs) >= 2)
+
+
 def _walk(folder: Path):
     count = 0
     base_depth = len(folder.parts)
     for root, dirs, files in os.walk(folder):
+        if _package_tree(dirs, files):
+            dirs[:] = []
+            continue
         depth = len(Path(root).parts) - base_depth
         dirs[:] = [d for d in dirs if d not in SKIP_DIRS and not d.startswith(".") and depth < MAX_DEPTH]
         for name in files:
@@ -366,47 +511,90 @@ def _prepare(store: Store, cwd: Path, home: Path, workdirs: list[Path] | None):
     return folders, store.file_snapshot(), checker._secret, room
 
 
-def _apply(store: Store, seen: list[Seen], *, emit: bool) -> int:
+def _changed(path: str, before: int, after: int, old: str | None, new: str | None) -> str:
+    """A changed file's event text: its first line, then the diff when both texts are kept."""
+    what = f"changed {path} ({before:,} -> {after:,} bytes)"
+    if new is not None and old is not None:
+        diff = "\n".join(difflib.unified_diff(old.splitlines(), new.splitlines(), lineterm="", n=1))
+        what += "\n" + diff[:MAX_DIFF_CHARS]
+    return what
+
+
+def _event(store: Store, text: str, mtime: float) -> Event:
+    # Stamped with the file's own mtime, so a change the agent made while it held
+    # Probe (`/probe inline`) is placed like any of its turns.
+    return Event(kind=Kind.FILE_CHANGE, stream="folders", offset=store.next_offset(), text=text,
+                 ts=_mtime_stamp(mtime))
+
+
+def _apply(store: Store, seen: list[Seen], *, emit: bool, flush: bool = False,
+           excluded: "Callable[[str], bool] | None" = None) -> int:
+    """`seen` into the store, and the events they make. `emit=False` only moves the
+    snapshot on, and a file that changes then stops growing unannounced. `flush`
+    (the session ends): every growing file gets its `changed` line now. A growing
+    file a `.probe.config` excludes (`excluded`) by then stops growing unannounced."""
     events: list[Event] = []
     with store.tx():
+        check = int(store.fact(CHECKS) or 0) + 1
+        store.set_fact(CHECKS, check)
         for s in seen:
             row = store.file_row(s.path)
-            if emit:
-                if s.secret:
-                    what = (f"{'new' if row is None else 'changed'} file {s.path} ({s.size:,} bytes): a "
-                            "credential-shaped name, so its content is not read")
-                elif row is None:
-                    what = f"new file {s.path} ({s.size:,} bytes)"
-                    if s.text:
-                        what += "\n" + s.text[:1500]
-                else:
-                    what = f"changed {s.path} ({row['size']:,} -> {s.size:,} bytes)"
-                    if s.text is not None and row["text"] is not None:
-                        diff = "\n".join(difflib.unified_diff(row["text"].splitlines(), s.text.splitlines(),
-                                                              lineterm="", n=1))
-                        what += "\n" + diff[:MAX_DIFF_CHARS]
-                # Stamped with the file's own mtime, so a change the agent made while it
-                # held Probe (`/probe inline`) is placed like any of its turns.
-                events.append(Event(kind=Kind.FILE_CHANGE, stream="folders", offset=store.next_offset(), text=what,
-                                    ts=_mtime_stamp(s.mtime)))
-            store.set_file(s.path, s.size, s.mtime, s.text)
+            if not emit:
+                if row is not None and row["growing_size"] is not None:
+                    store.stop_growing(s.path)
+                store.set_file(s.path, s.size, s.mtime, s.text)
+                continue
+            if row is not None and (row["growing_size"] is not None or row["changed_at"] == check - 1):
+                if row["growing_size"] is None:
+                    events.append(_event(store, GROWING.format(path=s.path, before=row["size"], after=s.size,
+                                                               delta=s.size - row["size"]), s.mtime))
+                    base = row["text"]
+                    if base is not None and store.stored_text_bytes() + len(base) > MAX_TEXT_STORED:
+                        base = None  # over the session's text budget: the line once it stops has no diff
+                    store.start_growing(s.path, row["size"], base)
+                store.set_file(s.path, s.size, s.mtime, s.text, changed_at=check)
+                continue
+            if s.secret:
+                what = (f"{'new' if row is None else 'changed'} file {s.path} ({s.size:,} bytes): a "
+                        "credential-shaped name, so its content is not read")
+            elif row is None:
+                what = f"new file {s.path} ({s.size:,} bytes)"
+                if s.text:
+                    what += "\n" + s.text[:1500]
+            else:
+                what = _changed(s.path, row["size"], s.size, row["text"], s.text)
+            events.append(_event(store, what, s.mtime))
+            store.set_file(s.path, s.size, s.mtime, s.text, changed_at=check)
+        if emit:
+            for row in store.growing_files(changed_before=None if flush else check - QUIET_CHECKS + 1):
+                if excluded is None or not excluded(row["path"]):
+                    events.append(_event(store, _changed(row["path"], row["growing_size"], row["size"],
+                                                         row["growing_text"], row["text"]), row["mtime"] or 0.0))
+                store.stop_growing(row["path"])
         if events:
             store.add(events)
     return len(events)
 
 
+def growing(store: Store) -> bool:
+    """Whether a file is growing (GROWING): its `changed` line is still owed."""
+    return bool(store.growing_files())
+
+
 def check(store: Store, cwd: Path, home: Path, *, emit: bool = True, workdirs: list[Path] | None = None,
-          excluded: "Callable[[str], bool] | None" = None) -> int:
+          excluded: "Callable[[str], bool] | None" = None, flush: bool = False) -> int:
     folders, known, is_secret, room = _prepare(store, cwd, home, workdirs)
-    return _apply(store, scan(folders, known, is_secret=is_secret, text_room=room, excluded=excluded), emit=emit)
+    return _apply(store, scan(folders, known, is_secret=is_secret, text_room=room, excluded=excluded), emit=emit,
+                  flush=flush, excluded=excluded)
 
 
 async def check_async(store: Store, cwd: Path, home: Path, *, emit: bool = True,
-                      workdirs: list[Path] | None = None, excluded: "Callable[[str], bool] | None" = None) -> int:
+                      workdirs: list[Path] | None = None, excluded: "Callable[[str], bool] | None" = None,
+                      flush: bool = False) -> int:
     """`check`, with the walk in a thread: a big folder never stalls the loop."""
     folders, known, is_secret, room = _prepare(store, cwd, home, workdirs)
     seen = await asyncio.to_thread(scan, folders, known, is_secret=is_secret, text_room=room, excluded=excluded)
-    return _apply(store, seen, emit=emit)
+    return _apply(store, seen, emit=emit, flush=flush, excluded=excluded)
 
 
 async def baseline(store: Store, cwd: Path, home: Path, *, excluded: "Callable[[str], bool] | None" = None) -> None:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: geetools
-Version: 1.19.0
+Version: 1.20.0
 Summary: A collection of tools to work with Google Earth Engine Python API
 Project-URL: Homepage, https://github.com/gee-community/geetools
 Author-email: "Rodrigo E. Principe" <fitoprincipe82@gmail.com>
@@ -23,6 +23,7 @@ Requires-Dist: earthengine-api>=1.6.12
 Requires-Dist: geopandas
 Requires-Dist: matplotlib
 Requires-Dist: pandas
+Requires-Dist: pyproj>=3.1
 Requires-Dist: requests
 Requires-Dist: xee>=0.1.0
 Requires-Dist: yamlable
@@ -47,11 +48,11 @@ Provides-Extra: test
 Requires-Dist: httplib2; extra == 'test'
 Requires-Dist: jsonschema; extra == 'test'
 Requires-Dist: pillow; extra == 'test'
-Requires-Dist: pytest; extra == 'test'
 Requires-Dist: pytest-cov; extra == 'test'
 Requires-Dist: pytest-deadfixtures; extra == 'test'
 Requires-Dist: pytest-gee>=0.6.0; extra == 'test'
 Requires-Dist: pytest-regressions; extra == 'test'
+Requires-Dist: pytest<9.2.0; extra == 'test'
 Description-Content-Type: text/x-rst
 
 .. |license| image:: https://img.shields.io/badge/License-MIT-yellow.svg?logo=opensourceinitiative&logoColor=white

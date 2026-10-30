@@ -23,7 +23,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import IO, Any, Dict, List, Optional
 
-import httpx
 import jsonpatch  # type: ignore[import-untyped]
 from dotenv import load_dotenv
 from mistralai.client.sdk import Mistral
@@ -34,7 +33,9 @@ from rich.table import Table
 
 load_dotenv()
 
+from mistralai.workflows._mistral_http import MISTRAL_HTTP
 from mistralai.workflows.client import get_mistral_client, translate_model
+from mistralai.workflows.core.config.config import setup_default_logging
 from mistralai.workflows.protocol.v1.events import (
     CustomTaskCanceled,
     CustomTaskCompleted,
@@ -869,7 +870,7 @@ async def stream_workflow(
                             user_input=user_payload,
                         )
                         stream_console.print(view.render())
-        except httpx.RemoteProtocolError as e:
+        except MISTRAL_HTTP.RemoteProtocolError as e:
             # Server closed the SSE connection - this typically happens when:
             # - Kong gateway timeout (default 60s read_timeout in scripts/gateway/kong.yaml)
             # - The workflow completed and the stream ended
@@ -892,7 +893,7 @@ async def stream_workflow(
                         border_style="red",
                     )
                 )
-        except httpx.ReadTimeout:
+        except MISTRAL_HTTP.ReadTimeout:
             stream_console.print(
                 Panel(
                     "[yellow]Stream read timeout.[/]\nThe server did not send any data within the timeout period.",
@@ -993,6 +994,7 @@ async def main_async() -> None:
 
 
 def main() -> None:
+    setup_default_logging()
     try:
         asyncio.run(main_async())
     except KeyboardInterrupt:

@@ -4,7 +4,7 @@ requires = ["setuptools", "wheel"]
 
 [project]
 name = "rioxarray"
-version = "0.23.0"
+version = "0.24.0"
 description = "geospatial xarray extension powered by rasterio"
 maintainers = [
     {name = "rioxarray Contributors"},
@@ -24,21 +24,21 @@ classifiers = [
     "Operating System :: OS Independent",
     "Topic :: Scientific/Engineering :: GIS",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: 3",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Typing :: Typed",
 ]
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 dependencies = [
-    "packaging",
-    "rasterio>=1.4.3",
+    "rasterio>=1.5.1",
+    "affine>=3",
     # https://github.com/pydata/xarray/issues/11000
     "xarray>=2026.2",
-    "pyproj>=3.3",
-    "numpy>=2",
+    "pyproj>=3.7",
+    "numpy>=2.1",
 ]
 
 [dependency-groups]
@@ -54,6 +54,7 @@ test = [
     "pytest-timeout",
     "dask",
     "netcdf4",
+    "packaging",
 ]
 type = [
     "mypy",
@@ -70,10 +71,10 @@ dev = [
 ]
 
 [project.urls]
-homepage = "https://corteva.github.io/rioxarray/"
-documentation = "https://corteva.github.io/rioxarray/"
-repository = "https://github.com/corteva/rioxarray"
-changelog = "https://corteva.github.io/rioxarray/stable/history.html"
+homepage = "https://vylor.github.io/rioxarray/"
+documentation = "https://vylor.github.io/rioxarray/"
+repository = "https://github.com/vylor/rioxarray"
+changelog = "https://vylor.github.io/rioxarray/stable/history.html"
 
 [tool.setuptools.packages.find]
 include = ["rioxarray", "rioxarray.*"]

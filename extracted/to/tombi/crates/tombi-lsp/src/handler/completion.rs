@@ -16,18 +16,12 @@ pub async fn handle_completion(
     backend: &backend::Backend,
     params: CompletionParams,
 ) -> Result<Option<Vec<CompletionContent>>, tower_lsp_server::jsonrpc::Error> {
-    log::trace!("{:?}", params);
-
-    let CompletionParams {
-        text_document_position_params:
-            TextDocumentPositionParams {
-                text_document,
-                position,
-            },
-        ..
-    } = params;
-
-    let text_document_uri = text_document.uri.into();
+    let text_document_uri: tombi_uri::Uri = params
+        .text_document_position_params
+        .text_document
+        .uri
+        .clone()
+        .into();
 
     let ConfigSchemaStore {
         config,
@@ -41,12 +35,12 @@ pub async fn handle_completion(
     if !config
         .lsp
         .as_ref()
-        .and_then(|server| server.completion.as_ref())
+        .and_then(|lsp| lsp.completion.as_ref())
         .and_then(|completion| completion.enabled)
         .unwrap_or_default()
         .value()
     {
-        log::debug!("`server.completion.enabled` is false");
+        log::debug!("skip completion because `lsp.completion.enabled` is false.");
         return Ok(None);
     }
 
@@ -57,11 +51,17 @@ pub async fn handle_completion(
         .unwrap_or_default()
         .value()
     {
-        log::debug!("`schema.enabled` is false");
+        log::debug!("skip completion because `schema.enabled` is false.");
         return Ok(None);
     }
 
     log::info!("handle_completion");
+    log::debug!("{:?}", params);
+
+    let CompletionParams {
+        text_document_position_params: TextDocumentPositionParams { position, .. },
+        ..
+    } = params;
 
     let Ok(document_sources) = backend.document_sources.try_read() else {
         return Ok(None);

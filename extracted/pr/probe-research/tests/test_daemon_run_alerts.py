@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import shutil
 import time
 from pathlib import Path
 
@@ -417,11 +418,29 @@ def _marker() -> dict:
 def test_the_lane_offers_the_service_the_poll_with_the_config_it_reads_and_takes_it_back(tmp_path):
     lane = _offered(tmp_path)
     assert lane.offered == str(tmp_path / "no-config.json")
-    assert _marker() == {"pid": os.getpid(), "requests": 1, "run_alerts": 1, "config": lane.offered}
+    assert _marker() == {"pid": os.getpid(), "requests": 1, "request_chars": mailbox.REQUEST_MAX_CHARS, "run_alerts": 1, "config": lane.offered}
     asyncio.run(lane.stop())
     assert lane.offered is None
-    assert _marker() == {"pid": os.getpid(), "requests": 1}, "the offer goes, the marker stays"
+    assert _marker() == {"pid": os.getpid(), "requests": 1, "request_chars": mailbox.REQUEST_MAX_CHARS}, "the offer goes, the marker stays"
     assert mailbox.accepts_requests(SID)
+
+
+def test_a_worker_writes_its_lost_marker_again_at_its_next_poll(tmp_path):
+    """#3616: an SDK's dead-run recovery deleted the whole `requests/` folder,
+    marker included: `probe ask --writer` refused the live worker as one from
+    before requests, and the service stopped polling its alerts. Its next poll
+    writes the marker back as it was. A worker `run_session` did not start
+    (a replay, a test's) writes none."""
+    lane = _offered(tmp_path)
+    w = lane.w
+    w.run_alerts, before = lane, _marker()
+    shutil.rmtree(mailbox.requests_dir(SID).parent)
+    _set_state("off")  # the shortest poll: it ends the worker, after the mailbox
+    assert asyncio.run(w.tick()) == 0
+    assert not mailbox.worker_marker_path(SID).exists()
+    w.marks_requests = True
+    assert asyncio.run(w.tick()) == 0
+    assert _marker() == before and mailbox.accepts_requests(SID)
 
 
 @pytest.mark.parametrize("name", ["PROBE_DAEMON_KEY", "PROBE_BASE_URL"])

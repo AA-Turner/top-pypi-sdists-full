@@ -1,15 +1,19 @@
 import typing as ty
 
 import typing_extensions as te
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db.models import JSONField, Model
 from django.db.models.expressions import BaseExpression
 
 from django_pydantic_field import compat, types
 
-__all__ = ("PydanticSchemaField", "SchemaField")
+__all__ = ("PydanticDjangoJSONEncoder", "PydanticSchemaField", "SchemaField")
 
-_AnnotatedAlias = type(te.Annotated[types.ST, ...])
+class PydanticDjangoJSONEncoder(DjangoJSONEncoder): ...
+
+_AnnotatedAlias: ty.TypeAlias = ty.Any
 _DT: ty.TypeAlias = ty.Any
+_SchemaT = ty.TypeVar("_SchemaT")
 
 @ty.type_check_only
 class SchemaAttribute(ty.Generic[types.ST]):
@@ -21,18 +25,34 @@ class SchemaAttribute(ty.Generic[types.ST]):
     @ty.overload
     def __get__(self, instance: ty.Any, owner: ty.Any) -> types.ST: ...
 
-class PydanticSchemaField(JSONField[types.ST, types.ST]):
-    def __set__(self, instance: ty.Any, value: types.ST) -> None: ...
+class PydanticSchemaField(JSONField[_SchemaT, _SchemaT]):
+    def __set__(self, instance: ty.Any, value: _SchemaT) -> None: ...
     @ty.overload
-    def __get__(self, instance: None, owner: ty.Any) -> SchemaAttribute[types.ST]: ...
+    def __get__(self, instance: None, owner: ty.Any) -> SchemaAttribute[_SchemaT]: ...
     @ty.overload
-    def __get__(self, instance: Model, owner: ty.Any) -> types.ST: ...
+    def __get__(self, instance: Model, owner: ty.Any) -> _SchemaT: ...
     @ty.overload
-    def __get__(self, instance: ty.Any, owner: ty.Any) -> types.ST: ...  # type: ignore[invalid-method-override]
+    def __init__(
+        self: PydanticSchemaField[types.ST | None],
+        schema: type[types.ST] | type[types.ST | None],
+        config: types.ConfigType | None = ...,
+        *args: ty.Any,
+        null: ty.Literal[True],
+        **kwargs: ty.Any,
+    ) -> None: ...
+    @ty.overload
+    def __init__(
+        self: PydanticSchemaField[types.ST],
+        schema: type[types.ST],
+        config: types.ConfigType | None = ...,
+        *args: ty.Any,
+        **kwargs: ty.Any,
+    ) -> None: ...
+    @ty.overload
     def __init__(
         self,
         # fmt: off
-        schema: type[types.ST] | ty.ForwardRef | str | _AnnotatedAlias | compat.django.GenericContainer | None = ...,
+        schema: type[_SchemaT] | ty.ForwardRef | str | _AnnotatedAlias | compat.django.GenericContainer | None = ...,
         # fmt: on
         config: types.ConfigType | None = ...,
         *args: ty.Any,

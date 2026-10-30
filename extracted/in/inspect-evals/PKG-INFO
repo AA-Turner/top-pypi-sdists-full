@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inspect_evals
-Version: 0.26.0
+Version: 0.27.0
 Summary: Collection of large language model evaluations
 Author: UK AI Security Institute
 License-Expression: MIT
@@ -27,7 +27,7 @@ Requires-Dist: datasets>=4.8.5
 Requires-Dist: huggingface_hub>=1.2.0
 Requires-Dist: hf_xet
 Requires-Dist: httpx>=0.27.0
-Requires-Dist: inspect_ai>=0.3.278
+Requires-Dist: inspect_ai>=0.3.285
 Requires-Dist: jinja2
 Requires-Dist: numpy>=1.26.0
 Requires-Dist: pillow>=11.3.0
@@ -151,6 +151,7 @@ Provides-Extra: cje
 Requires-Dist: cje-eval>=0.6.0; extra == "cje"
 Provides-Extra: theagentcompany
 Requires-Dist: inspect_cyber; extra == "theagentcompany"
+Requires-Dist: mcp>=1.23.0; extra == "theagentcompany"
 Requires-Dist: pandas; extra == "theagentcompany"
 Requires-Dist: openpyxl; extra == "theagentcompany"
 Requires-Dist: odfpy>=1.4.1; extra == "theagentcompany"

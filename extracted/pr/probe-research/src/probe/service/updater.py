@@ -294,6 +294,14 @@ def log(message: str) -> None:
 # -- is the machine quiet? (plan X1) -----------------------------------------
 
 
+def setup_running(extra_dirs=()) -> bool:
+    """Does a Probe setup hold the device now: a `probe wizard`, `probe update`
+    or `probe uninstall` (run from a terminal or anywhere else), by its
+    `wizard.lock` in any state folder this service knows of (`state_dirs`)?
+    What writes Codex's config beside it waits (`codextrust`)."""
+    return any(_flock_held(state / WIZARD_LOCK_NAME) for state in state_dirs(extra_dirs))
+
+
 def _flock_held(path: Path) -> bool:
     """Is this lock file held by anyone? Absent: no. Unknown: yes (fail closed).
 
@@ -1083,7 +1091,7 @@ class Updater:
         self.send_app_check = send_app_check
         #: Is that app connection still open?
         self.app_alive = app_alive
-        #: Called when what holds the service changes (a cycle starts or ends).
+        #: Called when what holds the service changes (a cycle starts, lets go of the slot, or ends).
         self.changed = changed
         self.stop = stop
         self.action_running = action_running
@@ -1117,7 +1125,8 @@ class Updater:
         self.step: str | None = None
         self.task: asyncio.Task | None = None
         #: True from a cycle's start to the end of its CLI-and-plugins step: the
-        #: one mutating slot is the update's (`action.run` answers busy).
+        #: one mutating slot is the update's (`action.run` queues an action
+        #: behind it, and answers an Update busy).
         self.slot = False
         self.hold_until = 0.0  # monotonic
         #: A check_now that came while discovering: its trigger.
@@ -1748,7 +1757,12 @@ class Updater:
             self.emit(Topic.UPDATE_DEFERRED, {"cycle_id": None, "reason": DeferReason.AUTO_UPDATE_OFF, "trigger": trigger})
             return {"outcome": CheckOutcome.DEFERRED, "reason": DeferReason.AUTO_UPDATE_OFF}
         last = self.last_check
-        if last is not None and 0 <= time.time() - last < CHECK_NOW_COOLDOWN_S and not self.moved_back():
+        # The lifeboat's ask (`keeper`) is never `recent`: it asks only when it
+        # saw a newer release than the last check could, at most every
+        # half hour, and a service that answers it with no cycle idles out
+        # and reads to the lifeboat as one that cannot start.
+        if last is not None and 0 <= time.time() - last < CHECK_NOW_COOLDOWN_S and not self.moved_back() \
+                and trigger != CheckTrigger.KEEPER:
             return {"outcome": CheckOutcome.RECENT, "last_check": last}
         return {"outcome": CheckOutcome.STARTED, "cycle_id": self.start(trigger)}
 
@@ -1812,6 +1826,9 @@ class Updater:
                 core = await self._core(cycle_id, trigger)
             finally:
                 self.slot = False
+                # The actions queued behind this step run now, while the later
+                # steps do (on the loop: nothing they raise ends this cycle).
+                self._loop.call_soon(self.changed)
             steps[UpdateStep.CLI_AND_PLUGINS] = core
             if core["state"] == StepState.DEFERRED:
                 deferred = str(core["reason"])
@@ -2080,6 +2097,7 @@ class Updater:
                         # workers finish their rounds: the slot is the update's
                         # again only once they are gone.
                         self.slot = False
+                        self._loop.call_soon(self.changed)  # what waits for the slot may start now
                         left = await self._stop_workers(running)
                         self.slot = True
                         if left:

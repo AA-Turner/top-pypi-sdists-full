@@ -1,5 +1,7 @@
+import collections
 import subprocess
 import sys
+import sysconfig
 import time
 import typing
 from datetime import datetime, timedelta, timezone
@@ -495,6 +497,48 @@ class TestRRCache(
         cache["c"] = 3
         cache["d"] = 4
         assert cache.random_key() in ("a", "b", "c", "d")
+
+    @staticmethod
+    def _assert_roughly_uniform(draws, keys):
+        counts = collections.Counter(draws)
+        assert set(counts) == set(keys)
+        expected = len(draws) / len(keys)
+        # ~10 standard deviations: catches a biased pick, never flakes.
+        assert all(abs(n - expected) < expected * 0.3 for n in counts.values())
+
+    def test_random_key_is_uniform(self):
+        keys = list(range(8))
+        cache = self.create_cache(8, {k: k for k in keys})
+        self._assert_roughly_uniform(
+            [cache.random_key() for _ in range(8000)], keys
+        )
+
+    def test_random_key_is_uniform_in_sparse_table(self):
+        # Many removals leave few entries in a large table (the fallback path).
+        cache = self.create_cache(0, {k: k for k in range(10_000)})
+        keys = [3, 1_234, 9_999]
+        for k in range(10_000):
+            if k not in keys:
+                del cache[k]
+        assert cache.capacity() >= 10_000
+        self._assert_roughly_uniform(
+            [cache.random_key() for _ in range(3000)], keys
+        )
+
+    def test_popitem_drains_sparse_table(self):
+        cache = self.create_cache(0, {k: k for k in range(5_000)})
+        for k in range(4_990):
+            del cache[k]
+        popped = {cache.popitem()[0] for _ in range(10)}
+        assert popped == set(range(4_990, 5_000))
+        assert len(cache) == 0
+
+    def test_eviction_keeps_cache_full(self):
+        cache = self.create_cache(1_000)
+        for k in range(10_000):
+            cache[k] = k
+            assert len(cache) == min(k + 1, 1_000)
+        assert all(cache[k] == k for k in cache)
 
 
 class TestLRUCache(
@@ -1013,6 +1057,84 @@ class TestLFUCache(
         for _ in c:
             c.least_frequently_used()
 
+    def test_popitem_after_reads_only(self):
+        """Reads between two popitem() calls must be taken into account.
+
+        Regression: get() incremented the frequency without invalidating the
+        order established by the previous popitem(), so the second popitem()
+        evicted the most frequently used key.
+        """
+        c = self.create_cache(10)
+        for k in "abcd":
+            c[k] = k
+        assert c.popitem() == ("a", "a")
+        self._hit(c, "b", 10)
+        assert c.popitem() == ("c", "c")
+        assert c.popitem() == ("d", "d")
+        assert c.popitem() == ("b", "b")
+
+    def test_popitem_agrees_with_least_frequently_used(self):
+        c = self.create_cache(10, {i: i for i in range(8)})
+        for step in range(8):
+            for k in list(c.keys())[: step % 3 + 1]:
+                self._hit(c, k, step + 1)
+            expected = c.least_frequently_used()
+            key, _ = c.popitem()
+            assert key == expected
+
+    def test_drain_after_reads_only(self):
+        c = self.create_cache(10)
+        for k in "abcde":
+            c[k] = k
+        c.popitem()  # "a"
+        self._hit(c, "b", 5)
+        self._hit(c, "c", 3)
+        assert c.drain(2) == 2
+        assert sorted(c.keys()) == ["b", "c"]
+
+    def test_replace_lowers_priority_for_eviction(self):
+        # Replacing a value resets the frequency (as before), so a hot key
+        # that was just replaced becomes the eviction candidate again.
+        c = self.create_cache(3)
+        c["hot"] = 0
+        c["warm"] = 0
+        c["cold"] = 0
+        self._hit(c, "hot", 10)
+        self._hit(c, "warm", 3)
+        self._hit(c, "cold", 2)
+        c.popitem()  # "cold" — establishes the order
+        c["hot"] = 1  # frequency reset
+        assert c.least_frequently_used() == "hot"
+        assert c.popitem()[0] == "hot"
+
+    @pytest.mark.skipif(
+        bool(sysconfig.get_config_var("Py_GIL_DISABLED")),
+        reason="free-threaded builds invalidate iterators on replace by design",
+    )
+    def test_replace_during_iteration_yields_each_key_once(self):
+        c = self.create_cache(10, {i: i for i in range(6)})
+        self._hit(c, 0, 5)
+        self._hit(c, 3, 2)
+        seen = []
+        for k in c:
+            c[k] = (
+                "new"  # changes priorities but must not reorder the live iterator
+            )
+            seen.append(k)
+        assert sorted(seen) == list(range(6))
+
+    def test_large_cache_evicts_coldest(self):
+        n = 2000
+        c = self.create_cache(n)
+        for i in range(n):
+            c[i] = i
+        for i in range(n):
+            self._hit(c, i, 1 + (i % 7))
+        cold = {i for i in range(n) if i % 7 == 0}
+        assert c.drain(len(cold)) == len(cold)
+        assert not cold & set(c.keys())
+        assert len(c) == n - len(cold)
+
 
 class TestTTLCache(
     mixins.InitializeMixin,
@@ -1189,6 +1311,23 @@ class TestTTLCachePolicy(mixins.SweepIntervalMixin):
         key, value = cache.popitem()
         assert key == 10
         assert value == "x"
+
+    def test_popitem_expire_keys(self):
+        """popitem() must always expire all expired keys, and return the oldest *alive* inserted entry."""
+        cache = self.create_cache(5, global_ttl=0.5)
+
+        cache.insert(1, "a")
+        cache.insert(2, "b")
+
+        time.sleep(0.5)
+
+        cache.insert(3, "c")
+        cache.insert(4, "d")
+        cache.insert(5, "e")
+
+        key, value = cache.popitem()
+        assert key == 3
+        assert value == "c"
 
     def test_popitem_successive_calls_follow_fifo(self):
         """Successive popitem() calls must yield keys in insertion order."""
@@ -1550,11 +1689,14 @@ class TestTTLCachePolicy(mixins.SweepIntervalMixin):
             assert isinstance(ttl, float)
 
     def test_sweep_interval(self):
-        obj = cachebox.TTLCache(10, 3, {1: 1, 2: 2, 3: 3}, sweep_interval=3)
+        # Entries expire at t≈1s and the sweeper wakes every second. The sweep at
+        # t≈1s races with expiry (Event.wait() may return a few ms early, notably on
+        # Windows), so assert only after the next sweep at t≈2s has surely run.
+        obj = cachebox.TTLCache(10, 1, {1: 1, 2: 2, 3: 3}, sweep_interval=1)
 
         # __len__ doesn't call expire itself
         assert len(obj) == 3
-        time.sleep(3.5)
+        time.sleep(2.5)
         assert len(obj) == 0
 
 
@@ -1806,6 +1948,42 @@ class TestVTTLCachePolicy(mixins.SweepIntervalMixin):
         c = self.create_cache()
         with pytest.raises(KeyError):
             c.popitem()
+
+    def test_popitem_expire_keys(self):
+        """popitem() must always expire all expired keys, and return the soonest expiring *alive* inserted entry."""
+        cache = self.create_cache(5)
+
+        cache.insert(1, "a", ttl=0.5)
+        cache.insert(2, "b", ttl=2)
+        cache.insert(3, "c", ttl=None)
+        cache.insert(4, "d", ttl=0.1)
+        cache.insert(5, "e", ttl=3)
+
+        time.sleep(0.5)
+
+        key, value = cache.popitem()
+        assert key == 2
+        assert value == "b"
+
+    def test_popitem_follows_expiry_after_ttl_changes(self):
+        c = cachebox.VTTLCache(10)
+        c.insert("a", 1, ttl=100)
+        c.insert("b", 2, ttl=200)
+        c.insert("c", 3, ttl=300)
+        assert c.popitem()[0] == "a"  # establishes the order
+        c.insert("c", 3, ttl=50)  # moved to the front
+        c.insert("b", 2, ttl=None)  # moved to the back
+        c.insert("d", 4, ttl=150)
+        assert [c.popitem()[0] for _ in range(3)] == ["c", "d", "b"]
+
+    def test_entries_without_ttl_evicted_in_insertion_order(self):
+        c = cachebox.VTTLCache(3)
+        c.insert("x", 1, ttl=None)
+        c.insert("y", 2, ttl=None)
+        c.insert("z", 3, ttl=None)
+        c.insert("w", 4, ttl=None)  # evicts the oldest permanent entry
+        assert sorted(c.keys()) == ["w", "y", "z"]
+        assert [c.popitem()[0] for _ in range(3)] == ["y", "z", "w"]
 
     def test_expire_removes_stale_items(self):
         c = self.create_cache()

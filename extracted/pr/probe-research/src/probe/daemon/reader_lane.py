@@ -12,7 +12,8 @@ deliver.
         messages a crash left unpublished -> published
         asks held READ_ASK_TIMEOUT_S with no answer -> closed as failed
         when due -> one turn of the reader's conversation
-    due:  an ask waits -> now; the researcher's prompt arrived -> now (unless a
+    due:  an ask waits -> now; the researcher's prompt, or another agent's
+          message (at most one turn per PEER_WAKE_MIN_GAP_S), arrived -> now (unless a
           Probe hint serves the session and the server agreed, or
           PROBE_READER_PROMPT_WAKE=off: `model.reader_prompt_wake`); new
           events and READ_EVERY_S since the last turn -> now (unless the
@@ -56,6 +57,11 @@ if TYPE_CHECKING:  # pragma: no cover
 log = logging.getLogger("probe.daemon.reader")
 
 READ_POLL_S = 2.0
+#: Why a turn started when another agent messaged the session (`due`): at most
+#: one such turn per PEER_WAKE_MIN_GAP_S after the last turn, since a swarm's
+#: agents message at machine pace (review of #3664).
+TRIGGER_PEER = "peer message"
+PEER_WAKE_MIN_GAP_S = 60.0
 
 
 def _env_seconds(name: str, default: float) -> float:
@@ -361,7 +367,7 @@ class ReaderLane:
         READ_MAX_CHARS as rendered (at least one): one window, oldest first."""
         out, used = [], 0
         for ev in self.store.events_after(self.cursor(), READ_MAX_EVENTS):
-            used += bite_mod.reader_shown_chars(ev)
+            used += bite_mod.shown_chars(ev)
             if out and used > READ_MAX_CHARS:
                 break
             out.append(ev)
@@ -382,7 +388,7 @@ class ReaderLane:
             return self.new_events()
         out, used = [], 0
         for ev in reversed(self.store.events_upto(self.cursor(), self.store.newest_seq(), READ_MAX_EVENTS)):
-            used += bite_mod.reader_shown_chars(ev)
+            used += bite_mod.shown_chars(ev)
             if out and used > READ_MAX_CHARS:
                 break
             out.append(ev)
@@ -411,6 +417,11 @@ class ReaderLane:
 
         if model_mod.reader_prompt_wake() and self.store.has_prompt_after(cursor, new=True):
             return "prompt"
+        if (model_mod.reader_prompt_wake() and self.clock() - self.last_turn_at >= PEER_WAKE_MIN_GAP_S
+                and self.store.has_peer_message_after(cursor, new=True)):
+            # Another agent's message (a swarm lead's) wakes the reader as a prompt
+            # does (R17, swarm friction T21): it is the agent's next instruction.
+            return TRIGGER_PEER
         if READ_EVERY_S > 0 and self.clock() - self.last_turn_at >= READ_EVERY_S:
             # Where the Probe service's window hints work for this session they
             # look at the agent's work every 10 minutes, so the 30-minute
@@ -457,7 +468,8 @@ class ReaderLane:
             if sent:
                 parts.append(SENT_HEADER + "\n" + "\n".join(f"- {_clip(text, SENT_CHARS)}" for text in reversed(sent)))
         if events:
-            parts.append(DIVIDER + "\n\n" + "\n\n".join(bite_mod.render_for_reader(ev) for ev in events))
+            # As the writer reads them (`bite.rendered`): a file change is one line.
+            parts.append(DIVIDER + "\n\n" + "\n\n".join(text for _, text in bite_mod.rendered(events)))
         if question is not None:
             parts.append(ASK_LINE.format(question=question))
         return "\n\n".join(parts) or DIVIDER

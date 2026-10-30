@@ -1230,6 +1230,7 @@ of them that matched or beat the observed AUC.
 | File | Contents |
 |---|---|
 | `forecasts.csv` | per admin unit: predicted anomaly, P(low/mid/high), P(below trend), init offset used, skill at the issued lead with its permutation null, and the per-unit clipping report (`n_clipped`, `oos_max_sigma`, `oos_feature`, `in_support`) |
+| `hindcasts.csv` | per admin unit x lead x hindcast year: the leave-one-year-out prediction (`ahat`, `yhat_tha` = trend x (1 + `ahat`)), the observed yield, its HarvestStat area, the leave-one-year-out trend, and the init it was forecast from (`init_year`, `init_month`) |
 | `skill.csv` | per combination x lead: AUC, low-tercile recall, false-alarm rate, rRMSE, trend rRMSE |
 | `combinations.csv` | every combination with planting month, calendar source, eligibility status, skill and support flags |
 | `excluded.csv` | everything not forecast, with the reason |

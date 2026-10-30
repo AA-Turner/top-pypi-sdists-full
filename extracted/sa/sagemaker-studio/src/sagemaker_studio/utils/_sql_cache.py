@@ -11,6 +11,68 @@ from sqlalchemy.engine import Connection, Engine
 logger = logging.getLogger(__name__)
 
 
+def connection_needs_reset(connection: Optional[Connection]) -> bool:
+    """Return True if `connection` carries a transaction it can no longer execute on.
+
+    Executing on such a connection raises PendingRollbackError. A cancelled query is how one
+    gets into this state.
+    """
+    if connection is None:
+        return False
+
+    try:
+        if connection.closed:
+            # A genuinely closed connection belongs to the eviction path, not this one.
+            return False
+
+        transaction = connection.get_transaction()
+        if transaction is None:
+            # Nothing attached, nothing to reset. Also the steady state of the
+            # non-transactional engines (Athena, Redshift Data API).
+            return False
+
+        # Order matters: a cancelled connection is invalidated but its transaction is still
+        # ACTIVE, so checking is_active first would never fire.
+        if connection.invalidated:
+            return True
+
+        # A deactivated transaction is equally un-executable. An active transaction on a
+        # valid connection is healthy -- it differs from the bug state only by `invalidated`.
+        return not transaction.is_active
+    except Exception as e:
+        # Never let a driver surprise break a healthy hand-out.
+        logger.warning(f"Error inspecting connection transaction state: {e}, assuming no reset")
+        return False
+
+
+def reset_connection_state(connection: Optional[Connection]) -> bool:
+    """Best-effort clear of an aborted transaction. Returns whether the connection is usable.
+
+    1. rollback() -- clears the transaction and keeps the session.
+    2. invalidate() if that raises -- discards the broken DBAPI connection so the pool is
+       not poisoned.
+    3. False if that raises too -- the caller should evict and rebuild.
+
+    Never raises. Never closes: close() would destroy a persisted session for a connection
+    that is merely dirty, and that is the eviction path's job.
+    """
+    if connection is None:
+        return True
+
+    try:
+        connection.rollback()
+        return True
+    except Exception as e:
+        logger.warning(f"Failed to roll back connection: {e}, escalating to invalidate")
+
+    try:
+        connection.invalidate()
+        return True
+    except Exception as e:
+        logger.warning(f"Failed to invalidate connection: {e}, connection is unusable")
+        return False
+
+
 @dataclass
 class ManagedConnection:
     """Represents a managed database connection with its engine and lifecycle metadata."""
@@ -47,25 +109,47 @@ class ConnectionCache:
     def get(self, key: str) -> Optional[ManagedConnection]:
         """Retrieve a cached connection by key."""
         evict = False
+        reset = False
         with self._lock:
             cached = self._cache.get(key)
             if not cached:
                 return None
 
-            # Lazy health check - validate connection is not closed. Only DECIDE eviction
-            # under the lock; the actual removal (which does blocking connection.close()/
-            # engine.dispose() teardown) runs AFTER releasing the lock, so a slow teardown
-            # does not block get/put/snapshot/__len__.
+            # Lazy health check - validate the connection is neither closed nor carrying a
+            # transaction it can no longer execute on (what a cancelled query leaves behind).
+            # Only DECIDE under the lock; the blocking work -- eviction's connection.close()/
+            # engine.dispose() teardown, or the reset's rollback()/invalidate() -- runs AFTER
+            # releasing the lock, so a slow teardown or reset does not block
+            # get/put/snapshot/__len__.
             try:
                 if cached.connection is not None and cached.connection.closed:
                     logger.warning(f"Cached connection {key} is closed, removing from cache")
                     evict = True
+                elif connection_needs_reset(cached.connection):
+                    logger.warning(
+                        f"Cached connection {key} carries an invalid transaction "
+                        "(likely a cancelled query), resetting it before reuse"
+                    )
+                    reset = True
                 else:
                     cached.last_used = datetime.now()
                     return cached
             except Exception as e:
                 logger.warning(f"Error checking connection {key} status: {e}, removing from cache")
                 evict = True
+
+        if reset:
+            # Reset in place so a recoverable connection keeps its cache entry, and with it
+            # the caller's session. Same compare-and-swap guard the eviction path below uses:
+            # a concurrent put(key, fresh) during the reset makes this stale read return None.
+            if reset_connection_state(cached.connection):
+                with self._lock:
+                    if self._cache.get(key) is cached:
+                        cached.last_used = datetime.now()
+                        return cached
+                return None
+            logger.warning(f"Failed to reset cached connection {key}, removing from cache")
+            evict = True
 
         if evict:
             # Compare-and-swap eviction: only remove/tear down the SAME stale object we

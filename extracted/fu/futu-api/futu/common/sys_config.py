@@ -18,6 +18,7 @@ class RunMode:
 class SysConfig(object):
     IS_PROTO_ENCRYPT = False                # api通讯协议是否加密
     INIT_RSA_FILE = ''                      # 初始连接协议用到的rsa private key file
+    TOKEN = ''                              # 初始连接协议用到的连接鉴权token
     RSA_OBJ = None                          # ras加解密对象
     PROTO_FMT = None                        # 协议格式
     CLINET_ID = None                        # Client标识
@@ -117,7 +118,7 @@ class SysConfig(object):
         """
         ..  py:function:: set_init_rsa_file(cls, file)
 
-        设置RSA私钥文件, 要求1024位, 格式为PKCS#1
+        设置RSA私钥文件, 格式为PKCS#1；支持1024/2048等位长（明文分块固定100，密文块随密钥自适应）
 
         :param file:  str, 文件路径
         :return: None
@@ -136,6 +137,36 @@ class SysConfig(object):
         SysConfig.INIT_RSA_FILE = str(file)
         SysConfig.RSA_OBJ = None
         RsaCrypt.CHIPPER = None
+        RsaCrypt.RSA_KEY = None
+
+    @classmethod
+    def set_token(cls, token):
+        """
+        ..  py:function:: set_token(cls, token)
+
+        设置连接鉴权token, 非必调接口; 不设置时初始连接不带token字段
+
+        :param token: str, 连接鉴权token; 传None或空串表示不设置
+        :return: None
+
+        :example:
+
+        .. code:: python
+
+         from futu import *
+         SysConfig.set_token("your_token")
+         quote_ctx = OpenQuoteContext(host='127.0.0.1', port=11111)
+         quote_ctx.close()
+
+        """
+        SysConfig.TOKEN = str(token) if token else ''
+
+    @classmethod
+    def get_token(cls):
+        """
+        :return: str , token for init connect protocol
+        """
+        return SysConfig.TOKEN
 
     @classmethod
     def get_init_rsa_obj(cls):
@@ -213,39 +244,55 @@ class SysConfig(object):
 class RsaCrypt(object):
     RANDOM_GENERATOR = Random.new().read
     CHIPPER = None
+    RSA_KEY = None
+    # 明文分块固定100（须 <= 最小支持钥长的 k-11；1024时上限117）
+    PLAIN_BLOCK_SIZE = 100
+
+    @classmethod
+    def _ensure_cipher(cls):
+        if cls.CHIPPER is None:
+            cls.RSA_KEY = SysConfig.get_init_rsa_obj()
+            cls.CHIPPER = Cipher_pkcs1.new(cls.RSA_KEY)
+            # PKCS#1 v1.5 单次明文上限为 size_in_bytes()-11
+            if cls.PLAIN_BLOCK_SIZE > cls.RSA_KEY.size_in_bytes() - 11:
+                raise ValueError(
+                    "RSA key too small for PLAIN_BLOCK_SIZE=%d (need at least %d-bit)"
+                    % (cls.PLAIN_BLOCK_SIZE, (cls.PLAIN_BLOCK_SIZE + 11) * 8)
+                )
+
     @classmethod
     def encrypt(cls, data):
-        if RsaCrypt.CHIPPER is None:
-            rsa = SysConfig.get_init_rsa_obj()
-            RsaCrypt.CHIPPER = Cipher_pkcs1.new(rsa)
+        cls._ensure_cipher()
 
         if type(data) is not bytes:
             data = bytes_utf8(str(data))
 
-        # 单次加密串的长度最大为(key_size / 8) - 11
-        # 1024 bit的证书用100， 2048 bit的证书用 200
-        one_len = 100
+        one_len = cls.PLAIN_BLOCK_SIZE
         ret_data = b''
         for i in range(0, len(data), one_len):
-            ret_data += RsaCrypt.CHIPPER.encrypt(data[i:i + one_len])
+            ret_data += cls.CHIPPER.encrypt(data[i:i + one_len])
         return ret_data
 
     @classmethod
     def decrypt(cls, data):
-        if RsaCrypt.CHIPPER is None:
-            rsa = SysConfig.get_init_rsa_obj()
-            RsaCrypt.CHIPPER = Cipher_pkcs1.new(rsa)
+        cls._ensure_cipher()
 
-        # 1024 bit的证书用128，2048 bit证书用256位
-        one_len = 128
+        # 密文块长随密钥自适应：1024→128，2048→256
+        one_len = cls.RSA_KEY.size_in_bytes()
         ret_data = b''
 
         # python2下需转成str类型,否则异常
         if IS_PY2:
             data = str(data)
 
+        if len(data) % one_len != 0:
+            raise ValueError(
+                "RSA ciphertext length %d is not multiple of key size %d"
+                % (len(data), one_len)
+            )
+
         for i in range(0, len(data), one_len):
-            ret_data += RsaCrypt.CHIPPER.decrypt(data[i:i + one_len], RsaCrypt.RANDOM_GENERATOR)
+            ret_data += cls.CHIPPER.decrypt(data[i:i + one_len], cls.RANDOM_GENERATOR)
 
         return ret_data
 

@@ -510,6 +510,79 @@ def test_recovery_clears_a_dead_run_that_read_nothing(tmp_path) -> None:
     assert not directory.exists()
 
 
+def _daemon_mailbox(sid: str) -> list[Path]:
+    """One file of each kind the Probe daemon's mailbox keeps beside the run
+    folders (`probe.daemon.mailbox.FOLDERS`), written by its own functions."""
+    from probe.daemon import mailbox
+
+    ask = mailbox.write_ask(sid, "what LR did the last sweep use?")
+    request = mailbox.write_request(sid, "group the six SFT arms into an experiment")
+    mailbox.mark_worker_accepts(sid)
+    message = mailbox.publish_here(
+        mailbox.Message(id=mailbox.new_message_id(), session=sid, kind=mailbox.Kind.MESSAGE, text="m")
+    )
+    answer = mailbox.publish_here(
+        mailbox.Message(id=mailbox.new_message_id(), session=sid, kind=mailbox.Kind.ANSWER, text="a", ask=ask.id)
+    )
+    assert mailbox.claim(sid, answer, by="test") is not None
+    mailbox.touch_alive(sid, by="test")
+    mailbox.write_hints_delivery(sid, {"state": "ok"})
+    loose = [mailbox.hints_live_path(sid), mailbox.turn_path(sid), mailbox.status_path(sid),
+             mailbox.alerts_handoff_path(sid)]
+    for path in loose:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{}")
+    files = [mailbox.asks_dir(sid) / f"{ask.id}.json", mailbox.requests_dir(sid) / f"{request.id}.json",
+             mailbox.worker_marker_path(sid), message, mailbox.alive_path(sid), mailbox.hints_delivery_path(sid),
+             *loose, *mailbox.claimed_dir(sid).glob("*.json")]
+    assert {p.name for p in inputs.state_dir().iterdir()} == set(mailbox.FOLDERS)
+    return files
+
+
+def test_recovery_never_takes_the_daemons_mailbox_for_a_dead_run(tmp_path) -> None:
+    """#3616: `asks`, `requests`, `hints` ... are plain names any run id could
+    take, with no spool in them; recovery deleted each folder 10 minutes after
+    its last new entry, open `probe ask --writer` requests and the worker's
+    marker with it. Only a folder holding a run's own file is a run's.
+    Control: a dead run's folder beside them is still cleared."""
+    files = _daemon_mailbox("99999999-2222-3333-4444-555555555555")
+    digits = inputs.state_dir() / "hints" / "12345.live"  # a session id of digits: not `<host>.<pid>`
+    digits.write_text("")
+    dead = inputs.run_dir("run-dead-empty")
+    dead.mkdir()
+    (dead / f"{inputs._host()}.{_dead_pid()}.live").touch()  # a worker that died before reading
+    closed = inputs.run_dir("run-dead-closed")
+    closed.mkdir()
+    (closed / f"closed.{inputs._host()}.{_dead_pid()}.json").write_text("{}")  # a close cut short
+    client = _Client(True)
+    assert inputs.recover_orphans(client, now=time.time() + 3600) == 0
+    assert [p for p in [*files, digits] if not p.exists()] == []
+    assert not dead.exists() and not closed.exists()
+
+
+def test_an_old_sdk_spares_the_mailbox_whether_or_not_a_daemon_runs(tmp_path, monkeypatch) -> None:
+    """An SDK from before #3616 keeps running in a training venv nobody updates:
+    simulated by its folder test (every folder is a run's). Each mailbox folder
+    holds `mailbox.KEEP_FILE`, a `*.jsonl` that SDK's `_clear_dead_folder` has
+    left alone since recovery began, so it passes them by however long no
+    worker has polled. Control: without the keep files it deletes every one."""
+    from probe.daemon import mailbox
+
+    files = _daemon_mailbox("99999999-2222-3333-4444-555555555555")
+    old = time.time() - 3600
+    monkeypatch.setattr(inputs, "_sdk_owned", lambda directory: True)
+    client = _Client(True)
+    for name in mailbox.FOLDERS:
+        os.utime(inputs.state_dir() / name, (old, old))
+    assert inputs.recover_orphans(client) == 0
+    assert [p for p in files if not p.exists()] == []
+    for name in mailbox.FOLDERS:
+        (inputs.state_dir() / name / mailbox.KEEP_FILE).unlink()
+        os.utime(inputs.state_dir() / name, (old, old))
+    assert inputs.recover_orphans(client) == 0
+    assert [name for name in mailbox.FOLDERS if (inputs.state_dir() / name).exists()] == []
+
+
 def test_a_dead_runs_reads_are_recovered(tmp_path) -> None:
     data = _data_file(tmp_path, "left.bin", b"l" * 300)
     directory = inputs.run_dir("run-dead")

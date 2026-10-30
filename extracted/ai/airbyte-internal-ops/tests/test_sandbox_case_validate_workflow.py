@@ -9,6 +9,8 @@ which token, and that its calls match `sandbox-case-run.yml`'s contract.
 
 from __future__ import annotations
 
+import json
+import os
 import re
 import shutil
 import subprocess
@@ -197,3 +199,87 @@ def test_the_smoke_never_merges_or_runs_a_case():
     assert re.search(
         r"--case-dir tests/fixtures/regression_cases/", job["steps"][-1]["run"]
     )
+
+
+def _alert_step(workflow: dict[Any, Any]) -> dict[str, Any]:
+    (step,) = [
+        step
+        for step in workflow["jobs"]["finalize"]["steps"]
+        if step.get("name") == "Alert on Slack"
+    ]
+    return step
+
+
+def test_the_slack_alert_is_last_optional_and_cannot_fail_the_run(workflow):
+    step = _alert_step(workflow)
+    assert workflow["jobs"]["finalize"]["steps"][-1] is step
+    assert step["if"] == (
+        "${{ !cancelled() && vars.SLACK_CHANNEL_SANDBOX_CASE_ALERTS != '' }}"
+    )
+    assert step["continue-on-error"] is True
+    assert step["env"]["SLACK_TOKEN"] == "${{ secrets.SLACK_HYDRA_BOT_TOKEN }}"
+
+
+@pytest.mark.skipif(
+    shutil.which("bash") is None or shutil.which("jq") is None,
+    reason="needs bash and jq",
+)
+@pytest.mark.parametrize(
+    "outputs,expected",
+    [
+        (
+            {
+                "ACTION": "merge",
+                "MERGE_OUTCOME": "merged",
+                "MERGE_DESCRIPTION": "validated; merged",
+            },
+            "✅ Case PR <https://github.com/o/r/pull/12|#12>: validated; merged (<https://run|run>)",
+        ),
+        (
+            {
+                "ACTION": "fail",
+                "DESCRIPTION": "validation failed: <!channel> & <https://x|y>",
+            },
+            "❌ Case PR <https://github.com/o/r/pull/12|#12>: validation failed: "
+            "&lt;!channel&gt; &amp; &lt;https://x|y&gt; (<https://run|run>)",
+        ),
+        (
+            {},
+            "❌ Case PR <https://github.com/o/r/pull/12|#12>: validation could not decide (<https://run|run>)",
+        ),
+    ],
+)
+def test_the_slack_alert_escapes_the_description(workflow, tmp_path, outputs, expected):
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    payload = tmp_path / "payload.json"
+    # Keeps the posted payload and answers like Slack.
+    curl = bin_dir / "curl"
+    curl.write_text(
+        '#!/bin/bash\nfor a in "$@"; do [[ $a == @* ]] && cp "${a#@}" "$PAYLOAD"; done\n'
+        'echo \'{"ok": false, "error": "channel_not_found"}\'\n'
+    )
+    curl.chmod(0o755)
+    result = subprocess.run(
+        ["bash", "-e", "-c", _alert_step(workflow)["run"]],
+        env={
+            "PATH": f"{bin_dir}:{os.environ.get('PATH', '/usr/bin:/bin')}",
+            "PAYLOAD": str(payload),
+            "RUNNER_TEMP": str(tmp_path),
+            "SLACK_CHANNEL": "U123",
+            "SLACK_TOKEN": "xoxb-secret",
+            "PR": "12",
+            "GITHUB_SERVER_URL": "https://github.com",
+            "GH_REPO": "o/r",
+            "RUN_URL": "https://run",
+            **outputs,
+        },
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "::warning::Slack alert not sent: channel_not_found" in result.stdout
+    assert "xoxb-secret" not in result.stdout + result.stderr
+    message = json.loads(payload.read_text())
+    assert message["channel"] == "U123"
+    assert message["text"] == expected

@@ -23,6 +23,7 @@ import uuid
 import pytest
 
 from probe import cli
+from probe.sdk import errors
 from probe.sdk.client import Client
 
 # `probe.cli.main` the SUBMODULE is shadowed by `probe.cli.main` the function, so
@@ -566,3 +567,73 @@ def test_the_ambient_workspace_is_still_read_as_an_id(client, monkeypatch):
     save_context({"workspace": {"id": _WS_MINE, "project": None}})
 
     assert impl._resolve_workspace(None, None) == _WS_MINE
+
+
+# -- `Client.run(project=<id>)` (#3623) ------------------------------------------
+# The SDK keeps the rule above: a bare ref is a slug, so A_ID (B's slug, A's id)
+# never silently means one of them. But a training script handed its project's
+# id was refused as "no project with slug", and with `question=` could make a
+# project slugged by the id. A bare uuid now names the project it is the slug
+# OR the id of, is refused when it is both (of two projects), `id:` is only
+# ever the id, `slug:` only ever the slug, and an id is never created.
+def _run_project(app, run) -> str:
+    return app.runs[run.id]["project_id"]
+
+
+def test_run_opens_in_the_project_its_id_names(app, client):
+    _project(app, pid=A_ID, slug=A_SLUG)
+
+    assert _run_project(app, client.run(project=A_ID)) == A_ID
+    assert _run_project(app, client.run(project=f"id:{A_ID}")) == A_ID
+    assert _run_project(app, client.run(project=A_ID.upper())) == A_ID
+    assert _run_project(app, client.run(project=uuid.UUID(A_ID))) == A_ID
+    assert set(app.projects) == {A_ID}
+
+
+def test_a_uuid_that_names_two_projects_is_refused_with_the_spelling_for_each(collision, client):
+    """The incident pair: bare, A_ID is A's id AND B's slug. Neither is guessed."""
+    with pytest.raises(errors.ValidationError, match="names two projects") as refused:
+        client.run(project=A_ID)
+    assert f"id:{A_ID}" in str(refused.value) and f"slug:{A_ID}" in str(refused.value)
+    assert collision.runs == {}
+    assert _run_project(collision, client.run(project=f"id:{A_ID}")) == A_ID
+    assert _run_project(collision, client.run(project=f"slug:{A_ID}")) == B_ID
+    assert _run_project(collision, client.run(project=B_ID)) == B_ID, "B's own id is only an id"
+
+
+def test_run_with_a_missing_id_says_so_and_creates_nothing(app, client):
+    missing = str(uuid.uuid4())
+
+    with pytest.raises(errors.NotFoundError, match=f"no project with id '{missing}'"):
+        client.run(project=missing)
+    with pytest.raises(errors.NotFoundError, match="no project with id"):
+        client.run(project=missing, experiment="lr-sweep", question="does warmup remove the spike?")
+    assert app.projects == {} and app.experiments == {} and app.runs == {}
+
+
+def test_run_with_a_question_files_its_new_experiment_under_the_ids_project(app, client):
+    _project(app, pid=A_ID, slug=A_SLUG)
+
+    run = client.run(project=A_ID, experiment="lr-sweep", question="does warmup remove the spike?")
+
+    assert set(app.projects) == {A_ID}, "no project slugged by the id"
+    [exp] = app.experiments.values()
+    assert exp["project_id"] == A_ID and app.runs[run.id]["experiment_id"] == exp["id"]
+
+
+def test_a_hex_slug_that_is_no_printed_id_is_still_a_slug_to_create(app, client):
+    """Only the 36-character form is read as an id: an md5-like slug is created."""
+    digest = uuid.uuid4().hex
+    client.run(project=digest, experiment="lr-sweep", question="does warmup remove the spike?")
+    assert [row["slug"] for row in app.projects.values()] == [digest]
+
+
+def test_an_experiments_id_is_not_taken_for_a_project(app, client):
+    """Every experiment id is served at /v1/projects/{id} too: a run would land
+    in the experiment with no word about it."""
+    _project(app, pid=A_ID, slug="lr-sweep")
+    app.projects[A_ID]["kind"] = "experiment"
+
+    with pytest.raises(errors.ValidationError, match="pass experiment='lr-sweep'"):
+        client.run(project=A_ID)
+    assert app.runs == {}

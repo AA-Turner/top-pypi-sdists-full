@@ -43,8 +43,9 @@ import difflib
 import json
 import os
 import re
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
+from fractions import Fraction
 from itertools import zip_longest
 from pathlib import Path
 from typing import Any
@@ -53,14 +54,26 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 from markupsafe import Markup
 
 from airbyte_ops_mcp.regression_tests.ci_output import (
+    HTTP_METRIC_LABELS,
     ComparisonOutcome,
     _describe_run,
     _format_delta,
     command_result_succeeded,
+    describe_masking,
+    describe_not_exercised,
+    describe_readable_cursors,
+    describe_stopped_early,
     evaluate_comparison_outcome,
     github_artifact_name,
     github_artifacts_url,
     github_run_url,
+    new_stream_verdict_label,
+    not_exercised_note,
+    not_exercised_streams,
+    run_output_mode,
+    run_readable_fields,
+    stopped_early_notes,
+    stopped_early_sides,
 )
 from airbyte_ops_mcp.regression_tests.regression.comparators import (
     EXCLUDE_PATHS,
@@ -144,6 +157,19 @@ MAX_LIVE_FLOW_RATIO = 0.2
 # with the rest of the list left in the run's `http_metrics` payload.
 MAX_LIVE_URLS_NAMED = 5
 
+# How far the target's own cache-hit ratio may fall below the control's before it
+# is called a caching regression, in percentage points.
+#
+# A ratio rather than an absolute count because the two versions do not make the
+# same number of requests: a target that legitimately paginates differently
+# shifts both numerator and denominator. 10 points is loose on purpose -- the
+# regression this exists to catch is a requester losing `use_cache`, which takes
+# the ratio to zero, not a few points off. A tighter bound would fire on every
+# run whose stream ordering changed which request warmed the cache first.
+# Exact, not a float: the boundary case is a comparison of two ratios, and
+# `4/5 - 7/10` in floats is a hair over a tenth where the fractions are equal.
+MAX_CACHE_HIT_RATIO_DROP = Fraction(1, 10)
+
 _TRUNCATION_SUFFIX = " …"
 
 # The one check every run has: did the command itself succeed. Named because the
@@ -151,6 +177,8 @@ _TRUNCATION_SUFFIX = " …"
 _RUN_CHECK = "Command execution"
 # Reported whenever the target run was asked to replay the control run's traffic.
 _REPLAY_CHECK = "HTTP replay coverage"
+# Reported when both versions told us what their own `requests_cache` did.
+_CONNECTOR_CACHE_CHECK = "Connector cache hit ratio"
 
 # Glyphs for the inline summary, keyed by `CheckResult.status` so the step
 # summary and the HTML report classify a check identically.
@@ -162,17 +190,21 @@ class MetricRow:
     """One row of a metric table: a label plus one or two counts.
 
     `control` is `None` in single-version mode, where there is nothing to
-    compare against and no delta to show.
+    compare against and no delta to show. Either side is `None` when that side
+    did not report the metric at all -- a connector whose CDK predates the cache
+    counters reports nothing, and rendering that as `0` would read as a cache
+    that broke rather than one that was never measured. Both render as an em
+    dash, and a row with a missing side has no delta.
     """
 
     label: str
-    target: int
+    target: int | None
     control: int | None = None
 
     @property
     def delta(self) -> int | None:
-        """Target minus control, or `None` in single-version mode."""
-        if self.control is None:
+        """Target minus control, or `None` when either side is missing."""
+        if self.control is None or self.target is None:
             return None
 
         return self.target - self.control
@@ -309,6 +341,42 @@ class CheckResult:
 
 
 @dataclass(frozen=True)
+class ReadableFieldRow:
+    """One stream of a masked run's "Readable fields" table."""
+
+    stream: str
+    cursor: str | None
+    readable: bool
+    # The declared type when readable, else why the cursor is masked.
+    detail: str
+
+
+def readable_field_rows(
+    readable_fields: Mapping[str, Any] | None,
+) -> tuple[ReadableFieldRow, ...]:
+    """The table rows from the run payload's `readable_fields`, by stream."""
+    if not readable_fields:
+        return ()
+    rows: list[ReadableFieldRow] = []
+    for stream, entry in sorted(readable_fields.items()):
+        if not isinstance(entry, dict):
+            continue
+        cursor = entry.get("cursor")
+        readable = bool(entry.get("readable"))
+        declared = entry.get("declared")
+        reason = entry.get("reason")
+        rows.append(
+            ReadableFieldRow(
+                stream=str(stream),
+                cursor=".".join(cursor) if isinstance(cursor, list) else None,
+                readable=readable,
+                detail=str(declared if readable and declared else reason or ""),
+            )
+        )
+    return tuple(rows)
+
+
+@dataclass(frozen=True)
 class ReportContext:
     """Everything needed to say which run produced a report.
 
@@ -327,6 +395,20 @@ class ReportContext:
     run_url: str | None = None
     artifact_name: str = ""
     artifact_url: str | None = None
+    # One line per side the harness stopped: reason, records kept, seconds
+    # run. Empty for a run that ended on its own.
+    stopped_early_notes: tuple[str, ...] = ()
+    # The streams only the target read and read nothing from, named here when
+    # a stop took the Result line. `None` when the line says it itself.
+    not_exercised_note: str | None = None
+    # How the run's output was written, and the sentence that says what that
+    # leaves in the artifacts. Unknown for a result that predates the mode.
+    output_mode: str | None = None
+    masking: str | None = None
+    # A masked run's per-stream "Readable fields" table, and the one-line
+    # count the step summary shows instead of it. Empty in a raw run.
+    readable_fields: tuple[ReadableFieldRow, ...] = ()
+    readable_summary: str | None = None
 
 
 @dataclass(frozen=True)
@@ -373,6 +455,12 @@ class RegressionReportModel:
     stream_sections: tuple[StreamSection, ...] = ()
     omitted_stream_count: int = 0
     outcome: ComparisonOutcome | None = None
+    # A stream only the target was configured to read returned no records, so
+    # the run proved nothing about it. Never a pass; the label says INCOMPLETE
+    # instead when a side was also stopped.
+    not_exercised: bool = False
+    setup_error: bool = False
+    could_not_test: bool = False
     # Extension seam for diffs that belong to the run rather than to one stream
     # -- a spec diff, for instance. Rendered above the per-stream sections.
     diff_blocks: tuple[DiffBlock, ...] = ()
@@ -517,6 +605,10 @@ def _build_context(
     command: str,
     target_image: str,
     control_image: str | None,
+    stopped_early_notes: tuple[str, ...] = (),
+    output_mode: str | None = None,
+    readable_fields: Mapping[str, Any] | None = None,
+    not_exercised_note: str | None = None,
 ) -> ReportContext:
     """Assemble the context block from the environment and the images under test."""
     artifact_name = github_artifact_name(command)
@@ -535,6 +627,16 @@ def _build_context(
         run_url=github_run_url(),
         artifact_name=artifact_name,
         artifact_url=github_artifacts_url(),
+        stopped_early_notes=stopped_early_notes,
+        not_exercised_note=not_exercised_note,
+        output_mode=output_mode,
+        masking=describe_masking(output_mode, readable_fields),
+        readable_fields=readable_field_rows(readable_fields),
+        readable_summary=(
+            describe_readable_cursors(readable_fields)
+            if output_mode == "masked" and readable_fields is not None
+            else None
+        ),
     )
 
 
@@ -753,8 +855,10 @@ def build_failure_output_blocks(sides: tuple[RunSide, ...]) -> tuple[DiffBlock, 
     the fallback, since a connector that logs everything as Airbyte messages
     leaves `stderr` empty.
 
-    Note for obfuscation work: this puts raw connector output on the page, so it
-    must be scrubbed by whatever scrubs `stdout.txt` and `stderr.txt`.
+    The tail is read from the files as written, so on a masked run it shows
+    what `ConnectorRunner` wrote there: every `stderr` line as its length only,
+    and `stdout` masked line by line (`masking.mask_line`). Nothing here may
+    read the connector's output from anywhere else.
     """
     blocks: list[DiffBlock] = []
     for side in sides:
@@ -846,39 +950,86 @@ def _http_metrics_table(
     control_result: dict[str, Any],
     target_result: dict[str, Any],
 ) -> MetricTable | None:
-    """Build the HTTP traffic table when either side recorded metrics.
+    """Build the HTTP traffic table when either side measured something.
 
-    Only populated with `--enable-http-metrics`, hence the `None` return.
+    Two independent measurements sit in one table, and each can be missing on its
+    own:
+
+    - The **proxy** counts, which every comparison records. `Replayed` and
+      `Live` are the harness's own view of whether the two versions saw the same
+      upstream bytes.
+    - The **connector** counts, which need no proxy at all: a `requests_cache`
+      hit is served inside `Session.send()` and never reaches the wire, so the
+      connector reports its own and the proxy could never see them.
+
+    A side that did not measure a group leaves those cells `None`, which renders
+    as an em dash rather than as a zero -- the distinction the whole metric turns
+    on, since a target on a CDK without the counters must not read as a target
+    whose caching broke. A side that measured and counted nothing is a `0`: a
+    proxy that ran under a target making no requests beside a control making
+    120 is a finding, not an unknown.
+
+    Returns:
+        The table, or `None` when neither side measured either group.
     """
     control_http = control_result.get("http_metrics") or {}
     target_http = target_result.get("http_metrics") or {}
-    # Only when a capture actually recorded something. Two ways it does not:
-    # a payload holding just `replay_skipped_reason`, which describes a proxy
-    # that never ran, and a command that made no requests -- `spec`, and
-    # `check` on plenty of connectors. A table of zeroes reads as "no traffic"
-    # in the first case and is noise in the second; the reason, where there is
+    # Presence of the group's anchor key, not a truthy count, decides whether a
+    # side measured: a payload holding just `replay_skipped_reason` describes a
+    # proxy that never ran, where `flow_count: 0` describes one that ran and saw
+    # nothing. The table itself still needs a count worth reading -- a command
+    # that makes no requests on either side, `spec` and `check` on plenty of
+    # connectors, has nothing worth a table. The skip reason, where there is
     # one, surfaces as a check instead.
-    if not control_http.get("flow_count") and not target_http.get("flow_count"):
+    proxy_measured = {
+        "control": "flow_count" in control_http,
+        "target": "flow_count" in target_http,
+    }
+    connector_measured = {
+        "control": control_http.get("connector_request_count") is not None,
+        "target": target_http.get("connector_request_count") is not None,
+    }
+    captured_requests = any(
+        side.get("flow_count") for side in (control_http, target_http)
+    )
+    if not captured_requests and not any(connector_measured.values()):
         return None
 
     # Counts only: the ratios and `replay_source` are formatted strings rather
     # than numbers, so they are shown per side under Execution details, where
     # they sit next to the counts they are derived from.
-    keys = (
-        "flow_count",
-        "duplicate_flow_count",
-        "cache_hits_count",
-        "replayed_flow_count",
-        "live_flow_count",
-        "unreplayable_flow_count",
+    groups = (
+        (
+            proxy_measured,
+            (
+                "flow_count",
+                "duplicate_flow_count",
+                "replayed_flow_count",
+                "live_flow_count",
+                "unreplayable_flow_count",
+            ),
+        ),
+        (
+            connector_measured,
+            ("connector_request_count", "connector_cache_hits_count"),
+        ),
     )
+
+    def cell(values: dict[str, Any], key: str, measured: bool) -> int | None:
+        # Within a group that *was* measured, a missing key is a real zero --
+        # `unreplayable_flow_count` is absent on a run that never asked to
+        # replay. Across a group that was not, it is unknown.
+        return int(values.get(key, 0) or 0) if measured else None
+
     rows = tuple(
         MetricRow(
-            label=key.replace("_", " ").title(),
-            control=int(control_http.get(key, 0) or 0),
-            target=int(target_http.get(key, 0) or 0),
+            label=HTTP_METRIC_LABELS[key],
+            control=cell(control_http, key, measured["control"]),
+            target=cell(target_http, key, measured["target"]),
         )
+        for measured, keys in groups
         for key in keys
+        if any(measured.values())
     )
 
     return MetricTable(title=HTTP_TRAFFIC_TABLE, label_header="Metric", rows=rows)
@@ -897,7 +1048,7 @@ def _pk_text(pk: Any) -> str:
 
 
 def _comparison_check(
-    name: str, result: ComparisonResult, note: str = ""
+    name: str, result: ComparisonResult, note: str = "", severity: str = "strict"
 ) -> CheckResult:
     """One record-comparison check as a row of the per-check table.
 
@@ -920,7 +1071,9 @@ def _comparison_check(
     if note:
         summary += f" ({note})"
 
-    return CheckResult(name=name, passed=result.passed, summary=summary)
+    return CheckResult(
+        name=name, passed=result.passed, severity=severity, summary=summary
+    )
 
 
 def _comparison_flagged_streams(
@@ -929,29 +1082,40 @@ def _comparison_flagged_streams(
     """The streams a record-comparison check failed on, then those it warned on.
 
     A stream warns when every check passed it but a version has duplicate
-    PKs, or its count passed on the duplicate-row allowance -- the same rule
-    `_stream_comparison_detail` uses for the section's status. A failing
-    stream is not also listed as warning.
+    PKs, its count passed on the duplicate-row allowance, or the target added
+    identical copies -- the same rule `_stream_comparison_detail` uses for
+    the section's status. On a stopped-early read only the strict checks
+    (PK integrity, field values) fail a stream, and every other compared
+    stream warns. A failing stream is not also listed as warning.
     """
     if summary is None:
         return frozenset(), frozenset()
 
-    checks = (
-        summary.count_comparison,
-        summary.pk_presence,
+    strict_checks = (
         summary.control_pk_uniqueness,
         summary.target_pk_uniqueness,
         summary.field_comparison,
     )
-    results = [
-        (name, result)
-        for check in checks
-        if check is not None
-        for name, result in check.stream_results.items()
-    ]
-    failing = frozenset(name for name, result in results if not result.passed)
+    checks = (summary.count_comparison, summary.pk_presence, *strict_checks)
+    deciding = strict_checks if summary.partial else checks
+
+    def stream_results(
+        of: tuple[ComparisonResult | None, ...],
+    ) -> list[tuple[str, StreamComparisonResult]]:
+        return [
+            (name, result)
+            for check in of
+            if check is not None
+            for name, result in check.stream_results.items()
+        ]
+
+    results = stream_results(checks)
+    failing = frozenset(
+        name for name, result in stream_results(deciding) if not result.passed
+    )
     warning = (
         frozenset(name for name, result in results if result.duplicate_pk_count)
+        | (frozenset(name for name, _ in results) if summary.partial else frozenset())
         | frozenset(
             name
             for name, result in summary.count_comparison.stream_results.items()
@@ -974,6 +1138,11 @@ def _comparison_flagged_streams(
 def _added_copies(result: StreamComparisonResult) -> int:
     """Identical copies the target added under already-duplicated PKs."""
     return result.record_diff.added_copy_count if result.record_diff else 0
+
+
+def _partial_group_diffs(result: StreamComparisonResult) -> int:
+    """Duplicated PK values whose records differ, on a stopped-early read."""
+    return result.record_diff.partial_group_diff_count if result.record_diff else 0
 
 
 def _count_shortfall_allowed(result: StreamComparisonResult) -> bool:
@@ -1017,7 +1186,8 @@ def _pk_integrity_check(name: str, result: ComparisonResult) -> CheckResult:
     Fails like any comparison check, with each failing stream's finding as a
     detail. A version whose only finding is duplicates the target did not
     introduce -- pre-existing in both versions, or fixed by the target --
-    warns instead, naming the streams the same way.
+    warns instead, naming the streams the same way, and so does a target
+    whose new duplicates the comparison passed on a stopped-early read.
     """
     if not result.passed:
         return replace(
@@ -1064,12 +1234,14 @@ def _field_values_check(name: str, result: ComparisonResult) -> CheckResult:
 
     Fails like any comparison check. A check that passed, but on streams
     whose target emits more identical copies under PKs the control already
-    duplicates, warns instead, naming those streams.
+    duplicates, or with duplicated PK values a stopped-early read could not
+    judge, warns instead, naming those streams.
     """
     warned = sorted(
         stream
         for stream, stream_result in result.stream_results.items()
-        if stream_result.passed and _added_copies(stream_result)
+        if stream_result.passed
+        and (_added_copies(stream_result) or _partial_group_diffs(stream_result))
     )
     if not result.passed or not warned:
         return _comparison_check(name, result)
@@ -1079,6 +1251,9 @@ def _field_values_check(name: str, result: ComparisonResult) -> CheckResult:
 
 # Builds one check's row from its display name and its result.
 _CheckBuilder = Callable[[str, ComparisonResult], CheckResult]
+
+# The note on a row a stopped-early read makes inconclusive.
+_PARTIAL_READ_NOTE = "inconclusive on a stopped-early read"
 
 
 def build_record_comparison_checks(
@@ -1098,6 +1273,18 @@ def build_record_comparison_checks(
 
     The PK-dependent checks are `None` on a catalog with no keyed streams and
     are omitted rather than shown as trivially passing.
+
+    On a partial read (`summary.partial`) the count and presence checks are
+    inconclusive and render as warnings whatever they found: under a cap equal
+    counts are what the cap guarantees, and under a deadline the sides stopped
+    at different points, so neither a match nor a drop says anything about the
+    target. `summary.passed` already leaves them out. Their rows come from
+    `_inconclusive_check` rather than `_record_count_check`, so the count row
+    there is never the duplicate-row allowance's warning. The target's new
+    duplicate PKs are passed by the comparison itself on a partial read, so
+    its integrity row warns on them through `_pk_integrity_check`, and so are
+    the field values of duplicated PK values, which `_field_values_check`
+    warns on.
     """
     no_pk_note = ""
     if summary.streams_without_pk:
@@ -1106,15 +1293,20 @@ def build_record_comparison_checks(
             "count comparison only"
         )
 
+    def record_count_check(name: str, result: ComparisonResult) -> CheckResult:
+        return _record_count_check(name, result, no_pk_note)
+
+    count_check: _CheckBuilder = record_count_check
+    presence_check: _CheckBuilder = _comparison_check
+    if summary.partial:
+        count_check = _inconclusive_check(no_pk_note)
+        presence_check = _inconclusive_check()
+
     # Each check names the builder for its row, so a check that can warn is
     # chosen explicitly rather than by matching its display name.
     named_results: tuple[tuple[str, ComparisonResult | None, _CheckBuilder], ...] = (
-        (
-            "Record counts",
-            summary.count_comparison,
-            lambda name, result: _record_count_check(name, result, no_pk_note),
-        ),
-        ("Primary key presence", summary.pk_presence, _comparison_check),
+        ("Record counts", summary.count_comparison, count_check),
+        ("Primary key presence", summary.pk_presence, presence_check),
         (
             "Primary key integrity (control)",
             summary.control_pk_uniqueness,
@@ -1133,6 +1325,27 @@ def build_record_comparison_checks(
         for name, result, build in named_results
         if result is not None
     )
+
+
+def _inconclusive_check(note: str = "") -> _CheckBuilder:
+    """The builder for a count or presence row on a stopped-early read.
+
+    The row is `diagnostic` and never a pass, whatever the comparison found: a
+    tick here would read as evidence the stop cannot give.
+    """
+
+    def build(name: str, result: ComparisonResult) -> CheckResult:
+        return replace(
+            _comparison_check(
+                name,
+                result,
+                "; ".join(part for part in (note, _PARTIAL_READ_NOTE) if part),
+                severity="diagnostic",
+            ),
+            passed=False,
+        )
+
+    return build
 
 
 def _missing_pk_block(result: StreamComparisonResult) -> DiffBlock:
@@ -1220,8 +1433,12 @@ def _pk_presence_group(result: StreamComparisonResult) -> DiffBlock:
     )
 
 
-def _duplicate_pk_split_text(result: StreamComparisonResult) -> str:
-    """`118 pre-existing, 3 new in target` -- the non-zero parts of the split."""
+def _duplicate_pk_split_text(result: StreamComparisonResult, unclassified: int) -> str:
+    """`118 pre-existing, 3 new in target` -- the non-zero parts of the split.
+
+    `unclassified` is the control's duplicates a stopped-early read calls
+    neither fixed nor lost (`_unclassified_duplicates`).
+    """
     parts = [
         f"{count:,} {what}"
         for count, what in (
@@ -1232,16 +1449,37 @@ def _duplicate_pk_split_text(result: StreamComparisonResult) -> str:
                 result.lost_duplicate_pk_count,
                 "with records dropped or changed in target",
             ),
+            (unclassified, "in control not duplicated in target (partial read)"),
         )
         if count
     ]
     return ", ".join(parts)
 
 
+def _unclassified_duplicates(
+    control_result: StreamComparisonResult | None, partial: bool
+) -> int:
+    """The control's duplicates a stopped-early read calls neither fixed nor lost.
+
+    The split leaves fixed and lost at 0 there, so they are the control's
+    duplicates that are not pre-existing.
+    """
+    if not partial or control_result is None:
+        return 0
+    return max(
+        0,
+        control_result.duplicate_pk_count
+        - control_result.pre_existing_duplicate_pk_count
+        - control_result.fixed_duplicate_pk_count
+        - control_result.lost_duplicate_pk_count,
+    )
+
+
 def _duplicate_pk_block(
     version: str,
     result: StreamComparisonResult,
     other: StreamComparisonResult | None,
+    partial: bool = False,
 ) -> DiffBlock:
     """One version's duplicated PK values, with occurrence counts.
 
@@ -1252,7 +1490,8 @@ def _duplicate_pk_block(
     capped example lists, so exact up to `MAX_EXAMPLE_PKS` per version. A
     control value is called fixed only while the list of dropped-or-changed
     values is complete; past its cap, one missing from it may still belong
-    there, so it is only "not duplicated in target".
+    there, so it is only "not duplicated in target". On a stopped-early read
+    a control value is neither: "not duplicated in target (partial read)".
     """
     counts = result.duplicate_pk_counts
     shared = set(other.duplicate_pks) if other is not None else set()
@@ -1264,6 +1503,8 @@ def _duplicate_pk_block(
             return "pre-existing"
         if version == "target":
             return "new in target"
+        if partial:
+            return "not duplicated in target (partial read)"
         if pk in lost:
             return "records dropped or changed in target"
         return "fixed in target" if lost_complete else "not duplicated in target"
@@ -1289,6 +1530,7 @@ def _duplicate_pk_block(
 def _duplicate_pk_group(
     control_result: StreamComparisonResult | None,
     target_result: StreamComparisonResult | None,
+    partial: bool = False,
 ) -> DiffBlock:
     """The PK uniqueness findings, one child block per version.
 
@@ -1304,13 +1546,19 @@ def _duplicate_pk_group(
         ("target", target_result, control_result),
     ):
         if result is not None and result.duplicate_pks:
-            children.append(_duplicate_pk_block(version, result, other))
+            children.append(_duplicate_pk_block(version, result, other, partial))
             parts.append(f"{result.duplicate_pk_count:,} in {version}")
 
     title = f"Duplicate primary keys \u2014 {', '.join(parts)}"
     # Both versions carry the same split, so either one describes the stream.
     classified = target_result if target_result is not None else control_result
-    split = _duplicate_pk_split_text(classified) if classified is not None else ""
+    split = (
+        _duplicate_pk_split_text(
+            classified, _unclassified_duplicates(control_result, partial)
+        )
+        if classified is not None
+        else ""
+    )
     if split:
         title += f" ({split})"
 
@@ -1330,6 +1578,13 @@ def _duplicate_pk_group(
                     "duplicated in the control alone was fixed by the target, "
                     "unless the target dropped or changed records of it, which "
                     "the field values or PK presence fail on."
+                    + (
+                        " This read was stopped early: a cap or deadline can cut "
+                        "either side, so a new duplicate only warns and a "
+                        "control-only one is neither fixed nor lost."
+                        if partial
+                        else ""
+                    )
                 ),
             ),
         ),
@@ -1576,13 +1831,39 @@ def _value_diff_block(diff: RecordDiff) -> DiffBlock:
     how much the cap hid. The full records of both runs stay in the
     per-stream files in the run artifacts.
     """
+    return build_split_diff_block(
+        f"Field value diffs — {diff.records_with_value_diff_count:,} record(s) "
+        f"differ (showing {len(diff.records_with_value_diff)})",
+        _example_rows(diff.records_with_value_diff, diff.pk_paths),
+    )
+
+
+def _partial_group_diff_block(diff: RecordDiff) -> DiffBlock:
+    """The duplicated PK values a stopped-early read could not judge, side by side.
+
+    Rendered like the value diffs, under a title that says they do not fail:
+    a cap or a deadline can cut a PK's records on one side.
+    """
+    return build_split_diff_block(
+        "Duplicated PK values whose records differ, inconclusive on a "
+        "stopped-early read (a cap or deadline can cut a PK's records on one "
+        f"side; does NOT fail the test) — {diff.partial_group_diff_count:,} "
+        f"PK value(s) (showing {len(diff.partial_group_diffs)})",
+        _example_rows(diff.partial_group_diffs, diff.pk_paths),
+    )
+
+
+def _example_rows(
+    examples: list[dict[str, Any]], pk_paths: list[list[str]] | None
+) -> list[SplitDiffRow]:
+    """The side-by-side rows of value-diff examples, each under its header."""
     rows: list[SplitDiffRow] = []
-    for example in diff.records_with_value_diff:
+    for example in examples:
         rows.append(SplitDiffRow(header=_example_header(example)))
         # Pin the identifying fields above the diff: on a wide record the PK
         # field itself can land past the row cap or inside a collapsed gap,
         # and the reader must never have to hunt for which record this is.
-        for pk_path in diff.pk_paths or []:
+        for pk_path in pk_paths or []:
             rows.append(
                 SplitDiffRow(
                     left=_pinned_pk_line(example.get("control"), pk_path),
@@ -1590,12 +1871,7 @@ def _value_diff_block(diff: RecordDiff) -> DiffBlock:
                 )
             )
         rows.extend(_value_diff_rows(example))
-
-    return build_split_diff_block(
-        f"Field value diffs — {diff.records_with_value_diff_count:,} record(s) "
-        f"differ (showing {len(diff.records_with_value_diff)})",
-        rows,
-    )
+    return rows
 
 
 def _value_diff_deepdiff_block(diff: RecordDiff) -> DiffBlock:
@@ -1697,10 +1973,12 @@ def _stream_comparison_detail(
 
     The status is `fail`, `warn` (every check passed, but a version has
     duplicate PKs the target did not introduce, the count passed on the
-    duplicate-row allowance, or the target added identical copies under a
-    duplicated PK) or `pass`. Returns `None` for
-    a stream the comparison never saw -- a configured stream that emitted
-    nothing on either side, which the coverage check reports instead.
+    duplicate-row allowance, the target added identical copies under a
+    duplicated PK, or the read stopped early) or `pass`. On a stopped-early
+    read only the strict checks -- PK integrity and field values -- can fail
+    the stream. Returns `None` for a stream the comparison never saw -- a
+    configured stream that emitted nothing on either side, which the
+    coverage check reports instead.
 
     Detail blocks are built only for the sub-checks with a finding: a passing
     stream's section stays a single line, and the report's weight goes where
@@ -1729,6 +2007,18 @@ def _stream_comparison_detail(
     ]
     if not results:
         return None
+    # On a stopped-early read a count drop or a PK the target never reached is
+    # expected, so only the strict checks decide the stream's status; the
+    # fragments still say what was seen.
+    deciding = (
+        [
+            result
+            for result in (control_uniqueness, target_uniqueness, field_result)
+            if result is not None
+        ]
+        if summary.partial
+        else results
+    )
 
     fragments: list[str] = []
     blocks: list[DiffBlock] = []
@@ -1755,6 +2045,7 @@ def _stream_comparison_detail(
         if uniqueness.new_duplicate_pk_count:
             fragments.append(
                 f"{uniqueness.new_duplicate_pk_count:,} new duplicate PK(s) in target"
+                + (" (inconclusive on a stopped-early read)" if summary.partial else "")
             )
         if uniqueness.pre_existing_duplicate_pk_count:
             fragments.append(
@@ -1770,6 +2061,12 @@ def _stream_comparison_detail(
             fragments.append(
                 f"{uniqueness.lost_duplicate_pk_count:,} duplicate PK(s) in "
                 "control with records dropped or changed in target"
+            )
+        unclassified = _unclassified_duplicates(control_uniqueness, summary.partial)
+        if unclassified:
+            fragments.append(
+                f"{unclassified:,} duplicate PK(s) in control not duplicated in "
+                "target (partial read)"
             )
         has_duplicates = any(
             result is not None and result.duplicate_pk_count
@@ -1787,7 +2084,9 @@ def _stream_comparison_detail(
             )
             has_records_missing_pk = True
     if has_duplicates:
-        blocks.append(_duplicate_pk_group(control_uniqueness, target_uniqueness))
+        blocks.append(
+            _duplicate_pk_group(control_uniqueness, target_uniqueness, summary.partial)
+        )
     if has_records_missing_pk:
         blocks.append(_records_missing_pk_group(control_uniqueness, target_uniqueness))
 
@@ -1819,9 +2118,24 @@ def _stream_comparison_detail(
         )
         blocks.append(_added_copies_block(record_diff))
 
-    if not all(result.passed for result in results):
+    if (
+        field_result is not None
+        and field_result.record_diff is not None
+        and field_result.record_diff.partial_group_diff_count
+    ):
+        record_diff = field_result.record_diff
+        fragments.append(
+            f"{record_diff.partial_group_diff_count:,} duplicated PK(s) whose "
+            "records differ (inconclusive on a stopped-early read)"
+        )
+        blocks.append(_partial_group_diff_block(record_diff))
+
+    # A stream warns on duplicates the target did not introduce, and on a
+    # partial read always: its counts and PK presence are inconclusive there,
+    # whatever they show, so nothing short of a strict failure is a verdict.
+    if not all(result.passed for result in deciding):
         status = "fail"
-    elif has_duplicates or count_warned or copies_added:
+    elif has_duplicates or count_warned or copies_added or summary.partial:
         status = "warn"
     else:
         status = "pass"
@@ -2020,6 +2334,97 @@ def _replay_coverage_check(
     )
 
 
+def _connector_cache_check(
+    control_result: dict[str, Any],
+    target_result: dict[str, Any],
+) -> CheckResult | None:
+    """Report whether the target still caches what the control cached.
+
+    This is the payoff of the connector-reported counters, and the one thing no
+    proxy can tell you: a version that drops `use_cache` from a requester, or
+    changes a URL so its cache key never repeats, makes strictly more upstream
+    requests for the same data. The proxy sees more flows and cannot say why;
+    the connector's own hit ratio says exactly why.
+
+    **Diagnostic, never folded into the verdict.** A ratio can move for reasons
+    that are not a regression -- a differently ordered read warms the cache in a
+    different place, and a connector that legitimately stopped caching a stream
+    it no longer fetches twice looks identical here. Failing a connector PR on
+    that would be wrong, and the same reasoning applies as for
+    `_replay_coverage_check`: it explains a request-count difference rather than
+    independently causing a failure.
+
+    Silent when either side did not report, which covers every connector outside
+    the Python CDK's `HttpClient` and every connector on a CDK predating the
+    counters. Silent, too, when the control reported no hits at all: a connector
+    that does no caching has none to lose, and a target that *starts* caching is
+    an improvement rather than something to warn about.
+
+    The drop threshold is absolute, so a cache that only ever served a small
+    share of requests can lose all of it under the threshold -- 8% to 0% is a
+    drop of 8 points. A target that reports no hits where the control reported
+    some is therefore warned about on its own: the cache served nothing, which
+    is what a requester that lost `use_cache` looks like at any ratio.
+
+    Returns:
+        The check, or `None` when there is nothing comparable to report.
+    """
+    control_http = control_result.get("http_metrics") or {}
+    target_http = target_result.get("http_metrics") or {}
+
+    control_requests = control_http.get("connector_request_count")
+    target_requests = target_http.get("connector_request_count")
+    if not control_requests or not target_requests:
+        return None
+
+    control_hits = int(control_http.get("connector_cache_hits_count", 0) or 0)
+    target_hits = int(target_http.get("connector_cache_hits_count", 0) or 0)
+    if not control_hits:
+        return None
+
+    control_ratio = Fraction(control_hits, int(control_requests))
+    target_ratio = Fraction(target_hits, int(target_requests))
+    summary = (
+        f"the connector's own cache served {target_hits} of {target_requests} "
+        f"target request(s) ({float(target_ratio):.0%}), against {control_hits} "
+        f"of {control_requests} ({float(control_ratio):.0%}) on the control"
+    )
+
+    if not target_hits:
+        return CheckResult(
+            name=_CONNECTOR_CACHE_CHECK,
+            passed=False,
+            severity="diagnostic",
+            summary=(
+                f"Caching lost: {summary} -- the target's cache served nothing. "
+                "Check whether a requester lost `use_cache`, or whether its URL "
+                "changed so the cache key no longer repeats"
+            ),
+        )
+
+    # Exact arithmetic on the two fractions: a drop of exactly the threshold
+    # passes whatever the denominators, and the drop is printed with the
+    # decimal that separates 10.4 points from 10.
+    drop = control_ratio - target_ratio
+    if drop <= MAX_CACHE_HIT_RATIO_DROP:
+        return CheckResult(
+            name=_CONNECTOR_CACHE_CHECK, passed=True, summary=summary.capitalize()
+        )
+
+    return CheckResult(
+        name=_CONNECTOR_CACHE_CHECK,
+        passed=False,
+        severity="diagnostic",
+        summary=(
+            f"Caching regressed: {summary} -- a drop of "
+            f"{float(drop) * 100:.1f} point(s), above "
+            f"{float(MAX_CACHE_HIT_RATIO_DROP) * 100:.0f}. Check whether a "
+            "requester lost `use_cache`, or whether its URL changed so the "
+            "cache key no longer repeats"
+        ),
+    )
+
+
 def build_comparison_report_model(
     *,
     target_image: str,
@@ -2034,6 +2439,7 @@ def build_comparison_report_model(
     configured_streams: tuple[str, ...] = (),
     connection_objects: tuple[DiffBlock, ...] = (),
     reproduction: ReproductionVerdict | None = None,
+    target_only_streams: tuple[str, ...] = (),
 ) -> RegressionReportModel:
     """Build the report model for a target-versus-control run.
 
@@ -2066,6 +2472,11 @@ def build_comparison_report_model(
             replaces the command-execution check and the verdict: in case mode a
             control that fails with the expected error is the evidence sought,
             not an inconclusive run.
+        target_only_streams: The streams configured for the target but not for
+            the control, typically the ones a connector PR adds. One that
+            returned no records makes the verdict NOT EXERCISED, never a pass:
+            the comparison could not fail it, and the new code path never ran.
+            Empty when both sides read the same catalog, which changes nothing.
 
     Returns:
         The model to render as `report.html` and as the inline summary.
@@ -2079,6 +2490,22 @@ def build_comparison_report_model(
         _build_side("target", command, target_image, target_result),
     )
     verdict_detail = _comparison_verdict_detail(outcome, sides)
+    command_detail = verdict_detail
+    stopped = stopped_early_sides(
+        ("control", control_result), ("target", target_result)
+    )
+    not_exercised = not_exercised_streams(
+        target_only_streams,
+        target_result.get("record_counts_per_stream", {}),
+        excluded_streams=target_result.get("excluded_not_exercised_streams", ()),
+    )
+    setup_error = bool(target_result.get("setup_error"))
+    setup_error_clears_regression = bool(
+        target_result.get("setup_error_clears_regression")
+    )
+    could_not_test = bool(target_result.get("could_not_test"))
+    setup_error_detail = target_result.get("setup_error_detail", "")
+    could_not_test_detail = target_result.get("could_not_test_detail", "")
 
     control_counts = _with_configured_streams(
         control_result.get("record_counts_per_stream", {}), configured_streams
@@ -2102,7 +2529,51 @@ def build_comparison_report_model(
         if record_comparison is not None
         else ()
     )
+    strict_failures = failed_checks((*comparison_checks, *extra_checks))
+    comparison_errored = bool(
+        record_comparison is not None and record_comparison.errored
+    )
+    new_stream_check_names = {
+        "Record schema (new streams)",
+        "Primary key (new streams)",
+        "Incremental cursor (new streams)",
+    }
+    new_stream_check_failed = any(
+        check.name in new_stream_check_names and check.status == "fail"
+        for check in extra_checks
+    )
+    record_checks_regression = bool(
+        target_result.get("record_checks_regression", new_stream_check_failed)
+    )
+    record_checks_errored = new_stream_check_failed and not record_checks_regression
+    other_strict_failures = failed_checks(
+        tuple(
+            check for check in extra_checks if check.name not in new_stream_check_names
+        )
+    )
+    real_strict_failure = bool(
+        record_checks_regression
+        or (
+            record_comparison is not None
+            and not record_comparison.passed
+            and not comparison_errored
+        )
+        or other_strict_failures
+    )
+    new_stream_label = new_stream_verdict_label(
+        stopped=bool(stopped),
+        setup_error=setup_error,
+        strict_failed=real_strict_failure,
+        regression=outcome.regression_detected,
+        both_failed=outcome.both_failed,
+        comparison_errored=(comparison_errored or record_checks_errored)
+        and not real_strict_failure
+        and not outcome.regression_detected,
+        could_not_test=could_not_test,
+        not_exercised=bool(not_exercised),
+    )
     replay_coverage = _replay_coverage_check(target_result, control_result)
+    connector_cache = _connector_cache_check(control_result, target_result)
 
     metric_tables = tuple(
         table
@@ -2135,6 +2606,7 @@ def build_comparison_report_model(
         *comparison_checks,
         # Diagnostic, so deliberately not folded into the verdict below.
         *([replay_coverage] if replay_coverage is not None else []),
+        *([connector_cache] if connector_cache is not None else []),
         *extra_checks,
     )
     passed, verdict_label, verdict_detail = _fold_check_results(
@@ -2142,10 +2614,11 @@ def build_comparison_report_model(
         outcome.success,
         _comparison_verdict_label(outcome),
         verdict_detail,
-        # An errored comparison fails the run as INCONCLUSIVE: a comparator
-        # crash is a tooling failure, not evidence the connector regressed.
+        # An errored record check or comparison fails the run as INCONCLUSIVE:
+        # a tooling failure is not evidence the connector regressed.
         failed_label="FAIL (inconclusive)"
-        if record_comparison is not None and record_comparison.errored
+        if (comparison_errored or record_checks_errored)
+        and not (real_strict_failure or outcome.regression_detected)
         else "FAIL (regression)",
     )
     if passed and outcome.both_succeeded:
@@ -2169,22 +2642,131 @@ def build_comparison_report_model(
             reproduction.detail,
         )
 
+    # A stop outranks an unexercised stream: the Result line keeps the
+    # INCOMPLETE wording and the streams go in the context block instead.
+    if new_stream_label == "INCOMPLETE":
+        passed, verdict_label, verdict_detail = _never_a_pass_verdict(
+            describe_stopped_early(stopped, side_count=len(sides)),
+            verdict_label=new_stream_label,
+            command_detail=None if outcome.success else command_detail,
+            # An errored comparator's failed rows are a tooling failure, so
+            # they are named as inconclusive below rather than as a regression.
+            failed=failed_checks(
+                (*(() if comparison_errored else comparison_checks), *extra_checks)
+            ),
+            regression=outcome.regression_detected,
+            comparison_errored=comparison_errored,
+        )
+    elif new_stream_label == "SETUP ERROR":
+        passed = False
+        verdict_label = new_stream_label
+        verdict_detail = setup_error_detail
+        if outcome.regression_detected and not setup_error_clears_regression:
+            verdict_detail += f"; {command_detail}; REGRESSION DETECTED"
+            if strict_failures:
+                names = ", ".join(check.name for check in strict_failures)
+                verdict_detail = (
+                    f"{setup_error_detail}; {command_detail}; failed checks: {names}; "
+                    "REGRESSION DETECTED"
+                )
+    elif could_not_test and new_stream_label is not None:
+        passed = False
+        verdict_label = new_stream_label
+        if new_stream_label == "COULD NOT TEST (config error)":
+            verdict_detail = could_not_test_detail
+        else:
+            verdict_detail = _comparison_verdict_detail(outcome, sides)
+    elif not_exercised and new_stream_label is not None:
+        passed, verdict_label, verdict_detail = _never_a_pass_verdict(
+            describe_not_exercised(not_exercised),
+            verdict_label=(
+                "NOT EXERCISED"
+                if comparison_errored
+                and not outcome.both_failed
+                and new_stream_label == "FAIL (inconclusive)"
+                else new_stream_label
+            ),
+            command_detail=None if outcome.success else command_detail,
+            failed=failed_checks(
+                (*(() if comparison_errored else comparison_checks), *extra_checks)
+            ),
+            regression=outcome.regression_detected,
+            comparison_errored=comparison_errored,
+        )
+    if setup_error or could_not_test:
+        other_reasons = []
+        if setup_error and verdict_label != "SETUP ERROR":
+            other_reasons.append(setup_error_detail)
+        if could_not_test and verdict_label != "COULD NOT TEST (config error)":
+            other_reasons.append(could_not_test_detail)
+        if not_exercised and verdict_label != "NOT EXERCISED":
+            other_reasons.append(describe_not_exercised(not_exercised))
+        if strict_failures:
+            other_reasons.append(
+                "failed checks: " + ", ".join(check.name for check in strict_failures)
+            )
+        if other_reasons:
+            verdict_detail += "; " + "; ".join(other_reasons)
+
     return RegressionReportModel(
         mode="comparison",
         command=command,
         passed=passed,
         verdict_label=verdict_label,
         verdict_detail=verdict_detail,
-        context=_build_context(command, target_image, control_image),
+        context=_build_context(
+            command,
+            target_image,
+            control_image,
+            stopped_early_notes(stopped),
+            run_output_mode(target_result, control_result),
+            run_readable_fields(target_result, control_result),
+            not_exercised_note(not_exercised) if stopped else None,
+        ),
         sides=sides,
         checks=checks,
         metric_tables=metric_tables,
         stream_sections=stream_sections,
         omitted_stream_count=omitted,
         outcome=outcome,
+        not_exercised=bool(not_exercised),
+        setup_error=setup_error,
+        could_not_test=could_not_test,
         diff_blocks=(*extra_diff_blocks, *build_failure_output_blocks(sides)),
         connection_objects=connection_objects,
     )
+
+
+def _never_a_pass_verdict(
+    detail: str,
+    *,
+    verdict_label: str,
+    command_detail: str | None,
+    failed: tuple[CheckResult, ...],
+    regression: bool,
+    comparison_errored: bool = False,
+) -> tuple[bool, str, str]:
+    """Add command and check details to a never-pass verdict.
+
+    INCOMPLETE when the harness cut a side short, so the comparison saw part
+    of what it would have emitted; NOT EXERCISED when a stream only the target
+    read returned nothing, so the comparison saw none of it. The
+    `new_stream_verdict_label` helper chooses the label while this function
+    retains every applicable command and check reason in the detail. A record
+    comparison that errored is named as inconclusive, never as a regression.
+    """
+    if command_detail:
+        detail += f"; {command_detail[0].lower()}{command_detail[1:]}"
+    if failed:
+        names = ", ".join(check.name.lower() for check in failed)
+        plural = "s" if len(failed) > 1 else ""
+        detail += f", but {len(failed)} check{plural} failed: {names}"
+    if comparison_errored:
+        detail += "; the record comparison errored, so it is inconclusive"
+    if failed or (regression and not comparison_errored):
+        detail += " — REGRESSION DETECTED"
+
+    return False, verdict_label, detail
 
 
 def _comparison_verdict_label(outcome: ComparisonOutcome) -> str:
@@ -2311,6 +2893,7 @@ def build_single_version_report_model(
     """
     side = _build_side("single", command, connector_image, result)
     verdict_detail = f"{connector_image} {side.description}"
+    stopped = stopped_early_sides(("single", result))
 
     counts = _with_configured_streams(
         result.get("record_counts_per_stream", {}), configured_streams
@@ -2343,6 +2926,14 @@ def build_single_version_report_model(
     passed, verdict_label, verdict_detail = _fold_check_results(
         extra_checks, side.passed, "PASS" if side.passed else "FAIL", verdict_detail
     )
+    if stopped:
+        passed, verdict_label, verdict_detail = _never_a_pass_verdict(
+            describe_stopped_early(stopped, side_count=1),
+            verdict_label="INCOMPLETE",
+            command_detail=None if side.passed else side.description,
+            failed=failed_checks(extra_checks),
+            regression=False,
+        )
 
     return RegressionReportModel(
         mode="single_version",
@@ -2350,7 +2941,14 @@ def build_single_version_report_model(
         passed=passed,
         verdict_label=verdict_label,
         verdict_detail=verdict_detail,
-        context=_build_context(command, connector_image, None),
+        context=_build_context(
+            command,
+            connector_image,
+            None,
+            stopped_early_notes(stopped),
+            run_output_mode(result),
+            run_readable_fields(result),
+        ),
         sides=(side,),
         checks=checks,
         metric_tables=metric_tables,
@@ -2381,8 +2979,21 @@ def _jinja_environment() -> Environment:
     # Counts read as thousands-separated everywhere, including the stream
     # headlines the builders format, so a six-figure record count is legible.
     environment.filters["number"] = _format_count
+    # The per-side `http_metrics` list under Execution details carries the
+    # same numbers as the HTTP table, so it carries the same names.
+    environment.filters["http_metric_label"] = _http_metric_label
 
     return environment
+
+
+def _http_metric_label(key: str) -> str:
+    """The report's name for an `http_metrics` key, or a readable form of it.
+
+    Keys with a row in the HTTP table get that row's label; the rest --
+    `replay_source`, `replay_skipped_reason`, `live_urls`, `metrics_incomplete`
+    -- are the payload's own words with the underscores taken out.
+    """
+    return HTTP_METRIC_LABELS.get(key, key.replace("_", " ").capitalize())
 
 
 def _json_for_html_comment(data: dict[str, Any]) -> Markup:
@@ -2626,7 +3237,7 @@ def _metric_tables_from_meta(payload: Any) -> tuple[MetricTable, ...]:
         rows = tuple(
             MetricRow(
                 label=str(row.get("label", "")),
-                target=int(row.get("target") or 0),
+                target=None if row.get("target") is None else int(row["target"]),
                 control=None if row.get("control") is None else int(row["control"]),
             )
             for row in table.get("rows", [])
@@ -2732,7 +3343,7 @@ def _inline_row_priority(row: MetricRow) -> tuple[int, str]:
     A comparison ranks by the size of the change; a single-version run has no
     delta, so the only signal it has is the count itself.
     """
-    magnitude = abs(row.delta) if row.delta is not None else row.target
+    magnitude = abs(row.delta) if row.delta is not None else (row.target or 0)
 
     return (-magnitude, row.label)
 
@@ -2850,13 +3461,49 @@ def _artifact_pointer(context: ReportContext) -> str:
     )
 
 
+def _inline_request_counts(model: RegressionReportModel) -> str | None:
+    """One line of per-version HTTP request totals for the step summary.
+
+    Numbers only, never a verdict: a request count that moved between versions
+    is what tells a reviewer whether a record difference came with a change in
+    how the connector called the API -- a low-code migration that lost its
+    caching, say -- and no threshold turns that into a pass or a fail. The HTML
+    report carries the full HTTP table; this is the one row of it the summary
+    keeps.
+
+    A side whose payload has no `flow_count` had no capture at all (the proxy
+    never ran), which is reported as such rather than as zero requests.
+
+    Returns:
+        The line, or `None` for a single-version run or when neither side
+        recorded any traffic -- `spec` never calls out, and a line of zeroes
+        on every command is noise.
+    """
+    if not model.is_comparison:
+        return None
+
+    metrics = {side.role: side.http_metrics or {} for side in model.sides}
+    if not any(side.get("flow_count") for side in metrics.values()):
+        return None
+
+    def describe(http_metrics: dict[str, Any]) -> str:
+        requests = http_metrics.get("flow_count")
+        if requests is None:
+            return "not captured"
+        return f"{requests} ({http_metrics.get('duplicate_flow_count', 0)} to a repeated URL)"
+
+    return "**HTTP requests:** " + " · ".join(
+        f"{role} {describe(metrics[role])}" for role in ("control", "target")
+    )
+
+
 def render_inline_summary(model: RegressionReportModel) -> str:
     """Render the concise markdown block for `GITHUB_STEP_SUMMARY`.
 
-    Deliberately short: the verdict, the per-check table, per-stream record
-    counts and a pointer to `report.html`. Execution details, HTTP metrics and
-    diff blocks belong to the HTML report only -- that split is the point of
-    having two surfaces.
+    Deliberately short: the verdict, the per-check table, per-version request
+    totals, per-stream record counts and a pointer to `report.html`. Execution
+    details, the rest of the HTTP table and diff blocks belong to the HTML
+    report only -- that split is the point of having two surfaces.
 
     Starts at an L2 heading and carries no context block: the workflow writes the
     report's H1 and context once per run, so repeating them per command would be
@@ -2868,6 +3515,28 @@ def render_inline_summary(model: RegressionReportModel) -> str:
         "",
         f"**Result:** {_status_emoji(model.passed)} {model.verdict_label} — "
         f"{_inline_text(model.verdict_detail)}",
+        *(
+            [
+                "",
+                *(
+                    f"- {_inline_text(note)}"
+                    for note in model.context.stopped_early_notes
+                ),
+            ]
+            if model.context.stopped_early_notes
+            else []
+        ),
+        *(
+            [f"- {_inline_text(model.context.not_exercised_note)}"]
+            if model.context.not_exercised_note
+            else []
+        ),
+        # The count only; the per-stream table is `report.html`'s.
+        *(
+            ["", f"- Readable fields: {_inline_text(model.context.readable_summary)}"]
+            if model.context.readable_summary
+            else []
+        ),
         "",
         "| Check | Result | Details |",
         "|-------|--------|---------|",
@@ -2878,6 +3547,9 @@ def render_inline_summary(model: RegressionReportModel) -> str:
         for check in model.checks
     )
     lines.append("")
+    request_counts = _inline_request_counts(model)
+    if request_counts:
+        lines.extend([request_counts, ""])
     lines.extend(_inline_finding_lines(model))
 
     stream_rows = _inline_stream_rows(model)

@@ -3,7 +3,6 @@ from datetime import timedelta
 from functools import cache
 from typing import Any, Type
 
-import structlog
 import temporalio.activity
 import temporalio.workflow
 from opentelemetry import trace
@@ -17,10 +16,14 @@ from mistralai.workflows.core._events.event_activities import (
     _emit_task_in_progress,
     _emit_task_started,
     _persist_task_span_context,
+    execute_emitter,
+    execute_emitter_preserving_error,
 )
 from mistralai.workflows.core._events.event_context import BackgroundEventPublisher
+from mistralai.workflows.core._events.event_failure import event_failure_message
 from mistralai.workflows.core._events.event_utils import create_base_event_fields, should_publish_event
 from mistralai.workflows.core._events.json_patch import make_json_patch
+from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.temporal.utils import require_activity_context_value
 from mistralai.workflows.core.tracing._otel_config import _get_calling_module_name
 from mistralai.workflows.core.tracing._temporal_tracing_interceptor import TraceDataSerializer
@@ -48,7 +51,7 @@ def _get_trace_serializer() -> TraceDataSerializer:
     return TraceDataSerializer()
 
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 tracer = trace.get_tracer(_get_calling_module_name())
 
 adapter: TypeAdapter[Any] = TypeAdapter(Any)
@@ -229,11 +232,7 @@ class Task[T]:
                 return self
 
             if temporalio.workflow.in_workflow():
-                await temporalio.workflow.execute_local_activity(
-                    _emit_task_started,
-                    args=[self._id, self._type, _to_json(self._state)],
-                    start_to_close_timeout=timedelta(seconds=10),
-                )
+                await execute_emitter(_emit_task_started, self._id, self._type, _to_json(self._state))
             else:
                 _publish_task_event(
                     CustomTaskStarted(
@@ -319,16 +318,10 @@ class Task[T]:
 
         if temporalio.workflow.in_workflow():
             if exc_type is None:
-                await temporalio.workflow.execute_local_activity(
-                    _emit_task_completed,
-                    args=[self._id, self._type, _to_json(self._state)],
-                    start_to_close_timeout=timedelta(seconds=10),
-                )
+                await execute_emitter(_emit_task_completed, self._id, self._type, _to_json(self._state))
             else:
-                await temporalio.workflow.execute_local_activity(
-                    _emit_task_failed,
-                    args=[self._id, self._type, str(exc_val)],
-                    start_to_close_timeout=timedelta(seconds=10),
+                await execute_emitter_preserving_error(
+                    _emit_task_failed, self._id, self._type, event_failure_message(exc_val)
                 )
         else:
             if exc_type is None:
@@ -349,7 +342,7 @@ class Task[T]:
                         attributes=CustomTaskFailedAttributes(
                             custom_task_id=self._id,
                             custom_task_type=self._type,
-                            failure=Failure(message=str(exc_val)),
+                            failure=Failure(message=event_failure_message(exc_val)),
                         ),
                     )
                 )
@@ -383,11 +376,7 @@ class Task[T]:
             if temporalio.workflow.in_workflow():
                 # Serialize patches to dicts for local activity (Temporal serialization)
                 patch_dicts = [p.model_dump(mode="json") for p in patches]
-                await temporalio.workflow.execute_local_activity(
-                    _emit_task_in_progress,
-                    args=[self._id, self._type, patch_dicts, list(encrypted_paths)],
-                    start_to_close_timeout=timedelta(seconds=10),
-                )
+                await execute_emitter(_emit_task_in_progress, self._id, self._type, patch_dicts, list(encrypted_paths))
             else:
                 # Use JSONPatch models directly
                 payload = JSONPatchPayload(value=patches)

@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.39                                                                                #
-# Generated on 2026-09-02T21:19:46.742769                                                            #
+# MF version: 2.19.40                                                                                #
+# Generated on 2026-10-29T20:14:39.450467                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -11,6 +11,7 @@ import typing
 if typing.TYPE_CHECKING:
     import metaflow.metadata_provider.metadata
 
+from ..exception import MetaflowException as MetaflowException
 from ..exception import MetaflowInternalError as MetaflowInternalError
 from ..exception import MetaflowTaggingError as MetaflowTaggingError
 from ..tagging_util import validate_tag as validate_tag
@@ -344,6 +345,16 @@ class MetadataProvider(object, metaclass=MetadataProviderMeta):
         ------
             object or list :
                 Depending on the call, the type of object return varies
+        """
+        ...
+    @classmethod
+    def iter_objects(cls, obj_type, sub_type, filters, attempt, *args, **kwargs):
+        """
+        Iterate over a collection returned by ``get_object``.
+        
+        Providers can override this method to stream records without materializing the
+        complete collection. ``query_filters`` and ``page_size`` are optional provider
+        hints; the default implementation supports only unfiltered iteration.
         """
         ...
     @classmethod

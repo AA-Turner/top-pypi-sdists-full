@@ -1,4 +1,4 @@
-name: autofix.ci
+name: CI
 
 on:
   push:
@@ -11,6 +11,8 @@ env:
   PYTEST_ADDOPTS: "-v --color=yes -n auto --internet-tests --junitxml=test-data/test-results.xml"
   FORCE_COLOR: "1"
   MPLBACKEND: agg
+  # ubuntu-26.04’s system Python is 3.14.4, whose incremental GC (reverted in 3.14.5) lets garbage pile up until the runner OOMs
+  UV_PYTHON_PREFERENCE: only-managed
   # It’s impossible to ignore SyntaxWarnings for a single module,
   # so because leidenalg 0.10.0 has them, we pre-compile things: https://github.com/vtraag/leidenalg/issues/173
   UV_COMPILE_BYTECODE: "1"
@@ -121,28 +123,12 @@ jobs:
       - run: uvx --from build pyproject-build --sdist --wheel .
       - run: uvx twine check dist/*
 
-  lint:
-    name: Pre-commit checks
-    runs-on: ubuntu-latest
-    permissions: {}
-    steps:
-      - *clone
-      - *setup-uv
-      - run: uv tool install hatch
-      - name: Run pre-commit hooks
-        run: uvx prek run --all-files --show-diff-on-failure --color=always
-        env:
-          SKIP: no-commit-to-branch
-      - uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a # v1.3.4
-        if: ${{ !cancelled() }}
-
   check:
     if: always()
     needs:
       - get-environments
       - test
       - build
-      - lint
     runs-on: ubuntu-latest
     steps:
       - uses: re-actors/alls-green@b5b5b37504aa4183270bd3d855c52a67f212be35 # v1.3.0

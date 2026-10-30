@@ -7,7 +7,7 @@ import pytest
 from mistralai.client import models as mistralai_models
 
 from mistralai.workflows.plugins.mistralai import activities
-from mistralai.workflows.plugins.mistralai.connectors.run_as import ConnectorRunAs
+from mistralai.workflows.plugins.mistralai.connectors.run_as import RunAs
 from mistralai.workflows.plugins.mistralai.models import AgentUpdateRequest, ConversationAppendRequest
 
 _PATCH_CLIENT = "mistralai.workflows.plugins.mistralai.activities.get_mistral_client"
@@ -35,32 +35,32 @@ class TestConversationActivitiesForwardRunAs:
                 activities.mistralai_create_agent,
                 lambda: mistralai_models.CreateAgentRequest(model="m", name="n"),
                 False,
-                ConnectorRunAs.DEPLOYMENT,
-                ConnectorRunAs.DEPLOYMENT,
+                RunAs.DEPLOYMENT,
+                RunAs.DEPLOYMENT,
                 id="create_agent",
             ),
             pytest.param(
                 activities.mistralai_update_agent,
                 lambda: AgentUpdateRequest(agent_id="ag_1"),
                 False,
-                ConnectorRunAs.DEPLOYMENT,
-                ConnectorRunAs.DEPLOYMENT,
+                RunAs.DEPLOYMENT,
+                RunAs.DEPLOYMENT,
                 id="update_agent",
             ),
             pytest.param(
                 activities.mistralai_start_conversation,
                 lambda: mistralai_models.ConversationRequest(inputs="hi"),
                 False,
-                ConnectorRunAs.DEPLOYMENT,
-                ConnectorRunAs.DEPLOYMENT,
+                RunAs.DEPLOYMENT,
+                RunAs.DEPLOYMENT,
                 id="start_conversation",
             ),
             pytest.param(
                 activities.mistralai_append_conversation,
                 lambda: ConversationAppendRequest(conversation_id="c", inputs="hi"),
                 False,
-                ConnectorRunAs.DEPLOYMENT,
-                ConnectorRunAs.DEPLOYMENT,
+                RunAs.DEPLOYMENT,
+                RunAs.DEPLOYMENT,
                 id="append_conversation",
             ),
             pytest.param(
@@ -68,23 +68,23 @@ class TestConversationActivitiesForwardRunAs:
                 lambda: mistralai_models.ConversationRequest(inputs="hi"),
                 False,
                 _NO_RUN_AS,
-                ConnectorRunAs.AUTO,
+                RunAs.AUTO,
                 id="start_conversation_defaults_to_auto",
             ),
             pytest.param(
                 activities.mistralai_start_conversation_stream,
                 lambda: mistralai_models.ConversationRequest(inputs="hi"),
                 True,
-                ConnectorRunAs.DEPLOYMENT,
-                ConnectorRunAs.DEPLOYMENT,
+                RunAs.DEPLOYMENT,
+                RunAs.DEPLOYMENT,
                 id="start_conversation_stream",
             ),
             pytest.param(
                 activities.mistralai_append_conversation_stream,
                 lambda: ConversationAppendRequest(conversation_id="c", inputs="hi"),
                 True,
-                ConnectorRunAs.DEPLOYMENT,
-                ConnectorRunAs.DEPLOYMENT,
+                RunAs.DEPLOYMENT,
+                RunAs.DEPLOYMENT,
                 id="append_conversation_stream",
             ),
         ],

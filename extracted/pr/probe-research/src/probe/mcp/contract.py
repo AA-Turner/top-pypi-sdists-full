@@ -646,13 +646,32 @@ class MissingMarker(StrEnum):
     # read (a provider-backed run's source failed). Those failures are listed in
     # `data.errors`; the series that DID read are complete as far as they go.
     SERIES_READ_ERRORS = "series_read_errors"
-    # lineage on a project or experiment: the read stopped at a window, and the
-    # payload's `*_truncated` flags say which -- its children past the route's
-    # limit, its links past the view's cap, links among its runs past that cap,
-    # or "built on" derived over only its newest runs. Neither route takes an
-    # offset, so the rest is not reachable here; `probe experiment edges` lists
-    # the whole graph among an experiment's runs and files.
+    # lineage on a project or experiment: the SERVER's read stopped at a
+    # window, and the payload's `*_truncated` flags say which -- its children
+    # past the route's limit, stored links past its 500, links among its runs
+    # past the edges route's 1,000, or "built on" derived over only its newest
+    # runs. Neither route takes an offset, so the rest is not reachable here;
+    # `probe experiment edges` lists the whole graph among an experiment's runs
+    # and files.
     LINEAGE_BEYOND_WINDOW = "lineage_beyond_window"
+    # lineage on a project or experiment (swarm friction P6): a link list on
+    # this page (`built_on`, `used_by`, `run_edges`) is a glance cut to fit the
+    # budget. Its `total` counts them all and its `read_more` names the
+    # `view_options.links` that pages the whole list; nothing is out of reach.
+    LINKS_BEYOND_PAGE = "links_beyond_page"
+    # picks on a project, or `pick_history` on browse(mode="branches"): the
+    # best route reads at most 50 events (`MAX_PICK_HISTORY`) and takes no
+    # offset, so events older than those 50 are not reachable here.
+    PICKS_BEYOND_SERVER_LIMIT = "picks_beyond_server_limit"
+    # browse(mode="branches"): the workspace's pick history could not be read
+    # (the best route failed). Emitted INSTEAD of omitting `pick_history`,
+    # whose absence otherwise means "no events" -- unless `pick_history_total`
+    # rides the page, which says how many were read (see the next marker).
+    PICK_HISTORY = "pick_history"
+    # browse(mode="branches"): the first page shows only the newest pick events
+    # that fit its share of the budget (`pick_history_total` counts all that were
+    # read). A larger token_budget shows more; later pages carry none.
+    PICK_HISTORY_BEYOND_PAGE = "pick_history_beyond_page"
     # get_metrics_grouped / export_metric_points — the read was cut at the tool's
     # own row bound. Unlike the *_beyond_backend_limit markers the rest IS
     # reachable: `next_cursor` carries the resume position (pass it back as

@@ -3,7 +3,6 @@ import os
 import threading
 from typing import Any, Tuple
 
-import structlog
 import temporalio.activity
 import temporalio.workflow
 from mistralai.extra.observability import (
@@ -34,6 +33,7 @@ from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio
 
 from mistralai.workflows._version import __version__
 from mistralai.workflows.core._events.event_utils import try_get_lineage_workflow_exec_id
+from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.auth import TokenProvider
 from mistralai.workflows.core.config.config import OtelRedactionMode
 from mistralai.workflows.core.logging import build_json_log_formatter
@@ -45,7 +45,7 @@ from mistralai.workflows.core.tracing.exporters import (
     build_otlp_span_exporter,
 )
 
-logger = structlog.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Worker telemetry uses a fixed service name so downstream consumers (e.g. Abraxas
 # filtering execution logs by ServiceName) can rely on it. It is intentionally

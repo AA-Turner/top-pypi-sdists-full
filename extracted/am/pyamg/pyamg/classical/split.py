@@ -113,13 +113,6 @@ def RS(S, second_pass=False):
     splitting : ndarray
         Array of length of S of ones (coarse) and zeros (fine)
 
-    Examples
-    --------
-    >>> from pyamg.gallery import poisson
-    >>> from pyamg.classical.split import RS
-    >>> S = poisson((7,), format='csr') # 1D mesh with 7 vertices
-    >>> splitting = RS(S)
-
     See Also
     --------
     amg_core.rs_cf_splitting
@@ -131,14 +124,21 @@ def RS(S, second_pass=False):
        Frontiers in Applied Mathematics, vol. 3.
        SIAM: Philadelphia, PA, 1987; 73-130.
 
+    Examples
+    --------
+    >>> from pyamg.gallery import poisson
+    >>> from pyamg.classical.split import RS
+    >>> S = poisson((7,), format='csr') # 1D mesh with 7 vertices
+    >>> splitting = RS(S)
+
     """
     if not issparse(S) or S.format != 'csr':
         raise TypeError('expected csr_array')
     S = remove_diagonal(S)
 
     T = S.T.tocsr()  # transpose S for efficient column access
-    splitting = np.empty(S.shape[0], dtype='intc')
-    influence = np.zeros((S.shape[0],), dtype='intc')
+    splitting = np.empty(S.shape[0], dtype=S.indptr.dtype)
+    influence = np.zeros((S.shape[0],), dtype=S.indptr.dtype)
 
     amg_core.rs_cf_splitting(S.shape[0],
                              S.indptr, S.indices,
@@ -166,13 +166,6 @@ def PMIS(S):
     splitting : ndarray
         Array of length of S of ones (coarse) and zeros (fine)
 
-    Examples
-    --------
-    >>> from pyamg.gallery import poisson
-    >>> from pyamg.classical.split import PMIS
-    >>> S = poisson((7,), format='csr') # 1D mesh with 7 vertices
-    >>> splitting = PMIS(S)
-
     See Also
     --------
     MIS
@@ -182,6 +175,13 @@ def PMIS(S):
     .. [6] Hans De Sterck, Ulrike M Yang, and Jeffrey J Heys
        "Reducing complexity in parallel algebraic multigrid preconditioners"
        SIAM Journal on Matrix Analysis and Applications 2006; 27:1019-1039.
+
+    Examples
+    --------
+    >>> from pyamg.gallery import poisson
+    >>> from pyamg.classical.split import PMIS
+    >>> S = poisson((7,), format='csr') # 1D mesh with 7 vertices
+    >>> splitting = PMIS(S)
 
     """
     S = remove_diagonal(S)
@@ -216,13 +216,6 @@ def PMISc(S, method='JP'):
     splitting : array
         Array of length of S of ones (coarse) and zeros (fine)
 
-    Examples
-    --------
-    >>> from pyamg.gallery import poisson
-    >>> from pyamg.classical.split import PMISc
-    >>> S = poisson((7,), format='csr') # 1D mesh with 7 vertices
-    >>> splitting = PMISc(S)
-
     See Also
     --------
     MIS
@@ -232,6 +225,13 @@ def PMISc(S, method='JP'):
     .. [7] David M. Alber and Luke N. Olson
        "Parallel coarse-grid selection"
        Numerical Linear Algebra with Applications 2007; 14:611-643.
+
+    Examples
+    --------
+    >>> from pyamg.gallery import poisson
+    >>> from pyamg.classical.split import PMISc
+    >>> S = poisson((7,), format='csr') # 1D mesh with 7 vertices
+    >>> splitting = PMISc(S)
 
     """
     S = remove_diagonal(S)
@@ -256,13 +256,6 @@ def CLJP(S, color=False):
     splitting : array
         Array of length of S of ones (coarse) and zeros (fine)
 
-    Examples
-    --------
-    >>> from pyamg.gallery import poisson
-    >>> from pyamg.classical.split import CLJP
-    >>> S = poisson((7,), format='csr') # 1D mesh with 7 vertices
-    >>> splitting = CLJP(S)
-
     See Also
     --------
     MIS, PMIS, CLJPc
@@ -272,6 +265,13 @@ def CLJP(S, color=False):
     .. [8] David M. Alber and Luke N. Olson
        "Parallel coarse-grid selection"
        Numerical Linear Algebra with Applications 2007; 14:611-643.
+
+    Examples
+    --------
+    >>> from pyamg.gallery import poisson
+    >>> from pyamg.classical.split import CLJP
+    >>> S = poisson((7,), format='csr') # 1D mesh with 7 vertices
+    >>> splitting = CLJP(S)
 
     """
     if not issparse(S) or S.format != 'csr':
@@ -283,7 +283,7 @@ def CLJP(S, color=False):
         colorid = 1
 
     T = S.T.tocsr()  # transpose S for efficient column access
-    splitting = np.empty(S.shape[0], dtype='intc')
+    splitting = np.empty(S.shape[0], dtype=S.indptr.dtype)
 
     amg_core.cljp_naive_splitting(S.shape[0],
                                   S.indptr, S.indices,
@@ -311,13 +311,6 @@ def CLJPc(S):
     splitting : array
         Array of length of S of ones (coarse) and zeros (fine)
 
-    Examples
-    --------
-    >>> from pyamg.gallery import poisson
-    >>> from pyamg.classical.split import CLJPc
-    >>> S = poisson((7,), format='csr') # 1D mesh with 7 vertices
-    >>> splitting = CLJPc(S)
-
     See Also
     --------
     MIS, PMIS, CLJP
@@ -327,6 +320,13 @@ def CLJPc(S):
     .. [1] David M. Alber and Luke N. Olson
        "Parallel coarse-grid selection"
        Numerical Linear Algebra with Applications 2007; 14:611-643.
+
+    Examples
+    --------
+    >>> from pyamg.gallery import poisson
+    >>> from pyamg.classical.split import CLJPc
+    >>> S = poisson((7,), format='csr') # 1D mesh with 7 vertices
+    >>> splitting = CLJPc(S)
 
     """
     S = remove_diagonal(S)
@@ -350,6 +350,10 @@ def MIS(G, weights, maxiter=None):
     mis : array
         Array of length of G of zeros/ones indicating the independent set
 
+    See Also
+    --------
+    fn = amg_core.maximal_independent_set_parallel
+
     Examples
     --------
     >>> from pyamg.gallery import poisson
@@ -359,16 +363,12 @@ def MIS(G, weights, maxiter=None):
     >>> w = np.ones((G.shape[0],1)).ravel()
     >>> mis = MIS(G,w)
 
-    See Also
-    --------
-    fn = amg_core.maximal_independent_set_parallel
-
     """
     if not issparse(G) or G.format != 'csr':
         raise TypeError('expected csr_array')
     G = remove_diagonal(G)
 
-    mis = np.empty(G.shape[0], dtype='intc')
+    mis = np.empty(G.shape[0], dtype=G.indptr.dtype)
     mis[:] = -1
 
     fn = amg_core.maximal_independent_set_parallel

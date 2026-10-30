@@ -455,6 +455,33 @@ def test_update_experiment_sends_the_conclusion_and_an_empty_one_clears(conclusi
     assert row["conclusion"] == (conclusion or None)
 
 
+@pytest.mark.parametrize(
+    "kwargs,body",
+    [
+        ({"dead_end": "OOM at batch 64"}, {"outcome": "dead_end", "outcome_reason": "OOM at batch 64"}),
+        ({"clear_dead_end": True}, {"outcome": None}),
+    ],
+)
+def test_update_experiment_marks_or_clears_a_dead_end_alone(kwargs, body):
+    """A mark or a clear is a whole edit; the clear sends `outcome: null`."""
+    client, rec = _client(
+        {("PATCH", f"/v1/projects/{P}/experiments/{E}"): {**_experiment(), "notes_version": 3}}
+    )
+    client.update_experiment(E, authored_by="agent", project_id=P, **kwargs)
+    assert rec.body(0) == {**body, "authored_by": "agent"}
+
+
+@pytest.mark.parametrize(
+    "kwargs,match",
+    [({"dead_end": "why", "clear_dead_end": True}, "pass one"), ({"dead_end": "  "}, "say why")],
+)
+def test_update_experiment_refuses_a_contradictory_or_empty_dead_end(kwargs, match):
+    client, rec = _client({})
+    with pytest.raises(ValueError, match=match):
+        client.update_experiment(E, project_id=P, **kwargs)
+    assert rec.requests == []
+
+
 @pytest.mark.parametrize("field", ["tags", "metadata", "summary", "description"])
 def test_update_experiment_refuses_fields_the_server_keeps_read_only(field):
     client, rec = _client({})

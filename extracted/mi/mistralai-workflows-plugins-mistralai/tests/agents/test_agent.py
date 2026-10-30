@@ -10,7 +10,7 @@ from mistralai.workflows.plugins.mistralai.connectors.constants import (
     MISTRALAI_PLUGIN_KEY,
     RESOLVED_CONNECTORS_KEY,
 )
-from mistralai.workflows.plugins.mistralai.connectors.run_as import ConnectorRunAs
+from mistralai.workflows.plugins.mistralai.connectors.run_as import RunAs
 from mistralai.workflows.plugins.mistralai.session.remote_session import RemoteSession
 
 from .conftest import make_context
@@ -217,11 +217,11 @@ class TestAgentConnectorValidation:
         agent = Agent(name="test-agent", connectors=[connector("github")])
 
         with define_context(ctx):
-            assert RemoteSession._resolve_conversation_run_as(agent) == ConnectorRunAs.DEPLOYMENT
+            assert RemoteSession._resolve_conversation_run_as(agent) == RunAs.DEPLOYMENT
 
         # Resolution is read-only: the caller's slot is left untouched.
         assert agent.connectors is not None
-        assert agent.connectors[0].run_as == ConnectorRunAs.AUTO
+        assert agent.connectors[0].run_as == RunAs.AUTO
         assert agent.connectors[0].run_as_explicit is False
 
     def test_omitted_and_explicit_run_as_resolve_together(self) -> None:
@@ -235,7 +235,7 @@ class TestAgentConnectorValidation:
         agent = Agent(name="test-agent", connectors=[connector("github"), connector("slack", run_as="deployment")])
 
         with define_context(ctx):
-            assert RemoteSession._resolve_conversation_run_as(agent) == ConnectorRunAs.DEPLOYMENT
+            assert RemoteSession._resolve_conversation_run_as(agent) == RunAs.DEPLOYMENT
 
     @pytest.mark.parametrize(
         ("binding_run_as", "slot_run_as"),

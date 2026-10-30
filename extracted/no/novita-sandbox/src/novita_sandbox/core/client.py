@@ -107,6 +107,7 @@ from novita_sandbox.core.template.types import (
 )
 from novita_sandbox.core.template_async.main import AsyncTemplate
 from novita_sandbox.core.template_sync.main import Template
+from novita_sandbox.core.template.utils import get_external_caller_directory
 from novita_sandbox.core.volume.types import VolumeAndToken, VolumeInfo
 from novita_sandbox.core.volume.volume_async import AsyncVolume
 from novita_sandbox.core.volume.volume_sync import Volume
@@ -477,6 +478,8 @@ class _TemplateNamespace(_Namespace):
     RateLimitException = RateLimitException
 
     def new(self, *args: Any, **kwargs: Any) -> Template:
+        if "file_context_path" not in kwargs:
+            kwargs["file_context_path"] = get_external_caller_directory() or "."
         return Template(*args, **kwargs)
 
     def create(self, *args: Any, **kwargs: Any) -> Template:

@@ -7,8 +7,8 @@ https://quote.eastmoney.com/
 """
 
 import pandas as pd
-import requests
 
+from akshare.utils import http
 from akshare.utils.func import fetch_paginated_data
 
 
@@ -68,7 +68,7 @@ def stock_zh_a_spot_em() -> pd.DataFrame:
         "-",
         "-",
     ]
-    temp_df.rename(columns={"index": "序号"}, inplace=True)
+    temp_df = temp_df.rename(columns={"index": "序号"})
     temp_df = temp_df[
         [
             "序号",
@@ -989,7 +989,7 @@ def stock_zh_a_hist(
         "beg": start_date,
         "end": end_date,
     }
-    r = requests.get(url, params=params, timeout=timeout)
+    r = http.get(url, params=params, timeout=timeout)
     data_json = r.json()
     if not (data_json["data"] and data_json["data"]["klines"]):
         return pd.DataFrame()
@@ -1078,7 +1078,7 @@ def stock_zh_a_hist_min_em(
             "iscr": "0",
             "secid": f"{market_code}.{symbol}",
         }
-        r = requests.get(url, timeout=15, params=params)
+        r = http.get(url, timeout=15, params=params)
         data_json = r.json()
         temp_df = pd.DataFrame(
             [item.split(",") for item in data_json["data"]["trends"]]
@@ -1095,7 +1095,7 @@ def stock_zh_a_hist_min_em(
         ]
         temp_df.index = pd.to_datetime(temp_df["时间"])
         temp_df = temp_df[start_date:end_date]
-        temp_df.reset_index(drop=True, inplace=True)
+        temp_df = temp_df.reset_index(drop=True)
         temp_df["开盘"] = pd.to_numeric(temp_df["开盘"], errors="coerce")
         temp_df["收盘"] = pd.to_numeric(temp_df["收盘"], errors="coerce")
         temp_df["最高"] = pd.to_numeric(temp_df["最高"], errors="coerce")
@@ -1117,7 +1117,7 @@ def stock_zh_a_hist_min_em(
             "beg": "0",
             "end": "20500000",
         }
-        r = requests.get(url, timeout=15, params=params)
+        r = http.get(url, timeout=15, params=params)
         data_json = r.json()
         temp_df = pd.DataFrame(
             [item.split(",") for item in data_json["data"]["klines"]]
@@ -1137,7 +1137,7 @@ def stock_zh_a_hist_min_em(
         ]
         temp_df.index = pd.to_datetime(temp_df["时间"])
         temp_df = temp_df[start_date:end_date]
-        temp_df.reset_index(drop=True, inplace=True)
+        temp_df = temp_df.reset_index(drop=True)
         temp_df["开盘"] = pd.to_numeric(temp_df["开盘"], errors="coerce")
         temp_df["收盘"] = pd.to_numeric(temp_df["收盘"], errors="coerce")
         temp_df["最高"] = pd.to_numeric(temp_df["最高"], errors="coerce")
@@ -1194,7 +1194,7 @@ def stock_zh_a_hist_pre_min_em(
         "iscca": "0",
         "secid": f"{market_code}.{symbol}",
     }
-    r = requests.get(url, timeout=15, params=params)
+    r = http.get(url, timeout=15, params=params)
     data_json = r.json()
     temp_df = pd.DataFrame([item.split(",") for item in data_json["data"]["trends"]])
     temp_df.columns = [
@@ -1210,7 +1210,7 @@ def stock_zh_a_hist_pre_min_em(
     temp_df.index = pd.to_datetime(temp_df["时间"])
     date_format = temp_df.index[0].date().isoformat()
     temp_df = temp_df[date_format + " " + start_time : date_format + " " + end_time]
-    temp_df.reset_index(drop=True, inplace=True)
+    temp_df = temp_df.reset_index(drop=True)
     temp_df["开盘"] = pd.to_numeric(temp_df["开盘"], errors="coerce")
     temp_df["收盘"] = pd.to_numeric(temp_df["收盘"], errors="coerce")
     temp_df["最高"] = pd.to_numeric(temp_df["最高"], errors="coerce")
@@ -1427,7 +1427,7 @@ def stock_hk_hist(
         "end": "20500000",
         "lmt": "1000000",
     }
-    r = requests.get(url, timeout=15, params=params)
+    r = http.get(url, timeout=15, params=params)
     data_json = r.json()
     temp_df = pd.DataFrame([item.split(",") for item in data_json["data"]["klines"]])
     if temp_df.empty:
@@ -1449,7 +1449,7 @@ def stock_hk_hist(
     temp_df = temp_df[start_date:end_date]
     if temp_df.empty:
         return pd.DataFrame()
-    temp_df.reset_index(inplace=True, drop=True)
+    temp_df = temp_df.reset_index(drop=True)
     temp_df["开盘"] = pd.to_numeric(temp_df["开盘"], errors="coerce")
     temp_df["收盘"] = pd.to_numeric(temp_df["收盘"], errors="coerce")
     temp_df["最高"] = pd.to_numeric(temp_df["最高"], errors="coerce")
@@ -1501,7 +1501,7 @@ def stock_hk_hist_min_em(
             "ndays": "5",
             "secid": f"116.{symbol}",
         }
-        r = requests.get(url, timeout=15, params=params)
+        r = http.get(url, timeout=15, params=params)
         data_json = r.json()
         temp_df = pd.DataFrame(
             [item.split(",") for item in data_json["data"]["trends"]]
@@ -1518,7 +1518,7 @@ def stock_hk_hist_min_em(
         ]
         temp_df.index = pd.to_datetime(temp_df["时间"])
         temp_df = temp_df[start_date:end_date]
-        temp_df.reset_index(drop=True, inplace=True)
+        temp_df = temp_df.reset_index(drop=True)
         temp_df["开盘"] = pd.to_numeric(temp_df["开盘"], errors="coerce")
         temp_df["收盘"] = pd.to_numeric(temp_df["收盘"], errors="coerce")
         temp_df["最高"] = pd.to_numeric(temp_df["最高"], errors="coerce")
@@ -1540,7 +1540,7 @@ def stock_hk_hist_min_em(
             "beg": "0",
             "end": "20500000",
         }
-        r = requests.get(url, timeout=15, params=params)
+        r = http.get(url, timeout=15, params=params)
         data_json = r.json()
         temp_df = pd.DataFrame(
             [item.split(",") for item in data_json["data"]["klines"]]
@@ -1560,7 +1560,7 @@ def stock_hk_hist_min_em(
         ]
         temp_df.index = pd.to_datetime(temp_df["时间"])
         temp_df = temp_df[start_date:end_date]
-        temp_df.reset_index(drop=True, inplace=True)
+        temp_df = temp_df.reset_index(drop=True)
         temp_df["开盘"] = pd.to_numeric(temp_df["开盘"], errors="coerce")
         temp_df["收盘"] = pd.to_numeric(temp_df["收盘"], errors="coerce")
         temp_df["最高"] = pd.to_numeric(temp_df["最高"], errors="coerce")
@@ -1720,7 +1720,7 @@ def stock_us_hist(
         "end": "20500000",
         "lmt": "1000000",
     }
-    r = requests.get(url, timeout=15, params=params)
+    r = http.get(url, timeout=15, params=params)
     data_json = r.json()
     if not data_json["data"]["klines"]:
         return pd.DataFrame()
@@ -1740,7 +1740,7 @@ def stock_us_hist(
     ]
     temp_df.index = pd.to_datetime(temp_df["日期"], errors="coerce")
     temp_df = temp_df[start_date:end_date]
-    temp_df.reset_index(inplace=True, drop=True)
+    temp_df = temp_df.reset_index(drop=True)
     temp_df["开盘"] = pd.to_numeric(temp_df["开盘"], errors="coerce")
     temp_df["收盘"] = pd.to_numeric(temp_df["收盘"], errors="coerce")
     temp_df["最高"] = pd.to_numeric(temp_df["最高"], errors="coerce")
@@ -1751,7 +1751,7 @@ def stock_us_hist(
     temp_df["涨跌幅"] = pd.to_numeric(temp_df["涨跌幅"], errors="coerce")
     temp_df["涨跌额"] = pd.to_numeric(temp_df["涨跌额"], errors="coerce")
     temp_df["换手率"] = pd.to_numeric(temp_df["换手率"], errors="coerce")
-    temp_df.sort_values(["日期"], inplace=True, ignore_index=True)
+    temp_df = temp_df.sort_values(["日期"], ignore_index=True)
     return temp_df
 
 
@@ -1780,7 +1780,7 @@ def stock_us_hist_min_em(
         "ndays": "5",
         "secid": f"{symbol.split('.')[0]}.{symbol.split('.')[1]}",
     }
-    r = requests.get(url, params=params, timeout=15)
+    r = http.get(url, params=params, timeout=15)
     data_json = r.json()
     if not data_json["data"]["trends"]:
         return pd.DataFrame()
@@ -1797,7 +1797,7 @@ def stock_us_hist_min_em(
     ]
     temp_df.index = pd.to_datetime(temp_df["时间"], errors="coerce")
     temp_df = temp_df[start_date:end_date]
-    temp_df.reset_index(drop=True, inplace=True)
+    temp_df = temp_df.reset_index(drop=True)
     temp_df["开盘"] = pd.to_numeric(temp_df["开盘"], errors="coerce")
     temp_df["收盘"] = pd.to_numeric(temp_df["收盘"], errors="coerce")
     temp_df["最高"] = pd.to_numeric(temp_df["最高"], errors="coerce")

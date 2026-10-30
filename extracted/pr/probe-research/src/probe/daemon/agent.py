@@ -36,6 +36,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
+import functools
 import json
 import logging
 import os
@@ -110,6 +111,11 @@ def read_context_tokens() -> int:
 #: While a model call runs, the writer's lease is renewed this often (a call may
 #: take 30 minutes; the lease lives 240 s).
 LEASE_RENEW_IN_CALL_S = 60.0
+#: The writer compacts this many tokens before its size (swarm friction T18):
+#: one bite (`bite.NEW_SHOWN_TOKENS`) under it, so the request a new bite makes
+#: never reaches the model route's ceiling (`companion_daemon_prompt_ceiling_tokens`,
+#: 10K over the writer's 250K), which refused 3 writer requests on 10-28.
+COMPACT_ROOM_TOKENS = 40_000
 #: Compaction's first tier keeps this many recent tool call / result pairs whole...
 KEEP_TOOL_PAIRS = 6
 #: ...and clears nothing unless that reclaims at least this many tokens (a clear
@@ -794,6 +800,10 @@ class RunState:
     compacts: bool = True
     #: The size the conversation compacts at (the reader: starts fresh at).
     context_tokens: int = 0
+    #: It compacts this many tokens before that size (the writer's: COMPACT_ROOM_TOKENS).
+    compact_room: int = 0
+    #: How compaction counts tokens (`server_tokenizer`); None: 4 characters per token.
+    tokenizer: Callable[[str], int] | None = None
     on_round: Callable[[Any], None] | None = None
     #: Plain code's state of the record (`session(op=status)`), read on demand.
     status: Callable[[], str] | None = None
@@ -988,13 +998,39 @@ def with_logbook(messages: list, block: str | None) -> list:
     return _rewrite_summaries(messages, lambda text: f"{_prose(text)}\n\n{block}")
 
 
+@functools.cache
+def server_tokenizer() -> Callable[[str], int] | None:
+    """Tokens as the model route counts a prompt against its ceiling: o200k_base
+    (`app/companion/chat_router.py` `_count_tokens`), from the vocabulary this
+    package ships (`probe.mcp.budget`; ~0.8 s to load, once per process). None
+    without it (tiktoken is the `mcp` extra's): the harness's 4 characters per
+    token, which read a bite of paths and diffs 12-28K tokens under the route's
+    count (10-28). A text it cannot encode counts 4 characters per token."""
+    try:
+        from probe.mcp.budget import count_tokens
+
+        count_tokens("")
+    except Exception as exc:  # noqa: BLE001 -- no tokenizer: the harness's own estimate
+        log.info("compaction estimates by characters: no tokenizer (%s)", type(exc).__name__)
+        return None
+
+    def tokens(text: str) -> int:
+        try:
+            return count_tokens(text)
+        except Exception:  # noqa: BLE001 -- a lone surrogate
+            return len(text) // 4
+
+    return tokens
+
+
 def counted_compaction(state: RunState):
     """TieredCompaction that tells `state` each time it rewrote the history, and
     keeps a user turn first after it (`user_turn_first`). The size is the
     state's (the writer's by default); the reader never compacts.
 
-    It runs once the context passes the size and compacts down to COMPACT_TO of
-    it (the harness's own target is that lower mark; the size is our gate), the
+    It runs once the context passes the size (less `state.compact_room`), counted
+    with `state.tokenizer`, and compacts down to COMPACT_TO of it (the harness's
+    own target is that lower mark; the size is our gate), the
     summary keeping the newest KEEP_SHARE of the size whole, and at most
     KEEP_MESSAGES wire messages. A history of more than COMPACT_MESSAGES wire
     messages is summarized whatever its size, since the model route refuses one
@@ -1013,6 +1049,10 @@ def counted_compaction(state: RunState):
         # bites (`worker._compaction_available`), as the harness's own
         # `target_tokens=0` refusal did before the floors below were added.
         raise ValueError(f"a context of {size} tokens cannot be compacted to")
+    # Compacts once past `size` less the room, never so early that the target
+    # (COMPACT_TO of the size) is half way to it.
+    gate = size - min(max(0, state.compact_room), int(size * (1 - COMPACT_TO) / 2))
+    tokenizer = state.tokenizer
 
     class KeptByCount(SummarizingCompaction):
         """Keeps the newest `keep_tokens`, but never more than KEEP_MESSAGES wire
@@ -1037,14 +1077,15 @@ def counted_compaction(state: RunState):
                              preserve_first_user_message=False,
                              summary_prompt=SUMMARY_PROMPT,
                              tool_return_max_chars=1_500,
-                             summarization_capabilities=[UsageMeter(on_round=state.on_round)])
+                             summarization_capabilities=[UsageMeter(on_round=state.on_round)],
+                             tokenizer=tokenizer)
 
     @dataclass
     class CountedCompaction(TieredCompaction):
         async def before_model_request(self, ctx: Any, request_context: Any) -> Any:
             before = request_context.messages
             over_size = estimate_context_tokens(list(before), self.tokenizer,
-                                                model_request_parameters=request_context.model_request_parameters) > size
+                                                model_request_parameters=request_context.model_request_parameters) > gate
             if not over_size and wire_messages(before) <= COMPACT_MESSAGES:
                 request_context.messages = user_turn_first(before)
                 return request_context
@@ -1065,9 +1106,10 @@ def counted_compaction(state: RunState):
             return out
 
     return CountedCompaction(
-        tiers=[ClearToolResults(max_tokens=1, keep_pairs=KEEP_TOOL_PAIRS, min_clear_tokens=MIN_CLEAR_TOKENS),
+        tiers=[ClearToolResults(max_tokens=1, keep_pairs=KEEP_TOOL_PAIRS, min_clear_tokens=MIN_CLEAR_TOKENS,
+                                tokenizer=tokenizer),
                summarizer],
-        target_tokens=max(1, int(size * COMPACT_TO)))
+        target_tokens=max(1, int(size * COMPACT_TO)), tokenizer=tokenizer)
 
 
 def _harness(state: RunState) -> list:

@@ -9,25 +9,32 @@ from __future__ import annotations
 
 import json
 import logging
+import shutil
 import subprocess
 import tempfile
+import threading
+import time
 import uuid
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import IO, Literal
 
+from airbyte_ops_mcp.regression_tests.masking import (
+    MaskPolicy,
+    mask_line,
+    mask_text_line,
+)
 from airbyte_ops_mcp.regression_tests.models import (
     Command,
     ExecutionInputs,
     ExecutionResult,
+    StoppedEarly,
 )
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 
 CERTIFI_DISCOVERY_TIMEOUT_SECONDS = 60
 CONTAINER_REMOVAL_TIMEOUT_SECONDS = 30
+DEFAULT_TIMEOUT_SECONDS = 14400  # 4 hours
 
 # Prints the bundle's path on the first line and its contents on the rest, so
 # one container start answers both "where is it" and "what is already in it".
@@ -55,6 +62,31 @@ def _force_remove_container(container_name: str) -> None:
         )
     except (OSError, subprocess.SubprocessError) as exc:
         logger.debug(f"Could not remove container {container_name}: {exc}")
+
+
+def _copy_to_file(stream: IO[bytes], path: Path, *, mask: bool = False) -> None:
+    """Copy a process stream to a file as it arrives, never holding it whole.
+
+    With `mask`, every line is written as its length only (`mask_text_line`):
+    stderr is free text with no structure a policy could keep readable.
+    """
+    with path.open("wb") as target:
+        if not mask:
+            shutil.copyfileobj(stream, target)
+            return
+        for line in stream:
+            target.write(mask_text_line(line))
+
+
+def _is_record(line: bytes) -> bool:
+    """Whether a stdout line is a RECORD message, decided the cheap way first."""
+    if b'"RECORD"' not in line:
+        return False
+    try:
+        payload = json.loads(line)
+    except ValueError:
+        return False
+    return isinstance(payload, dict) and payload.get("type") == "RECORD"
 
 
 # Successful probes only. Caching a *failure* would let one transient Docker
@@ -129,6 +161,24 @@ def _discover_certifi_bundle(image_name: str) -> tuple[str, str] | None:
     return path, contents
 
 
+def proxy_trust_gap(image_name: str) -> str | None:
+    """Why a container of this image cannot trust the capture proxy, or `None`.
+
+    The runner hands a container PEM trust only: the two env vars and the
+    image's `certifi` bundle. An image with no `certifi` bundle -- a Java or
+    Kotlin connector, which reads a JKS truststore instead -- would fail TLS
+    verification on every HTTPS call through the proxy, and that reads as a
+    connector bug. A probe that failed for another reason reads the same, so a
+    Docker hiccup costs a run its capture, never its result.
+    """
+    if _discover_certifi_bundle(image_name) is not None:
+        return None
+    return (
+        f"{image_name} has no certifi bundle to trust the capture proxy with "
+        "(a JVM image would need a JKS truststore)"
+    )
+
+
 class ConnectorRunner:
     """Runs Airbyte connector commands using Docker.
 
@@ -145,15 +195,19 @@ class ConnectorRunner:
     def __init__(
         self,
         execution_inputs: ExecutionInputs,
-        timeout_seconds: int = 14400,  # 4 hours
+        timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS,
         proxy_url: str | None = None,
         ca_cert_path: Path | None = None,
+        max_records: int | None = None,
+        mask_policy: MaskPolicy | None = None,
     ) -> None:
         """Initialize the connector runner.
 
         Args:
             execution_inputs: The inputs for executing the connector command.
-            timeout_seconds: Maximum time to wait for command execution.
+            timeout_seconds: How long the container may run before it is
+                             stopped and the run reported as stopped early,
+                             keeping whatever it had written by then.
             proxy_url: Optional HTTP proxy URL for capturing HTTP traffic.
                        When set, HTTP_PROXY and HTTPS_PROXY env vars are configured.
             ca_cert_path: Path to the proxy's CA certificate on the host. Only
@@ -161,6 +215,17 @@ class ConnectorRunner:
                           request through the proxy fails TLS verification, which
                           shows up as a near-empty traffic capture rather than as
                           an error.
+            max_records: Stop the container when a RECORD message arrives after
+                         this many have been written, and report the run as
+                         stopped early. That record is not kept, so the kept
+                         stdout holds exactly this many; a read that emits no
+                         more than this many is complete.
+            mask_policy: Mask every stdout line under this policy before it is
+                         written, so raw record values, verbose and error log
+                         messages and error internals do not reach disk
+                         through stdout, and write every stderr line as its
+                         length only. `None` writes both streams byte for
+                         byte.
         """
         self.connector_under_test = execution_inputs.connector_under_test
         self.command = execution_inputs.command
@@ -172,6 +237,8 @@ class ConnectorRunner:
         self.timeout_seconds = timeout_seconds
         self.proxy_url = proxy_url
         self.ca_cert_path = ca_cert_path
+        self.max_records = max_records
+        self.mask_policy = mask_policy
         # Resolved once per runner, and shared by the two decisions that must
         # never disagree: `_trust_bundle`, which decides whether the file it
         # writes extends the image's roots or holds the proxy CA alone, and
@@ -182,6 +249,9 @@ class ConnectorRunner:
         # as a regression in the version under test.
         self._certifi_bundle: tuple[str, str] | None = None
         self._certifi_bundle_probed = False
+        # Named by `_build_docker_command`, so a run that has to be cut short
+        # can remove the container rather than only the `docker` CLI.
+        self._container_name: str | None = None
 
         self.logger = logging.getLogger(
             f"{self.connector_under_test.name}-{self.connector_under_test.version}"
@@ -294,6 +364,7 @@ class ConnectorRunner:
             List of command arguments for subprocess.
         """
         container_name = f"connector-test-{uuid.uuid4().hex[:8]}"
+        self._container_name = container_name
 
         cmd = [
             "docker",
@@ -333,6 +404,11 @@ class ConnectorRunner:
             # which pick it up through `load_default_certs()`.
             cmd.extend(["-e", f"REQUESTS_CA_BUNDLE={container_ca_path}"])
             cmd.extend(["-e", f"SSL_CERT_FILE={container_ca_path}"])
+            # gRPC (`grpcio`, e.g. source-google-ads) follows `https_proxy` but
+            # verifies against its own bundled roots and reads neither of the
+            # above. The bundle keeps the image's roots, so hosts gRPC reaches
+            # without the proxy still verify.
+            cmd.extend(["-e", f"GRPC_DEFAULT_SSL_ROOTS_FILE_PATH={container_ca_path}"])
 
             # The same answer `_trust_bundle` wrote the file from: mounting a
             # CA-only bundle over the image's roots is the regression this
@@ -379,37 +455,11 @@ class ConnectorRunner:
             docker_cmd = self._build_docker_command(temp_path)
             self.logger.info(f"Running command: {' '.join(docker_cmd)}")
 
+            stopped_early: StoppedEarly | None = None
             try:
-                result = subprocess.run(
-                    docker_cmd,
-                    capture_output=True,
-                    text=True,
-                    timeout=self.timeout_seconds,
+                success, exit_code, stopped_early = self._run_container(
+                    docker_cmd, stdout_path, stderr_path
                 )
-
-                stdout_path.write_text(result.stdout)
-                stderr_path.write_text(result.stderr)
-
-                success = result.returncode == 0
-                exit_code = result.returncode
-
-                if not success:
-                    self.logger.warning(
-                        f"Command failed with exit code {exit_code}. "
-                        f"Stderr: {result.stderr[:500]}"
-                    )
-                else:
-                    self.logger.info("Command completed successfully")
-
-            except subprocess.TimeoutExpired as e:
-                self.logger.error(f"Command timed out after {self.timeout_seconds}s")
-                stdout_path.write_text(e.stdout or "" if hasattr(e, "stdout") else "")
-                stderr_path.write_text(
-                    f"Command timed out after {self.timeout_seconds} seconds"
-                )
-                success = False
-                exit_code = -1
-
             except FileNotFoundError:
                 self.logger.error("Docker not found. Is Docker installed and running?")
                 stdout_path.write_text("")
@@ -428,7 +478,207 @@ class ConnectorRunner:
             exit_code=exit_code,
             configured_catalog=self.configured_catalog,
             config=self.config,
+            stopped_early=stopped_early,
         )
+
+    def _run_container(
+        self, docker_cmd: list[str], stdout_path: Path, stderr_path: Path
+    ) -> tuple[bool, int, StoppedEarly | None]:
+        """Run the container, copying its output to disk as it arrives.
+
+        Neither stream is ever held whole: stdout goes to its file line by line
+        on this thread and stderr through a helper thread, so a read's peak
+        memory no longer grows with what the connector emits.
+
+        Two things cut a run short, and both take the container down rather
+        than only the `docker` CLI. The deadline is a timer rather than a check
+        inside the read loop, so a connector that has gone silent is stopped as
+        surely as one still talking; the record cap is checked on the loop, as
+        it can only be crossed by a line arriving. Whichever fires first names
+        the reason, and the exit code the kill produces is not a crash.
+
+        A read that reached the end of its output is complete, however close
+        to the deadline it got there: the end is claimed under the same lock
+        as a stop, so a timer that fires after it -- before it is cancelled --
+        stops nothing. It only gives a CLI that outlives its output the usual
+        grace and then takes it down, and that run reports its own exit code.
+
+        Returns:
+            Whether the command exited cleanly, its exit code, and why it was
+            stopped early if it was. A stopped run reads as a clean exit -- the
+            stop is reported beside it, not as a failure.
+        """
+        started = time.monotonic()
+        process = subprocess.Popen(
+            docker_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        assert process.stdout is not None
+        assert process.stderr is not None
+
+        stderr_thread = threading.Thread(
+            target=_copy_to_file,
+            args=(process.stderr, stderr_path),
+            kwargs={"mask": self.mask_policy is not None},
+            daemon=True,
+        )
+        stderr_thread.start()
+
+        stop_lock = threading.Lock()
+        stop_reason: list[Literal["timeout", "cap"]] = []
+        output_complete: list[bool] = []
+
+        def claim_stop(reason: Literal["timeout", "cap"]) -> bool:
+            """Name the reason the run stops; only the first caller gets to.
+
+            Never after the output ended: that read is complete.
+            """
+            with stop_lock:
+                if stop_reason or output_complete:
+                    return False
+                stop_reason.append(reason)
+                return True
+
+        def claim_complete() -> bool:
+            """Mark the output complete, unless a stop was claimed first."""
+            with stop_lock:
+                if stop_reason:
+                    return False
+                output_complete.append(True)
+                return True
+
+        def on_deadline() -> None:
+            # This thread can wait on the CLI while the read loop keeps
+            # draining its stdout, so the two never block each other.
+            if process.poll() is not None:
+                # The CLI exited before the deadline; only its buffered output
+                # is left to read, so the run ends on its own exit code.
+                return
+            if claim_stop("timeout"):
+                self._stop_container(process)
+            elif output_complete:
+                # The read is whole; only a CLI still running past the
+                # deadline is left, and it gets the usual grace first.
+                self._wait_or_stop(process)
+
+        deadline = threading.Timer(self.timeout_seconds, on_deadline)
+        deadline.daemon = True
+        deadline.start()
+        records_seen = 0
+        try:
+            with stdout_path.open("wb") as stdout_file:
+                for line in process.stdout:
+                    if stop_reason and not line.endswith(b"\n"):
+                        # A kill lands at an arbitrary byte. Whatever follows
+                        # the last newline is never a whole message and can end
+                        # inside a multi-byte character, which would make the
+                        # file undecodable for every reader after this one.
+                        break
+                    if self.mask_policy is None:
+                        is_record = _is_record(line)
+                    else:
+                        line, kind = mask_line(line, self.mask_policy)
+                        is_record = kind == "RECORD"
+                    if is_record:
+                        if (
+                            self.max_records is not None
+                            and records_seen >= self.max_records
+                        ):
+                            # Only a record past the cap stops the read, and it
+                            # is not kept: a read of exactly the cap ends on its
+                            # own, with the messages after its last record.
+                            # Remove the container only: waiting for the CLI
+                            # here, with its stdout still unread, would leave it
+                            # blocked on a full pipe until the kill fallback.
+                            if claim_stop("cap") and self._container_name is not None:
+                                _force_remove_container(self._container_name)
+                            break
+                        records_seen += 1
+                    stdout_file.write(line)
+                else:
+                    # The output ended on its own. A deadline that fires from
+                    # here on finds the read complete and stops nothing.
+                    claim_complete()
+            # Whatever the container flushed before it died is read and dropped,
+            # so the CLI can exit and the kept stdout ends where the stop said.
+            for _ in process.stdout:
+                pass
+            if stop_reason:
+                self._wait_or_kill(process)
+            else:
+                # Only once the CLI has exited: it can outlive its stdout, and
+                # the timer is what gets a wedged one out of the way.
+                process.wait()
+        except BaseException:
+            self._stop_container(process)
+            raise
+        finally:
+            deadline.cancel()
+        stderr_thread.join()
+        elapsed_s = round(time.monotonic() - started, 3)
+
+        if stop_reason:
+            reason = stop_reason[0]
+            if reason == "timeout":
+                note = (
+                    f"Command timed out after {self.timeout_seconds} seconds; "
+                    f"stopped with {records_seen} records"
+                )
+            else:
+                note = (
+                    f"Record cap of {self.max_records} reached after "
+                    f"{elapsed_s:.0f} seconds; stopped with {records_seen} records"
+                )
+            self.logger.warning(note)
+            # The harness's own words, so kept readable on a masked run too.
+            with stderr_path.open("ab") as stderr_file:
+                stderr_file.write(f"\n{note}\n".encode())
+            return (
+                True,
+                0,
+                StoppedEarly(
+                    reason=reason, records_seen=records_seen, elapsed_s=elapsed_s
+                ),
+            )
+
+        exit_code = process.returncode
+        if exit_code != 0:
+            # Never quoted: on a raw run the first lines of a crash can carry
+            # a record or the config, and the job log outlives the artifacts.
+            self.logger.warning(
+                f"Command failed with exit code {exit_code}. "
+                f"See {stderr_path.name} in the run artifacts"
+            )
+        else:
+            self.logger.info("Command completed successfully")
+        return exit_code == 0, exit_code, None
+
+    def _stop_container(self, process: subprocess.Popen[bytes]) -> None:
+        """Take the container down, and the `docker` CLI with it if it lingers.
+
+        `--rm` only fires when the container exits on its own, and killing the
+        CLI leaves the container running, so the container goes first.
+        """
+        if self._container_name is not None:
+            _force_remove_container(self._container_name)
+        self._wait_or_kill(process)
+
+    @staticmethod
+    def _wait_or_kill(process: subprocess.Popen[bytes]) -> None:
+        try:
+            process.wait(timeout=CONTAINER_REMOVAL_TIMEOUT_SECONDS)
+        except subprocess.TimeoutExpired:
+            process.kill()
+
+    def _wait_or_stop(self, process: subprocess.Popen[bytes]) -> None:
+        """Give a CLI whose output already ended the grace to exit, then stop it.
+
+        A CLI that exits within the grace is left alone, so a read whose
+        deadline lands as it finishes keeps its own exit code.
+        """
+        try:
+            process.wait(timeout=CONTAINER_REMOVAL_TIMEOUT_SECONDS)
+        except subprocess.TimeoutExpired:
+            self._stop_container(process)
 
 
 def pull_connector_image(image_name: str) -> bool:

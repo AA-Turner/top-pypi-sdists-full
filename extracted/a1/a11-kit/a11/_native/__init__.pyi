@@ -21,7 +21,7 @@ import a11.flow.plan
 import a11.status
 import a11.stores.local_chunk_store
 import asyncio
-import fastapi
+import starlette.exceptions
 import httpx
 import collections.abc
 import msgpack._cmsgpack
@@ -241,6 +241,10 @@ __all__: list[str] = [
     "is_status_chunk",
     "is_textual_log_mimetype",
     "list_audio_devices",
+    "llm_context_compact_json",
+    "llm_context_encode",
+    "llm_context_estimate_tokens",
+    "llm_context_expand",
     "log_record_from_chunk",
     "lookup_asr_model",
     "lookup_vad_model",
@@ -256,6 +260,7 @@ __all__: list[str] = [
     "register_audio_actions",
     "register_http_actions",
     "registry_to_json",
+    "relay_http",
     "release_deferred_python_refs",
     "request_fiber_dump",
     "reset_default_redis_client",
@@ -1861,6 +1866,11 @@ class AsyncNode:
         Read and deserialize the next value, or ``None`` at end of stream.
         """
 
+    def observe_completion(self) -> asyncio.Future[None]:
+        """
+        Observe stream completion without consuming data or closing the node.
+        """
+
     async def put(
         self,
         value: typing.Any,
@@ -2918,6 +2928,11 @@ class ChunkStore:
         Await the sequence number that corresponds to a given arrival order.
         """
 
+    def get_write_status(self) -> asyncio.Future[None | None]:
+        """
+        Read write-closure status without consuming fragments; None while open.
+        """
+
     def next(
         self, deadline: Time | None = None, limit: typing.SupportsInt = 1
     ) -> asyncio.Future[list[NodeFragment | None]]:
@@ -3777,6 +3792,11 @@ class Http2Options:
     def __init__(self) -> None:
         """
         Construct default HTTP/2 options.
+        """
+
+    def set_stream_request_body(self, enabled: bool) -> None:
+        """
+        Accept every request body as a pull stream when enabled; restore buffered bodies when disabled.
         """
 
     def validate(self) -> None:
@@ -7355,11 +7375,11 @@ class Status:
     @staticmethod
     def from_http_exception(
         http_exception: (
-            fastapi.exceptions.HTTPException | httpx.HTTPStatusError
+            starlette.exceptions.HTTPException | httpx.HTTPStatusError
         ),
     ) -> Status:
         """
-        Convert a FastAPI/httpx HTTP exception to an A11 status.
+        Convert a Starlette, FastAPI, or httpx HTTP exception to a status.
         """
 
     @staticmethod
@@ -7420,6 +7440,11 @@ class Status:
     ) -> None:
         """
         Creates a status from a canonical code, message, and details list.
+        """
+
+    def __iter__(self) -> collections.abc.Iterator[tuple[str, typing.Any]]:
+        """
+        Iterate the JSON fields for ``dict(status)`` and HTTP encoders.
         """
 
     def __repr__(self) -> str:
@@ -9700,6 +9725,34 @@ def list_audio_devices() -> list[AudioDeviceInfo]:
     Return metadata for every audio device, in index order.
     """
 
+def llm_context_compact_json(
+    text: str,
+    max_bytes: typing.SupportsInt = 8388608,
+    max_depth: typing.SupportsInt = 128,
+) -> str:
+    """
+    Compact JSON without changing its string or number tokens.
+    """
+
+def llm_context_encode(
+    text: str, format: str, max_bytes: typing.SupportsInt = 8388608
+) -> str:
+    """
+    Encode content in a reversible model-facing envelope.
+    """
+
+def llm_context_estimate_tokens(text: str) -> int:
+    """
+    Estimate tokens from bytes; not a provider-authoritative count.
+    """
+
+def llm_context_expand(
+    text: str, max_bytes: typing.SupportsInt = 8388608
+) -> str:
+    """
+    Expand a context envelope with a hard output byte limit.
+    """
+
 def log_record_from_chunk(
     chunk: Chunk, action_name: str = "", action_id: str = ""
 ) -> dict:
@@ -9794,6 +9847,19 @@ def registry_to_json(
 ) -> str:
     """
     Describe every action in the registry as one a11.actions/v1 JSON document. `request` is the same object __list_actions__ takes on its `request` port: a mapping, a list of patterns, or None.
+    """
+
+def relay_http(
+    target: str,
+    request: HttpRequest,
+    writer: Http2ResponseWriter,
+    options: Http2Options = ...,
+    deadline: Time | None = None,
+    observer: typing.Any | None = None,
+    max_observed_bytes: typing.SupportsInt = 8388608,
+) -> asyncio.Future[None]:
+    """
+    Relay an HTTP exchange without retries, preserving response bytes and trailers.
     """
 
 def release_deferred_python_refs() -> None:

@@ -6,7 +6,7 @@ from temporalio.exceptions import ApplicationError, CancelledError
 from temporalio.testing import WorkflowEnvironment
 
 from mistralai.workflows.core._events.event_context import EventContext
-from mistralai.workflows.protocol.v1.events import CustomTaskCompleted
+from mistralai.workflows.protocol.v1.events import CustomTaskCompleted, CustomTaskStarted
 from mistralai.workflows.testing import (
     activity_completed,
     activity_started,
@@ -21,6 +21,8 @@ from mistralai.workflows.testing import (
 )
 
 from .fixtures_interactive_workflow import (
+    AliasedInput,
+    AliasedInputWorkflow,
     BasicWorkflow,
     SimpleApprovalWorkflow,
     TimeoutTestWorkflow,
@@ -389,3 +391,48 @@ async def test_wait_for_input_timeout(temporal_env: WorkflowEnvironment) -> None
                 },
             )
             assert len(errors) == 0, "Event sequence mismatch:\n" + "\n".join(errors)
+
+
+@pytest.mark.asyncio
+async def test_wait_for_input_completed_event_uses_alias_keys(temporal_env: WorkflowEnvironment) -> None:
+    """The completed event's input must be keyed like the input schema (aliases),
+    so clients rebuilding the submitted form can match values to fields."""
+    captured_events: list[Any] = []
+
+    mock_client = create_capturing_mock_events_client(captured_events)
+
+    async with EventContext(mock_client):
+        async with create_test_worker_with_events(
+            temporal_env,
+            workflows=[AliasedInputWorkflow],
+        ):
+            handle = await temporal_env.client.start_workflow(
+                "aliased_input_workflow",
+                id="test-wait-for-input-alias-keys",
+                task_queue="test-task-queue",
+            )
+
+            pending_inputs = await wait_for_pending_inputs(handle, expected_count=1)
+            pending_task_id = pending_inputs[0]["task_id"]
+
+            await handle.execute_update(
+                "__submit_input",
+                {
+                    "task_id": pending_task_id,
+                    "input": {"customerName": "ACME Corp", "contractId": "C-12345", "file": "report.pdf"},
+                },
+            )
+
+            result = await handle.result()
+            assert result["status"] == "ok"
+            assert result["reason"] == "ACME Corp:C-12345:report.pdf"
+
+            started_event = next(event for event in captured_events if isinstance(event, CustomTaskStarted))
+            completed_event = next(event for event in captured_events if isinstance(event, CustomTaskCompleted))
+
+            schema_properties = started_event.attributes.payload.value["input_schema"]["properties"]
+            emitted_input = completed_event.attributes.payload.value["input"]
+
+            assert set(emitted_input.keys()) == set(schema_properties.keys())
+            assert emitted_input == {"customerName": "ACME Corp", "contractId": "C-12345", "file": "report.pdf"}
+            assert AliasedInput.model_validate(emitted_input)

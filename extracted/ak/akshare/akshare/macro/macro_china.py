@@ -12,15 +12,14 @@ import ssl
 import time
 
 import pandas as pd
-import requests
-from curl_cffi import requests as curl_requests
 from requests.adapters import HTTPAdapter
 from urllib3.poolmanager import PoolManager
 
 from akshare.macro.cons import (
     JS_CHINA_ENERGY_DAILY_URL,
 )
-from akshare.utils import demjson
+from akshare.utils import jsonish
+from akshare.utils import http
 from akshare.utils.tqdm import get_tqdm
 
 
@@ -63,7 +62,7 @@ def __macro_china_base_func(symbol: str, params: dict) -> pd.DataFrame:
     params = params
     big_df = pd.DataFrame()
     while True:
-        r = requests.get(url, params=params, headers=headers)
+        r = http.get(url, params=params, headers=headers)
         data_json = r.json()
         if not data_json["data"]["values"]:
             break
@@ -99,8 +98,8 @@ def __macro_china_base_func(symbol: str, params: dict) -> pd.DataFrame:
     big_df["今值"] = pd.to_numeric(big_df["今值"], errors="coerce")
     big_df["预测值"] = pd.to_numeric(big_df["预测值"], errors="coerce")
     big_df["前值"] = pd.to_numeric(big_df["前值"], errors="coerce")
-    big_df.sort_values(["日期"], inplace=True)
-    big_df.reset_index(inplace=True, drop=True)
+    big_df = big_df.sort_values(["日期"])
+    big_df = big_df.reset_index(drop=True)
     return big_df
 
 
@@ -128,10 +127,10 @@ def macro_china_qyspjg() -> pd.DataFrame:
         "pageNo": "1",
         "pageNum": "1",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     temp_df = pd.DataFrame(data_json["result"]["data"])
-    temp_df.rename(
+    temp_df = temp_df.rename(
         columns={
             "REPORT_DATE": "-",
             "TIME": "月份",
@@ -148,7 +147,6 @@ def macro_china_qyspjg() -> pd.DataFrame:
             "ENERGY_BASE_SAME": "煤油电-同比增长",
             "ENERGY_BASE_SEQUENTIAL": "煤油电-环比增长",
         },
-        inplace=True,
     )
 
     temp_df = temp_df[
@@ -222,7 +220,7 @@ def macro_china_fdi() -> pd.DataFrame:
         "pageNo": "1",
         "pageNum": "1",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     temp_df = pd.DataFrame(data_json["result"]["data"])
 
@@ -250,7 +248,7 @@ def macro_china_fdi() -> pd.DataFrame:
     temp_df["当月-环比增长"] = pd.to_numeric(temp_df["当月-环比增长"], errors="coerce")
     temp_df["累计"] = pd.to_numeric(temp_df["累计"], errors="coerce")
     temp_df["累计-同比增长"] = pd.to_numeric(temp_df["累计-同比增长"], errors="coerce")
-    temp_df.sort_values(["月份"], ignore_index=True, inplace=True)
+    temp_df = temp_df.sort_values(["月份"], ignore_index=True)
     return temp_df
 
 
@@ -262,7 +260,7 @@ def macro_china_shrzgm() -> pd.DataFrame:
     :return: 社会融资规模增量统计
     :rtype: pandas.DataFrame
     """
-    session = requests.Session()
+    session = http.Session()
     session.mount(prefix="https://", adapter=TLSAdapter())
     url = "https://data.mofcom.gov.cn/datamofcom/front/gnmy/shrzgmQuery"
     r = session.post(url)
@@ -310,8 +308,8 @@ def macro_china_shrzgm() -> pd.DataFrame:
     temp_df["其中-非金融企业境内股票融资"] = pd.to_numeric(
         temp_df["其中-非金融企业境内股票融资"], errors="coerce"
     )
-    temp_df.sort_values(["月份"], inplace=True)
-    temp_df.reset_index(drop=True, inplace=True)
+    temp_df = temp_df.sort_values(["月份"])
+    temp_df = temp_df.reset_index(drop=True)
     return temp_df
 
 
@@ -355,7 +353,7 @@ def macro_china_urban_unemployment() -> pd.DataFrame:
         "showType": "1",
         "rootId": "fc982599aa684be7969d7b90b1bd0e84",
     }
-    r = curl_requests.post(
+    r = http.curl_post(
         url, json=payload, headers=headers, impersonate="chrome", timeout=30
     )
     data_json = r.json()
@@ -374,8 +372,8 @@ def macro_china_urban_unemployment() -> pd.DataFrame:
                     indicator_clean = value_item["i_showname"].replace(" (%)", "")
                     data_list.append([month_clean, indicator_clean, rate])
     temp_df = pd.DataFrame(data_list, columns=["date", "item", "value"])
-    temp_df.sort_values(by=["date"], ascending=True, inplace=True)
-    temp_df.reset_index(drop=True, inplace=True)
+    temp_df = temp_df.sort_values(by=["date"], ascending=True)
+    temp_df = temp_df.reset_index(drop=True)
     return temp_df
 
 
@@ -667,13 +665,13 @@ def macro_china_shibor_all() -> pd.DataFrame:
 
     t = time.time()
     params = {"_": t}
-    res = requests.get(
+    res = http.get(
         url="https://cdn.jin10.com/data_center/reports/il_1.json", params=params
     )
     json_data = res.json()
     temp_df = pd.DataFrame(json_data["values"]).T
     big_df = pd.DataFrame()
-    temp_df.fillna(value="--", inplace=True)
+    temp_df = temp_df.fillna(value="--")
     big_df["O/N-定价"] = temp_df["O/N"].apply(lambda x: x[0])
     big_df["O/N-涨跌幅"] = temp_df["O/N"].apply(lambda x: x[1])
     big_df["1W-定价"] = temp_df["1W"].apply(lambda x: x[0])
@@ -694,9 +692,9 @@ def macro_china_shibor_all() -> pd.DataFrame:
     big_df = big_df.apply(lambda x: x.replace([None], np.nan))
     for item in big_df.columns:
         big_df[item] = pd.to_numeric(big_df[item], errors="coerce")
-    big_df.sort_index(inplace=True)
-    big_df.reset_index(inplace=True)
-    big_df.rename(columns={"index": "日期"}, inplace=True)
+    big_df = big_df.sort_index()
+    big_df = big_df.reset_index()
+    big_df = big_df.rename(columns={"index": "日期"})
     return big_df
 
 
@@ -713,13 +711,13 @@ def macro_china_hk_market_info() -> pd.DataFrame:
 
     t = time.time()
     params = {"_": t}
-    res = requests.get(
+    res = http.get(
         url="https://cdn.jin10.com/data_center/reports/il_2.json", params=params
     )
     json_data = res.json()
     temp_df = pd.DataFrame(json_data["values"]).T
     big_df = pd.DataFrame()
-    temp_df.fillna(value="--", inplace=True)
+    temp_df = temp_df.fillna(value="--")
     big_df["1W-定价"] = temp_df["1W"].apply(lambda x: x[0])
     big_df["1W-涨跌幅"] = temp_df["1W"].apply(lambda x: x[1])
     big_df["2W-定价"] = temp_df["2W"].apply(lambda x: x[0])
@@ -740,9 +738,9 @@ def macro_china_hk_market_info() -> pd.DataFrame:
     big_df = big_df.apply(lambda x: x.replace([None], np.nan))
     for item in big_df.columns:
         big_df[item] = pd.to_numeric(big_df[item], errors="coerce")
-    big_df.sort_index(inplace=True)
-    big_df.reset_index(inplace=True)
-    big_df.rename(columns={"index": "日期"}, inplace=True)
+    big_df = big_df.sort_index()
+    big_df = big_df.reset_index()
+    big_df = big_df.rename(columns={"index": "日期"})
     return big_df
 
 
@@ -754,7 +752,7 @@ def macro_china_daily_energy() -> pd.DataFrame:
     :return: pandas.DataFrame
     """
     t = time.time()
-    res = requests.get(
+    res = http.get(
         JS_CHINA_ENERGY_DAILY_URL.format(
             str(int(round(t * 1000))), str(int(round(t * 1000)) + 90)
         )
@@ -770,8 +768,8 @@ def macro_china_daily_energy() -> pd.DataFrame:
     temp_df = value_df[["沿海六大电库存", "日耗", "存煤可用天数"]]
     temp_df.name = "energy"
     temp_df = temp_df.astype(float)
-    temp_df.reset_index(inplace=True)
-    temp_df.rename(columns={"index": "日期"}, inplace=True)
+    temp_df = temp_df.reset_index()
+    temp_df = temp_df.rename(columns={"index": "日期"})
     temp_df["日期"] = pd.to_datetime(temp_df["日期"], errors="coerce").dt.date
     return temp_df
 
@@ -786,14 +784,14 @@ def macro_china_rmb() -> pd.DataFrame:
     """
     t = time.time()
     params = {"_": t}
-    res = requests.get(
+    res = http.get(
         "https://cdn.jin10.com/data_center/reports/exchange_rate.json",
         params=params,
     )
     json_data = res.json()
     temp_df = pd.DataFrame(json_data["values"]).T
     big_df = pd.DataFrame()
-    temp_df.fillna(value="--", inplace=True)
+    temp_df = temp_df.fillna(value="--")
     big_df["美元/人民币_中间价"] = temp_df["美元/人民币"].apply(lambda x: x[0])
     big_df["美元/人民币_涨跌幅"] = temp_df["美元/人民币"].apply(lambda x: x[1])
     big_df["欧元/人民币_中间价"] = temp_df["欧元/人民币"].apply(lambda x: x[0])
@@ -876,11 +874,11 @@ def macro_china_rmb() -> pd.DataFrame:
     big_df["人民币/泰铢_涨跌幅"] = temp_df["人民币/泰铢"].apply(lambda x: x[1])
     big_df = big_df.apply(lambda x: x.replace("-", pd.NA))
     big_df = big_df.apply(lambda x: x.replace([None], pd.NA))
-    big_df.sort_index(inplace=True)
-    big_df.fillna(0, inplace=True)
+    big_df = big_df.sort_index()
+    big_df = big_df.fillna(0)
     big_df = big_df.astype("float")
-    big_df.reset_index(inplace=True)
-    big_df.rename(columns={"index": "日期"}, inplace=True)
+    big_df = big_df.reset_index()
+    big_df = big_df.rename(columns={"index": "日期"})
     return big_df
 
 
@@ -893,7 +891,7 @@ def macro_china_market_margin_sz() -> pd.DataFrame:
     """
     t = time.time()
     params = {"_": t}
-    res = requests.get(
+    res = http.get(
         url="https://cdn.jin10.com/data_center/reports/fs_2.json", params=params
     )
     json_data = res.json()
@@ -906,11 +904,11 @@ def macro_china_market_margin_sz() -> pd.DataFrame:
         "融券余额",
         "融资融券余额",
     ]
-    temp_df.sort_index(inplace=True)
+    temp_df = temp_df.sort_index()
     temp_df.index = pd.to_datetime(temp_df.index)
     temp_df = temp_df.astype("float")
-    temp_df.reset_index(inplace=True)
-    temp_df.rename(columns={"index": "日期"}, inplace=True)
+    temp_df = temp_df.reset_index()
+    temp_df = temp_df.rename(columns={"index": "日期"})
     temp_df["日期"] = pd.to_datetime(temp_df["日期"], errors="coerce").dt.date
     return temp_df
 
@@ -925,10 +923,10 @@ def macro_china_market_margin_sh() -> pd.DataFrame:
     url = "https://cdn.jin10.com/data_center/reports/fs_1.json"
     t = time.time()
     params = {"_": t}
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     json_data = r.json()
     temp_df = pd.DataFrame(json_data["values"]).T
-    temp_df.reset_index(inplace=True)
+    temp_df = temp_df.reset_index()
     temp_df.columns = [
         "日期",
         "融资买入额",
@@ -938,7 +936,7 @@ def macro_china_market_margin_sh() -> pd.DataFrame:
         "融券余额",
         "融资融券余额",
     ]
-    temp_df.sort_values(by=["日期"], inplace=True, ignore_index=True)
+    temp_df = temp_df.sort_values(by=["日期"], ignore_index=True)
     temp_df["日期"] = pd.to_datetime(temp_df["日期"], errors="coerce").dt.date
     temp_df["融资买入额"] = pd.to_numeric(temp_df["融资买入额"], errors="coerce")
     temp_df["融资余额"] = pd.to_numeric(temp_df["融资余额"], errors="coerce")
@@ -958,7 +956,7 @@ def macro_china_au_report() -> pd.DataFrame:
     """
     t = time.time()
     params = {"_": t}
-    res = requests.get(
+    res = http.get(
         url="https://cdn.jin10.com/data_center/reports/sge.json", params=params
     )
     json_data = res.json()
@@ -1002,7 +1000,7 @@ def macro_china_au_report() -> pd.DataFrame:
         ]
     ]
     big_df["日期"] = pd.to_datetime(big_df["日期"]).dt.date
-    big_df.sort_values(["日期"], inplace=True, ignore_index=True)
+    big_df = big_df.sort_values(["日期"], ignore_index=True)
     big_df["持仓量"] = pd.to_numeric(big_df["持仓量"], errors="coerce")
     big_df["交收量"] = pd.to_numeric(big_df["交收量"], errors="coerce")
     return big_df
@@ -1033,14 +1031,14 @@ def macro_china_lpr() -> pd.DataFrame:
         "pageNo": "1",
         "pageNum": "1",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     total_page = data_json["result"]["pages"]
     big_df = pd.DataFrame()
     tqdm = get_tqdm()
     for page in tqdm(range(1, total_page + 1), leave=False):
         params.update({"pageNumber": page})
-        r = requests.get(url, params=params)
+        r = http.get(url, params=params)
         data_json = r.json()
         temp_df = pd.DataFrame(data_json["result"]["data"])
         big_df = pd.concat(objs=[big_df, temp_df], ignore_index=True)
@@ -1050,8 +1048,8 @@ def macro_china_lpr() -> pd.DataFrame:
     big_df["LPR5Y"] = pd.to_numeric(big_df["LPR5Y"], errors="coerce")
     big_df["RATE_1"] = pd.to_numeric(big_df["RATE_1"], errors="coerce")
     big_df["RATE_2"] = pd.to_numeric(big_df["RATE_2"], errors="coerce")
-    big_df.sort_values(by=["TRADE_DATE"], inplace=True)
-    big_df.reset_index(inplace=True, drop=True)
+    big_df = big_df.sort_values(by=["TRADE_DATE"])
+    big_df = big_df.reset_index(drop=True)
     return big_df
 
 
@@ -1085,7 +1083,7 @@ def macro_china_new_house_price(
         "pageNo": "1",
         "pageNum": "1",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     temp_df = pd.DataFrame(data_json["result"]["data"])
     temp_df.columns = [
@@ -1130,7 +1128,7 @@ def macro_china_new_house_price(
     temp_df["二手住宅价格指数-定基"] = pd.to_numeric(
         temp_df["二手住宅价格指数-定基"], errors="coerce"
     )
-    temp_df.sort_values(["日期"], ignore_index=True, inplace=True)
+    temp_df = temp_df.sort_values(["日期"], ignore_index=True)
     return temp_df
 
 
@@ -1157,7 +1155,7 @@ def macro_china_enterprise_boom_index() -> pd.DataFrame:
         "pageNo": "1",
         "pageNum": "1",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     temp_df = pd.DataFrame(data_json["result"]["data"])
     temp_df.columns = [
@@ -1224,7 +1222,7 @@ def macro_china_national_tax_receipts() -> pd.DataFrame:
         "pageNo": "1",
         "pageNum": "1",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     temp_df = pd.DataFrame(data_json["result"]["data"])
 
@@ -1258,7 +1256,7 @@ def macro_china_bank_financing() -> pd.DataFrame:
         "source": "WEB",
         "client": "WEB",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     temp_df = pd.DataFrame(data_json["result"]["data"])
     temp_df.columns = [
@@ -1279,8 +1277,8 @@ def macro_china_bank_financing() -> pd.DataFrame:
     temp_df["近1年涨跌幅"] = pd.to_numeric(temp_df["近1年涨跌幅"])
     temp_df["近2年涨跌幅"] = pd.to_numeric(temp_df["近2年涨跌幅"])
     temp_df["近3年涨跌幅"] = pd.to_numeric(temp_df["近3年涨跌幅"])
-    temp_df.sort_values(["日期"], inplace=True)
-    temp_df.reset_index(inplace=True, drop=True)
+    temp_df = temp_df.sort_values(["日期"])
+    temp_df = temp_df.reset_index(drop=True)
     return temp_df
 
 
@@ -1304,7 +1302,7 @@ def macro_china_insurance_income() -> pd.DataFrame:
         "source": "WEB",
         "client": "WEB",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     temp_df = pd.DataFrame(data_json["result"]["data"])
     temp_df.columns = [
@@ -1325,8 +1323,8 @@ def macro_china_insurance_income() -> pd.DataFrame:
     temp_df["近1年涨跌幅"] = pd.to_numeric(temp_df["近1年涨跌幅"])
     temp_df["近2年涨跌幅"] = pd.to_numeric(temp_df["近2年涨跌幅"])
     temp_df["近3年涨跌幅"] = pd.to_numeric(temp_df["近3年涨跌幅"])
-    temp_df.sort_values(["日期"], inplace=True)
-    temp_df.reset_index(inplace=True, drop=True)
+    temp_df = temp_df.sort_values(["日期"])
+    temp_df = temp_df.reset_index(drop=True)
     return temp_df
 
 
@@ -1350,10 +1348,10 @@ def macro_china_mobile_number() -> pd.DataFrame:
         "source": "WEB",
         "client": "WEB",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     temp_df = pd.DataFrame(data_json["result"]["data"])
-    temp_df.drop_duplicates(inplace=True)
+    temp_df = temp_df.drop_duplicates()
     temp_df.columns = [
         "日期",
         "最新值",
@@ -1372,8 +1370,8 @@ def macro_china_mobile_number() -> pd.DataFrame:
     temp_df["近1年涨跌幅"] = pd.to_numeric(temp_df["近1年涨跌幅"])
     temp_df["近2年涨跌幅"] = pd.to_numeric(temp_df["近2年涨跌幅"])
     temp_df["近3年涨跌幅"] = pd.to_numeric(temp_df["近3年涨跌幅"])
-    temp_df.sort_values(["日期"], inplace=True)
-    temp_df.reset_index(inplace=True, drop=True)
+    temp_df = temp_df.sort_values(["日期"])
+    temp_df = temp_df.reset_index(drop=True)
     return temp_df
 
 
@@ -1397,18 +1395,18 @@ def macro_china_vegetable_basket() -> pd.DataFrame:
         "source": "WEB",
         "client": "WEB",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     total_page = data_json["result"]["pages"]
     big_df = pd.DataFrame()
     tqdm = get_tqdm()
     for page in tqdm(range(1, total_page + 1), leave=False):
         params.update({"pageNumber": page})
-        r = requests.get(url, params=params)
+        r = http.get(url, params=params)
         data_json = r.json()
         temp_df = pd.DataFrame(data_json["result"]["data"])
         big_df = pd.concat([big_df, temp_df], ignore_index=True)
-    big_df.drop_duplicates(inplace=True)
+    big_df = big_df.drop_duplicates()
     big_df.columns = [
         "日期",
         "最新值",
@@ -1427,8 +1425,8 @@ def macro_china_vegetable_basket() -> pd.DataFrame:
     big_df["近1年涨跌幅"] = pd.to_numeric(big_df["近1年涨跌幅"])
     big_df["近2年涨跌幅"] = pd.to_numeric(big_df["近2年涨跌幅"])
     big_df["近3年涨跌幅"] = pd.to_numeric(big_df["近3年涨跌幅"])
-    big_df.sort_values(["日期"], inplace=True)
-    big_df.reset_index(inplace=True, drop=True)
+    big_df = big_df.sort_values(["日期"])
+    big_df = big_df.reset_index(drop=True)
     return big_df
 
 
@@ -1452,18 +1450,18 @@ def macro_china_agricultural_product() -> pd.DataFrame:
         "source": "WEB",
         "client": "WEB",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     total_page = data_json["result"]["pages"]
     big_df = pd.DataFrame()
     tqdm = get_tqdm()
     for page in tqdm(range(1, total_page + 1), leave=False):
         params.update({"pageNumber": page})
-        r = requests.get(url, params=params)
+        r = http.get(url, params=params)
         data_json = r.json()
         temp_df = pd.DataFrame(data_json["result"]["data"])
         big_df = pd.concat([big_df, temp_df], ignore_index=True)
-    big_df.drop_duplicates(inplace=True)
+    big_df = big_df.drop_duplicates()
     big_df.columns = [
         "日期",
         "最新值",
@@ -1482,8 +1480,8 @@ def macro_china_agricultural_product() -> pd.DataFrame:
     big_df["近1年涨跌幅"] = pd.to_numeric(big_df["近1年涨跌幅"])
     big_df["近2年涨跌幅"] = pd.to_numeric(big_df["近2年涨跌幅"])
     big_df["近3年涨跌幅"] = pd.to_numeric(big_df["近3年涨跌幅"])
-    big_df.sort_values(["日期"], inplace=True)
-    big_df.reset_index(inplace=True, drop=True)
+    big_df = big_df.sort_values(["日期"])
+    big_df = big_df.reset_index(drop=True)
     return big_df
 
 
@@ -1507,18 +1505,18 @@ def macro_china_agricultural_index() -> pd.DataFrame:
         "source": "WEB",
         "client": "WEB",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     total_page = data_json["result"]["pages"]
     big_df = pd.DataFrame()
     tqdm = get_tqdm()
     for page in tqdm(range(1, total_page + 1), leave=False):
         params.update({"pageNumber": page})
-        r = requests.get(url, params=params)
+        r = http.get(url, params=params)
         data_json = r.json()
         temp_df = pd.DataFrame(data_json["result"]["data"])
         big_df = pd.concat([big_df, temp_df], ignore_index=True)
-    big_df.drop_duplicates(inplace=True)
+    big_df = big_df.drop_duplicates()
     big_df.columns = [
         "日期",
         "最新值",
@@ -1537,8 +1535,8 @@ def macro_china_agricultural_index() -> pd.DataFrame:
     big_df["近1年涨跌幅"] = pd.to_numeric(big_df["近1年涨跌幅"])
     big_df["近2年涨跌幅"] = pd.to_numeric(big_df["近2年涨跌幅"])
     big_df["近3年涨跌幅"] = pd.to_numeric(big_df["近3年涨跌幅"])
-    big_df.sort_values(["日期"], inplace=True)
-    big_df.reset_index(inplace=True, drop=True)
+    big_df = big_df.sort_values(["日期"])
+    big_df = big_df.reset_index(drop=True)
     return big_df
 
 
@@ -1562,18 +1560,18 @@ def macro_china_energy_index() -> pd.DataFrame:
         "source": "WEB",
         "client": "WEB",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     total_page = data_json["result"]["pages"]
     big_df = pd.DataFrame()
     tqdm = get_tqdm()
     for page in tqdm(range(1, total_page + 1), leave=False):
         params.update({"pageNumber": page})
-        r = requests.get(url, params=params)
+        r = http.get(url, params=params)
         data_json = r.json()
         temp_df = pd.DataFrame(data_json["result"]["data"])
         big_df = pd.concat([big_df, temp_df], ignore_index=True)
-    big_df.drop_duplicates(inplace=True)
+    big_df = big_df.drop_duplicates()
     big_df.columns = [
         "日期",
         "最新值",
@@ -1592,8 +1590,8 @@ def macro_china_energy_index() -> pd.DataFrame:
     big_df["近1年涨跌幅"] = pd.to_numeric(big_df["近1年涨跌幅"])
     big_df["近2年涨跌幅"] = pd.to_numeric(big_df["近2年涨跌幅"])
     big_df["近3年涨跌幅"] = pd.to_numeric(big_df["近3年涨跌幅"])
-    big_df.sort_values(["日期"], inplace=True)
-    big_df.reset_index(inplace=True, drop=True)
+    big_df = big_df.sort_values(["日期"])
+    big_df = big_df.reset_index(drop=True)
     return big_df
 
 
@@ -1617,18 +1615,18 @@ def macro_china_commodity_price_index() -> pd.DataFrame:
         "source": "WEB",
         "client": "WEB",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     total_page = data_json["result"]["pages"]
     big_df = pd.DataFrame()
     tqdm = get_tqdm()
     for page in tqdm(range(1, total_page + 1), leave=False):
         params.update({"pageNumber": page})
-        r = requests.get(url, params=params)
+        r = http.get(url, params=params)
         data_json = r.json()
         temp_df = pd.DataFrame(data_json["result"]["data"])
         big_df = pd.concat([big_df, temp_df], ignore_index=True)
-    big_df.drop_duplicates(inplace=True)
+    big_df = big_df.drop_duplicates()
     big_df.columns = [
         "日期",
         "最新值",
@@ -1647,8 +1645,8 @@ def macro_china_commodity_price_index() -> pd.DataFrame:
     big_df["近1年涨跌幅"] = pd.to_numeric(big_df["近1年涨跌幅"])
     big_df["近2年涨跌幅"] = pd.to_numeric(big_df["近2年涨跌幅"])
     big_df["近3年涨跌幅"] = pd.to_numeric(big_df["近3年涨跌幅"])
-    big_df.sort_values(["日期"], inplace=True)
-    big_df.reset_index(inplace=True, drop=True)
+    big_df = big_df.sort_values(["日期"])
+    big_df = big_df.reset_index(drop=True)
     return big_df
 
 
@@ -1672,18 +1670,18 @@ def macro_global_sox_index() -> pd.DataFrame:
         "source": "WEB",
         "client": "WEB",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     total_page = data_json["result"]["pages"]
     big_df = pd.DataFrame()
     tqdm = get_tqdm()
     for page in tqdm(range(1, total_page + 1), leave=False):
         params.update({"pageNumber": page})
-        r = requests.get(url, params=params)
+        r = http.get(url, params=params)
         data_json = r.json()
         temp_df = pd.DataFrame(data_json["result"]["data"])
         big_df = pd.concat([big_df, temp_df], ignore_index=True)
-    big_df.drop_duplicates(inplace=True)
+    big_df = big_df.drop_duplicates()
     big_df.columns = [
         "日期",
         "最新值",
@@ -1702,8 +1700,8 @@ def macro_global_sox_index() -> pd.DataFrame:
     big_df["近1年涨跌幅"] = pd.to_numeric(big_df["近1年涨跌幅"])
     big_df["近2年涨跌幅"] = pd.to_numeric(big_df["近2年涨跌幅"])
     big_df["近3年涨跌幅"] = pd.to_numeric(big_df["近3年涨跌幅"])
-    big_df.sort_values(["日期"], inplace=True)
-    big_df.reset_index(inplace=True, drop=True)
+    big_df = big_df.sort_values(["日期"])
+    big_df = big_df.reset_index(drop=True)
     return big_df
 
 
@@ -1727,18 +1725,18 @@ def macro_china_yw_electronic_index() -> pd.DataFrame:
         "source": "WEB",
         "client": "WEB",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     total_page = data_json["result"]["pages"]
     big_df = pd.DataFrame()
     tqdm = get_tqdm()
     for page in tqdm(range(1, total_page + 1), leave=False):
         params.update({"pageNumber": page})
-        r = requests.get(url, params=params)
+        r = http.get(url, params=params)
         data_json = r.json()
         temp_df = pd.DataFrame(data_json["result"]["data"])
         big_df = pd.concat([big_df, temp_df], ignore_index=True)
-    big_df.drop_duplicates(inplace=True)
+    big_df = big_df.drop_duplicates()
     big_df.columns = [
         "日期",
         "最新值",
@@ -1757,8 +1755,8 @@ def macro_china_yw_electronic_index() -> pd.DataFrame:
     big_df["近1年涨跌幅"] = pd.to_numeric(big_df["近1年涨跌幅"])
     big_df["近2年涨跌幅"] = pd.to_numeric(big_df["近2年涨跌幅"])
     big_df["近3年涨跌幅"] = pd.to_numeric(big_df["近3年涨跌幅"])
-    big_df.sort_values(["日期"], inplace=True)
-    big_df.reset_index(inplace=True, drop=True)
+    big_df = big_df.sort_values(["日期"])
+    big_df = big_df.reset_index(drop=True)
     return big_df
 
 
@@ -1785,18 +1783,18 @@ def macro_china_construction_index() -> pd.DataFrame:
         "source": "WEB",
         "client": "WEB",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     total_page = data_json["result"]["pages"]
     big_df = pd.DataFrame()
     tqdm = get_tqdm()
     for page in tqdm(range(1, total_page + 1), leave=False):
         params.update({"pageNumber": page})
-        r = requests.get(url, params=params)
+        r = http.get(url, params=params)
         data_json = r.json()
         temp_df = pd.DataFrame(data_json["result"]["data"])
         big_df = pd.concat(objs=[big_df, temp_df], ignore_index=True)
-    big_df.drop_duplicates(inplace=True)
+    big_df = big_df.drop_duplicates()
     big_df.columns = [
         "日期",
         "最新值",
@@ -1815,8 +1813,8 @@ def macro_china_construction_index() -> pd.DataFrame:
     big_df["近1年涨跌幅"] = pd.to_numeric(big_df["近1年涨跌幅"], errors="coerce")
     big_df["近2年涨跌幅"] = pd.to_numeric(big_df["近2年涨跌幅"], errors="coerce")
     big_df["近3年涨跌幅"] = pd.to_numeric(big_df["近3年涨跌幅"], errors="coerce")
-    big_df.sort_values(by=["日期"], inplace=True)
-    big_df.reset_index(inplace=True, drop=True)
+    big_df = big_df.sort_values(by=["日期"])
+    big_df = big_df.reset_index(drop=True)
     return big_df
 
 
@@ -1840,18 +1838,18 @@ def macro_china_construction_price_index() -> pd.DataFrame:
         "source": "WEB",
         "client": "WEB",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     total_page = data_json["result"]["pages"]
     big_df = pd.DataFrame()
     tqdm = get_tqdm()
     for page in tqdm(range(1, total_page + 1), leave=False):
         params.update({"pageNumber": page})
-        r = requests.get(url, params=params)
+        r = http.get(url, params=params)
         data_json = r.json()
         temp_df = pd.DataFrame(data_json["result"]["data"])
         big_df = pd.concat([big_df, temp_df], ignore_index=True)
-    big_df.drop_duplicates(inplace=True)
+    big_df = big_df.drop_duplicates()
     big_df.columns = [
         "日期",
         "最新值",
@@ -1870,8 +1868,8 @@ def macro_china_construction_price_index() -> pd.DataFrame:
     big_df["近1年涨跌幅"] = pd.to_numeric(big_df["近1年涨跌幅"])
     big_df["近2年涨跌幅"] = pd.to_numeric(big_df["近2年涨跌幅"])
     big_df["近3年涨跌幅"] = pd.to_numeric(big_df["近3年涨跌幅"])
-    big_df.sort_values(["日期"], inplace=True)
-    big_df.reset_index(inplace=True, drop=True)
+    big_df = big_df.sort_values(["日期"])
+    big_df = big_df.reset_index(drop=True)
     return big_df
 
 
@@ -1895,18 +1893,18 @@ def macro_china_lpi_index() -> pd.DataFrame:
         "source": "WEB",
         "client": "WEB",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     total_page = data_json["result"]["pages"]
     big_df = pd.DataFrame()
     tqdm = get_tqdm()
     for page in tqdm(range(1, total_page + 1), leave=False):
         params.update({"pageNumber": page})
-        r = requests.get(url, params=params)
+        r = http.get(url, params=params)
         data_json = r.json()
         temp_df = pd.DataFrame(data_json["result"]["data"])
         big_df = pd.concat([big_df, temp_df], ignore_index=True)
-    big_df.drop_duplicates(inplace=True)
+    big_df = big_df.drop_duplicates()
     big_df.columns = [
         "日期",
         "最新值",
@@ -1925,8 +1923,8 @@ def macro_china_lpi_index() -> pd.DataFrame:
     big_df["近1年涨跌幅"] = pd.to_numeric(big_df["近1年涨跌幅"])
     big_df["近2年涨跌幅"] = pd.to_numeric(big_df["近2年涨跌幅"])
     big_df["近3年涨跌幅"] = pd.to_numeric(big_df["近3年涨跌幅"])
-    big_df.sort_values(["日期"], inplace=True)
-    big_df.reset_index(inplace=True, drop=True)
+    big_df = big_df.sort_values(["日期"])
+    big_df = big_df.reset_index(drop=True)
     return big_df
 
 
@@ -1950,18 +1948,18 @@ def macro_china_bdti_index() -> pd.DataFrame:
         "source": "WEB",
         "client": "WEB",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     total_page = data_json["result"]["pages"]
     big_df = pd.DataFrame()
     tqdm = get_tqdm()
     for page in tqdm(range(1, total_page + 1), leave=False):
         params.update({"pageNumber": page})
-        r = requests.get(url, params=params)
+        r = http.get(url, params=params)
         data_json = r.json()
         temp_df = pd.DataFrame(data_json["result"]["data"])
         big_df = pd.concat([big_df, temp_df], ignore_index=True)
-    big_df.drop_duplicates(inplace=True)
+    big_df = big_df.drop_duplicates()
     big_df.columns = [
         "日期",
         "最新值",
@@ -1980,8 +1978,8 @@ def macro_china_bdti_index() -> pd.DataFrame:
     big_df["近1年涨跌幅"] = pd.to_numeric(big_df["近1年涨跌幅"])
     big_df["近2年涨跌幅"] = pd.to_numeric(big_df["近2年涨跌幅"])
     big_df["近3年涨跌幅"] = pd.to_numeric(big_df["近3年涨跌幅"])
-    big_df.sort_values(["日期"], inplace=True)
-    big_df.reset_index(inplace=True, drop=True)
+    big_df = big_df.sort_values(["日期"])
+    big_df = big_df.reset_index(drop=True)
     return big_df
 
 
@@ -2005,18 +2003,18 @@ def macro_china_bsi_index() -> pd.DataFrame:
         "source": "WEB",
         "client": "WEB",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     total_page = data_json["result"]["pages"]
     big_df = pd.DataFrame()
     tqdm = get_tqdm()
     for page in tqdm(range(1, total_page + 1), leave=False):
         params.update({"pageNumber": page})
-        r = requests.get(url, params=params)
+        r = http.get(url, params=params)
         data_json = r.json()
         temp_df = pd.DataFrame(data_json["result"]["data"])
         big_df = pd.concat([big_df, temp_df], ignore_index=True)
-    big_df.drop_duplicates(inplace=True)
+    big_df = big_df.drop_duplicates()
     big_df.columns = [
         "日期",
         "最新值",
@@ -2035,8 +2033,8 @@ def macro_china_bsi_index() -> pd.DataFrame:
     big_df["近1年涨跌幅"] = pd.to_numeric(big_df["近1年涨跌幅"])
     big_df["近2年涨跌幅"] = pd.to_numeric(big_df["近2年涨跌幅"])
     big_df["近3年涨跌幅"] = pd.to_numeric(big_df["近3年涨跌幅"])
-    big_df.sort_values(["日期"], inplace=True)
-    big_df.reset_index(inplace=True, drop=True)
+    big_df = big_df.sort_values(["日期"])
+    big_df = big_df.reset_index(drop=True)
     return big_df
 
 
@@ -2060,18 +2058,18 @@ def _em_macro_1(em_id) -> pd.DataFrame:
         "source": "WEB",
         "client": "WEB",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     total_page = data_json["result"]["pages"]
     big_df = pd.DataFrame()
     tqdm = get_tqdm()
     for page in tqdm(range(1, total_page + 1), leave=False):
         params.update({"pageNumber": page})
-        r = requests.get(url, params=params)
+        r = http.get(url, params=params)
         data_json = r.json()
         temp_df = pd.DataFrame(data_json["result"]["data"])
         big_df = pd.concat([big_df, temp_df], ignore_index=True)
-    big_df.drop_duplicates(inplace=True)
+    big_df = big_df.drop_duplicates()
     big_df.columns = [
         "日期",
         "最新值",
@@ -2090,8 +2088,8 @@ def _em_macro_1(em_id) -> pd.DataFrame:
     big_df["近1年涨跌幅"] = pd.to_numeric(big_df["近1年涨跌幅"], errors="coerce")
     big_df["近2年涨跌幅"] = pd.to_numeric(big_df["近2年涨跌幅"], errors="coerce")
     big_df["近3年涨跌幅"] = pd.to_numeric(big_df["近3年涨跌幅"], errors="coerce")
-    big_df.sort_values(by=["日期"], inplace=True)
-    big_df.reset_index(inplace=True, drop=True)
+    big_df = big_df.sort_values(by=["日期"])
+    big_df = big_df.reset_index(drop=True)
     return big_df
 
 
@@ -2161,7 +2159,7 @@ def macro_china_new_financial_credit() -> pd.DataFrame:
         "pageNo": "1",
         "pageNum": "1",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     temp_df = pd.DataFrame(data_json["result"]["data"])
 
@@ -2213,7 +2211,7 @@ def macro_china_fx_gold() -> pd.DataFrame:
         "pageNo": "1",
         "pageNum": "1",
     }
-    r = requests.get(url, params=params, headers=headers)
+    r = http.get(url, params=params, headers=headers)
     data_json = r.json()
     temp_df = pd.DataFrame(data_json["result"]["data"])
     temp_df.columns = [
@@ -2249,7 +2247,7 @@ def macro_china_fx_gold() -> pd.DataFrame:
     temp_df["黄金储备-数值"] = pd.to_numeric(temp_df["黄金储备-数值"], errors="coerce")
     temp_df["黄金储备-同比"] = pd.to_numeric(temp_df["黄金储备-同比"], errors="coerce")
     temp_df["黄金储备-环比"] = pd.to_numeric(temp_df["黄金储备-环比"], errors="coerce")
-    temp_df.sort_values(by=["月份"], inplace=True, ignore_index=True)
+    temp_df = temp_df.sort_values(by=["月份"], ignore_index=True)
     return temp_df
 
 
@@ -2276,7 +2274,7 @@ def macro_china_stock_market_cap() -> pd.DataFrame:
         "source": "WEB",
         "client": "WEB",
     }
-    r = requests.get(url, params=params, headers=headers)
+    r = http.get(url, params=params, headers=headers)
     data_json = r.json()
     temp_df = pd.DataFrame(data_json["result"]["data"])
     temp_df.columns = [
@@ -2361,7 +2359,7 @@ def macro_china_money_supply() -> pd.DataFrame:
         "pageNo": "1",
         "pageNum": "1",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     temp_df = pd.DataFrame(data_json["result"]["data"])
     temp_df.columns = [
@@ -2445,7 +2443,7 @@ def macro_china_cpi() -> pd.DataFrame:
         "pageNo": "1",
         "pageNum": "1",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     temp_df = pd.DataFrame(data_json["result"]["data"])
     temp_df.columns = [
@@ -2519,7 +2517,7 @@ def macro_china_gdp() -> pd.DataFrame:
         "pageNo": "1",
         "pageNum": "1",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     temp_df = pd.DataFrame(data_json["result"]["data"])
     temp_df.columns = [
@@ -2595,7 +2593,7 @@ def macro_china_ppi() -> pd.DataFrame:
         "pageNo": "1",
         "pageNum": "1",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     temp_df = pd.DataFrame(data_json["result"]["data"])
     temp_df.columns = [
@@ -2640,7 +2638,7 @@ def macro_china_pmi() -> pd.DataFrame:
         "pageNo": "1",
         "pageNum": "1",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     temp_df = pd.DataFrame(data_json["result"]["data"])
     temp_df.columns = [
@@ -2692,7 +2690,7 @@ def macro_china_gdzctz() -> pd.DataFrame:
         "pageNo": "1",
         "pageNum": "1",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     temp_df = pd.DataFrame(data_json["result"]["data"])
 
@@ -2743,10 +2741,10 @@ def macro_china_hgjck() -> pd.DataFrame:
         "pageNo": "1",
         "pageNum": "1",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     temp_df = pd.DataFrame(data_json["result"]["data"])
-    temp_df.rename(
+    temp_df = temp_df.rename(
         columns={
             "REPORT_DATE": "-",
             "TIME": "月份",
@@ -2761,7 +2759,6 @@ def macro_china_hgjck() -> pd.DataFrame:
             "EXIT_ACCUMULATE_SAME": "累计出口额-同比增长",
             "IMPORT_ACCUMULATE_SAME": "累计进口额-同比增长",
         },
-        inplace=True,
     )
     temp_df = temp_df[
         [
@@ -2832,7 +2829,7 @@ def macro_china_czsr() -> pd.DataFrame:
         "pageNo": "1",
         "pageNum": "1",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     temp_df = pd.DataFrame(data_json["result"]["data"])
 
@@ -2860,7 +2857,7 @@ def macro_china_czsr() -> pd.DataFrame:
     temp_df["当月-环比增长"] = pd.to_numeric(temp_df["当月-环比增长"], errors="coerce")
     temp_df["累计"] = pd.to_numeric(temp_df["累计"], errors="coerce")
     temp_df["累计-同比增长"] = pd.to_numeric(temp_df["累计-同比增长"], errors="coerce")
-    temp_df.sort_values(by=["月份"], ignore_index=True, inplace=True)
+    temp_df = temp_df.sort_values(by=["月份"], ignore_index=True)
     return temp_df
 
 
@@ -2885,7 +2882,7 @@ def macro_china_whxd() -> pd.DataFrame:
         "pageNo": "1",
         "pageNum": "1",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     temp_df = pd.DataFrame(data_json["result"]["data"])
 
@@ -2910,7 +2907,7 @@ def macro_china_whxd() -> pd.DataFrame:
     temp_df["同比增长"] = pd.to_numeric(temp_df["同比增长"], errors="coerce")
     temp_df["环比增长"] = pd.to_numeric(temp_df["环比增长"], errors="coerce")
     temp_df["累计"] = pd.to_numeric(temp_df["累计"], errors="coerce")
-    temp_df.sort_values(by=["月份"], ignore_index=True, inplace=True)
+    temp_df = temp_df.sort_values(by=["月份"], ignore_index=True)
     return temp_df
 
 
@@ -2935,7 +2932,7 @@ def macro_china_wbck() -> pd.DataFrame:
         "pageNo": "1",
         "pageNum": "1",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     temp_df = pd.DataFrame(data_json["result"]["data"])
 
@@ -2986,7 +2983,7 @@ def macro_china_xfzxx() -> pd.DataFrame:
         "pageNo": "1",
         "pageNum": "1",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     temp_df = pd.DataFrame(data_json["result"]["data"])
 
@@ -3069,7 +3066,7 @@ def macro_china_gyzjz() -> pd.DataFrame:
         "pageNo": "1",
         "pageNum": "1",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     temp_df = pd.DataFrame(data_json["result"]["data"])
     temp_df.columns = [
@@ -3089,7 +3086,7 @@ def macro_china_gyzjz() -> pd.DataFrame:
     temp_df["同比增长"] = pd.to_numeric(temp_df["同比增长"], errors="coerce")
     temp_df["累计增长"] = pd.to_numeric(temp_df["累计增长"], errors="coerce")
     temp_df["发布时间"] = pd.to_datetime(temp_df["发布时间"], errors="coerce").dt.date
-    temp_df.sort_values(["发布时间"], ignore_index=True, inplace=True)
+    temp_df = temp_df.sort_values(["发布时间"], ignore_index=True)
     return temp_df
 
 
@@ -3115,7 +3112,7 @@ def macro_china_reserve_requirement_ratio() -> pd.DataFrame:
         "pageNo": "1",
         "pageNum": "1",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_json = r.json()
     temp_df = pd.DataFrame(data_json["result"]["data"])
     temp_df.columns = [
@@ -3203,7 +3200,7 @@ def macro_china_consumer_goods_retail() -> pd.DataFrame:
         "pageNo": "1",
         "pageNum": "1",
     }
-    r = requests.get(url, params=params, headers=headers)
+    r = http.get(url, params=params, headers=headers)
     data_json = r.json()
     temp_df = pd.DataFrame(data_json["result"]["data"])
     temp_df.columns = [
@@ -3248,16 +3245,16 @@ def macro_china_society_electricity() -> pd.DataFrame:
         "num": "31",
         "condition": "",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_text = r.text
-    data_json = demjson.decode(data_text[data_text.find("{") : -3])
+    data_json = jsonish.loads(data_text[data_text.find("{") : -3])
     page_num = math.ceil(int(data_json["count"]) / 31)
     big_df = pd.DataFrame(data_json["data"])
     for i in range(1, page_num):
         params.update({"from": i * 31})
-        r = requests.get(url, params=params)
+        r = http.get(url, params=params)
         data_text = r.text
-        data_json = demjson.decode(data_text[data_text.find("{") : -3])
+        data_json = jsonish.loads(data_text[data_text.find("{") : -3])
         temp_df = pd.DataFrame(data_json["data"])
         big_df = pd.concat([big_df, temp_df], ignore_index=True)
 
@@ -3282,7 +3279,7 @@ def macro_china_society_electricity() -> pd.DataFrame:
     ]
     for item in big_df.columns[1:]:
         big_df[item] = pd.to_numeric(big_df[item], errors="coerce")
-    big_df.sort_values(["统计时间"], inplace=True, ignore_index=True)
+    big_df = big_df.sort_values(["统计时间"], ignore_index=True)
     return big_df
 
 
@@ -3301,17 +3298,17 @@ def macro_china_society_traffic_volume() -> pd.DataFrame:
         "num": "31",
         "condition": "",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_text = r.text
-    data_json = demjson.decode(data_text[data_text.find("{") : -3])
+    data_json = jsonish.loads(data_text[data_text.find("{") : -3])
     page_num = math.ceil(int(data_json["count"]) / 31)
     big_df = pd.DataFrame(data_json["data"]["非累计"])
     tqdm = get_tqdm()
     for i in tqdm(range(1, page_num), leave=False):
         params.update({"from": i * 31})
-        r = requests.get(url, params=params)
+        r = http.get(url, params=params)
         data_text = r.text
-        data_json = demjson.decode(data_text[data_text.find("{") : -3])
+        data_json = jsonish.loads(data_text[data_text.find("{") : -3])
         temp_df = pd.DataFrame(data_json["data"]["非累计"])
         big_df = pd.concat([big_df, temp_df], ignore_index=True)
     big_df.columns = [item[1] for item in data_json["config"]["all"]]
@@ -3359,17 +3356,17 @@ def macro_china_postal_telecommunicational() -> pd.DataFrame:
         "num": "31",
         "condition": "",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_text = r.text
-    data_json = demjson.decode(data_text[data_text.find("{") : -3])
+    data_json = jsonish.loads(data_text[data_text.find("{") : -3])
     page_num = math.ceil(int(data_json["count"]) / 31)
     big_df = pd.DataFrame(data_json["data"]["非累计"])
     tqdm = get_tqdm()
     for i in tqdm(range(1, page_num), leave=False):
         params.update({"from": i * 31})
-        r = requests.get(url, params=params)
+        r = http.get(url, params=params)
         data_text = r.text
-        data_json = demjson.decode(data_text[data_text.find("{") : -3])
+        data_json = jsonish.loads(data_text[data_text.find("{") : -3])
         temp_df = pd.DataFrame(data_json["data"]["非累计"])
         big_df = pd.concat(objs=[big_df, temp_df], ignore_index=True)
     big_df.columns = [item[1] for item in data_json["config"]["all"]]
@@ -3393,17 +3390,17 @@ def macro_china_international_tourism_fx() -> pd.DataFrame:
         "num": "31",
         "condition": "",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_text = r.text
-    data_json = demjson.decode(data_text[data_text.find("{") : -3])
+    data_json = jsonish.loads(data_text[data_text.find("{") : -3])
     page_num = math.ceil(int(data_json["count"]) / 31)
     big_df = pd.DataFrame(data_json["data"])
     tqdm = get_tqdm()
     for i in tqdm(range(1, page_num)):
         params.update({"from": i * 31})
-        r = requests.get(url, params=params)
+        r = http.get(url, params=params)
         data_text = r.text
-        data_json = demjson.decode(data_text[data_text.find("{") : -3])
+        data_json = jsonish.loads(data_text[data_text.find("{") : -3])
         temp_df = pd.DataFrame(data_json["data"])
         big_df = pd.concat([big_df, temp_df], ignore_index=True)
     big_df.columns = [item[1] for item in data_json["config"]["all"]]
@@ -3427,17 +3424,17 @@ def macro_china_passenger_load_factor() -> pd.DataFrame:
         "num": "31",
         "condition": "",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_text = r.text
-    data_json = demjson.decode(data_text[data_text.find("{") : -3])
+    data_json = jsonish.loads(data_text[data_text.find("{") : -3])
     page_num = math.ceil(int(data_json["count"]) / 31)
     big_df = pd.DataFrame(data_json["data"])
     tqdm = get_tqdm()
     for i in tqdm(range(1, page_num)):
         params.update({"from": i * 31})
-        r = requests.get(url, params=params)
+        r = http.get(url, params=params)
         data_text = r.text
-        data_json = demjson.decode(data_text[data_text.find("{") : -3])
+        data_json = jsonish.loads(data_text[data_text.find("{") : -3])
         temp_df = pd.DataFrame(data_json["data"])
         big_df = pd.concat(objs=[big_df, temp_df], ignore_index=True)
     big_df.columns = [item[1] for item in data_json["config"]["all"]]
@@ -3461,17 +3458,17 @@ def _macro_china_freight_index() -> pd.DataFrame:
         "num": "31",
         "condition": "",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_text = r.text
-    data_json = demjson.decode(data_text[data_text.find("{") : -3])
+    data_json = jsonish.loads(data_text[data_text.find("{") : -3])
     page_num = math.ceil(int(data_json["count"]) / 31)
     big_df = pd.DataFrame(data_json["data"])
     tqdm = get_tqdm()
     for i in tqdm(range(1, page_num)):
         params.update({"from": i * 31})
-        r = requests.get(url, params=params)
+        r = http.get(url, params=params)
         data_text = r.text
-        data_json = demjson.decode(data_text[data_text.find("{") : -3])
+        data_json = jsonish.loads(data_text[data_text.find("{") : -3])
         temp_df = pd.DataFrame(data_json["data"])
         big_df = big_df.append(temp_df, ignore_index=True)
     big_df.columns = [item[1] for item in data_json["config"]["all"]]
@@ -3493,7 +3490,7 @@ def macro_china_freight_index() -> pd.DataFrame:
         "num": 5000,
         "condition": "",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     columns_list = r.content.decode("gbk").split("\n")[2].split(", ")
     columns_list = [item.strip() for item in columns_list]
     content_list = r.content.decode("gbk").split("\n")[3:]
@@ -3538,17 +3535,17 @@ def macro_china_central_bank_balance() -> pd.DataFrame:
         "num": "31",
         "condition": "",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_text = r.text
-    data_json = demjson.decode(data_text[data_text.find("{") : -3])
+    data_json = jsonish.loads(data_text[data_text.find("{") : -3])
     page_num = math.ceil(int(data_json["count"]) / 31)
     big_df = pd.DataFrame(data_json["data"])
     tqdm = get_tqdm()
     for i in tqdm(range(1, page_num)):
         params.update({"from": i * 31})
-        r = requests.get(url, params=params)
+        r = http.get(url, params=params)
         data_text = r.text
-        data_json = demjson.decode(data_text[data_text.find("{") : -3])
+        data_json = jsonish.loads(data_text[data_text.find("{") : -3])
         temp_df = pd.DataFrame(data_json["data"])
         big_df = pd.concat([big_df, temp_df], ignore_index=True)
     big_df.columns = [item[1] for item in data_json["config"]["all"]]
@@ -3572,17 +3569,17 @@ def macro_china_insurance() -> pd.DataFrame:
         "num": "31",
         "condition": "",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_text = r.text
-    data_json = demjson.decode(data_text[data_text.find("{") : -3])
+    data_json = jsonish.loads(data_text[data_text.find("{") : -3])
     page_num = math.ceil(int(data_json["count"]) / 31)
     big_df = pd.DataFrame(data_json["data"])
     tqdm = get_tqdm()
     for i in tqdm(range(1, page_num)):
         params.update({"from": i * 31})
-        r = requests.get(url, params=params)
+        r = http.get(url, params=params)
         data_text = r.text
-        data_json = demjson.decode(data_text[data_text.find("{") : -3])
+        data_json = jsonish.loads(data_text[data_text.find("{") : -3])
         temp_df = pd.DataFrame(data_json["data"])
         big_df = pd.concat([big_df, temp_df], ignore_index=True)
     big_df.columns = [item[1] for item in data_json["config"]["all"]]
@@ -3606,17 +3603,17 @@ def macro_china_supply_of_money() -> pd.DataFrame:
         "num": "31",
         "condition": "",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_text = r.text
-    data_json = demjson.decode(data_text[data_text.find("{") : -3])
+    data_json = jsonish.loads(data_text[data_text.find("{") : -3])
     page_num = math.ceil(int(data_json["count"]) / 31)
     big_df = pd.DataFrame(data_json["data"])
     tqdm = get_tqdm()
     for i in tqdm(range(1, page_num)):
         params.update({"from": i * 31})
-        r = requests.get(url, params=params)
+        r = http.get(url, params=params)
         data_text = r.text
-        data_json = demjson.decode(data_text[data_text.find("{") : -3])
+        data_json = jsonish.loads(data_text[data_text.find("{") : -3])
         temp_df = pd.DataFrame(data_json["data"])
         big_df = pd.concat(objs=[big_df, temp_df], ignore_index=True)
     big_df.columns = [item[1] for item in data_json["config"]["all"]]
@@ -3640,21 +3637,21 @@ def macro_china_foreign_exchange_gold() -> pd.DataFrame:
         "num": "31",
         "condition": "",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_text = r.text
-    data_json = demjson.decode(data_text[data_text.find("{") : -3])
+    data_json = jsonish.loads(data_text[data_text.find("{") : -3])
     page_num = math.ceil(int(data_json["count"]) / 31)
     big_df = pd.DataFrame(data_json["data"])
     tqdm = get_tqdm()
     for i in tqdm(range(1, page_num), leave=False):
         params.update({"from": i * 31})
-        r = requests.get(url, params=params)
+        r = http.get(url, params=params)
         data_text = r.text
-        data_json = demjson.decode(data_text[data_text.find("{") : -3])
+        data_json = jsonish.loads(data_text[data_text.find("{") : -3])
         temp_df = pd.DataFrame(data_json["data"])
         big_df = pd.concat(objs=[big_df, temp_df], ignore_index=True)
     big_df.columns = [item[1] for item in data_json["config"]["all"]]
-    big_df.sort_values(by=["统计时间"], ignore_index=True, inplace=True)
+    big_df = big_df.sort_values(by=["统计时间"], ignore_index=True)
     big_df["黄金储备"] = pd.to_numeric(big_df["黄金储备"], errors="coerce")
     big_df["国家外汇储备"] = pd.to_numeric(big_df["国家外汇储备"], errors="coerce")
     return big_df
@@ -3675,21 +3672,21 @@ def macro_china_retail_price_index() -> pd.DataFrame:
         "num": "31",
         "condition": "",
     }
-    r = requests.get(url, params=params)
+    r = http.get(url, params=params)
     data_text = r.text
-    data_json = demjson.decode(data_text[data_text.find("{") : -3])
+    data_json = jsonish.loads(data_text[data_text.find("{") : -3])
     page_num = math.ceil(int(data_json["count"]) / 31)
     big_df = pd.DataFrame(data_json["data"])
     tqdm = get_tqdm()
     for i in tqdm(range(1, page_num), leave=False):
         params.update({"from": i * 31})
-        r = requests.get(url, params=params)
+        r = http.get(url, params=params)
         data_text = r.text
-        data_json = demjson.decode(data_text[data_text.find("{") : -3])
+        data_json = jsonish.loads(data_text[data_text.find("{") : -3])
         temp_df = pd.DataFrame(data_json["data"])
         big_df = pd.concat(objs=[big_df, temp_df], ignore_index=True)
     big_df.columns = [item[1] for item in data_json["config"]["all"]]
-    big_df.sort_values(by=["统计月份"], ignore_index=True, inplace=True)
+    big_df = big_df.sort_values(by=["统计月份"], ignore_index=True)
     big_df["零售商品价格指数"] = pd.to_numeric(
         big_df["零售商品价格指数"], errors="coerce"
     )
@@ -3720,14 +3717,14 @@ def macro_china_real_estate() -> pd.DataFrame:
         "source": "WEB",
         "client": "WEB",
     }
-    r = requests.get(url, params=params, headers=headers)
+    r = http.get(url, params=params, headers=headers)
     data_json = r.json()
     total_page = data_json["result"]["pages"]
     big_df = pd.DataFrame()
     tqdm = get_tqdm()
     for page in tqdm(range(1, total_page + 1), leave=False):
         params.update({"pageNumber": page})
-        r = requests.get(url, params=params, headers=headers)
+        r = http.get(url, params=params, headers=headers)
         data_json = r.json()
         temp_df = pd.DataFrame(data_json["result"]["data"])
         big_df = pd.concat([big_df, temp_df], ignore_index=True)
@@ -3749,9 +3746,9 @@ def macro_china_real_estate() -> pd.DataFrame:
     big_df["近1年涨跌幅"] = pd.to_numeric(big_df["近1年涨跌幅"], errors="coerce")
     big_df["近2年涨跌幅"] = pd.to_numeric(big_df["近2年涨跌幅"], errors="coerce")
     big_df["近3年涨跌幅"] = pd.to_numeric(big_df["近3年涨跌幅"], errors="coerce")
-    big_df.sort_values(by=["日期"], inplace=True)
-    big_df.drop_duplicates(inplace=True)
-    big_df.reset_index(inplace=True, drop=True)
+    big_df = big_df.sort_values(by=["日期"])
+    big_df = big_df.drop_duplicates()
+    big_df = big_df.reset_index(drop=True)
     return big_df
 
 

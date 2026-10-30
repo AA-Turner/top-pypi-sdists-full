@@ -1,13 +1,15 @@
+from importlib.util import find_spec
 from typing import (
     Literal,
     Tuple,
 )
 
-import structlog
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 from opentelemetry.sdk._logs import LoggerProvider
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.trace import TracerProvider
+
+from mistralai.workflows.core._logger import get_logger
 
 try:
     from opentelemetry.instrumentation.aiohttp_client import AioHttpClientInstrumentor
@@ -15,6 +17,17 @@ try:
     _HAS_AIOHTTP_INSTRUMENTATION = True
 except ImportError:
     _HAS_AIOHTTP_INSTRUMENTATION = False
+
+# mistralai 3 builds its client on httpx2, which HTTPXClientInstrumentor does not patch.
+# HTTPX2ClientInstrumentor ships in opentelemetry-instrumentation-httpx>=0.65b0. The floor stays
+# lower because mistralai-agents-sdk-alpha pins 0.60b1. Without httpx2 installed (mistralai 2),
+# the instrumentor would log an error on every start, so it is skipped then too.
+try:
+    from opentelemetry.instrumentation.httpx import HTTPX2ClientInstrumentor
+
+    _HAS_HTTPX2_INSTRUMENTATION = find_spec("httpx2") is not None
+except ImportError:
+    _HAS_HTTPX2_INSTRUMENTATION = False
 
 from mistralai.workflows.core.config.config import config
 from mistralai.workflows.core.temporal.runtime_metrics import build_temporal_metric_views
@@ -26,7 +39,7 @@ from mistralai.workflows.core.tracing._otel_config import (
 )
 from mistralai.workflows.core.tracing.exporters import OtelExportOptions, resolve_otlp_export_options
 
-logger = structlog.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def _signal_log_field(export_config: OtelExportOptions) -> dict[str, object]:
@@ -34,6 +47,12 @@ def _signal_log_field(export_config: OtelExportOptions) -> dict[str, object]:
     # so use_api_key is False; the default Mistral /telemetry ingest uses the service-account bearer.
     mode = "custom" if not export_config.use_api_key else "mistral"
     return {"mode": mode, "endpoint": export_config.endpoint, "enabled": export_config.enabled}
+
+
+def _instrument_http_clients(*, meter_provider: MeterProvider | None, tracer_provider: TracerProvider | None) -> None:
+    HTTPXClientInstrumentor().instrument(meter_provider=meter_provider, tracer_provider=tracer_provider)
+    if _HAS_HTTPX2_INSTRUMENTATION:
+        HTTPX2ClientInstrumentor().instrument(meter_provider=meter_provider, tracer_provider=tracer_provider)
 
 
 def init_tracing(
@@ -131,7 +150,7 @@ def init_tracing(
     # asyncio.create_task/gather/wait/to_thread, and that bookkeeping breaks against Temporal's
     # separate deterministic workflow event loop ("Cannot enter into task X while another task Y is
     # being executed"), which can leave a workflow task hung until its start-to-close timeout.
-    HTTPXClientInstrumentor().instrument(meter_provider=meter_provider, tracer_provider=tracer_provider)
+    _instrument_http_clients(meter_provider=meter_provider, tracer_provider=tracer_provider)
 
     # Only instrument aiohttp if it's available (GCS storage dependency)
     if _HAS_AIOHTTP_INSTRUMENTATION:

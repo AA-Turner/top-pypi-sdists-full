@@ -37,12 +37,12 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.14"
 
       - name: "Install uv"
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           # zizmor: ignore[cache-poisoning]
           enable-cache: ${{ github.event_name == 'pull_request' }}
@@ -54,24 +54,55 @@ jobs:
         run: ${{ matrix.command }}
 
   build-linux:
-    runs-on: ubuntu-latest
+    # The manylinux2014 i686 container can't resolve vault.centos.org on ubuntu-26.04.
+    #
+    # https://github.com/PyO3/maturin-action/issues/484
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         platform:
-          - { target: x86_64-unknown-linux-gnu, arch: x86_64, interpreter: *interpreters }
-          - { target: i686-unknown-linux-gnu, arch: x86, interpreter: *interpreters }
-          - { target: aarch64-unknown-linux-gnu, arch: aarch64, interpreter: *interpreters }
-          - { target: armv7-unknown-linux-gnueabihf, arch: armv7, interpreter: *interpreters }
-          - { target: s390x-unknown-linux-gnu, arch: s390x, interpreter: *interpreters }
-          - { target: powerpc64le-unknown-linux-gnu, arch: ppc64le, interpreter: *interpreters }
-          - { target: riscv64gc-unknown-linux-gnu, arch: riscv64, interpreter: *interpreters }
+          - {
+              target: x86_64-unknown-linux-gnu,
+              arch: x86_64,
+              interpreter: *interpreters,
+            }
+          - {
+              target: i686-unknown-linux-gnu,
+              arch: x86,
+              interpreter: *interpreters,
+            }
+          - {
+              target: aarch64-unknown-linux-gnu,
+              arch: aarch64,
+              interpreter: *interpreters,
+            }
+          - {
+              target: armv7-unknown-linux-gnueabihf,
+              arch: armv7,
+              interpreter: *interpreters,
+            }
+          - {
+              target: s390x-unknown-linux-gnu,
+              arch: s390x,
+              interpreter: *interpreters,
+            }
+          - {
+              target: powerpc64le-unknown-linux-gnu,
+              arch: ppc64le,
+              interpreter: *interpreters,
+            }
+          - {
+              target: riscv64gc-unknown-linux-gnu,
+              arch: riscv64,
+              interpreter: *interpreters,
+            }
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           activate-environment: true
           enable-cache: false
@@ -89,7 +120,7 @@ jobs:
             --interpreter ${{ matrix.platform.interpreter }}
             --compatibility pypi
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: wheels-linux-${{ matrix.platform.arch }}
           path: dist
@@ -99,18 +130,38 @@ jobs:
     strategy:
       matrix:
         platform:
-          - { target: x86_64-unknown-linux-musl, arch: x86_64, interpreter: *interpreters }
-          - { target: i686-unknown-linux-musl, arch: x86, interpreter: *interpreters }
-          - { target: aarch64-unknown-linux-musl, arch: aarch64, interpreter: *interpreters }
-          - { target: armv7-unknown-linux-musleabihf, arch: armv7, interpreter: *interpreters }
-          - { target: riscv64gc-unknown-linux-musl, arch: riscv64, interpreter: *interpreters }
+          - {
+              target: x86_64-unknown-linux-musl,
+              arch: x86_64,
+              interpreter: *interpreters,
+            }
+          - {
+              target: i686-unknown-linux-musl,
+              arch: x86,
+              interpreter: *interpreters,
+            }
+          - {
+              target: aarch64-unknown-linux-musl,
+              arch: aarch64,
+              interpreter: *interpreters,
+            }
+          - {
+              target: armv7-unknown-linux-musleabihf,
+              arch: armv7,
+              interpreter: *interpreters,
+            }
+          - {
+              target: riscv64gc-unknown-linux-musl,
+              arch: riscv64,
+              interpreter: *interpreters,
+            }
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           activate-environment: true
           enable-cache: false
@@ -128,7 +179,7 @@ jobs:
             --interpreter ${{ matrix.platform.interpreter }}
             --compatibility pypi
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: wheels-musllinux-${{ matrix.platform.arch }}
           path: dist
@@ -138,16 +189,31 @@ jobs:
     strategy:
       matrix:
         platform:
-          - { runner: windows-latest, target: x64, arch: x64, interpreter: *interpreters }
-          - { runner: windows-latest, target: x86, arch: x86, interpreter: *interpreters_without_pypy }
-          - { runner: windows-11-arm, target: aarch64, arch: arm64, interpreter: *interpreters_win_arm64 }
+          - {
+              runner: windows-latest,
+              target: x64,
+              arch: x64,
+              interpreter: *interpreters,
+            }
+          - {
+              runner: windows-latest,
+              target: x86,
+              arch: x86,
+              interpreter: *interpreters_without_pypy,
+            }
+          - {
+              runner: windows-11-arm,
+              target: aarch64,
+              arch: arm64,
+              interpreter: *interpreters_win_arm64,
+            }
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.x"
           architecture: ${{ matrix.platform.arch }}
@@ -163,7 +229,7 @@ jobs:
             --interpreter ${{ matrix.platform.interpreter }}
             --compatibility pypi
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: wheels-windows-${{ matrix.platform.target }}
           path: dist
@@ -181,7 +247,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.x"
 
@@ -196,7 +262,7 @@ jobs:
             --interpreter ${{ matrix.platform.interpreter }}
             --compatibility pypi
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: wheels-macos-${{ matrix.platform.target }}
           path: dist
@@ -215,14 +281,14 @@ jobs:
           args: --out dist
 
       - name: Upload sdist
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: wheels-sdist
           path: dist
 
   release:
     runs-on: ubuntu-latest
-    if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+    if: github.ref_type == 'tag'
     needs:
       - build-linux
       - build-musllinux
@@ -235,7 +301,7 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: wheels-*
           merge-multiple: true
@@ -243,6 +309,6 @@ jobs:
 
       - name: Publish to PyPI
         if: github.ref_type == 'tag'
-        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
         with:
           packages-dir: dist

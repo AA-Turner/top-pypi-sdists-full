@@ -9,17 +9,12 @@ pub async fn handle_goto_definition(
     backend: &Backend,
     params: DefinitionParams,
 ) -> Result<Option<Vec<tombi_extension::Location>>, tower_lsp_server::jsonrpc::Error> {
-    log::trace!("{:?}", params);
-
-    let DefinitionParams {
-        text_document_position_params:
-            TextDocumentPositionParams {
-                text_document,
-                position,
-            },
-        ..
-    } = params;
-    let text_document_uri = text_document.uri.into();
+    let text_document_uri: tombi_uri::Uri = params
+        .text_document_position_params
+        .text_document
+        .uri
+        .clone()
+        .into();
 
     let ConfigSchemaStore { config, .. } = backend
         .config_manager
@@ -29,16 +24,22 @@ pub async fn handle_goto_definition(
     if !config
         .lsp
         .as_ref()
-        .and_then(|server| server.goto_definition.as_ref())
+        .and_then(|lsp| lsp.goto_definition.as_ref())
         .and_then(|goto_definition| goto_definition.enabled)
         .unwrap_or_default()
         .value()
     {
-        log::debug!("`server.goto_definition.enabled` is false");
+        log::debug!("`lsp.goto_definition.enabled` is false. Skipping goto definition.");
         return Ok(Default::default());
     }
 
     log::info!("handle_goto_definition");
+    log::debug!("{:?}", params);
+
+    let DefinitionParams {
+        text_document_position_params: TextDocumentPositionParams { position, .. },
+        ..
+    } = params;
 
     let Some(document_source) = backend.document_source(&text_document_uri) else {
         return Ok(Default::default());

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: genai-prices
-Version: 0.1.13
+Version: 0.2.0
 Summary: Calculate prices for calling LLM inference APIs.
 Project-URL: Homepage, https://github.com/pydantic/genai-prices
 Project-URL: Source, https://github.com/pydantic/genai-prices
@@ -20,19 +20,20 @@ Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: httpx2>=2.0
 Requires-Dist: pydantic>=2.10
+Requires-Dist: pydantic>=2.14; python_version >= '3.15'
 Provides-Extra: cli
 Requires-Dist: pydantic-settings>=2.11; extra == 'cli'
-Requires-Dist: rich-argparse>=1.7.2; extra == 'cli'
+Requires-Dist: rich-argparse>=1.8.0; extra == 'cli'
 Requires-Dist: rich>=14.3.2; extra == 'cli'
 Description-Content-Type: text/markdown
 
@@ -144,6 +145,28 @@ requests, not a tier: OpenAI batch results report `service_tier: "default"`.
 
 Batch rates are bundled for Anthropic, OpenAI, Google, Mistral, Groq and xAI, verified from October 14, 2026.
 A model the provider does not serve in batch returns the standard-price estimate.
+
+### Perplexity web search
+
+For `perplexity/sonar`, pass the search type used in the Perplexity request:
+
+```python
+from genai_prices import Usage, calc_price
+
+price = calc_price(
+    Usage(web_searches=2),
+    model_ref='perplexity/sonar',
+    provider_id='perplexity',
+    price_context={'search_type': 'fast'},
+)
+print(price.total_price)  # 0.0020
+```
+
+The response reports the search count but not the search type, so extraction cannot select the rate automatically.
+Pass `search_type: fast` even when a Perplexity preset selects Fast Search. Omitting the context or passing
+`search_type: web` uses the standard estimate of $2.50 per thousand searches. The fast rate is $1 per thousand.
+The search type selects the rate independently of the request date. Token charges are calculated separately.
+See [Perplexity's web-search documentation](https://docs.perplexity.ai/docs/agent-api/tools/web-search).
 
 ### Cached input tokens
 

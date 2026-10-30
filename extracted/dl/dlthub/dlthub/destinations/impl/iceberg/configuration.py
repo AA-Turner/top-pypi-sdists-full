@@ -159,7 +159,7 @@ class IcebergClientConfiguration(
     filesystem: Optional[FilesystemConfiguration] = None
 
     # TODO: possibly extract parts of those to CatalogConfiguration so we have setting per catalog
-    # TODO: implement additional properties passed to when namespace or table are created
+    # TODO: implement additional properties passed to when namespace is created
     namespace_properties: Optional[Dict[str, Any]] = None
     table_properties: Optional[Dict[str, Any]] = None
 
@@ -174,6 +174,11 @@ class IcebergClientConfiguration(
     iceberg_write_batch_size: int = 0
     """Number of rows per batch when writing to Iceberg tables. Default is 0, which means that
     entire table is written at once."""
+
+    delete_by_primary_key: bool = True
+    """When a `delete-insert` table has a merge key, also delete the records by primary key. Set
+    to `False` to delete only by merge key: a merge key on a partition column then deletes whole
+    data files without reading them."""
 
     # TODO: sql client settings may be moved to OSS and we may require it to be present in
     # DestinationClientDwhConfiguration if WithTableScanners interface is implemented by sql_client

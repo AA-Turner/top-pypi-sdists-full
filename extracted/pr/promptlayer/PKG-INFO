@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: promptlayer
-Version: 1.5.16
+Version: 1.5.17
 Summary: PromptLayer is a platform for prompt engineering and tracks your LLM requests.
 License: Apache-2.0
 License-File: LICENSE
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Provides-Extra: claude-agents
 Provides-Extra: openai-agents
 Provides-Extra: otel-genai-instrumentation

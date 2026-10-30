@@ -12,7 +12,8 @@ Desc: 义乌小商品指数
 """
 
 import pandas as pd
-import requests
+
+from akshare.utils import http
 
 
 def index_yw(symbol: str = "月景气指数") -> pd.DataFrame:
@@ -30,7 +31,7 @@ def index_yw(symbol: str = "月景气指数") -> pd.DataFrame:
 
     if symbol == "月景气指数":
         url = "https://apiserver.chinagoods.com/yiwuindex/v1/active/industry/class/history/bi?gcCode="
-        r = requests.get(url, verify=False)
+        r = http.get(url, verify=False)  # noqa: S501
         data_json = r.json()
         temp_df = pd.DataFrame(data_json["data"])
         temp_df = temp_df[
@@ -50,12 +51,12 @@ def index_yw(symbol: str = "月景气指数") -> pd.DataFrame:
         temp_df["市场信心指数"] = pd.to_numeric(
             temp_df["市场信心指数"], errors="coerce"
         )
-        temp_df.sort_values(["期数"], inplace=True, ignore_index=True)
+        temp_df = temp_df.sort_values(["期数"], ignore_index=True)
         return temp_df
     else:
         symbol_map = {"周价格指数": "piweek", "月价格指数": "month"}
         url = f"https://apiserver.chinagoods.com/yiwuindex/v1/active/industry/class/history/{symbol_map[symbol]}?gcCode="
-        r = requests.get(url, verify=False)
+        r = http.get(url, verify=False)  # noqa: S501
         data_json = r.json()
         columns_name = {
             "indextimeno": "期数",
@@ -81,7 +82,7 @@ def index_yw(symbol: str = "月景气指数") -> pd.DataFrame:
         temp_df["出口价格指数"] = pd.to_numeric(
             temp_df["出口价格指数"], errors="coerce"
         )
-        temp_df.sort_values(by=["期数"], inplace=True, ignore_index=True)
+        temp_df = temp_df.sort_values(by=["期数"], ignore_index=True)
         return temp_df
 
 

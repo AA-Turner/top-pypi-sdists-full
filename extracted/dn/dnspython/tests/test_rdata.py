@@ -41,6 +41,7 @@ import dns.zone
 import tests.md_module
 import tests.stxt_module
 import tests.ttxt_module
+from dns.rdtypes.ANY.CAA import CAA
 from dns.rdtypes.ANY.GPOS import GPOS
 from dns.rdtypes.ANY.LOC import LOC
 from dns.rdtypes.ANY.OPT import OPT
@@ -621,6 +622,27 @@ class RdataTestCase(unittest.TestCase):
         self.assertEqual(dns.rdata._escapify(b"ab\\c"), "ab\\\\c")
         self.assertEqual(dns.rdata._escapify(b"ab\x01c"), "ab\\001c")
 
+    def test_escapify_unicode(self):
+        self.assertEqual(dns.rdata._escapify_unicode("abc"), "abc")
+        self.assertEqual(dns.rdata._escapify_unicode('ab"c'), 'ab\\"c')
+        self.assertEqual(dns.rdata._escapify_unicode("ab\\c"), "ab\\\\c")
+        self.assertEqual(dns.rdata._escapify_unicode("ab\x01c"), "ab\\001c")
+        self.assertEqual(dns.rdata._escapify_unicode("élèves"), "élèves")
+        # DEL and the C1 controls are escaped too, as the bytes of their UTF-8
+        # encoding, since \DDD is a byte value in a TXT string.
+        self.assertEqual(
+            dns.rdata._escapify_unicode("a\x7fb\x85c\x9bd\xa0e"),
+            "a\\127b\\194\\133c\\194\\155d\xa0e",
+        )
+
+    def test_txt_utf8_style_escapes_control_characters(self):
+        style = dns.rdata.RdataStyle(txt_is_utf8=True)
+        wire = b"\x06a\xc2\x85b\n\x7f"
+        rd = dns.rdata.from_wire("in", "txt", wire, 0, len(wire))
+        text = rd.to_styled_text(style)
+        self.assertEqual(text, '"a\\194\\133b\\010\\127"')
+        self.assertEqual(dns.rdata.from_text("in", "txt", text), rd)
+
     def test_truncate_bitmap(self):
         self.assertEqual(dns.rdata._truncate_bitmap(b"\x00\x01\x00\x00"), b"\x00\x01")
         self.assertEqual(
@@ -746,6 +768,33 @@ class RdataTestCase(unittest.TestCase):
         with self.assertRaises(dns.exception.SyntaxError):
             dns.rdata.from_text("in", "caa", '0 a-b "ca.example.net"')
 
+    def test_CAA_constructor_invalid_tag(self):
+        for tag in ("", "a-b", "é", "１２", "١", "issueé"):
+            for value in (tag, tag.encode()):
+                with self.subTest(tag=value):
+                    with self.assertRaisesRegex(ValueError, "tag is not alphanumeric"):
+                        CAA(
+                            dns.rdataclass.IN,
+                            dns.rdatatype.CAA,
+                            0,
+                            value,
+                            b"ca.example",
+                        )
+
+    def test_CAA_constructor_ascii_tag_roundtrip(self):
+        value = b"\x00\xffca.example"
+        for tag in ("issue", "ISSUE", "i1", "123"):
+            with self.subTest(tag=tag):
+                record = CAA(dns.rdataclass.IN, dns.rdatatype.CAA, 0, tag, value)
+                binary = CAA(
+                    dns.rdataclass.IN, dns.rdatatype.CAA, 0, tag.encode(), value
+                )
+                wire = record.to_wire()
+                self.assertEqual(wire, binary.to_wire())
+                self.assertEqual(record.value, value)
+                restored = dns.rdata.from_wire("in", "caa", wire, 0, len(wire))
+                self.assertEqual(restored, record)
+
     def test_bad_HIP_text(self):
         # hit too long
         with self.assertRaises(dns.exception.SyntaxError):
@@ -775,6 +824,49 @@ class RdataTestCase(unittest.TestCase):
         except dns.exception.SyntaxError as e:
             self.assertIsInstance(e.__cause__, dns.rdtypes.ANY.RRSIG.BadSigTime)
 
+    def test_invalid_signature_calendar_time(self):
+        invalid = (
+            "20260001000000",
+            "20260100000000",
+            "20260229000000",
+            "20260231000000",
+            "20260431000000",
+            "20260101240000",
+            "20260101006000",
+            "20260101000060",
+        )
+        for value in invalid:
+            for rdtype in ("SIG", "RRSIG"):
+                for field in (0, 1):
+                    with self.subTest(value=value, rdtype=rdtype, field=field):
+                        times = ["20270101000000", "20260101000000"]
+                        times[field] = value
+                        text = f"A 8 1 3600 {times[0]} {times[1]} 1234 example. YQ=="
+                        with self.assertRaises(dns.exception.SyntaxError) as cm:
+                            dns.rdata.from_text("IN", rdtype, text)
+                        self.assertIsInstance(
+                            cm.exception.__cause__, dns.rdtypes.ANY.RRSIG.BadSigTime
+                        )
+
+    def test_valid_signature_calendar_time(self):
+        for value, timestamp in (
+            ("19700101000000", 0),
+            ("20240229000000", 1709164800),
+            ("21060207062815", 4294967295),
+        ):
+            with self.subTest(value=value):
+                self.assertEqual(
+                    dns.rdtypes.ANY.RRSIG.sigtime_to_posixtime(value), timestamp
+                )
+                self.assertEqual(
+                    dns.rdtypes.ANY.RRSIG.posixtime_to_sigtime(timestamp), value
+                )
+        for value in ("0", "1709164800", "4294967295"):
+            with self.subTest(value=value):
+                self.assertEqual(
+                    dns.rdtypes.ANY.RRSIG.sigtime_to_posixtime(value), int(value)
+                )
+
     def test_empty_TXT(self):
         # hit too long
         with self.assertRaises(dns.exception.SyntaxError):
@@ -795,12 +887,67 @@ class RdataTestCase(unittest.TestCase):
         self.assertEqual(a, b)
 
     def test_good_SMIMEA(self):
-        self.equal_smimea("3 0 1 aabbccddeeff", "3 0 01 AABBCCDDEEFF")
+        # matching type 1 is SHA-256, so the cert field must be 32 octets.
+        lower = "aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899"
+        self.equal_smimea(f"3 0 1 {lower}", f"3 0 01 {lower.upper()}")
 
     def test_bad_SMIMEA(self):
         with self.assertRaises(dns.exception.SyntaxError):
             dns.rdata.from_text(
                 dns.rdataclass.IN, dns.rdatatype.SMIMEA, "1 1 1 aGVsbG8gd29ybGQh"
+            )
+
+    def test_TLSA_cert_length_by_mtype(self):
+        # RFC 6698 Section 2.1.3: matching type 1 is SHA-256 (32 octets) and
+        # type 2 is SHA-512 (64 octets).  A wrong length is malformed, and the
+        # wire parser accepted it even though the sibling DS family rejects a
+        # digest of the wrong length.
+        sha256 = "00" * 32
+        sha512 = "00" * 64
+        for rdtype in (dns.rdatatype.TLSA, dns.rdatatype.SMIMEA):
+            # Correct lengths are accepted and round-trip over the wire.
+            for text in (f"3 0 1 {sha256}", f"3 0 2 {sha512}", "3 0 0 aabbcc"):
+                rd = dns.rdata.from_text(dns.rdataclass.IN, rdtype, text)
+                wire = rd.to_wire()
+                assert (
+                    dns.rdata.from_wire(dns.rdataclass.IN, rdtype, wire, 0, len(wire))
+                    == rd
+                )
+            # Wrong lengths are rejected from text and from wire.
+            for text in (
+                f"3 0 1 {sha512}",
+                f"3 0 2 {sha256}",
+                "3 0 1 ",
+                "3 0 1 aabbcc",
+            ):
+                with self.assertRaises(dns.exception.SyntaxError):
+                    dns.rdata.from_text(dns.rdataclass.IN, rdtype, text)
+            # mtype 1 with a 4-octet value, straight from the wire.
+            wire = bytes([3, 0, 1]) + b"\x00\x00\x00\x00"
+            with self.assertRaises(dns.exception.FormError):
+                dns.rdata.from_wire(dns.rdataclass.IN, rdtype, wire, 0, len(wire))
+
+    def test_SSHFP_fingerprint_length_by_type(self):
+        # fp_type 1 is SHA-1 (20 octets, RFC 4255) and type 2 is SHA-256
+        # (32 octets, RFC 6594); a wrong length is malformed.
+        sha1 = "00" * 20
+        sha256 = "00" * 32
+        for text in (f"1 1 {sha1}", f"1 2 {sha256}"):
+            rd = dns.rdata.from_text(dns.rdataclass.IN, dns.rdatatype.SSHFP, text)
+            wire = rd.to_wire()
+            assert (
+                dns.rdata.from_wire(
+                    dns.rdataclass.IN, dns.rdatatype.SSHFP, wire, 0, len(wire)
+                )
+                == rd
+            )
+        for text in (f"1 1 {sha256}", f"1 2 {sha1}", "1 1 ", "1 1 aabbcc"):
+            with self.assertRaises(dns.exception.SyntaxError):
+                dns.rdata.from_text(dns.rdataclass.IN, dns.rdatatype.SSHFP, text)
+        wire = bytes([1, 1]) + b"\x00\x00\x00\x00"
+        with self.assertRaises(dns.exception.FormError):
+            dns.rdata.from_wire(
+                dns.rdataclass.IN, dns.rdatatype.SSHFP, wire, 0, len(wire)
             )
 
     def test_bad_APLItem_address_length(self):
@@ -809,6 +956,21 @@ class RdataTestCase(unittest.TestCase):
             # event it is ever defined, we should switch the test to another
             # value.
             dns.rdtypes.IN.APL.APLItem(9999, False, b"0xff" * 128, 255)
+
+    def test_APL_generator_items(self):
+        expected = dns.rdata.from_text("IN", "APL", "1:192.0.2.0/24 !2:2001:db8::/32")
+        actual = dns.rdtypes.IN.APL.APL(
+            dns.rdataclass.IN, dns.rdatatype.APL, (item for item in expected.items)
+        )
+        self.assertEqual(actual.items, expected.items)
+        self.assertEqual(actual.to_text(), expected.to_text())
+        self.assertEqual(actual.to_wire(), expected.to_wire())
+
+    def test_APL_generator_rejects_invalid_item(self):
+        with self.assertRaises(ValueError):
+            dns.rdtypes.IN.APL.APL(
+                dns.rdataclass.IN, dns.rdatatype.APL, (item for item in [object()])
+            )
 
     def test_APL_unknown_family_text_round_trip(self):
         # 9999 is an "unknown" address family, whose address is shown in hex.
@@ -1048,6 +1210,34 @@ class UtilTestCase(unittest.TestCase):
         ba.append(0x01)  # bit 15, for MX
         self.assertEqual(windows, [(0, bytes(ba))])
 
+    def test_Bitmap_generator_windows(self):
+        windows = [(0, b"@"), (1, b"\x80")]
+        bitmap = dns.rdtypes.util.Bitmap(window for window in windows)
+        output = io.BytesIO()
+        bitmap.to_wire(output)
+        self.assertEqual(output.getvalue(), b"\x00\x01@\x01\x01\x80")
+        self.assertEqual(bitmap.to_text(), " A URI")
+
+    def test_Bitmap_generator_windows_in_rdata(self):
+        cases = [
+            ("NSEC", "next. A URI"),
+            ("NSEC3", "1 0 0 - 00 A URI"),
+            ("CSYNC", "1 0 A URI"),
+        ]
+        for rdtype, text in cases:
+            with self.subTest(rdtype=rdtype):
+                expected = dns.rdata.from_text("IN", rdtype, text)
+                actual = expected.replace(windows=(w for w in expected.windows))
+                self.assertEqual(actual.to_wire(), expected.to_wire())
+                self.assertEqual(actual.to_text(), expected.to_text())
+
+    def test_Bitmap_generator_stops_at_invalid_window(self):
+        remaining = (1, b"\x80")
+        windows = iter([(0, b"@"), (0, b"@"), remaining])
+        with self.assertRaises(ValueError):
+            dns.rdtypes.util.Bitmap(windows)
+        self.assertEqual(next(windows), remaining)
+
     def test_Bitmap_with_duplicate_types(self):
         b = dns.rdtypes.util.Bitmap
         tok = dns.tokenizer.Tokenizer("A MX A A MX")
@@ -1056,6 +1246,20 @@ class UtilTestCase(unittest.TestCase):
         ba.append(0x40)  # bit 1, for A
         ba.append(0x01)  # bit 15, for MX
         self.assertEqual(windows, [(0, bytes(ba))])
+
+    def test_Bitmap_window_256_is_invalid(self):
+        with self.assertRaises(ValueError):
+            dns.rdtypes.util.Bitmap([(256, b"\x80")])
+
+    def test_Bitmap_window_255_is_valid(self):
+        bitmap = dns.rdtypes.util.Bitmap([(255, b"\x80")])
+        output = io.BytesIO()
+        bitmap.to_wire(output)
+        self.assertEqual(output.getvalue(), b"\xff\x01\x80")
+        parsed = dns.rdtypes.util.Bitmap.from_wire_parser(
+            dns.wire.Parser(output.getvalue())
+        )
+        self.assertEqual(parsed.windows, bitmap.windows)
 
     def test_Bitmap_with_out_of_order_types(self):
         b = dns.rdtypes.util.Bitmap

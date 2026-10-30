@@ -1,7 +1,12 @@
 """Unit tests for sagemaker_studio.utils.sqlutils_async_reader."""
 
+import base64
+import json
 import unittest
 from unittest import mock
+
+import boto3
+from botocore.awsrequest import AWSResponse
 
 from sagemaker_studio.utils import sqlutils_async_reader as reader_mod
 from sagemaker_studio.utils.sqlutils_async_reader import (
@@ -122,12 +127,9 @@ class AthenaReaderTest(unittest.TestCase):
         rows = [r for chunk in chunks for r in chunk]
         self.assertEqual(rows, [[1], [2], [3]])  # header dropped only on page 0
 
-    def test_converter_unavailable_keeps_raw_string(self):
-        # When PyAthena's DefaultTypeConverter could not be imported, _athena_coerce
-        # returns the raw string instead of coercing (graceful degradation branch).
-        with mock.patch.object(reader_mod, "_ATHENA_CONVERTER", None):
-            self.assertEqual(_athena_coerce("42", "bigint"), "42")
-            self.assertIsNone(_athena_coerce(None, "bigint"))
+    def test_unknown_type_keeps_raw_string(self):
+        self.assertEqual(_athena_coerce("42", "future_type"), "42")
+        self.assertIsNone(_athena_coerce(None, "future_type"))
 
     def test_empty_first_page_skips_yield(self):
         # `if first_rows:` FALSE edge: a SELECT whose only first-page row is the header
@@ -386,6 +388,133 @@ class ReadAthenaOutputRowsTest(unittest.TestCase):
         client = mock.Mock()
         client.get_query_runtime_statistics.side_effect = RuntimeError("throttled")
         self.assertIsNone(reader_mod.read_athena_output_rows(client, "q-1"))
+
+
+class RecordsPassthroughTest(unittest.TestCase):
+    _RECORDS = [
+        [{"longValue": 1}, {"stringValue": "a"}],
+        [{"longValue": 2}, {"isNull": True}],
+    ]
+
+    def _body(self, **overrides):
+        payload = {
+            "ColumnMetadata": [
+                {"name": "id", "typeName": "int4"},
+                {"name": "name", "typeName": "varchar"},
+            ],
+            "TotalNumRows": 2,
+            "Records": self._RECORDS,
+            "NextToken": "t1",
+        }
+        payload.update(overrides)
+        return json.dumps(payload).encode("utf-8")
+
+    def test_moves_records_from_body_to_customized_response(self):
+        response = {"status_code": 200, "body": self._body()}
+        customized = {}
+        reader_mod._records_passthrough(response_dict=response, customized_response_dict=customized)
+        self.assertEqual(customized["Records"], self._RECORDS)
+        remaining = json.loads(response["body"])
+        self.assertNotIn("Records", remaining)
+        self.assertEqual(remaining["TotalNumRows"], 2)
+        self.assertEqual(remaining["NextToken"], "t1")
+        self.assertEqual(len(remaining["ColumnMetadata"]), 2)
+
+    def test_blob_values_are_base64_decoded_like_botocore(self):
+        encoded = base64.b64encode(b"\x00\x01").decode()
+        body = self._body(Records=[[{"blobValue": encoded}, {"isNull": True}]])
+        response = {"status_code": 200, "body": body}
+        customized = {}
+        reader_mod._records_passthrough(response_dict=response, customized_response_dict=customized)
+        self.assertEqual(customized["Records"], [[{"blobValue": b"\x00\x01"}, {"isNull": True}]])
+
+    def test_non_200_recordless_and_non_json_bodies_are_untouched(self):
+        for response in (
+            {"status_code": 400, "body": self._body()},
+            {"status_code": 200, "body": b'{"TotalNumRows": 0}'},
+            {"status_code": 200, "body": b"not json"},
+            {"status_code": 200, "body": None},
+        ):
+            before = dict(response)
+            customized = {}
+            reader_mod._records_passthrough(
+                response_dict=response, customized_response_dict=customized
+            )
+            self.assertEqual(response, before)
+            self.assertEqual(customized, {})
+
+    def test_without_customized_response_dict_is_a_noop(self):
+        response = {"status_code": 200, "body": self._body()}
+        before = dict(response)
+        reader_mod._records_passthrough(response_dict=response)
+        self.assertEqual(response, before)
+
+    def test_enable_returns_false_for_clients_without_events(self):
+        self.assertFalse(reader_mod.enable_records_passthrough(object()))
+
+    def test_enable_registers_with_a_unique_id(self):
+        client = mock.Mock()
+        self.assertTrue(reader_mod.enable_records_passthrough(client))
+        client.meta.events.register.assert_called_once_with(
+            reader_mod._RECORDS_PASSTHROUGH_EVENT,
+            reader_mod._records_passthrough,
+            unique_id=reader_mod._RECORDS_PASSTHROUGH_ID,
+        )
+
+    def test_read_redshift_result_registers_on_its_client(self):
+        client = mock.Mock()
+        client.get_statement_result.return_value = {
+            "ColumnMetadata": [],
+            "Records": [],
+            "TotalNumRows": 0,
+        }
+        read_redshift_result(client, "stmt-1")
+        event = client.meta.events.register.call_args.args[0]
+        self.assertEqual(event, reader_mod._RECORDS_PASSTHROUGH_EVENT)
+
+    def test_real_client_returns_identical_records_with_and_without_hook(self):
+        body = self._body(
+            Records=[
+                [
+                    {"longValue": 1},
+                    {"stringValue": "a"},
+                    {"doubleValue": 1.5},
+                    {"booleanValue": True},
+                    {"isNull": True},
+                    {"blobValue": base64.b64encode(b"\x00\x01").decode()},
+                ]
+            ]
+        )
+
+        class _Raw:
+            def stream(self, *args, **kwargs):
+                yield body
+
+        def _client():
+            client = boto3.client(
+                "redshift-data",
+                region_name="us-east-1",
+                aws_access_key_id="k",
+                aws_secret_access_key="s",
+            )
+            client._endpoint.http_session = mock.Mock(
+                send=lambda request: AWSResponse(
+                    request.url, 200, {"content-type": "application/x-amz-json-1.1"}, _Raw()
+                )
+            )
+            return client
+
+        plain, hooked = _client(), _client()
+        self.assertTrue(reader_mod.enable_records_passthrough(hooked))
+
+        expected = plain.get_statement_result(Id="stmt")
+        got = hooked.get_statement_result(Id="stmt")
+
+        self.assertEqual(got["Records"], expected["Records"])
+        self.assertEqual(got["Records"][0][5], {"blobValue": b"\x00\x01"})
+        self.assertEqual(got["ColumnMetadata"], expected["ColumnMetadata"])
+        self.assertEqual(got["TotalNumRows"], 2)
+        self.assertEqual(got["NextToken"], "t1")
 
 
 if __name__ == "__main__":

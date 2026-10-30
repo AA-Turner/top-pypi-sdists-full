@@ -1759,7 +1759,10 @@ class _SafeLoad:
                 import torchvision.transforms.transforms as tvt
                 from torchvision.transforms.functional import InterpolationMode
 
-                for obj in (tvt.Compose, tvt.Normalize, tvt.Resize, tvt.CenterCrop, tvt.ToTensor, InterpolationMode):
+                from ultralytics.data.augment import ClassifyLetterBox  # docs custom classify transforms letterbox
+
+                tfs = (tvt.Compose, tvt.Normalize, tvt.Resize, tvt.CenterCrop, tvt.ToTensor, tvt.ToPILImage)
+                for obj in (*tfs, InterpolationMode, ClassifyLetterBox, np.asarray):
                     cls._registry[f"{obj.__module__}.{obj.__qualname__}"] = obj
             if "ultralytics.nn.text_model.CLIP" in needed:
                 import clip
@@ -2042,6 +2045,9 @@ def load_checkpoint(weight, device=None, inplace=True, fuse=False):
                 f"Use an official Ultralytics model, i.e. 'yolo predict model=yolo26n.pt'"
             )
         )
+    if hasattr(candidate, "student_model"):  # mid-run distillation checkpoint: load its student
+        candidate._remove_feature_hooks()
+        candidate = candidate.student_model
     model = candidate.float()  # FP32 model
     if ckpt.get("modelopt"):  # QAT checkpoint: re-apply the fake-quantization it learned
         restore_qat(model, ckpt["modelopt"])

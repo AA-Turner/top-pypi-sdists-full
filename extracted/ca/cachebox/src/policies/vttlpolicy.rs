@@ -7,20 +7,9 @@ use crate::policies::traits;
 use crate::policies::traits::HandleExt;
 use crate::policies::traits::PolicyExt;
 
+use crate::internal::lazyheap::HeapNode;
 pub use crate::policies::common::Shared;
 use crate::policies::traits::SharedExt;
-
-/// Compares two items by `expires_at`, placing `None` values last.
-macro_rules! compare_fn {
-    () => {
-        |a, b| {
-            a.expires_at
-                .is_none()
-                .cmp(&b.expires_at.is_none())
-                .then_with(|| a.expires_at.cmp(&b.expires_at))
-        }
-    };
-}
 
 /// A key-value pair with a precomputed hash and combined size.
 pub struct ExpiringHandle {
@@ -33,6 +22,36 @@ pub struct ExpiringHandle {
     size: usize,
     /// Configured ttl for handle. `None` means has no ttl.
     expires_at: Option<std::time::SystemTime>,
+    /// Heap bookkeeping (position, insertion order, recorded priority).
+    slot: lazyheap::HeapSlot<u64>,
+}
+
+impl lazyheap::HeapNode for ExpiringHandle {
+    /// Expiry as nanoseconds since the Unix epoch (earliest first); `None` sorts
+    /// last as `u64::MAX`. Representable until year 2554.
+    type Key = u64;
+
+    #[inline(always)]
+    fn heap_key(&self) -> u64 {
+        match self.expires_at {
+            None => u64::MAX,
+            Some(t) => t.duration_since(std::time::UNIX_EPOCH).map_or(0, |d| {
+                u64::try_from(d.as_nanos())
+                    .unwrap_or(u64::MAX - 1)
+                    .min(u64::MAX - 1)
+            }),
+        }
+    }
+
+    #[inline(always)]
+    fn heap_slot(&self) -> &lazyheap::HeapSlot<u64> {
+        &self.slot
+    }
+
+    #[inline(always)]
+    fn heap_slot_mut(&mut self) -> &mut lazyheap::HeapSlot<u64> {
+        &mut self.slot
+    }
 }
 
 impl ExpiringHandle {
@@ -72,6 +91,7 @@ impl ExpiringHandle {
             value,
             size,
             expires_at: expires_at.map(Into::into),
+            slot: Default::default(),
         })
     }
 
@@ -119,6 +139,7 @@ impl ExpiringHandle {
             value: self.value.clone_ref(py),
             size: self.size,
             expires_at: self.expires_at,
+            slot: Default::default(),
         }
     }
 }
@@ -168,9 +189,12 @@ impl traits::OccupiedExt for Occupied<'_> {
                 .saturating_sub(cursor.element().size())
                 .saturating_add(new.size());
 
+            let mut new = new;
+            *new.heap_slot_mut() = *cursor.element().heap_slot();
             let old = std::mem::replace(cursor.element_mut(), new);
 
-            self.policy.heap.mark_unsorted();
+            // The key may move either way; re-position lazily (no layout change now).
+            self.policy.heap.mark_changed(*cursor);
             old
         }
     }
@@ -180,7 +204,7 @@ impl traits::OccupiedExt for Occupied<'_> {
         self.shared.generation_version().increment();
 
         let (cursor, _) = unsafe { self.policy.table.remove(self.bucket) };
-        let item = self.policy.heap.remove(cursor, compare_fn!());
+        let item = self.policy.heap.remove(cursor);
 
         self.policy.currsize = self.policy.currsize.saturating_sub(item.size());
         item
@@ -259,17 +283,17 @@ impl VTTLPolicy {
 
         // We don't want to intrupt other iterators with no reason
         // so need to manually call sort_by to only intrupt them on changes.
-        if self.heap.sort_by(compare_fn!()) {
+        if self.heap.sort_by() {
             gv.increment();
         }
 
-        self.heap.iter(compare_fn!())
+        self.heap.iter()
     }
 
     pub fn expire(&mut self, gv: &utils::GenerationVersion) {
         let now = std::time::SystemTime::now();
 
-        while let Some(cursor) = self.heap.front(compare_fn!()) {
+        while let Some(cursor) = self.heap.front() {
             let handle = unsafe { cursor.element() };
 
             if !handle.is_expired(now) {
@@ -284,7 +308,7 @@ impl VTTLPolicy {
 
             gv.increment();
 
-            let handle = self.heap.pop_front(compare_fn!()).unwrap();
+            let handle = self.heap.pop_front().unwrap();
             self.currsize = self.currsize.saturating_sub(handle.size);
         }
     }
@@ -367,11 +391,12 @@ impl PolicyExt for VTTLPolicy {
     }
 
     fn evict(&mut self, shared: &Self::Shared) -> pyo3::PyResult<Self::Handle> {
+        self.expire(shared.generation_version());
+
         {
-            let front_cursor = self
-                .heap
-                .front(compare_fn!())
-                .ok_or_else(|| new_py_error!(PyKeyError, "cache is empty"))?;
+            let Some(front_cursor) = self.heap.front() else {
+                return Err(new_py_error!(PyKeyError, "cache is empty"));
+            };
 
             self.table
                 .remove_entry(unsafe { front_cursor.element().key.hash() }, |x| {
@@ -382,7 +407,7 @@ impl PolicyExt for VTTLPolicy {
 
         shared.generation_version().increment();
 
-        let handle = self.heap.pop_front(compare_fn!()).unwrap();
+        let handle = self.heap.pop_front().unwrap();
 
         self.currsize = self.currsize.saturating_sub(handle.size);
         Ok(handle)
@@ -466,7 +491,7 @@ impl PolicyExt for VTTLPolicy {
         let mut heap = lazyheap::LazyHeap::new();
 
         unsafe {
-            for cursor in self.heap.iter(compare_fn!()) {
+            for cursor in self.heap.iter() {
                 let cloned_handle = cursor.element().clone_ref(py);
                 let new_cursor = heap.push(cloned_handle);
                 table.insert_no_grow(new_cursor.element().key().hash(), new_cursor);
@@ -551,7 +576,7 @@ impl PolicyExt for VTTLPolicy {
             }
         }
 
-        slf.heap.sort_by(compare_fn!());
+        slf.heap.sort_by();
         Ok((shared, slf))
     }
 }

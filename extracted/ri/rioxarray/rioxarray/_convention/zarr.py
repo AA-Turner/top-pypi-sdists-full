@@ -5,6 +5,7 @@ This module provides functions for reading geospatial metadata according to:
 - Zarr spatial convention: https://github.com/zarr-conventions/spatial
 - Zarr geo-proj convention: https://github.com/zarr-conventions/geo-proj
 """
+
 from typing import Optional, Union
 
 import rasterio.crs
@@ -300,11 +301,11 @@ class ZarrConvention:
         return None
 
     @classmethod
-    def write_crs(
+    def write_crs(  # pylint: disable=unused-argument
         cls,
         obj: Union[xarray.Dataset, xarray.DataArray],
         crs: rasterio.crs.CRS,
-        **kwargs,  # pylint: disable=unused-argument
+        **kwargs,
     ) -> Union[xarray.Dataset, xarray.DataArray]:
         """
         Write CRS using Zarr proj: convention.
@@ -329,12 +330,12 @@ class ZarrConvention:
         return obj
 
     @classmethod
-    def write_transform(
+    def write_transform(  # pylint: disable=unused-argument
         cls,
         obj: Union[xarray.Dataset, xarray.DataArray],
         *,
         transform: Affine,
-        **kwargs,  # pylint: disable=unused-argument
+        **kwargs,
     ) -> Union[xarray.Dataset, xarray.DataArray]:
         """
         Write transform using Zarr spatial: convention.

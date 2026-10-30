@@ -201,7 +201,7 @@ class PatchCompatibilityDatePlugin(Document):
         logger.debug("PatchCompatibilityDatePlugin: making compatibility date optional")
         spec = ctx.document
 
-        def patch_param(param):
+        def patch_param(param: dict[str, Any]) -> None:
             # Follow $ref if present
             if "$ref" in param:
                 ref = param["$ref"]
@@ -235,7 +235,7 @@ class PatchCompatibilityDatePlugin(Document):
 
 class DjangoESIInit(Init):
 
-    def __init__(self, ua_appname):
+    def __init__(self, ua_appname: str) -> None:
         super().__init__()
         self.app_name = ua_appname
 

@@ -646,10 +646,13 @@ ASK_WRITER_HELP = ("Ask the daemon's writer to change the record (file runs, mak
                    "Its reply says what it did.")
 #: `--writer` refused: the writer records nothing in `read only (daemon)`.
 ASK_WRITER_READ_ONLY = "not asked: Probe is read only for this session, so the daemon's writer records nothing."
-#: `--writer` refused: the worker running now is from before requests (a reinstall
-#: under a live session): nothing would take one.
-ASK_WRITER_OLD_DAEMON = ("not asked: the Probe daemon running now is older than this CLI and takes no requests; "
-                         "the next session's daemon does.")
+#: `--writer` refused: the worker running now has no marker saying it takes
+#: requests. A current worker writes a lost one again at its next poll (#3616:
+#: an SDK's recovery deleted it); a worker from before requests (a reinstall
+#: under a live session) never does, and nothing would take one.
+ASK_WRITER_NO_MARKER = ("not asked: the Probe daemon running now has not marked that it takes requests; try again "
+                        "in a minute. If this repeats, the daemon is older than this CLI, and the next session's "
+                        "daemon takes requests.")
 ASK_WRITER_TOO_LONG = "not asked: a request is at most {n:,} characters."
 ASK_NOTHING = "nothing in the team's records for this."
 ASK_STILL_LOOKING = "still looking ({id}) - the answer will reach you as a [Probe] message."
@@ -658,6 +661,10 @@ ASK_ASKED = "asked ({id}) - the answer will reach you as a [Probe] message."
 ASK_NO_WORKER = "asked ({id}) - the Probe daemon is not running; it restarts at the next prompt and answers then."
 ASK_FINISHING = "asked ({id}) - the Probe daemon is finishing the previous session; it answers once that is done."
 ASK_NO_DAEMON = "not asked: the Probe daemon does not run on this machine - use the Probe MCP."
+#: The daemon records this agent on this machine, but the session has no state:
+#: Probe's hooks never ran in it (Codex hooks waiting for approval, a plugin off).
+ASK_NO_HOOKS = ("not asked: Probe's hooks have not run in this session, so its daemon does not serve it. "
+                "`probe doctor` names the cause; sessions started after the fix can ask.")
 ASK_SESSION_OFF = "not asked: Probe is off for this session."
 #: `/probe inline` (the researcher's): the daemon is off, and the agent has the whole CLI.
 ASK_SESSION_INLINE = (
@@ -687,7 +694,9 @@ def ask_cmd(
     from probe.daemon import mailbox
     from probe.sdk import agent_session, session_marker
 
-    question = " ".join(question.split())
+    # A request to the writer keeps its line breaks (a handover's lists and
+    # paragraphs); a question to the reader is one line.
+    question = mailbox.request_text(question) if writer else " ".join(question.split())
     if not question:
         typer.echo(ASK_EMPTY, err=True)
         raise typer.Exit(1)
@@ -707,7 +716,9 @@ def ask_cmd(
     if (state != session_marker.STATE_DAEMON and not reads_only) or not mailbox.enabled(
         source=calling_agent()
     ):
-        typer.echo(ASK_NO_DAEMON, err=True)
+        # No state at all: the SessionStart hook that sets it never ran.
+        hooks_off = state is None and mailbox.enabled(source=calling_agent())
+        typer.echo(ASK_NO_HOOKS if hooks_off else ASK_NO_DAEMON, err=True)
         raise typer.Exit(1)
     alive = mailbox.worker_alive(sid)
     if writer:
@@ -743,7 +754,12 @@ def _ask_writer(sid: str, text: str, *, wait: bool, alive: bool, reads_only: boo
         raise typer.Exit(1)
     takes = alive and mailbox.accepts_requests(sid)
     if alive and not takes:
-        typer.echo(ASK_WRITER_OLD_DAEMON, err=True)
+        typer.echo(ASK_WRITER_NO_MARKER, err=True)
+        raise typer.Exit(1)
+    # A running worker from an older install cuts a request at its own limit.
+    limit = mailbox.worker_request_chars(sid) if takes else mailbox.REQUEST_MAX_CHARS
+    if len(text) > limit:
+        typer.echo(ASK_WRITER_TOO_LONG.format(n=limit), err=True)
         raise typer.Exit(1)
     req = mailbox.write_request(sid, text, wait=wait and takes)
     if not alive:

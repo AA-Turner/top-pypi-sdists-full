@@ -4,7 +4,6 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import TypeVar
 
-import httpx
 import structlog
 from pydantic import AliasChoices, BaseModel, Field
 from temporalio.exceptions import ApplicationError
@@ -13,9 +12,10 @@ from mistralai.client import Mistral
 from mistralai.client import models as mistralai_models
 from mistralai.client.models import ResponseFormat
 from mistralai.extra import response_format_from_pydantic_model
+from mistralai.workflows._mistral_http import MISTRAL_HTTP
 from mistralai.workflows.core.activity import activity
 from mistralai.workflows.core.dependencies.dependency_injector import Depends
-from mistralai.workflows.plugins.mistralai.connectors.run_as import ConnectorRunAs
+from mistralai.workflows.plugins.mistralai.connectors.run_as import RunAs
 from mistralai.workflows.plugins.mistralai.models import AgentUpdateRequest, ConversationAppendRequest
 from mistralai.workflows.plugins.mistralai.utils import (
     _get_agent_llm_rate_limit,
@@ -34,7 +34,7 @@ logger = structlog.get_logger(__name__)
 async def _conversation_append_timeout_guard(conversation_id: str) -> AsyncIterator[None]:
     try:
         yield
-    except (httpx.ReadTimeout, httpx.WriteTimeout) as e:
+    except (MISTRAL_HTTP.ReadTimeout, MISTRAL_HTTP.WriteTimeout) as e:
         logger.exception(
             "Conversation append timed out; the conversation may still be processing server-side",
             conversation_id=conversation_id,
@@ -49,7 +49,7 @@ async def _conversation_append_timeout_guard(conversation_id: str) -> AsyncItera
 @activity(rate_limit=_get_agent_llm_rate_limit())
 async def mistralai_create_agent(
     params: mistralai_models.CreateAgentRequest,
-    run_as: ConnectorRunAs = ConnectorRunAs.AUTO,
+    run_as: RunAs = RunAs.AUTO,
 ) -> mistralai_models.Agent:
     mistral_client = get_mistral_client(run_as)
     agent = await mistral_client.beta.agents.create_async(**params.model_dump(by_alias=True, exclude=EXCLUDED_FIELDS))
@@ -59,7 +59,7 @@ async def mistralai_create_agent(
 @activity(rate_limit=_get_agent_llm_rate_limit())
 async def mistralai_start_conversation(
     params: mistralai_models.ConversationRequest,
-    run_as: ConnectorRunAs = ConnectorRunAs.AUTO,
+    run_as: RunAs = RunAs.AUTO,
 ) -> mistralai_models.ConversationResponse:
     mistral_client = get_mistral_client(run_as)
     return await mistral_client.beta.conversations.start_async(
@@ -70,7 +70,7 @@ async def mistralai_start_conversation(
 @activity(rate_limit=_get_agent_llm_rate_limit())
 async def mistralai_append_conversation(
     params: ConversationAppendRequest,
-    run_as: ConnectorRunAs = ConnectorRunAs.AUTO,
+    run_as: RunAs = RunAs.AUTO,
 ) -> mistralai_models.ConversationResponse:
     mistral_client = get_mistral_client(run_as)
     async with _conversation_append_timeout_guard(params.conversation_id):
@@ -82,7 +82,7 @@ async def mistralai_append_conversation(
 @activity(rate_limit=_get_agent_llm_rate_limit())
 async def mistralai_update_agent(
     params: AgentUpdateRequest,
-    run_as: ConnectorRunAs = ConnectorRunAs.AUTO,
+    run_as: RunAs = RunAs.AUTO,
 ) -> mistralai_models.Agent:
     mistral_client = get_mistral_client(run_as)
     return await mistral_client.beta.agents.update_async(**params.model_dump(by_alias=True, exclude=EXCLUDED_FIELDS))
@@ -109,7 +109,7 @@ async def mistralai_chat_stream(
 
 @activity(rate_limit=_get_agent_llm_rate_limit())
 async def mistralai_start_conversation_stream(
-    params: mistralai_models.ConversationRequest, run_as: ConnectorRunAs = ConnectorRunAs.AUTO
+    params: mistralai_models.ConversationRequest, run_as: RunAs = RunAs.AUTO
 ) -> mistralai_models.ConversationResponse:
     mistral_client = get_mistral_client(run_as)
     stream = await mistral_client.beta.conversations.start_stream_async(
@@ -120,7 +120,7 @@ async def mistralai_start_conversation_stream(
 
 @activity(rate_limit=_get_agent_llm_rate_limit())
 async def mistralai_append_conversation_stream(
-    params: ConversationAppendRequest, run_as: ConnectorRunAs = ConnectorRunAs.AUTO
+    params: ConversationAppendRequest, run_as: RunAs = RunAs.AUTO
 ) -> mistralai_models.ConversationResponse:
     mistral_client = get_mistral_client(run_as)
     async with _conversation_append_timeout_guard(params.conversation_id):

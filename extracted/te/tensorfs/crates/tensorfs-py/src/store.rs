@@ -262,6 +262,14 @@ impl PyClient {
         Ok(PyCheckpoint::from_core(checkpoint))
     }
 
+    #[pyo3(signature = (header, own = Vec::new(), *, local_files_only = false))]
+    fn view(&self, py: Python<'_>, header: Bound<'_, PyBytes>, own: Vec<Bound<'_, PyBytes>>, local_files_only: bool) -> PyResult<PyCheckpoint> {
+        let (header, own): (Vec<u8>, Vec<Vec<u8>>) = (header.as_bytes().to_vec(), own.iter().map(|o| o.as_bytes().to_vec()).collect());
+        let options = Open { local_files_only, ..Open::default() };
+        let checkpoint = py.detach(|| self.client.view(&header, &own, &options)).or_raise(py)?;
+        Ok(PyCheckpoint::from_core(checkpoint))
+    }
+
     #[pyo3(signature = (identity, *, components = None, local_dir = None, local_files_only = false))]
     fn materialize(
         &self,
@@ -926,10 +934,17 @@ impl PyCheckpoint {
         result.or_raise(py)
     }
 
-    /// The header's loading metadata (`source`, `filled`, `safetensors_metadata`).
+    /// The header's loading metadata (`source`, `source_format`, `filled`, `safetensors_metadata`).
     #[getter]
     fn metadata<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
         metadata(py, &self.header.metadata)
+    }
+
+    /// How its import read the source's layout: `detected h3.lora (musubi-tuner)`; None for a
+    /// checkpoint no import made.
+    #[getter]
+    fn source_format(&self) -> Option<String> {
+        tensorfs::import::SourceFormat::read(&self.header.metadata).map(|f| f.to_string())
     }
 }
 

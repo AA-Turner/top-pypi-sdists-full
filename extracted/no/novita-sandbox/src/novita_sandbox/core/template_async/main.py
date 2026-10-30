@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 from typing import Callable, List, Optional, Union
 
@@ -16,12 +17,14 @@ from novita_sandbox.core.template.main import TemplateBase, TemplateClass
 from novita_sandbox.core.template.types import (
     BuildInfo,
     InstructionType,
-    TemplateInfo,
     TemplateList,
     TemplateTag,
     TemplateTagInfo,
 )
-from novita_sandbox.core.template.utils import normalize_build_arguments, read_dockerignore
+from novita_sandbox.core.template.utils import (
+    normalize_build_arguments,
+    read_dockerignore,
+)
 
 from .build_api import (
     assign_tags,
@@ -162,7 +165,12 @@ class AsyncTemplate(TemplateBase):
 
         # Before the instructions are assembled: this can add a WORKDIR step and
         # set the start command, both of which have to be in the payload below.
-        template._template._resolve_inherited_config(on_build_logs)
+        image_config = await asyncio.to_thread(
+            template._template._read_inherited_config
+        )
+        template._template._resolve_inherited_config(
+            on_build_logs, image_config=image_config
+        )
 
         instructions_with_hashes = template._template._instructions_with_hashes()
 

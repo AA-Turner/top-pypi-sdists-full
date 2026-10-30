@@ -1,29 +1,31 @@
 use super::{
     FREE_THREADED_MINIMUM_PYTHON_MINOR, InterpreterKind, MAXIMUM_PYPY_MINOR, MAXIMUM_PYTHON_MINOR,
-    MINIMUM_PYPY_MINOR, MINIMUM_PYTHON_MINOR,
+    MINIMUM_PYPY_MINOR, MINIMUM_PYTHON_MINOR, abiflags::validate_abiflags,
 };
-use crate::target::{Arch, Os};
 use crate::{StableAbi, StableAbiKind, Target};
-use anyhow::{Context, Result, format_err};
+use crate::{
+    python_interpreter::abiflags::default_abiflags,
+    target::{Arch, Os},
+};
+use anyhow::{Context, Result, ensure, format_err};
 use fs_err as fs;
 use serde::Deserialize;
 use std::fmt::Write as _;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 
-const PYPY_ABI_TAG: &str = "pp73";
+/// PyPy's ABI tag for a Python version.
+/// PyPy 3.12 was first released with PyPy 8.0, older versions with PyPy 7.3.
+fn pypy_abi_tag(minor: usize) -> &'static str {
+    if minor >= 12 { "pp80" } else { "pp73" }
+}
 
 fn graalpy_version_for_python_version(major: usize, minor: usize) -> Option<(usize, usize)> {
     match (major, minor) {
         (3, 10) => Some((24, 0)),
         (3, 11) => Some((24, 2)),
-        // Since 25.0, GraalPy should only change the major release number for feature releases.
-        // Additionally, it promises that only the autumn (oddly-numbered) releases are
-        // allowed to break ABI compatibility, so only those can change the Python version.
-        // The even-numbered releases will report the ABI version of the previous release.
-        // So assuming that GraalPy doesn't fall terribly behind on updating Python version,
-        // the version used in the ABI should follow this formula
-        (3, 12..) => Some((25 + (minor - 12) * 2, 0)),
+        (3, 12) => Some((25, 0)),
+        (3, 13) => Some((25, 3)),
         (_, _) => None,
     }
 }
@@ -38,14 +40,8 @@ pub struct InterpreterConfig {
     /// cpython, pypy, or graalpy
     #[serde(rename = "interpreter")]
     pub interpreter_kind: InterpreterKind,
-    /// For linux and mac, this contains the value of the abiflags, e.g. "m"
-    /// for python3.7m or "dm" for python3.6dm.
-    ///
-    /// * Since python3.8, the value is empty
-    /// * Since python3.13, the value is "t" for free-threaded builds.
-    /// * On Windows, the value was always None.
-    ///
-    /// See PEP 261 and PEP 393 for details
+    /// Normalized Python ABI flags, e.g. "m" for Python 3.7, "d" for debug builds,
+    /// and "t" for free-threaded builds. Empty for PyPy and GraalPy.
     pub abiflags: String,
     /// Suffix to use for extension modules as given by sysconfig.
     pub ext_suffix: String,
@@ -89,11 +85,14 @@ impl InterpreterConfig {
         }
         let python_ext_arch = target.get_python_ext_arch(python_impl);
         let target_env = target.get_python_target_env(python_impl, python_version);
-        let gil_disabled = abiflags == "t";
+        let gil_disabled = abiflags.contains('t');
+        if gil_disabled && (python_impl != CPython || python_version < (3, 13)) {
+            return None;
+        }
         match (target.target_os(), python_impl) {
             (Os::Linux, CPython) => {
                 let abiflags = if python_version < (3, 8) {
-                    "m".to_string()
+                    format!("{}m", abiflags.trim_end_matches('m'))
                 } else {
                     abiflags.to_string()
                 };
@@ -111,7 +110,7 @@ impl InterpreterConfig {
                 })
             }
             (Os::Linux, PyPy) => {
-                let abi_tag = format!("pypy{major}{minor}-{PYPY_ABI_TAG}");
+                let abi_tag = format!("pypy{major}{minor}-{}", pypy_abi_tag(minor));
                 let ext_suffix = format!(".{abi_tag}-{python_ext_arch}-linux-{target_env}.so");
                 Some(Self {
                     major,
@@ -141,7 +140,7 @@ impl InterpreterConfig {
             }
             (Os::Macos, CPython) => {
                 let abiflags = if python_version < (3, 8) {
-                    "m".to_string()
+                    format!("{}m", abiflags.trim_end_matches('m'))
                 } else {
                     abiflags.to_string()
                 };
@@ -158,7 +157,7 @@ impl InterpreterConfig {
                 })
             }
             (Os::Macos, PyPy) => {
-                let ext_suffix = format!(".pypy{major}{minor}-{PYPY_ABI_TAG}-darwin.so");
+                let ext_suffix = format!(".pypy{major}{minor}-{}-darwin.so", pypy_abi_tag(minor));
                 Some(Self {
                     major,
                     minor,
@@ -187,7 +186,7 @@ impl InterpreterConfig {
             }
             (Os::Windows, CPython) => {
                 let abiflags = if python_version < (3, 8) {
-                    "m".to_string()
+                    format!("{}m", abiflags.trim_end_matches('m'))
                 } else {
                     abiflags.to_string()
                 };
@@ -217,7 +216,8 @@ impl InterpreterConfig {
                     // PyPy on Windows only supports x86_64
                     return None;
                 }
-                let ext_suffix = format!(".pypy{major}{minor}-{PYPY_ABI_TAG}-win_amd64.pyd");
+                let ext_suffix =
+                    format!(".pypy{major}{minor}-{}-win_amd64.pyd", pypy_abi_tag(minor));
                 Some(Self {
                     major,
                     minor,
@@ -230,7 +230,10 @@ impl InterpreterConfig {
             }
             (Os::FreeBsd, CPython) => {
                 let (abiflags, ext_suffix) = if python_version < (3, 8) {
-                    ("m".to_string(), ".so".to_string())
+                    (
+                        format!("{}m", abiflags.trim_end_matches('m')),
+                        ".so".to_string(),
+                    )
                 } else {
                     (
                         abiflags.to_string(),
@@ -253,7 +256,7 @@ impl InterpreterConfig {
                     major,
                     minor,
                     interpreter_kind: CPython,
-                    abiflags: String::new(),
+                    abiflags: abiflags.to_string(),
                     ext_suffix,
                     pointer_width: Some(target.pointer_width()),
                     gil_disabled,
@@ -266,7 +269,7 @@ impl InterpreterConfig {
                     major,
                     minor,
                     interpreter_kind: CPython,
-                    abiflags: String::new(),
+                    abiflags: abiflags.to_string(),
                     ext_suffix,
                     pointer_width: Some(target.pointer_width()),
                     gil_disabled,
@@ -274,12 +277,13 @@ impl InterpreterConfig {
             }
             (Os::Emscripten, CPython) => {
                 let ldversion = format!("{major}{minor}");
-                let ext_suffix = format!(".cpython-{ldversion}-{python_ext_arch}-emscripten.so");
+                let ext_suffix =
+                    format!(".cpython-{ldversion}{abiflags}-{python_ext_arch}-emscripten.so");
                 Some(Self {
                     major,
                     minor,
                     interpreter_kind: CPython,
-                    abiflags: String::new(),
+                    abiflags: abiflags.to_string(),
                     ext_suffix,
                     pointer_width: Some(target.pointer_width()),
                     gil_disabled,
@@ -339,7 +343,7 @@ impl InterpreterConfig {
 
         let mut implementation = None;
         let mut version = None;
-        let mut abiflags = None;
+        let mut abiflags: Option<String> = None;
         let mut ext_suffix = None;
         let mut abi_tag = None;
         let mut pointer_width = None;
@@ -373,15 +377,44 @@ impl InterpreterConfig {
         })?;
         let implementation = implementation.unwrap_or_else(|| "cpython".to_string());
         let interpreter_kind = implementation.parse().map_err(|e| format_err!("{}", e))?;
+        let known_flags = build_flags.map(|flags| {
+            let gil_disabled = flags
+                .split(',')
+                .any(|flag| flag.trim() == "Py_GIL_DISABLED");
+            let debug = flags.split(',').any(|flag| flag.trim() == "Py_DEBUG");
+            (gil_disabled, debug)
+        });
+        let abiflags = if let Some(abiflags) = abiflags {
+            if let Some((gil_disabled, debug)) = known_flags {
+                // `gil_disabled` and `debug` are derived from
+                validate_abiflags(&abiflags, gil_disabled, debug)?;
+            }
+            abiflags
+        } else {
+            let (gil_disabled, debug) = known_flags.unwrap_or((false, false));
+            default_abiflags(minor, gil_disabled, debug)
+        };
+        if interpreter_kind == InterpreterKind::CPython {
+            ensure!(
+                !abiflags.contains('t') || (major, minor) >= (3, 13),
+                "Free-threaded ABI flags require Python 3.13 or later"
+            );
+            ensure!(
+                abiflags.contains('m') == ((major, minor) < (3, 8)),
+                "ABI flag 'm' is required before Python 3.8 and unsupported thereafter"
+            );
+        } else {
+            ensure!(
+                abiflags.is_empty(),
+                "ABI flags are unsupported for {interpreter_kind}"
+            );
+        }
+        let gil_disabled = abiflags.contains('t');
         let abi_tag = match interpreter_kind {
             InterpreterKind::CPython => {
-                if (major, minor) >= (3, 8) {
-                    abi_tag.unwrap_or_else(|| format!("{major}{minor}"))
-                } else {
-                    abi_tag.unwrap_or_else(|| format!("{major}{minor}m"))
-                }
+                abi_tag.unwrap_or_else(|| format!("{major}{minor}{abiflags}"))
             }
-            InterpreterKind::PyPy => abi_tag.unwrap_or_else(|| PYPY_ABI_TAG.to_string()),
+            InterpreterKind::PyPy => abi_tag.unwrap_or_else(|| pypy_abi_tag(minor).to_string()),
             InterpreterKind::GraalPy => abi_tag.unwrap_or_else(|| {
                 let (graalpy_major, graalpy_minor) =
                     graalpy_version_for_python_version(major, minor).unwrap_or((23, 0));
@@ -442,14 +475,11 @@ impl InterpreterConfig {
             } else {
                 ext_suffix.context("missing value for ext_suffix")?
             };
-        let gil_disabled = build_flags
-            .map(|flags| flags.contains("Py_GIL_DISABLED"))
-            .unwrap_or(false);
         Ok(Self {
             major,
             minor,
             interpreter_kind,
-            abiflags: abiflags.unwrap_or_default(),
+            abiflags,
             ext_suffix,
             pointer_width,
             gil_disabled,
@@ -539,6 +569,112 @@ mod tests {
     use super::*;
     use expect_test::expect;
     use pretty_assertions::assert_eq;
+
+    #[test]
+    fn test_from_pyo3_config_abiflags() {
+        let target = Target::from_resolved_target_triple("x86_64-unknown-linux-gnu").unwrap();
+        for (settings, flags) in [
+            ("", ""),
+            ("abiflags=\n", ""),
+            ("abiflags=d\n", "d"),
+            ("abiflags=td\n", "td"),
+            ("build_flags=Py_GIL_DISABLED\n", "t"),
+            ("abiflags=t\n", "t"),
+            ("abiflags=td\nbuild_flags=Py_DEBUG,Py_GIL_DISABLED\n", "td"),
+            ("build_flags=Py_DEBUG,Py_GIL_DISABLED\n", "td"),
+            ("build_flags=Py_DEBUG\n", "d"),
+        ] {
+            let file = tempfile::NamedTempFile::new().unwrap();
+            fs::write(file.path(), format!("version=3.14\n{settings}")).unwrap();
+            dbg!(settings, flags);
+            let config = InterpreterConfig::from_pyo3_config(file.path(), &target).unwrap();
+            assert_eq!(config.abiflags, flags, "{settings}");
+            assert_eq!(config.gil_disabled, flags.contains('t'));
+            assert_eq!(
+                config.ext_suffix,
+                format!(".cpython-314{flags}-x86_64-linux-gnu.so")
+            );
+        }
+        for settings in ["", "abiflags=dm\n"] {
+            let file = tempfile::NamedTempFile::new().unwrap();
+            fs::write(
+                file.path(),
+                format!("version=3.7\nbuild_flags=Py_DEBUG\n{settings}"),
+            )
+            .unwrap();
+            let config = InterpreterConfig::from_pyo3_config(file.path(), &target).unwrap();
+            assert_eq!(config.abiflags, "dm");
+            assert_eq!(config.ext_suffix, ".cpython-37dm-x86_64-linux-gnu.so");
+        }
+        for settings in [
+            "version=3.14\nabiflags=t\nbuild_flags=\n",
+            "version=3.14\nabiflags=\nbuild_flags=Py_GIL_DISABLED\n",
+            "version=3.14\nabiflags=d\nbuild_flags=Py_DEBUG,Py_GIL_DISABLED\n",
+            "version=3.14\nabiflags=t\nbuild_flags=Py_DEBUG,Py_GIL_DISABLED\n",
+            "version=3.14\nabiflags=d\nbuild_flags=\n",
+            "version=3.14\nabiflags=m\n",
+            "version=3.12\nabiflags=t\n",
+            "version=3.7\nabiflags=\n",
+            "version=3.7\nabiflags=d\n",
+            "version=3.14\nimplementation=PyPy\nabiflags=t\n",
+        ] {
+            let file = tempfile::NamedTempFile::new().unwrap();
+            fs::write(file.path(), settings).unwrap();
+            assert!(
+                InterpreterConfig::from_pyo3_config(file.path(), &target).is_err(),
+                "{settings}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_well_known_sysconfigs_abiflags() {
+        for triple in [
+            "x86_64-unknown-linux-gnu",
+            "x86_64-apple-darwin",
+            "x86_64-pc-windows-msvc",
+            "x86_64-unknown-freebsd",
+            "x86_64-unknown-netbsd",
+            "x86_64-unknown-openbsd",
+            "wasm32-unknown-emscripten",
+        ] {
+            let target = Target::from_resolved_target_triple(triple).unwrap();
+            for flags in ["", "d", "t", "td"] {
+                let config = InterpreterConfig::lookup_one(
+                    &target,
+                    InterpreterKind::CPython,
+                    (3, 14),
+                    flags,
+                )
+                .unwrap();
+                assert_eq!(config.abiflags, flags, "{triple}");
+                assert_eq!(config.gil_disabled, flags.contains('t'), "{triple}");
+            }
+            assert!(
+                InterpreterConfig::lookup_one(&target, InterpreterKind::PyPy, (3, 14), "t",)
+                    .is_none()
+            );
+        }
+    }
+
+    #[test]
+    fn test_well_known_sysconfigs_python_3_7_debug() {
+        for triple in [
+            "x86_64-unknown-linux-gnu",
+            "x86_64-apple-darwin",
+            "x86_64-pc-windows-msvc",
+            "x86_64-unknown-freebsd",
+        ] {
+            let target = Target::from_resolved_target_triple(triple).unwrap();
+            for flags in ["d", "dm"] {
+                let config =
+                    InterpreterConfig::lookup_one(&target, InterpreterKind::CPython, (3, 7), flags)
+                        .unwrap();
+                assert_eq!(config.abiflags, "dm", "{triple}");
+                assert!(!config.gil_disabled);
+            }
+        }
+    }
 
     #[test]
     fn test_well_known_sysconfigs_linux() {
@@ -651,6 +787,15 @@ mod tests {
         assert_eq!(sysconfig.ext_suffix, ".pypy39-pp73-x86_64-linux-gnu.so");
 
         let sysconfig = InterpreterConfig::lookup_one(
+            &Target::from_resolved_target_triple("x86_64-unknown-linux-gnu").unwrap(),
+            InterpreterKind::PyPy,
+            (3, 12),
+            "",
+        )
+        .unwrap();
+        assert_eq!(sysconfig.ext_suffix, ".pypy312-pp80-x86_64-linux-gnu.so");
+
+        let sysconfig = InterpreterConfig::lookup_one(
             &Target::from_resolved_target_triple("i686-unknown-linux-gnu").unwrap(),
             InterpreterKind::PyPy,
             (3, 9),
@@ -755,6 +900,15 @@ mod tests {
         )
         .unwrap();
         assert_eq!(sysconfig.ext_suffix, ".pypy39-pp73-darwin.so");
+
+        let sysconfig = InterpreterConfig::lookup_one(
+            &Target::from_resolved_target_triple("aarch64-apple-darwin").unwrap(),
+            InterpreterKind::PyPy,
+            (3, 12),
+            "",
+        )
+        .unwrap();
+        assert_eq!(sysconfig.ext_suffix, ".pypy312-pp80-darwin.so");
     }
 
     #[test]
@@ -796,6 +950,15 @@ mod tests {
         )
         .unwrap();
         assert_eq!(sysconfig.ext_suffix, ".pypy39-pp73-win_amd64.pyd");
+
+        let sysconfig = InterpreterConfig::lookup_one(
+            &Target::from_resolved_target_triple("x86_64-pc-windows-msvc").unwrap(),
+            InterpreterKind::PyPy,
+            (3, 12),
+            "",
+        )
+        .unwrap();
+        assert_eq!(sysconfig.ext_suffix, ".pypy312-pp80-win_amd64.pyd");
     }
 
     #[test]

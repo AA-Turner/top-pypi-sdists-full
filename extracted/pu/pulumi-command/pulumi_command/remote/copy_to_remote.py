@@ -24,13 +24,13 @@ class CopyToRemoteArgs:
                  connection: pulumi.Input['ConnectionArgs'],
                  remote_path: pulumi.Input[_builtins.str],
                  source: pulumi.Input[Union[pulumi.Asset, pulumi.Archive]],
-                 triggers: Optional[pulumi.Input[Sequence[Any]]] = None):
+                 triggers: pulumi.Input[Optional[Sequence[Any]]] = None):
         """
         The set of arguments for constructing a CopyToRemote resource.
 
         :param pulumi.Input['ConnectionArgs'] connection: The parameters with which to connect to the remote host.
         :param pulumi.Input[_builtins.str] remote_path: The destination path on the remote host. Any necessary parent directories will be created automatically. When the remote path is an existing directory, the source file or directory will be copied into that directory. When the source is a file and the remote path is an existing file, that file will be overwritten. When the source is a directory and the remote path an existing file, the copy will fail.
-        :param pulumi.Input[Union[pulumi.Asset, pulumi.Archive]] source: An [asset or an archive](https://www.pulumi.com/docs/concepts/assets-archives/) to upload as the source of the copy. It must be a `FileAsset`, `StringAsset`, or a `FileArchive`. The item will be copied as-is; archives like .tgz will not be unpacked. Directories are copied recursively, overwriting existing files.
+        :param pulumi.Input[Union[pulumi.Asset, pulumi.Archive]] source: An [asset or an archive](https://www.pulumi.com/docs/concepts/assets-archives/) to upload as the source of the copy. The item will be copied as-is; archives like .tgz will not be unpacked. Directories are copied recursively, overwriting existing files.
         :param pulumi.Input[Sequence[Any]] triggers: Trigger replacements on changes to this input.
         """
         pulumi.set(__self__, "connection", connection)
@@ -67,7 +67,7 @@ class CopyToRemoteArgs:
     @pulumi.getter
     def source(self) -> pulumi.Input[Union[pulumi.Asset, pulumi.Archive]]:
         """
-        An [asset or an archive](https://www.pulumi.com/docs/concepts/assets-archives/) to upload as the source of the copy. It must be a `FileAsset`, `StringAsset`, or a `FileArchive`. The item will be copied as-is; archives like .tgz will not be unpacked. Directories are copied recursively, overwriting existing files.
+        An [asset or an archive](https://www.pulumi.com/docs/concepts/assets-archives/) to upload as the source of the copy. The item will be copied as-is; archives like .tgz will not be unpacked. Directories are copied recursively, overwriting existing files.
         """
         return pulumi.get(self, "source")
 
@@ -77,14 +77,14 @@ class CopyToRemoteArgs:
 
     @_builtins.property
     @pulumi.getter
-    def triggers(self) -> Optional[pulumi.Input[Sequence[Any]]]:
+    def triggers(self) -> pulumi.Input[Optional[Sequence[Any]]]:
         """
         Trigger replacements on changes to this input.
         """
         return pulumi.get(self, "triggers")
 
     @triggers.setter
-    def triggers(self, value: Optional[pulumi.Input[Sequence[Any]]]):
+    def triggers(self, value: pulumi.Input[Optional[Sequence[Any]]]):
         pulumi.set(self, "triggers", value)
 
 
@@ -94,18 +94,13 @@ class CopyToRemote(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 connection: Optional[pulumi.Input[Union['ConnectionArgs', 'ConnectionArgsDict']]] = None,
-                 remote_path: Optional[pulumi.Input[_builtins.str]] = None,
-                 source: Optional[pulumi.Input[Union[pulumi.Asset, pulumi.Archive]]] = None,
-                 triggers: Optional[pulumi.Input[Sequence[Any]]] = None,
+                 connection: pulumi.Input[Optional[Union['ConnectionArgs', 'ConnectionArgsDict', 'outputs.Connection']]] = None,
+                 remote_path: pulumi.Input[Optional[_builtins.str]] = None,
+                 source: pulumi.Input[Optional[Union[pulumi.Asset, pulumi.Archive]]] = None,
+                 triggers: pulumi.Input[Optional[Sequence[Any]]] = None,
                  __props__=None):
         """
         Copy an Asset or Archive to a remote host.
-
-        Supported source types:
-        - `FileAsset`: Copy a local file to the remote host.
-        - `StringAsset`: Copy text content directly to a remote file (useful for configuration files, certificates, etc.).
-        - `FileArchive`: Copy a local directory or archive to the remote host.
 
         ## Example usage
 
@@ -153,9 +148,9 @@ class CopyToRemote(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
-        :param pulumi.Input[Union['ConnectionArgs', 'ConnectionArgsDict']] connection: The parameters with which to connect to the remote host.
+        :param pulumi.Input[Union['ConnectionArgs', 'ConnectionArgsDict', 'outputs.Connection']] connection: The parameters with which to connect to the remote host.
         :param pulumi.Input[_builtins.str] remote_path: The destination path on the remote host. Any necessary parent directories will be created automatically. When the remote path is an existing directory, the source file or directory will be copied into that directory. When the source is a file and the remote path is an existing file, that file will be overwritten. When the source is a directory and the remote path an existing file, the copy will fail.
-        :param pulumi.Input[Union[pulumi.Asset, pulumi.Archive]] source: An [asset or an archive](https://www.pulumi.com/docs/concepts/assets-archives/) to upload as the source of the copy. It must be a `FileAsset`, `StringAsset`, or a `FileArchive`. The item will be copied as-is; archives like .tgz will not be unpacked. Directories are copied recursively, overwriting existing files.
+        :param pulumi.Input[Union[pulumi.Asset, pulumi.Archive]] source: An [asset or an archive](https://www.pulumi.com/docs/concepts/assets-archives/) to upload as the source of the copy. The item will be copied as-is; archives like .tgz will not be unpacked. Directories are copied recursively, overwriting existing files.
         :param pulumi.Input[Sequence[Any]] triggers: Trigger replacements on changes to this input.
         """
         ...
@@ -166,11 +161,6 @@ class CopyToRemote(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         Copy an Asset or Archive to a remote host.
-
-        Supported source types:
-        - `FileAsset`: Copy a local file to the remote host.
-        - `StringAsset`: Copy text content directly to a remote file (useful for configuration files, certificates, etc.).
-        - `FileArchive`: Copy a local directory or archive to the remote host.
 
         ## Example usage
 
@@ -231,10 +221,10 @@ class CopyToRemote(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 connection: Optional[pulumi.Input[Union['ConnectionArgs', 'ConnectionArgsDict']]] = None,
-                 remote_path: Optional[pulumi.Input[_builtins.str]] = None,
-                 source: Optional[pulumi.Input[Union[pulumi.Asset, pulumi.Archive]]] = None,
-                 triggers: Optional[pulumi.Input[Sequence[Any]]] = None,
+                 connection: pulumi.Input[Optional[Union['ConnectionArgs', 'ConnectionArgsDict', 'outputs.Connection']]] = None,
+                 remote_path: pulumi.Input[Optional[_builtins.str]] = None,
+                 source: pulumi.Input[Optional[Union[pulumi.Asset, pulumi.Archive]]] = None,
+                 triggers: pulumi.Input[Optional[Sequence[Any]]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -306,7 +296,7 @@ class CopyToRemote(pulumi.CustomResource):
     @pulumi.getter
     def source(self) -> pulumi.Output[Union[pulumi.Asset, pulumi.Archive]]:
         """
-        An [asset or an archive](https://www.pulumi.com/docs/concepts/assets-archives/) to upload as the source of the copy. It must be a `FileAsset`, `StringAsset`, or a `FileArchive`. The item will be copied as-is; archives like .tgz will not be unpacked. Directories are copied recursively, overwriting existing files.
+        An [asset or an archive](https://www.pulumi.com/docs/concepts/assets-archives/) to upload as the source of the copy. The item will be copied as-is; archives like .tgz will not be unpacked. Directories are copied recursively, overwriting existing files.
         """
         return pulumi.get(self, "source")
 

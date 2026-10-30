@@ -102,6 +102,8 @@
 #include "meshioplusplus/operations/reorder.hpp"
 #include "meshioplusplus/operations/isosurface.hpp"
 #include "meshioplusplus/operations/error.hpp"
+#include "meshioplusplus/operations/error_size.hpp"
+#include "meshioplusplus/operations/check_conformity.hpp"
 #include "meshioplusplus/operations/gradient.hpp"
 #include "meshioplusplus/operations/hessian.hpp"
 #include "meshioplusplus/operations/slice.hpp"
@@ -132,7 +134,13 @@
 #include "meshioplusplus/operations/periodic.hpp"
 #include "meshioplusplus/operations/quality_gate.hpp"
 #include "meshioplusplus/operations/region_ops.hpp"
+#include "meshioplusplus/operations/boundary_layer.hpp"
+#include "meshioplusplus/operations/extrude.hpp"
+#include "meshioplusplus/operations/mirror.hpp"
+#include "meshioplusplus/operations/tetrahedralize.hpp"
+#include "meshioplusplus/operations/project_to_cad.hpp"
 #include "meshioplusplus/operations/undo_green.hpp"
+#include "meshioplusplus/operations/mmg.hpp"
 #include "meshioplusplus/operations/remesh.hpp"
 #include "meshioplusplus/operations/remesh_volume.hpp"
 #include "meshioplusplus/operations/optimize_volume.hpp"
@@ -370,6 +378,8 @@ mio_status guarded(F&& f) {
         return fail(MIO_ERR_READ, e.what());
     } catch (const meshioplusplus::WriteError& e) {
         return fail(MIO_ERR_WRITE, e.what());
+    } catch (const meshioplusplus::Unsupported& e) {
+        return fail(MIO_ERR_UNSUPPORTED, e.what());
     } catch (const std::bad_alloc&) {
         return fail(MIO_ERR_INTERNAL, "meshio++: out of memory");
     } catch (const std::exception& e) {
@@ -1156,13 +1166,15 @@ void capi_index_brep(mio_format_info& rHandle) {
         const auto first_loop = static_cast<std::int64_t>(idx->mLoops.size());
         const auto first_trim = static_cast<std::int64_t>(idx->mTrims.size());
         for (std::size_t l = 0; l < face.mLoops.size(); ++l) {
-            idx->mLoops.push_back({fi, static_cast<std::int64_t>(idx->mTrims.size()), &face.mLoops[l]});
+            idx->mLoops.push_back(
+                {fi, static_cast<std::int64_t>(idx->mTrims.size()), &face.mLoops[l]});
             for (const auto& t : face.mLoops[l].mTrims)
                 idx->mTrims.push_back({fi, static_cast<std::int64_t>(idx->mLoops.size() - 1), &t});
         }
         for (const auto& t : face.mEmbeddedEdges)
             idx->mTrims.push_back({fi, -1, &t});
-        idx->mFaces.push_back({first_loop, static_cast<std::int64_t>(face.mLoops.size()), first_trim,
+        idx->mFaces.push_back({first_loop, static_cast<std::int64_t>(face.mLoops.size()),
+                               first_trim,
                                static_cast<std::int64_t>(idx->mTrims.size()) - first_trim});
     }
     for (const auto& e : b.mEdges) {
@@ -1214,10 +1226,10 @@ mio_mesh* mio_read_with_info(const char* path, const char* format, const mio_rea
             auto handle = std::make_unique<mio_format_info>();
             handle->mFormat = fmt;
             meshioplusplus::BrepInfo brep;
-            auto mesh = std::make_unique<mio_mesh>(mio_mesh{
-                fmt == "cad_json" ? meshioplusplus::read_cad_json(path, brep)
-                : fmt == "step"   ? meshioplusplus::read_step(path, brep)
-                                  : meshioplusplus::read_iges(path, brep)});
+            auto mesh = std::make_unique<mio_mesh>(
+                mio_mesh{fmt == "cad_json" ? meshioplusplus::read_cad_json(path, brep)
+                         : fmt == "step"   ? meshioplusplus::read_step(path, brep)
+                                           : meshioplusplus::read_iges(path, brep)});
             handle->mInfo = std::move(brep);
             capi_index_brep(*handle);
             *info = handle.release();
@@ -1380,8 +1392,7 @@ std::size_t capi_nurbs_count(const meshioplusplus::NurbsInfo& rInfo, int Section
     }
 }
 
-bool capi_nurbs_in_range(const meshioplusplus::NurbsInfo& rInfo, int Section,
-                         std::int64_t Index) {
+bool capi_nurbs_in_range(const meshioplusplus::NurbsInfo& rInfo, int Section, std::int64_t Index) {
     return Section >= MIO_NURBS_PATCHES && Section <= MIO_NURBS_CELL_MAP && Index >= 0 &&
            static_cast<std::size_t>(Index) < capi_nurbs_count(rInfo, Section);
 }
@@ -1609,9 +1620,15 @@ mio_status mio_brep_info_int(const mio_format_info* info, int32_t section, int64
             v = static_cast<std::size_t>(field) < d.size() ? d[static_cast<std::size_t>(field)] : 0;
         } else if (section == MIO_BREP_FACES) {
             const auto& f = b.mFaces[i];
-            const std::int64_t fields[] = {f.mId,       f.mPatch,           f.mSwappedNormal,
-                                           f.mTrimmed,  f.mRational,        f.mReducedKnots,
-                                           idx.mFaces[i][0], idx.mFaces[i][1], idx.mFaces[i][2],
+            const std::int64_t fields[] = {f.mId,
+                                           f.mPatch,
+                                           f.mSwappedNormal,
+                                           f.mTrimmed,
+                                           f.mRational,
+                                           f.mReducedKnots,
+                                           idx.mFaces[i][0],
+                                           idx.mFaces[i][1],
+                                           idx.mFaces[i][2],
                                            idx.mFaces[i][3]};
             if (field >= 0 && field < 10)
                 v = fields[field];
@@ -1619,22 +1636,23 @@ mio_status mio_brep_info_int(const mio_format_info* info, int32_t section, int64
                 found = false;
         } else if (section == MIO_BREP_LOOPS && field >= 0 && field <= 2) {
             const auto& l = idx.mLoops[i];
-            v = field == 0 ? l.mFace
+            v = field == 0   ? l.mFace
                 : field == 1 ? l.mFirstTrim
                              : static_cast<std::int64_t>(l.mpLoop->mTrims.size());
         } else if (section == MIO_BREP_TRIMS && field >= 0 && field <= 3) {
             const auto& t = idx.mTrims[i];
-            v = field == 0 ? t.mFace
+            v = field == 0   ? t.mFace
                 : field == 1 ? t.mLoop
                 : field == 2 ? t.mpTrim->mTrimIndex
                              : static_cast<std::int64_t>(t.mpTrim->mDirection);
         } else if (section == MIO_BREP_EDGES && field >= 0 && field <= 3) {
             const auto& e = b.mEdges[i];
-            v = field == 0 ? e.mId
+            v = field == 0   ? e.mId
                 : field == 1 ? static_cast<std::int64_t>(e.mHasCurve)
                              : idx.mEdgeRefs[i][static_cast<std::size_t>(field - 2)];
         } else if (section == MIO_BREP_VERTICES && field >= 0 && field <= 2) {
-            v = field == 0 ? b.mVertices[i].mId : idx.mVertexRefs[i][static_cast<std::size_t>(field - 1)];
+            v = field == 0 ? b.mVertices[i].mId
+                           : idx.mVertexRefs[i][static_cast<std::size_t>(field - 1)];
         } else if (section == MIO_BREP_REFS && field >= 0 && field <= 2) {
             const auto* r = idx.mRefs[i];
             v = field == 0 ? r->mId : field == 1 ? r->mTrimIndex : r->mRelativeDirection;
@@ -2169,6 +2187,67 @@ std::vector<std::uint8_t> capi_frozen_mask(const mio_mesh* pMesh, const int64_t*
     }
     return mask;
 }
+
+/// The shared MMG parameters of the C API (roadmap 3.2).
+meshioplusplus::MmgParameters capi_mmg_params(const mio_mesh* pMesh, const mio_mmg_params& rIn,
+                                              const char* pOp) {
+    meshioplusplus::MmgParameters p;
+    p.mHmin = rIn.hmin;
+    p.mHmax = rIn.hmax;
+    p.mHausd = rIn.hausd;
+    p.mHgrad = rIn.hgrad;
+    p.mHgradreq = rIn.hgradreq;
+    p.mAngleDetection = rIn.angle_detection;
+    p.mOptim = rIn.optim != 0;
+    p.mNoInsert = rIn.noinsert != 0;
+    p.mNoSwap = rIn.noswap != 0;
+    p.mNoMove = rIn.nomove != 0;
+    p.mNoSurf = rIn.nosurf != 0;
+    p.mNreg = rIn.nreg != 0;
+    p.mOpnbdy = rIn.opnbdy != 0;
+    p.mVerbose = rIn.verbose;
+    p.mMem = rIn.mem;
+    p.mFrozen = capi_frozen_mask(pMesh, rIn.frozen, rIn.num_frozen, pOp);
+    for (int64_t i = 0; rIn.required && i < rIn.num_required; ++i)
+        if (rIn.required[i])
+            p.mRequired.emplace_back(rIn.required[i]);
+    for (int64_t i = 0; rIn.local && i < rIn.num_local; ++i) {
+        if (!rIn.local[i].region)
+            throw std::invalid_argument(std::string("meshio++: ") + pOp +
+                                        ": a local parameter names no region");
+        p.mLocal.push_back(
+            {rIn.local[i].region, rIn.local[i].hmin, rIn.local[i].hmax, rIn.local[i].hausd});
+    }
+    return p;
+}
+
+void capi_mmg_report(const meshioplusplus::MmgReport& rR, mio_mmg_report* pOut) {
+    if (!pOut)
+        return;
+    *pOut = mio_mmg_report{};
+    pOut->status = static_cast<int32_t>(rR.mStatus);
+    std::strncpy(pOut->library, rR.mLibrary.c_str(), sizeof(pOut->library) - 1);
+    pOut->num_points_in = rR.mNumPointsIn;
+    pOut->num_points_out = rR.mNumPointsOut;
+    pOut->num_elements_in = rR.mNumElementsIn;
+    pOut->num_elements_out = rR.mNumElementsOut;
+    pOut->quality_min = rR.mQuality.mMin;
+    pOut->quality_mean = rR.mQuality.mMean;
+    pOut->quality_max = rR.mQuality.mMax;
+    for (std::size_t k = 0; k < 10; ++k)
+        pOut->quality_histogram[k] = rR.mQuality.mHistogram[k];
+    pOut->num_warnings = static_cast<int64_t>(rR.mWarnings.size());
+}
+
+static_assert(sizeof(mio_mmg_local) == 32, "C ABI: mio_mmg_local layout changed");
+static_assert(sizeof(mio_mmg_params) == 168, "C ABI: mio_mmg_params layout changed");
+static_assert(sizeof(mio_mmg_report) == 192, "C ABI: mio_mmg_report layout changed");
+static_assert(sizeof(mio_adapt_opts) == 224, "C ABI: mio_adapt_opts layout changed");
+static_assert(sizeof(mio_mmg_material) == 32, "C ABI: mio_mmg_material layout changed");
+static_assert(sizeof(mio_discretize_levelset_opts) == 240,
+              "C ABI: mio_discretize_levelset_opts layout changed");
+static_assert(sizeof(mio_mesh_domain_opts) == 232, "C ABI: mio_mesh_domain_opts layout changed");
+static_assert(sizeof(mio_move_opts) == 232, "C ABI: mio_move_opts layout changed");
 
 mio_mesh* capi_smooth(const mio_mesh* pMesh, const meshioplusplus::SmoothOptions& rOptions,
                       int64_t* pNodesMoved, double* pMaxDisplacement, int64_t* pSkippedInversion) {
@@ -5180,45 +5259,53 @@ mio_status mio_pipeline_run_json(const char* json_text) {
 
 mio_pipeline_report* mio_pipeline_run_file_report(const char* settings_path) {
     return guarded_ptr(static_cast<mio_pipeline_report*>(nullptr), [&]() {
-        if (!settings_path) throw std::invalid_argument("meshio++: settings_path is NULL");
-        return new mio_pipeline_report{meshioplusplus::pipeline_report_json(
-            meshioplusplus::run_pipeline_file(settings_path))};
+        if (!settings_path)
+            throw std::invalid_argument("meshio++: settings_path is NULL");
+        return new mio_pipeline_report{
+            meshioplusplus::pipeline_report_json(meshioplusplus::run_pipeline_file(settings_path))};
     });
 }
 
 mio_pipeline_report* mio_pipeline_run_json_report(const char* json_text) {
     return guarded_ptr(static_cast<mio_pipeline_report*>(nullptr), [&]() {
-        if (!json_text) throw std::invalid_argument("meshio++: json_text is NULL");
-        return new mio_pipeline_report{meshioplusplus::pipeline_report_json(
-            meshioplusplus::run_pipeline_json(json_text))};
+        if (!json_text)
+            throw std::invalid_argument("meshio++: json_text is NULL");
+        return new mio_pipeline_report{
+            meshioplusplus::pipeline_report_json(meshioplusplus::run_pipeline_json(json_text))};
     });
 }
 
 mio_pipeline_report* mio_sequence_pipeline_run_file_report(const char* settings_path) {
     return guarded_ptr(static_cast<mio_pipeline_report*>(nullptr), [&]() {
-        if (!settings_path) throw std::invalid_argument("meshio++: settings_path is NULL");
-        return new mio_pipeline_report{meshioplusplus::pipeline_report_json(
-            meshioplusplus::run_sequence_file(settings_path))};
+        if (!settings_path)
+            throw std::invalid_argument("meshio++: settings_path is NULL");
+        return new mio_pipeline_report{
+            meshioplusplus::pipeline_report_json(meshioplusplus::run_sequence_file(settings_path))};
     });
 }
 
 mio_pipeline_report* mio_sequence_pipeline_run_json_report(const char* json_text) {
     return guarded_ptr(static_cast<mio_pipeline_report*>(nullptr), [&]() {
-        if (!json_text) throw std::invalid_argument("meshio++: json_text is NULL");
-        return new mio_pipeline_report{meshioplusplus::pipeline_report_json(
-            meshioplusplus::run_sequence_json(json_text))};
+        if (!json_text)
+            throw std::invalid_argument("meshio++: json_text is NULL");
+        return new mio_pipeline_report{
+            meshioplusplus::pipeline_report_json(meshioplusplus::run_sequence_json(json_text))};
     });
 }
 
 int64_t mio_pipeline_report_json(const mio_pipeline_report* report, char* buf, int64_t buflen) {
     return guarded_ptr(int64_t{-1}, [&]() {
-        if (!report) throw std::invalid_argument("meshio++: pipeline report is NULL");
-        if (buflen < 0) throw std::invalid_argument("meshio++: negative report buffer length");
+        if (!report)
+            throw std::invalid_argument("meshio++: pipeline report is NULL");
+        if (buflen < 0)
+            throw std::invalid_argument("meshio++: negative report buffer length");
         return copy_string(report->mJson, buf, buflen);
     });
 }
 
-void mio_pipeline_report_free(mio_pipeline_report* report) { delete report; }
+void mio_pipeline_report_free(mio_pipeline_report* report) {
+    delete report;
+}
 
 namespace {
 
@@ -5511,11 +5598,22 @@ static_assert(static_cast<int>(meshioplusplus::SdfWatertightCheck::Off) == MIO_S
 static_assert(sizeof(mio_sdf_opts) == 104, "mio_sdf_opts grew outside its reserved tail");
 static_assert(sizeof(mio_voxel_opts) == 112, "mio_voxel_opts grew outside its reserved tail");
 static_assert(sizeof(mio_gen_opts) == 160, "mio_gen_opts grew outside its reserved tail");
+static_assert(offsetof(mio_gen_opts, num_twists) == 128 &&
+                  offsetof(mio_gen_opts, complete) == 132 && offsetof(mio_gen_opts, ratio) == 136 &&
+                  offsetof(mio_gen_opts, seed) == 144,
+              "mio_gen_opts layout changed");
 static_assert(sizeof(mio_octree_opts) == 176, "mio_octree_opts grew outside its reserved tail");
 static_assert(sizeof(mio_octree_report) == 96, "mio_octree_report layout changed");
 static_assert(sizeof(mio_octree_mesh_opts) == 264,
               "mio_octree_mesh_opts grew outside its reserved tail");
+static_assert(offsetof(mio_octree_mesh_opts, hex_grading) == 228,
+              "mio_octree_mesh_opts layout changed");
+static_assert(static_cast<int>(meshioplusplus::OctreeMeshHexGrading::Graded) ==
+                  MIO_OCTREE_MESH_HEX_GRADED,
+              "mio_octree_mesh_hex_grading drifted from OctreeMeshHexGrading");
 static_assert(sizeof(mio_octree_mesh_report) == 392, "mio_octree_mesh_report layout changed");
+static_assert(offsetof(mio_octree_mesh_report, num_winding_skipped) == 328,
+              "mio_octree_mesh_report layout changed");
 static_assert(
     static_cast<int>(meshioplusplus::OctreeMeshOutput::Castellated) ==
             MIO_OCTREE_MESH_CASTELLATED &&
@@ -5544,7 +5642,8 @@ static_assert(static_cast<int>(meshioplusplus::detail::PlanarPlane::Auto) == MIO
                   static_cast<int>(meshioplusplus::detail::PlanarPlane::YZ) == MIO_PLANE_YZ,
               "mio_planar_plane drifted from PlanarPlane");
 static_assert(static_cast<int>(meshioplusplus::OctreeBalance::None) == MIO_OCTREE_BALANCE_NONE &&
-                  static_cast<int>(meshioplusplus::OctreeBalance::Face) == MIO_OCTREE_BALANCE_FACE &&
+                  static_cast<int>(meshioplusplus::OctreeBalance::Face) ==
+                      MIO_OCTREE_BALANCE_FACE &&
                   static_cast<int>(meshioplusplus::OctreeBalance::Full) == MIO_OCTREE_BALANCE_FULL,
               "mio_octree_balance drifted from OctreeBalance");
 static_assert(sizeof(mio_compute_sdf_opts) == 232,
@@ -5611,6 +5710,10 @@ meshioplusplus::VoxelOptions capi_voxel_options(const mio_voxel_opts& rOpts) {
                                         std::to_string(rOpts.watertight_check));
     options.mDistance.mWatertightCheck =
         static_cast<meshioplusplus::SdfWatertightCheck>(rOpts.watertight_check);
+    if (rOpts.plane < 0 || rOpts.plane > MIO_PLANE_YZ)
+        throw meshioplusplus::ReadError("meshio++: voxelize: unknown plane " +
+                                        std::to_string(rOpts.plane));
+    options.mPlane = static_cast<meshioplusplus::detail::PlanarPlane>(rOpts.plane);
     return options;
 }
 
@@ -5684,6 +5787,8 @@ meshioplusplus::OctreeMeshOptions capi_octree_mesh_options(const mio_octree_mesh
         check(rOpts.skin_grading, MIO_OCTREE_MESH_UNIFORM, "skin grading"));
     options.mFill = static_cast<meshioplusplus::OctreeMeshFill>(
         check(rOpts.fill, MIO_OCTREE_MESH_FILL_COVER, "fill"));
+    options.mHexGrading = static_cast<meshioplusplus::OctreeMeshHexGrading>(
+        check(rOpts.hex_grading, MIO_OCTREE_MESH_HEX_GRADED, "hex grading"));
     if (rOpts.bounds != nullptr)
         options.mBounds =
             std::array<double, 6>{{rOpts.bounds[0], rOpts.bounds[1], rOpts.bounds[2],
@@ -5825,6 +5930,8 @@ void mio_gen_opts_init(mio_gen_opts* opts) {
     opts->angle = 6.283185307179586;
     opts->max_cells = 20000000;
     opts->order = 1;
+    opts->num_twists = 1;
+    opts->ratio = 1.0;
 }
 
 void mio_octree_opts_init(mio_octree_opts* opts) {
@@ -5870,6 +5977,7 @@ void mio_octree_mesh_opts_init(mio_octree_mesh_opts* opts) {
     opts->attach_distance = d.mAttachDistance ? 1 : 0;
     opts->attach_quality = d.mAttachQuality ? 1 : 0;
     opts->pillow = d.mPillow ? 1 : 0;
+    opts->hex_grading = static_cast<std::int32_t>(d.mHexGrading);
 }
 
 void mio_compute_sdf_opts_init(mio_compute_sdf_opts* opts) {
@@ -5982,8 +6090,8 @@ std::string capi_gen_cell(const mio_gen_opts& rOpts, const char* pShape, const c
     for (const auto& [value, name] : Allowed)
         if (rOpts.cell_type == value)
             return name;
-    throw meshioplusplus::ReadError(std::string("meshio++: ") + pShape +
-                                    ": cell_type " + std::to_string(rOpts.cell_type) +
+    throw meshioplusplus::ReadError(std::string("meshio++: ") + pShape + ": cell_type " +
+                                    std::to_string(rOpts.cell_type) +
                                     " is not built by this shape");
 }
 
@@ -6015,24 +6123,24 @@ mio_mesh* mio_rectangle(const mio_gen_opts* opts) {
         static const char* const splits[] = {"zigzag", "up", "down", "center"};
         if (o.split < 0 || o.split > 3)
             throw meshioplusplus::ReadError("meshio++: rectangle: split is not a mio_gen_split");
-        return new mio_mesh{meshioplusplus::rectangle(
-            {{o.counts[0], o.counts[1]}}, {{o.size[0], o.size[1]}},
-            {{o.origin[0], o.origin[1], o.origin[2]}}, type, splits[o.split], o.order,
-            o.max_cells)};
+        return new mio_mesh{
+            meshioplusplus::rectangle({{o.counts[0], o.counts[1]}}, {{o.size[0], o.size[1]}},
+                                      {{o.origin[0], o.origin[1], o.origin[2]}}, type,
+                                      splits[o.split], o.order, o.max_cells, o.complete != 0)};
     });
 }
 
 mio_mesh* mio_box(const mio_gen_opts* opts) {
     return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
         const mio_gen_opts o = capi_gen_defaults(opts);
-        const std::string type =
-            capi_gen_cell(o, "box", "hexahedron",
-                          {{MIO_GEN_HEXAHEDRON, "hexahedron"},
-                           {MIO_GEN_TETRA, "tetra"},
-                           {MIO_GEN_WEDGE, "wedge"}});
-        return new mio_mesh{meshioplusplus::box(
-            {{o.counts[0], o.counts[1], o.counts[2]}}, {{o.size[0], o.size[1], o.size[2]}},
-            {{o.origin[0], o.origin[1], o.origin[2]}}, type, o.order, o.max_cells)};
+        const std::string type = capi_gen_cell(o, "box", "hexahedron",
+                                               {{MIO_GEN_HEXAHEDRON, "hexahedron"},
+                                                {MIO_GEN_TETRA, "tetra"},
+                                                {MIO_GEN_WEDGE, "wedge"}});
+        return new mio_mesh{meshioplusplus::box({{o.counts[0], o.counts[1], o.counts[2]}},
+                                                {{o.size[0], o.size[1], o.size[2]}},
+                                                {{o.origin[0], o.origin[1], o.origin[2]}}, type,
+                                                o.order, o.max_cells, o.complete != 0)};
     });
 }
 
@@ -6041,9 +6149,9 @@ mio_mesh* mio_disk(const mio_gen_opts* opts) {
         const mio_gen_opts o = capi_gen_defaults(opts);
         const std::string type = capi_gen_cell(
             o, "disk", "quad", {{MIO_GEN_QUAD, "quad"}, {MIO_GEN_TRIANGLE, "triangle"}});
-        return new mio_mesh{meshioplusplus::disk(
-            o.radius, o.counts[0], {{o.origin[0], o.origin[1], o.origin[2]}}, type, o.order,
-            o.max_cells)};
+        return new mio_mesh{meshioplusplus::disk(o.radius, o.counts[0],
+                                                 {{o.origin[0], o.origin[1], o.origin[2]}}, type,
+                                                 o.order, o.max_cells, o.complete != 0)};
     });
 }
 
@@ -6052,9 +6160,9 @@ mio_mesh* mio_uv_sphere(const mio_gen_opts* opts) {
         const mio_gen_opts o = capi_gen_defaults(opts);
         const std::string type = capi_gen_cell(
             o, "uv_sphere", "triangle", {{MIO_GEN_TRIANGLE, "triangle"}, {MIO_GEN_QUAD, "quad"}});
-        return new mio_mesh{meshioplusplus::uv_sphere(
-            o.radius, o.counts[0], o.counts[1], {{o.origin[0], o.origin[1], o.origin[2]}}, type,
-            o.order, o.max_cells)};
+        return new mio_mesh{meshioplusplus::uv_sphere(o.radius, o.counts[0], o.counts[1],
+                                                      {{o.origin[0], o.origin[1], o.origin[2]}},
+                                                      type, o.order, o.max_cells, o.complete != 0)};
     });
 }
 
@@ -6064,21 +6172,21 @@ mio_mesh* mio_icosa_sphere(const mio_gen_opts* opts) {
         if (o.cell_type != MIO_GEN_DEFAULT && o.cell_type != MIO_GEN_TRIANGLE)
             throw meshioplusplus::ReadError(
                 "meshio++: icosa_sphere: cell_type is not built by this shape");
-        return new mio_mesh{meshioplusplus::icosa_sphere(
-            o.radius, o.counts[0], {{o.origin[0], o.origin[1], o.origin[2]}}, o.order,
-            o.max_cells)};
+        return new mio_mesh{meshioplusplus::icosa_sphere(o.radius, o.counts[0],
+                                                         {{o.origin[0], o.origin[1], o.origin[2]}},
+                                                         o.order, o.max_cells, o.complete != 0)};
     });
 }
 
 mio_mesh* mio_cylinder(const mio_gen_opts* opts) {
     return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
         const mio_gen_opts o = capi_gen_defaults(opts);
-        const std::string type = capi_gen_cell(
-            o, "cylinder", "hexahedron",
-            {{MIO_GEN_HEXAHEDRON, "hexahedron"}, {MIO_GEN_WEDGE, "wedge"}});
-        return new mio_mesh{meshioplusplus::cylinder(
-            o.radius, o.height, o.counts[0], o.counts[1],
-            {{o.origin[0], o.origin[1], o.origin[2]}}, type, o.order, o.max_cells)};
+        const std::string type =
+            capi_gen_cell(o, "cylinder", "hexahedron",
+                          {{MIO_GEN_HEXAHEDRON, "hexahedron"}, {MIO_GEN_WEDGE, "wedge"}});
+        return new mio_mesh{meshioplusplus::cylinder(o.radius, o.height, o.counts[0], o.counts[1],
+                                                     {{o.origin[0], o.origin[1], o.origin[2]}},
+                                                     type, o.order, o.max_cells, o.complete != 0)};
     });
 }
 
@@ -6090,7 +6198,7 @@ mio_mesh* mio_reference_triangle(const mio_gen_opts* opts) {
                 "meshio++: reference_triangle: cell_type is not built by this shape");
         return new mio_mesh{meshioplusplus::reference_triangle(
             o.counts[0], {{o.size[0], o.size[1]}}, {{o.origin[0], o.origin[1], o.origin[2]}},
-            o.order, o.max_cells)};
+            o.order, o.max_cells, o.complete != 0)};
     });
 }
 
@@ -6101,7 +6209,7 @@ mio_mesh* mio_ngon(const mio_gen_opts* opts) {
             throw meshioplusplus::ReadError("meshio++: ngon: cell_type is not built by this shape");
         return new mio_mesh{meshioplusplus::ngon(o.counts[0], o.radius, o.counts[1],
                                                  {{o.origin[0], o.origin[1], o.origin[2]}}, o.order,
-                                                 o.max_cells)};
+                                                 o.max_cells, o.complete != 0)};
     });
 }
 
@@ -6113,7 +6221,7 @@ mio_mesh* mio_annulus(const mio_gen_opts* opts) {
         return new mio_mesh{meshioplusplus::annulus(
             o.radius2 == 0.0 ? 0.5 : o.radius2, o.radius, o.counts[0], o.counts[1],
             o.angle == 0.0 ? 6.283185307179586 : o.angle, {{o.origin[0], o.origin[1], o.origin[2]}},
-            type, o.order, o.max_cells)};
+            type, o.order, o.max_cells, o.complete != 0)};
     });
 }
 
@@ -6124,7 +6232,7 @@ mio_mesh* mio_lshape(const mio_gen_opts* opts) {
             o, "lshape", "quad", {{MIO_GEN_QUAD, "quad"}, {MIO_GEN_TRIANGLE, "triangle"}});
         return new mio_mesh{meshioplusplus::lshape(o.counts[0], o.size[0],
                                                    {{o.origin[0], o.origin[1], o.origin[2]}}, type,
-                                                   o.order, o.max_cells)};
+                                                   o.order, o.max_cells, o.complete != 0)};
     });
 }
 
@@ -6133,9 +6241,10 @@ mio_mesh* mio_plate_with_hole(const mio_gen_opts* opts) {
         const mio_gen_opts o = capi_gen_defaults(opts);
         const std::string type = capi_gen_cell(
             o, "plate_with_hole", "quad", {{MIO_GEN_QUAD, "quad"}, {MIO_GEN_TRIANGLE, "triangle"}});
-        return new mio_mesh{meshioplusplus::plate_with_hole(
-            o.radius, o.size[0], o.counts[0], o.counts[1],
-            {{o.origin[0], o.origin[1], o.origin[2]}}, type, o.order, o.max_cells)};
+        return new mio_mesh{
+            meshioplusplus::plate_with_hole(o.radius, o.size[0], o.counts[0], o.counts[1],
+                                            {{o.origin[0], o.origin[1], o.origin[2]}}, type,
+                                            o.order, o.max_cells, o.complete != 0)};
     });
 }
 
@@ -6151,6 +6260,270 @@ mio_mesh* mio_honeycomb(const mio_gen_opts* opts) {
         return new mio_mesh{meshioplusplus::honeycomb({{o.counts[0], o.counts[1]}}, o.size[0],
                                                       {{o.origin[0], o.origin[1], o.origin[2]}},
                                                       o.max_cells)};
+    });
+}
+
+namespace {
+
+void capi_gen_linear_only(const mio_gen_opts& rOpts, const char* pShape) {
+    if (rOpts.cell_type != MIO_GEN_DEFAULT)
+        throw meshioplusplus::ReadError(std::string("meshio++: ") + pShape +
+                                        ": cell_type is not built by this shape");
+    if (rOpts.order != 1)
+        throw meshioplusplus::ReadError(std::string("meshio++: ") + pShape +
+                                        ": order must be 1, this shape has no higher order");
+}
+
+void capi_gen_no_cell(const mio_gen_opts& rOpts, const char* pShape) {
+    if (rOpts.cell_type != MIO_GEN_DEFAULT)
+        throw meshioplusplus::ReadError(std::string("meshio++: ") + pShape +
+                                        ": cell_type is not built by this shape");
+}
+
+std::array<double, 3> capi_gen_origin(const mio_gen_opts& rOpts) {
+    return {{rOpts.origin[0], rOpts.origin[1], rOpts.origin[2]}};
+}
+
+double capi_gen_or(double Value, double Default) {
+    return Value == 0.0 ? Default : Value;
+}
+
+std::string capi_gen_surface_cell(const mio_gen_opts& rOpts, const char* pShape) {
+    return capi_gen_cell(rOpts, pShape, "quad",
+                         {{MIO_GEN_QUAD, "quad"}, {MIO_GEN_TRIANGLE, "triangle"}});
+}
+
+std::string capi_gen_solid_cell(const mio_gen_opts& rOpts, const char* pShape) {
+    return capi_gen_cell(rOpts, pShape, "hexahedron",
+                         {{MIO_GEN_HEXAHEDRON, "hexahedron"}, {MIO_GEN_TETRA, "tetra"}});
+}
+
+}  // namespace
+
+mio_mesh* mio_line(const mio_gen_opts* opts) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        const mio_gen_opts o = capi_gen_defaults(opts);
+        capi_gen_no_cell(o, "line");
+        return new mio_mesh{meshioplusplus::line(o.counts[0], capi_gen_origin(o),
+                                                 {{o.size[0], o.size[1], o.size[2]}}, o.order,
+                                                 o.max_cells, o.complete != 0)};
+    });
+}
+
+mio_mesh* mio_circle(const mio_gen_opts* opts) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        const mio_gen_opts o = capi_gen_defaults(opts);
+        capi_gen_no_cell(o, "circle");
+        return new mio_mesh{meshioplusplus::circle(o.radius, o.counts[0], capi_gen_origin(o),
+                                                   o.order, o.max_cells, o.complete != 0)};
+    });
+}
+
+mio_mesh* mio_helix(const mio_gen_opts* opts) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        const mio_gen_opts o = capi_gen_defaults(opts);
+        capi_gen_no_cell(o, "helix");
+        const double turns =
+            capi_gen_or(o.angle, 4.0 * 3.141592653589793) / (2.0 * 3.141592653589793);
+        return new mio_mesh{meshioplusplus::helix(o.radius, o.height, turns, o.counts[0],
+                                                  capi_gen_origin(o), o.order, o.max_cells,
+                                                  o.complete != 0)};
+    });
+}
+
+mio_mesh* mio_sphere_points(const mio_gen_opts* opts) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        const mio_gen_opts o = capi_gen_defaults(opts);
+        capi_gen_linear_only(o, "sphere_points");
+        return new mio_mesh{
+            meshioplusplus::sphere_points(o.counts[0], o.radius, capi_gen_origin(o), o.max_cells)};
+    });
+}
+
+mio_mesh* mio_box_points(const mio_gen_opts* opts) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        const mio_gen_opts o = capi_gen_defaults(opts);
+        capi_gen_linear_only(o, "box_points");
+        return new mio_mesh{meshioplusplus::box_points(o.counts[0],
+                                                       {{o.size[0], o.size[1], o.size[2]}},
+                                                       capi_gen_origin(o), o.seed, o.max_cells)};
+    });
+}
+
+mio_mesh* mio_tetra_sphere(const mio_gen_opts* opts) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        const mio_gen_opts o = capi_gen_defaults(opts);
+        if (o.cell_type != MIO_GEN_DEFAULT && o.cell_type != MIO_GEN_TRIANGLE)
+            capi_gen_no_cell(o, "tetra_sphere");
+        return new mio_mesh{meshioplusplus::tetra_sphere(o.radius, o.counts[0], capi_gen_origin(o),
+                                                         o.order, o.max_cells, o.complete != 0)};
+    });
+}
+
+mio_mesh* mio_octa_sphere(const mio_gen_opts* opts) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        const mio_gen_opts o = capi_gen_defaults(opts);
+        if (o.cell_type != MIO_GEN_DEFAULT && o.cell_type != MIO_GEN_TRIANGLE)
+            capi_gen_no_cell(o, "octa_sphere");
+        return new mio_mesh{meshioplusplus::octa_sphere(o.radius, o.counts[0], capi_gen_origin(o),
+                                                        o.order, o.max_cells, o.complete != 0)};
+    });
+}
+
+mio_mesh* mio_cube_sphere(const mio_gen_opts* opts) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        const mio_gen_opts o = capi_gen_defaults(opts);
+        return new mio_mesh{meshioplusplus::cube_sphere(o.radius, o.counts[0], capi_gen_origin(o),
+                                                        capi_gen_surface_cell(o, "cube_sphere"),
+                                                        o.order, o.max_cells, o.complete != 0)};
+    });
+}
+
+mio_mesh* mio_geo_sphere(const mio_gen_opts* opts) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        const mio_gen_opts o = capi_gen_defaults(opts);
+        if (o.cell_type != MIO_GEN_DEFAULT && o.cell_type != MIO_GEN_TRIANGLE)
+            capi_gen_no_cell(o, "geo_sphere");
+        return new mio_mesh{meshioplusplus::geo_sphere(o.radius, o.counts[0], capi_gen_origin(o),
+                                                       o.order, o.max_cells, o.complete != 0)};
+    });
+}
+
+mio_mesh* mio_torus(const mio_gen_opts* opts) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        const mio_gen_opts o = capi_gen_defaults(opts);
+        return new mio_mesh{meshioplusplus::torus(
+            o.radius, capi_gen_or(o.radius2, 0.25), o.counts[0], o.counts[1], capi_gen_origin(o),
+            capi_gen_surface_cell(o, "torus"), o.order, o.max_cells, o.complete != 0)};
+    });
+}
+
+mio_mesh* mio_moebius(const mio_gen_opts* opts) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        const mio_gen_opts o = capi_gen_defaults(opts);
+        return new mio_mesh{meshioplusplus::moebius(
+            o.radius, capi_gen_or(o.radius2, 0.5), o.counts[0], o.counts[1], o.num_twists,
+            capi_gen_origin(o), capi_gen_surface_cell(o, "moebius"), o.order, o.max_cells,
+            o.complete != 0)};
+    });
+}
+
+mio_mesh* mio_tube(const mio_gen_opts* opts) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        const mio_gen_opts o = capi_gen_defaults(opts);
+        return new mio_mesh{meshioplusplus::tube(
+            o.radius, o.height, o.counts[0], o.counts[1], capi_gen_origin(o),
+            capi_gen_surface_cell(o, "tube"), o.order, o.max_cells, o.complete != 0)};
+    });
+}
+
+mio_mesh* mio_cone(const mio_gen_opts* opts) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        const mio_gen_opts o = capi_gen_defaults(opts);
+        return new mio_mesh{meshioplusplus::cone(
+            o.radius, o.height, o.counts[0], o.counts[1], capi_gen_origin(o),
+            capi_gen_surface_cell(o, "cone"), o.order, o.max_cells, o.complete != 0)};
+    });
+}
+
+mio_mesh* mio_capsule(const mio_gen_opts* opts) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        const mio_gen_opts o = capi_gen_defaults(opts);
+        return new mio_mesh{meshioplusplus::capsule(
+            o.radius, o.height, o.counts[0], o.counts[1], o.counts[2], capi_gen_origin(o),
+            capi_gen_surface_cell(o, "capsule"), o.order, o.max_cells, o.complete != 0)};
+    });
+}
+
+mio_mesh* mio_box_surface(const mio_gen_opts* opts) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        const mio_gen_opts o = capi_gen_defaults(opts);
+        return new mio_mesh{meshioplusplus::box_surface(
+            {{o.counts[0], o.counts[1], o.counts[2]}}, {{o.size[0], o.size[1], o.size[2]}},
+            capi_gen_origin(o), capi_gen_surface_cell(o, "box_surface"), o.order, o.max_cells,
+            o.complete != 0)};
+    });
+}
+
+mio_mesh* mio_platonic(const mio_gen_opts* opts) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        const mio_gen_opts o = capi_gen_defaults(opts);
+        capi_gen_linear_only(o, "platonic");
+        const char* name = nullptr;
+        switch (o.counts[0]) {
+            case 4:
+                name = "tetrahedron";
+                break;
+            case 6:
+                name = "cube";
+                break;
+            case 8:
+                name = "octahedron";
+                break;
+            case 12:
+                name = "dodecahedron";
+                break;
+            case 20:
+                name = "icosahedron";
+                break;
+            default:
+                throw meshioplusplus::ReadError(
+                    "meshio++: platonic: counts[0] must be a face count: 4, 6, 8, 12 or 20, got " +
+                    std::to_string(o.counts[0]));
+        }
+        return new mio_mesh{
+            meshioplusplus::platonic(name, o.radius, capi_gen_origin(o), o.max_cells)};
+    });
+}
+
+mio_mesh* mio_ball(const mio_gen_opts* opts) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        const mio_gen_opts o = capi_gen_defaults(opts);
+        return new mio_mesh{meshioplusplus::ball(o.radius, o.counts[0], capi_gen_origin(o),
+                                                 capi_gen_solid_cell(o, "ball"), o.order,
+                                                 o.max_cells, o.complete != 0)};
+    });
+}
+
+mio_mesh* mio_spherical_shell(const mio_gen_opts* opts) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        const mio_gen_opts o = capi_gen_defaults(opts);
+        if (o.cell_type != MIO_GEN_DEFAULT && o.cell_type != MIO_GEN_HEXAHEDRON)
+            capi_gen_no_cell(o, "spherical_shell");
+        return new mio_mesh{meshioplusplus::spherical_shell(
+            capi_gen_or(o.radius2, 0.5), o.radius, o.counts[0], o.counts[1],
+            capi_gen_or(o.ratio, 1.0), capi_gen_origin(o), o.order, o.max_cells, o.complete != 0)};
+    });
+}
+
+mio_mesh* mio_pipe(const mio_gen_opts* opts) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        const mio_gen_opts o = capi_gen_defaults(opts);
+        if (o.cell_type != MIO_GEN_DEFAULT && o.cell_type != MIO_GEN_HEXAHEDRON)
+            capi_gen_no_cell(o, "pipe");
+        return new mio_mesh{meshioplusplus::pipe(
+            capi_gen_or(o.radius2, 0.5), o.radius, o.height, o.counts[0], o.counts[1], o.counts[2],
+            capi_gen_or(o.ratio, 1.0), capi_gen_origin(o), o.order, o.max_cells, o.complete != 0)};
+    });
+}
+
+mio_mesh* mio_fichera(const mio_gen_opts* opts) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        const mio_gen_opts o = capi_gen_defaults(opts);
+        return new mio_mesh{meshioplusplus::fichera(o.counts[0], o.size[0], capi_gen_origin(o),
+                                                    capi_gen_solid_cell(o, "fichera"), o.order,
+                                                    o.max_cells, o.complete != 0)};
+    });
+}
+
+mio_mesh* mio_solid_torus(const mio_gen_opts* opts) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        const mio_gen_opts o = capi_gen_defaults(opts);
+        if (o.cell_type != MIO_GEN_DEFAULT && o.cell_type != MIO_GEN_HEXAHEDRON)
+            capi_gen_no_cell(o, "solid_torus");
+        return new mio_mesh{meshioplusplus::solid_torus(
+            o.radius, capi_gen_or(o.radius2, 0.25), o.counts[0], o.counts[1], capi_gen_origin(o),
+            o.order, o.max_cells, o.complete != 0)};
     });
 }
 
@@ -6200,8 +6573,7 @@ mio_mesh* mio_voxelize(const mio_mesh* mesh, const mio_voxel_opts* opts, int64_t
     });
 }
 
-mio_mesh* mio_octree(const mio_mesh* mesh, const mio_octree_opts* opts,
-                     mio_octree_report* report) {
+mio_mesh* mio_octree(const mio_mesh* mesh, const mio_octree_opts* opts, mio_octree_report* report) {
     return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
         if (!mesh)
             throw meshioplusplus::ReadError("meshio++: mesh is NULL");
@@ -6288,6 +6660,7 @@ mio_mesh* mio_octree_mesh(const mio_mesh* mesh, const mio_octree_mesh_opts* opts
             report->num_optimized_moves = r.mNumOptimizedMoves;
             report->num_flips = r.mNumFlips;
             report->num_winding_rechecks = r.mNumWindingRechecks;
+            report->num_winding_skipped = r.mNumWindingSkipped;
             report->num_warnings = static_cast<std::int64_t>(r.mWarnings.size());
         }
         return new mio_mesh{std::move(r.mMesh)};
@@ -6643,8 +7016,15 @@ static_assert(sizeof(void*) != 8 ||
                    offsetof(mio_mesh_cad_surface_opts_ex, model_tolerances) == 80 &&
                    offsetof(mio_mesh_cad_surface_opts_ex, virtual_faces) == 84 &&
                    offsetof(mio_mesh_cad_surface_opts_ex, lop_corners) == 88 &&
-                   offsetof(mio_mesh_cad_surface_opts_ex, reserved) == 96),
-              "mio_mesh_cad_surface_opts_ex's layout moved (v17.20.0 took 24 bytes of its tail)");
+                   offsetof(mio_mesh_cad_surface_opts_ex, metric_background) == 96 &&
+                   offsetof(mio_mesh_cad_surface_opts_ex, metric_array) == 104 &&
+                   offsetof(mio_mesh_cad_surface_opts_ex, metric_error) == 112 &&
+                   offsetof(mio_mesh_cad_surface_opts_ex, untangle) == 92 &&
+                   offsetof(mio_mesh_cad_surface_opts_ex, quads) == 120 &&
+                   offsetof(mio_mesh_cad_surface_opts_ex, quad_pairs) == 124 &&
+                   offsetof(mio_mesh_cad_surface_opts_ex, reserved) == 128),
+              "mio_mesh_cad_surface_opts_ex's layout moved (v17.20.0 took 24 bytes of its "
+              "tail, the metric source 24 more)");
 static_assert(static_cast<int>(MIO_MESH_CAD_SMOOTH_ODT) ==
                   static_cast<int>(meshioplusplus::MeshCadSmoothing::Odt),
               "mio_mesh_cad_smoothing drifted from MeshCadSmoothing");
@@ -6683,9 +7063,15 @@ static_assert(sizeof(mio_fit_cad_opts_ex2) == 128,
               "mio_fit_cad_opts_ex2 grew outside its reserved tail");
 static_assert(sizeof(mio_fit_cad_report_ex3) == 184,
               "mio_fit_cad_report_ex3 grew outside its reserved tail");
-static_assert(offsetof(mio_fit_cad_opts_ex2, reserved) == 64,
+// The constrained primitives (unreleased) were carved from the front of the
+// reserved tails.
+static_assert(offsetof(mio_fit_cad_opts_ex2, constrain_primitives) == 64,
+              "mio_fit_cad_opts_ex2: constrain_primitives left the reserved tail's start");
+static_assert(offsetof(mio_fit_cad_opts_ex2, reserved) == 72,
               "mio_fit_cad_opts_ex2: the reserved tail moved");
-static_assert(offsetof(mio_fit_cad_report_ex3, reserved) == 104,
+static_assert(offsetof(mio_fit_cad_report_ex3, num_constrained_primitives) == 104,
+              "mio_fit_cad_report_ex3: the counts left the reserved tail's start");
+static_assert(offsetof(mio_fit_cad_report_ex3, reserved) == 120,
               "mio_fit_cad_report_ex3: the reserved tail moved");
 static_assert(MIO_FREEFORM_AUTO == static_cast<int>(meshioplusplus::FitCadFreeformMode::Auto),
               "mio_fit_cad_freeform_mode must match FitCadFreeformMode");
@@ -6784,8 +7170,9 @@ mio_mesh* mio_segment(const mio_mesh* mesh, const mio_segment_opts* opts,
             if (opts->prefix && opts->prefix[0] != '\0')
                 options.mPrefix = opts->prefix;
             if (opts->method != MIO_SEGMENT_ANGLE && opts->method != MIO_SEGMENT_PRIMITIVE) {
-                fail(MIO_ERR_INVALID_ARG, "meshio++: segment: method must be MIO_SEGMENT_ANGLE or "
-                                          "MIO_SEGMENT_PRIMITIVE");
+                fail(MIO_ERR_INVALID_ARG,
+                     "meshio++: segment: method must be MIO_SEGMENT_ANGLE or "
+                     "MIO_SEGMENT_PRIMITIVE");
                 return nullptr;
             }
             options.mMethod = static_cast<meshioplusplus::SegmentMethod>(opts->method);
@@ -6975,6 +7362,7 @@ void mio_fit_cad_opts_ex2_init(mio_fit_cad_opts_ex2* opts) {
     opts->resegment_rounds = defaults.mResegmentRounds;
     opts->layout_snap_to_features = defaults.mLayoutSnapToFeatures ? 1 : 0;
     opts->validate_by_surface_sampling = defaults.mValidateBySurfaceSampling ? 1 : 0;
+    opts->constrain_primitives = defaults.mConstrainPrimitives ? 1 : 0;
 }
 
 void mio_iga_opts_init(mio_iga_opts* opts) {
@@ -7061,8 +7449,8 @@ mio_mesh* mio_iga_refine(const mio_format_info* info, const mio_iga_opts* opts,
         if (const auto* p_nurbs = std::get_if<meshioplusplus::NurbsInfo>(&info->mInfo)) {
             const meshioplusplus::NurbsInfo r = meshioplusplus::iga_refine(*p_nurbs, ro);
             meshioplusplus::NurbsInfo mapped;
-            auto mesh = std::make_unique<mio_mesh>(
-                mio_mesh{meshioplusplus::iga_sample(r, so, &mapped)});
+            auto mesh =
+                std::make_unique<mio_mesh>(mio_mesh{meshioplusplus::iga_sample(r, so, &mapped)});
             if (refined)
                 *refined = capi_iga_handle(info->mFormat, std::move(mapped));
             return mesh.release();
@@ -7095,7 +7483,8 @@ mio_mesh* mio_iga_sample(const mio_format_info* info, const mio_iga_opts* opts,
             return mesh.release();
         }
         if (const auto* p_brep = std::get_if<meshioplusplus::BrepInfo>(&info->mInfo)) {
-            auto mesh = std::make_unique<mio_mesh>(mio_mesh{meshioplusplus::iga_sample(*p_brep, so)});
+            auto mesh =
+                std::make_unique<mio_mesh>(mio_mesh{meshioplusplus::iga_sample(*p_brep, so)});
             if (mapped)
                 *mapped = capi_iga_handle(info->mFormat, meshioplusplus::BrepInfo(*p_brep));
             return mesh.release();
@@ -7127,13 +7516,14 @@ mio_iga_evaluation* mio_iga_evaluate(const mio_format_info* info, int64_t patch,
             if (index >= p_nurbs->mPatches.size())
                 throw std::invalid_argument("meshio++: iga: patch out of range");
             out->mEval = meshioplusplus::iga_evaluate(
-                *p_nurbs, index, make_params(p_nurbs->mPatches[index].mDegrees.size()), derivatives);
+                *p_nurbs, index, make_params(p_nurbs->mPatches[index].mDegrees.size()),
+                derivatives);
             return out.release();
         }
         if (const auto* p_brep = std::get_if<meshioplusplus::BrepInfo>(&info->mInfo)) {
             out->mFace = true;
-            out->mEval =
-                meshioplusplus::iga_evaluate(*p_brep, index, make_params(2), derivatives, trim_samples);
+            out->mEval = meshioplusplus::iga_evaluate(*p_brep, index, make_params(2), derivatives,
+                                                      trim_samples);
             return out.release();
         }
         throw std::invalid_argument(kCapiIgaNotNurbs);
@@ -7271,6 +7661,10 @@ mio_mesh* mio_mesh_cad_surface2(const mio_format_info* info, const mio_mesh_cad_
             extras.mModelTolerances = opts_ex->model_tolerances != 0;
             extras.mVirtualFaces = opts_ex->virtual_faces != 0;
             extras.mLopCorners = opts_ex->lop_corners != 0;
+            extras.mUntangle = opts_ex->untangle != 0;
+            // The core refuses a value out of range by name.
+            extras.mQuads = static_cast<meshioplusplus::MeshCadQuads>(opts_ex->quads);
+            extras.mQuadPairs = static_cast<meshioplusplus::MeshCadQuadPairs>(opts_ex->quad_pairs);
             if (opts_ex->metric != MIO_MESH_CAD_METRIC_MEAN &&
                 opts_ex->metric != MIO_MESH_CAD_METRIC_VARYING)
                 throw std::invalid_argument(
@@ -7298,6 +7692,11 @@ mio_mesh* mio_mesh_cad_surface2(const mio_format_info* info, const mio_mesh_cad_
                                                ? opts_ex->background_array
                                                : "size";
             }
+            if (opts_ex->metric_background)
+                sources.pMetricBackground = &opts_ex->metric_background->mMesh;
+            if (opts_ex->metric_array)
+                sources.mMetricArray = opts_ex->metric_array;
+            sources.mMetricError = opts_ex->metric_error;
         }
         meshioplusplus::MeshCadSurfaceResult r = meshioplusplus::mesh_cad_surface(
             *p_brep, o, sources, extras, &state.mSizes, &state.mExtras);
@@ -7521,9 +7920,585 @@ mio_status mio_mesh_cad_surface_tolerance_use(int64_t index, int64_t* edge, doub
         if (where)
             *where = r_t.mWhere == "closed_start" ? MIO_MESH_CAD_TOLERANCE_CLOSED_START
                      : r_t.mWhere == "corner"     ? MIO_MESH_CAD_TOLERANCE_CORNER
+                     : r_t.mWhere == "pairing"    ? MIO_MESH_CAD_TOLERANCE_PAIRING
                                                   : MIO_MESH_CAD_TOLERANCE_PROJECTION;
         return MIO_OK;
     });
+}
+
+static_assert(sizeof(mio_project_to_cad_opts) == 64, "mio_project_to_cad_opts layout");
+static_assert(offsetof(mio_project_to_cad_opts, trim_samples) == 24,
+              "mio_project_to_cad_opts layout");
+static_assert(offsetof(mio_project_to_cad_opts, reserved) == 32, "mio_project_to_cad_opts layout");
+static_assert(sizeof(mio_project_to_cad_report) == 96, "mio_project_to_cad_report layout");
+static_assert(offsetof(mio_project_to_cad_report, max_move) == 56,
+              "mio_project_to_cad_report layout");
+static_assert(offsetof(mio_project_to_cad_report, num_on_curves) == 64,
+              "mio_project_to_cad_report layout");
+
+namespace {
+
+std::vector<std::int64_t>& capi_project_to_cad_outside() {
+    thread_local std::vector<std::int64_t> outside;
+    return outside;
+}
+
+}  // namespace
+
+void mio_project_to_cad_opts_init(mio_project_to_cad_opts* opts) {
+    if (!opts)
+        return;
+    *opts = mio_project_to_cad_opts{};
+    opts->trim_samples = 16;
+}
+
+mio_mesh* mio_project_to_cad(const mio_mesh* mesh, const mio_format_info* info,
+                             const mio_project_to_cad_opts* opts,
+                             mio_project_to_cad_report* report) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        capi_project_to_cad_outside().clear();
+        if (!mesh)
+            throw std::invalid_argument("meshio++: project_to_cad: mesh is NULL");
+        if (!info)
+            throw std::invalid_argument("meshio++: format info handle is NULL");
+        const auto* p_brep = std::get_if<meshioplusplus::BrepInfo>(&info->mInfo);
+        if (!p_brep)
+            throw std::invalid_argument(
+                "meshio++: project_to_cad: the info is not a B-rep (read a CAD JSON, STEP or "
+                "IGES file)");
+        meshioplusplus::ProjectToCadOptions o;
+        if (opts) {
+            if (opts->face_array)
+                o.mFaceArray = opts->face_array;
+            if (opts->edge_array)
+                o.mEdgeArray = opts->edge_array;
+            o.mMaxDistance = opts->max_distance;
+            o.mTrimSamples = opts->trim_samples == 0 ? 16 : opts->trim_samples;
+        }
+        meshioplusplus::ProjectToCadResult r =
+            meshioplusplus::project_to_cad(mesh->mMesh, *p_brep, o);
+        if (report) {
+            *report = mio_project_to_cad_report{};
+            report->num_projected = r.mNumProjected;
+            report->num_on_edges = r.mNumOnEdges;
+            report->num_corners = r.mNumCorners;
+            report->num_ambiguous = r.mNumAmbiguous;
+            report->num_too_far = r.mNumTooFar;
+            report->num_failed = r.mNumFailed;
+            report->num_outside_trim = r.mNumOutsideTrim;
+            report->max_move = r.mMaxMove;
+            report->num_on_curves = r.mNumOnCurves;
+        }
+        capi_project_to_cad_outside() = std::move(r.mOutsideTrim);
+        return new mio_mesh{std::move(r.mMesh)};
+    });
+}
+
+static_assert(sizeof(mio_error_size_opts) == 80, "mio_error_size_opts layout");
+static_assert(offsetof(mio_error_size_opts, output) == 40, "mio_error_size_opts layout");
+static_assert(offsetof(mio_error_size_opts, reserved) == 56, "mio_error_size_opts layout");
+static_assert(sizeof(mio_error_size_report) == 64, "mio_error_size_report layout");
+static_assert(offsetof(mio_error_size_report, max_size) == 32, "mio_error_size_report layout");
+
+void mio_error_size_opts_init(mio_error_size_opts* opts) {
+    if (!opts)
+        return;
+    *opts = mio_error_size_opts{};
+    opts->order = 1.0;
+}
+
+mio_mesh* mio_error_size(const mio_mesh* mesh, const mio_error_size_opts* opts,
+                         mio_error_size_report* report) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        if (!mesh)
+            throw std::invalid_argument("meshio++: error_size: mesh is NULL");
+        if (!opts)
+            throw std::invalid_argument(
+                "meshio++: error_size: opts is NULL (a target_error is "
+                "required)");
+        meshioplusplus::ErrorSizeOptions o;
+        if (opts->error_array)
+            o.mErrorArray = opts->error_array;
+        o.mTargetError = opts->target_error;
+        o.mOrder = opts->order;
+        o.mMinSize = opts->min_size;
+        o.mMaxSize = opts->max_size;
+        if (opts->output)
+            o.mOutputName = opts->output;
+        o.mOverwrite = opts->overwrite != 0;
+        meshioplusplus::ErrorSizeResult r = meshioplusplus::error_size(mesh->mMesh, o);
+        if (report) {
+            *report = mio_error_size_report{};
+            report->num_cells = r.mNumCells;
+            report->num_skipped = r.mNumSkipped;
+            report->num_clamped = r.mNumClamped;
+            report->min_size = r.mMinSize;
+            report->max_size = r.mMaxSize;
+        }
+        return new mio_mesh{std::move(r.mMesh)};
+    });
+}
+
+static_assert(sizeof(mio_conformity_opts) == 48, "mio_conformity_opts layout");
+static_assert(offsetof(mio_conformity_opts, reserved) == 16, "mio_conformity_opts layout");
+static_assert(sizeof(mio_conformity_report) == 104, "mio_conformity_report layout");
+static_assert(offsetof(mio_conformity_report, conforming) == 56, "mio_conformity_report layout");
+static_assert(offsetof(mio_conformity_report, num_warnings) == 64, "mio_conformity_report layout");
+
+}  // extern "C"
+
+namespace {
+
+/// The warnings of this thread's last mio_check_conformity call.
+std::string& capi_conformity_warnings() {
+    thread_local std::string warnings;
+    return warnings;
+}
+
+}  // namespace
+
+extern "C" {
+
+void mio_conformity_opts_init(mio_conformity_opts* opts) {
+    if (!opts)
+        return;
+    *opts = mio_conformity_opts{};
+    opts->tolerance = 1e-9;
+    opts->attach_flags = 1;
+}
+
+mio_mesh* mio_check_conformity(const mio_mesh* mesh, const mio_conformity_opts* opts,
+                               mio_conformity_report* report) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        capi_conformity_warnings().clear();
+        if (!mesh)
+            throw std::invalid_argument("meshio++: check_conformity: mesh is NULL");
+        mio_conformity_opts defaults;
+        mio_conformity_opts_init(&defaults);
+        const mio_conformity_opts& rOpts = opts ? *opts : defaults;
+        meshioplusplus::ConformityOptions o;
+        o.mTolerance = rOpts.tolerance;
+        o.mAttachFlags = rOpts.attach_flags != 0;
+        meshioplusplus::ConformityResult r = meshioplusplus::check_conformity(mesh->mMesh, o);
+        std::string& warnings = capi_conformity_warnings();
+        for (const std::string& w : r.mWarnings) {
+            if (!warnings.empty())
+                warnings += '\n';
+            warnings += w;
+        }
+        if (report) {
+            *report = mio_conformity_report{};
+            report->dimension = r.mDimension;
+            report->num_hanging_nodes = r.mNumHangingNodes;
+            report->num_t_junctions = r.mNumTJunctions;
+            report->num_partial_overlaps = r.mNumPartialOverlaps;
+            report->num_unwelded_facets = r.mNumUnweldedFacets;
+            report->num_boundary_facets = r.mNumBoundaryFacets;
+            report->num_non_manifold_facets = r.mNumNonManifoldFacets;
+            report->conforming = r.mConforming ? 1 : 0;
+            report->interface_mode = r.mInterfaceMode == "weld" ? MIO_CONFORMITY_WELD
+                                                                : (r.mInterfaceMode == "proximity"
+                                                                       ? MIO_CONFORMITY_PROXIMITY
+                                                                       : MIO_CONFORMITY_CONFORMING);
+            report->num_warnings = static_cast<int64_t>(r.mWarnings.size());
+        }
+        return new mio_mesh{std::move(r.mMesh)};
+    });
+}
+
+int64_t mio_check_conformity_warnings(char* buf, int64_t buflen) {
+    return guarded_ptr(int64_t{-1}, [&]() {
+        if (buflen < 0)
+            throw std::invalid_argument("meshio++: negative warnings buffer length");
+        return copy_string(capi_conformity_warnings(), buf, buflen);
+    });
+}
+
+static_assert(sizeof(mio_boundary_layer_opts) == 64, "mio_boundary_layer_opts layout");
+static_assert(offsetof(mio_boundary_layer_opts, num_layers) == 24,
+              "mio_boundary_layer_opts layout");
+static_assert(sizeof(mio_boundary_layer_report) == 128, "mio_boundary_layer_report layout");
+static_assert(offsetof(mio_boundary_layer_report, cap_closed) == 88,
+              "mio_boundary_layer_report layout");
+static_assert(offsetof(mio_boundary_layer_opts, collapse) == 40, "mio_boundary_layer_opts layout");
+static_assert(offsetof(mio_boundary_layer_opts, reserved) == 56, "mio_boundary_layer_opts layout");
+static_assert(offsetof(mio_boundary_layer_report, num_fewer_layers) == 96,
+              "mio_boundary_layer_report layout");
+static_assert(offsetof(mio_boundary_layer_report, reserved) == 112,
+              "mio_boundary_layer_report layout");
+
+void mio_boundary_layer_opts_init(mio_boundary_layer_opts* opts) {
+    if (!opts)
+        return;
+    *opts = mio_boundary_layer_opts{};
+    const meshioplusplus::BoundaryLayerOptions d;
+    opts->growth = d.mGrowth;
+    opts->collision_fraction = d.mCollisionFraction;
+    opts->num_layers = d.mNumLayers;
+    opts->smooth_iterations = d.mSmoothIterations;
+    opts->max_shrink = d.mMaxShrink;
+    opts->collapse = static_cast<int32_t>(d.mCollapse);
+    opts->normal_smooth_iterations = d.mNormalSmoothIterations;
+    opts->front_check = d.mFrontCheck ? 1 : 0;
+}
+
+mio_mesh* mio_boundary_layer(const mio_mesh* mesh, const mio_boundary_layer_opts* opts,
+                             mio_boundary_layer_report* report) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        if (!mesh)
+            throw std::invalid_argument("meshio++: boundary_layer: mesh is NULL");
+        if (!opts)
+            throw std::invalid_argument("meshio++: boundary_layer: opts is NULL (first_height)");
+        meshioplusplus::BoundaryLayerOptions o;
+        o.mFirstHeight = opts->first_height;
+        o.mGrowth = opts->growth;
+        o.mCollisionFraction = opts->collision_fraction;
+        o.mNumLayers = opts->num_layers;
+        o.mReverse = opts->reverse != 0;
+        o.mSmoothIterations = opts->smooth_iterations;
+        o.mMaxShrink = opts->max_shrink;
+        // Out-of-range values reach the core, which refuses them by name.
+        o.mCollapse = static_cast<meshioplusplus::BoundaryLayerCollapse>(opts->collapse);
+        o.mNormalSmoothIterations = opts->normal_smooth_iterations;
+        o.mFrontCheck = opts->front_check != 0;
+        meshioplusplus::BoundaryLayerResult r = meshioplusplus::boundary_layer(mesh->mMesh, o);
+        if (report) {
+            *report = mio_boundary_layer_report{};
+            report->num_cells = r.mNumCells;
+            report->num_wedges = r.mNumWedges;
+            report->num_hexahedra = r.mNumHexahedra;
+            report->num_pyramids = r.mNumPyramids;
+            report->num_tetrahedra = r.mNumTetrahedra;
+            report->num_shrunk = r.mNumShrunk;
+            report->num_collapsed = r.mNumCollapsed;
+            report->num_not_visible = r.mNumNotVisible;
+            report->min_scaled_jacobian = r.mMinScaledJacobian;
+            report->min_thickness = r.mMinThickness;
+            report->max_thickness = r.mMaxThickness;
+            report->cap_closed = r.mCapClosed ? 1 : 0;
+            report->num_fewer_layers = r.mNumFewerLayers;
+            report->num_front_crossings = r.mNumFrontCrossings;
+        }
+        return new mio_mesh{std::move(r.mMesh)};
+    });
+}
+
+static_assert(sizeof(mio_extrude_opts) == 96, "mio_extrude_opts layout");
+static_assert(offsetof(mio_extrude_opts, offsets) == 32, "mio_extrude_opts layout");
+static_assert(offsetof(mio_extrude_opts, num_layers) == 56, "mio_extrude_opts layout");
+static_assert(offsetof(mio_extrude_opts, reserved) == 64, "mio_extrude_opts layout");
+static_assert(sizeof(mio_revolve_opts) == 112, "mio_revolve_opts layout");
+static_assert(offsetof(mio_revolve_opts, angle) == 48, "mio_revolve_opts layout");
+static_assert(offsetof(mio_revolve_opts, num_layers) == 72, "mio_revolve_opts layout");
+static_assert(offsetof(mio_revolve_opts, reserved) == 80, "mio_revolve_opts layout");
+static_assert(sizeof(mio_sweep_report) == 128, "mio_sweep_report layout");
+static_assert(offsetof(mio_sweep_report, min_scaled_jacobian) == 80, "mio_sweep_report layout");
+static_assert(offsetof(mio_sweep_report, full) == 88, "mio_sweep_report layout");
+static_assert(offsetof(mio_sweep_report, reserved) == 96, "mio_sweep_report layout");
+static_assert(sizeof(mio_mirror_opts) == 104, "mio_mirror_opts layout");
+static_assert(offsetof(mio_mirror_opts, keep_original) == 56, "mio_mirror_opts layout");
+static_assert(offsetof(mio_mirror_opts, reserved) == 72, "mio_mirror_opts layout");
+static_assert(sizeof(mio_mirror_report) == 72, "mio_mirror_report layout");
+static_assert(offsetof(mio_mirror_report, num_warnings) == 32, "mio_mirror_report layout");
+
+}  // extern "C"
+
+namespace {
+
+/// The warnings of this thread's last mio_extrude, mio_revolve and mio_mirror calls.
+std::string& capi_extrude_warnings() {
+    thread_local std::string warnings;
+    return warnings;
+}
+std::string& capi_revolve_warnings() {
+    thread_local std::string warnings;
+    return warnings;
+}
+std::string& capi_mirror_warnings() {
+    thread_local std::string warnings;
+    return warnings;
+}
+
+void capi_join_warnings(const std::vector<std::string>& rFrom, std::string& rInto) {
+    rInto.clear();
+    for (const std::string& w : rFrom) {
+        if (!rInto.empty())
+            rInto += '\n';
+        rInto += w;
+    }
+}
+
+void capi_sweep_report(const meshioplusplus::SweepResult& rR, mio_sweep_report* pReport) {
+    if (!pReport)
+        return;
+    *pReport = mio_sweep_report{};
+    pReport->num_cells = rR.mNumCells;
+    pReport->num_hexahedra = rR.mNumHexahedra;
+    pReport->num_wedges = rR.mNumWedges;
+    pReport->num_pyramids = rR.mNumPyramids;
+    pReport->num_tetrahedra = rR.mNumTetrahedra;
+    pReport->num_quads = rR.mNumQuads;
+    pReport->num_triangles = rR.mNumTriangles;
+    pReport->num_flipped = rR.mNumFlipped;
+    pReport->num_on_axis = rR.mNumOnAxis;
+    pReport->num_warnings = static_cast<int64_t>(rR.mWarnings.size());
+    pReport->min_scaled_jacobian = rR.mMinScaledJacobian;
+    pReport->full = rR.mFull ? 1 : 0;
+}
+
+}  // namespace
+
+extern "C" {
+
+void mio_extrude_opts_init(mio_extrude_opts* opts) {
+    if (!opts)
+        return;
+    *opts = mio_extrude_opts{};
+    const meshioplusplus::ExtrudeOptions d;
+    for (int i = 0; i < 3; ++i)
+        opts->direction[i] = d.mDirection[static_cast<std::size_t>(i)];
+    opts->ratio = d.mRatio;
+    opts->max_cells = d.mMaxCells;
+    opts->num_layers = d.mNumLayers;
+}
+
+void mio_revolve_opts_init(mio_revolve_opts* opts) {
+    if (!opts)
+        return;
+    *opts = mio_revolve_opts{};
+    const meshioplusplus::RevolveOptions d;
+    for (int i = 0; i < 3; ++i) {
+        opts->axis_point[i] = d.mAxisPoint[static_cast<std::size_t>(i)];
+        opts->axis[i] = d.mAxis[static_cast<std::size_t>(i)];
+    }
+    opts->angle = d.mAngle;
+    opts->tolerance = d.mTolerance;
+    opts->max_cells = d.mMaxCells;
+    opts->num_layers = d.mNumLayers;
+}
+
+mio_mesh* mio_extrude(const mio_mesh* mesh, const mio_extrude_opts* opts,
+                      mio_sweep_report* report) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        capi_extrude_warnings().clear();
+        if (!mesh)
+            throw std::invalid_argument("meshio++: extrude: mesh is NULL");
+        mio_extrude_opts defaults;
+        mio_extrude_opts_init(&defaults);
+        const mio_extrude_opts& rOpts = opts ? *opts : defaults;
+        if (rOpts.num_offsets < 0 || (rOpts.num_offsets > 0 && !rOpts.offsets))
+            throw std::invalid_argument("meshio++: extrude: offsets is NULL or its count negative");
+        meshioplusplus::ExtrudeOptions o;
+        for (int i = 0; i < 3; ++i)
+            o.mDirection[static_cast<std::size_t>(i)] = rOpts.direction[i];
+        o.mRatio = rOpts.ratio;
+        o.mOffsets.assign(rOpts.offsets, rOpts.offsets + rOpts.num_offsets);
+        o.mMaxCells = rOpts.max_cells;
+        o.mNumLayers = rOpts.num_layers;
+        o.mRecordLayers = rOpts.record_layers != 0;
+        meshioplusplus::SweepResult r = meshioplusplus::extrude(mesh->mMesh, o);
+        capi_join_warnings(r.mWarnings, capi_extrude_warnings());
+        capi_sweep_report(r, report);
+        return new mio_mesh{std::move(r.mMesh)};
+    });
+}
+
+mio_mesh* mio_revolve(const mio_mesh* mesh, const mio_revolve_opts* opts,
+                      mio_sweep_report* report) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        capi_revolve_warnings().clear();
+        if (!mesh)
+            throw std::invalid_argument("meshio++: revolve: mesh is NULL");
+        mio_revolve_opts defaults;
+        mio_revolve_opts_init(&defaults);
+        const mio_revolve_opts& rOpts = opts ? *opts : defaults;
+        meshioplusplus::RevolveOptions o;
+        for (int i = 0; i < 3; ++i) {
+            o.mAxisPoint[static_cast<std::size_t>(i)] = rOpts.axis_point[i];
+            o.mAxis[static_cast<std::size_t>(i)] = rOpts.axis[i];
+        }
+        o.mAngle = rOpts.angle;
+        o.mTolerance = rOpts.tolerance;
+        o.mMaxCells = rOpts.max_cells;
+        o.mNumLayers = rOpts.num_layers;
+        o.mRecordLayers = rOpts.record_layers != 0;
+        meshioplusplus::SweepResult r = meshioplusplus::revolve(mesh->mMesh, o);
+        capi_join_warnings(r.mWarnings, capi_revolve_warnings());
+        capi_sweep_report(r, report);
+        return new mio_mesh{std::move(r.mMesh)};
+    });
+}
+
+int64_t mio_extrude_warnings(char* buf, int64_t buflen) {
+    return guarded_ptr(int64_t{-1}, [&]() {
+        if (buflen < 0)
+            throw std::invalid_argument("meshio++: negative warnings buffer length");
+        return copy_string(capi_extrude_warnings(), buf, buflen);
+    });
+}
+
+int64_t mio_revolve_warnings(char* buf, int64_t buflen) {
+    return guarded_ptr(int64_t{-1}, [&]() {
+        if (buflen < 0)
+            throw std::invalid_argument("meshio++: negative warnings buffer length");
+        return copy_string(capi_revolve_warnings(), buf, buflen);
+    });
+}
+
+void mio_mirror_opts_init(mio_mirror_opts* opts) {
+    if (!opts)
+        return;
+    *opts = mio_mirror_opts{};
+    const meshioplusplus::MirrorOptions d;
+    for (int i = 0; i < 3; ++i) {
+        opts->origin[i] = d.mOrigin[static_cast<std::size_t>(i)];
+        opts->normal[i] = d.mNormal[static_cast<std::size_t>(i)];
+    }
+    opts->tolerance = d.mTolerance;
+    opts->weld = d.mWeld ? 1 : 0;
+}
+
+mio_mesh* mio_mirror(const mio_mesh* mesh, const mio_mirror_opts* opts, mio_mirror_report* report) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        capi_mirror_warnings().clear();
+        if (!mesh)
+            throw std::invalid_argument("meshio++: mirror: mesh is NULL");
+        mio_mirror_opts defaults;
+        mio_mirror_opts_init(&defaults);
+        const mio_mirror_opts& rOpts = opts ? *opts : defaults;
+        meshioplusplus::MirrorOptions o;
+        for (int i = 0; i < 3; ++i) {
+            o.mOrigin[static_cast<std::size_t>(i)] = rOpts.origin[i];
+            o.mNormal[static_cast<std::size_t>(i)] = rOpts.normal[i];
+        }
+        o.mTolerance = rOpts.tolerance;
+        o.mKeepOriginal = rOpts.keep_original != 0;
+        o.mWeld = rOpts.weld != 0;
+        o.mReflectVectorData = rOpts.reflect_vector_data != 0;
+        meshioplusplus::MirrorResult r = meshioplusplus::mirror(mesh->mMesh, o);
+        capi_join_warnings(r.mWarnings, capi_mirror_warnings());
+        if (report) {
+            *report = mio_mirror_report{};
+            report->num_flipped_cells = r.mNumFlippedCells;
+            report->num_points_on_plane = r.mNumPointsOnPlane;
+            report->num_dropped_cells = r.mNumDroppedCells;
+            report->num_dropped_sides = r.mNumDroppedSides;
+            report->num_warnings = static_cast<int64_t>(r.mWarnings.size());
+        }
+        return new mio_mesh{std::move(r.mMesh)};
+    });
+}
+
+int64_t mio_mirror_warnings(char* buf, int64_t buflen) {
+    return guarded_ptr(int64_t{-1}, [&]() {
+        if (buflen < 0)
+            throw std::invalid_argument("meshio++: negative warnings buffer length");
+        return copy_string(capi_mirror_warnings(), buf, buflen);
+    });
+}
+
+static_assert(sizeof(mio_tetrahedralize_opts) == 80, "mio_tetrahedralize_opts layout");
+static_assert(offsetof(mio_tetrahedralize_opts, face_array) == 32,
+              "mio_tetrahedralize_opts layout");
+static_assert(offsetof(mio_tetrahedralize_opts, backend) == 40, "mio_tetrahedralize_opts layout");
+static_assert(offsetof(mio_tetrahedralize_opts, reserved) == 48, "mio_tetrahedralize_opts layout");
+static_assert(sizeof(mio_tetrahedralize_report) == 128, "mio_tetrahedralize_report layout");
+static_assert(offsetof(mio_tetrahedralize_report, boundary_preserved) == 72,
+              "mio_tetrahedralize_report layout");
+static_assert(offsetof(mio_tetrahedralize_report, reserved) == 80,
+              "mio_tetrahedralize_report layout");
+static_assert(static_cast<int>(meshioplusplus::TetrahedralizeBackend::Netgen) ==
+                      MIO_TETRAHEDRALIZE_BACKEND_NETGEN &&
+                  static_cast<int>(meshioplusplus::TetrahedralizeBackend::Octree) ==
+                      MIO_TETRAHEDRALIZE_BACKEND_OCTREE,
+              "mio_tetrahedralize_backend drifted from TetrahedralizeBackend");
+
+void mio_tetrahedralize_opts_init(mio_tetrahedralize_opts* opts) {
+    if (!opts)
+        return;
+    *opts = mio_tetrahedralize_opts{};
+    const meshioplusplus::TetrahedralizeOptions d;
+    opts->max_size = d.mMaxSize;
+    opts->max_volume = d.mMaxVolume;
+    opts->grading = d.mGrading;
+    opts->max_cells = d.mMaxCells;
+    opts->backend = static_cast<int32_t>(d.mBackend);
+    opts->optimize_steps = d.mOptimizeSteps;
+}
+
+int mio_has_netgen(void) {
+    return meshioplusplus::tetrahedralize_has_netgen() ? 1 : 0;
+}
+
+mio_mesh* mio_tetrahedralize(const mio_mesh* mesh, const mio_tetrahedralize_opts* opts,
+                             mio_tetrahedralize_report* report) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        if (!mesh)
+            throw std::invalid_argument("meshio++: tetrahedralize: mesh is NULL");
+        mio_tetrahedralize_opts defaults;
+        mio_tetrahedralize_opts_init(&defaults);
+        const mio_tetrahedralize_opts& r_in = opts ? *opts : defaults;
+        meshioplusplus::TetrahedralizeOptions o;
+        // Out-of-range values reach the core, which refuses them by name.
+        o.mBackend = static_cast<meshioplusplus::TetrahedralizeBackend>(r_in.backend);
+        o.mMaxSize = r_in.max_size;
+        o.mMaxVolume = r_in.max_volume;
+        o.mGrading = r_in.grading;
+        o.mOptimizeSteps = r_in.optimize_steps;
+        o.mMaxCells = r_in.max_cells;
+        if (r_in.face_array)
+            o.mFaceArray = r_in.face_array;
+        meshioplusplus::TetrahedralizeResult r = meshioplusplus::tetrahedralize(mesh->mMesh, o);
+        if (report) {
+            *report = mio_tetrahedralize_report{};
+            report->num_tetrahedra = r.mNumTetrahedra;
+            report->num_points = r.mNumPoints;
+            report->num_new_points = r.mNumNewPoints;
+            report->num_regions = r.mNumRegions;
+            report->num_boundary_triangles = r.mNumBoundaryTriangles;
+            report->hausdorff_to_surface = r.mHausdorffToSurface;
+            report->min_dihedral_deg = r.mMinDihedralDeg;
+            report->max_dihedral_deg = r.mMaxDihedralDeg;
+            report->volume = r.mVolume;
+            report->boundary_preserved = r.mBoundaryPreserved ? 1 : 0;
+            report->backend = r.mBackend == "netgen" ? MIO_TETRAHEDRALIZE_BACKEND_NETGEN
+                                                     : MIO_TETRAHEDRALIZE_BACKEND_OCTREE;
+        }
+        return new mio_mesh{std::move(r.mMesh)};
+    });
+}
+
+int64_t mio_project_to_cad_outside_trim(int64_t* points, int64_t n) {
+    return guarded_ptr(int64_t{-1}, [&]() -> int64_t {
+        if (n < 0 || (n > 0 && !points))
+            throw std::invalid_argument("meshio++: project_to_cad: bad points buffer");
+        const auto& r_o = capi_project_to_cad_outside();
+        const auto count = std::min<std::int64_t>(n, static_cast<std::int64_t>(r_o.size()));
+        std::copy(r_o.begin(), r_o.begin() + count, points);
+        return static_cast<int64_t>(r_o.size());
+    });
+}
+
+int64_t mio_mesh_cad_surface_num_untangled(void) {
+    return capi_mesh_cad_state().mExtras.mNumUntangled;
+}
+
+mio_status mio_mesh_cad_surface_quad_stats(int64_t* num_quads, int64_t* num_leftover_triangles,
+                                           double* min_scaled_jacobian) {
+    return guarded([&]() -> mio_status {
+        const auto& r_x = capi_mesh_cad_state().mExtras;
+        if (num_quads)
+            *num_quads = r_x.mNumQuads;
+        if (num_leftover_triangles)
+            *num_leftover_triangles = r_x.mNumLeftoverTriangles;
+        if (min_scaled_jacobian)
+            *min_scaled_jacobian = r_x.mMinQuadScaledJacobian;
+        return MIO_OK;
+    });
+}
+
+double mio_mesh_cad_surface_min_metric_angle(void) {
+    return capi_mesh_cad_state().mExtras.mMinMetricAngleDeg;
 }
 
 int64_t mio_mesh_cad_surface_num_lopped_corners(void) {
@@ -7654,8 +8629,9 @@ mio_mesh* mio_fit_cad3(const mio_mesh* mesh, const char* step_path, const mio_fi
             options.mMergeFaces = opts->merge_faces != 0;
             if (opts->backend != MIO_FIT_CAD_AUTO && opts->backend != MIO_FIT_CAD_OCCT &&
                 opts->backend != MIO_FIT_CAD_NATIVE) {
-                fail(MIO_ERR_INVALID_ARG, "meshio++: fit_cad: backend must be MIO_FIT_CAD_AUTO, "
-                                          "MIO_FIT_CAD_OCCT or MIO_FIT_CAD_NATIVE");
+                fail(MIO_ERR_INVALID_ARG,
+                     "meshio++: fit_cad: backend must be MIO_FIT_CAD_AUTO, "
+                     "MIO_FIT_CAD_OCCT or MIO_FIT_CAD_NATIVE");
                 return nullptr;
             }
             options.mBackend = static_cast<meshioplusplus::FitCadBackend>(opts->backend);
@@ -7700,6 +8676,7 @@ mio_mesh* mio_fit_cad3(const mio_mesh* mesh, const char* step_path, const mio_fi
             options.mResegmentRounds = opts_ex2->resegment_rounds;
             options.mLayoutSnapToFeatures = opts_ex2->layout_snap_to_features != 0;
             options.mValidateBySurfaceSampling = opts_ex2->validate_by_surface_sampling != 0;
+            options.mConstrainPrimitives = opts_ex2->constrain_primitives != 0;
         }
         meshioplusplus::FitCadResult r =
             meshioplusplus::fit_cad(mesh->mMesh, step_path ? step_path : "", options);
@@ -7776,6 +8753,8 @@ mio_mesh* mio_fit_cad3(const mio_mesh* mesh, const char* step_path, const mio_fi
             report_ex3->max_freeform_distance = r.mMaxFreeformDistance;
             report_ex3->rms_freeform_distance = r.mRmsFreeformDistance;
             report_ex3->num_face_records = static_cast<std::int64_t>(r.mFaces.size());
+            report_ex3->num_constrained_primitives = r.mNumConstrainedPrimitives;
+            report_ex3->num_constraint_groups = r.mNumConstraintGroups;
         }
         return new mio_mesh{std::move(r.mMesh)};
     });
@@ -8558,6 +9537,159 @@ int32_t mio_detect_color_depth(const char* no_color, const char* color_term, con
         default:
             return MIO_COLOR_MONO;
     }
+}
+
+int mio_has_mmg(void) {
+    return meshioplusplus::mmg_available() ? 1 : 0;
+}
+
+int mio_has_mmg_elas(void) {
+    return meshioplusplus::mmg_has_elas() ? 1 : 0;
+}
+
+int mio_mmg_index_bits(void) {
+    return meshioplusplus::mmg_index_bits();
+}
+
+void mio_mmg_params_init(mio_mmg_params* params) {
+    if (!params)
+        return;
+    *params = mio_mmg_params{};
+    params->hmin = params->hmax = params->hausd = params->hgrad = params->hgradreq = -1.0;
+    params->angle_detection = 45.0;
+    params->verbose = -1;
+    params->mem = -1;
+}
+
+void mio_adapt_opts_init(mio_adapt_opts* opts) {
+    if (!opts)
+        return;
+    *opts = mio_adapt_opts{};
+    mio_mmg_params_init(&opts->params);
+    opts->hsiz = -1.0;
+}
+
+mio_mesh* mio_adapt(const mio_mesh* mesh, const mio_adapt_opts* opts, mio_mmg_report* report) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        if (!mesh)
+            throw std::invalid_argument("meshio++: adapt: mesh is NULL");
+        mio_adapt_opts defaults;
+        mio_adapt_opts_init(&defaults);
+        const mio_adapt_opts& r_in = opts ? *opts : defaults;
+        meshioplusplus::AdaptOptions o;
+        o.mParameters = capi_mmg_params(mesh, r_in.params, "adapt");
+        o.mHsiz = r_in.hsiz;
+        if (r_in.size)
+            o.mSize = r_in.size;
+        if (r_in.metric)
+            o.mMetric = r_in.metric;
+        meshioplusplus::AdaptResult r = meshioplusplus::adapt(mesh->mMesh, o);
+        capi_mmg_report(r.mReport, report);
+        return new mio_mesh{std::move(r.mMesh)};
+    });
+}
+
+void mio_discretize_levelset_opts_init(mio_discretize_levelset_opts* opts) {
+    if (!opts)
+        return;
+    *opts = mio_discretize_levelset_opts{};
+    mio_mmg_params_init(&opts->params);
+    opts->remove_small_components = -1.0;
+}
+
+mio_mesh* mio_discretize_levelset(const mio_mesh* mesh, const mio_discretize_levelset_opts* opts,
+                                  mio_mmg_report* report) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        if (!mesh || !opts || !opts->level_set)
+            throw std::invalid_argument(
+                "meshio++: discretize_levelset: mesh, opts or level_set is NULL");
+        meshioplusplus::DiscretizeLevelsetOptions o;
+        o.mParameters = capi_mmg_params(mesh, opts->params, "discretize_levelset");
+        o.mLevelSet = opts->level_set;
+        o.mIsovalue = opts->isovalue;
+        o.mRemoveSmallComponents = opts->remove_small_components;
+        for (int64_t i = 0; opts->materials && i < opts->num_materials; ++i)
+            o.mMaterials.push_back({opts->materials[i].ref, opts->materials[i].split != 0,
+                                    opts->materials[i].ref_inside, opts->materials[i].ref_outside});
+        meshioplusplus::DiscretizeLevelsetResult r =
+            meshioplusplus::discretize_levelset(mesh->mMesh, o);
+        capi_mmg_report(r.mReport, report);
+        return new mio_mesh{std::move(r.mMesh)};
+    });
+}
+
+void mio_mesh_domain_opts_init(mio_mesh_domain_opts* opts) {
+    if (!opts)
+        return;
+    *opts = mio_mesh_domain_opts{};
+    mio_mmg_params_init(&opts->params);
+    opts->hsiz = -1.0;
+}
+
+mio_mesh* mio_mesh_domain(const mio_mesh* boundary, const mio_mesh_domain_opts* opts,
+                          mio_mmg_report* report, int64_t* num_subdomains, int64_t* num_holes) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        if (!boundary)
+            throw std::invalid_argument("meshio++: mesh_domain: boundary is NULL");
+        mio_mesh_domain_opts defaults;
+        mio_mesh_domain_opts_init(&defaults);
+        const mio_mesh_domain_opts& r_in = opts ? *opts : defaults;
+        meshioplusplus::MeshDomainOptions o;
+        o.mParameters = capi_mmg_params(boundary, r_in.params, "mesh_domain");
+        o.mHsiz = r_in.hsiz;
+        if (r_in.size)
+            o.mSize = r_in.size;
+        if (r_in.holes && r_in.num_holes > 0)
+            o.mHoles.assign(r_in.holes, r_in.holes + 2 * r_in.num_holes);
+        meshioplusplus::MeshDomainResult r = meshioplusplus::mesh_domain(boundary->mMesh, o);
+        capi_mmg_report(r.mReport, report);
+        if (num_subdomains)
+            *num_subdomains = r.mNumSubdomains;
+        if (num_holes)
+            *num_holes = r.mNumHoles;
+        return new mio_mesh{std::move(r.mMesh)};
+    });
+}
+
+void mio_move_opts_init(mio_move_opts* opts) {
+    if (!opts)
+        return;
+    *opts = mio_move_opts{};
+    mio_mmg_params_init(&opts->params);
+    opts->lagrangian = 1;
+}
+
+mio_mesh* mio_move(const mio_mesh* mesh, const mio_move_opts* opts, mio_mmg_report* report) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        if (!mesh || !opts || !opts->displacement)
+            throw std::invalid_argument("meshio++: move: mesh, opts or displacement is NULL");
+        meshioplusplus::MoveOptions o;
+        o.mParameters = capi_mmg_params(mesh, opts->params, "move");
+        o.mDisplacement = opts->displacement;
+        for (int64_t i = 0; opts->moving && i < opts->num_moving; ++i)
+            if (opts->moving[i])
+                o.mMoving.emplace_back(opts->moving[i]);
+        o.mLagrangian = opts->lagrangian;
+        meshioplusplus::AdaptResult r = meshioplusplus::move(mesh->mMesh, o);
+        capi_mmg_report(r.mReport, report);
+        return new mio_mesh{std::move(r.mMesh)};
+    });
+}
+
+mio_mesh* mio_metric_from_hessian(const mio_mesh* mesh, const char* hessian, double error,
+                                  double hmin, double hmax, const char* output) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        if (!mesh || !hessian)
+            throw std::invalid_argument("meshio++: metric_from_hessian: mesh or hessian is NULL");
+        meshioplusplus::MetricFromHessianOptions o;
+        o.mHessian = hessian;
+        o.mError = error;
+        o.mHmin = hmin;
+        o.mHmax = hmax;
+        if (output)
+            o.mOutput = output;
+        return new mio_mesh{meshioplusplus::metric_from_hessian(mesh->mMesh, o)};
+    });
 }
 
 }  // extern "C"

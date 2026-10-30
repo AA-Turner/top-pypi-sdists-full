@@ -1,16 +1,16 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.39.1+obcheckpoint(0.2.14);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-10-28T20:25:47.903188                                                            #
+# MF version: 2.19.39.2+obcheckpoint(0.2.14);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-10-29T12:38:34.398779                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.capsule
     import typing
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config
 
 from .utils import TODOException as TODOException

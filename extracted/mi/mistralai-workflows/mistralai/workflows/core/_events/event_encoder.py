@@ -6,14 +6,15 @@ import base64
 import json
 from typing import TYPE_CHECKING, Any
 
-import structlog
 from mistralai.extra.workflows.encoding.config import PayloadEncryptionMode
 from mistralai.extra.workflows.encoding.models import EncodedPayloadOptions
 from pydantic import TypeAdapter, ValidationError
 
+from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.exceptions import ErrorCode
 from mistralai.workflows.protocol.v1.events import (
     JSON_PATCH_PAYLOAD_TYPE,
+    BaseCustomTaskAttributes,
     JSONPatchPayload,
     JSONPayload,
     Payload,
@@ -23,7 +24,7 @@ from mistralai.workflows.protocol.v1.events import (
 if TYPE_CHECKING:
     from mistralai.extra.workflows.encoding.payload_encoder import PayloadEncoder
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 # Type discriminator value for EncryptedPatchValue (for SDK-side detection)
 ENCRYPTED_PATCH_TYPE = "__encrypted__"
@@ -53,18 +54,31 @@ class EventPayloadEncoder:
     and the encoding_options field indicates the type of encryption applied.
     """
 
-    def __init__(self, payload_encoder: PayloadEncoder | None) -> None:
+    def __init__(
+        self,
+        payload_encoder: PayloadEncoder | None,
+        custom_event_payload_encoder: PayloadEncoder | None = None,
+    ) -> None:
         self._payload_encoder = payload_encoder
+        # CUSTOM_TASK_* events can use their own encoder, without one, they use the default encoder.
+        self._custom_event_payload_encoder = custom_event_payload_encoder or payload_encoder
         logger.info(
             "EventPayloadEncoder initialized",
             has_payload_encoder=payload_encoder is not None,
             has_encryption_config=payload_encoder.encryption_config is not None if payload_encoder else False,
+            has_custom_event_payload_encoder=custom_event_payload_encoder is not None,
         )
 
-    @property
-    def is_partial_encryption_mode(self) -> bool:
-        assert self._payload_encoder is not None and self._payload_encoder.encryption_config is not None
-        return self._payload_encoder.encryption_config.mode == PayloadEncryptionMode.PARTIAL
+    def _select_payload_encoder(self, event: WorkflowEvent) -> PayloadEncoder:
+        assert self._payload_encoder is not None and self._custom_event_payload_encoder is not None
+        if isinstance(event.attributes, BaseCustomTaskAttributes):
+            return self._custom_event_payload_encoder
+        return self._payload_encoder
+
+    @staticmethod
+    def _is_partial_encryption_mode(payload_encoder: PayloadEncoder) -> bool:
+        assert payload_encoder.encryption_config is not None
+        return payload_encoder.encryption_config.mode == PayloadEncryptionMode.PARTIAL
 
     async def encode_event(self, event: WorkflowEvent) -> WorkflowEvent:
         """Encrypt payload fields in an event's attributes.
@@ -73,7 +87,7 @@ class EventPayloadEncoder:
         The value field is replaced with base64-encoded encrypted data,
         and encoding_options is set to indicate the encryption type.
         """
-        assert self._payload_encoder is not None
+        payload_encoder = self._select_payload_encoder(event)
 
         attributes = event.attributes
         if attributes is None:
@@ -103,7 +117,7 @@ class EventPayloadEncoder:
             # Encrypt the payload
             payload_type = original_payload.type
             logger.debug("Encrypting payload field", field=field_name, payload_type=payload_type)
-            encrypted_payload = await self._encrypt_payload(original_payload)
+            encrypted_payload = await self._encrypt_payload(original_payload, payload_encoder)
             attributes_dict[field_name] = encrypted_payload
             modified = True
 
@@ -115,20 +129,20 @@ class EventPayloadEncoder:
         event_dict["attributes"].update(attributes_dict)
         return type(event).model_validate(event_dict)
 
-    async def _encrypt_payload(self, payload: JSONPayload | JSONPatchPayload) -> dict[str, Any]:
+    async def _encrypt_payload(
+        self, payload: JSONPayload | JSONPatchPayload, payload_encoder: PayloadEncoder
+    ) -> dict[str, Any]:
         """Encrypt a payload's value and add encoding_options.
 
         For JSONPatchPayload in partial encryption mode, selectively encrypts only
         patches marked with should_encrypt=True.
         """
-        assert self._payload_encoder is not None
-
         # Handle JSONPatchPayload with selective encryption in partial mode
-        if isinstance(payload, JSONPatchPayload) and self.is_partial_encryption_mode:
+        if isinstance(payload, JSONPatchPayload) and self._is_partial_encryption_mode(payload_encoder):
             patches = payload.value
             encrypted_paths = payload._encrypted_paths
             if isinstance(patches, list) and encrypted_paths:
-                encrypted_patches = await self._encrypt_json_patch_selective(patches, encrypted_paths)
+                encrypted_patches = await self._encrypt_json_patch_selective(patches, encrypted_paths, payload_encoder)
                 return {
                     "type": JSON_PATCH_PAYLOAD_TYPE,
                     "value": encrypted_patches,
@@ -142,7 +156,7 @@ class EventPayloadEncoder:
         payload_dict = payload.model_dump(mode="json")
         value_bytes = json.dumps(payload_dict["value"]).encode("utf-8")
 
-        encrypted_bytes, encoding_options = await self._payload_encoder.encode_event_payload_content(value_bytes)
+        encrypted_bytes, encoding_options = await payload_encoder.encode_event_payload_content(value_bytes)
 
         # If no encryption was applied (e.g., PARTIAL mode with no EncryptedStrField), return unchanged
         if not encoding_options:
@@ -157,13 +171,12 @@ class EventPayloadEncoder:
         }
 
     async def _encrypt_json_patch_selective(
-        self, patches: list[Any], encrypted_paths: set[str]
+        self, patches: list[Any], encrypted_paths: set[str], payload_encoder: PayloadEncoder
     ) -> list[dict[str, Any]]:
         """Encrypt patches whose path is in encrypted_paths.
 
         Uses EncryptedPatchValue wrapper for type-safe encrypted values.
         """
-        assert self._payload_encoder is not None
 
         result = []
         for patch in patches:
@@ -172,7 +185,7 @@ class EventPayloadEncoder:
 
             if patch_path in encrypted_paths and "value" in patch_dict:
                 value_bytes = json.dumps(patch_dict["value"]).encode("utf-8")
-                encrypted = self._payload_encoder._encrypt(value_bytes)
+                encrypted = payload_encoder._encrypt(value_bytes)
                 encrypted_b64 = base64.b64encode(encrypted).decode("utf-8")
                 patch_dict["value"] = {"type": ENCRYPTED_PATCH_TYPE, "value": encrypted_b64}
 

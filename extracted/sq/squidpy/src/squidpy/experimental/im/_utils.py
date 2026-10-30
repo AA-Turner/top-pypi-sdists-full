@@ -13,6 +13,7 @@ from spatialdata.models import Labels2DModel, ShapesModel
 from spatialdata.transformations import get_transformation, set_transformation
 
 from squidpy._utils import _yx_from_shape
+from squidpy._validators import normalize_choice
 
 
 class TileGrid:
@@ -22,6 +23,7 @@ class TileGrid:
         self,
         H: int,
         W: int,
+        *,
         tile_size: Literal["auto"] | tuple[int, int] = "auto",
         target_tiles: int = 100,
         offset_y: int = 0,
@@ -189,6 +191,7 @@ def flatten_channels(
     xr.DataArray
         Greyscale image with shape (y, x)
     """
+    channel_format = normalize_choice(channel_format, ("infer", "rgb", "rgba", "multichannel"), name="channel_format")
     n_channels = img.sizes["c"]
 
     # 1 channel: always return greyscale
@@ -215,22 +218,16 @@ def flatten_channels(
         weights = xr.DataArray([0.299, 0.587, 0.114, 0.0], dims=["c"], coords={"c": img.coords["c"]})
         return (img * weights).sum(dim="c")
 
-    elif channel_format == "infer":
-        if n_channels == 3:
-            # 3 channels + infer -> RGB luminance formula
-            weights = xr.DataArray([0.299, 0.587, 0.114], dims=["c"], coords={"c": img.coords["c"]})
-            return (img * weights).sum(dim="c")
-        else:
-            # 2 channels or 4+ channels + infer -> multichannel
-            return img.mean(dim="c")
-
+    elif n_channels == 3:
+        # 3 channels + infer -> RGB luminance formula
+        weights = xr.DataArray([0.299, 0.587, 0.114], dims=["c"], coords={"c": img.coords["c"]})
+        return (img * weights).sum(dim="c")
     else:
-        raise ValueError(
-            f"Invalid channel_format: {channel_format}. Must be one of 'infer', 'rgb', 'rgba', 'multichannel'."
-        )
+        # 2 channels or 4+ channels + infer -> multichannel
+        return img.mean(dim="c")
 
 
-def get_mask_dask(sdata: SpatialData, mask_key: str, scale: str) -> da.Array:
+def get_mask_dask(sdata: SpatialData, *, mask_key: str, scale: str) -> da.Array:
     """Extract mask as a lazy dask array from ``sdata.labels``."""
     if mask_key not in sdata.labels:
         raise KeyError(f"Mask key '{mask_key}' not found in sdata.labels")
@@ -248,9 +245,9 @@ def get_mask_dask(sdata: SpatialData, mask_key: str, scale: str) -> da.Array:
     return arr
 
 
-def get_mask_materialized(sdata: SpatialData, mask_key: str, scale: str) -> np.ndarray:
+def get_mask_materialized(sdata: SpatialData, *, mask_key: str, scale: str) -> np.ndarray:
     """Extract a 2D mask array from ``sdata.labels`` at the requested scale (materialized)."""
-    arr = get_mask_dask(sdata, mask_key, scale)
+    arr = get_mask_dask(sdata, mask_key=mask_key, scale=scale)
     return np.asarray(arr.compute())
 
 
@@ -274,17 +271,17 @@ def _choose_label_scale_for_image(label_node: Labels2DModel, target_hw: tuple[in
 
 def resolve_tissue_mask(
     sdata: SpatialData,
+    *,
     image_key: str,
     scale: str,
     tissue_mask_key: str | None = None,
-    *,
     auto_create: bool = True,
 ) -> str:
     """Return the key of a tissue mask in ``sdata.labels``, creating one if needed.
 
     If *tissue_mask_key* is given and exists, it is returned as-is.
     Otherwise falls back to ``f"{image_key}_tissue"``. When that key is missing,
-    the behaviour depends on *auto_create*: if ``True`` (default) ``detect_tissue``
+    the behaviour depends on *auto_create*: if ``True`` ``detect_tissue``
     is run to create it; if ``False`` a :class:`KeyError` is raised asking the
     caller to run ``detect_tissue`` first.
 
@@ -319,9 +316,9 @@ def resolve_tissue_mask(
 
 def save_tile_grid_to_shapes(
     sdata: SpatialData,
+    *,
     tg: TileGrid,
     shapes_key: str,
-    *,
     copy_transforms_from_key: str | None = None,
 ) -> None:
     """Save a TileGrid to ``sdata.shapes`` as a GeoDataFrame.

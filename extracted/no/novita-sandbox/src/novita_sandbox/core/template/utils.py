@@ -349,6 +349,21 @@ def get_caller_directory(depth: int) -> Optional[str]:
         return None
 
 
+def get_external_caller_directory() -> Optional[str]:
+    """Return the first caller outside the SDK core implementation."""
+    try:
+        for frame_info in inspect.stack()[1:]:
+            filename = os.path.abspath(frame_info.filename)
+            normalized = filename.replace("\\", "/")
+            if "/novita_sandbox/core/" not in normalized:
+                return os.path.dirname(filename)
+            if "/novita_sandbox/core/tests/" in normalized:
+                return os.path.dirname(filename)
+    except Exception:
+        return None
+    return None
+
+
 def pad_octal(mode: int) -> str:
     """
     Convert a numeric file mode to a zero-padded octal string.

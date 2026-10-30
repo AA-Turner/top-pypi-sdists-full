@@ -6,16 +6,22 @@ from http import HTTPStatus
 from pathlib import Path
 from typing import List, Type
 
-import structlog
 from pydantic import SecretStr
 from temporalio.client import Client as TemporalClient
 from temporalio.client import Interceptor
 from temporalio.contrib.pydantic import PydanticPayloadConverter
-from temporalio.converter import DataConverter, PayloadCodec, PayloadConverter
+from temporalio.converter import (
+    DataConverter,
+    DefaultFailureConverter,
+    FailureConverter,
+    PayloadCodec,
+    PayloadConverter,
+)
 from temporalio.runtime import Runtime
 from temporalio.service import ConnectConfig, HttpConnectProxyConfig, TLSConfig
 from temporalio.service import ServiceClient as TemporalServiceClient
 
+from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.auth import (
     TokenProvider,
     get_token_provider,
@@ -26,7 +32,7 @@ from mistralai.workflows.core.temporal.runtime_metrics import build_client_runti
 from mistralai.workflows.core.tracing._temporal_tracing_interceptor import get_temporal_tracing_interceptors
 from mistralai.workflows.exceptions import ErrorCode, WorkflowError, WorkflowsException
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 DEFAULT_NAMESPACE = "default"
 
@@ -263,6 +269,7 @@ async def create_temporal_client(
     extra_interceptors: List[Interceptor] | None = None,
     add_tracing_interceptors: bool = True,
     runtime: Runtime | None = None,
+    failure_converter: Type[FailureConverter] = DefaultFailureConverter,
 ) -> TemporalClient:
     """
     Create and connect to a Temporal client with appropriate configuration.
@@ -303,6 +310,7 @@ async def create_temporal_client(
             data_converter=DataConverter(
                 payload_converter_class=payload_converter or PydanticPayloadConverter,
                 payload_codec=payload_codec,
+                failure_converter_class=failure_converter,
             ),
             interceptors=interceptors,
         )

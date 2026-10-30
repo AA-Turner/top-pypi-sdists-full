@@ -48,7 +48,7 @@ def render(  # ruff:ignore[too-many-arguments]  # The public keyword API predate
         With ``summary=True``, use ``text``, ``rich`` or ``json``.
     :param summary: Return an environment health report instead of a dependency tree.
     :param reverse: Show packages beneath the dependencies that require them.
-    :param depth: Maximum rendered tree depth.
+    :param depth: Maximum rendered tree depth. Only ``text`` and ``dot`` apply it.
     :param extras: Extras mode. ``True`` means ``"explicit"``; named modes are ``"none"``, ``"explicit"`` and
         ``"active"``.
     :param local_only: Exclude globally installed packages from a virtual environment.
@@ -57,8 +57,8 @@ def render(  # ruff:ignore[too-many-arguments]  # The public keyword API predate
     :param encoding: Encoding used to select text tree characters.
     :param warn: Warning mode: ``silence``, ``suppress`` or ``fail``. ``suppress`` writes warnings to
         :data:`sys.stderr`; ``fail`` raises :exc:`ValueError` when pipdeptree finds a problem.
-    :raises ValueError: If an option is invalid, a binary Graphviz format is requested, or ``warn="fail"``
-        and the environment has dependency problems.
+    :raises ValueError: If an option is invalid, a Graphviz format other than ``dot`` is requested, or
+        ``warn="fail"`` and the environment has dependency problems.
     :return: The rendered output. Text and text-summary results also provide notebook display hooks.
     """
     args = _render_args(
@@ -123,9 +123,11 @@ def _render_args(options: _RenderOptions) -> list[str]:
 
 
 def _summary_html(text: str) -> str:
+    # The engine ends each row with "\n" and keeps other line breaks, such as U+2028, inside a value, so
+    # str.splitlines() would split one row into several.
     rows = "".join(
         f"<tr><td>{escape(label)}</td><td>{escape(value.strip())}</td></tr>"
-        for line in text.splitlines()
+        for line in text.removesuffix("\n").split("\n")
         for label, _, value in (line.partition(":"),)
     )
     return f"<table>\n<tr><th>metric</th><th>value</th></tr>\n{rows}\n</table>"

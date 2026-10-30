@@ -9,6 +9,7 @@ from dataclasses import dataclass
 import httpx
 import pytest
 
+from mistralai.workflows.core.config.config import setup_default_logging
 from mistralai.workflows.core.temporal.context_handler_interceptor import define_context
 from mistralai.workflows.models import WorkflowContext
 from mistralai.workflows.testing.fixtures import (
@@ -19,6 +20,10 @@ from mistralai.workflows.testing.fixtures import (
     setup_test_config,  # noqa: F401
     temporal_env,  # noqa: F401
 )
+
+# Importing the SDK no longer sets up logging; a worker gets it from run_worker. Set it up once, as
+# a worker would, so plugin log records reach caplog instead of structlog's print defaults.
+setup_default_logging()
 
 
 @pytest.fixture

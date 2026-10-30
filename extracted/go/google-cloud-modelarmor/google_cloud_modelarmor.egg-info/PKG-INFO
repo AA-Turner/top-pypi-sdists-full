@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-modelarmor
-Version: 0.7.3
+Version: 0.7.4
 Summary: Google Cloud Modelarmor API client library
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-modelarmor
 Author: Google LLC

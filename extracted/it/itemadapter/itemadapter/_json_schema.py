@@ -4,11 +4,14 @@ import ast
 import dataclasses
 import inspect
 import operator
-from collections.abc import Iterator, Mapping, Sequence
+import re
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from collections.abc import Set as AbstractSet
 from copy import copy
 from enum import Enum
+from functools import lru_cache
 from textwrap import dedent
+from types import MappingProxyType, UnionType
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -20,11 +23,11 @@ from typing import (
     runtime_checkable,
 )
 
-from ._imports import PydanticUndefined, PydanticV1Undefined, attr
-from .utils import _is_pydantic_model
+from ._imports import PydanticUndefined, _get_type_hints, attrs
+from ._utils import _split_typed_dict_hint
 
 if TYPE_CHECKING:
-    from types import MappingProxyType
+    from attrs import Attribute
 
     from .adapter import AdapterInterface, ItemAdapter
 
@@ -53,21 +56,23 @@ class _JsonSchemaState:
     recursion."""
 
 
-def dedupe_types(types: Sequence[type]) -> list[type]:
+def dedupe_types(types: Sequence[Any]) -> list[Any]:
     seen = set()
     result = []
+    # JSON Schema's number type includes integers, but not the other way around.
+    numeric_type = float if float in types else int
     for t in types:
-        key = float if t in (int, float) else t
+        key = numeric_type if t in (int, float) else t
         if key not in seen:
             seen.add(key)
-            result.append(t)
+            result.append(key)
     return result
 
 
 def update_prop_from_union(prop: dict[str, Any], prop_type: Any, state: _JsonSchemaState) -> None:
     prop_types = dedupe_types(get_args(prop_type))
     simple_types = [v for k, v in SIMPLE_TYPES.items() if k in prop_types]
-    complex_types = sorted([t for t in prop_types if t not in SIMPLE_TYPES])  # type: ignore[type-var]
+    complex_types = [t for t in prop_types if t not in SIMPLE_TYPES]
     if not complex_types:
         prop.setdefault("type", simple_types)
         return
@@ -75,7 +80,8 @@ def update_prop_from_union(prop: dict[str, Any], prop_type: Any, state: _JsonSch
     any_of = prop.setdefault("anyOf", new_any_of)
     if any_of is not new_any_of:
         return
-    any_of.append({"type": simple_types if len(simple_types) > 1 else simple_types[0]})
+    if simple_types:
+        any_of.append({"type": simple_types if len(simple_types) > 1 else simple_types[0]})
     for complex_type in complex_types:
         complex_prop: dict[str, Any] = {}
         update_prop_from_type(complex_prop, complex_type, state)
@@ -86,7 +92,7 @@ def update_prop_from_union(prop: dict[str, Any], prop_type: Any, state: _JsonSch
 class ArrayProtocol(Protocol):
     def __iter__(self) -> Iterator[Any]: ...
     def __len__(self) -> int: ...
-    def __contains__(self, item: Any) -> bool: ...
+    def __contains__(self, item: object) -> bool: ...
 
 
 @runtime_checkable
@@ -94,40 +100,208 @@ class ObjectProtocol(Protocol):  # noqa: PLW1641
     def __getitem__(self, key: str) -> Any: ...
     def __iter__(self) -> Iterator[str]: ...
     def __len__(self) -> int: ...
-    def __contains__(self, key: str) -> bool: ...
-    def keys(self): ...
-    def items(self): ...
-    def values(self): ...
-    def get(self, key: str, default: Any = ...): ...
-    def __eq__(self, other): ...
-    def __ne__(self, other): ...
+    def __contains__(self, key: object) -> bool: ...
+    def keys(self) -> Iterable[str]: ...
+    def items(self) -> Iterable[tuple[str, Any]]: ...
+    def values(self) -> Iterable[Any]: ...
+    def get(self, key: str, default: Any = ...) -> Any: ...
+    def __eq__(self, other: object) -> bool: ...
+    def __ne__(self, other: object) -> bool: ...
 
 
-INVALID_PATTERN_SUBSTRINGS = [
-    "(?P<",  # named groups
-    "(?<=",  # lookbehind
-    "(?<!",  # negative lookbehind
-    "(?>",  # atomic group
-    "\\A",  # start of string
-    "\\Z",  # end of string
-    "(?i)",  # inline flags (case-insensitive, etc.)
-    "(?m)",  # multiline
-    "(?s)",  # dotall
-    "(?x)",  # verbose
-    "(?#",  # comments
-]
+# Flags that change the meaning of a pattern in a way that cannot be
+# expressed in JSON Schema, where patterns are always flagless. re.ASCII is
+# not one of them: it brings Python semantics closer to JSON Schema ones.
+INVALID_PATTERN_FLAGS = re.IGNORECASE | re.MULTILINE
+
+INLINE_FLAGS = {
+    "a": re.ASCII,
+    "i": re.IGNORECASE,
+    "L": re.LOCALE,
+    "m": re.MULTILINE,
+    "s": re.DOTALL,
+    "u": re.UNICODE,
+    "x": re.VERBOSE,
+}
+
+# Python only allows global inline flags at the start of a pattern.
+LEADING_INLINE_FLAGS = re.compile(r"\(\?([aiLmsux]+)\)")
+
+# Whitespace that re.VERBOSE ignores.
+VERBOSE_WHITESPACE = frozenset(" \t\n\r\v\f")
+
+# Escape sequences that have the same meaning in Python and in ECMA-262. \b
+# and \B are included even though Python matches word boundaries against
+# Unicode word characters, while ECMA-262 only matches them against ASCII
+# ones.
+SHARED_ESCAPE_LETTERS = frozenset("bdDfnrstvwSW")
+
+# Escape sequences with an ECMA-262 equivalent. ECMA-262 patterns are never
+# multiline, so ^ and $ can only match at the start and at the end of the
+# string, like \A and \Z do in Python.
+CONVERTED_ESCAPES = {"A": "^", "Z": "$"}
+
+# Escape sequences made of a letter and a fixed number of hexadecimal digits.
+HEX_ESCAPE_SIZES = {"x": 2, "u": 4}
+
+HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
+
+DIGITS = frozenset("0123456789")
+
+# Groups that have the same meaning in Python and in ECMA-262.
+SHARED_GROUP_PREFIXES = ("(?:", "(?=", "(?!", "(?<=", "(?<!")
 
 
-def is_valid_pattern(pattern: str) -> bool:
-    # https://ecma-international.org/publications-and-standards/standards/ecma-262/
-    #
-    # Note: We allow word boundaries (\b, \B) in patterns even thought there is
-    # a difference in behavior: in Python, they work with Unicode; in JSON
-    # Schema, they only work with ASCII.
-    return not any(sub in pattern for sub in INVALID_PATTERN_SUBSTRINGS)
+def scan_escape(pattern: str, index: int, *, in_class: bool) -> tuple[int, str] | None:
+    """Return the ECMA-262 translation of the escape sequence that starts at
+    *index*, along with the index right after it, or ``None`` if that sequence
+    has no ECMA-262 equivalent."""
+    char = pattern[index + 1 : index + 2]
+    if not char:
+        return None
+    if char in HEX_ESCAPE_SIZES:
+        end = index + 2 + HEX_ESCAPE_SIZES[char]
+        digits = pattern[index + 2 : end]
+        if len(digits) != HEX_ESCAPE_SIZES[char] or not HEX_DIGITS.issuperset(digits):
+            return None
+        return end, pattern[index:end]
+    if char in SHARED_ESCAPE_LETTERS or (char == "B" and not in_class):
+        return index + 2, pattern[index : index + 2]
+    if char in CONVERTED_ESCAPES and not in_class:
+        return index + 2, CONVERTED_ESCAPES[char]
+    if char in DIGITS:
+        # Backreferences have the same meaning, but \0 and multi-digit escapes
+        # may be octal escapes instead, which the 2 dialects number
+        # differently.
+        if in_class or char == "0" or pattern[index + 2 : index + 3] in DIGITS:
+            return None
+        return index + 2, pattern[index : index + 2]
+    if char.isalnum():
+        return None
+    return index + 2, pattern[index : index + 2]
 
 
-def array_type(type_hint):
+def scan_class(pattern: str, index: int) -> tuple[int, str] | None:
+    """Return the ECMA-262 translation of the character class that starts at
+    *index*, along with the index right after it, or ``None`` if that class
+    has no ECMA-262 equivalent."""
+    start = index
+    index += 1
+    if pattern[index : index + 1] == "^":
+        index += 1
+    if pattern[index : index + 1] == "]":
+        # Python reads a leading ] as a literal, ECMA-262 as the end of an
+        # empty class.
+        return None
+    while index < len(pattern):
+        char = pattern[index]
+        if char == "]":
+            return index + 1, pattern[start : index + 1]
+        if char == "\\":
+            # Escape sequences are never translated within a character class,
+            # so the class can be copied verbatim.
+            escape = scan_escape(pattern, index, in_class=True)
+            if escape is None:
+                return None
+            index = escape[0]
+            continue
+        index += 1
+    return None
+
+
+def scan_group(pattern: str, index: int) -> tuple[int, str] | None:
+    """Return the ECMA-262 translation of the opening parenthesis of the group
+    that starts at *index*, along with the index right after it, or ``None``
+    if that group has no ECMA-262 equivalent."""
+    if pattern[index + 1 : index + 2] != "?":
+        return index + 1, "("
+    if pattern.startswith("(?#", index):
+        end = pattern.find(")", index)
+        return None if end == -1 else (end + 1, "")
+    if pattern.startswith("(?P<", index):
+        # ECMA-262 group names follow different rules, and JSON Schema never
+        # reads captured groups, so the group is left unnamed. It stays a
+        # capturing group to keep numbered backreferences working.
+        end = pattern.find(">", index)
+        return None if end == -1 else (end + 1, "(")
+    for prefix in SHARED_GROUP_PREFIXES:
+        if pattern.startswith(prefix, index):
+            return index + len(prefix), prefix
+    return None
+
+
+def scan_braces(pattern: str, index: int, *, verbose: bool) -> tuple[int, str] | None:
+    """Return the ECMA-262 translation of the quantifier or literal brace that
+    starts at *index*, along with the index right after it, or ``None`` if it
+    has no ECMA-262 equivalent."""
+    end = pattern.find("}", index)
+    if end == -1:
+        return index + 1, "{"
+    if pattern[end + 1 : end + 2] == "+":
+        return None  # possessive quantifier
+    if verbose and not VERBOSE_WHITESPACE.isdisjoint(pattern[index:end]):
+        # Python drops the whitespace and reads the result as a literal,
+        # ECMA-262 reads it as a quantifier.
+        return None
+    return end + 1, pattern[index : end + 1]
+
+
+def translate_pattern(pattern: str, flags: int) -> str | None:
+    """Return *pattern*, a Python regular expression with *flags*, as an
+    ECMA-262 one, the regular expression dialect of JSON Schema patterns, or
+    ``None`` if it has no ECMA-262 equivalent.
+
+    See https://ecma-international.org/publications-and-standards/standards/ecma-262/
+    """
+    verbose = bool(flags & re.VERBOSE)
+    output = []
+    index = 0
+    while index < len(pattern):
+        char = pattern[index]
+        if char == "\\":
+            result = scan_escape(pattern, index, in_class=False)
+        elif char == "[":
+            result = scan_class(pattern, index)
+        elif char == "(":
+            result = scan_group(pattern, index)
+        elif char == "{":
+            result = scan_braces(pattern, index, verbose=verbose)
+        elif char in "*+?" and pattern[index + 1 : index + 2] == "+":
+            return None  # possessive quantifier
+        elif verbose and char in VERBOSE_WHITESPACE:
+            result = (index + 1, "")
+        elif verbose and char == "#":
+            end = pattern.find("\n", index)
+            result = (len(pattern) if end == -1 else end + 1, "")
+        elif char == "." and flags & re.DOTALL:
+            result = (index + 1, r"[\s\S]")
+        else:
+            result = (index + 1, char)
+        if result is None:
+            return None
+        index, text = result
+        output.append(text)
+    return "".join(output)
+
+
+def json_schema_pattern(pattern: str | re.Pattern[str]) -> str | None:
+    """Return *pattern* as a JSON Schema pattern, or ``None`` if it cannot be
+    expressed as one."""
+    flags = 0
+    if isinstance(pattern, re.Pattern):
+        flags = pattern.flags
+        pattern = pattern.pattern
+    match = LEADING_INLINE_FLAGS.match(pattern)
+    if match:
+        for letter in match[1]:
+            flags |= INLINE_FLAGS[letter]
+        pattern = pattern[match.end() :]
+    if flags & INVALID_PATTERN_FLAGS:
+        return None
+    return translate_pattern(pattern, flags)
+
+
+def array_type(type_hint: Any) -> Any:
     """Given the type hint of a Python type that maps to a JSON Schema array,
     such as a list, a tuple or a set, return the type of the items in that
     array."""
@@ -139,20 +313,25 @@ def array_type(type_hint):
     unique_args = set(args)
     if len(unique_args) == 1:
         return next(iter(unique_args))
-    return Union[tuple(unique_args)]
+    return Union[tuple(unique_args)]  # noqa: UP007
 
 
-def update_prop_from_pattern(prop: dict[str, Any], pattern: str) -> None:
-    if is_valid_pattern(pattern):
-        prop.setdefault("pattern", pattern)
+# JSON Schema patterns are unanchored, i.e. they behave like re.search(), so
+# patterns meant for re.match() or re.fullmatch() need explicit anchors.
+MATCH_FUNC_ANCHORS = {
+    "search": ("", ""),
+    "match": ("^(?:", ")"),
+    "fullmatch": ("^(?:", ")$"),
+}
 
 
-try:
-    from types import UnionType
-except ImportError:  # Python < 3.10
-    UNION_TYPES: set[Any] = {Union}
-else:
-    UNION_TYPES = {Union, UnionType}
+def update_prop_from_pattern(prop: dict[str, Any], pattern: str | re.Pattern[str]) -> None:
+    json_schema_value = json_schema_pattern(pattern)
+    if json_schema_value is not None:
+        prop.setdefault("pattern", json_schema_value)
+
+
+UNION_TYPES = {Union, UnionType}
 
 
 def update_prop_from_origin(
@@ -204,7 +383,7 @@ def update_prop_from_type(prop: dict[str, Any], prop_type: Any, state: _JsonSche
         if issubclass(prop_type, Enum):
             values = [item.value for item in prop_type]
             value_types = tuple({type(v) for v in values})
-            prop_type = value_types[0] if len(value_types) == 1 else Union[value_types]
+            prop_type = value_types[0] if len(value_types) == 1 else Union[value_types]  # noqa: UP007
             update_prop_from_type(prop, prop_type, state)
             prop.setdefault("enum", values)
             return
@@ -237,7 +416,7 @@ def _setdefault_attribute_types_on_json_schema(
         update_prop_from_type(prop, prop_type, state)
 
 
-def iter_docstrings(item_class: type, attr_names: AbstractSet[str]) -> Iterator[tuple[str, str]]:
+def iter_docstrings(item_class: type) -> Iterator[tuple[str, str]]:
     try:
         source = inspect.getsource(item_class)
     except (OSError, TypeError):
@@ -260,8 +439,6 @@ def iter_docstrings(item_class: type, attr_names: AbstractSet[str]) -> Iterator[
             attr_name = child.target.id
         else:
             continue
-        if attr_name not in attr_names:
-            continue
         next_idx = class_node.body.index(child) + 1
         if next_idx >= len(class_node.body):
             continue
@@ -274,13 +451,23 @@ def iter_docstrings(item_class: type, attr_names: AbstractSet[str]) -> Iterator[
             yield attr_name, next_node.value.value
 
 
+@lru_cache(maxsize=1024)
+def get_attr_docstrings(item_class: type) -> Mapping[str, str]:
+    """Return the docstrings of the attributes defined in the source of the
+    given class, by attribute name."""
+    docstrings: dict[str, str] = {}
+    for attr_name, doc in iter_docstrings(item_class):
+        docstrings.setdefault(attr_name, doc)
+    return MappingProxyType(docstrings)
+
+
 def get_inherited_attr_docstring(item_class: type, attr_name: str) -> str | None:
     """Recursively search the MRO for a docstring for the given attribute
     name."""
     for cls in item_class.__mro__:
-        for name, doc in iter_docstrings(cls, {attr_name}):
-            if name == attr_name:
-                return doc
+        docstrings = get_attr_docstrings(cls)
+        if attr_name in docstrings:
+            return docstrings[attr_name]
     return None
 
 
@@ -352,13 +539,11 @@ def update_required_fields(
 
 def _json_schema_from_attrs(item_class: type, state: _JsonSchemaState) -> dict[str, Any]:
     schema = base_json_schema_from_item_class(item_class)
-    fields = attr.fields(item_class)
+    fields = attrs.fields(item_class)
     if not fields:
         return schema
 
-    from attr import resolve_types
-
-    resolve_types(item_class)  # Ensure field.type annotations are resolved
+    attrs.resolve_types(item_class)  # Ensure field.type annotations are resolved
 
     schema["properties"] = {
         field.name: copy(field.metadata.get("json_schema_extra", {})) for field in fields
@@ -374,14 +559,14 @@ def _json_schema_from_attrs(item_class: type, state: _JsonSchemaState) -> dict[s
 
 def _update_attrs_prop(
     prop: dict[str, Any],
-    field: attr.Attribute,
+    field: Attribute[Any],
     state: _JsonSchemaState,
     default_factory_fields: set[str],
 ) -> None:
     update_prop_from_type(prop, field.type, state)
-    if isinstance(field.default, attr.Factory):
+    if isinstance(field.default, attrs.Factory):
         default_factory_fields.add(field.name)
-    elif field.default is not attr.NOTHING:
+    elif field.default is not attrs.NOTHING:
         prop.setdefault("default", field.default)
     _update_attrs_prop_validation(prop, field)
 
@@ -396,12 +581,12 @@ ATTRS_NUMBER_VALIDATORS = {
 
 def _update_attrs_prop_validation(
     prop: dict[str, Any],
-    field: attr.Attribute,
+    field: Attribute[Any],
 ) -> None:
     if not field.validator:
         return
     if type(field.validator).__name__ == "_AndValidator":
-        validators = field.validator._validators
+        validators = field.validator._validators  # type: ignore[attr-defined]
     else:
         validators = [field.validator]
     for validator in validators:
@@ -420,8 +605,34 @@ def _update_attrs_prop_validation(
             key = "maxLength" if field.type is str else "maxItems"
             prop.setdefault(key, validator.max_length)
         elif validator_type_name == "_MatchesReValidator":
-            pattern_obj = getattr(validator, "pattern", None) or validator.regex
-            update_prop_from_pattern(prop, pattern_obj.pattern)
+            pattern = json_schema_pattern(validator.pattern)
+            if pattern is not None:
+                prefix, suffix = MATCH_FUNC_ANCHORS[validator.match_func.__name__]
+                prop.setdefault("pattern", f"{prefix}{pattern}{suffix}")
+
+
+def _json_schema_from_typed_dict(item_class: type, state: _JsonSchemaState) -> dict[str, Any]:
+    schema = base_json_schema_from_item_class(item_class)
+    type_hints = _get_type_hints(item_class)
+    if not type_hints:
+        return schema
+    extra_type_hints = _get_type_hints(item_class, include_extras=True)
+    schema["properties"] = {}
+    required = []
+    required_keys = item_class.__required_keys__  # type: ignore[attr-defined]
+    for field_name, field_type in type_hints.items():
+        field_metadata, field_required = _split_typed_dict_hint(extra_type_hints[field_name])
+        prop = copy(field_metadata.get("json_schema_extra", {}))
+        update_prop_from_type(prop, field_type, state)
+        schema["properties"][field_name] = prop
+        if field_required is None:
+            field_required = field_name in required_keys
+        if field_required:
+            required.append(field_name)
+    if required:
+        schema.setdefault("required", required)
+    _setdefault_attribute_docstrings_on_json_schema(schema, item_class)
+    return schema
 
 
 def _json_schema_from_dataclass(item_class: type, state: _JsonSchemaState) -> dict[str, Any]:
@@ -435,9 +646,7 @@ def _json_schema_from_dataclass(item_class: type, state: _JsonSchemaState) -> di
         }
         for field in fields:
             prop = schema["properties"][field.name]
-            field_type = resolved_field_types.get(field.name)
-            if field_type is not None:
-                update_prop_from_type(prop, field_type, state)
+            update_prop_from_type(prop, resolved_field_types.get(field.name), state)
             if field.default_factory is not dataclasses.MISSING:
                 default_factory_fields.add(field.name)
             elif field.default is not dataclasses.MISSING:
@@ -451,9 +660,7 @@ def _json_schema_from_pydantic(
     adapter: type[AdapterInterface], item_class: type, state: _JsonSchemaState | None = None
 ) -> dict[str, Any]:
     state = state or _JsonSchemaState(adapter=adapter, containers={item_class})
-    if not _is_pydantic_model(item_class):
-        return _json_schema_from_pydantic_v1(adapter, item_class, state)
-    schema = copy(
+    schema: dict[str, Any] = copy(
         item_class.model_config.get("json_schema_extra", {})  # type: ignore[attr-defined]
     )
     extra = item_class.model_config.get("extra")  # type: ignore[attr-defined]
@@ -481,14 +688,12 @@ def _json_schema_from_pydantic(
 def _update_pydantic_prop(
     prop: dict[str, Any],
     name: str,
-    metadata: MappingProxyType,
+    metadata: Mapping[str, Any],
     _state: _JsonSchemaState,
     default_factory_fields: set[str],
 ) -> None:
-    if "annotation" in metadata:
-        field_type = metadata["annotation"]
-        if field_type is not None:
-            update_prop_from_type(prop, field_type, _state)
+    field_type = metadata.get("annotation")
+    update_prop_from_type(prop, field_type, _state)
     if "default_factory" in metadata:
         default_factory_fields.add(name)
     elif "default" in metadata and metadata["default"] is not PydanticUndefined:
@@ -509,7 +714,7 @@ def _update_pydantic_prop(
 def _update_pydantic_prop_validation(
     prop: dict[str, Any],
     metadata: Sequence[Any],
-    field_type: type,
+    field_type: object,
 ) -> None:
     for metadata_item in metadata:
         metadata_item_type = type(metadata_item).__name__
@@ -532,78 +737,3 @@ def _update_pydantic_prop_validation(
             ):
                 if metadata_item_type == metadata_key.capitalize():
                     prop.setdefault(json_schema_field, getattr(metadata_item, metadata_key))
-
-
-def _json_schema_from_pydantic_v1(
-    adapter: type[AdapterInterface], item_class: type, state: _JsonSchemaState
-) -> dict[str, Any]:
-    schema = copy(
-        getattr(item_class.Config, "schema_extra", {})  # type: ignore[attr-defined]
-    )
-    extra = getattr(item_class.Config, "extra", None)  # type: ignore[attr-defined]
-    schema.setdefault("type", "object")
-    if extra == "forbid":
-        schema.setdefault("additionalProperties", False)
-    fields = {
-        name: adapter.get_field_meta_from_class(item_class, name)
-        for name in adapter.get_field_names_from_class(item_class) or ()
-    }
-    if not fields:
-        return schema
-    schema["properties"] = {
-        name: copy(metadata.get("json_schema_extra", {})) for name, metadata in fields.items()
-    }
-    default_factory_fields: set[str] = set()
-    field_type_hints = get_type_hints(item_class)
-    for name, metadata in fields.items():
-        prop = schema["properties"][name]
-        _update_pydantic_v1_prop(
-            prop, name, metadata, field_type_hints, default_factory_fields, state
-        )
-    update_required_fields(schema, default_factory_fields)
-    _setdefault_attribute_docstrings_on_json_schema(schema, item_class)
-    return schema
-
-
-def _update_pydantic_v1_prop(  # pylint: disable=too-many-positional-arguments,too-many-arguments
-    prop: dict[str, Any],
-    name: str,
-    metadata: Mapping[str, Any],
-    field_type_hints: dict[str, Any],
-    default_factory_fields: set[str],
-    state: _JsonSchemaState,
-) -> None:
-    field_type = field_type_hints[name]
-    if field_type is not None:
-        update_prop_from_type(prop, field_type, state)
-    if "default_factory" in metadata:
-        default_factory_fields.add(name)
-    elif "default" in metadata and metadata["default"] not in (
-        Ellipsis,
-        PydanticV1Undefined,
-    ):
-        prop.setdefault("default", metadata["default"])
-    for metadata_key, json_schema_field in (
-        ("title", "title"),
-        ("description", "description"),
-        ("examples", "examples"),
-        ("ge", "minimum"),
-        ("gt", "exclusiveMinimum"),
-        ("le", "maximum"),
-        ("lt", "exclusiveMaximum"),
-    ):
-        if metadata_key in metadata:
-            prop.setdefault(json_schema_field, metadata[metadata_key])
-    for prefix in ("min", "max"):
-        if f"{prefix}_length" in metadata:
-            key = f"{prefix}Length" if field_type is str else f"{prefix}Items"
-            prop.setdefault(key, metadata[f"{prefix}_length"])
-        elif f"{prefix}_items" in metadata:
-            prop.setdefault(f"{prefix}Items", metadata[f"{prefix}_items"])
-    for metadata_key in ("pattern", "regex"):
-        if metadata_key in metadata:
-            pattern = metadata[metadata_key]
-            update_prop_from_pattern(prop, pattern)
-            break
-    if "deprecated" in metadata:
-        prop.setdefault("deprecated", bool(metadata["deprecated"]))

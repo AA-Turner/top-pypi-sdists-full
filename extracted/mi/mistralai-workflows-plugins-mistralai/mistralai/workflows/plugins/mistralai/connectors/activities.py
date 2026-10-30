@@ -18,6 +18,7 @@ import temporalio.activity
 from mistralai.client import Mistral
 from mistralai.client.models import CredentialsResponse, PublicAuthenticationMethod
 from mistralai.workflows.client import get_mistral_client
+from mistralai.workflows.core._events.event_failure import event_failure_message
 from mistralai.workflows.core.activity import activity
 from mistralai.workflows.plugins.mistralai.connectors.exceptions import ConnectorToolCallError
 from mistralai.workflows.plugins.mistralai.connectors.mcp_apps import (
@@ -28,12 +29,12 @@ from mistralai.workflows.plugins.mistralai.connectors.mcp_apps import (
 from mistralai.workflows.plugins.mistralai.connectors.models import (
     ResolvedConnector,
 )
-from mistralai.workflows.plugins.mistralai.connectors.run_as import ConnectorRunAs
+from mistralai.workflows.plugins.mistralai.connectors.run_as import RunAs
 
 logger = structlog.get_logger(__name__)
 
 
-def _build_connector_client(run_as: ConnectorRunAs = ConnectorRunAs.AUTO) -> Mistral:
+def _build_connector_client(run_as: RunAs = RunAs.AUTO) -> Mistral:
     return get_mistral_client(run_as=run_as)
 
 
@@ -44,7 +45,7 @@ def _build_connector_client(run_as: ConnectorRunAs = ConnectorRunAs.AUTO) -> Mis
 )
 async def connector_resolve(
     connector_id_or_name: str,
-    run_as: ConnectorRunAs = ConnectorRunAs.AUTO,
+    run_as: RunAs = RunAs.AUTO,
 ) -> ResolvedConnector:
     """Resolve a connector by name or ID via the Mistral SDK."""
     client = _build_connector_client(run_as)
@@ -71,7 +72,7 @@ async def connector_resolve(
     _allow_reserved_name=True,
 )
 async def connector_get_auth_url(
-    connector_id_or_name: str, credentials_name: str | None = None, run_as: ConnectorRunAs = ConnectorRunAs.AUTO
+    connector_id_or_name: str, credentials_name: str | None = None, run_as: RunAs = RunAs.AUTO
 ) -> str:
     """Get the OAuth authorization URL for a connector."""
     client = _build_connector_client(run_as)
@@ -98,7 +99,7 @@ async def connector_tool_call(
     arguments: dict[str, Any] | None = None,
     credentials_name: str | None = None,
     mcp_ui_resource_uri: str | None = None,
-    run_as: ConnectorRunAs = ConnectorRunAs.AUTO,
+    run_as: RunAs = RunAs.AUTO,
 ) -> Any:
     """Call a tool on a connector via the Mistral SDK."""
     client = _build_connector_client(run_as)
@@ -129,7 +130,7 @@ async def connector_tool_call(
     try:
         result = await client.beta.connectors.call_tool_async(**call_kwargs)
     except Exception as e:
-        fail_mcp_app_call_events(mcp_app_events, message=str(e))
+        fail_mcp_app_call_events(mcp_app_events, message=event_failure_message(e))
         raise
 
     metadata = result.metadata
@@ -164,7 +165,7 @@ async def connector_tool_call(
 async def connector_list_tools(
     connector_id_or_name: str,
     credentials_name: str | None = None,
-    run_as: ConnectorRunAs = ConnectorRunAs.AUTO,
+    run_as: RunAs = RunAs.AUTO,
 ) -> bool:
     """Check if a connector's credentials are still valid by listing its tools.
 
@@ -199,7 +200,7 @@ async def connector_list_tools(
 )
 async def connector_get_auth_methods(
     connector_id_or_name: str,
-    run_as: ConnectorRunAs = ConnectorRunAs.AUTO,
+    run_as: RunAs = RunAs.AUTO,
 ) -> list[PublicAuthenticationMethod]:
     """Get the supported authentication methods for a connector.
 
@@ -225,7 +226,7 @@ async def connector_get_auth_methods(
 )
 async def connector_list_user_credentials(
     connector_id_or_name: str,
-    run_as: ConnectorRunAs = ConnectorRunAs.AUTO,
+    run_as: RunAs = RunAs.AUTO,
 ) -> CredentialsResponse:
     """List the current user's credentials for a connector.
 
@@ -255,7 +256,7 @@ _POLL_TIMEOUT_SECONDS = 600
     _allow_reserved_name=True,
 )
 async def connector_wait_for_credentials(
-    connector_id: str, credentials_name: str | None = None, run_as: ConnectorRunAs = ConnectorRunAs.AUTO
+    connector_id: str, credentials_name: str | None = None, run_as: RunAs = RunAs.AUTO
 ) -> bool:
     """Poll the credentials API until *usable* user credentials appear.
 

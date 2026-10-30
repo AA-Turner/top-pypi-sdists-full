@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-bouncer
-Version: 4.4.0
+Version: 4.5.0
 Summary: Configure and enforce conventions for your dbt project.
 Author-email: Padraic Slattery <pgoslatara@gmail.com>
 Maintainer-email: Padraic Slattery <pgoslatara@gmail.com>

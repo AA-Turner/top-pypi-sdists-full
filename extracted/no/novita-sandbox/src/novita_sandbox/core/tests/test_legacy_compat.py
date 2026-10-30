@@ -2,7 +2,14 @@ from datetime import datetime, timezone
 
 import pytest
 
-from novita_sandbox.core import AsyncSandbox, AsyncTemplate, Sandbox, Template, Volume
+from novita_sandbox.core import (
+    AsyncSandbox,
+    AsyncTemplate,
+    Sandbox,
+    SandboxException,
+    Template,
+    Volume,
+)
 from novita_sandbox.core.compat import should_use_legacy, resolve_domain
 from novita_sandbox.core.sandbox_async import sandbox_api as sandbox_async_api
 from novita_sandbox.core.sandbox_async import paginator as sandbox_async_paginator
@@ -312,7 +319,9 @@ def test_sandbox_create_modern_default_secure_true_is_preserved(monkeypatch):
     ("kwargs", "message"),
     [
         ({"mcp": {"server": {"run_cmd": "server"}}}, "mcp"),
-        ({"network": {"allow_out": ["1.1.1.1"]}}, "network"),
+        # network is deliberately absent here: legacy domains still expose the
+        # allowPublicTraffic switch, so it is only partially unsupported.
+        # See test_sandbox_create_legacy_network_rejects_unsupported_options.
         ({"volume_mounts": {"/mnt": "volume-name"}}, "volume_mounts"),
     ],
 )
@@ -322,6 +331,34 @@ def test_sandbox_create_raises_for_legacy_2026_only_options(kwargs, message):
             domain="sandbox.novita.ai",
             api_key="test-api-key",
             **kwargs,
+        )
+
+
+@pytest.mark.parametrize(
+    ("network", "unsupported"),
+    [
+        ({"allow_out": ["1.1.1.1"]}, "allow_out"),
+        ({"deny_out": ["1.1.1.1"]}, "deny_out"),
+        ({"mask_request_host": "${PORT}-example.com"}, "mask_request_host"),
+        ({"allow_public_traffic": False, "allow_out": ["1.1.1.1"]}, "allow_out"),
+    ],
+)
+def test_sandbox_create_legacy_network_rejects_unsupported_options(
+    network,
+    unsupported,
+):
+    """Legacy create rejects network options other than allow_public_traffic.
+
+    allow_public_traffic keeps working on legacy domains (see
+    test_sandbox_api_create_sandbox_legacy_allows_public_traffic); every other
+    network sub-option raises SandboxException naming the offending option,
+    mirroring the SandboxError sdk-js raises for the same input.
+    """
+    with pytest.raises(SandboxException, match=f"unsupported options: {unsupported}"):
+        Sandbox.create(
+            domain="sandbox.novita.ai",
+            api_key="test-api-key",
+            network=network,
         )
 
 
@@ -450,6 +487,40 @@ def test_sandbox_api_create_sandbox_legacy_allows_lifecycle(monkeypatch):
     assert sandbox.sandbox_id == "sandbox-id"
     assert "lifecycle" not in calls[0][1]["json"]
     assert calls[0][1]["json"]["secure"] is False
+
+
+def test_sandbox_api_create_sandbox_legacy_allows_public_traffic(monkeypatch):
+    calls = []
+
+    class Response:
+        status_code = 200
+        content = b""
+
+        @staticmethod
+        def json():
+            return _sandbox_create_json()
+
+    class HttpxClient:
+        @staticmethod
+        def post(*args, **kwargs):
+            calls.append((args, kwargs))
+            return Response()
+
+    class ApiClient:
+        @staticmethod
+        def get_httpx_client():
+            return HttpxClient()
+
+    monkeypatch.setattr(sandbox_sync_api, "get_api_client", lambda *args, **kwargs: ApiClient())
+
+    sandbox_sync_api.SandboxApi._create_sandbox(
+        template="base", timeout=300, auto_pause=False,
+        allow_internet_access=True, metadata=None, env_vars=None, secure=False,
+        network={"allow_public_traffic": False}, domain="sandbox.novita.ai",
+        api_key="test-api-key",
+    )
+
+    assert calls[0][1]["json"]["network"] == {"allowPublicTraffic": False}
 
 
 def test_sandbox_create_snapshot_rejects_legacy_domain(monkeypatch):
@@ -819,7 +890,8 @@ async def test_async_sandbox_create_modern_default_secure_true_is_preserved(
     ("kwargs", "message"),
     [
         ({"mcp": {"server": {"run_cmd": "server"}}}, "mcp"),
-        ({"network": {"allow_out": ["1.1.1.1"]}}, "network"),
+        # network is covered by the dedicated test below, since legacy domains
+        # keep the allowPublicTraffic switch.
         ({"volume_mounts": {"/mnt": "volume-name"}}, "volume_mounts"),
     ],
 )
@@ -832,6 +904,28 @@ async def test_async_sandbox_create_raises_for_legacy_2026_only_options(
             domain="sandbox.novita.ai",
             api_key="test-api-key",
             **kwargs,
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("network", "unsupported"),
+    [
+        ({"allow_out": ["1.1.1.1"]}, "allow_out"),
+        ({"deny_out": ["1.1.1.1"]}, "deny_out"),
+        ({"mask_request_host": "${PORT}-example.com"}, "mask_request_host"),
+        ({"allow_public_traffic": False, "allow_out": ["1.1.1.1"]}, "allow_out"),
+    ],
+)
+async def test_async_sandbox_create_legacy_network_rejects_unsupported_options(
+    network,
+    unsupported,
+):
+    with pytest.raises(SandboxException, match=f"unsupported options: {unsupported}"):
+        await AsyncSandbox.create(
+            domain="sandbox.novita.ai",
+            api_key="test-api-key",
+            network=network,
         )
 
 

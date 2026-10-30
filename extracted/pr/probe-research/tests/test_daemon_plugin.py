@@ -267,7 +267,7 @@ def test_the_update_nudge_reaches_the_researcher_only(hook, monkeypatch, capsys)
 
 def test_stuck_writes_go_to_the_researcher(hook, monkeypatch, capsys):
     monkeypatch.setenv(hook.PROFILE_ENV, hook.PROFILE_DAEMON)
-    monkeypatch.setattr(hook, "_outbox_dead_letters", lambda: 3)
+    monkeypatch.setattr(hook, "_untold_dead_letters", lambda *_: 3)
     out = _emitted(capsys, lambda: hook._final({"continue": True}))
     assert "hookSpecificOutput" not in out
     assert out["systemMessage"] == "Probe: 3 writes stuck in the outbox. Run `probe doctor`."

@@ -162,6 +162,8 @@ def _init_tracing_from_env(
     monkeypatch.setattr(exporters, "config", fresh_config)
     monkeypatch.setattr(init_tracing, "config", fresh_config)
     monkeypatch.setattr(init_tracing, "HTTPXClientInstrumentor", lambda: MagicMock())
+    if init_tracing._HAS_HTTPX2_INSTRUMENTATION:
+        monkeypatch.setattr(init_tracing, "HTTPX2ClientInstrumentor", lambda: MagicMock())
     if init_tracing._HAS_AIOHTTP_INSTRUMENTATION:
         monkeypatch.setattr(init_tracing, "AioHttpClientInstrumentor", lambda: MagicMock())
 

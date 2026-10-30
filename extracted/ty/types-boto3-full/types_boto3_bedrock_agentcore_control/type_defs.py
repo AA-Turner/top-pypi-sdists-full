@@ -146,6 +146,7 @@ __all__ = (
     "AgentRuntimeTypeDef",
     "AgentRuntimeVersionSummaryTypeDef",
     "AgentSkillsDescriptorTypeDef",
+    "AllowedPortTypeDef",
     "AllowedWorkloadConfigurationOutputTypeDef",
     "AllowedWorkloadConfigurationTypeDef",
     "AllowedWorkloadConfigurationUnionTypeDef",
@@ -883,6 +884,7 @@ __all__ = (
     "PolicyStatementTypeDef",
     "PolicySummaryTypeDef",
     "PolicyTypeDef",
+    "PortRangeTypeDef",
     "PrivateEndpointOutputTypeDef",
     "PrivateEndpointOverrideOutputTypeDef",
     "PrivateEndpointOverrideTypeDef",
@@ -1192,6 +1194,15 @@ class SkillDefinitionTypeDef(TypedDict):
 
 class SkillMdDefinitionTypeDef(TypedDict):
     inlineContent: NotRequired[str]
+
+
+PortRangeTypeDef = TypedDict(
+    "PortRangeTypeDef",
+    {
+        "from": int,
+        "to": int,
+    },
+)
 
 
 class HostingEnvironmentTypeDef(TypedDict):
@@ -1507,6 +1518,8 @@ class LifecycleConfigurationTypeDef(TypedDict):
 
 class ProtocolConfigurationTypeDef(TypedDict):
     serverProtocol: ServerProtocolType
+    port: NotRequired[int]
+    path: NotRequired[str]
 
 
 class WorkloadIdentityDetailsTypeDef(TypedDict):
@@ -3672,6 +3685,11 @@ class AgentSkillsDescriptorTypeDef(TypedDict):
 
 class UpdatedSkillMdDefinitionTypeDef(TypedDict):
     optionalValue: NotRequired[SkillMdDefinitionTypeDef]
+
+
+class AllowedPortTypeDef(TypedDict):
+    port: NotRequired[int]
+    portRange: NotRequired[PortRangeTypeDef]
 
 
 class AllowedWorkloadConfigurationOutputTypeDef(TypedDict):
@@ -6706,6 +6724,7 @@ class GetAgentRuntimeResponseTypeDef(TypedDict):
     filesystemConfigurations: list[FilesystemConfigurationTypeDef]
     capacityProviderConfiguration: CapacityProviderConfigurationTypeDef
     platformVersion: str
+    allowedPorts: list[AllowedPortTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -7426,6 +7445,7 @@ class CreateAgentRuntimeRequestTypeDef(TypedDict):
     capacityProviderConfiguration: NotRequired[CapacityProviderConfigurationTypeDef]
     tags: NotRequired[Mapping[str, str]]
     platformVersion: NotRequired[str]
+    allowedPorts: NotRequired[Sequence[AllowedPortTypeDef]]
 
 
 class CreateGatewayRequestTypeDef(TypedDict):
@@ -7479,6 +7499,7 @@ class UpdateAgentRuntimeRequestTypeDef(TypedDict):
     filesystemConfigurations: NotRequired[Sequence[FilesystemConfigurationTypeDef]]
     capacityProviderConfiguration: NotRequired[CapacityProviderConfigurationTypeDef]
     platformVersion: NotRequired[str]
+    allowedPorts: NotRequired[Sequence[AllowedPortTypeDef]]
     clientToken: NotRequired[str]
 
 

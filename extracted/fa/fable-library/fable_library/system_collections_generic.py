@@ -7,6 +7,7 @@ from .array_ import Array, copy_to, fill, initialize, zero_create
 from .bases import EnumerableBase
 from .core import FSharpRef, int32, op_division_float64, op_remainder_int32
 from .exception_bases import ExceptionBase
+from .fsharp_core import Operators_InvalidOp
 from .global_ import SR_Arg_KeyNotFound
 from .protocols import IEnumerable_1, IEnumerator
 from .reflection import TypeInfo, class_type
@@ -316,7 +317,7 @@ def Queue_1__Enqueue_2B595[T](_: Queue_1[T], value: T) -> None:
 
 def Queue_1__Dequeue[T](_: Queue_1[T]) -> T:
     if _.count == 0:
-        raise Exception("Queue is empty")
+        Operators_InvalidOp("Queue is empty")
 
     value: Any = _.contents[_.head]
     _.head = op_remainder_int32((_.head + 1) if (_.head <= 2147483646) else int32(_.head + 1), Queue_1__size(_))
@@ -326,7 +327,7 @@ def Queue_1__Dequeue[T](_: Queue_1[T]) -> T:
 
 def Queue_1__Peek[T](_: Queue_1[T]) -> T:
     if _.count == 0:
-        raise Exception("Queue is empty")
+        Operators_InvalidOp("Queue is empty")
 
     return _.contents[_.head]
 
@@ -424,23 +425,23 @@ def Queue_1__ensure_Z524259A4[T](this: Queue_1[T], required_size: int) -> None:
 
 
 def Queue_1__toSeq[T](this: Queue_1[T]) -> IEnumerable_1[T]:
-    def _arrow224(__unit: Unit = UNIT, this: Any = this) -> IEnumerable_1[T]:
+    def _arrow226(__unit: Unit = UNIT, this: Any = this) -> IEnumerable_1[T]:
         i: int = 0
 
-        def _arrow221(__unit: Unit = UNIT) -> bool:
+        def _arrow223(__unit: Unit = UNIT) -> bool:
             return i < this.count
 
-        def _arrow223(__unit: Unit = UNIT) -> IEnumerable_1[T]:
-            def _arrow222(__unit: Unit = UNIT) -> IEnumerable_1[T]:
+        def _arrow225(__unit: Unit = UNIT) -> IEnumerable_1[T]:
+            def _arrow224(__unit: Unit = UNIT) -> IEnumerable_1[T]:
                 nonlocal i
                 i = (i + 1) if (i <= 2147483646) else int32(i + 1)
                 return empty()
 
-            return append(singleton(this.contents[Queue_1__toIndex_Z524259A4(this, i)]), delay(_arrow222))
+            return append(singleton(this.contents[Queue_1__toIndex_Z524259A4(this, i)]), delay(_arrow224))
 
-        return enumerate_while(_arrow221, delay(_arrow223))
+        return enumerate_while(_arrow223, delay(_arrow225))
 
-    return delay(_arrow224)
+    return delay(_arrow226)
 
 
 __all__ = [

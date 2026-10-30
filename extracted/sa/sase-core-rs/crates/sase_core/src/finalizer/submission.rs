@@ -1,6 +1,10 @@
 use std::collections::BTreeSet;
 
 use super::digest::{canonical_json_bytes, finalizer_digest_serializable};
+use super::handoff::{
+    dirty_requirement_may_accept_optional_submission,
+    dirty_requirement_may_omit_submission, validate_finalizer_handoff,
+};
 use super::selection::{
     finalizer_plan_digest, validate_digest, validate_instance_id,
     validate_list_len, validate_required_text, validate_schema,
@@ -103,6 +107,9 @@ pub fn validate_finalizer_context(
         }
     }
 
+    // Handoff fields participate in the context digest: verify the digest
+    // before semantic handoff checks so tampered handoff content reports a
+    // digest mismatch instead of being masked by a handoff validity error.
     let digest = finalizer_context_digest(context)?;
     if let Some(expected) = &context.context_digest {
         if expected != &digest {
@@ -111,6 +118,17 @@ pub fn validate_finalizer_context(
             ));
         }
     }
+    if let Some(handoff) = &context.handoff {
+        validate_finalizer_handoff(handoff)?;
+    }
+    for requirement in &context.requirements {
+        if requirement.trigger == FinalizerTriggerKindWire::DirtyRepository
+            && !requirement.submission_required
+        {
+            dirty_requirement_may_omit_submission(context.handoff.as_ref())?;
+        }
+    }
+
     Ok(digest)
 }
 
@@ -158,6 +176,18 @@ pub fn validate_finalizer_submission(
         .filter(|requirement| requirement.submission_required)
         .map(|requirement| requirement.instance_id.as_str())
         .collect::<BTreeSet<_>>();
+    let optional_dirty = context
+        .requirements
+        .iter()
+        .filter(|requirement| {
+            requirement.trigger == FinalizerTriggerKindWire::DirtyRepository
+                && !requirement.submission_required
+                && dirty_requirement_may_accept_optional_submission(
+                    context.handoff.as_ref(),
+                )
+        })
+        .map(|requirement| requirement.instance_id.as_str())
+        .collect::<BTreeSet<_>>();
     let selected = plan
         .entries
         .iter()
@@ -174,7 +204,9 @@ pub fn validate_finalizer_submission(
                 payload.instance_id
             )));
         }
-        if !required.contains(payload.instance_id.as_str()) {
+        if !required.contains(payload.instance_id.as_str())
+            && !optional_dirty.contains(payload.instance_id.as_str())
+        {
             return Err(FinalizerError::validation(format!(
                 "submission payload for instance '{}' was not required by context",
                 payload.instance_id
@@ -290,6 +322,7 @@ mod tests {
             }],
             obligations: Vec::new(),
             assigned_bead: None,
+            handoff: None,
             context_digest: None,
         };
         context.context_digest =
@@ -325,6 +358,33 @@ mod tests {
                 .unwrap();
         assert_eq!(result.accepted_instances, vec!["commit"]);
         assert_eq!(result.submission_digest.len(), 64);
+    }
+
+    #[test]
+    fn accepts_optional_dirty_commit_payload_for_ordinary_carry_handoff() {
+        let plan = plan();
+        let mut context = context(&plan);
+        context.requirements[0].submission_required = false;
+        context.handoff =
+            Some(crate::finalizer::handoff::FinalizerHandoffWire {
+                kind: crate::finalizer::handoff::FinalizerHandoffKindWire::Questions,
+                staged_ref: "123e4567-e89b-12d3-a456-426614174000".to_string(),
+                successor_workspace:
+                    crate::finalizer::handoff::FinalizerHandoffSuccessorWire::Inherit,
+                carry_allowed: true,
+                prepared_intent_ref: None,
+            });
+        context.context_digest =
+            Some(finalizer_context_digest(&context).unwrap());
+
+        let result = validate_finalizer_submission(
+            &plan,
+            &context,
+            &submission(&context),
+        )
+        .unwrap();
+
+        assert_eq!(result.accepted_instances, vec!["commit"]);
     }
 
     #[test]
@@ -377,6 +437,15 @@ mod tests {
 
         let mut unexpected_context = context.clone();
         unexpected_context.requirements[0].submission_required = false;
+        unexpected_context.handoff =
+            Some(crate::finalizer::handoff::FinalizerHandoffWire {
+                kind: crate::finalizer::handoff::FinalizerHandoffKindWire::Monitor,
+                staged_ref: "123e4567-e89b-12d3-a456-426614174000".to_string(),
+                successor_workspace:
+                    crate::finalizer::handoff::FinalizerHandoffSuccessorWire::Inherit,
+                carry_allowed: false,
+                prepared_intent_ref: Some("intent-1".to_string()),
+            });
         unexpected_context.context_digest =
             Some(finalizer_context_digest(&unexpected_context).unwrap());
         let unexpected = submission(&unexpected_context);

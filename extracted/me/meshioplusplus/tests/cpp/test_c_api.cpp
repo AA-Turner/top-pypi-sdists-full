@@ -27,12 +27,14 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 // External includes
@@ -47,6 +49,10 @@
 // Project includes
 #include "meshioplusplus/meshioplusplus.h"
 
+#include "meshioplusplus/formats/cad_json.hpp"
+#include "meshioplusplus/operations/tetrahedralize.hpp"
+
+#include "brep_solids.hpp"
 #include "mesh_fixtures.hpp"
 #include "gmsh_fixtures.hpp"
 #ifdef MESHIOPLUSPLUS_HAS_HDF5
@@ -1641,7 +1647,8 @@ TEST(CApi, NurbsSideChannel) {
         out << "MFEM NURBS mesh v1.0\ndimension\n2\nelements\n1\n5 3 0 1 2 3\nboundary\n0\n"
                "edges\n4\n0 0 1\n0 3 2\n1 0 3\n1 1 2\nvertices\n4\nknotvectors\n2\n"
                "2 3 0 0 0 1 1 1\n1 2 0 0 1 1\nweights\n1\n1\n1\n1\n"
-            << w << "\n" << w
+            << w << "\n"
+            << w
             << "\nFiniteElementSpace\nFiniteElementCollection: NURBS2\nVDim: 2\nOrdering: 1\n"
                "1 0\n0 1\n0 2\n2 0\n1 1\n2 2\n";
     }
@@ -1723,7 +1730,8 @@ TEST(CApi, IgaRefinesAndEvaluatesTheNurbsModel) {
         out << "MFEM NURBS mesh v1.0\ndimension\n2\nelements\n1\n5 3 0 1 2 3\nboundary\n0\n"
                "edges\n4\n0 0 1\n0 3 2\n1 0 3\n1 1 2\nvertices\n4\nknotvectors\n2\n"
                "2 3 0 0 0 1 1 1\n1 2 0 0 1 1\nweights\n1\n1\n1\n1\n"
-            << w << "\n" << w
+            << w << "\n"
+            << w
             << "\nFiniteElementSpace\nFiniteElementCollection: NURBS2\nVDim: 2\nOrdering: 1\n"
                "1 0\n0 1\n0 2\n2 0\n1 1\n2 2\n";
     }
@@ -1758,7 +1766,8 @@ TEST(CApi, IgaRefinesAndEvaluatesTheNurbsModel) {
     EXPECT_EQ(static_cast<const int32_t*>(data)[1], 2);
     // The refined model writes back as an MFEM NURBS mesh through the returned mesh.
     const auto output = mt::temp_path(".mesh");
-    ASSERT_EQ(mio_write_with_info(output.c_str(), fine, "mfem", refined), MIO_OK) << mio_last_error();
+    ASSERT_EQ(mio_write_with_info(output.c_str(), fine, "mfem", refined), MIO_OK)
+        << mio_last_error();
     mio_mesh_free(fine);
 
     // Evaluate the same point on the original and the refined patch.
@@ -1774,10 +1783,12 @@ TEST(CApi, IgaRefinesAndEvaluatesTheNurbsModel) {
     EXPECT_EQ(dtype, MIO_FLOAT64);
     EXPECT_EQ(shape[0], 2);
     EXPECT_EQ(shape[1], 2);
-    ASSERT_EQ(mio_iga_evaluation_array(b, MIO_IGA_POINTS, 0, &pb, nullptr, nullptr, nullptr), MIO_OK);
+    ASSERT_EQ(mio_iga_evaluation_array(b, MIO_IGA_POINTS, 0, &pb, nullptr, nullptr, nullptr),
+              MIO_OK);
     for (int i = 0; i < 4; ++i)
         EXPECT_NEAR(static_cast<const double*>(pa)[i], static_cast<const double*>(pb)[i], 1e-13);
-    ASSERT_EQ(mio_iga_evaluation_array(a, MIO_IGA_DERIVATIVES, 0, &pa, &dtype, &ndim, shape), MIO_OK);
+    ASSERT_EQ(mio_iga_evaluation_array(a, MIO_IGA_DERIVATIVES, 0, &pa, &dtype, &ndim, shape),
+              MIO_OK);
     EXPECT_EQ(ndim, 3);
     EXPECT_EQ(shape[1], 2);
     // a planar patch has no 3-D normals, no trimming, no fields
@@ -1985,6 +1996,36 @@ TEST(CApi, MeshCadSurfaceMeshesABrepAndReportsItsFaces) {
         EXPECT_EQ(mio_mesh_cad_surface2(info, &opts, &ex, nullptr), nullptr);
         EXPECT_NE(std::string(mio_last_error()).find("virtual_edges"), std::string::npos);
         opts.order = 1;
+        ex.virtual_edges = 0;
+        // Roadmap 6.10.2: a metric from a constant Hessian asking for an
+        // eighth of target_size along x refines the face.
+        EXPECT_EQ(ex.metric_background, nullptr);
+        EXPECT_EQ(ex.metric_array, nullptr);
+        EXPECT_EQ(ex.metric_error, 0.0);
+        mio_mesh* bg = mio_mesh_cad_surface2(info, &opts, nullptr, nullptr);
+        ASSERT_NE(bg, nullptr) << mio_last_error();
+        const int64_t np = mio_mesh_num_points(bg);
+        std::vector<double> hess(static_cast<std::size_t>(9 * np), 0.0);
+        const double hx = opts.target_size / 8.0;
+        for (int64_t i = 0; i < np; ++i)
+            hess[static_cast<std::size_t>(9 * i)] = 8.0 / (hx * hx);
+        const int64_t shape[2] = {np, 9};
+        ASSERT_EQ(mio_mesh_add_point_data(bg, "h", MIO_FLOAT64, 2, shape, hess.data()), MIO_OK);
+        ex.metric_background = bg;
+        ex.metric_array = "h";
+        ex.metric_error = 1.0;
+        mio_mesh_cad_surface_report metric{};
+        mio_mesh* m = mio_mesh_cad_surface2(info, &opts, &ex, &metric);
+        ASSERT_NE(m, nullptr) << mio_last_error();
+        EXPECT_EQ(metric.num_failed, 0);
+        EXPECT_GT(metric.num_triangles, plain.num_triangles);
+        mio_mesh_free(m);
+        ex.metric_error = 0.0;
+        EXPECT_EQ(mio_mesh_cad_surface2(info, &opts, &ex, nullptr), nullptr);
+        EXPECT_NE(std::string(mio_last_error()).find("metric_error"), std::string::npos);
+        ex.metric_background = nullptr;
+        ex.metric_array = nullptr;
+        mio_mesh_free(bg);
     }
     // v17.15.0: refined to 25 degrees and smoothed. The triangle's two
     // 45-degree corners are reported; every angle is counted.
@@ -2068,6 +2109,362 @@ TEST(CApi, MeshCadSurfaceMeshesABrepAndReportsItsFaces) {
     mio_format_info_free(info);
 }
 
+// Roadmap 6.5.1: trims the file-level `model_tolerance` pairs are reported
+// as MIO_MESH_CAD_TOLERANCE_PAIRING, not as a projection. The box without
+// edge topology, one face translated by 1e-5, as in test_mesh_cad_reparam.
+TEST(CApi, MeshCadSurfaceReportsTheModelTolerancesPairing) {
+    meshioplusplus::BrepInfo b = brep_solids::box();
+    b.mEdges.clear();
+    meshioplusplus::NDArray& r_cp =
+        b.mPatches[static_cast<std::size_t>(b.mFaces[0].mPatch)].mControlPoints;
+    for (std::size_t i = 0; i < r_cp.Size(); ++i)
+        r_cp.As<double>()[i] += 1e-5;
+    b.mExtra = R"({"tolerances":{"model_tolerance":0.0001}})";
+    const auto path = mt::temp_path(".cad.json");
+    meshioplusplus::write_cad_json(path, meshioplusplus::Mesh{}, b);
+    mio_format_info* info = nullptr;
+    mio_mesh* sampled = mio_read_with_info(path.c_str(), nullptr, nullptr, &info);
+    ASSERT_NE(sampled, nullptr) << mio_last_error();
+    mio_mesh_free(sampled);
+    mio_mesh_cad_surface_opts opts;
+    mio_mesh_cad_surface_opts_init(&opts);
+    opts.target_size = 0.2;
+    mio_mesh_cad_surface_opts_ex ex;
+    mio_mesh_cad_surface_opts_ex_init(&ex);
+    ex.model_tolerances = 1;
+    mio_mesh* m = mio_mesh_cad_surface2(info, &opts, &ex, nullptr);
+    ASSERT_NE(m, nullptr) << mio_last_error();
+    ASSERT_EQ(mio_mesh_cad_surface_num_tolerance_uses(), 4);
+    for (int64_t i = 0; i < 4; ++i) {
+        int64_t edge = 0;
+        int32_t where = -1;
+        ASSERT_EQ(mio_mesh_cad_surface_tolerance_use(i, &edge, nullptr, nullptr, &where), MIO_OK);
+        EXPECT_EQ(edge, -1);
+        EXPECT_EQ(where, MIO_MESH_CAD_TOLERANCE_PAIRING);
+    }
+    mio_mesh_free(m);
+    mio_format_info_free(info);
+}
+
+// Roadmap 6.6.3 and 6.8 through the extended options: untangling (refused
+// at order 1) and quadrilaterals, quad-dominant and all-quad, on the box.
+TEST(CApi, MeshCadSurfaceUntanglesAndMakesQuads) {
+    const auto path = mt::temp_path(".cad.json");
+    meshioplusplus::write_cad_json(path, meshioplusplus::Mesh{}, brep_solids::box());
+    mio_format_info* info = nullptr;
+    mio_mesh* sampled = mio_read_with_info(path.c_str(), nullptr, nullptr, &info);
+    ASSERT_NE(sampled, nullptr) << mio_last_error();
+    mio_mesh_free(sampled);
+    mio_mesh_cad_surface_opts opts;
+    mio_mesh_cad_surface_opts_init(&opts);
+    opts.target_size = 0.2;
+    opts.min_angle_deg = 25.0;
+    mio_mesh_cad_surface_opts_ex ex;
+    mio_mesh_cad_surface_opts_ex_init(&ex);
+    EXPECT_EQ(ex.untangle, 0);
+    EXPECT_EQ(ex.quads, MIO_MESH_CAD_QUADS_NONE);
+    EXPECT_EQ(ex.quad_pairs, MIO_MESH_CAD_QUAD_PAIRS_MATCHING);
+    // Untangling needs curved elements.
+    ex.untangle = 1;
+    EXPECT_EQ(mio_mesh_cad_surface2(info, &opts, &ex, nullptr), nullptr);
+    EXPECT_NE(std::string(mio_last_error()).find("untangle"), std::string::npos);
+    opts.order = 2;
+    mio_mesh* curved = mio_mesh_cad_surface2(info, &opts, &ex, nullptr);
+    ASSERT_NE(curved, nullptr) << mio_last_error();
+    EXPECT_EQ(mio_mesh_cad_surface_num_untangled(), 0);  // nothing folds on a box
+    mio_mesh_free(curved);
+    opts.order = 1;
+    ex.untangle = 0;
+    const auto block_of = [](const mio_mesh* pM, const char* pType) {
+        char buf[32];
+        for (int64_t b = 0; b < mio_mesh_num_cell_blocks(pM); ++b)
+            if (mio_mesh_cell_block_type(pM, b, buf, sizeof buf) >= 0 && std::string(buf) == pType)
+                return b;
+        return int64_t{-1};
+    };
+    for (const int32_t q : {MIO_MESH_CAD_QUADS_DOMINANT, MIO_MESH_CAD_QUADS_ALL}) {
+        ex.quads = q;
+        mio_mesh_cad_surface_report report{};
+        mio_mesh* m = mio_mesh_cad_surface2(info, &opts, &ex, &report);
+        ASSERT_NE(m, nullptr) << mio_last_error();
+        int64_t quads = -1, left = -1;
+        double sj = -1.0;
+        ASSERT_EQ(mio_mesh_cad_surface_quad_stats(&quads, &left, &sj), MIO_OK);
+        EXPECT_GT(quads, 0) << q;
+        EXPECT_GT(sj, 0.3) << q;
+        EXPECT_GE(block_of(m, "quad"), 0) << q;
+        EXPECT_EQ(report.num_triangles, left) << q;
+        EXPECT_EQ(report.num_open_edges, 0) << q;
+        if (q == MIO_MESH_CAD_QUADS_ALL) {
+            EXPECT_EQ(left, 0);
+            EXPECT_EQ(block_of(m, "triangle"), -1);
+        }
+        mio_mesh_free(m);
+    }
+    EXPECT_EQ(mio_mesh_cad_surface_quad_stats(nullptr, nullptr, nullptr), MIO_OK);
+    // No metric background: no metric angle (roadmap 6.10.2).
+    EXPECT_EQ(mio_mesh_cad_surface_min_metric_angle(), 0.0);
+    // Greedy pairing (6.8.1) leaves at least as many triangles.
+    ex.quads = MIO_MESH_CAD_QUADS_DOMINANT;
+    int64_t matched_left = -1, greedy_left = -1;
+    mio_mesh* mm = mio_mesh_cad_surface2(info, &opts, &ex, nullptr);
+    ASSERT_NE(mm, nullptr) << mio_last_error();
+    ASSERT_EQ(mio_mesh_cad_surface_quad_stats(nullptr, &matched_left, nullptr), MIO_OK);
+    mio_mesh_free(mm);
+    ex.quad_pairs = MIO_MESH_CAD_QUAD_PAIRS_GREEDY;
+    mm = mio_mesh_cad_surface2(info, &opts, &ex, nullptr);
+    ASSERT_NE(mm, nullptr) << mio_last_error();
+    ASSERT_EQ(mio_mesh_cad_surface_quad_stats(nullptr, &greedy_left, nullptr), MIO_OK);
+    mio_mesh_free(mm);
+    EXPECT_LE(matched_left, greedy_left);
+    ex.quad_pairs = MIO_MESH_CAD_QUAD_PAIRS_MATCHING;
+    // All-quad at order 2 writes quad9 (6.8.3).
+    ex.quads = MIO_MESH_CAD_QUADS_ALL;
+    opts.order = 2;
+    mio_mesh* q9 = mio_mesh_cad_surface2(info, &opts, &ex, nullptr);
+    ASSERT_NE(q9, nullptr) << mio_last_error();
+    EXPECT_GE(block_of(q9, "quad9"), 0);
+    EXPECT_GE(block_of(q9, "line3"), 0);
+    mio_mesh_free(q9);
+    opts.order = 1;
+    ex.quads = 7;
+    EXPECT_EQ(mio_mesh_cad_surface2(info, &opts, &ex, nullptr), nullptr);
+    EXPECT_NE(std::string(mio_last_error()).find("quads"), std::string::npos);
+    mio_format_info_free(info);
+}
+
+// Roadmap 6.9: layers grown outward from the box's mesh are wedges, all
+// valid, under a closed cap.
+TEST(CApi, BoundaryLayer) {
+    const auto path = mt::temp_path(".cad.json");
+    meshioplusplus::write_cad_json(path, meshioplusplus::Mesh{}, brep_solids::box());
+    mio_format_info* info = nullptr;
+    mio_mesh* sampled = mio_read_with_info(path.c_str(), nullptr, nullptr, &info);
+    ASSERT_NE(sampled, nullptr) << mio_last_error();
+    mio_mesh_cad_surface_opts opts;
+    mio_mesh_cad_surface_opts_init(&opts);
+    opts.target_size = 0.25;
+    mio_mesh* m = mio_mesh_cad_surface(info, &opts, nullptr);
+    ASSERT_NE(m, nullptr) << mio_last_error();
+    mio_boundary_layer_opts bo;
+    mio_boundary_layer_opts_init(&bo);
+    EXPECT_EQ(bo.num_layers, 3);
+    EXPECT_DOUBLE_EQ(bo.growth, 1.2);
+    EXPECT_EQ(mio_boundary_layer(m, &bo, nullptr), nullptr);  // no first_height
+    EXPECT_NE(std::string(mio_last_error()).find("first_height"), std::string::npos);
+    bo.first_height = 0.01;
+    mio_boundary_layer_report report{};
+    mio_mesh* out = mio_boundary_layer(m, &bo, &report);
+    ASSERT_NE(out, nullptr) << mio_last_error();
+    EXPECT_GT(report.num_wedges, 0);
+    EXPECT_EQ(report.num_cells, report.num_wedges);
+    EXPECT_EQ(report.num_collapsed, 0);
+    EXPECT_EQ(report.cap_closed, 1);
+    EXPECT_GT(report.min_scaled_jacobian, 0.1);
+    mio_mesh_free(out);
+    EXPECT_EQ(mio_boundary_layer(m, nullptr, nullptr), nullptr);
+    mio_mesh_free(m);
+    mio_mesh_free(sampled);
+    mio_format_info_free(info);
+}
+
+// Roadmap 6.9.1: the fields taken from the opts' and report's reserved tails
+// reach the core: the defaults, a layers collapse, smoothed normals and the
+// front test switched off, and an out-of-range collapse refused by name.
+TEST(CApi, BoundaryLayerCollapseAndFront) {
+    const auto path = mt::temp_path(".cad.json");
+    meshioplusplus::write_cad_json(path, meshioplusplus::Mesh{}, brep_solids::box());
+    mio_format_info* info = nullptr;
+    mio_mesh* sampled = mio_read_with_info(path.c_str(), nullptr, nullptr, &info);
+    ASSERT_NE(sampled, nullptr) << mio_last_error();
+    mio_mesh_cad_surface_opts opts;
+    mio_mesh_cad_surface_opts_init(&opts);
+    opts.target_size = 0.25;
+    mio_mesh* m = mio_mesh_cad_surface(info, &opts, nullptr);
+    ASSERT_NE(m, nullptr) << mio_last_error();
+    mio_boundary_layer_opts bo;
+    mio_boundary_layer_opts_init(&bo);
+    EXPECT_EQ(bo.collapse, MIO_BOUNDARY_LAYER_COLLAPSE_POINTS);
+    EXPECT_EQ(bo.normal_smooth_iterations, 0);
+    EXPECT_EQ(bo.front_check, 1);
+    EXPECT_EQ(bo.reserved_pad, 0);
+    EXPECT_EQ(bo.reserved[0], 0);
+    bo.first_height = 0.01;
+    mio_boundary_layer_report report;
+    std::memset(&report, 0xff, sizeof(report));
+    mio_mesh* out = mio_boundary_layer(m, &bo, &report);
+    ASSERT_NE(out, nullptr) << mio_last_error();
+    EXPECT_EQ(report.num_fewer_layers, 0);
+    EXPECT_EQ(report.num_front_crossings, 0);
+    EXPECT_EQ(report.reserved[0], 0);
+    EXPECT_EQ(report.reserved[1], 0);
+    const int64_t wedges = report.num_wedges;
+    mio_mesh_free(out);
+    bo.collapse = MIO_BOUNDARY_LAYER_COLLAPSE_LAYERS;
+    bo.normal_smooth_iterations = 4;
+    bo.front_check = 0;
+    out = mio_boundary_layer(m, &bo, &report);
+    ASSERT_NE(out, nullptr) << mio_last_error();
+    EXPECT_EQ(report.num_wedges, wedges);
+    EXPECT_EQ(report.num_front_crossings, 0);
+    EXPECT_EQ(report.cap_closed, 1);
+    mio_mesh_free(out);
+    bo.collapse = 7;
+    EXPECT_EQ(mio_boundary_layer(m, &bo, nullptr), nullptr);
+    EXPECT_NE(std::string(mio_last_error()).find("collapse"), std::string::npos)
+        << mio_last_error();
+    bo.collapse = MIO_BOUNDARY_LAYER_COLLAPSE_POINTS;
+    bo.normal_smooth_iterations = 1001;
+    EXPECT_EQ(mio_boundary_layer(m, &bo, nullptr), nullptr);
+    mio_mesh_free(m);
+    mio_mesh_free(sampled);
+    mio_format_info_free(info);
+}
+
+// Roadmap 6.7: the box's skin filled with tetrahedra, its triangles kept;
+// without Netgen the call fails naming the build flag.
+TEST(CApi, Tetrahedralize) {
+    const auto block_of = [](const mio_mesh* pM, const char* pType) {
+        char buf[32];
+        for (int64_t b = 0; b < mio_mesh_num_cell_blocks(pM); ++b)
+            if (mio_mesh_cell_block_type(pM, b, buf, sizeof buf) >= 0 && std::string(buf) == pType)
+                return b;
+        return int64_t{-1};
+    };
+    mio_tetrahedralize_opts to;
+    mio_tetrahedralize_opts_init(&to);
+    EXPECT_EQ(to.backend, MIO_TETRAHEDRALIZE_BACKEND_AUTO);
+    EXPECT_DOUBLE_EQ(to.grading, 0.3);
+    EXPECT_EQ(to.optimize_steps, 3);
+    EXPECT_EQ(to.max_cells, 50000000);
+    EXPECT_EQ(to.face_array, nullptr);
+    EXPECT_EQ(to.max_size, 0.0);
+    EXPECT_EQ(mio_has_netgen() != 0, meshioplusplus::tetrahedralize_has_netgen());
+    mio_tetrahedralize_opts_init(nullptr);
+
+    const auto path = mt::temp_path(".cad.json");
+    meshioplusplus::write_cad_json(path, meshioplusplus::Mesh{}, brep_solids::box());
+    mio_format_info* info = nullptr;
+    mio_mesh* sampled = mio_read_with_info(path.c_str(), nullptr, nullptr, &info);
+    ASSERT_NE(sampled, nullptr) << mio_last_error();
+    mio_mesh_cad_surface_opts opts;
+    mio_mesh_cad_surface_opts_init(&opts);
+    opts.target_size = 0.25;
+    mio_mesh* m = mio_mesh_cad_surface(info, &opts, nullptr);
+    ASSERT_NE(m, nullptr) << mio_last_error();
+
+    EXPECT_EQ(mio_tetrahedralize(nullptr, nullptr, nullptr), nullptr);
+    to.grading = 2.0;
+    EXPECT_EQ(mio_tetrahedralize(m, &to, nullptr), nullptr);
+    EXPECT_NE(std::string(mio_last_error()).find("grading"), std::string::npos);
+    mio_tetrahedralize_opts_init(&to);
+    to.backend = 9;
+    EXPECT_EQ(mio_tetrahedralize(m, &to, nullptr), nullptr);
+    EXPECT_NE(std::string(mio_last_error()).find("backend"), std::string::npos);
+    mio_tetrahedralize_opts_init(&to);
+
+    mio_tetrahedralize_report report;
+    std::memset(&report, 0xff, sizeof(report));
+    // The native octree backend, always there: the boundary fitted.
+    {
+        mio_tetrahedralize_opts oct;
+        mio_tetrahedralize_opts_init(&oct);
+        oct.backend = MIO_TETRAHEDRALIZE_BACKEND_OCTREE;
+        mio_mesh* out = mio_tetrahedralize(m, &oct, &report);
+        ASSERT_NE(out, nullptr) << mio_last_error();
+        EXPECT_EQ(report.backend, MIO_TETRAHEDRALIZE_BACKEND_OCTREE);
+        EXPECT_EQ(report.boundary_preserved, 0);
+        EXPECT_GT(report.hausdorff_to_surface, 0.0);
+        EXPECT_GT(report.num_tetrahedra, 0);
+        EXPECT_NEAR(report.volume, 1.0, 0.02);
+        EXPECT_EQ(report.num_new_points, report.num_points);
+        for (int64_t k : report.reserved)
+            EXPECT_EQ(k, 0);
+        EXPECT_GE(block_of(out, "triangle"), 0);
+        mio_mesh_free(out);
+    }
+    if (!mio_has_netgen()) {
+        // AUTO falls back to the octree backend; NETGEN is refused by name.
+        mio_mesh* out = mio_tetrahedralize(m, &to, &report);
+        ASSERT_NE(out, nullptr) << mio_last_error();
+        EXPECT_EQ(report.backend, MIO_TETRAHEDRALIZE_BACKEND_OCTREE);
+        mio_mesh_free(out);
+        to.backend = MIO_TETRAHEDRALIZE_BACKEND_NETGEN;
+        EXPECT_EQ(mio_tetrahedralize(m, &to, &report), nullptr);
+        EXPECT_NE(std::string(mio_last_error()).find("MESHIOPLUSPLUS_WITH_NETGEN"),
+                  std::string::npos)
+            << mio_last_error();
+    } else {
+        to.max_size = 0.25;
+        mio_mesh* out = mio_tetrahedralize(m, &to, &report);
+        ASSERT_NE(out, nullptr) << mio_last_error();
+        EXPECT_GT(report.num_tetrahedra, 0);
+        EXPECT_EQ(report.num_regions, 1);
+        EXPECT_EQ(report.boundary_preserved, 1);
+        EXPECT_EQ(report.hausdorff_to_surface, 0.0);
+        EXPECT_EQ(report.backend, MIO_TETRAHEDRALIZE_BACKEND_NETGEN);
+        EXPECT_NEAR(report.volume, 1.0, 1e-9);
+        EXPECT_GT(report.min_dihedral_deg, 0.0);
+        EXPECT_LT(report.max_dihedral_deg, 180.0);
+        EXPECT_EQ(report.num_points, mio_mesh_num_points(out));
+        EXPECT_EQ(report.num_points - report.num_new_points, mio_mesh_num_points(m));
+        for (int64_t k : report.reserved)
+            EXPECT_EQ(k, 0);
+        EXPECT_GE(block_of(out, "tetra"), 0);
+        EXPECT_GE(block_of(out, "triangle"), 0);
+        mio_mesh_free(out);
+        // Past max_cells, refused.
+        to.max_cells = 2;
+        EXPECT_EQ(mio_tetrahedralize(m, &to, nullptr), nullptr);
+        // The defaults (NULL opts) mesh too.
+        out = mio_tetrahedralize(m, nullptr, nullptr);
+        ASSERT_NE(out, nullptr) << mio_last_error();
+        mio_mesh_free(out);
+    }
+    mio_mesh_free(m);
+    mio_mesh_free(sampled);
+    mio_format_info_free(info);
+}
+
+// Roadmap 6.10.1: a mesh of the box projected back onto it moves nothing,
+// every point lands on a face or an edge, and none outside its trims.
+TEST(CApi, ProjectToCad) {
+    const auto path = mt::temp_path(".cad.json");
+    meshioplusplus::write_cad_json(path, meshioplusplus::Mesh{}, brep_solids::box());
+    mio_format_info* info = nullptr;
+    mio_mesh* sampled = mio_read_with_info(path.c_str(), nullptr, nullptr, &info);
+    ASSERT_NE(sampled, nullptr) << mio_last_error();
+    mio_mesh_cad_surface_opts opts;
+    mio_mesh_cad_surface_opts_init(&opts);
+    opts.target_size = 0.25;
+    mio_mesh* m = mio_mesh_cad_surface(info, &opts, nullptr);
+    ASSERT_NE(m, nullptr) << mio_last_error();
+    mio_project_to_cad_opts po;
+    mio_project_to_cad_opts_init(&po);
+    EXPECT_EQ(po.trim_samples, 16);
+    EXPECT_EQ(po.face_array, nullptr);
+    mio_project_to_cad_report report{};
+    mio_mesh* out = mio_project_to_cad(m, info, &po, &report);
+    ASSERT_NE(out, nullptr) << mio_last_error();
+    EXPECT_EQ(report.num_projected, mio_mesh_num_points(m));
+    EXPECT_EQ(report.num_corners, 8);
+    EXPECT_GT(report.num_on_edges, 8);
+    EXPECT_EQ(report.num_outside_trim, 0);
+    EXPECT_LT(report.max_move, 1e-12);
+    EXPECT_GE(report.num_on_curves, 0);
+    EXPECT_LE(report.num_on_curves, report.num_on_edges);
+    EXPECT_EQ(report.reserved[0], 0);
+    EXPECT_EQ(mio_project_to_cad_outside_trim(nullptr, 0), 0);
+    mio_mesh_free(out);
+    // A mesh with no faces named, and a NULL model, are refused by name.
+    EXPECT_EQ(mio_project_to_cad(sampled, info, nullptr, nullptr), nullptr);
+    EXPECT_NE(std::string(mio_last_error()).find("cad:face"), std::string::npos);
+    EXPECT_EQ(mio_project_to_cad(m, nullptr, nullptr, nullptr), nullptr);
+    mio_mesh_free(m);
+    mio_mesh_free(sampled);
+    mio_format_info_free(info);
+}
+
 TEST(CApi, IgaOnABrepKeepsItsTrimsAndReportsInside) {
     // The same square face as BrepSideChannel with an outer loop of four trims.
     const auto path = mt::temp_path(".cad.json");
@@ -2108,7 +2505,8 @@ TEST(CApi, IgaOnABrepKeepsItsTrimsAndReportsInside) {
     EXPECT_EQ(dtype, MIO_UINT8);
     EXPECT_EQ(static_cast<const uint8_t*>(data)[0], 1);
     EXPECT_EQ(static_cast<const uint8_t*>(data)[1], 0);
-    ASSERT_EQ(mio_iga_evaluation_array(ev, MIO_IGA_NORMALS, 0, &data, &dtype, &ndim, shape), MIO_OK);
+    ASSERT_EQ(mio_iga_evaluation_array(ev, MIO_IGA_NORMALS, 0, &data, &dtype, &ndim, shape),
+              MIO_OK);
     EXPECT_NEAR(std::abs(static_cast<const double*>(data)[2]), 1.0, 1e-13);
     mio_iga_evaluation_free(ev);
     mio_format_info_free(refined);
@@ -3591,6 +3989,138 @@ TEST(CApi, EstimateError) {
     mio_mesh_free(m);
 }
 
+TEST(CApi, CheckConformity) {
+    // A coarse quad beside two fine ones: the fine pair's shared node sits on
+    // the coarse quad's edge, a T-junction, and the edges overlap partly.
+    const std::vector<double> pts = {0, 0, 0, 1, 0,   0, 1, 1, 0, 0, 1,   0,
+                                     2, 0, 0, 2, 0.5, 0, 2, 1, 0, 1, 0.5, 0};
+    const std::vector<std::int64_t> conn = {0, 1, 2, 3, 1, 4, 5, 7, 7, 5, 6, 2};
+    mio_mesh* m = mio_mesh_create();
+    ASSERT_EQ(mio_mesh_set_points(m, MIO_FLOAT64, 8, 3, pts.data()), MIO_OK);
+    ASSERT_EQ(mio_mesh_add_cell_block(m, "quad", 3, 4, MIO_INT64, conn.data()), MIO_OK);
+
+    mio_conformity_opts o;
+    mio_conformity_opts_init(&o);
+    EXPECT_EQ(o.tolerance, 1e-9);
+    EXPECT_EQ(o.attach_flags, 1);
+    mio_conformity_report report{};
+    report.reserved[0] = 7;
+    mio_mesh* out = mio_check_conformity(m, &o, &report);
+    ASSERT_NE(out, nullptr) << mio_last_error();
+    EXPECT_EQ(report.dimension, 2);
+    EXPECT_EQ(report.num_t_junctions, 1);
+    EXPECT_EQ(report.num_hanging_nodes, 0);
+    EXPECT_EQ(report.num_partial_overlaps, 2);
+    EXPECT_EQ(report.num_unwelded_facets, 0);
+    EXPECT_EQ(report.conforming, 0);
+    EXPECT_EQ(report.interface_mode, MIO_CONFORMITY_PROXIMITY);
+    EXPECT_EQ(report.num_warnings, 0);
+    EXPECT_EQ(report.reserved[0], 0);
+    const void* data = nullptr;
+    mio_dtype dt = MIO_FLOAT64;
+    std::int32_t ndim = 0;
+    std::int64_t shape[MIO_MAX_NDIM] = {0};
+    ASSERT_EQ(mio_mesh_get_point_data(out, "conformity:hanging", &data, &dt, &ndim, shape), MIO_OK);
+    ASSERT_EQ(dt, MIO_INT64);
+    const std::int64_t* flags = static_cast<const std::int64_t*>(data);
+    for (std::int64_t p = 0; p < 8; ++p)
+        EXPECT_EQ(flags[p], p == 7 ? 2 : 0) << p;
+    mio_mesh_free(out);
+
+    // NULL options are the defaults; a negative tolerance is refused.
+    out = mio_check_conformity(m, nullptr, nullptr);
+    ASSERT_NE(out, nullptr) << mio_last_error();
+    mio_mesh_free(out);
+    o.tolerance = -1.0;
+    EXPECT_EQ(mio_check_conformity(m, &o, nullptr), nullptr);
+    EXPECT_EQ(mio_check_conformity_warnings(nullptr, 0), 0);
+    mio_mesh_free(m);
+}
+
+TEST(CApi, ErrorSize) {
+    // Two unit right triangles of the unit square (diameter sqrt 2), indicator
+    // 1 and 4: with eta = 1 and N = 2 they ask 1 and a quarter (Zienkiewicz
+    // and Zhu 1987); a point takes the least of its cells'.
+    const std::vector<double> pts = {0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0};
+    const std::vector<std::int64_t> conn = {0, 1, 2, 0, 2, 3};
+    const std::vector<double> eta = {1.0, 4.0};
+    const std::int64_t eshape[1] = {2};
+    mio_mesh* m = mio_mesh_create();
+    ASSERT_EQ(mio_mesh_set_points(m, MIO_FLOAT64, 4, 3, pts.data()), MIO_OK);
+    ASSERT_EQ(mio_mesh_add_cell_block(m, "triangle", 2, 3, MIO_INT64, conn.data()), MIO_OK);
+    ASSERT_EQ(mio_mesh_append_cell_data(m, "error:zz", MIO_FLOAT64, 1, eshape, eta.data()), MIO_OK);
+
+    mio_error_size_opts o;
+    mio_error_size_opts_init(&o);
+    EXPECT_EQ(o.error_array, nullptr);
+    EXPECT_EQ(o.output, nullptr);
+    EXPECT_EQ(o.target_error, 0.0);
+    EXPECT_EQ(o.order, 1.0);
+    EXPECT_EQ(o.overwrite, 0);
+    o.target_error = 1.0;
+    mio_error_size_report report{};
+    report.reserved[0] = 7;
+    mio_mesh* out = mio_error_size(m, &o, &report);
+    ASSERT_NE(out, nullptr) << mio_last_error();
+    EXPECT_EQ(report.num_cells, 2);
+    EXPECT_EQ(report.num_skipped, 0);
+    EXPECT_EQ(report.num_clamped, 0);
+    EXPECT_NEAR(report.min_size, 0.25, 1e-14);
+    EXPECT_NEAR(report.max_size, 1.0, 1e-14);
+    EXPECT_EQ(report.reserved[0], 0);
+    const void* data = nullptr;
+    mio_dtype dt = MIO_INT64;
+    std::int32_t ndim = 0;
+    std::int64_t shape[MIO_MAX_NDIM] = {0};
+    ASSERT_EQ(mio_mesh_get_point_data(out, "size", &data, &dt, &ndim, shape), MIO_OK);
+    ASSERT_EQ(dt, MIO_FLOAT64);
+    ASSERT_EQ(shape[0], 4);
+    const double* s = static_cast<const double*>(data);
+    EXPECT_NEAR(s[0], 0.25, 1e-14);
+    EXPECT_NEAR(s[1], 1.0, 1e-14);
+    EXPECT_NEAR(s[3], 0.25, 1e-14);
+
+    // Named arrays, bounds (counted), and a NULL report.
+    o.output = "h";
+    o.min_size = 0.5;
+    mio_mesh* bounded = mio_error_size(out, &o, &report);
+    ASSERT_NE(bounded, nullptr) << mio_last_error();
+    EXPECT_EQ(report.num_clamped, 1);
+    EXPECT_NEAR(report.min_size, 0.5, 1e-14);
+    ASSERT_EQ(mio_mesh_get_point_data(bounded, "h", &data, &dt, &ndim, shape), MIO_OK);
+    mio_mesh_free(bounded);
+    mio_mesh* quiet = mio_error_size(m, &o, nullptr);
+    ASSERT_NE(quiet, nullptr) << mio_last_error();
+    mio_mesh_free(quiet);
+
+    // Refusals come back as NULL with the reason, never thrown.
+    o.output = nullptr;
+    EXPECT_EQ(mio_error_size(out, &o, nullptr), nullptr) << "size exists, no overwrite";
+    EXPECT_NE(std::string(mio_last_error()).find("overwrite"), std::string::npos);
+    o.overwrite = 1;
+    mio_mesh* again = mio_error_size(out, &o, nullptr);
+    ASSERT_NE(again, nullptr) << mio_last_error();
+    mio_mesh_free(again);
+    o.overwrite = 0;
+    o.target_error = 0.0;
+    EXPECT_EQ(mio_error_size(m, &o, nullptr), nullptr);
+    EXPECT_NE(std::string(mio_last_error()).find("target_error"), std::string::npos);
+    o.target_error = 1.0;
+    o.min_size = 2.0;
+    o.max_size = 1.0;
+    EXPECT_EQ(mio_error_size(m, &o, nullptr), nullptr);
+    o.min_size = o.max_size = 0.0;
+    o.error_array = "nope";
+    EXPECT_EQ(mio_error_size(m, &o, nullptr), nullptr);
+    EXPECT_NE(std::string(mio_last_error()).find("nope"), std::string::npos);
+    EXPECT_EQ(mio_error_size(m, nullptr, nullptr), nullptr);
+    EXPECT_EQ(mio_error_size(nullptr, &o, nullptr), nullptr);
+    mio_error_size_opts_init(nullptr);
+
+    mio_mesh_free(out);
+    mio_mesh_free(m);
+}
+
 TEST(CApi, EstimateErrorErrorsAreGuardedNotThrown) {
     const std::vector<double> pts = {0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0,
                                      0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1};
@@ -4323,9 +4853,146 @@ TEST(CApi, GenOptsInitDefaultsAndLayout) {
     EXPECT_EQ(opts.pad, 0);
     EXPECT_EQ(opts.radius2, 0.5);
     EXPECT_EQ(opts.angle, 6.283185307179586);
+    EXPECT_EQ(opts.num_twists, 1);
+    EXPECT_EQ(opts.complete, 0);
+    EXPECT_EQ(opts.ratio, 1.0);
+    EXPECT_EQ(opts.seed, 0u);
+    EXPECT_EQ(offsetof(mio_gen_opts, num_twists), 128u);
+    EXPECT_EQ(offsetof(mio_gen_opts, seed), 144u);
     for (int64_t r : opts.reserved)
         EXPECT_EQ(r, 0);
     mio_gen_opts_init(nullptr);  // a NULL options pointer is a no-op, not a crash
+}
+
+namespace {
+
+// Points, cells and the first block's type name of a generated mesh (freed).
+struct CapiGen {
+    int64_t mPoints = -1;
+    int64_t mCells = 0;
+    std::string mType;
+};
+
+CapiGen capi_gen(mio_mesh* pMesh) {
+    CapiGen out;
+    if (!pMesh)
+        return out;
+    out.mPoints = mio_mesh_num_points(pMesh);
+    for (int64_t b = 0; b < mio_mesh_num_cell_blocks(pMesh); ++b) {
+        mio_cell_block_info info{};
+        EXPECT_EQ(mio_mesh_cell_block_info_ex(pMesh, b, &info), MIO_OK);
+        out.mCells += info.num_cells;
+    }
+    char buf[64] = {0};
+    if (mio_mesh_num_cell_blocks(pMesh) > 0)
+        mio_mesh_cell_block_type(pMesh, 0, buf, sizeof buf);
+    out.mType = buf;
+    mio_mesh_free(pMesh);
+    return out;
+}
+
+}  // namespace
+
+TEST(CApi, SecondTierGeneratorsReadTheirFields) {
+    mio_gen_opts o;
+    mio_gen_opts_init(&o);
+    o.counts[0] = 4;
+    o.size[0] = 0.0;
+    o.size[1] = 0.0;
+    o.size[2] = 2.0;  // the end point
+    CapiGen g = capi_gen(mio_line(&o));
+    EXPECT_EQ(g.mPoints, 5);
+    EXPECT_EQ(g.mType, "line");
+
+    mio_gen_opts_init(&o);
+    o.counts[0] = 6;
+    o.order = 2;
+    g = capi_gen(mio_circle(&o));
+    EXPECT_EQ(g.mPoints, 12);
+    EXPECT_EQ(g.mType, "line3");
+
+    mio_gen_opts_init(&o);
+    o.counts[0] = 10;
+    o.angle = 0.0;  // two turns
+    g = capi_gen(mio_helix(&o));
+    EXPECT_EQ(g.mCells, 10);
+
+    mio_gen_opts_init(&o);
+    o.counts[0] = 7;
+    o.seed = 9;
+    EXPECT_EQ(capi_gen(mio_sphere_points(&o)).mType, "vertex");
+    EXPECT_EQ(capi_gen(mio_box_points(&o)).mPoints, 7);
+    o.order = 2;  // a point has no quadratic form
+    EXPECT_EQ(mio_box_points(&o), nullptr);
+
+    mio_gen_opts_init(&o);
+    o.counts[0] = 1;
+    EXPECT_EQ(capi_gen(mio_tetra_sphere(&o)).mCells, 16);
+    EXPECT_EQ(capi_gen(mio_octa_sphere(&o)).mCells, 32);
+    o.counts[0] = 2;
+    EXPECT_EQ(capi_gen(mio_geo_sphere(&o)).mCells, 80);
+    o.order = 2;
+    o.complete = 1;
+    g = capi_gen(mio_cube_sphere(&o));
+    EXPECT_EQ(g.mCells, 24);
+    EXPECT_EQ(g.mType, "quad9");
+
+    mio_gen_opts_init(&o);
+    o.counts[0] = 6;
+    o.counts[1] = 4;
+    o.radius2 = 0.0;  // the default minor radius, 0.25
+    o.cell_type = MIO_GEN_TRIANGLE;
+    EXPECT_EQ(capi_gen(mio_torus(&o)).mCells, 48);
+    o.cell_type = MIO_GEN_DEFAULT;
+    o.counts[1] = 2;
+    o.num_twists = 3;
+    EXPECT_EQ(capi_gen(mio_moebius(&o)).mCells, 12);
+    o.counts[2] = 2;
+    EXPECT_EQ(capi_gen(mio_tube(&o)).mCells, 12);
+    EXPECT_EQ(capi_gen(mio_cone(&o)).mCells, 6 * 4);
+    o.radius = 0.5;
+    EXPECT_EQ(capi_gen(mio_capsule(&o)).mCells, 6 * (2 * 2 + 2 - 1 + 1));
+
+    mio_gen_opts_init(&o);
+    o.counts[0] = 1;
+    o.counts[1] = 2;
+    o.counts[2] = 3;
+    EXPECT_EQ(capi_gen(mio_box_surface(&o)).mCells, 22);
+
+    mio_gen_opts_init(&o);
+    for (const auto& [faces, corners] :
+         std::vector<std::pair<int64_t, int64_t>>{{4, 4}, {6, 8}, {8, 6}, {12, 20}, {20, 12}}) {
+        o.counts[0] = faces;
+        g = capi_gen(mio_platonic(&o));
+        EXPECT_EQ(g.mCells, faces);
+        EXPECT_EQ(g.mPoints, corners);
+    }
+    o.counts[0] = 7;  // not a platonic face count
+    EXPECT_EQ(mio_platonic(&o), nullptr);
+
+    mio_gen_opts_init(&o);
+    o.counts[0] = 1;
+    o.cell_type = MIO_GEN_TETRA;
+    EXPECT_EQ(capi_gen(mio_ball(&o)).mCells, 48);
+    EXPECT_EQ(capi_gen(mio_fichera(&o)).mCells, 7 * 6);
+    o.cell_type = MIO_GEN_DEFAULT;
+    o.counts[0] = 2;
+    o.counts[1] = 1;
+    o.radius2 = 0.0;  // the default inner radius, 0.5
+    o.ratio = 0.0;    // a uniform wall
+    EXPECT_EQ(capi_gen(mio_spherical_shell(&o)).mCells, 24);
+    o.counts[0] = 6;
+    o.counts[1] = 1;
+    o.counts[2] = 2;
+    EXPECT_EQ(capi_gen(mio_pipe(&o)).mCells, 12);
+    o.counts[0] = 2;
+    o.counts[1] = 5;
+    o.order = 3;
+    g = capi_gen(mio_solid_torus(&o));
+    EXPECT_EQ(g.mCells, 20);
+    EXPECT_EQ(g.mType, "VTK_LAGRANGE_HEXAHEDRON");
+    o.cell_type = MIO_GEN_WEDGE;  // not built by this shape
+    EXPECT_EQ(mio_solid_torus(&o), nullptr);
 }
 
 TEST(CApi, GeneratorsBuildMeshesAndRefuseBadRequests) {
@@ -4464,7 +5131,7 @@ TEST(CApi, GeneratorsBuildMeshesAndRefuseBadRequests) {
     o.cell_type = MIO_GEN_WEDGE;
     EXPECT_EQ(mio_disk(&o), nullptr);
     mio_gen_opts_init(&o);
-    o.reserved[2] = 1;
+    o.reserved[0] = 1;
     EXPECT_EQ(mio_box(&o), nullptr);
     mio_gen_opts_init(&o);
     o.counts[0] = -1;
@@ -4716,6 +5383,18 @@ TEST(CApi, OctreeMeshTetrahedraAndCastellatedCells) {
     EXPECT_EQ(report.num_boundary_edges_open, 0);
     mio_mesh_free(hexes);
 
+    EXPECT_EQ(opts.hex_grading, MIO_OCTREE_MESH_HEX_UNIFORM);
+    opts.hex_grading = MIO_OCTREE_MESH_HEX_GRADED;
+    mio_mesh* graded = mio_octree_mesh(cube, &opts, &report);
+    ASSERT_NE(graded, nullptr) << mio_last_error();
+    EXPECT_GT(report.num_hexahedra, 0);
+    EXPECT_EQ(report.num_inverted, 0);
+    EXPECT_EQ(report.num_boundary_edges_open, 0);
+    mio_mesh_free(graded);
+    opts.hex_grading = 99;
+    EXPECT_EQ(mio_octree_mesh(cube, &opts, nullptr), nullptr);
+    opts.hex_grading = MIO_OCTREE_MESH_HEX_UNIFORM;
+
     // Out-of-range enums fail.
     opts.output = 99;
     EXPECT_EQ(mio_octree_mesh(cube, &opts, nullptr), nullptr);
@@ -4739,6 +5418,28 @@ TEST(CApi, VoxelizeRejectsAnUnknownFill) {
     const std::int64_t res[3] = {2, 2, 2};
     opts.resolution = res;
     opts.fill = 99;  // drift guard: an out-of-range enum fails, never reinterprets
+    EXPECT_EQ(mio_voxelize(cube, &opts, nullptr, nullptr, nullptr, nullptr), nullptr);
+    mio_mesh_free(cube);
+}
+
+TEST(CApi, VoxelizeTakesAPlane) {
+    // The cube surface's boundary-free skin in 2-D: `fill` all needs only its
+    // box, and `plane` chooses which two axes it spans.
+    mio_mesh* cube = capi_cube_surface();
+    mio_voxel_opts opts;
+    mio_voxel_opts_init(&opts);
+    EXPECT_EQ(opts.plane, MIO_PLANE_AUTO);
+    const std::int64_t res[3] = {4, 2, 0};
+    opts.resolution = res;
+    opts.plane = MIO_PLANE_YZ;
+    std::int64_t dims[3] = {0, 0, 0};
+    mio_mesh* out = mio_voxelize(cube, &opts, dims, nullptr, nullptr, nullptr);
+    ASSERT_NE(out, nullptr) << mio_last_error();
+    EXPECT_EQ(dims[0], 4);
+    EXPECT_EQ(dims[1], 2);
+    EXPECT_EQ(dims[2], 1);
+    mio_mesh_free(out);
+    opts.plane = 7;  // drift guard, as for fill
     EXPECT_EQ(mio_voxelize(cube, &opts, nullptr, nullptr, nullptr, nullptr), nullptr);
     mio_mesh_free(cube);
 }
@@ -5900,8 +6601,7 @@ TEST(CApi, BrepSideChannel) {
     ASSERT_EQ(mio_brep_info_array(info, MIO_BREP_TRIMS, 0, 14, &data, &dtype, &ndim, shape),
               MIO_OK);  // the active range
     EXPECT_EQ(shape[0], 2);
-    ASSERT_EQ(mio_brep_info_array(info, MIO_BREP_BREPS, 0, 1, &data, &dtype, &ndim, shape),
-              MIO_OK);
+    ASSERT_EQ(mio_brep_info_array(info, MIO_BREP_BREPS, 0, 1, &data, &dtype, &ndim, shape), MIO_OK);
     EXPECT_EQ(dtype, MIO_INT64);
     EXPECT_EQ(static_cast<const int64_t*>(data)[0], 0);
     char buf[16];
@@ -6670,6 +7370,7 @@ TEST(CApi, FitCad3FreeformModes) {
     EXPECT_EQ(ex2.extraordinary_vertex, MIO_EV_G1X);
     EXPECT_EQ(ex2.freeform_max_control_points, 400);
     EXPECT_EQ(ex2.layout_snap_to_features, 1);
+    EXPECT_EQ(ex2.constrain_primitives, 0);
     mio_fit_cad_report_ex3 report_ex3;
     std::memset(&report_ex3, 0xff, sizeof report_ex3);
     mio_mesh* skin =
@@ -6679,6 +7380,8 @@ TEST(CApi, FitCad3FreeformModes) {
     EXPECT_EQ(report_ex3.freeform_mode, MIO_FREEFORM_LEGACY);
     EXPECT_EQ(report_ex3.facet_area_fraction, 0.0);
     EXPECT_EQ(report_ex3.num_face_records, 6);
+    EXPECT_EQ(report_ex3.num_constrained_primitives, 0);
+    EXPECT_EQ(report_ex3.num_constraint_groups, 0);
     for (int64_t r : report_ex3.reserved)
         EXPECT_EQ(r, 0);
     const void* data = nullptr;
@@ -6715,5 +7418,314 @@ TEST(CApi, FitCad3FreeformModes) {
     skin = mio_fit_cad3(m, nullptr, &opts, nullptr, &ex2, nullptr, nullptr, nullptr, nullptr);
     ASSERT_NE(skin, nullptr) << mio_last_error();
     mio_mesh_free(skin);
+    // The constrained primitives: the cube's opposite planes share a normal
+    // and its neighbours are made exactly perpendicular, every face kept.
+    mio_fit_cad_opts_ex2_init(&ex2);
+    ex2.constrain_primitives = 1;
+    mio_fit_cad_report report;
+    skin = mio_fit_cad3(m, nullptr, &opts, nullptr, &ex2, &report, nullptr, nullptr, &report_ex3);
+    ASSERT_NE(skin, nullptr) << mio_last_error();
+    EXPECT_EQ(report.num_demoted, 0);
+    EXPECT_GE(report_ex3.num_constrained_primitives, 0);
+    EXPECT_LE(report_ex3.num_constrained_primitives, 6);
+    for (int64_t r : report_ex3.reserved)
+        EXPECT_EQ(r, 0);
+    mio_mesh_free(skin);
     mio_mesh_free(m);
+}
+
+TEST(CApi, ExtrudeRevolveAndMirror) {
+    mio_gen_opts g;
+    mio_gen_opts_init(&g);
+    g.counts[0] = 3;
+    g.counts[1] = 2;
+    g.cell_type = MIO_GEN_QUAD;
+    mio_mesh* rect = mio_rectangle(&g);
+    ASSERT_NE(rect, nullptr) << mio_last_error();
+
+    mio_extrude_opts e;
+    mio_extrude_opts_init(&e);
+    EXPECT_EQ(e.direction[2], 1.0);
+    EXPECT_EQ(e.num_layers, 1);
+    EXPECT_EQ(e.ratio, 1.0);
+    e.num_layers = 4;
+    mio_sweep_report report{};
+    report.reserved[0] = 7;
+    mio_mesh* out = mio_extrude(rect, &e, &report);
+    ASSERT_NE(out, nullptr) << mio_last_error();
+    EXPECT_EQ(report.num_hexahedra, 24);
+    EXPECT_EQ(report.num_cells, 24);
+    EXPECT_EQ(report.full, 0);
+    EXPECT_EQ(report.reserved[0], 0);
+    EXPECT_EQ(mio_mesh_num_points(out), 4 * 3 * 5);
+    mio_mesh_free(out);
+    // Explicit offsets; NULL options are the defaults.
+    const double offsets[2] = {0.25, 1.0};
+    mio_extrude_opts_init(&e);
+    e.offsets = offsets;
+    e.num_offsets = 2;
+    out = mio_extrude(rect, &e, &report);
+    ASSERT_NE(out, nullptr) << mio_last_error();
+    EXPECT_EQ(report.num_cells, 12);
+    mio_mesh_free(out);
+    out = mio_extrude(rect, nullptr, nullptr);
+    ASSERT_NE(out, nullptr) << mio_last_error();
+    mio_mesh_free(out);
+    mio_extrude_opts_init(&e);
+    e.direction[1] = 1.0;
+    e.direction[2] = 0.0;
+    EXPECT_EQ(mio_extrude(rect, &e, nullptr), nullptr);
+    EXPECT_NE(std::string(mio_last_error()).find("parallel"), std::string::npos);
+
+    mio_revolve_opts r;
+    mio_revolve_opts_init(&r);
+    EXPECT_EQ(r.angle, 360.0);
+    EXPECT_EQ(r.num_layers, 16);
+    EXPECT_EQ(r.axis[1], 1.0);
+    r.num_layers = 8;
+    out = mio_revolve(rect, &r, &report);
+    ASSERT_NE(out, nullptr) << mio_last_error();
+    EXPECT_EQ(report.full, 1);
+    EXPECT_EQ(report.num_on_axis, 3);
+    EXPECT_EQ(report.num_wedges, 2 * 8);
+    EXPECT_EQ(report.num_warnings, 0);
+    EXPECT_EQ(mio_revolve_warnings(nullptr, 0), 0);
+    mio_mesh_free(out);
+    r.num_layers = 2;
+    EXPECT_EQ(mio_revolve(rect, &r, nullptr), nullptr);
+    mio_mesh_free(rect);
+
+    mio_gen_opts_init(&g);
+    g.counts[0] = g.counts[1] = g.counts[2] = 2;
+    g.cell_type = MIO_GEN_TETRA;
+    mio_mesh* box = mio_box(&g);
+    ASSERT_NE(box, nullptr) << mio_last_error();
+    mio_mirror_opts mo;
+    mio_mirror_opts_init(&mo);
+    EXPECT_EQ(mo.normal[0], 1.0);
+    EXPECT_EQ(mo.weld, 1);
+    EXPECT_EQ(mo.keep_original, 0);
+    mio_mirror_report mr{};
+    out = mio_mirror(box, &mo, &mr);
+    ASSERT_NE(out, nullptr) << mio_last_error();
+    EXPECT_EQ(mr.num_flipped_cells, 48);
+    std::int64_t nc = 0, ninv = 0, ndeg = 0;
+    ASSERT_EQ(mio_quality_counts(out, &nc, &ninv, &ndeg), MIO_OK);
+    EXPECT_EQ(ninv, 0);
+    mio_mesh_free(out);
+    mo.keep_original = 1;
+    out = mio_mirror(box, &mo, &mr);
+    ASSERT_NE(out, nullptr) << mio_last_error();
+    EXPECT_EQ(mr.num_points_on_plane, 9);
+    EXPECT_EQ(mio_mesh_num_points(out), 2 * 27 - 9);
+    EXPECT_EQ(mr.num_warnings, 1);
+    const std::int64_t len = mio_mirror_warnings(nullptr, 0);
+    ASSERT_GT(len, 0);
+    std::string text(static_cast<std::size_t>(len) + 1, '\0');
+    EXPECT_EQ(mio_mirror_warnings(text.data(), len + 1), len);
+    EXPECT_NE(text.find("xmin"), std::string::npos);
+    mio_mesh_free(out);
+    mo.normal[0] = 0.0;
+    EXPECT_EQ(mio_mirror(box, &mo, nullptr), nullptr);
+    mio_mesh_free(box);
+}
+
+// The MMG backend (roadmap 3.2): layouts, the capability queries, mio_adapt
+// with the backend or its refusal by name without it, and the MMG-free
+// mio_metric_from_hessian.
+TEST(CApi, MmgOptionLayoutsAndDefaults) {
+    EXPECT_EQ(sizeof(mio_mmg_local), 32u);
+    EXPECT_EQ(sizeof(mio_mmg_params), 168u);
+    EXPECT_EQ(sizeof(mio_mmg_report), 192u);
+    EXPECT_EQ(sizeof(mio_adapt_opts), 224u);
+    EXPECT_EQ(offsetof(mio_adapt_opts, hsiz), 168u);
+    mio_adapt_opts o;
+    mio_adapt_opts_init(&o);
+    EXPECT_EQ(o.params.hmin, -1.0);
+    EXPECT_EQ(o.params.angle_detection, 45.0);
+    EXPECT_EQ(o.params.verbose, -1);
+    EXPECT_EQ(o.hsiz, -1.0);
+    EXPECT_EQ(mio_mmg_index_bits() != 0, mio_has_mmg() != 0);
+}
+
+TEST(CApi, AdaptWithOrWithoutMmg) {
+    mio_gen_opts g;
+    mio_gen_opts_init(&g);
+    g.counts[0] = 4;
+    g.counts[1] = 4;
+    g.cell_type = MIO_GEN_TRIANGLE;
+    mio_mesh* square = mio_rectangle(&g);
+    ASSERT_NE(square, nullptr) << mio_last_error();
+    mio_adapt_opts o;
+    mio_adapt_opts_init(&o);
+    o.hsiz = 0.1;
+    const int64_t frozen[] = {12};
+    o.params.frozen = frozen;
+    o.params.num_frozen = 1;
+    mio_mmg_report report;
+    mio_mesh* out = mio_adapt(square, &o, &report);
+    if (!mio_has_mmg()) {
+        EXPECT_EQ(out, nullptr);
+        EXPECT_NE(std::string(mio_last_error()).find("MESHIOPLUSPLUS_WITH_MMG"), std::string::npos);
+    } else {
+        ASSERT_NE(out, nullptr) << mio_last_error();
+        EXPECT_EQ(report.status, 0);
+        EXPECT_STREQ(report.library, "mmg2d");
+        EXPECT_EQ(report.num_points_in, 25);
+        EXPECT_EQ(report.num_points_out, mio_mesh_num_points(out));
+        EXPECT_GT(report.num_elements_out, report.num_elements_in);
+        EXPECT_GE(report.quality_min, 1.0);
+        mio_mesh_free(out);
+        // NULL options and report are fine (MMG sizes from the mesh).
+        mio_mesh* plain = mio_adapt(square, nullptr, nullptr);
+        ASSERT_NE(plain, nullptr) << mio_last_error();
+        mio_mesh_free(plain);
+        // A frozen id out of range is refused.
+        const int64_t bad[] = {999};
+        o.params.frozen = bad;
+        EXPECT_EQ(mio_adapt(square, &o, nullptr), nullptr);
+    }
+    mio_mesh_free(square);
+}
+
+TEST(CApi, MetricFromHessian) {
+    mio_gen_opts g;
+    mio_gen_opts_init(&g);
+    g.counts[0] = 2;
+    g.counts[1] = 2;
+    g.cell_type = MIO_GEN_TRIANGLE;
+    mio_mesh* m = mio_rectangle(&g);
+    ASSERT_NE(m, nullptr) << mio_last_error();
+    const int64_t n = mio_mesh_num_points(m);
+    std::vector<double> h(static_cast<std::size_t>(n) * 4, 0.0);
+    for (int64_t i = 0; i < n; ++i)
+        h[static_cast<std::size_t>(i) * 4] = 1e6;
+    const int64_t shape[] = {n, 4};
+    ASSERT_EQ(mio_mesh_add_point_data(m, "h", MIO_FLOAT64, 2, shape, h.data()), MIO_OK);
+    mio_mesh* out = mio_metric_from_hessian(m, "h", 1.0, 0.1, 1.0, nullptr);
+    ASSERT_NE(out, nullptr) << mio_last_error();
+    const void* data = nullptr;
+    int64_t got[MIO_MAX_NDIM] = {0};
+    int32_t ndim = 0;
+    ASSERT_EQ(mio_mesh_get_point_data(out, "metric", &data, nullptr, &ndim, got), MIO_OK);
+    EXPECT_EQ(ndim, 2);
+    EXPECT_EQ(got[1], 3);
+    const double* metric = static_cast<const double*>(data);
+    EXPECT_DOUBLE_EQ(metric[0], 100.0);  // clamped to 1/hmin^2
+    EXPECT_DOUBLE_EQ(metric[2], 1.0);    // clamped to 1/hmax^2
+    mio_mesh_free(out);
+    EXPECT_EQ(mio_metric_from_hessian(m, "nope", 1.0, 0.1, 1.0, nullptr), nullptr);
+    mio_mesh_free(m);
+}
+
+TEST(CApi, DiscretizeLevelsetAndMeshDomain) {
+    EXPECT_EQ(sizeof(mio_mmg_material), 32u);
+    EXPECT_EQ(sizeof(mio_discretize_levelset_opts), 240u);
+    EXPECT_EQ(sizeof(mio_mesh_domain_opts), 232u);
+    // A disc's level set in a square.
+    mio_gen_opts g;
+    mio_gen_opts_init(&g);
+    g.counts[0] = 8;
+    g.counts[1] = 8;
+    g.size[0] = g.size[1] = 2.0;
+    g.origin[0] = g.origin[1] = -1.0;
+    g.cell_type = MIO_GEN_TRIANGLE;
+    mio_mesh* square = mio_rectangle(&g);
+    ASSERT_NE(square, nullptr) << mio_last_error();
+    const int64_t n = mio_mesh_num_points(square);
+    const void* pts = nullptr;
+    ASSERT_EQ(mio_mesh_get_points(square, &pts, nullptr), MIO_OK);
+    std::vector<double> ls(static_cast<std::size_t>(n));
+    for (int64_t i = 0; i < n; ++i) {
+        const double* p = static_cast<const double*>(pts) + i * 3;
+        ls[static_cast<std::size_t>(i)] = std::sqrt(p[0] * p[0] + p[1] * p[1]) - 0.5;
+    }
+    const int64_t shape[] = {n};
+    ASSERT_EQ(mio_mesh_add_point_data(square, "ls", MIO_FLOAT64, 1, shape, ls.data()), MIO_OK);
+    mio_discretize_levelset_opts o;
+    mio_discretize_levelset_opts_init(&o);
+    o.level_set = "ls";
+    mio_mmg_report report;
+    mio_mesh* cut = mio_discretize_levelset(square, &o, &report);
+    if (!mio_has_mmg()) {
+        EXPECT_EQ(cut, nullptr);
+        EXPECT_NE(std::string(mio_last_error()).find("MESHIOPLUSPLUS_WITH_MMG"), std::string::npos);
+    } else {
+        ASSERT_NE(cut, nullptr) << mio_last_error();
+        EXPECT_STREQ(report.library, "mmg2d");
+        EXPECT_GT(report.num_elements_out, report.num_elements_in);
+        mio_mesh_free(cut);
+    }
+    EXPECT_EQ(mio_discretize_levelset(square, nullptr, nullptr), nullptr);
+    mio_mesh_free(square);
+
+    // A square's boundary, meshed.
+    const double xy[] = {0, 0, 1, 0, 1, 1, 0, 1};
+    const int64_t lines[] = {0, 1, 1, 2, 2, 3, 3, 0};
+    mio_mesh* boundary = mio_mesh_create();
+    ASSERT_EQ(mio_mesh_set_points(boundary, MIO_FLOAT64, 4, 2, xy), MIO_OK);
+    ASSERT_EQ(mio_mesh_add_cell_block(boundary, "line", 4, 2, MIO_INT64, lines), MIO_OK);
+    mio_mesh_domain_opts d;
+    mio_mesh_domain_opts_init(&d);
+    d.hsiz = 0.1;
+    int64_t subdomains = -1, holes = -1;
+    mio_mesh* domain = mio_mesh_domain(boundary, &d, &report, &subdomains, &holes);
+    if (!mio_has_mmg()) {
+        EXPECT_EQ(domain, nullptr);
+    } else {
+        ASSERT_NE(domain, nullptr) << mio_last_error();
+        EXPECT_EQ(subdomains, 1);
+        EXPECT_EQ(holes, 0);
+        EXPECT_GT(report.num_elements_out, 100);
+        mio_mesh_free(domain);
+    }
+    mio_mesh_free(boundary);
+}
+
+TEST(CApi, MoveTranslatesAFaceOrNamesWhatIsMissing) {
+    mio_gen_opts g;
+    mio_gen_opts_init(&g);
+    g.counts[0] = g.counts[1] = g.counts[2] = 4;
+    g.cell_type = MIO_GEN_TETRA;
+    mio_mesh* box = mio_box(&g);
+    ASSERT_NE(box, nullptr) << mio_last_error();
+    const int64_t n = mio_mesh_num_points(box);
+    const void* raw = nullptr;
+    mio_dtype dt;
+    ASSERT_EQ(mio_mesh_get_points(box, &raw, &dt), MIO_OK);
+    ASSERT_EQ(dt, MIO_FLOAT64);
+    const double* p = static_cast<const double*>(raw);
+    std::vector<double> d(static_cast<std::size_t>(n) * 3, 0.0);
+    for (int64_t i = 0; i < n; ++i)
+        if (std::abs(p[i * 3] - 1.0) < 1e-12)
+            d[static_cast<std::size_t>(i) * 3] = 0.1;
+    const int64_t shape[2] = {n, 3};
+    ASSERT_EQ(mio_mesh_add_point_data(box, "d", MIO_FLOAT64, 2, shape, d.data()), MIO_OK);
+    mio_move_opts o;
+    mio_move_opts_init(&o);
+    EXPECT_EQ(o.lagrangian, 1);
+    const char* moving[] = {"xmax"};
+    o.displacement = "d";
+    o.moving = moving;
+    o.num_moving = 1;
+    mio_mmg_report report;
+    mio_mesh* out = mio_move(box, &o, &report);
+    if (!mio_has_mmg() || !mio_has_mmg_elas()) {
+        EXPECT_EQ(out, nullptr);
+        EXPECT_NE(
+            std::string(mio_last_error()).find(mio_has_mmg() ? "ELAS" : "MESHIOPLUSPLUS_WITH_MMG"),
+            std::string::npos);
+    } else {
+        ASSERT_NE(out, nullptr) << mio_last_error();
+        EXPECT_STREQ(report.library, "mmg3d");
+        const void* q = nullptr;
+        ASSERT_EQ(mio_mesh_get_points(out, &q, &dt), MIO_OK);
+        double xmax = 0.0;
+        for (int64_t i = 0; i < mio_mesh_num_points(out); ++i)
+            xmax = std::max(xmax, static_cast<const double*>(q)[i * 3]);
+        EXPECT_NEAR(xmax, 1.1, 1e-9);
+        mio_mesh_free(out);
+    }
+    EXPECT_EQ(mio_move(box, nullptr, nullptr), nullptr);
+    mio_mesh_free(box);
 }

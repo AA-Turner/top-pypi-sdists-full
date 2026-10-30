@@ -122,8 +122,9 @@ class Candidate:
     import_name: str = ""
     #: a package's producer, served through its base backend (`known`)
     producer: AttentionProducer | None = None
-    #: keeps the operands' own precision; False quantizes them (8 or 4 bits)
-    exact: bool = True
+    #: its precision: 16 keeps the operands' own, 8 or 4 quantizes them (its coarsest operand);
+    #: the one cell level it may be listed at (`DENSE`, `SPARSE`)
+    level: int = 16
     #: a sparse kernel: the model's layout routes each call's rows (`attention_sol`)
     sparse: bool = False
     #: the dense kernels a sparse one computes rows with, opened beside it: its dense steps',
@@ -132,6 +133,10 @@ class Candidate:
     #: the Runtime module whose `KERNELS` (a `TritonKernels` set) it launches: it serves once
     #: they are built here (`triton_kernels`)
     kernels: str = ""
+
+    @property
+    def exact(self) -> bool:
+        return self.level == 16
 
     def admits(self, dtype: str, head_dim: int) -> bool:
         """Whether a site of DTYPE activations at HEAD_DIM (0: unknown) is one it serves."""
@@ -188,6 +193,9 @@ _D64_128 = frozenset({64, 128})
 #: What the wheel's FA3 serves (`prebuilt.FlashAttention3`); `flash-attn3-full` serves more.
 _FA3 = frozenset((d, dtype) for d in (64, 128) for dtype in ("bfloat16", "float16"))
 _PY, _KITCHEN, _SAGE3 = kernel_sources.PYTHON, "comfy-kitchen", "sageattn3"
+#: SageAttention3's API over the wheel's `_sage3` (its group mean is the per-block-mean
+#: candidate's Triton set); the source build's is `sageattn3.api`.
+_SAGE3_WHEEL = "cozy_runtime.internal.sage3"
 _E4M3 = "cozy_runtime.internal.attention_fp8"
 #: Every sparse kernel's admission: one BF16 document at head dimension 128, equal Q/K/V.
 _SOL: dict[str, Any] = dict(
@@ -205,7 +213,7 @@ KERNELS: tuple[Candidate, ...] = (
         shapes=_FA3, artifact="flash-attn3-full", import_name="flash_attn_interface",
     ),
     Candidate(
-        "flash-attn3-fp8", "_cozy_flash_attn3_fp8", upstream.FA3_FP8, _WGMMA, exact=False,
+        "flash-attn3-fp8", "_cozy_flash_attn3_fp8", upstream.FA3_FP8, _WGMMA, level=8,
         dtypes=_HALF, max_head_dim=128, gqa=False, artifact="flash-attn3-full",
         import_name="flash_attn_interface", kernels=_E4M3,
     ),
@@ -214,49 +222,49 @@ KERNELS: tuple[Candidate, ...] = (
         max_head_dim=256, artifact=_PY, import_name="flash_attn.cute",
     ),
     Candidate(
-        "flash-attn4-fp8", "_cozy_flash_attn4_fp8", upstream.FA4_FP8, _TCGEN05, exact=False,
+        "flash-attn4-fp8", "_cozy_flash_attn4_fp8", upstream.FA4_FP8, _TCGEN05, level=8,
         dtypes=_BF16, head_dims=_D64_128, max_head_dim=128, gqa=False, artifact=_PY,
         import_name="flash_attn.cute", kernels=_E4M3,
     ),
     Candidate(
-        "sageattention", "_cozy_sage_int8_fp8", upstream.SAGE, _MMA | _WGMMA, _FP8, exact=False,
+        "sageattention", "_cozy_sage_int8_fp8", upstream.SAGE, _MMA | _WGMMA, _FP8, level=8,
         dtypes=_HALF, max_head_dim=128, artifact="sageattention", import_name="sageattention",
     ),
     Candidate(
-        "sageattention-fp16pv", "_cozy_sage_fp16pv", upstream.SAGE_FP16PV, _WGMMA, exact=False,
+        "sageattention-fp16pv", "_cozy_sage_fp16pv", upstream.SAGE_FP16PV, _WGMMA, level=8,
         dtypes=_HALF, max_head_dim=128, artifact="sageattention-full",
         import_name="sageattention",
     ),
     Candidate(
-        "kitchen-int8", "_cozy_kitchen_int8", upstream.KITCHEN, _GPU, exact=False, dtypes=_HALF,
+        "kitchen-int8", "_cozy_kitchen_int8", upstream.KITCHEN, _GPU, level=8, dtypes=_HALF,
         max_head_dim=256, masks=True, causal=False, artifact=_KITCHEN,
         import_name="comfy_kitchen",
     ),
     Candidate(
         "flashinfer-bf16-fp8", "_cozy_flashinfer_bf16_fp8", upstream.FLASHINFER, _TCGEN05,
-        exact=False, dtypes=_BF16, max_head_dim=128, head_dims=_D128, causal=False,
+        level=8, dtypes=_BF16, max_head_dim=128, head_dims=_D128, causal=False,
         artifact=_PY, import_name="flashinfer", kernels=_E4M3,
     ),
     Candidate(
-        "sageattention3-fp4", "_cozy_sage3_fp4", upstream.SAGE3, _MMA, _FP4, exact=False,
+        "sageattention3-fp4", "_cozy_sage3_fp4", upstream.SAGE3, _MMA, _FP4, level=4,
         dtypes=_HALF, max_head_dim=128, head_dims=_D64_128, causal=False, gqa=False,
-        scales=False, artifact=_SAGE3, import_name=_SAGE3,
+        scales=False, artifact=_SAGE3, import_name=_SAGE3, kernels=_SAGE3_WHEEL,
     ),
     Candidate(
         "sageattention3-fp4-global-lowmem", "_cozy_sage3_fp4_global_lowmem",
-        upstream.SAGE3_GLOBAL_LOWMEM, _MMA, _FP4, exact=False, dtypes=_HALF, max_head_dim=128,
+        upstream.SAGE3_GLOBAL_LOWMEM, _MMA, _FP4, level=4, dtypes=_HALF, max_head_dim=128,
         head_dims=_D64_128, causal=False, gqa=False, scales=False, artifact=_SAGE3,
         import_name=_SAGE3,
     ),
     Candidate(
         "sageattention3-fp4-fixed-means", "_cozy_sage3_fp4_fixed_means",
-        upstream.SAGE3_FIXED_MEANS, _MMA, _FP4, exact=False, dtypes=_BF16, max_head_dim=128,
+        upstream.SAGE3_FIXED_MEANS, _MMA, _FP4, level=4, dtypes=_BF16, max_head_dim=128,
         head_dims=_D128, causal=False, gqa=False, cross=False, batches=False, scales=False,
         artifact=_SAGE3, import_name=_SAGE3, kernels="cozy_runtime.internal.attention_sage3_fixed",
     ),
     Candidate(
         attention_sage2_fixed.DENSE_NAME, "_cozy_sage2_fixed_kmean", attention_sage2_fixed.DENSE,
-        _WGMMA, exact=False, dtypes=_BF16, max_head_dim=128, head_dims=_D128, causal=False,
+        _WGMMA, level=8, dtypes=_BF16, max_head_dim=128, head_dims=_D128, causal=False,
         gqa=False, batches=False, artifact="sageattention", import_name="sageattention",
         kernels="cozy_runtime.internal.attention_sage2_fixed_mean",
     ),
@@ -266,22 +274,22 @@ KERNELS: tuple[Candidate, ...] = (
     ),
     Candidate(
         attention_sage2_fixed.SOL_NAME, "_cozy_sol_sage2_fixed_kmean", attention_sage2_fixed.SOL,
-        _WGMMA, artifact=_PY, import_name="sol_attn", dense=(attention_sage2_fixed.DENSE_NAME,),
-        **_SOL,
+        _WGMMA, level=8, artifact=_PY, import_name="sol_attn",
+        dense=(attention_sage2_fixed.DENSE_NAME,), **_SOL,
     ),
     Candidate(
-        "kitchen-sol", "_cozy_kitchen_sol_int8", attention_kitchen_sol.KITCHEN_SOL, _GPU,
+        "kitchen-sol", "_cozy_kitchen_sol_int8", attention_kitchen_sol.KITCHEN_SOL, _GPU, level=8,
         artifact=_KITCHEN, import_name="comfy_kitchen", dense=("kitchen-int8",), **_SOL,
     ),
     Candidate(
         "kitchen-sol-fp4-lowmem", "_cozy_kitchen_sol_fp4_lowmem",
-        attention_kitchen_sol.KITCHEN_SOL_FP4_LOWMEM, _MMA, _FP4, artifact=_KITCHEN,
+        attention_kitchen_sol.KITCHEN_SOL_FP4_LOWMEM, _MMA, _FP4, level=4, artifact=_KITCHEN,
         import_name="comfy_kitchen", dense=("sageattention3-fp4-global-lowmem", "kitchen-int8"),
         **_SOL,
     ),
     Candidate(
         "kitchen-sol-fp4-fixed-means", "_cozy_kitchen_sol_fp4_fixed_means",
-        attention_kitchen_sol.KITCHEN_SOL_FP4_FIXED_MEANS, _MMA, _FP4, artifact=_KITCHEN,
+        attention_kitchen_sol.KITCHEN_SOL_FP4_FIXED_MEANS, _MMA, _FP4, level=4, artifact=_KITCHEN,
         import_name="comfy_kitchen", dense=("sageattention3-fp4-fixed-means", "kitchen-int8"),
         **_SOL,
     ),
@@ -300,18 +308,33 @@ DENSE: dict[str, dict[int, tuple[str, ...]]] = {
     arch.TCGEN05: {16: ("cudnn",), 8: ("flash-attn4-fp8",)},
 }
 #: A sparse site's kernels (one a package producer serves: its model supplies an
-#: `AttentionLayout`), tried before DENSE at each level. Sol's dense rows take DENSE at the
-#: site's level, its exact paths level 16 (`_sol_dense`).
+#: `AttentionLayout`), tried at its level and each above before any DENSE kernel. Sol's dense rows
+#: take DENSE at the site's level, its exact paths level 16 (`_sol_dense`); on tcgen05 its exact
+#: tiles take its dense rows' precision (`attention_sol_fa4`), so its 8-bit cell is empty and a
+#: site steps up to it. mma.sync's 8-bit cell is Kitchen's INT8 Sol: INT8 runs 2x BF16 there, 4x
+#: on GeForce (half-rate FP32 accumulation), and BF16 Sol's exact blocks alone outlast Kitchen's
+#: whole sparse step (H3 15 s, RTX 4090: 23 s at peak).
 SPARSE: dict[str, dict[int, tuple[str, ...]]] = {
     arch.MMA_SYNC: {
         16: ("sol-attn",),
-        8: ("sol-attn", "kitchen-sol"),
+        8: ("kitchen-sol",),
         4: ("kitchen-sol-fp4-fixed-means", "kitchen-sol-fp4-lowmem"),
     },
-    arch.WGMMA: {16: ("sol-attn",), 8: ("sol-attn-sage2-fixed-kmean", "sol-attn")},
-    arch.TCGEN05: {16: ("sol-attn",), 8: ("sol-attn",)},
+    arch.WGMMA: {16: ("sol-attn",), 8: ("sol-attn-sage2-fixed-kmean",)},
+    arch.TCGEN05: {16: ("sol-attn",)},
 }
 LEVELS = (4, 8, 16)
+#: A cell lists only kernels of its own precision: a coarser or finer kernel there could not merge.
+_MISFILED = [
+    f"{family} {'sparse' if table is SPARSE else 'dense'} {level}: {name} is {BY_NAME[name].level}"
+    for table in (DENSE, SPARSE)
+    for family, cells in table.items()
+    for level, names in cells.items()
+    for name in names
+    if BY_NAME[name].level != level or BY_NAME[name].sparse != (table is SPARSE)
+]
+if _MISFILED:
+    raise ValueError(f"attention cells hold kernels of another precision: {_MISFILED}")
 #: The pin of a request at 16 bits: every site in its scope at level 16.
 EXACT = "exact"
 #: Package producers' candidates, each derived once from its registration.
@@ -427,14 +450,13 @@ def sparse_site(module: object) -> bool:
 
 
 def walk(row: arch.Row, at: int, layout: bool = False) -> list[str]:
-    """A site's kernels on ROW, best first: its family's cells at level AT (a LAYOUT site's
-    sparse ones first), then each level above, then SDPA, each producer standing in before
-    its base; none the row cannot run."""
-    found, names = known(), list[str]()
-    for step in LEVELS[LEVELS.index(at) :]:
-        if layout:
-            names += SPARSE.get(row.family, {}).get(step, ())
-        names += DENSE.get(row.family, {}).get(step, ())
+    """A site's kernels on ROW, best first: a LAYOUT site's sparse cells at level AT and each
+    level above (its model asked for sparse attention), then the dense cells the same way, then
+    SDPA, each producer standing in before its base; none the row cannot run."""
+    found, names, levels = known(), list[str](), LEVELS[LEVELS.index(at) :]
+    for table in (SPARSE, DENSE) if layout else (DENSE,):
+        for step in levels:
+            names += table.get(row.family, {}).get(step, ())
     stand_ins: dict[str, list[str]] = {}
     for name, producer in _PRODUCERS.items():
         stand_ins.setdefault(producer.base, []).append(name)
@@ -580,6 +602,9 @@ def _compiled(candidate: Candidate, device: DeviceFacts, wait: bool) -> dict[str
     when `wait`, or refuse with its state: `failed` for this machine run, `absent`, or
     `compiling` for a caller that only asks. A package environment that carries the module
     itself serves it, as its pinned version always has."""
+    wheel = _wheel(candidate, device)
+    if wheel is not None:
+        return wheel
     _build(candidate)  # another build imported here refuses before any store or compile
     store = kernel_cache.configured()
     found = util.find_spec(candidate.import_name.split(".")[0])
@@ -658,6 +683,25 @@ def _launch(ready: Ready, device: DeviceFacts) -> None:
             "attention_kernel_failed_verification",
             f"{ready.name} on {device.name}: {verdict.detail}"[:600],
         )
+
+
+#: Candidates whose wheel module failed its check on this machine run: they build from source.
+_WHEEL_REFUSED: set[str] = set()
+
+
+def _wheel(candidate: Candidate, device: DeviceFacts) -> dict[str, str] | None:
+    """The Runtime wheel's module for CANDIDATE on this card (`prebuilt.serves`), opened as a
+    compiled kernel is and checked by `_launch`, unless it failed that check this run; FA3 opens
+    through `_prebuilt_fa3`. Its record names it, as a build's names its artifact."""
+    module = prebuilt.ATTENTION.get(candidate.name)
+    if (
+        module in (None, "_fa3")
+        or device.kind != "cuda"
+        or candidate.name in _WHEEL_REFUSED
+        or not prebuilt.serves(candidate.name, device.sm)
+    ):
+        return None
+    return {"artifact": "prebuilt", "key": prebuilt.artifact(module).partition(":")[2][:16]}
 
 
 def _prebuilt_fa3(candidate: Candidate, device: DeviceFacts) -> Ready | None:
@@ -775,8 +819,14 @@ def _resolve(candidate: Candidate, device: DeviceFacts, wait: bool) -> Ready:
             artifact.update({f"{role}_{key}": value for key, value in opened.items()})
     else:
         artifact = _compiled(candidate, device, wait) if candidate.artifact else None
-    if candidate.import_name:
+    wheel = (artifact or {}).get("artifact") == "prebuilt"
+    if wheel:
+        upstream.bind_sage3(import_module(_SAGE3_WHEEL), f"prebuilt {(artifact or {})['key']}")
+        _STATES[candidate.name] = kernel_compile.State("prebuilt", "ready")
+    elif candidate.import_name:
         module = _import(candidate)
+        if candidate.import_name == _SAGE3:
+            upstream.bind_sage3(import_module("sageattn3.api"), (artifact or {}).get("key", ""))
         if candidate.sparse and candidate.import_name == "comfy_kitchen":
             import torch
 
@@ -802,6 +852,12 @@ def _resolve(candidate: Candidate, device: DeviceFacts, wait: bool) -> Ready:
     try:
         _launch(ready, device)
     except AttentionRefusal as exc:
+        if wheel:  # the run's one warning for it; the source build is tried next
+            _WHEEL_REFUSED.add(candidate.name)
+            _STATES[f"{candidate.name} prebuilt"] = kernel_compile.State(
+                "prebuilt", "failed", detail=str(exc)
+            )
+            return _resolve(candidate, device, wait)
         _STATES[candidate.name] = kernel_compile.State(candidate.name, "failed", detail=str(exc))
         raise
     if candidate.artifact:

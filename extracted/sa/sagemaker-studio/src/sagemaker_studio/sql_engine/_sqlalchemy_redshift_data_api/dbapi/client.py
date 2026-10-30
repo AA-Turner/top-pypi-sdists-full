@@ -25,6 +25,12 @@ REDSHIFT_DATA_REGION_ENV_VAR = "AWS_REDSHIFT_DATA_REGION"
 # Reserved workgroup name that identifies a Redshift Express connection.
 REDSHIFT_EXPRESS_WORKGROUP_NAME = "express-default"
 
+# boto3_models root bundled with this package (three levels up from dbapi/), handed
+# to botocore's loader as the search path for <service>/<apiVersion>/service-2.json.
+_BUNDLED_MODELS_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "..", "boto3_models")
+)
+
 
 class RedshiftDataAPIClient:
     """
@@ -79,6 +85,29 @@ class RedshiftDataAPIClient:
         try:
             # Create a boto3 session based on the authentication method
             self._session = self._create_boto3_session()
+
+            # Wire the bundled redshift-data model so the client declares WaitTimeSeconds
+            # regardless of the installed botocore. Mutate the session's existing loader
+            # rather than a fresh botocore session, which would discard the resolved
+            # credentials, region, endpoint, and profile. insert(0, ...) not append:
+            # botocore ships its own redshift-data model and takes the first match.
+            try:
+                model_path = _BUNDLED_MODELS_PATH
+                if os.path.isdir(model_path):
+                    loader = self._session._session.get_component("data_loader")
+                    if model_path not in loader.search_paths:
+                        loader.search_paths.insert(0, model_path)
+                        try:
+                            # Load-probe before leaving the path in place: botocore loads
+                            # it later outside this guard, so an unparseable model would
+                            # break connection setup instead of degrading to classic mode.
+                            loader.load_service_model("redshift-data", "service-2")
+                        except Exception:
+                            loader.search_paths.remove(model_path)
+            except Exception:
+                # The bundled model is an optimization; on failure the driver fails
+                # open to classic polling.
+                pass
 
             # Create the redshift-data client with the specified region. A custom
             # endpoint_url is passed only when the env var is set (non-empty), so

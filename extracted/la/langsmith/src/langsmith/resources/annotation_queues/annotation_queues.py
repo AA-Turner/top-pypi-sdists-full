@@ -103,6 +103,8 @@ class AnnotationQueuesResource(SyncAPIResource):
         Get Annotation Queue
 
         Args:
+          queue_id: ID of the annotation queue.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -146,6 +148,29 @@ class AnnotationQueuesResource(SyncAPIResource):
         Update Annotation Queue
 
         Args:
+          queue_id: ID of the annotation queue.
+
+          default_dataset: Dataset that reviewed runs are added to by default.
+
+          description: New description.
+
+          enable_reservations: Whether a reviewer reserves a run while reviewing it, so others skip it.
+
+          metadata: Metadata to store on the queue. Replaces the existing metadata.
+
+          name: New name for the queue.
+
+          num_reviewers_per_item: How many reviewers must review each run.
+
+          reservation_minutes: How long a reservation lasts, in minutes.
+
+          reviewer_access_mode: Who completes a run: any (one reviewer is enough) or assigned (every assigned
+              reviewer must submit).
+
+          rubric_instructions: Instructions shown to reviewers.
+
+          rubric_items: Feedback keys reviewers fill in for each run.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -194,6 +219,8 @@ class AnnotationQueuesResource(SyncAPIResource):
         Delete Annotation Queue
 
         Args:
+          queue_id: ID of the annotation queue.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -386,6 +413,13 @@ class AnnotationQueuesResource(SyncAPIResource):
         Populate annotation queue with runs from an experiment.
 
         Args:
+          queue_id: ID of the annotation queue to add runs to.
+
+          session_ids: Experiments whose runs are added to the queue. Each must be an experiment on a
+              dataset.
+
+          extend_trace_retention: Upgrade the added traces from short-lived to extended retention.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -486,6 +520,8 @@ class AnnotationQueuesResource(SyncAPIResource):
         Get Annotation Queues For Run
 
         Args:
+          run_id: ID of the run.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -720,6 +756,8 @@ class AsyncAnnotationQueuesResource(AsyncAPIResource):
         Get Annotation Queue
 
         Args:
+          queue_id: ID of the annotation queue.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -763,6 +801,29 @@ class AsyncAnnotationQueuesResource(AsyncAPIResource):
         Update Annotation Queue
 
         Args:
+          queue_id: ID of the annotation queue.
+
+          default_dataset: Dataset that reviewed runs are added to by default.
+
+          description: New description.
+
+          enable_reservations: Whether a reviewer reserves a run while reviewing it, so others skip it.
+
+          metadata: Metadata to store on the queue. Replaces the existing metadata.
+
+          name: New name for the queue.
+
+          num_reviewers_per_item: How many reviewers must review each run.
+
+          reservation_minutes: How long a reservation lasts, in minutes.
+
+          reviewer_access_mode: Who completes a run: any (one reviewer is enough) or assigned (every assigned
+              reviewer must submit).
+
+          rubric_instructions: Instructions shown to reviewers.
+
+          rubric_items: Feedback keys reviewers fill in for each run.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -811,6 +872,8 @@ class AsyncAnnotationQueuesResource(AsyncAPIResource):
         Delete Annotation Queue
 
         Args:
+          queue_id: ID of the annotation queue.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -1003,6 +1066,13 @@ class AsyncAnnotationQueuesResource(AsyncAPIResource):
         Populate annotation queue with runs from an experiment.
 
         Args:
+          queue_id: ID of the annotation queue to add runs to.
+
+          session_ids: Experiments whose runs are added to the queue. Each must be an experiment on a
+              dataset.
+
+          extend_trace_retention: Upgrade the added traces from short-lived to extended retention.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -1106,6 +1176,8 @@ class AsyncAnnotationQueuesResource(AsyncAPIResource):
         Get Annotation Queues For Run
 
         Args:
+          run_id: ID of the run.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request

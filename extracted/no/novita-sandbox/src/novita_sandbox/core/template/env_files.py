@@ -41,12 +41,13 @@ breaks the build outright::
 
 PATH held a literal ``$PATH``, so the next command was not found.
 
-Kept behaviourally identical to the JS SDK's ``template/envFiles.ts``: a template
-built through either SDK has to end up with the same environment.
+Uses the same runtime files as the standard SDK, while preserving base-template
+values and distinguishing registry literals from builder declarations.
 """
 
 import base64
 import re
+import shlex
 from typing import Dict, List, Optional, Tuple
 
 #: Where the login-shell copy is written.
@@ -57,6 +58,9 @@ ENVIRONMENT_PATH = "/etc/environment"
 
 #: Where the generated script is staged during the build.
 SCRIPT_PATH = "/tmp/.novita-image-env.sh"
+
+# Kept out of /tmp because user build steps commonly clear it.
+BASE_ENV_PATH = "/etc/.novita-image-env-base.sh"
 
 _NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -100,89 +104,148 @@ def expandable_double_quote(value: str) -> str:
         value.replace("\\", "\\\\")
         .replace('"', '\\"')
         .replace("`", "\\`")
-        # `$(` would be command substitution; `$NAME` and `${NAME}` stay live.
-        .replace("$(", "\\$(")
     )
+    # Only named references are declarations. Positional/special parameters and
+    # command substitution remain literal data.
+    escaped = re.sub(r"\$(?![A-Za-z_]|\{[A-Za-z_][A-Za-z0-9_]*\})", r"\\$", escaped)
     return f'"{escaped}"'
 
 
-def env_files_script(envs: Dict[str, str]) -> str:
-    """The shell script that writes both files.
+def env_files_script(
+    envs: Dict[str, str],
+    literal_envs: Optional[Dict[str, str]] = None,
+    env_groups: Optional[List[Tuple[Dict[str, str], bool]]] = None,
+    base_env_path: Optional[str] = None,
+) -> str:
+    """Evaluate declarations in order and persist only runtime values.
 
-    Runs during the build. For each variable it expands the declared value
-    against the build's live environment, then writes the result to both files --
-    quoted *differently*, which is why this is not one write:
-
-    - profile.d is sourced by a shell, so the expanded value is single-quoted
-      with ``'`` rewritten as ``'\\''``. Single quotes are the only shell quoting
-      with no escapes inside them, so this is exact for any byte -- including
-      ``$``, backticks and backslashes, all of which ``"..."`` would interpret.
-      Writing ``KEY="value"`` here is a green that hides a wrong value: the build
-      succeeds, the sandbox boots, and ``JAVA_OPTS=-Xmx2g -Dname="my app"`` holds
-      something else.
-    - /etc/environment is read by pam_env, which has no escape syntax at all. It
-      strips one leading and one trailing quote without scanning the interior, so
-      the value is written bare; and it is line-based with no continuation, so a
-      value containing a newline cannot be represented there and is left to the
-      profile.d copy rather than written as a corrupt second entry.
+    Arguments to each function call are expanded before any assignment in that
+    group. Build-only declarations affect subsequent expansion but never write
+    runtime files. POSIX command -p keeps helpers independent of the target PATH.
     """
-    lines = ["set -e", f": > {PROFILE_PATH}", f": > {ENVIRONMENT_PATH}"]
-
-    for name, declared in envs.items():
-        lines.extend(
-            [
-                # Expand the declared value here, against the build's environment.
-                f"v={expandable_double_quote(declared)}",
-                # Export before moving on, so a later value can reference this one
-                # -- `ENV VIRTUAL_ENV=/opt/venv PYTHONPATH=$VIRTUAL_ENV/lib` is
-                # ordinary, and the platform's own ENV handling cannot be relied on
-                # for it (it ignores PATH entirely).
-                f'export {name}="$v"',
-                # profile.d: single-quoted, any embedded quote closed and reopened.
-                f"printf \"export {name}='%s'\\n\" "
-                f"\"$(printf '%s' \"$v\" | sed \"s/'/'\\\\\\\\''/g\")\""
-                f" >> {PROFILE_PATH}",
-                # pam_env: bare, and only when it can represent the value at all.
-                'case "$v" in',
-                "  *'\"'*) v= ;;",
-                "esac",
-                f"[ -n \"$v\" ] && [ \"$(printf '%s' \"$v\" | wc -l)\" -eq 0 ] && "
-                f"printf '{name}=%s\\n' \"$v\" >> {ENVIRONMENT_PATH}",
-                # The `[ ... ] &&` above exits non-zero when the value is skipped,
-                # which would abort the script under `set -e`.
-                "true",
-            ]
+    groups = (
+        env_groups
+        if env_groups is not None
+        else [({name: value}, True) for name, value in envs.items()]
+    )
+    lines = [
+        "set -e",
+        # A builder restores the snapshot taken before user ENV instructions.
+        # Standalone calls without a snapshot use their current base environment.
+        f". {shlex.quote(base_env_path)}" if base_env_path else ":",
+        f"command -p rm -f {shlex.quote(base_env_path)}" if base_env_path else ":",
+        f'if [ -f "{PROFILE_PATH}" ]; then . "{PROFILE_PATH}"; fi',
+        f'command -p touch "{PROFILE_PATH}" "{ENVIRONMENT_PATH}"',
+        "__novita_build_env() {",
+        '  while [ "$#" -gt 0 ]; do export "$1=$2"; shift 2; done',
+        "}",
+        "__novita_runtime_env() {",
+        '  while [ "$#" -gt 0 ]; do',
+        '    export "$1=$2"',
+        # Avoid command substitution: it strips trailing newlines from values.
+        f'    printf "export %s=\'" "$1" >> {PROFILE_PATH}',
+        f"""    printf '%s' "$2" | command -p sed "s/'/'\\\\\\\\''/g" >> {PROFILE_PATH}""",
+        f"""    printf "'\\n" >> {PROFILE_PATH}""",
+        f'    command -p sed "/^$1=/d" {ENVIRONMENT_PATH} > {ENVIRONMENT_PATH}.tmp',
+        f"    command -p cat {ENVIRONMENT_PATH}.tmp > {ENVIRONMENT_PATH}",
+        f"    command -p rm -f {ENVIRONMENT_PATH}.tmp",
+        '    case "$2" in',
+        "      *'\"'*) ;;",
+        f"""      *) if [ "$(printf '%s' "$2" | command -p wc -l)" -eq 0 ]; then printf '%s=%s\\n' "$1" "$2" >> {ENVIRONMENT_PATH}; fi ;;""",
+        "    esac",
+        "    shift 2",
+        "  done",
+        "}",
+    ]
+    if literal_envs:
+        lines.append(
+            "__novita_runtime_env "
+            + " ".join(
+                f"{name} {shlex.quote(value)}" for name, value in literal_envs.items()
+            )
         )
-
-    lines.append(f"chmod 0644 {PROFILE_PATH} {ENVIRONMENT_PATH}")
+    groups = (
+        env_groups
+        if env_groups is not None
+        else [({name: value}, True) for name, value in envs.items()]
+    )
+    for declarations, runtime in groups:
+        if declarations:
+            function = "__novita_runtime_env" if runtime else "__novita_build_env"
+            lines.append(
+                function
+                + " "
+                + " ".join(
+                    f"{name} {expandable_double_quote(value)}"
+                    for name, value in declarations.items()
+                )
+            )
+    lines.append(f"command -p chmod 0644 {PROFILE_PATH} {ENVIRONMENT_PATH}")
     return "\n".join(lines)
 
 
-def env_files_command(envs: Dict[str, str]) -> Tuple[Optional[str], List[str]]:
-    """The single build command that stages and runs :func:`env_files_script`.
-
-    base64 rather than passing the script inline: it travels through the build's
-    own shell before anything reads it, and base64 is the only form that survives
-    that leg intact regardless of what it contains.
-
-    Must run as root: the Dockerfile parser leaves the build as ``user``
-    (measured: ``[builder 7/8] USER user``), which cannot write to ``/etc``.
-
-    Returns ``(None, skipped)`` when no name can be carried over, so the caller
-    adds no layer at all.
-    """
-    usable, skipped = partition_env_names(list(envs.keys()))
-    if not usable:
+def env_files_command(
+    envs: Dict[str, str],
+    literal_envs: Optional[Dict[str, str]] = None,
+    env_groups: Optional[List[Tuple[Dict[str, str], bool]]] = None,
+    base_env_path: Optional[str] = None,
+) -> Tuple[Optional[str], List[str]]:
+    """Stage the runtime writer as root, preserving declaration boundaries."""
+    literal_envs = literal_envs or {}
+    groups = (
+        env_groups
+        if env_groups is not None
+        else [({name: value}, True) for name, value in envs.items()]
+    )
+    names = list(
+        dict.fromkeys([*literal_envs, *(name for group, _ in groups for name in group)])
+    )
+    usable, skipped = partition_env_names(names)
+    usable_set = set(usable)
+    literals = {
+        name: value for name, value in literal_envs.items() if name in usable_set
+    }
+    filtered_groups = [
+        ({name: value for name, value in group.items() if name in usable_set}, runtime)
+        for group, runtime in groups
+    ]
+    if not literals and not any(
+        group and runtime for group, runtime in filtered_groups
+    ):
         return None, skipped
-
-    script = env_files_script({name: envs[name] for name in usable})
+    script = env_files_script({}, literals, filtered_groups, base_env_path)
     encoded = base64.b64encode(script.encode("utf-8")).decode("ascii")
 
     command = " && ".join(
         [
-            f"echo {encoded} | base64 -d > {SCRIPT_PATH}",
-            f"sh {SCRIPT_PATH}",
-            f"rm -f {SCRIPT_PATH}",
+            f"echo {encoded} | command -p base64 -d > {SCRIPT_PATH}",
+            f"command -p sh {SCRIPT_PATH}",
+            f"command -p rm -f {SCRIPT_PATH}",
         ]
     )
     return command, skipped
+
+
+def env_snapshot_command(
+    env_groups: List[Tuple[Dict[str, str], bool]]
+) -> Optional[str]:
+    """Capture declared names before build ENV instructions can change them."""
+    names, _ = partition_env_names(
+        list(dict.fromkeys(name for group, _ in env_groups for name in group))
+    )
+    if not names:
+        return None
+    lines = ["set -e", "umask 077", f": > {BASE_ENV_PATH}", f"command -p chmod 0600 {BASE_ENV_PATH}"]
+    for name in names:
+        lines.extend(
+            [
+                f'if [ "${{{name}+x}}" = x ]; then',
+                f'  printf "export {name}=\'" >> {BASE_ENV_PATH}',
+                f"""    printf '%s' "${{{name}}}" | command -p sed "s/'/'\\\\\\\\''/g" >> {BASE_ENV_PATH}""",
+                f"""  printf "'\\n" >> {BASE_ENV_PATH}""",
+                "else",
+                f"  printf 'unset {name}\\n' >> {BASE_ENV_PATH}",
+                "fi",
+            ]
+        )
+    return "command -p sh -c " + shlex.quote("\n".join(lines))

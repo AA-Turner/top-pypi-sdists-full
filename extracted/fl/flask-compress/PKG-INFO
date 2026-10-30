@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Flask-Compress
-Version: 1.25
+Version: 1.26
 Summary: Compress responses in your Flask app with gzip, deflate, brotli or zstandard.
 Home-page: https://github.com/colour-science/flask-compress
 Author: Thomas Mansencal
@@ -68,6 +68,11 @@ If no requested compression algorithm is supported by the server, we don't compr
 hand, multiple suitable algorithms are found and are requested with the same quality factor, we choose the first one
 defined in the `COMPRESS_ALGORITHM` option (see below).
 
+> Some CPython distributions are built without [optional compression modules](https://docs.python.org/3.15/using/configure.html#optional-module-requirements) such as `gzip`, `zlib`, or `zstd`.
+> Flask-Compress detects the algorithms available in the current Python environment, logs a warning for any missing
+> optional compression module, and defaults `COMPRESS_ALGORITHM` and `COMPRESS_ALGORITHM_STREAMING` to the algorithms
+> available in that environment. If either option is explicitly configured with an unavailable algorithm, initialization
+> raises a `ValueError`.
 
 ## Installation
 
@@ -203,8 +208,8 @@ Within your Flask application's settings you can provide the following settings 
 | `COMPRESS_CACHE_KEY` | Specifies the cache key method for lookup/storage of response data. | `None` |
 | `COMPRESS_CACHE_BACKEND` | Specified the backend for storing the cached response data. | `None` |
 | `COMPRESS_REGISTER` | Specifies if compression should be automatically registered. | `True` |
-| `COMPRESS_ALGORITHM` | Supported compression algorithms. | `['zstd', 'br', 'gzip', 'deflate']` |
-| `COMPRESS_ALGORITHM_STREAMING` | Supported compression algorithms for streaming. | `['zstd', 'br', 'deflate']` |
+| `COMPRESS_ALGORITHM` | Supported compression algorithms. | available algorithms from `['zstd', 'br', 'gzip', 'deflate']` |
+| `COMPRESS_ALGORITHM_STREAMING` | Supported compression algorithms for streaming. | available algorithms from `['zstd', 'br', 'deflate']` |
 | `COMPRESS_STREAMS` | Compress streaming responses. | `True` |
 | `COMPRESS_EVALUATE_CONDITIONAL_REQUEST` | Compress evaluates conditional requests. | `True` |
 | `COMPRESS_STREAMING_ENDPOINT_CONDITIONAL` | Streaming endpoints where we evaluate conditional requests. | `["static"]` |

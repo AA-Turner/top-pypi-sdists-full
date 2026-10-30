@@ -1,13 +1,13 @@
 import asyncio
 from typing import Iterable
 
-import structlog
 from mistralai.extra.workflows import WorkflowEncodingConfig
 from mistralai.extra.workflows.encoding.payload_compressor import build_compressor
 from mistralai.extra.workflows.encoding.payload_encoder import PayloadEncoder
 from temporalio.api.common.v1 import Payload
 from temporalio.converter import PayloadCodec
 
+from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.config.config import (
     PayloadCompressionConfig,
     PayloadEncryptionConfig,
@@ -18,6 +18,8 @@ from mistralai.workflows.core.encoding import (
     build_info_from_payload_metadata,
     build_temporal_payload_metadata,
     is_custom_encoding_format,
+    parse_encoding_options,
+    serialize_encoding_options,
 )
 from mistralai.workflows.models import (
     EncodedPayloadOptions,
@@ -26,7 +28,7 @@ from mistralai.workflows.models import (
     WorkflowContext,
 )
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 
 class MistralWorkflowsPayloadCodec(PayloadCodec):
@@ -57,7 +59,7 @@ class MistralWorkflowsPayloadCodec(PayloadCodec):
         encoding_bytes = payload.metadata.get(PayloadMetadataKeys.ENCODING, b"")
         is_custom_encoded = is_custom_encoding_format(encoding_bytes)
 
-        metadata: dict[str, bytes] = payload.metadata  # type: ignore
+        metadata = dict(payload.metadata)
         data: bytes
         context: WorkflowContext | None = None
 
@@ -76,11 +78,14 @@ class MistralWorkflowsPayloadCodec(PayloadCodec):
         if is_custom_encoded:
             assert context, "[TemporalCodec] context is required for custom encoding format"  # Just to please mypy
             metadata = build_temporal_payload_metadata(context, encoding_options, payload_with_context.empty)
-        elif EncodedPayloadOptions.ENCRYPTED in encoding_options:
-            payload.metadata[PayloadMetadataKeys.ENCODING_ORIGINAL] = payload.metadata.get(
-                PayloadMetadataKeys.ENCODING, b""
-            )
-            payload.metadata[PayloadMetadataKeys.ENCODING] = b"binary/encrypted"
+        elif encoding_options:
+            # The encoder may compress or partially encrypt these payloads too, so the applied
+            # transforms must be recorded for decode. The binary/encrypted marker is kept as-is
+            # for readers that predate the encoding_options key.
+            metadata[PayloadMetadataKeys.ENCODING_OPTIONS] = serialize_encoding_options(encoding_options)
+            if EncodedPayloadOptions.ENCRYPTED in encoding_options:
+                metadata[PayloadMetadataKeys.ENCODING_ORIGINAL] = metadata.get(PayloadMetadataKeys.ENCODING, b"")
+                metadata[PayloadMetadataKeys.ENCODING] = self.BINARY_ENCRYPTED_ENCODING
 
         return Payload(
             metadata=metadata,
@@ -112,19 +117,28 @@ class MistralWorkflowsPayloadCodec(PayloadCodec):
                 .model_dump_json()
                 .encode(),
             )
+        elif PayloadMetadataKeys.ENCODING_OPTIONS in payload.metadata:
+            encoding_options = parse_encoding_options(payload.metadata[PayloadMetadataKeys.ENCODING_OPTIONS])
+            payload.data = await self.payload_encoder.decode_payload_content(payload.data, encoding_options)
+            del payload.metadata[PayloadMetadataKeys.ENCODING_OPTIONS]
+            if EncodedPayloadOptions.ENCRYPTED in encoding_options:
+                self._restore_original_encoding(payload)
         elif payload.metadata.get(PayloadMetadataKeys.ENCODING) == self.BINARY_ENCRYPTED_ENCODING:
             payload.data = await self.payload_encoder.decode_payload_content(
                 payload.data, [EncodedPayloadOptions.ENCRYPTED]
             )
-            payload.metadata[PayloadMetadataKeys.ENCODING] = payload.metadata.get(
-                PayloadMetadataKeys.ENCODING_ORIGINAL, b""
-            )
-            del payload.metadata[PayloadMetadataKeys.ENCODING_ORIGINAL]
+            self._restore_original_encoding(payload)
         elif bool(payload.metadata.get(PayloadMetadataKeys.IS_UNENCODED_MEMO, False)):
             # Allow non-encoded-memos
             pass
 
         return payload
+
+    def _restore_original_encoding(self, payload: Payload) -> None:
+        payload.metadata[PayloadMetadataKeys.ENCODING] = payload.metadata.get(
+            PayloadMetadataKeys.ENCODING_ORIGINAL, b""
+        )
+        del payload.metadata[PayloadMetadataKeys.ENCODING_ORIGINAL]
 
     async def decode(self, payloads: Iterable[Payload]) -> list[Payload]:
         new_payloads_coroutines = [asyncio.create_task(self._decode(payload)) for payload in payloads]

@@ -11,7 +11,6 @@ from dataclasses import dataclass
 from typing import Any, Self, Sequence
 
 import requests
-import structlog
 from opentelemetry.exporter.otlp.proto.http._log_exporter import DEFAULT_LOGS_EXPORT_PATH, OTLPLogExporter
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import DEFAULT_METRICS_EXPORT_PATH, OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import DEFAULT_TRACES_EXPORT_PATH, OTLPSpanExporter
@@ -27,11 +26,12 @@ from opentelemetry.sdk.metrics.export import (
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 
+from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.auth import TokenProvider, get_token_provider
 from mistralai.workflows.core.config.config import config
 from mistralai.workflows.core.logging import extract_error_context
 
-logger = structlog.getLogger(__name__)
+logger = get_logger(__name__)
 
 _EXPORT_WARN_INTERVAL_SECONDS = 30.0
 _TOKEN_ERROR_LOG_INTERVAL_SECONDS = 60.0

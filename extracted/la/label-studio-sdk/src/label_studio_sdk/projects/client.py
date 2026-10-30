@@ -37,9 +37,11 @@ from .types.patched_lse_project_update_request_dm_column_defaults import Patched
 if typing.TYPE_CHECKING:
     from .assignments.client import AssignmentsClient, AsyncAssignmentsClient
     from .exports.client import AsyncExportsClient, ExportsClient
+    from .imports.client import AsyncImportsClient, ImportsClient
     from .members.client import AsyncMembersClient, MembersClient
     from .metrics.client import AsyncMetricsClient, MetricsClient
     from .pauses.client import AsyncPausesClient, PausesClient
+    from .reimports.client import AsyncReimportsClient, ReimportsClient
     from .review_routing_rules.client import AsyncReviewRoutingRulesClient, ReviewRoutingRulesClient
     from .roles.client import AsyncRolesClient, RolesClient
     from .stats.client import AsyncStatsClient, StatsClient
@@ -54,8 +56,10 @@ class ProjectsClient:
         self._roles: typing.Optional[RolesClient] = None
         self._stats: typing.Optional[StatsClient] = None
         self._exports: typing.Optional[ExportsClient] = None
+        self._imports: typing.Optional[ImportsClient] = None
         self._members: typing.Optional[MembersClient] = None
         self._metrics: typing.Optional[MetricsClient] = None
+        self._reimports: typing.Optional[ReimportsClient] = None
         self._review_routing_rules: typing.Optional[ReviewRoutingRulesClient] = None
         self._assignments: typing.Optional[AssignmentsClient] = None
         self._pauses: typing.Optional[PausesClient] = None
@@ -78,6 +82,7 @@ class ProjectsClient:
         filter: typing.Optional[str] = None,
         ids: typing.Optional[str] = None,
         include: typing.Optional[str] = None,
+        is_skill_assessment: typing.Optional[bool] = None,
         members_limit: typing.Optional[int] = None,
         ordering: typing.Optional[str] = None,
         page: typing.Optional[int] = None,
@@ -110,6 +115,9 @@ class ProjectsClient:
 
         include : typing.Optional[str]
             Comma-separated list of count fields to include in the response to optimize performance. Available fields: task_number, finished_task_number, total_predictions_number, total_annotations_number, num_tasks_with_annotations, useful_annotation_number, ground_truth_number, skipped_annotations_number. If not specified, all count fields are included.
+
+        is_skill_assessment : typing.Optional[bool]
+            Filter by skill assessments
 
         members_limit : typing.Optional[int]
             Maximum number of members to return
@@ -165,6 +173,7 @@ class ProjectsClient:
             filter=filter,
             ids=ids,
             include=include,
+            is_skill_assessment=is_skill_assessment,
             members_limit=members_limit,
             ordering=ordering,
             page=page,
@@ -180,6 +189,8 @@ class ProjectsClient:
     def create(
         self,
         *,
+        annotator_column_access_grant: typing.Optional[typing.Sequence[str]] = OMIT,
+        annotator_column_access_revoke: typing.Optional[typing.Sequence[str]] = OMIT,
         annotator_evaluation_enabled: typing.Optional[bool] = OMIT,
         collection_mode: typing.Optional[CollectionModeEnum] = OMIT,
         color: typing.Optional[str] = OMIT,
@@ -206,6 +217,8 @@ class ProjectsClient:
         overlap_cohort_percentage: typing.Optional[int] = OMIT,
         pinned_at: typing.Optional[dt.datetime] = OMIT,
         reveal_preannotations_interactively: typing.Optional[bool] = OMIT,
+        reviewer_column_access_grant: typing.Optional[typing.Sequence[str]] = OMIT,
+        reviewer_column_access_revoke: typing.Optional[typing.Sequence[str]] = OMIT,
         sampling: typing.Optional[ProjectSamplingEnum] = OMIT,
         show_annotation_history: typing.Optional[bool] = OMIT,
         show_collab_predictions: typing.Optional[bool] = OMIT,
@@ -228,6 +241,12 @@ class ProjectsClient:
 
         Parameters
         ----------
+        annotator_column_access_grant : typing.Optional[typing.Sequence[str]]
+            Bulk column ids to grant or revoke Annotator/Reviewer Data Manager access in one request. Omitted or empty arrays are no-ops. Unknown ids are ignored. Managers+ only.
+
+        annotator_column_access_revoke : typing.Optional[typing.Sequence[str]]
+            Bulk column ids to grant or revoke Annotator/Reviewer Data Manager access in one request. Omitted or empty arrays are no-ops. Unknown ids are ignored. Managers+ only.
+
         annotator_evaluation_enabled : typing.Optional[bool]
             Enable annotator evaluation for the project
 
@@ -301,6 +320,12 @@ class ProjectsClient:
         reveal_preannotations_interactively : typing.Optional[bool]
             Reveal pre-annotations interactively
 
+        reviewer_column_access_grant : typing.Optional[typing.Sequence[str]]
+            Bulk column ids to grant or revoke Annotator/Reviewer Data Manager access in one request. Omitted or empty arrays are no-ops. Unknown ids are ignored. Managers+ only.
+
+        reviewer_column_access_revoke : typing.Optional[typing.Sequence[str]]
+            Bulk column ids to grant or revoke Annotator/Reviewer Data Manager access in one request. Omitted or empty arrays are no-ops. Unknown ids are ignored. Managers+ only.
+
         sampling : typing.Optional[ProjectSamplingEnum]
 
         show_annotation_history : typing.Optional[bool]
@@ -359,6 +384,8 @@ class ProjectsClient:
         client.projects.create()
         """
         _response = self._raw_client.create(
+            annotator_column_access_grant=annotator_column_access_grant,
+            annotator_column_access_revoke=annotator_column_access_revoke,
             annotator_evaluation_enabled=annotator_evaluation_enabled,
             collection_mode=collection_mode,
             color=color,
@@ -385,6 +412,8 @@ class ProjectsClient:
             overlap_cohort_percentage=overlap_cohort_percentage,
             pinned_at=pinned_at,
             reveal_preannotations_interactively=reveal_preannotations_interactively,
+            reviewer_column_access_grant=reviewer_column_access_grant,
+            reviewer_column_access_revoke=reviewer_column_access_revoke,
             sampling=sampling,
             show_annotation_history=show_annotation_history,
             show_collab_predictions=show_collab_predictions,
@@ -411,6 +440,7 @@ class ProjectsClient:
         filter: typing.Optional[str] = None,
         ids: typing.Optional[str] = None,
         include: typing.Optional[str] = None,
+        is_skill_assessment: typing.Optional[bool] = None,
         ordering: typing.Optional[str] = None,
         page: typing.Optional[int] = None,
         page_size: typing.Optional[int] = None,
@@ -437,6 +467,9 @@ class ProjectsClient:
 
         include : typing.Optional[str]
             Comma-separated list of count fields to include in the response to optimize performance. Available fields: task_number, finished_task_number, total_predictions_number, total_annotations_number, num_tasks_with_annotations, useful_annotation_number, ground_truth_number, skipped_annotations_number. If not specified, all count fields are included.
+
+        is_skill_assessment : typing.Optional[bool]
+            Filter by skill assessments
 
         ordering : typing.Optional[str]
             Which field to use when ordering the results.
@@ -484,6 +517,7 @@ class ProjectsClient:
             filter=filter,
             ids=ids,
             include=include,
+            is_skill_assessment=is_skill_assessment,
             ordering=ordering,
             page=page,
             page_size=page_size,
@@ -573,6 +607,8 @@ class ProjectsClient:
         agreement_threshold: typing.Optional[str] = OMIT,
         annotation_limit_count: typing.Optional[int] = OMIT,
         annotation_limit_percent: typing.Optional[str] = OMIT,
+        annotator_column_access_grant: typing.Optional[typing.Sequence[str]] = OMIT,
+        annotator_column_access_revoke: typing.Optional[typing.Sequence[str]] = OMIT,
         annotator_evaluation_continuous_tasks: typing.Optional[int] = OMIT,
         annotator_evaluation_enabled: typing.Optional[bool] = OMIT,
         annotator_evaluation_metric: typing.Optional[AnnotatorEvaluationMetricEnum] = OMIT,
@@ -598,6 +634,7 @@ class ProjectsClient:
         internal_description: typing.Optional[typing.Any] = OMIT,
         is_draft: typing.Optional[bool] = OMIT,
         is_published: typing.Optional[bool] = OMIT,
+        is_skill_assessment: typing.Optional[bool] = OMIT,
         label_config: typing.Optional[str] = OMIT,
         max_additional_annotators_assignable: typing.Optional[int] = OMIT,
         maximum_annotations: typing.Optional[int] = OMIT,
@@ -611,6 +648,8 @@ class ProjectsClient:
         require_comment_on_skip: typing.Optional[bool] = OMIT,
         reveal_preannotations_interactively: typing.Optional[bool] = OMIT,
         review_settings: typing.Optional[ReviewSettingsRequest] = OMIT,
+        reviewer_column_access_grant: typing.Optional[typing.Sequence[str]] = OMIT,
+        reviewer_column_access_revoke: typing.Optional[typing.Sequence[str]] = OMIT,
         sampling: typing.Optional[ProjectSamplingEnum] = OMIT,
         show_annotation_history: typing.Optional[bool] = OMIT,
         show_collab_predictions: typing.Optional[bool] = OMIT,
@@ -654,6 +693,12 @@ class ProjectsClient:
 
         annotation_limit_percent : typing.Optional[str]
             Limit by percentage of tasks
+
+        annotator_column_access_grant : typing.Optional[typing.Sequence[str]]
+            Bulk column ids to grant or revoke Annotator/Reviewer Data Manager access in one request. Omitted or empty arrays are no-ops. Unknown ids are ignored. Managers+ only.
+
+        annotator_column_access_revoke : typing.Optional[typing.Sequence[str]]
+            Bulk column ids to grant or revoke Annotator/Reviewer Data Manager access in one request. Omitted or empty arrays are no-ops. Unknown ids are ignored. Managers+ only.
 
         annotator_evaluation_continuous_tasks : typing.Optional[int]
             Continuous Evaluation: Required tasks
@@ -728,6 +773,9 @@ class ProjectsClient:
         is_published : typing.Optional[bool]
             Whether or not the project is published to annotators
 
+        is_skill_assessment : typing.Optional[bool]
+            Skill assessment: tests contributors instead of producing work
+
         label_config : typing.Optional[str]
             Labeling Configuration
 
@@ -763,6 +811,12 @@ class ProjectsClient:
             Reveal pre-annotations interactively
 
         review_settings : typing.Optional[ReviewSettingsRequest]
+
+        reviewer_column_access_grant : typing.Optional[typing.Sequence[str]]
+            Bulk column ids to grant or revoke Annotator/Reviewer Data Manager access in one request. Omitted or empty arrays are no-ops. Unknown ids are ignored. Managers+ only.
+
+        reviewer_column_access_revoke : typing.Optional[typing.Sequence[str]]
+            Bulk column ids to grant or revoke Annotator/Reviewer Data Manager access in one request. Omitted or empty arrays are no-ops. Unknown ids are ignored. Managers+ only.
 
         sampling : typing.Optional[ProjectSamplingEnum]
 
@@ -837,6 +891,8 @@ class ProjectsClient:
             agreement_threshold=agreement_threshold,
             annotation_limit_count=annotation_limit_count,
             annotation_limit_percent=annotation_limit_percent,
+            annotator_column_access_grant=annotator_column_access_grant,
+            annotator_column_access_revoke=annotator_column_access_revoke,
             annotator_evaluation_continuous_tasks=annotator_evaluation_continuous_tasks,
             annotator_evaluation_enabled=annotator_evaluation_enabled,
             annotator_evaluation_metric=annotator_evaluation_metric,
@@ -862,6 +918,7 @@ class ProjectsClient:
             internal_description=internal_description,
             is_draft=is_draft,
             is_published=is_published,
+            is_skill_assessment=is_skill_assessment,
             label_config=label_config,
             max_additional_annotators_assignable=max_additional_annotators_assignable,
             maximum_annotations=maximum_annotations,
@@ -875,6 +932,8 @@ class ProjectsClient:
             require_comment_on_skip=require_comment_on_skip,
             reveal_preannotations_interactively=reveal_preannotations_interactively,
             review_settings=review_settings,
+            reviewer_column_access_grant=reviewer_column_access_grant,
+            reviewer_column_access_revoke=reviewer_column_access_revoke,
             sampling=sampling,
             show_annotation_history=show_annotation_history,
             show_collab_predictions=show_collab_predictions,
@@ -1240,6 +1299,14 @@ class ProjectsClient:
         return self._exports
 
     @property
+    def imports(self):
+        if self._imports is None:
+            from .imports.client import ImportsClient  # noqa: E402
+
+            self._imports = ImportsClient(client_wrapper=self._client_wrapper)
+        return self._imports
+
+    @property
     def members(self):
         if self._members is None:
             from .members.client import MembersClient  # noqa: E402
@@ -1254,6 +1321,14 @@ class ProjectsClient:
 
             self._metrics = MetricsClient(client_wrapper=self._client_wrapper)
         return self._metrics
+
+    @property
+    def reimports(self):
+        if self._reimports is None:
+            from .reimports.client import ReimportsClient  # noqa: E402
+
+            self._reimports = ReimportsClient(client_wrapper=self._client_wrapper)
+        return self._reimports
 
     @property
     def review_routing_rules(self):
@@ -1287,8 +1362,10 @@ class AsyncProjectsClient:
         self._roles: typing.Optional[AsyncRolesClient] = None
         self._stats: typing.Optional[AsyncStatsClient] = None
         self._exports: typing.Optional[AsyncExportsClient] = None
+        self._imports: typing.Optional[AsyncImportsClient] = None
         self._members: typing.Optional[AsyncMembersClient] = None
         self._metrics: typing.Optional[AsyncMetricsClient] = None
+        self._reimports: typing.Optional[AsyncReimportsClient] = None
         self._review_routing_rules: typing.Optional[AsyncReviewRoutingRulesClient] = None
         self._assignments: typing.Optional[AsyncAssignmentsClient] = None
         self._pauses: typing.Optional[AsyncPausesClient] = None
@@ -1311,6 +1388,7 @@ class AsyncProjectsClient:
         filter: typing.Optional[str] = None,
         ids: typing.Optional[str] = None,
         include: typing.Optional[str] = None,
+        is_skill_assessment: typing.Optional[bool] = None,
         members_limit: typing.Optional[int] = None,
         ordering: typing.Optional[str] = None,
         page: typing.Optional[int] = None,
@@ -1343,6 +1421,9 @@ class AsyncProjectsClient:
 
         include : typing.Optional[str]
             Comma-separated list of count fields to include in the response to optimize performance. Available fields: task_number, finished_task_number, total_predictions_number, total_annotations_number, num_tasks_with_annotations, useful_annotation_number, ground_truth_number, skipped_annotations_number. If not specified, all count fields are included.
+
+        is_skill_assessment : typing.Optional[bool]
+            Filter by skill assessments
 
         members_limit : typing.Optional[int]
             Maximum number of members to return
@@ -1407,6 +1488,7 @@ class AsyncProjectsClient:
             filter=filter,
             ids=ids,
             include=include,
+            is_skill_assessment=is_skill_assessment,
             members_limit=members_limit,
             ordering=ordering,
             page=page,
@@ -1422,6 +1504,8 @@ class AsyncProjectsClient:
     async def create(
         self,
         *,
+        annotator_column_access_grant: typing.Optional[typing.Sequence[str]] = OMIT,
+        annotator_column_access_revoke: typing.Optional[typing.Sequence[str]] = OMIT,
         annotator_evaluation_enabled: typing.Optional[bool] = OMIT,
         collection_mode: typing.Optional[CollectionModeEnum] = OMIT,
         color: typing.Optional[str] = OMIT,
@@ -1448,6 +1532,8 @@ class AsyncProjectsClient:
         overlap_cohort_percentage: typing.Optional[int] = OMIT,
         pinned_at: typing.Optional[dt.datetime] = OMIT,
         reveal_preannotations_interactively: typing.Optional[bool] = OMIT,
+        reviewer_column_access_grant: typing.Optional[typing.Sequence[str]] = OMIT,
+        reviewer_column_access_revoke: typing.Optional[typing.Sequence[str]] = OMIT,
         sampling: typing.Optional[ProjectSamplingEnum] = OMIT,
         show_annotation_history: typing.Optional[bool] = OMIT,
         show_collab_predictions: typing.Optional[bool] = OMIT,
@@ -1470,6 +1556,12 @@ class AsyncProjectsClient:
 
         Parameters
         ----------
+        annotator_column_access_grant : typing.Optional[typing.Sequence[str]]
+            Bulk column ids to grant or revoke Annotator/Reviewer Data Manager access in one request. Omitted or empty arrays are no-ops. Unknown ids are ignored. Managers+ only.
+
+        annotator_column_access_revoke : typing.Optional[typing.Sequence[str]]
+            Bulk column ids to grant or revoke Annotator/Reviewer Data Manager access in one request. Omitted or empty arrays are no-ops. Unknown ids are ignored. Managers+ only.
+
         annotator_evaluation_enabled : typing.Optional[bool]
             Enable annotator evaluation for the project
 
@@ -1543,6 +1635,12 @@ class AsyncProjectsClient:
         reveal_preannotations_interactively : typing.Optional[bool]
             Reveal pre-annotations interactively
 
+        reviewer_column_access_grant : typing.Optional[typing.Sequence[str]]
+            Bulk column ids to grant or revoke Annotator/Reviewer Data Manager access in one request. Omitted or empty arrays are no-ops. Unknown ids are ignored. Managers+ only.
+
+        reviewer_column_access_revoke : typing.Optional[typing.Sequence[str]]
+            Bulk column ids to grant or revoke Annotator/Reviewer Data Manager access in one request. Omitted or empty arrays are no-ops. Unknown ids are ignored. Managers+ only.
+
         sampling : typing.Optional[ProjectSamplingEnum]
 
         show_annotation_history : typing.Optional[bool]
@@ -1609,6 +1707,8 @@ class AsyncProjectsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.create(
+            annotator_column_access_grant=annotator_column_access_grant,
+            annotator_column_access_revoke=annotator_column_access_revoke,
             annotator_evaluation_enabled=annotator_evaluation_enabled,
             collection_mode=collection_mode,
             color=color,
@@ -1635,6 +1735,8 @@ class AsyncProjectsClient:
             overlap_cohort_percentage=overlap_cohort_percentage,
             pinned_at=pinned_at,
             reveal_preannotations_interactively=reveal_preannotations_interactively,
+            reviewer_column_access_grant=reviewer_column_access_grant,
+            reviewer_column_access_revoke=reviewer_column_access_revoke,
             sampling=sampling,
             show_annotation_history=show_annotation_history,
             show_collab_predictions=show_collab_predictions,
@@ -1661,6 +1763,7 @@ class AsyncProjectsClient:
         filter: typing.Optional[str] = None,
         ids: typing.Optional[str] = None,
         include: typing.Optional[str] = None,
+        is_skill_assessment: typing.Optional[bool] = None,
         ordering: typing.Optional[str] = None,
         page: typing.Optional[int] = None,
         page_size: typing.Optional[int] = None,
@@ -1687,6 +1790,9 @@ class AsyncProjectsClient:
 
         include : typing.Optional[str]
             Comma-separated list of count fields to include in the response to optimize performance. Available fields: task_number, finished_task_number, total_predictions_number, total_annotations_number, num_tasks_with_annotations, useful_annotation_number, ground_truth_number, skipped_annotations_number. If not specified, all count fields are included.
+
+        is_skill_assessment : typing.Optional[bool]
+            Filter by skill assessments
 
         ordering : typing.Optional[str]
             Which field to use when ordering the results.
@@ -1742,6 +1848,7 @@ class AsyncProjectsClient:
             filter=filter,
             ids=ids,
             include=include,
+            is_skill_assessment=is_skill_assessment,
             ordering=ordering,
             page=page,
             page_size=page_size,
@@ -1847,6 +1954,8 @@ class AsyncProjectsClient:
         agreement_threshold: typing.Optional[str] = OMIT,
         annotation_limit_count: typing.Optional[int] = OMIT,
         annotation_limit_percent: typing.Optional[str] = OMIT,
+        annotator_column_access_grant: typing.Optional[typing.Sequence[str]] = OMIT,
+        annotator_column_access_revoke: typing.Optional[typing.Sequence[str]] = OMIT,
         annotator_evaluation_continuous_tasks: typing.Optional[int] = OMIT,
         annotator_evaluation_enabled: typing.Optional[bool] = OMIT,
         annotator_evaluation_metric: typing.Optional[AnnotatorEvaluationMetricEnum] = OMIT,
@@ -1872,6 +1981,7 @@ class AsyncProjectsClient:
         internal_description: typing.Optional[typing.Any] = OMIT,
         is_draft: typing.Optional[bool] = OMIT,
         is_published: typing.Optional[bool] = OMIT,
+        is_skill_assessment: typing.Optional[bool] = OMIT,
         label_config: typing.Optional[str] = OMIT,
         max_additional_annotators_assignable: typing.Optional[int] = OMIT,
         maximum_annotations: typing.Optional[int] = OMIT,
@@ -1885,6 +1995,8 @@ class AsyncProjectsClient:
         require_comment_on_skip: typing.Optional[bool] = OMIT,
         reveal_preannotations_interactively: typing.Optional[bool] = OMIT,
         review_settings: typing.Optional[ReviewSettingsRequest] = OMIT,
+        reviewer_column_access_grant: typing.Optional[typing.Sequence[str]] = OMIT,
+        reviewer_column_access_revoke: typing.Optional[typing.Sequence[str]] = OMIT,
         sampling: typing.Optional[ProjectSamplingEnum] = OMIT,
         show_annotation_history: typing.Optional[bool] = OMIT,
         show_collab_predictions: typing.Optional[bool] = OMIT,
@@ -1928,6 +2040,12 @@ class AsyncProjectsClient:
 
         annotation_limit_percent : typing.Optional[str]
             Limit by percentage of tasks
+
+        annotator_column_access_grant : typing.Optional[typing.Sequence[str]]
+            Bulk column ids to grant or revoke Annotator/Reviewer Data Manager access in one request. Omitted or empty arrays are no-ops. Unknown ids are ignored. Managers+ only.
+
+        annotator_column_access_revoke : typing.Optional[typing.Sequence[str]]
+            Bulk column ids to grant or revoke Annotator/Reviewer Data Manager access in one request. Omitted or empty arrays are no-ops. Unknown ids are ignored. Managers+ only.
 
         annotator_evaluation_continuous_tasks : typing.Optional[int]
             Continuous Evaluation: Required tasks
@@ -2002,6 +2120,9 @@ class AsyncProjectsClient:
         is_published : typing.Optional[bool]
             Whether or not the project is published to annotators
 
+        is_skill_assessment : typing.Optional[bool]
+            Skill assessment: tests contributors instead of producing work
+
         label_config : typing.Optional[str]
             Labeling Configuration
 
@@ -2037,6 +2158,12 @@ class AsyncProjectsClient:
             Reveal pre-annotations interactively
 
         review_settings : typing.Optional[ReviewSettingsRequest]
+
+        reviewer_column_access_grant : typing.Optional[typing.Sequence[str]]
+            Bulk column ids to grant or revoke Annotator/Reviewer Data Manager access in one request. Omitted or empty arrays are no-ops. Unknown ids are ignored. Managers+ only.
+
+        reviewer_column_access_revoke : typing.Optional[typing.Sequence[str]]
+            Bulk column ids to grant or revoke Annotator/Reviewer Data Manager access in one request. Omitted or empty arrays are no-ops. Unknown ids are ignored. Managers+ only.
 
         sampling : typing.Optional[ProjectSamplingEnum]
 
@@ -2119,6 +2246,8 @@ class AsyncProjectsClient:
             agreement_threshold=agreement_threshold,
             annotation_limit_count=annotation_limit_count,
             annotation_limit_percent=annotation_limit_percent,
+            annotator_column_access_grant=annotator_column_access_grant,
+            annotator_column_access_revoke=annotator_column_access_revoke,
             annotator_evaluation_continuous_tasks=annotator_evaluation_continuous_tasks,
             annotator_evaluation_enabled=annotator_evaluation_enabled,
             annotator_evaluation_metric=annotator_evaluation_metric,
@@ -2144,6 +2273,7 @@ class AsyncProjectsClient:
             internal_description=internal_description,
             is_draft=is_draft,
             is_published=is_published,
+            is_skill_assessment=is_skill_assessment,
             label_config=label_config,
             max_additional_annotators_assignable=max_additional_annotators_assignable,
             maximum_annotations=maximum_annotations,
@@ -2157,6 +2287,8 @@ class AsyncProjectsClient:
             require_comment_on_skip=require_comment_on_skip,
             reveal_preannotations_interactively=reveal_preannotations_interactively,
             review_settings=review_settings,
+            reviewer_column_access_grant=reviewer_column_access_grant,
+            reviewer_column_access_revoke=reviewer_column_access_revoke,
             sampling=sampling,
             show_annotation_history=show_annotation_history,
             show_collab_predictions=show_collab_predictions,
@@ -2562,6 +2694,14 @@ class AsyncProjectsClient:
         return self._exports
 
     @property
+    def imports(self):
+        if self._imports is None:
+            from .imports.client import AsyncImportsClient  # noqa: E402
+
+            self._imports = AsyncImportsClient(client_wrapper=self._client_wrapper)
+        return self._imports
+
+    @property
     def members(self):
         if self._members is None:
             from .members.client import AsyncMembersClient  # noqa: E402
@@ -2576,6 +2716,14 @@ class AsyncProjectsClient:
 
             self._metrics = AsyncMetricsClient(client_wrapper=self._client_wrapper)
         return self._metrics
+
+    @property
+    def reimports(self):
+        if self._reimports is None:
+            from .reimports.client import AsyncReimportsClient  # noqa: E402
+
+            self._reimports = AsyncReimportsClient(client_wrapper=self._client_wrapper)
+        return self._reimports
 
     @property
     def review_routing_rules(self):

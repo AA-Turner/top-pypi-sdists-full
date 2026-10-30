@@ -25,6 +25,11 @@ on:
         description: "Airbyte Cloud connection ID to fetch config/catalog from."
         required: false
         type: string
+      force_eu_runner:
+        description: "Route a connectionless run (for example, a public-image spec smoke test) to the EU runner. Refused when connection_id is set."
+        required: false
+        type: boolean
+        default: false
       skip_compare:
         description: "If true, skip comparison and run single-version tests only. If false (default), run comparison tests (target vs control)."
         required: false
@@ -47,8 +52,17 @@ on:
         description: "Comma-separated list of stream names to include in reads. Limits data volume by testing only specific streams."
         required: false
         type: string
+      discover_missing_streams:
+        description: "Read selected streams the connection does not sync yet, such as a stream the PR adds: READ discovers them on the version under test and adds them to the catalog. A stream the control version does not discover is read by the target only. Needs selected_streams."
+        required: false
+        type: boolean
+        default: false
+      injected_sync_mode:
+        description: "Sync mode for streams added by discover_missing_streams: full_refresh or incremental. Empty prefers full refresh."
+        required: false
+        type: string
       enable_debug_logs:
-        description: "Enable debug-level logging for regression test output. Also passed as LOG_LEVEL=DEBUG to the connector Docker container."
+        description: "Enable debug-level logging for regression test output. Also passed as LOG_LEVEL=DEBUG to the connector Docker container. Off on masked runs for now: with output_mode 'masked', or on a connection_id run that leaves output_mode empty, the run goes ahead with debug logs switched off."
         required: false
         type: boolean
         default: false
@@ -65,6 +79,29 @@ on:
           - ""
           - "true"
           - "false"
+      max_records:
+        description: "Stop each side of the READ when a RECORD message arrives past this many in total, across its streams; the record past the cap is not kept, and a side that emits no more than this many reads in full. Bounds a read of a large connection; a read the cap stops is a smoke test of the records read before the cap, not a full regression, and the report says so. A whole number, at least 1; any other value fails the run before SPEC. Leave empty for no cap."
+        required: false
+        type: string
+        default: ""
+      state_json:
+        description: "Airbyte state to seed the READ with, as a JSON list of STREAM state messages (the shape get_connection_state returns). Both versions start from these cursors instead of the connection's stored state, so with_state is ignored. Needs connection_id, whose catalog says which streams sync incrementally; a malformed seed fails the run before SPEC. Honoured on a workflow_dispatch only: the job takes it from the dispatch payload and masks it, so the job log never shows it, and a calling workflow has no payload for it. Leave empty to use the connection's state."
+        required: false
+        type: string
+        default: ""
+      output_mode:
+        description: "How the connector output is written to the artifacts. 'masked' writes every record value as a type-and-length token (primary keys are masked; a cursor stays readable only when its declared type is an integer or a date; DEBUG, TRACE, ERROR and FATAL logs, stack traces, error internals and every stderr line keep only their length; INFO and WARN logs stay readable). 'raw' keeps the output as emitted. Leave empty for the CLI default: 'masked' on a connection_id run, which reads a customer's data, and 'raw' otherwise; choose 'raw' to keep a connection run's output as emitted, or 'masked' to mask a GSM run. Debug logs are off on masked runs for now, so a masked run switches enable_debug_logs off."
+        required: false
+        type: choice
+        options:
+          - ""
+          - "masked"
+          - "raw"
+      read_timeout_minutes:
+        description: "Minutes the READ may take, from its start to its report; in comparison mode both versions share them. A read still running at the end is stopped, compared and reported as incomplete. The READ step's timeout is this plus 10. Leave empty for 170 (a 180-minute step). At most 300 (a 310-minute step), so the job stays inside GitHub's 6-hour limit with fifty minutes for setup, the build, SPEC, CHECK, DISCOVER and the uploads; any other value fails the run before SPEC."
+        required: false
+        type: string
+        default: ""
 
   workflow_call:
     inputs:
@@ -107,8 +144,17 @@ on:
         description: "Comma-separated list of stream names to include in reads. Limits data volume by testing only specific streams."
         required: false
         type: string
+      discover_missing_streams:
+        description: "Read selected streams the connection does not sync yet, such as a stream the PR adds: READ discovers them on the version under test and adds them to the catalog. A stream the control version does not discover is read by the target only. Needs selected_streams."
+        required: false
+        type: boolean
+        default: false
+      injected_sync_mode:
+        description: "Sync mode for streams added by discover_missing_streams: full_refresh or incremental. Empty prefers full refresh."
+        required: false
+        type: string
       enable_debug_logs:
-        description: "Enable debug-level logging for regression test output. Also passed as LOG_LEVEL=DEBUG to the connector Docker container."
+        description: "Enable debug-level logging for regression test output. Also passed as LOG_LEVEL=DEBUG to the connector Docker container. Off on masked runs for now: with output_mode 'masked', or on a connection_id run that leaves output_mode empty, the run goes ahead with debug logs switched off."
         required: false
         type: boolean
         default: false
@@ -121,6 +167,30 @@ on:
         description: "Fetch and pass the connection's current state to the read command (warm read). Defaults to true when connection_id is provided."
         required: false
         type: string
+      max_records:
+        description: "Stop each side of the READ when a RECORD message arrives past this many in total, across its streams; the record past the cap is not kept, and a side that emits no more than this many reads in full. Bounds a read of a large connection; a read the cap stops is a smoke test of the records read before the cap, not a full regression, and the report says so. A whole number, at least 1; any other value fails the run before SPEC. Leave empty for no cap."
+        required: false
+        type: string
+        default: ""
+      # Declared for input parity with workflow_dispatch (the tool's declared-
+      # inputs check needs both lists to agree). On a call it is refused before
+      # SPEC: the job takes the seed from the dispatch payload, never from the
+      # environment, and a call has no payload for it.
+      state_json:
+        description: "Airbyte state to seed the READ with, as a JSON list of STREAM state messages (the shape get_connection_state returns). Both versions start from these cursors instead of the connection's stored state, so with_state is ignored. Needs connection_id, whose catalog says which streams sync incrementally; a malformed seed fails the run before SPEC. Honoured on a workflow_dispatch only: the job takes it from the dispatch payload and masks it, so the job log never shows it, and a calling workflow has no payload for it. Leave empty to use the connection's state."
+        required: false
+        type: string
+        default: ""
+      output_mode:
+        description: "How the connector output is written to the artifacts: 'masked' or 'raw'. Leave empty for the CLI default: 'masked' on a connection_id run, which reads a customer's data, and 'raw' otherwise; choose 'raw' to keep a connection run's output as emitted, or 'masked' to mask a GSM run. Debug logs are off on masked runs for now, so a masked run switches enable_debug_logs off."
+        required: false
+        type: string
+        default: ""
+      read_timeout_minutes:
+        description: "Minutes the READ may take, from its start to its report; in comparison mode both versions share them. A read still running at the end is stopped, compared and reported as incomplete. The READ step's timeout is this plus 10. Leave empty for 170 (a 180-minute step). At most 300 (a 310-minute step), so the job stays inside GitHub's 6-hour limit with fifty minutes for setup, the build, SPEC, CHECK, DISCOVER and the uploads; any other value fails the run before SPEC."
+        required: false
+        type: string
+        default: ""
     outputs:
       success:
         description: "True if every executed command passed. False (and the job fails) on a regression, a one-sided failure, or both versions failing"
@@ -131,6 +201,24 @@ on:
       both_failed:
         description: "True if any step had both versions fail (test failed — inconclusive)"
         value: ${{ jobs.regression-test.outputs.both_failed || jobs.regression-test-eu.outputs.both_failed }}
+      incomplete:
+        description: "True if the read was stopped early (deadline or record cap). Its verdict is incomplete, never a pass: the records read were compared and can show a regression but cannot clear one. With regression_detected also true, the records read show a regression: treat it as one, not as a reason to rerun"
+        value: ${{ jobs.regression-test.outputs.incomplete || jobs.regression-test-eu.outputs.incomplete }}
+      regression_detected:
+        description: "True if any step's comparison found a regression, including a read stopped early (incomplete) that found one in the records it read"
+        value: ${{ jobs.regression-test.outputs.regression_detected || jobs.regression-test-eu.outputs.regression_detected }}
+      not_exercised:
+        description: "True if a stream only the target was configured to read (typically one the PR adds) returned no records. Its verdict is not exercised, never a pass: the streams both versions read were compared, but the PR's new code path never ran. A read that was also stopped early reports incomplete as its verdict, with this flag beside it"
+        value: ${{ jobs.regression-test.outputs.not_exercised || jobs.regression-test-eu.outputs.not_exercised }}
+      setup_error:
+        description: "True if the target does not define a target-only stream; the read verdict is SETUP ERROR."
+        value: ${{ jobs.regression-test.outputs.setup_error || jobs.regression-test-eu.outputs.setup_error }}
+      could_not_test:
+        description: "True if target-only streams failed with config errors that prevented testing; the verdict is COULD NOT TEST (config error)."
+        value: ${{ jobs.regression-test.outputs.could_not_test || jobs.regression-test-eu.outputs.could_not_test }}
+      stream_injection:
+        description: "JSON of the streams discover_missing_streams added: new_streams (target only), shared_streams (read by both), unknown_streams, kept_target_only (already in the catalog, not in the control version, target only), sync_modes, notes and reference_image, the image novelty was decided against. Empty when nothing was added. Always empty on the EU path: stream names never leave the EU."
+        value: ${{ jobs.regression-test.outputs.stream_injection || jobs.regression-test-eu.outputs.stream_injection }}
       summary_url:
         description: "GitHub Actions run summary URL"
         value: ${{ jobs.regression-test.outputs.summary_url || jobs.regression-test-eu.outputs.summary_url }}
@@ -146,18 +234,34 @@ on:
         required: false
       GCP_GSM_CREDENTIALS_FOR_TESTING_TOOL:
         required: false
+      OCTAVIA_BOT_APP_ID:
+        required: false
+      OCTAVIA_BOT_PRIVATE_KEY:
+        required: false
 
 jobs:
   resolve-residency:
     name: Resolve Data Residency
     runs-on: ubuntu-latest
+    env:
+      FORCE_EU_RUNNER: ${{ inputs.force_eu_runner == true }}
     outputs:
       residency: ${{ steps.resolve-vars.outputs.residency }}
       dataplane_group: ${{ steps.resolve-vars.outputs.dataplane_group }}
     steps:
+      - name: Refuse force_eu_runner with a connection_id
+        id: validate-force-eu-runner
+        env:
+          CONNECTION_ID: ${{ inputs.connection_id }}
+        run: |
+          if [[ "$FORCE_EU_RUNNER" == "true" && -n "$CONNECTION_ID" ]]; then
+            echo "::error::force_eu_runner is only for runs without connection_id; residency comes from the lookup"
+            exit 1
+          fi
+
       - name: Set US residency when no connection is provided
         id: residency-default
-        if: inputs.connection_id == ''
+        if: inputs.connection_id == '' && env.FORCE_EU_RUNNER != 'true'
         run: |
           {
             echo "dataplane_group="
@@ -173,6 +277,7 @@ jobs:
         uses: astral-sh/setup-uv@v7
         with:
           version: "latest"
+          enable-cache: false
 
       - name: Set up Python for residency lookup
         if: inputs.connection_id != ''
@@ -197,27 +302,97 @@ jobs:
         env:
           RESIDENCY: ${{ steps.residency-connection.outputs.residency || steps.residency-default.outputs.residency }}
           DATAPLANE_GROUP: ${{ steps.residency-connection.outputs.dataplane_group || steps.residency-default.outputs.dataplane_group }}
+          OUTPUT_MODE: ${{ inputs.output_mode }}
         run: |
+          if [[ "$FORCE_EU_RUNNER" == "true" ]]; then
+            RESIDENCY="eu"
+            DATAPLANE_GROUP="forced"
+          fi
           [[ "$RESIDENCY" == "eu" || "$RESIDENCY" == "us" ]] || {
             echo "::error::Connection residency must resolve to exactly 'eu' or 'us'." >&2
             exit 1
           }
+          if [[ "$RESIDENCY" == "eu" && "$OUTPUT_MODE" == "raw" ]]; then
+            echo "::error::EU-resident connections always run masked; output_mode=raw is refused."
+            exit 1
+          fi
           echo "residency=$RESIDENCY" | tee -a "$GITHUB_OUTPUT"
           echo "dataplane_group=$DATAPLANE_GROUP" | tee -a "$GITHUB_OUTPUT"
 
-  regression-test:
-    name: "Regression Test: '${{ inputs.connector_name }}'"
-    needs: resolve-residency
-    if: needs.resolve-residency.outputs.residency == 'us'
+  # Builds the PR's connector. A Java connector's build runs the PR's own
+  # Gradle on this runner, so the job holds no secrets, leaves no token in its
+  # checkouts and saves no cache: a cache saved after the build could carry the
+  # PR's changes into `regression-test` and later runs. It hands over only the
+  # image, which `regression-test` and the EU VM check before loading.
+  # The default token cannot read the private airbyte-enterprise repo, and
+  # the build job must hold no credentials, so a separate job that runs none
+  # of the PR's code fetches it with an app token.
+  fetch-enterprise-source:
+    name: "Fetch airbyte-enterprise PR #${{ inputs.pr }}"
+    if: >-
+      inputs.repo == 'airbyte-enterprise'
+      && !(inputs.skip_compare == true && inputs.override_test_image != '')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Generate airbyte-enterprise read token
+        id: get-app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.OCTAVIA_BOT_APP_ID }}
+          private-key: ${{ secrets.OCTAVIA_BOT_PRIVATE_KEY }}
+          owner: airbytehq
+          repositories: airbyte-enterprise
+          permission-contents: read
+
+      - name: Checkout airbyte-enterprise PR
+        uses: actions/checkout@v6
+        with:
+          repository: airbytehq/airbyte-enterprise
+          ref: refs/pull/${{ inputs.pr }}/head
+          token: ${{ steps.get-app-token.outputs.token }}
+          path: connector-repo
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Upload airbyte-enterprise source
+        uses: actions/upload-artifact@v7
+        with:
+          name: enterprise-source-${{ github.run_id }}-${{ github.run_attempt }}
+          path: connector-repo
+          include-hidden-files: true
+          retention-days: 1
+          if-no-files-found: error
+
+  build-target-image:
+    name: "Build Target Image: '${{ inputs.connector_name }}'"
+    needs: [resolve-residency, fetch-enterprise-source]
+    # A skip-compare run that names its own image builds nothing; the setup
+    # step in `regression-test` and the EU job's build-job step make the same
+    # choice. `!cancelled()` so a skipped source fetch (any `airbyte` PR) does
+    # not skip the build; a failed fetch fails the download step instead.
+    if: >-
+      !cancelled()
+      && needs.resolve-residency.result == 'success'
+      && !(inputs.skip_compare == true && inputs.override_test_image != '')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      image: ${{ steps.build.outputs.image }}
+      artifact_name: regression-target-image-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
           version: "latest"
+          enable-cache: false
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -231,11 +406,7 @@ jobs:
           java-version: "21"
 
       - name: Install dependencies
-        # `live-tests` carries mitmproxy: without it `mitmdump` is absent, HTTP
-        # replay silently cannot run, and every comparison goes live against a
-        # drifting upstream while the CLI default says replay is on.
-        # `--all-packages` selects workspace packages, not dependency groups.
-        run: uv sync --group dev --group live-tests --all-packages
+        run: uv sync --no-default-groups --no-group live-tests
 
       - name: Resolve connector repo ref
         id: resolve-connector-ref
@@ -250,15 +421,128 @@ jobs:
           echo "Using PR ${{ inputs.pr }} from airbytehq/$REPO -> refs/pull/${{ inputs.pr }}/head"
 
       - name: Checkout connector repo
+        if: steps.resolve-connector-ref.outputs.repo != 'airbyte-enterprise'
         uses: actions/checkout@v6
         with:
           repository: airbytehq/${{ steps.resolve-connector-ref.outputs.repo }}
           ref: ${{ steps.resolve-connector-ref.outputs.resolved_ref }}
           path: connector-repo
           fetch-depth: 1
+          persist-credentials: false
+
+      - name: Download airbyte-enterprise source
+        if: steps.resolve-connector-ref.outputs.repo == 'airbyte-enterprise'
+        uses: actions/download-artifact@v8
+        with:
+          name: enterprise-source-${{ github.run_id }}-${{ github.run_attempt }}
+          path: connector-repo
+
+      - name: Build the target image
+        id: build
+        env:
+          CONNECTOR_NAME: ${{ inputs.connector_name }}
+        run: uv run airbyte-ops cloud connector build-target-image --connector-name "$CONNECTOR_NAME" --repo-root "$GITHUB_WORKSPACE/connector-repo"
+
+      - name: Save the target image
+        env:
+          IMAGE: ${{ steps.build.outputs.image }}
+        run: docker save "$IMAGE" --output "$RUNNER_TEMP/target-image.tar"
+
+      - name: Upload the target image
+        uses: actions/upload-artifact@v7
+        with:
+          name: regression-target-image-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/target-image.tar
+          retention-days: 1
+          if-no-files-found: error
+
+  regression-test:
+    name: "Regression Test: '${{ inputs.connector_name }}'"
+    needs: [resolve-residency, build-target-image]
+    # `!cancelled()` so the build job being skipped for an override image does
+    # not skip this job too. A failed build still does, and the workflow's
+    # `internal_failure` then reads true, as for a failed residency lookup.
+    if: >-
+      !cancelled()
+      && needs.resolve-residency.outputs.residency == 'us'
+      && (needs.build-target-image.result == 'success' || needs.build-target-image.result == 'skipped')
+    runs-on: ubuntu-latest
+    # `actions: write` is what deleting the run's own artifacts takes (the
+    # "Delete artifacts on pass" step), on this job only. A workflow_call
+    # caller has to grant it too, or that step fails and the artifacts stay.
+    permissions:
+      contents: read
+      actions: write
+    # GitHub-hosted runners stop a job at six hours whatever this says; stated
+    # so the READ step's ceiling (read-inputs, below) is checked against it.
+    timeout-minutes: 360
+    steps:
+      # Nothing in this job runs `git` after the checkout, and the delete step
+      # takes its token from the environment, so the job's token, which can
+      # delete artifacts, has no reason to sit in `.git/config`.
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+          enable-cache: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        # `live-tests` carries mitmproxy: without it `mitmdump` is absent, HTTP
+        # replay silently cannot run, and every comparison goes live against a
+        # drifting upstream while the CLI default says replay is on.
+        # `--all-packages` selects workspace packages, not dependency groups.
+        run: uv sync --group dev --group live-tests --all-packages
+
+      - name: Download the target image
+        id: download-target-image
+        if: needs.build-target-image.result == 'success'
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.build-target-image.outputs.artifact_name }}
+          path: ${{ runner.temp }}/target-image
+
+      # The build job ran the PR's code, so its outputs and the archive are the
+      # PR's to choose. The tag must look like an image reference before the
+      # setup step puts it in the unquoted ARGS, and the archive must load that
+      # one image and nothing else: a second tag could stand in for the control
+      # image, which the CLI takes from the local store before pulling.
+      - name: Load the target image
+        id: load-target-image
+        if: needs.build-target-image.result == 'success'
+        env:
+          IMAGE: ${{ needs.build-target-image.outputs.image }}
+          ARCHIVE: ${{ runner.temp }}/target-image/target-image.tar
+        run: |
+          if ! [[ "$IMAGE" =~ ^[a-z0-9][a-z0-9._/-]*:[A-Za-z0-9_][A-Za-z0-9_.-]*$ ]]; then
+            echo "::error::The build job's image output is not an image reference"
+            exit 1
+          fi
+          LOADED="$(docker load --input "$ARCHIVE")"
+          if [ "$LOADED" != "Loaded image: $IMAGE" ]; then
+            echo "::error::The image archive did not load exactly $IMAGE"
+            exit 1
+          fi
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
 
       - name: Setup paths and args
         id: setup
+        env:
+          # Through the environment rather than expanded into the script: a
+          # workflow_call input is a free string, and a quote in it would
+          # otherwise rewrite the script.
+          OUTPUT_MODE: ${{ inputs.output_mode }}
+          INJECTED_SYNC_MODE: ${{ inputs.injected_sync_mode }}
+          LOADED_TARGET_IMAGE: ${{ steps.load-target-image.outputs.image }}
         run: |
           echo "=========================================="
           echo "SETUP: Calculating all paths and args upfront"
@@ -304,17 +588,28 @@ jobs:
           SKIP_COMPARE="${{ inputs.skip_compare }}"
           ARGS=""
           ARGS+=" --connector-name ${{ inputs.connector_name }}"
-          ARGS+=" --repo-root ${{ github.workspace }}/connector-repo"
           
           if [ -n "$CONNECTION_ID" ]; then
             ARGS+=" --connection-id $CONNECTION_ID"
           fi
           
+          # Nothing in this job builds: the target is the image build-target-image
+          # built and the load step checked, unless a skip-compare run names its
+          # own, in which case that job is skipped. The override is ignored in
+          # comparison mode.
+          if [ "$SKIP_COMPARE" = "true" ] && [ -n "${{ inputs.override_test_image }}" ]; then
+            TEST_IMAGE="${{ inputs.override_test_image }}"
+          else
+            TEST_IMAGE="$LOADED_TARGET_IMAGE"
+          fi
+          if [ -z "$TEST_IMAGE" ]; then
+            echo "::error::No target image: the image from build-target-image was not loaded"
+            exit 1
+          fi
+          ARGS+=" --test-image $TEST_IMAGE"
+          
           if [ "$SKIP_COMPARE" = "true" ]; then
             ARGS+=" --skip-compare"
-            if [ -n "${{ inputs.override_test_image }}" ]; then
-              ARGS+=" --test-image ${{ inputs.override_test_image }}"
-            fi
           else
             if [ -n "${{ inputs.override_control_image }}" ]; then
               ARGS+=" --control-image ${{ inputs.override_control_image }}"
@@ -324,6 +619,28 @@ jobs:
           if [ -n "${{ inputs.selected_streams }}" ]; then
             ARGS+=" --selected-streams ${{ inputs.selected_streams }}"
           fi
+
+          # Refused here rather than by the CLI, which would only stop after the
+          # build; an injected_sync_mode without discovery would be ignored.
+          if [ "${{ inputs.discover_missing_streams }}" = "true" ]; then
+            if [ -z "${{ inputs.selected_streams }}" ]; then
+              echo "::error::discover_missing_streams needs selected_streams naming the streams to add"
+              exit 1
+            fi
+            ARGS+=" --discover-missing-streams"
+          elif [ -n "$INJECTED_SYNC_MODE" ]; then
+            echo "::error::injected_sync_mode only applies with discover_missing_streams"
+            exit 1
+          fi
+
+          case "$INJECTED_SYNC_MODE" in
+            "") ;;
+            full_refresh|incremental) ARGS+=" --injected-sync-mode $INJECTED_SYNC_MODE" ;;
+            *)
+              echo "::error::injected_sync_mode must be full_refresh or incremental, got '$INJECTED_SYNC_MODE'"
+              exit 1
+              ;;
+          esac
           
           if [ "${{ inputs.enable_debug_logs }}" = "true" ]; then
             ARGS+=" --enable-debug-logs"
@@ -333,6 +650,33 @@ jobs:
           if [ "${{ inputs.disable_http_replay }}" = "true" ]; then
             ARGS+=" --no-http-replay"
           fi
+          
+          # The CLI refuses an unknown mode, but ARGS is expanded unquoted into
+          # every command, so a workflow_call value such as
+          # 'masked --no-http-replay' is refused here, before it can smuggle a
+          # flag in; the dispatch input is a choice. Empty means the CLI
+          # default: masked on a connection_id run, raw otherwise.
+          case "$OUTPUT_MODE" in
+            ""|masked|raw) ;;
+            *)
+              echo "::error::output_mode must be masked or raw, got '$OUTPUT_MODE'"
+              exit 1
+              ;;
+          esac
+          if [ -n "$OUTPUT_MODE" ]; then
+            ARGS+=" --output-mode $OUTPUT_MODE"
+          fi
+          
+          # One masking key for the whole run, so the four commands' tokens
+          # pair: made here, registered as a mask before anything could print
+          # it, and handed to each command as a path only (the CLI ignores it
+          # on a raw run). It lives under RUNNER_TEMP, outside the artifacts
+          # directory, and the job's last step removes it.
+          MASK_KEY_PATH="$RUNNER_TEMP/mask_key"
+          python3 -c 'import secrets; print(secrets.token_hex(32))' > "$MASK_KEY_PATH"
+          chmod 600 "$MASK_KEY_PATH"
+          python3 -c 'import sys; print("::add-mask::" + open(sys.argv[1]).read().strip())' "$MASK_KEY_PATH"
+          ARGS+=" --mask-key-path $MASK_KEY_PATH"
           
           echo "--- Common Args ---"
           echo "ARGS=$ARGS"
@@ -347,11 +691,43 @@ jobs:
           echo "discover_target_catalog=$DISCOVER_TARGET_CATALOG" >> "$GITHUB_OUTPUT"
           echo "discover_root_catalog=$DISCOVER_ROOT_CATALOG" >> "$GITHUB_OUTPUT"
           echo "catalog_mode=$CATALOG_MODE" >> "$GITHUB_OUTPUT"
+          echo "mask_key_path=$MASK_KEY_PATH" >> "$GITHUB_OUTPUT"
           echo "common_args=$ARGS" >> "$GITHUB_OUTPUT"
           
           echo "=========================================="
           echo "SETUP COMPLETE"
           echo "=========================================="
+
+      # Expressions have no arithmetic and no validation, so the READ step's
+      # inputs are worked out here, before SPEC, where a bad value fails the
+      # run in seconds rather than after the build: the CLI's `--read-timeout`
+      # in seconds and the step's `timeout-minutes` ten minutes above it, so
+      # the CLI compares and reports before GitHub would kill the step; the
+      # record cap as digits only; and the seed state as a file. The EU job
+      # runs the same read_inputs.py.
+      - name: Resolve READ inputs
+        id: read-inputs
+        env:
+          READ_TIMEOUT_MINUTES: ${{ inputs.read_timeout_minutes }}
+          MAX_RECORDS: ${{ inputs.max_records }}
+          CONNECTION_ID: ${{ inputs.connection_id }}
+          # Not the seed itself: the runner prints a step's `env:` in the log
+          # header before the step runs, so a seed passed this way would be in
+          # the job log, which outlives the artifacts, before anything could
+          # mask it. The script takes it from the dispatch payload, which the
+          # runner never prints, and masks it before judging it.
+          STATE_JSON_GIVEN: ${{ inputs.state_json != '' }}
+        run: |
+          python3 src/airbyte_ops_mcp/regression_tests/read_inputs.py "$READ_TIMEOUT_MINUTES" "$MAX_RECORDS" "$GITHUB_OUTPUT"
+
+          # The seed, by the MCP tool's own rules, run from the checkout so the
+          # two cannot drift: masked, then checked, then written for the READ
+          # step, which gets only the path.
+          if [ "$STATE_JSON_GIVEN" = "true" ]; then
+            SEED_STATE_PATH="$RUNNER_TEMP/seed_state.json"
+            python3 src/airbyte_ops_mcp/regression_tests/seed_state.py "$GITHUB_EVENT_PATH" "$SEED_STATE_PATH" "$CONNECTION_ID"
+            echo "seed_state_path=$SEED_STATE_PATH" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Run SPEC
         id: run-spec
@@ -369,6 +745,7 @@ jobs:
       # shared with `ci_output.github_artifact_name`, which builds the link the
       # CLI writes into the step summary -- keep the two in sync.
       - name: Upload SPEC Artifacts
+        id: upload-spec-artifacts
         if: always()
         uses: actions/upload-artifact@v7
         with:
@@ -413,6 +790,13 @@ jobs:
           fi
           PR_URL="https://github.com/airbytehq/${REPO}/pull/${{ inputs.pr }}"
           
+          # The mode the CLI resolved (every command step uses the same one);
+          # the raw input is the fallback when SPEC wrote no outputs.
+          OUTPUT_MODE="${{ steps.run-spec.outputs.output_mode }}"
+          if [ -z "$OUTPUT_MODE" ]; then
+            OUTPUT_MODE="${{ inputs.output_mode }}"
+          fi
+          
           # Write Context block
           {
             echo "# Regression Test Report"
@@ -429,6 +813,11 @@ jobs:
               echo "- **Version:** \`$TARGET_IMAGE\`"
             fi
             echo "- **Workflow Run:** [View Execution](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+            if [ "$OUTPUT_MODE" = "masked" ]; then
+              echo "- **Output mode:** \`masked\` — record values are tokens; primary keys are masked; only integer and date cursors are readable; debug logs are off"
+            elif [ "$OUTPUT_MODE" = "raw" ]; then
+              echo "- **Output mode:** \`raw\` — the artifacts hold unmasked records and logs; treat them as sensitive"
+            fi
             echo ""
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -444,6 +833,7 @@ jobs:
         run: uv run airbyte-ops cloud connector regression-test --command check ${{ steps.setup.outputs.common_args }} --output-dir ${{ steps.setup.outputs.check_output_dir }}
 
       - name: Upload CHECK Artifacts
+        id: upload-check-artifacts
         if: always()
         uses: actions/upload-artifact@v7
         with:
@@ -471,6 +861,7 @@ jobs:
         run: uv run airbyte-ops cloud connector regression-test --command discover ${{ steps.setup.outputs.common_args }} --output-dir ${{ steps.setup.outputs.discover_output_dir }}
 
       - name: Upload DISCOVER Artifacts
+        id: upload-discover-artifacts
         if: always()
         uses: actions/upload-artifact@v7
         with:
@@ -519,27 +910,44 @@ jobs:
       - name: Run READ
         id: run-read
         if: inputs.skip_read_action != true
-        timeout-minutes: 180
+        timeout-minutes: ${{ fromJSON(steps.read-inputs.outputs.step_timeout_minutes) }}
         env:
           AIRBYTE_CLOUD_CLIENT_ID: ${{ secrets.AIRBYTE_CLOUD_CLIENT_ID }}
           AIRBYTE_CLOUD_CLIENT_SECRET: ${{ secrets.AIRBYTE_CLOUD_CLIENT_SECRET }}
           GCP_GSM_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS }}
           GCP_PROD_DB_ACCESS_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS_FOR_TESTING_TOOL }}
           USE_CONNECTION_SECRET_RETRIEVER: "true"
+          # From read-inputs, judged there: the seed as a file, never its
+          # content, which this header would print; the cap as digits.
+          SEED_STATE_PATH: ${{ steps.read-inputs.outputs.seed_state_path }}
+          MAX_RECORDS: ${{ steps.read-inputs.outputs.max_records }}
+          READ_TIMEOUT_SECONDS: ${{ steps.read-inputs.outputs.read_timeout_seconds }}
         run: |
-          CATALOG_ARG=""
+          # An array, so each value reaches the CLI as one argument.
+          READ_ARGS=()
           if [ "${{ steps.setup.outputs.catalog_mode }}" = "gsm" ] && [ -f "${{ steps.setup.outputs.configured_catalog_path }}" ]; then
-            CATALOG_ARG="--catalog-path ${{ steps.setup.outputs.configured_catalog_path }}"
+            READ_ARGS+=(--catalog-path "${{ steps.setup.outputs.configured_catalog_path }}")
           fi
-          STATE_ARG=""
-          if [ "${{ inputs.with_state }}" = "true" ]; then
-            STATE_ARG="--with-state"
+          # A seeded state goes in as --state-path, which the CLI takes over
+          # the connection's stored state, so with_state is moot beside it.
+          if [ -n "$SEED_STATE_PATH" ]; then
+            READ_ARGS+=(--state-path "$SEED_STATE_PATH")
+          elif [ "${{ inputs.with_state }}" = "true" ]; then
+            READ_ARGS+=(--with-state)
           elif [ "${{ inputs.with_state }}" = "false" ]; then
-            STATE_ARG="--no-state"
+            READ_ARGS+=(--no-state)
           fi
-          uv run airbyte-ops cloud connector regression-test --command read ${{ steps.setup.outputs.common_args }} $CATALOG_ARG $STATE_ARG --output-dir ${{ steps.setup.outputs.read_output_dir }}
+          if [ -n "$MAX_RECORDS" ]; then
+            READ_ARGS+=(--max-records "$MAX_RECORDS")
+          fi
+          # Ten minutes inside this step's timeout-minutes (see read-inputs), so
+          # a long read is stopped by the CLI, which then compares and reports
+          # what was read, rather than by GitHub, which leaves no output and no
+          # report.
+          uv run airbyte-ops cloud connector regression-test --command read ${{ steps.setup.outputs.common_args }} "${READ_ARGS[@]}" --output-dir ${{ steps.setup.outputs.read_output_dir }} --read-timeout "$READ_TIMEOUT_SECONDS"
 
       - name: Upload READ Artifacts
+        id: upload-read-artifacts
         if: always() && inputs.skip_read_action != true
         uses: actions/upload-artifact@v7
         with:
@@ -595,9 +1003,48 @@ jobs:
             echo "both_failed=false" >> "$GITHUB_OUTPUT"
           fi
 
+          # Surface a read the CLI stopped early (verdict incomplete, never a pass)
+          if [ "${{ steps.run-read.outputs.incomplete }}" = "true" ]; then
+            echo "incomplete=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "incomplete=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Surface a regression from any step. On a stopped-early read this is
+          # what tells "found a regression in what it read" from "only stopped".
+          REGRESSION_DETECTED=false
+          for STEP_REGRESSION in "${{ steps.run-spec.outputs.regression_detected }}" "${{ steps.run-check.outputs.regression_detected }}" "${{ steps.run-discover.outputs.regression_detected }}" "${{ steps.run-read.outputs.regression_detected }}"; do
+            if [ "$STEP_REGRESSION" = "true" ]; then REGRESSION_DETECTED=true; fi
+          done
+          echo "regression_detected=$REGRESSION_DETECTED" >> "$GITHUB_OUTPUT"
+
+          # Surface a read whose target-only stream returned nothing (verdict not exercised, never a pass)
+          if [ "${{ steps.run-read.outputs.not_exercised }}" = "true" ]; then
+            echo "not_exercised=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "not_exercised=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [ "${{ steps.run-read.outputs.setup_error }}" = "true" ]; then
+            echo "setup_error=true" | tee -a "$GITHUB_OUTPUT"
+            echo "::error::SETUP ERROR"
+          else
+            echo "setup_error=false" | tee -a "$GITHUB_OUTPUT"
+          fi
+          if [ "${{ steps.run-read.outputs.could_not_test }}" = "true" ]; then
+            echo "could_not_test=true" | tee -a "$GITHUB_OUTPUT"
+            echo "::error::COULD NOT TEST (config error)"
+          else
+            echo "could_not_test=false" | tee -a "$GITHUB_OUTPUT"
+          fi
+
           # Check for internal/infrastructure failures (step exited non-zero or timed out)
           # Note: GitHub Actions reports timed-out steps as outcome='failure'
           INTERNAL_FAILURE=false
+          # Without the built image no command ran, so there is no verdict.
+          if [ "${{ needs.build-target-image.result }}" = "success" ] && [ "${{ steps.load-target-image.outcome }}" != "success" ]; then
+            echo "::error::The image from build-target-image was not loaded"
+            INTERNAL_FAILURE=true
+          fi
           for STEP_NAME in SPEC CHECK DISCOVER READ; do
             OUTCOME_VAR="${STEP_NAME}_OUTCOME"
             OUTCOME="${!OUTCOME_VAR}"
@@ -636,6 +1083,7 @@ jobs:
           echo "=== Final Status ==="
           echo "Internal failure: $INTERNAL_FAILURE"
           echo "All tests passed: $ALL_TESTS_PASSED"
+          echo "Regression detected: $REGRESSION_DETECTED"
 
           echo "success=$ALL_TESTS_PASSED" >> "$GITHUB_OUTPUT"
           echo "internal_failure=$INTERNAL_FAILURE" >> "$GITHUB_OUTPUT"
@@ -683,9 +1131,21 @@ jobs:
           # Render each result from the CLI outputs (not step outcomes). Every
           # non-pass is ❌: "both versions failed" is a failed, inconclusive test,
           # not a warning, so it is annotated rather than downgraded to ⚠️.
-          result_cell() {  # $1 = both_failed output, $2 = success output
-            if [ "$1" = "true" ]; then
-              echo "❌ (both versions failed — inconclusive)"
+          result_cell() {  # $1 = both_failed, $2 = success, $3 = incomplete, $4 = regression_detected, $5 = not_exercised, $6 = setup_error, $7 = could_not_test
+             if [ "$1" = "true" ]; then
+               echo "❌ (both versions failed — inconclusive)"
+             elif [ "$3" = "true" ] && [ "$4" = "true" ]; then
+               echo "❌ (stopped early — regression detected)"
+             elif [ "$3" = "true" ]; then
+               echo "❌ (stopped early — incomplete)"
+            elif [ "$6" = "true" ]; then
+              echo "❌ (setup error)"
+            elif [ "$7" = "true" ]; then
+              echo "❌ (could not test — config error)"
+            elif [ "$5" = "true" ]; then
+              echo "❌ (not exercised)"
+            elif [ "$4" = "true" ]; then
+              echo "❌"
             elif [ "$2" = "true" ]; then
               echo "✅"
             else
@@ -693,10 +1153,10 @@ jobs:
             fi
           }
 
-          SPEC_CELL="$(result_cell "${{ steps.run-spec.outputs.both_failed }}" "${{ steps.run-spec.outputs.success }}")"
-          CHECK_CELL="$(result_cell "${{ steps.run-check.outputs.both_failed }}" "${{ steps.run-check.outputs.success }}")"
-          DISCOVER_CELL="$(result_cell "${{ steps.run-discover.outputs.both_failed }}" "${{ steps.run-discover.outputs.success }}")"
-          READ_CELL="$(result_cell "${{ steps.run-read.outputs.both_failed }}" "${{ steps.run-read.outputs.success }}")"
+          SPEC_CELL="$(result_cell "${{ steps.run-spec.outputs.both_failed }}" "${{ steps.run-spec.outputs.success }}" "")"
+          CHECK_CELL="$(result_cell "${{ steps.run-check.outputs.both_failed }}" "${{ steps.run-check.outputs.success }}" "")"
+          DISCOVER_CELL="$(result_cell "${{ steps.run-discover.outputs.both_failed }}" "${{ steps.run-discover.outputs.success }}" "")"
+          READ_CELL="$(result_cell "${{ steps.run-read.outputs.both_failed }}" "${{ steps.run-read.outputs.success }}" "${{ steps.run-read.outputs.incomplete }}" "${{ steps.run-read.outputs.regression_detected }}" "${{ steps.run-read.outputs.not_exercised }}" "${{ steps.run-read.outputs.setup_error }}" "${{ steps.run-read.outputs.could_not_test }}")"
 
           TARGET_CONN_STATUS="${{ steps.run-check.outputs.target_connection_status }}"
           CONTROL_CONN_STATUS="${{ steps.run-check.outputs.control_connection_status }}"
@@ -739,7 +1199,15 @@ jobs:
               echo "| \`READ\` | _(skipped)_ |"
             fi
             echo ""
-            echo "Legend: ✅ = passed, ❌ = failed (a regression, a one-sided failure, or both versions failing)"
+            echo "Legend: ✅ = passed, ❌ = failed (a regression, a one-sided failure, or both versions failing); ❌ (stopped early — incomplete) = the read hit max_records or its budget; ❌ (stopped early — regression detected) = the read stopped early and what it read already shows a regression; compare what was read, it is neither a pass nor a regression; ❌ (setup error) = the target does not define a target-only stream; ❌ (could not test — config error) = target config errors prevented the read; ❌ (not exercised) = a target-only stream returned no records; the PR's new code path was never proven; neither a pass nor a regression"
+            if [ "${{ steps.run-read.outputs.setup_error }}" = "true" ]; then
+              echo ""
+              echo "READ context: SETUP ERROR — a target-only stream is not defined by the target."
+            fi
+            if [ "${{ steps.run-read.outputs.could_not_test }}" = "true" ]; then
+              echo ""
+              echo "READ context: COULD NOT TEST — target-only config errors prevented the read."
+            fi
             echo ""
             echo "### Detailed reports"
             echo ""
@@ -749,33 +1217,499 @@ jobs:
             echo ""
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # A clean pass leaves nothing anyone comes back for, and on a raw
+      # connection run the artifacts hold real records, so they go now rather
+      # than at the end of their retention. Every other outcome -- a failed or
+      # incomplete verdict, an internal failure, a cancelled run -- keeps them
+      # for the reviewer. `continue-on-error`, so a failed delete never turns
+      # a pass red; the summary line says which way it went.
+      - name: Delete artifacts on pass
+        id: delete-artifacts
+        if: ${{ !cancelled() && steps.final-status.outputs.success == 'true' && steps.final-status.outputs.internal_failure != 'true' && steps.run-read.outputs.incomplete != 'true' }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          # The image artifact holds the PR's code, not customer data, and goes
+          # with the rest. Its id is an output of the build job, which ran the
+          # PR's code, so it is looked up by its name, which the workflow sets,
+          # among this run's artifacts; empty when the build was skipped.
+          IMAGE_ARTIFACT_NAME: ${{ needs.build-target-image.outputs.artifact_name }}
+          # Word-split below, so a step that was skipped or uploaded nothing
+          # contributes no id.
+          ARTIFACT_IDS: >-
+            ${{ steps.upload-spec-artifacts.outputs.artifact-id }}
+            ${{ steps.upload-check-artifacts.outputs.artifact-id }}
+            ${{ steps.upload-discover-artifacts.outputs.artifact-id }}
+            ${{ steps.upload-read-artifacts.outputs.artifact-id }}
+            ${{ steps.upload-consolidated-report.outputs.artifact-id }}
+        run: |
+          FAILED=false
+          IMAGE_ARTIFACT_IDS=""
+          if [ -n "$IMAGE_ARTIFACT_NAME" ]; then
+            if ! IMAGE_ARTIFACT_IDS="$(gh api --jq '.artifacts[].id' "repos/$REPOSITORY/actions/runs/$RUN_ID/artifacts?name=$IMAGE_ARTIFACT_NAME")"; then
+              echo "::warning::Could not look up the artifact $IMAGE_ARTIFACT_NAME"
+              IMAGE_ARTIFACT_IDS=""
+              FAILED=true
+            fi
+          fi
+          for ID in $ARTIFACT_IDS $IMAGE_ARTIFACT_IDS; do
+            if OUTPUT="$(gh api -X DELETE "repos/$REPOSITORY/actions/artifacts/$ID" 2>&1)"; then
+              echo "Deleted artifact $ID"
+            elif echo "$OUTPUT" | grep -q "HTTP 404"; then
+              echo "Artifact $ID is already gone"
+            else
+              echo "::warning::Could not delete artifact $ID: $OUTPUT"
+              FAILED=true
+            fi
+          done
+          if [ "$FAILED" = "true" ]; then
+            echo "- **Artifacts:** kept (delete failed, see the job log)" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "- **Artifacts:** deleted on pass" >> "$GITHUB_STEP_SUMMARY"
+
+      # The key every token of this run was hashed under. It is of no use
+      # once READ is over and would go with the runner anyway; removing it
+      # here keeps it from outliving the job on a runner that is reused.
+      - name: Remove the masking key
+        id: remove-mask-key
+        if: always()
+        run: |
+          if [ -n "${{ steps.setup.outputs.mask_key_path }}" ]; then
+            rm -f "${{ steps.setup.outputs.mask_key_path }}"
+          fi
+
     outputs:
       success: ${{ steps.final-status.outputs.success }}
       internal_failure: ${{ steps.final-status.outputs.internal_failure }}
       both_failed: ${{ steps.final-status.outputs.both_failed }}
+      incomplete: ${{ steps.final-status.outputs.incomplete }}
+      regression_detected: ${{ steps.final-status.outputs.regression_detected }}
+      not_exercised: ${{ steps.final-status.outputs.not_exercised }}
+      setup_error: ${{ steps.final-status.outputs.setup_error }}
+      could_not_test: ${{ steps.final-status.outputs.could_not_test }}
+      stream_injection: ${{ steps.run-read.outputs.stream_injection }}
       summary_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       # Addresses the consolidated report itself. Falls back to the run's
       # Artifacts section when the upload produced nothing -- every command
-      # failed before writing a report, or the job was cancelled.
+      # failed before writing a report, or the job was cancelled. On a clean
+      # pass the artifact is deleted at the end of the job ("Delete artifacts
+      # on pass"), so the link then opens nothing; the run summary says so.
       report_url: ${{ steps.upload-consolidated-report.outputs.artifact-url || format('{0}/{1}/actions/runs/{2}#artifacts', github.server_url, github.repository, github.run_id) }}
 
-  # Placeholder to be replaced with the Cloud Batch (`europe-west9`) runner.
   regression-test-eu:
     name: "Regression Test (EU): '${{ inputs.connector_name }}'"
-    needs: resolve-residency
-    if: needs.resolve-residency.outputs.residency == 'eu'
+    needs: [resolve-residency, build-target-image]
+    # As for `regression-test`: a failed build skips this job, and the
+    # workflow's `internal_failure` then reads true.
+    if: >-
+      !cancelled()
+      && needs.resolve-residency.outputs.residency == 'eu'
+      && (needs.build-target-image.result == 'success' || needs.build-target-image.result == 'skipped')
     runs-on: ubuntu-latest
-    # Mirrors every output the US job exposes to `workflow_call` callers, so a
-    # caller reads a defined value on an EU run instead of an empty string.
+    timeout-minutes: 360
+    env:
+      GITHUB_TIMEOUT_MINUTES: 360
+    permissions:
+      id-token: write
+      contents: read
     outputs:
-      success: "false"
-      internal_failure: "true"
-      both_failed: "false"
-      summary_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-      # No reports exist on this path, so the run page stands in for them.
-      report_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      success: ${{ steps.finalize.outputs.success }}
+      internal_failure: ${{ steps.finalize.outputs.internal_failure }}
+      both_failed: ${{ steps.finalize.outputs.both_failed }}
+      incomplete: ${{ steps.finalize.outputs.incomplete }}
+      regression_detected: ${{ steps.finalize.outputs.regression_detected }}
+      not_exercised: ${{ steps.finalize.outputs.not_exercised }}
+      setup_error: ${{ steps.finalize.outputs.setup_error }}
+      could_not_test: ${{ steps.finalize.outputs.could_not_test }}
+      stream_injection: ${{ steps.finalize.outputs.stream_injection }}
+      summary_url: ${{ steps.finalize.outputs.summary_url }}
+      report_url: ${{ steps.finalize.outputs.report_url }}
     steps:
-      - name: Fail until the EU regression runner is available
+      # GitHub stops the job GITHUB_TIMEOUT_MINUTES after it starts, so the
+      # Batch deadline (build-job) is counted from here.
+      - name: Record the job start
+        id: job-start
+        run: echo "epoch=$(date +%s)" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Check out the operations CLI
+        uses: actions/checkout@v6
+
+      # The US job's resolver (see its `Resolve READ inputs`), before anything
+      # reaches the cloud: a bad value fails here rather than on the VM after
+      # its setup, and the Batch job's arguments get only what it resolved.
+      - name: Resolve READ inputs
+        id: read-inputs
+        env:
+          READ_TIMEOUT_MINUTES: ${{ inputs.read_timeout_minutes }}
+          MAX_RECORDS: ${{ inputs.max_records }}
+        run: python3 src/airbyte_ops_mcp/regression_tests/read_inputs.py "$READ_TIMEOUT_MINUTES" "$MAX_RECORDS" "$GITHUB_OUTPUT"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: latest
+          enable-cache: false
+
+      - name: Authenticate to GCP with Workload Identity Federation
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/351139268520/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-actions-ci@internal-airbyte-ai-infra.iam.gserviceaccount.com
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Resolve EU run paths
+        id: paths
+        env:
+          RUN_ID: ${{ github.run_id }}
+          ATTEMPT: ${{ github.run_attempt }}
         run: |
-          echo "::error::EU-resident connections must run on the EU regression runner, which is not implemented yet."
-          exit 1
+          JOB_ID="gh-${RUN_ID}-${ATTEMPT}"
+          PREFIX="gs://internal-airbyte-ai-infra-connector-regression-eu/gh/${RUN_ID}-${ATTEMPT}"
+          echo "job_id=$JOB_ID" | tee -a "$GITHUB_OUTPUT"
+          echo "prefix=$PREFIX" | tee -a "$GITHUB_OUTPUT"
+          echo "source_uri=$PREFIX/source.tar.gz" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Validate EU inputs
+        id: validate-inputs
+        env:
+          DISCOVER_MISSING_STREAMS: ${{ inputs.discover_missing_streams }}
+          SELECTED_STREAMS: ${{ inputs.selected_streams }}
+          INJECTED_SYNC_MODE: ${{ inputs.injected_sync_mode }}
+        run: |
+          selected_stream_names="$(python3 -c 'import os; print(bool({name.strip() for name in os.environ["SELECTED_STREAMS"].split(",") if name.strip()}))')"
+          [[ "$DISCOVER_MISSING_STREAMS" != "true" || "$selected_stream_names" == "True" ]] \
+            || { echo "::error::selected_streams is required when discover_missing_streams is true"; exit 1; }
+          case "$INJECTED_SYNC_MODE" in
+            full_refresh|incremental|"") ;;
+            *)
+              echo "::error::injected_sync_mode must be full_refresh or incremental, got '$INJECTED_SYNC_MODE'"
+              exit 1
+              ;;
+          esac
+
+      - name: Archive and upload operations source
+        env:
+          SOURCE_URI: ${{ steps.paths.outputs.source_uri }}
+        run: git archive HEAD | gzip | gcloud storage cp - "$SOURCE_URI"
+
+      - name: Download the target image
+        id: download-target-image
+        if: needs.build-target-image.result == 'success'
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.build-target-image.outputs.artifact_name }}
+          path: ${{ runner.temp }}/target-image
+
+      # The build job ran the PR's code, so its image output is the PR's to
+      # choose; it goes to the VM and into the Batch job's arguments, so it
+      # must look like an image reference, by the US load step's rule. The VM
+      # checks that the archive loads that one image and nothing else. The
+      # archive is the PR's code, not customer data.
+      - name: Stage the target image
+        id: stage-target-image
+        if: needs.build-target-image.result == 'success'
+        env:
+          IMAGE: ${{ needs.build-target-image.outputs.image }}
+          ARCHIVE: ${{ runner.temp }}/target-image/target-image.tar
+          RUN_PREFIX: ${{ steps.paths.outputs.prefix }}
+        run: |
+          if ! [[ "$IMAGE" =~ ^[a-z0-9][a-z0-9._/-]*:[A-Za-z0-9_][A-Za-z0-9_.-]*$ ]]; then
+            echo "::error::The build job's image output is not an image reference"
+            exit 1
+          fi
+          gcloud storage cp "$ARCHIVE" "$RUN_PREFIX/target-image.tar"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+
+      # The seed by the US job's rules (see `Resolve READ inputs`): the runner
+      # prints a step's `env:` in the job log, so the step gets only whether a
+      # seed was given, and seed_state.py takes it from the dispatch payload,
+      # masks it, checks it and writes it to a file. A calling workflow has no
+      # payload for it and is refused. The seed goes to the run prefix, not to
+      # an environment variable on the Batch job, where job metadata could
+      # expose it.
+      - name: Stage optional seed state
+        id: stage-seed-state
+        env:
+          STATE_JSON_GIVEN: ${{ inputs.state_json != '' }}
+          CONNECTION_ID: ${{ inputs.connection_id }}
+          RUN_PREFIX: ${{ steps.paths.outputs.prefix }}
+        run: |
+          if [ "$STATE_JSON_GIVEN" = "true" ]; then
+            SEED_STATE_PATH="$RUNNER_TEMP/seed_state.json"
+            trap 'rm -f "$SEED_STATE_PATH"' EXIT
+            python3 src/airbyte_ops_mcp/regression_tests/seed_state.py "$GITHUB_EVENT_PATH" "$SEED_STATE_PATH" "$CONNECTION_ID"
+            gcloud storage cp "$SEED_STATE_PATH" "$RUN_PREFIX/state.json"
+            echo "staged=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build Batch job specification
+        id: build-job
+        env:
+          JOB_ID: ${{ steps.paths.outputs.job_id }}
+          SOURCE_URI: ${{ steps.paths.outputs.source_uri }}
+          RUN_PREFIX: ${{ steps.paths.outputs.prefix }}
+          RUN_ID: ${{ github.run_id }}
+          CONNECTOR: ${{ inputs.connector_name }}
+          CONNECTION_ID: ${{ inputs.connection_id }}
+          SKIP_COMPARE: ${{ inputs.skip_compare }}
+          OVERRIDE_TEST_IMAGE: ${{ inputs.override_test_image }}
+          TARGET_IMAGE: ${{ steps.stage-target-image.outputs.image }}
+          CONTROL_IMAGE: ${{ inputs.override_control_image }}
+          SELECTED_STREAMS: ${{ inputs.selected_streams }}
+          DISCOVER_MISSING_STREAMS: ${{ inputs.discover_missing_streams }}
+          INJECTED_SYNC_MODE: ${{ inputs.injected_sync_mode }}
+          DISABLE_HTTP_REPLAY: ${{ inputs.disable_http_replay }}
+          WITH_STATE: ${{ inputs.with_state }}
+          MAX_RECORDS: ${{ steps.read-inputs.outputs.max_records }}
+          READ_TIMEOUT_SECONDS: ${{ steps.read-inputs.outputs.read_timeout_seconds }}
+          JOB_STARTED_AT: ${{ steps.job-start.outputs.epoch }}
+          SKIP_READ: ${{ inputs.skip_read_action }}
+          # Only whether a seed was staged, never the seed: the VM then has to
+          # download it or stop.
+          SEED_STATE_STAGED: ${{ steps.stage-seed-state.outputs.staged == 'true' }}
+        run: |
+          # Nothing on the VM builds: the target is the image build-target-image
+          # built and the staging step checked, unless a skip-compare run names
+          # its own, in which case nothing was built or staged. The override is
+          # ignored in comparison mode, as on the US runner.
+          if [[ "$SKIP_COMPARE" == "true" && -n "$OVERRIDE_TEST_IMAGE" ]]; then
+            TEST_IMAGE="$OVERRIDE_TEST_IMAGE"
+          else
+            TEST_IMAGE="$TARGET_IMAGE"
+          fi
+          if [[ -z "$TEST_IMAGE" ]]; then
+            echo "::error::No target image: the image from build-target-image was not staged"
+            exit 1
+          fi
+          args=(--connector-name "$CONNECTOR" --test-image "$TEST_IMAGE")
+          [[ -z "$CONNECTION_ID" ]] || args+=(--connection-id "$CONNECTION_ID")
+          if [[ "$SKIP_COMPARE" == "true" ]]; then
+            args+=(--skip-compare)
+          else
+            [[ -z "$CONTROL_IMAGE" ]] || args+=(--control-image "$CONTROL_IMAGE")
+          fi
+          [[ -z "$SELECTED_STREAMS" ]] || args+=(--selected-streams "$SELECTED_STREAMS")
+          [[ "$DISCOVER_MISSING_STREAMS" != "true" ]] || args+=(--discover-missing-streams)
+          [[ -z "$INJECTED_SYNC_MODE" ]] || args+=(--injected-sync-mode "$INJECTED_SYNC_MODE")
+          [[ "$DISABLE_HTTP_REPLAY" != "true" ]] || args+=(--no-http-replay)
+          [[ "$WITH_STATE" != "true" ]] || args+=(--with-state)
+          [[ "$WITH_STATE" != "false" ]] || args+=(--no-state)
+          [[ -z "$MAX_RECORDS" ]] || args+=(--max-records "$MAX_RECORDS")
+          args+=(--read-timeout "$READ_TIMEOUT_SECONDS")
+          [[ "$SKIP_READ" != "true" ]] || args+=(--eu-skip-read-action)
+          CLI_ARGS_JSON="$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1:]))' "${args[@]}")"
+          MAX_RUN_DURATION_SECONDS="$(uv run python -c \
+            'import os, time; from airbyte_ops_mcp.regression_tests.eu_runner.timeouts import max_run_duration_seconds; print(max_run_duration_seconds(int(os.environ["GITHUB_TIMEOUT_MINUTES"]), int(time.time()) - int(os.environ["JOB_STARTED_AT"])))')"
+          if [[ "$SEED_STATE_STAGED" == "true" ]]; then
+            seed_flag=--seed-state-staged
+          else
+            seed_flag=--no-seed-state-staged
+          fi
+          uv run airbyte-ops cloud connector eu-runner build-job-spec \
+            --job-id "$JOB_ID" --source-archive-uri "$SOURCE_URI" \
+            --run-prefix-uri "$RUN_PREFIX" --cli-args-json "$CLI_ARGS_JSON" \
+            --github-run-id "$RUN_ID" --connector "$CONNECTOR" \
+            --max-run-duration-seconds "$MAX_RUN_DURATION_SECONDS" "$seed_flag" \
+            --target-image "$TARGET_IMAGE" --out job.json
+          echo "job_spec=$GITHUB_WORKSPACE/job.json" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Submit EU Batch job
+        id: submit-batch
+        env:
+          JOB_ID: ${{ steps.paths.outputs.job_id }}
+        run: gcloud batch jobs submit "$JOB_ID" --project internal-airbyte-ai-infra --location europe-west9 --config job.json
+
+      # A six-hour run polls about 720 times, so one describe that fails (an
+      # auth refresh, a 5xx, a network blip) is retried with backoff rather
+      # than ending the wait. Five failures in a row fail this step, and the
+      # cleanup step below then deletes the job.
+      - name: Wait for EU Batch job
+        id: wait-batch
+        env:
+          JOB_ID: ${{ steps.paths.outputs.job_id }}
+        run: |
+          failures=0
+          while true; do
+            if job_json="$(gcloud batch jobs describe "$JOB_ID" --project internal-airbyte-ai-infra \
+                --location europe-west9 --format=json)" &&
+              state="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["status"]["state"])' <<< "$job_json")"; then
+              failures=0
+              uid="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("uid", ""))' <<< "$job_json")"
+              echo "Batch state: $state"
+              echo "job_uid=$uid" | tee -a "$GITHUB_OUTPUT"
+              case "$state" in
+                SUCCEEDED|FAILED|DELETION_IN_PROGRESS|CANCELLED) break ;;
+              esac
+              sleep 30
+            else
+              failures=$((failures + 1))
+              if (( failures >= 5 )); then
+                echo "::error::Stopped waiting for Batch job $JOB_ID after $failures failed describe calls in a row"
+                exit 1
+              fi
+              echo "Could not describe Batch job $JOB_ID ($failures in a row); retrying"
+              sleep $((30 * 2 ** (failures - 1)))
+            fi
+          done
+          echo "state=$state" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Download verdict from EU bucket
+        if: always()
+        env:
+          RUN_PREFIX: ${{ steps.paths.outputs.prefix }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/eu-run"
+          gcloud storage cp "$RUN_PREFIX/verdict.json" "$RUNNER_TEMP/eu-run/verdict.json" || true
+
+      - name: Render EU run summary
+        if: always()
+        env:
+          JOB_ID: ${{ steps.paths.outputs.job_id }}
+          JOB_UID: ${{ steps.wait-batch.outputs.job_uid }}
+          RUN_PREFIX: ${{ steps.paths.outputs.prefix }}
+        run: |
+          batch_url="https://console.cloud.google.com/batch/jobsDetail/regions/europe-west9/jobs/${JOB_ID}/details?project=internal-airbyte-ai-infra"
+          logs_url="https://console.cloud.google.com/logs/query;query=labels.job_uid%3D%22${JOB_UID}%22;storageScope=storage,projects%2Finternal-airbyte-ai-infra%2Flocations%2Feurope-west9%2Fbuckets%2Fconnector-regression-eu%2Fviews%2F_AllLogs?project=internal-airbyte-ai-infra"
+          report_url="https://console.cloud.google.com/storage/browser/_details/internal-airbyte-ai-infra-connector-regression-eu/${RUN_PREFIX#gs://internal-airbyte-ai-infra-connector-regression-eu/}/report.html?project=internal-airbyte-ai-infra"
+          uv run airbyte-ops cloud connector eu-runner render-summary \
+            --batch-url "$batch_url" --logs-url "$logs_url" \
+            --report-url "$report_url" --verdict "$RUNNER_TEMP/eu-run/verdict.json" \
+            >> "$GITHUB_STEP_SUMMARY"
+
+      # Only for a job nothing is waiting for any more: the run was cancelled,
+      # the submit errored (Batch may have accepted the job anyway) or the wait
+      # stopped for good. A job the wait saw end is never deleted, so its
+      # console page stays.
+      - name: Delete the Batch job the run stopped waiting for
+        if: cancelled() || steps.submit-batch.outcome == 'failure' || steps.wait-batch.outcome == 'failure'
+        env:
+          JOB_ID: ${{ steps.paths.outputs.job_id }}
+          CANCELLED: ${{ job.status == 'cancelled' }}
+          SUBMIT_OUTCOME: ${{ steps.submit-batch.outcome }}
+        run: |
+          if [[ "$CANCELLED" == "true" ]]; then
+            reason="the run was cancelled"
+          elif [[ "$SUBMIT_OUTCOME" == "failure" ]]; then
+            reason="its submit step failed, so nothing waited for it"
+          else
+            reason="the wait for it stopped (see the wait step's log)"
+          fi
+          state="$(gcloud batch jobs describe "$JOB_ID" --project internal-airbyte-ai-infra \
+            --location europe-west9 --format='value(status.state)' 2>/dev/null || true)"
+          case "$state" in
+            "")
+              printf '%s\n' "**EU Batch job not deleted:** $reason, and its state could not be read." >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            SUCCEEDED|FAILED|DELETION_IN_PROGRESS|CANCELLED)
+              printf '%s\n' "**EU Batch job kept:** $reason, but the job had already ended ($state)." >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            *)
+              if gcloud batch jobs delete "$JOB_ID" --project internal-airbyte-ai-infra \
+                --location europe-west9 --quiet; then
+                printf '%s\n' "**EU Batch job deleted while $state:** $reason." >> "$GITHUB_STEP_SUMMARY"
+              else
+                printf '%s\n' "**EU Batch job could not be deleted while $state:** $reason." >> "$GITHUB_STEP_SUMMARY"
+                exit 1
+              fi
+              ;;
+          esac
+
+      - name: Finalize EU outputs
+        id: finalize
+        if: always()
+        env:
+          CANCELLED: ${{ job.status == 'cancelled' }}
+          BATCH_STATE: ${{ steps.wait-batch.outputs.state }}
+          RUN_PREFIX: ${{ steps.paths.outputs.prefix }}
+          VERDICT_PATH: ${{ runner.temp }}/eu-run/verdict.json
+        run: |
+          success=false
+          internal_failure=true
+          both_failed=false
+          incomplete=false
+          not_exercised=false
+          stream_injection=""
+          regression_detected=false
+          if [[ "$CANCELLED" != "true" && -f "$VERDICT_PATH" ]]; then
+            if verdict_flags="$(uv run python - "$VERDICT_PATH" <<'PY'
+          import json
+          import sys
+
+          from airbyte_ops_mcp.regression_tests.eu_runner.verdict import validate_verdict
+
+          try:
+              with open(sys.argv[1], encoding="utf-8") as verdict_file:
+                  verdict = json.load(verdict_file)
+              validate_verdict(verdict)
+          except Exception:
+              sys.exit(1)
+
+          print(" ".join(str(verdict[key]).lower() for key in ("success", "both_failed", "incomplete", "not_exercised", "regression_detected")))
+          PY
+            )"; then
+              read -r success both_failed incomplete not_exercised regression_detected <<< "$verdict_flags"
+              internal_failure=false
+            fi
+          fi
+          # The VM uploads the verdict before the archive and the report, so a
+          # passing verdict can outlive a job that failed after it. Only a job
+          # that ended SUCCEEDED finished every upload; anything else is an
+          # internal failure, and its outputs are kept.
+          if [[ "$BATCH_STATE" != "SUCCEEDED" ]]; then
+            success=false
+            internal_failure=true
+            if [[ "$CANCELLED" != "true" ]]; then
+              printf '%s\n' "**EU Batch job ended ${BATCH_STATE:-in an unknown state}:** the run is an internal failure whatever the verdict above says." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
+          run_prefix="${RUN_PREFIX#gs://internal-airbyte-ai-infra-connector-regression-eu/}"
+          summary_url="https://console.cloud.google.com/storage/browser/_details/internal-airbyte-ai-infra-connector-regression-eu/${run_prefix}/summary.json?project=internal-airbyte-ai-infra"
+          report_url="https://console.cloud.google.com/storage/browser/_details/internal-airbyte-ai-infra-connector-regression-eu/${run_prefix}/report.html?project=internal-airbyte-ai-infra"
+          {
+            printf 'success=%s\n' "$success"
+            printf 'internal_failure=%s\n' "$internal_failure"
+            printf 'both_failed=%s\n' "$both_failed"
+            printf 'incomplete=%s\n' "$incomplete"
+            printf 'regression_detected=%s\n' "$regression_detected"
+            printf 'not_exercised=%s\n' "$not_exercised"
+            # The EU verdict has no setup_error or could_not_test keys yet.
+            printf 'setup_error=false\n'
+            printf 'could_not_test=false\n'
+            printf 'stream_injection=%s\n' "$stream_injection"
+            printf 'summary_url=%s\n' "$summary_url"
+            printf 'report_url=%s\n' "$report_url"
+          } | tee -a "$GITHUB_OUTPUT"
+          if [ "$success" = "true" ] && [ "$incomplete" != "true" ] && [ "$internal_failure" != "true" ]; then
+            : "${RUN_PREFIX:?RUN_PREFIX must be set}"
+            run_prefix_root="gs://internal-airbyte-ai-infra-connector-regression-eu/gh/"
+            run_prefix_suffix="${RUN_PREFIX#"$run_prefix_root"}"
+            if [[ "$RUN_PREFIX" == "$run_prefix_root"* && -n "$run_prefix_suffix" && "$run_prefix_suffix" != */* && "$run_prefix_suffix" != "." && "$run_prefix_suffix" != ".." ]]; then
+              if gcloud storage rm --recursive "${RUN_PREFIX}/"; then
+                {
+                  printf '%s\n' "**EU outputs deleted on pass:** \`$RUN_PREFIX/\`."
+                  printf 'The report and summary links above no longer resolve. Batch logs are kept (2-day log retention).\n'
+                } >> "$GITHUB_STEP_SUMMARY"
+              else
+                echo "::warning::EU output deletion failed for ${RUN_PREFIX}/; outputs will be removed by bucket lifecycle."
+                printf 'EU output deletion failed; the 2-day bucket lifecycle will remove them.\n' >> "$GITHUB_STEP_SUMMARY"
+              fi
+            else
+              echo "::warning::Refusing to delete EU outputs with an invalid RUN_PREFIX."
+              printf 'EU output deletion failed; the 2-day bucket lifecycle will remove them.\n' >> "$GITHUB_STEP_SUMMARY"
+            fi
+          else
+            printf 'EU outputs were kept for 2 days for debugging.\n' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ "$internal_failure" = "true" ]; then
+            echo "::error::Workflow failed due to internal infrastructure error(s)"
+            exit 1
+          fi
+          if [ "$success" != "true" ]; then
+            echo "::error::Regression test failed - see the run summary for the per-command verdict"
+            exit 1
+          fi

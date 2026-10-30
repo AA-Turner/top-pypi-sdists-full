@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: squidpy
-Version: 1.8.3
+Version: 1.8.4
 Summary: Spatial Single Cell Analysis in Python
 Project-URL: Bug Tracker, https://github.com/scverse/squidpy/issues
 Project-URL: Documentation, https://squidpy.readthedocs.io
@@ -28,29 +28,36 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.12
 Requires-Dist: aiohttp>=3.8.1
 Requires-Dist: anndata>=0.9
+Requires-Dist: centrosome>=1.2.3
+Requires-Dist: cp-measure<0.3,>=0.2
 Requires-Dist: cycler>=0.11
 Requires-Dist: dask-image>=0.5
-Requires-Dist: dask[array]>=2021.2
+Requires-Dist: dask[array,distributed]>=2021.2
 Requires-Dist: docrep>=0.3.1
-Requires-Dist: fast-array-utils
+Requires-Dist: fast-array-utils>=1.5
 Requires-Dist: fsspec>=2021.11
 Requires-Dist: imagecodecs<2026,>=2025.8.2
+Requires-Dist: legacy-api-wrap>=1.5
 Requires-Dist: matplotlib-scalebar>=0.8
 Requires-Dist: matplotlib>=3.3
 Requires-Dist: networkx>=2.6
+Requires-Dist: numba-progress>=1.1
 Requires-Dist: numba>=0.56.4
 Requires-Dist: numpy>=1.23
 Requires-Dist: omnipath>=1.0.7
 Requires-Dist: pandas>=2.1
 Requires-Dist: pillow>=8
 Requires-Dist: pooch>=1.6
+Requires-Dist: pynndescent<0.7
 Requires-Dist: pyyaml>=6
 Requires-Dist: scanpy>=1.9.3
-Requires-Dist: scikit-image>=0.25
+Requires-Dist: scikit-image>=0.26
 Requires-Dist: scikit-learn>=0.24
-Requires-Dist: spatialdata-plot>=0.3.3
+Requires-Dist: scverse-misc[datasets]<0.2,>=0.1.1
+Requires-Dist: spatialdata-plot>=0.4.1
 Requires-Dist: spatialdata>=0.7.2
 Requires-Dist: statsmodels>=0.12
+Requires-Dist: threadpoolctl>=3
 Requires-Dist: tifffile!=2022.4.22
 Requires-Dist: tqdm>=4.50.2
 Requires-Dist: validators>=0.18.2

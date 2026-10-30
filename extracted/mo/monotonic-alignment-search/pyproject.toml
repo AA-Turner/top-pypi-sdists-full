@@ -4,7 +4,7 @@
 
 [project]
 name = "monotonic-alignment-search"
-version = "0.2.1"
+version = "0.2.2"
 description = "Monotonically align text and speech"
 readme = "README.md"
 authors = [
@@ -13,36 +13,36 @@ authors = [
 maintainers = [
     { name = "Enno Hermann", email = "enno.hermann@gmail.com" }
 ]
-requires-python = ">=3.10"
-license = {text = "MIT"}
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSES/*.txt", "REUSE.toml"]
 classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "Intended Audience :: Developers",
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS",
     "Operating System :: Microsoft :: Windows",
-    "License :: OSI Approved :: MIT License",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Multimedia :: Sound/Audio :: Speech",
 ]
 dependencies = [
-    "numpy>=1.21.6",
+    "numpy>=1.23.2",
 ]
 
 [project.optional-dependencies]
 cpu = [
-    "torch>=1.12.1",
+    "torch>=1.13.0",
 ]
 cuda = [
-    "torch>=1.12.1",
+    "torch>=1.13.0",
 ]
 
 [tool.uv]
@@ -84,21 +84,29 @@ build-backend = "setuptools.build_meta"
 [dependency-groups]
 dev = [
     "coverage>=7.6.4",
-    "mypy==1.18.2",
-    "pre-commit>=4.0.1",
-    "pytest>=8.3.3",
+    "prek>=0.5",
+    "pytest>=9",
     "reuse>=6",
-    "ruff==0.14.0",
+    "ruff==0.17.3",
+    "ty==0.0.94",
 ]
 
 [tool.ruff.lint]
+preview = true
 select = ["ALL"]
+ignore = [
+    "missing-copyright-notice",
+    "missing-trailing-comma"
+]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["D104", "S101"]
+"tests/*" = ["undocumented-public-package", "assert"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "pep257"
+
+[tool.ty.src]
+exclude = ["setup.py", ".github/"]
 
 [tool.coverage.report]
 show_missing = true

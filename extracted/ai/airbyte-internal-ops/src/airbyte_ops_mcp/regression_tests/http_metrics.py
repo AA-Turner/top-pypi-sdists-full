@@ -8,6 +8,8 @@ executions using mitmproxy as a local subprocess.
 from __future__ import annotations
 
 import logging
+import os
+import pwd
 import re
 import shutil
 import signal
@@ -16,10 +18,10 @@ import subprocess
 import tempfile
 import time
 from collections import Counter
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import IO, Iterator, Sequence
+from typing import IO, Any, Iterator, Mapping, Sequence
 from urllib.parse import parse_qsl, urlsplit, urlunsplit
 
 try:
@@ -38,6 +40,12 @@ logger = logging.getLogger(__name__)
 
 MITMPROXY_DIR = Path.home() / ".mitmproxy"
 CA_CERT_FILENAME = "mitmproxy-ca-cert.pem"
+
+# Names a user for mitmdump to run as. A container's proxied requests leave the
+# host as mitmdump's user, so the EU runner, whose metadata server hands out a
+# token that reads prod secrets, runs it as an unprivileged user it blocks from
+# that server (see `eu_runner/vm-run.sh`). Unset, mitmdump runs as the CLI does.
+MITMDUMP_USER_ENV_VAR = "REGRESSION_MITMDUMP_USER"
 
 # Wait times for mitmdump subprocess startup
 MITMDUMP_CA_BOOTSTRAP_WAIT_SECONDS = 2
@@ -232,6 +240,110 @@ def redact_url(url: str) -> str:
     return urlunsplit((parts.scheme, netloc, parts.path, query, ""))
 
 
+@dataclass(frozen=True)
+class ConnectorCacheMetrics:
+    """What the connector's own `requests_cache` did, as the connector reported it.
+
+    Distinct from anything a proxy can see. A `requests_cache` hit is served
+    inside `Session.send()` and never reaches the wire, so no capture and no
+    replay ratio can observe it -- the CDK counts its own and emits the totals as
+    analytics at the end of every command, and this is the parsed form.
+
+    Both numbers are per run, not per stream: one cache backend is shared by
+    every stream, and the question these answer is whether this *version* still
+    caches what the previous one did.
+    """
+
+    request_count: int
+    cache_hits_count: int
+
+    @property
+    def cache_hit_ratio(self) -> str:
+        """Share of the connector's requests its own cache served.
+
+        Formatted like the legacy report's ratio, `"N/A"` at zero requests --
+        a run that made no requests has no ratio, and printing `0.00%` would
+        claim a cache that never got the chance to hit.
+        """
+        if self.request_count == 0:
+            return "N/A"
+        return f"{(self.cache_hits_count / self.request_count) * 100:.2f}%"
+
+
+# The analytics message types the CDK emits at the end of a run, one per counter.
+# Absent means *not measured* -- a Java connector, a connector with its own
+# `requests.Session`, or one on a CDK predating the counters -- which must render
+# as "not reported" rather than as a measured zero.
+CONNECTOR_REQUEST_COUNT_ANALYTICS = "http-request-count"
+CONNECTOR_CACHE_HIT_COUNT_ANALYTICS = "http-cache-hit-count"
+
+
+def parse_connector_cache_metrics(
+    analytics: Mapping[str, str | None],
+) -> ConnectorCacheMetrics | None:
+    """What the connector reported about its own HTTP cache, if it reported.
+
+    Reads the analytics counters `MessageSummary` collected on the one pass
+    over the run's stdout that `save_artifacts` makes anyway, so this costs no
+    second pass over a `read`'s output -- which is the dataset, and on a
+    stopped-early read is charged to the shared read budget.
+
+    `None` is the answer that matters most, and it has to stay distinguishable
+    from a measured zero: a Java connector, a connector using its own
+    `requests.Session`, or one on a CDK predating the counters all report
+    nothing, and rendering that as `0%` would read as a cache that is broken
+    rather than as one that was never measured.
+
+    Args:
+        analytics: `ANALYTICS` trace type to the value it last carried, as the
+            protocol carries it: a string, or `None` for a message that
+            declared no value.
+
+    Returns:
+        The connector's counters, or `None` when it emitted no request count,
+        or a pair that cannot be a count: a message whose value is missing or
+        not an integer, a negative number, or more hits than requests. A
+        malformed report is no report, for the same reason a missing one is --
+        a number nobody measured must not render as one that was.
+    """
+    if CONNECTOR_REQUEST_COUNT_ANALYTICS not in analytics:
+        return None
+    request_count = _analytics_count(analytics[CONNECTOR_REQUEST_COUNT_ANALYTICS])
+    if request_count is None:
+        return None
+
+    if CONNECTOR_CACHE_HIT_COUNT_ANALYTICS not in analytics:
+        # A connector that reported requests and said nothing about hits did
+        # make requests, none of which were cached -- a measured zero, unlike
+        # a hit-count message that is there and carries nothing readable.
+        cache_hits_count = 0
+    else:
+        cache_hits_count = _analytics_count(
+            analytics[CONNECTOR_CACHE_HIT_COUNT_ANALYTICS]
+        )
+        if cache_hits_count is None:
+            return None
+
+    if cache_hits_count > request_count:
+        return None
+
+    return ConnectorCacheMetrics(
+        request_count=request_count, cache_hits_count=cache_hits_count
+    )
+
+
+def _analytics_count(value: str | None) -> int | None:
+    """An analytics value as a count: a non-negative integer, or `None`."""
+    # The protocol carries an analytics value as a string, and the field is
+    # optional.
+    if value is None:
+        return None
+    with suppress(ValueError):
+        count = int(value)
+        return count if count >= 0 else None
+    return None
+
+
 @dataclass
 class HttpMetrics:
     """HTTP traffic metrics from a connector execution."""
@@ -241,7 +353,6 @@ class HttpMetrics:
     # Redacted (see `redact_url`); deduplication happens on the raw URLs, so
     # `duplicate_flow_count` still counts genuinely repeated requests.
     unique_urls: list[str]
-    cache_hits_count: int = 0
     # `live_flow_count` on a replaying target run is the acceptance criterion for
     # HTTP replay: zero means the two versions saw byte-identical upstream data,
     # and anything else is a request the corpus could not answer.
@@ -261,15 +372,16 @@ class HttpMetrics:
     live_url_counts: dict[str, int] = field(default_factory=dict)
 
     @property
-    def cache_hit_ratio(self) -> str:
-        """Calculate cache hit ratio as a percentage string."""
-        if self.flow_count == 0:
-            return "N/A"
-        return f"{(self.cache_hits_count / self.flow_count) * 100:.2f}%"
-
-    @property
     def replay_hit_ratio(self) -> str:
-        """Share of requests served from the recording, as a percentage string."""
+        """Share of requests served from the recording, as a percentage string.
+
+        This is the metric the legacy `airbyte-ci` report called a cache-hit
+        ratio: its `cache_hit_ratio` counted flows mitmproxy served from the
+        recorded stream, out of a file literally named `cache.mitm`. It is a
+        property of the *harness*, not of the connector -- for what the
+        connector's own `requests_cache` did, see `ConnectorCacheMetrics`, which
+        no proxy can observe.
+        """
         if self.flow_count == 0:
             return "N/A"
         return f"{(self.replayed_flow_count / self.flow_count) * 100:.2f}%"
@@ -293,9 +405,7 @@ class HttpMetrics:
     @classmethod
     def empty(cls) -> HttpMetrics:
         """Create empty metrics when HTTP capture is unavailable."""
-        return cls(
-            flow_count=0, duplicate_flow_count=0, unique_urls=[], cache_hits_count=0
-        )
+        return cls(flow_count=0, duplicate_flow_count=0, unique_urls=[])
 
 
 @dataclass(frozen=True)
@@ -344,6 +454,38 @@ class MitmproxySession:
     def proxy_url(self) -> str:
         """Get the proxy URL for HTTP_PROXY/HTTPS_PROXY env vars."""
         return f"http://{self.proxy_host}:{self.proxy_port}"
+
+
+@dataclass(frozen=True)
+class MitmdumpUser:
+    """The user `MITMDUMP_USER_ENV_VAR` names, and the confdir mitmdump uses as it."""
+
+    uid: int
+    gid: int
+    confdir: Path
+
+    @classmethod
+    def from_env(cls) -> MitmdumpUser | None:
+        """The named user, or None when the variable is unset.
+
+        Raises:
+            KeyError: If no such user exists. Running mitmdump as the CLI's own
+                user instead would quietly undo what the variable asks for.
+        """
+        name = os.environ.get(MITMDUMP_USER_ENV_VAR)
+        if not name:
+            return None
+        entry = pwd.getpwnam(name)
+        return cls(entry.pw_uid, entry.pw_gid, Path(entry.pw_dir) / ".mitmproxy")
+
+    def popen_kwargs(self) -> dict[str, Any]:
+        """`Popen` arguments that start mitmdump as this user, with none of the
+        CLI's supplementary groups."""
+        return {"user": self.uid, "group": self.gid, "extra_groups": []}
+
+    def give(self, path: Path) -> None:
+        """Make `path` this user's, for mitmdump to write or read."""
+        os.chown(path, self.uid, self.gid)
 
 
 def find_free_port() -> int:
@@ -515,12 +657,15 @@ def ensure_mitmproxy_ca_cert() -> Path | None:
     """Ensure mitmproxy CA certificate exists.
 
     Mitmproxy generates its CA cert on first run. This function runs
-    mitmdump briefly to generate the cert if it doesn't exist.
+    mitmdump briefly to generate the cert if it doesn't exist. With
+    `MITMDUMP_USER_ENV_VAR` set, it runs as that user and the cert is the one in
+    that user's confdir, which the main launch then uses too.
 
     Returns:
         Path to the CA cert file, or None if generation failed.
     """
-    ca_cert_path = MITMPROXY_DIR / CA_CERT_FILENAME
+    user = MitmdumpUser.from_env()
+    ca_cert_path = (user.confdir if user else MITMPROXY_DIR) / CA_CERT_FILENAME
 
     if ca_cert_path.exists():
         logger.debug(f"Mitmproxy CA cert already exists at {ca_cert_path}")
@@ -537,10 +682,16 @@ def ensure_mitmproxy_ca_cert() -> Path | None:
         # On a free port, not mitmproxy's default 8080: a port clash here means
         # no CA, and without the CA the connector cannot verify the proxy, so
         # the capture comes back near-empty instead of failing.
+        cmd = [mitmdump_path, "--listen-port", str(find_free_port())]
+        popen_kwargs: dict[str, Any] = {}
+        if user is not None:
+            cmd.extend(["--set", f"confdir={user.confdir}"])
+            popen_kwargs = user.popen_kwargs()
         proc = subprocess.Popen(
-            [mitmdump_path, "--listen-port", str(find_free_port())],
+            cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            **popen_kwargs,
         )
         # Wait for mitmdump to start and generate CA cert on first run
         time.sleep(MITMDUMP_CA_BOOTSTRAP_WAIT_SECONDS)
@@ -609,6 +760,7 @@ def build_mitmdump_command(
     replay_extra: str = DEFAULT_REPLAY_EXTRA,
     replay_ignore_params: Sequence[str] = (),
     stream_large_bodies: str = DEFAULT_STREAM_LARGE_BODIES,
+    confdir: Path | None = None,
 ) -> list[str]:
     """Build the `mitmdump` argv for a recording or a replaying run.
 
@@ -633,6 +785,8 @@ def build_mitmdump_command(
         replay_ignore_params: See `ReplayOptions.ignore_params`.
         stream_large_bodies: Body-size threshold above which mitmproxy streams
             rather than records. Never pass a bare number: it means bytes.
+        confdir: mitmproxy's confdir, where its CA lives, or `None` for its
+            default under the home directory.
 
     Returns:
         The argv to run.
@@ -648,6 +802,8 @@ def build_mitmdump_command(
         "--set",
         f"stream_large_bodies={stream_large_bodies}",
     ]
+    if confdir is not None:
+        cmd.extend(["--set", f"confdir={confdir}"])
 
     if replay_from is None:
         return cmd
@@ -931,6 +1087,7 @@ class MitmproxyManager:
             logger.warning("mitmdump not found in PATH, HTTP metrics disabled")
             return None
 
+        user = MitmdumpUser.from_env()
         ca_cert_path = ensure_mitmproxy_ca_cert()
 
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -948,7 +1105,18 @@ class MitmproxyManager:
             replay_extra=self.replay_options.extra,
             replay_ignore_params=self.replay_options.ignore_params,
             stream_large_bodies=self.stream_large_bodies,
+            confdir=user.confdir if user else None,
         )
+        popen_kwargs: dict[str, Any] = {}
+        if user is not None:
+            # mitmdump writes its dump into a directory the CLI owns, and
+            # reads the corpus from one only the CLI can enter.
+            self.dump_file_path.touch()
+            user.give(self.dump_file_path)
+            if replay_source is not None:
+                user.give(replay_source.parent)
+                user.give(replay_source)
+            popen_kwargs = user.popen_kwargs()
 
         logger.info(f"Starting mitmproxy on port {self.port}")
         try:
@@ -960,6 +1128,7 @@ class MitmproxyManager:
                 cmd,
                 stdout=self._log_file,
                 stderr=subprocess.STDOUT,
+                **popen_kwargs,
             )
 
             # Wait for the listener, not for a fixed interval: with a corpus,
@@ -1086,55 +1255,21 @@ def parse_http_dump(
             else:
                 live_url_counts[redact_url(url)] += 1
 
+    # Two requests to the same URL, not a cache metric: a duplicate is what the
+    # connector's cache *would have* served, which is the opposite of a hit.
+    # What the connector's own `requests_cache` actually did is reported by the
+    # connector -- see `ConnectorCacheMetrics`.
     duplicate_count = flow_count - len(unique_urls)
-
-    # Cache hits are interpreted as duplicate requests to the same URL
-    # (requests that could potentially be served from cache)
-    cache_hits = duplicate_count
 
     return HttpMetrics(
         flow_count=flow_count,
         duplicate_flow_count=duplicate_count,
         unique_urls=sorted({redact_url(url) for url in unique_urls}),
-        cache_hits_count=cache_hits,
         replayed_flow_count=replayed_count,
         live_flow_count=flow_count - replayed_count,
         replay_source=str(replay_source) if replay_source else None,
         live_url_counts=dict(live_url_counts),
     )
-
-
-def compute_http_metrics_comparison(
-    control_metrics: HttpMetrics,
-    target_metrics: HttpMetrics,
-) -> dict[str, dict[str, int | str] | int | str]:
-    """Compute HTTP metrics comparison between control and target.
-
-    This produces output in the same format as the legacy
-    TestReport.get_http_metrics_per_command method.
-
-    Args:
-        control_metrics: HTTP metrics from control connector run.
-        target_metrics: HTTP metrics from target connector run.
-
-    Returns:
-        Dictionary with control/target metrics and difference.
-    """
-    return {
-        "control": {
-            "flow_count": control_metrics.flow_count,
-            "duplicate_flow_count": control_metrics.duplicate_flow_count,
-            "cache_hits_count": control_metrics.cache_hits_count,
-            "cache_hit_ratio": control_metrics.cache_hit_ratio,
-        },
-        "target": {
-            "flow_count": target_metrics.flow_count,
-            "duplicate_flow_count": target_metrics.duplicate_flow_count,
-            "cache_hits_count": target_metrics.cache_hits_count,
-            "cache_hit_ratio": target_metrics.cache_hit_ratio,
-        },
-        "difference": target_metrics.flow_count - control_metrics.flow_count,
-    }
 
 
 def get_http_flows_from_mitm_dump(

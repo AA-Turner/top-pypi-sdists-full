@@ -75,7 +75,8 @@ LOCK_WAIT_S, then EXIT_RESPAWN_LATER).
                    the supervisor starts the new install at once
 
 A bite is due when the queue holds a request from the main agent (`probe ask
---writer`, at any place in the queue: `requests.py`), your prompt, the agent's
+--writer`, at any place in the queue: `requests.py`), a run start or end (at
+any place, at most one run per RUN_EVENT_MIN_GAP_S), your prompt, the agent's
 turn end, more than QUEUE_LIMIT_CHARS, anything older than DUE_AFTER_S (from
 when it was noticed), or anything at all once the session is ending.
 """
@@ -156,6 +157,17 @@ TRIGGER_REQUEST = "request"
 #: run a minute, not one per ask. A request held back waits in the queue like
 #: any event and goes with the next run, whatever starts it.
 REQUEST_RUN_MIN_GAP_S = 60.0
+#: A run start or end (the SDK's message, `Kind.RUN_EVENT`) starts a writer run
+#: past the writer's least gap, but at most one run per this long (R34, swarm
+#: friction T20): a finished run is filed within it, not up to the gap later
+#: (median 3.5 min, p90 7.3 in the 10-28 swarm). Its events lead that run's
+#: message (`bite.runs_ahead`).
+TRIGGER_RUN = "run event"
+RUN_EVENT_MIN_GAP_S = 60.0
+#: The runs a writer message names are read in the daemon host before it is sent
+#: (`_read_runs`, swarm friction T18), all at once, for at most this long; a read
+#: still going then is left out of the message.
+RUN_READ_TIMEOUT_S = 10.0
 QUEUE_LIMIT_CHARS = 200_000
 READ_CHUNK_BYTES = 4 * 1024 * 1024
 MAX_LINE_BYTES = 8 * 1024 * 1024
@@ -496,6 +508,9 @@ class Worker:
         self.on_tick: Callable[[], None] | None = None
         #: In the daemon host: an idle run waits for a poke (`pause`). False per process.
         self.wakeable = False
+        #: The session's running worker (`run_session`): its marker says it takes
+        #: requests, and every poll writes it again when it is gone (`_keep_mailbox`).
+        self.marks_requests = False
         #: When this run last saw something new (`clock`): idle after IDLE_AFTER_S.
         self.changed_at = clock()
         self._loop: asyncio.AbstractEventLoop | None = None
@@ -1155,7 +1170,7 @@ class Worker:
             log.warning("could not read the main agent's requests: %s", exc)
             pending = []
         for req in pending:
-            text = " ".join(req.text.split())[:mailbox.REQUEST_MAX_CHARS]
+            text = mailbox.request_text(req.text)[:mailbox.REQUEST_MAX_CHARS]
             with self.store.tx():
                 if self.store.has_write_request(req.id):
                     pass  # stored by an earlier pass that stopped before moving the file
@@ -1347,6 +1362,8 @@ class Worker:
         # First, wherever it sits in the queue: the agent waits on the answer.
         if self.store.has_pending_request() and self._request_may_start():
             return TRIGGER_REQUEST
+        if self.clock() - self.last_run_at >= RUN_EVENT_MIN_GAP_S and self.store.pending_run_events(limit=1):
+            return TRIGGER_RUN
         if any(ev.kind == Kind.PROMPT and ev.seq != pending[0].seq for ev in pending):
             return TRIGGER_PROMPT
         if any(ev.kind == Kind.TURN_END for ev in pending):
@@ -1376,8 +1393,9 @@ class Worker:
         `model.writer_prompt_waits` (daemon cost round 7, F1, Richard T1=A:
         machine-sent prompts woke 65% of one team's runs under 5 minutes after
         the last, 83% of them to say nothing new; a record lands up to the gap
-        later). A main agent's request, a full queue, the session ending or a
-        paused conversation run starts it at once, whichever label won."""
+        later). A main agent's request, a run start or end (TRIGGER_RUN), a full
+        queue, the session ending or a paused conversation run starts it at
+        once, whichever label won."""
         from probe.daemon import model as model_mod
 
         prompt_waits = trigger == TRIGGER_PROMPT and model_mod.writer_prompt_waits()
@@ -1398,9 +1416,14 @@ class Worker:
         return known and mode == MODE_BYPASS, known
 
     def deps(self, bite_id: int | None, workdirs: list[Path] | None = None, *,
-             op_seed: str | None = None) -> tools.Deps:
+             op_seed: str | None = None, work_began: float | None = None,
+             run_side: bool = False) -> tools.Deps:
         """`op_seed` (a bite's: `<session>:<its first event>`): the same command in a
-        retried bite over the same events sends the same Idempotency-Key."""
+        retried bite over the same events sends the same Idempotency-Key.
+        `work_began` (a bite's: `Store.work_began`): its `probe` writes are dated
+        then (`event_at_env`), not when they run. `run_side` (a bite's:
+        `Store.run_side_only`): its `probe` writes are a run process's
+        (`run_side_env`)."""
         bypass, known = self.permission()
         if workdirs is None:
             workdirs = folders.working_folders(self.store, self.session.cwd, self.session.home)
@@ -1411,7 +1434,9 @@ class Worker:
             store=self.store, board=self.board, session_id=self.session.session_id, cwd=self.session.cwd,
             workdirs=workdirs, home=self.session.home, write_dirs=folders.note_dirs(),
             probe_env={**probe_env(self.session.session_id),
-                       **forwarded_session(self.session.source, self.session.session_id)},
+                       **forwarded_session(self.session.source, self.session.session_id),
+                       **event_at_env(work_began),
+                       **run_side_env(self.session.source, self.session.session_id, run_side)},
             bypass=bypass, mode_known=known, bite_id=bite_id,
             protected=folders.protected_paths(), replay=self.replay, harness=self.session.source, **extra)
 
@@ -1460,7 +1485,8 @@ class Worker:
                 trigger, shrink, events_text=indexed.text if indexed is not None else None,
                 span=indexed.span if indexed is not None else None)
         else:
-            # Bites mode: the memory closes the prompt, cached for every round of the bite.
+            # Bites mode: the memory closes what is built here (then the runs it names,
+            # `_read_runs`), cached for every round of the bite.
             built = bite_mod.build(self.store, trigger=trigger, context_line=self.context_line(),
                                    pending_lines=self.pending_lines(), recent_writes=self.recent_writes(),
                                    shrink=shrink, memory=self.memory_block())
@@ -1475,10 +1501,26 @@ class Worker:
         self.store.mark_requests_seen(bite_id, built.first_seq, built.last_seq, conversation)
         if trigger == TRIGGER_REQUEST:
             self.last_request_run_at = self.clock()
-        # A carry-on with no new events has no first event to seed the keys from.
+        # A carry-on with no new events has no first event to seed the keys from,
+        # nor a time its work began: its writes are dated when they arrive.
         deps = self.deps(bite_id, workdirs,
-                         op_seed=f"{self.session.session_id}:{built.first_seq}" if built.first_seq else None)
+                         op_seed=f"{self.session.session_id}:{built.first_seq}" if built.first_seq else None,
+                         work_began=(self.store.work_began(built.first_seq, built.last_seq)
+                                     if built.first_seq else None),
+                         run_side=bool(built.first_seq) and self.store.run_side_only(built.first_seq,
+                                                                                     built.last_seq))
+        runs_read = await self._read_runs(built, deps)
+        if _key_refused(deps):
+            # Probe refused the key on a run read: as a `probe` command's refusal, before any model call.
+            self.store.close_bite(bite_id, outcome="key refused")
+            return self._refused_key("a `probe` command", probe=True)
+        if deps.stopped:  # the lease went elsewhere while the runs were read
+            return self._lease_lost(bite_id, {})
         usage = _new_usage()
+        if conversation is not None:
+            from probe.daemon.agent import server_tokenizer
+
+            await asyncio.to_thread(server_tokenizer)  # its first load (~0.8 s) never on the loop
         state = self._run_state(bite_id, conversation=conversation is not None,
                                 shown=(built.first_seq, built.last_seq))
         state.trace = self.trace
@@ -1492,6 +1534,8 @@ class Worker:
             newest = self.store.recent_writes(1)
             built.writes_mark = int(newest[0]["id"]) if newest else 0
         layout = {"history": str(model_mod.writer_history()), "events": str(model_mod.writer_events())}
+        if built.runs:
+            layout["runs_read"] = f"{runs_read}/{len(built.runs)}"
         if lean and history:
             # The cache serves only a prompt sent whole before: saving a history that
             # still holds tool traffic (a resumed run, the switch to lean) or that a
@@ -1546,7 +1590,7 @@ class Worker:
             if conversation is not None:
                 self.store.save_conversation(conversation, saved, compactions=state.compactions)
                 self._settle_writes_list(built, lean=lean)
-            self.store.mark_covered(bite_id, built.last_seq)
+            self.store.mark_covered(bite_id, built.last_seq, built.leads)
             self.store.close_bite(bite_id, outcome=BITE_DONE, input_tokens=in_tok, output_tokens=out_tok,
                                   cached_tokens=cached)
             self._answer_run(bite_id, conversation, reply)
@@ -1711,6 +1755,38 @@ class Worker:
             return
         await tools.autoload_summaries(self.deps(None, workdirs))
 
+    async def _read_runs(self, built: bite_mod.Bite, deps: tools.Deps) -> int:
+        """The runs the message names (`Bite.runs`), read in the daemon host at
+        once and appended to it as one block (`bite.runs_block`, swarm friction
+        T18): what the writer spent a model round on `probe run get` for. Only
+        appended, so whatever came before it (the conversation, its cached
+        prefix) is unchanged. A read that fails, is still going after
+        RUN_READ_TIMEOUT_S (or the session-end deadline) or answers another run
+        is left out, unsaid. How many it shows."""
+        if not built.runs:
+            return 0
+        timeout = RUN_READ_TIMEOUT_S
+        if self.finish_by is not None:
+            timeout = min(timeout, self.finish_by - self.clock())
+        if timeout <= 0:
+            return 0
+        seed = f"{self.session.session_id}:{built.first_seq}:run get"
+
+        async def read(run: str) -> dict | None:
+            try:
+                answer = await asyncio.wait_for(tools.read_in_host(deps, ["run", "get", run], f"{seed}:{run}", timeout),
+                                                timeout + 1)
+                return _run_record(run, answer)
+            except Exception as exc:  # noqa: BLE001 -- a read the message goes without
+                log.warning("run %s not read for the writer: %s", run, type(exc).__name__)
+                return None
+
+        runs = [record for record in await asyncio.gather(*(read(run) for run in built.runs)) if record is not None]
+        block = bite_mod.runs_block(runs)
+        if block:
+            built.prompt = f"{built.prompt}\n\n{block}"
+        return len(runs)
+
     def _fingerprint(self) -> str:
         """What a saved conversation is bound to: this session's id (a store reached
         under another id is not this session's), the job description this CLI ships
@@ -1742,9 +1818,9 @@ class Worker:
 
         if self._index_model is None:
             self._index_model = model_mod.build(model_mod.endpoint(), model_mod.LANE_INDEX, retries=0)
-        events = self.store.events_between(span[0], span[1], recorded=True, new=True)
-        # Bounded (`index.INDEX_TIMEOUT_S` per stretch, all at once): well inside the
-        # writer's lease, so no renewal is needed while it runs.
+        events = self.store.events_between(span[0], span[1], recorded=True, new=True, uncovered=True)
+        # Bounded (`index.INDEX_TIMEOUT_S` per call, `index.CONCURRENT_CALLS` at once): well
+        # inside the writer's lease, so no renewal is needed while it runs.
         indexed = await index_mod.index_events(self._index_model, events)
         indexed.span = span  # the message covers exactly these: never events it did not show
         return indexed
@@ -1805,10 +1881,14 @@ class Worker:
         start's prompt (bites mode, and a conversation's first message), and the
         state of the record is `session(op=status)`, read when the model asks for it.
         `shown`: the events the run's prompt shows (first, last seq)."""
-        from probe.daemon.agent import RunState
+        from probe.daemon.agent import COMPACT_ROOM_TOKENS, RunState, server_tokenizer
 
+        # A conversation compacts one bite before its size, counting tokens as the
+        # model route does (swarm friction T18).
         return RunState(conversation=conversation, on_round=lambda response: self._record_round(bite_id, response),
-                        status=lambda: self.state_of_record(shown), logbook=lambda: bite_mod.landed_block(self.store))
+                        status=lambda: self.state_of_record(shown), logbook=lambda: bite_mod.landed_block(self.store),
+                        compact_room=COMPACT_ROOM_TOKENS if conversation else 0,
+                        tokenizer=server_tokenizer() if conversation else None)
 
     def _record_round(self, bite_id: int | None, response) -> None:
         """One model response, as it arrives (T10): a `rounds` row and the device's
@@ -1905,7 +1985,7 @@ class Worker:
             # as tool calls until the run that finishes it completes.
             self._settle_writes_list(built, lean=model_mod.writer_history() == model_mod.WriterHistory.LEAN,
                                      paused=True)
-            self.store.mark_covered(bite_id, built.last_seq)
+            self.store.mark_covered(bite_id, built.last_seq, built.leads)
             self.store.close_bite(bite_id, outcome=BITE_PAUSED, error=stop.why, **spent)
             self.store.set_fact(CARRY_ON, True)
             if self.store.fact("cut_short"):
@@ -2128,6 +2208,7 @@ class Worker:
         }[cause]
         skipped = self.store.pending_count(built.first_seq, built.last_seq)
         with self.store.tx():
+            # Not the run events it showed first: they were not the trouble, and lead the next bite.
             self.store.mark_covered(bite_id, built.last_seq)
             self.store.close_bite(bite_id, outcome=BITE_SKIPPED, error=text, **spent)
             self.store.set_fact("cut_short", None)
@@ -2390,13 +2471,15 @@ class Worker:
     async def _check_folders(self, workdirs: list[Path], *, emit: bool = True, force: bool = False) -> None:
         """The folder check, at most every FOLDER_CHECK_S (unless `force`) and off the
         event loop. Its failure is logged, never the bite's. `emit=False` only moves
-        the snapshot on: what changed in `read only (daemon)` is never announced."""
+        the snapshot on: what changed in `read only (daemon)` is never announced.
+        While the session ends, a growing file's `changed` line is not waited for
+        (`folders.GROWING`)."""
         if not force and self.clock() - self.folders_checked_at < FOLDER_CHECK_S:
             return
         self.folders_checked_at = self.clock()
         try:
             await folders.check_async(self.store, self.session.cwd, self.session.home, workdirs=workdirs, emit=emit,
-                                      excluded=self.exclusions.path_excluded)
+                                      excluded=self.exclusions.path_excluded, flush=self.stopping)
         except Exception as exc:  # noqa: BLE001
             log.warning("folder check failed: %s: %s", type(exc).__name__, exc)
         self._mark_inline()  # a file the agent changed while it held Probe is its own
@@ -2420,6 +2503,8 @@ class Worker:
                               "restarts on the new install")
             self._release(lease.REASON_STOPPED)
             return 0
+        if self.replay is None:
+            self._keep_mailbox()
         state = lease.session_state(self.session.session_id)
         if self.replay is None:
             if lease.inline(self.session.session_id, state):
@@ -2481,6 +2566,13 @@ class Worker:
             self.not_started = blocked
         self.requeue_deferred()
         idle = not self.store.pending(limit=1) and not self._carrying_on()
+        if self.stopping and idle and (left is None or left > 0) and folders.growing(self.store):
+            # A growing file's last `changed` line is owed: one more look makes it,
+            # and the next poll records it.
+            await self._check_folders(folders.working_folders(self.store, self.session.cwd, self.session.home),
+                                      force=True)
+            if self.store.pending(limit=1):
+                return None
         if self.stopping and (idle or (left is not None and left <= 0)):
             unrecorded = len(self.store.pending())
             if unrecorded:
@@ -2490,6 +2582,21 @@ class Worker:
             self._release(lease.REASON_STOPPED)
             return 0
         return None
+
+    def _keep_mailbox(self) -> None:
+        """Every poll: the mailbox folders' keep files, so an SDK from before
+        #3616 never takes them for a dead run's (`mailbox.keep_folders`), and
+        this worker's marker again when something removed it."""
+        sid = self.session.session_id
+        mailbox.keep_folders()
+        if not self.marks_requests:
+            return
+        offered = self.run_alerts.offered if self.run_alerts is not None else None
+        try:
+            if mailbox.keep_worker_marker(sid, config=offered):
+                log.warning("this worker's request marker was gone; written again")
+        except OSError as exc:  # the next poll tries again
+            log.warning("could not write this worker's request marker again: %s", exc)
 
     async def _read_only_tick(self) -> int | None:
         """One poll in `read only (daemon)` (Richard 2026-09-29): the reader keeps
@@ -2824,6 +2931,34 @@ def probe_env(session_id: str) -> dict[str, str]:
     return {"PROBE_TOKEN": ep.key, "PROBE_BASE_URL": ep.base_url, "PROBE_DAEMON_SESSION": session_id}
 
 
+def event_at_env(work_began: float | None) -> dict[str, str]:
+    """What dates the daemon's `probe` writes at the work they file
+    (`X-Probe-Event-At`, swarm friction R1): the time that work began, so the
+    session's effort counts from there and not from when the daemon caught up.
+    Nothing without one; the server clamps a time it cannot believe."""
+    if work_began is None:
+        return {}
+    from datetime import datetime, timezone
+
+    from probe.sdk.agent_session import EVENT_AT_ENV
+
+    return {EVENT_AT_ENV: datetime.fromtimestamp(work_began, timezone.utc).isoformat()}
+
+
+def run_side_env(agent: str, session_id: str, run_side: bool) -> dict[str, str]:
+    """What marks a bite's `probe` writes as a run process's (`RUN_PROCESS_ENV`,
+    in `forwarded_session`'s spelling, so `X-Probe-Write-Origin: run` goes with
+    them) when every event the bite files is the daemon's own observation of a
+    run (`Store.run_side_only`): a background job's start, end or files, none of
+    the agent's own work. They are still filed as the watched session's, and add
+    no agent-hours (swarm friction R41)."""
+    if not run_side or not session_id:
+        return {}
+    from probe.sdk.agent_session import RUN_PROCESS_ENV
+
+    return {RUN_PROCESS_ENV: f"{agent}:{session_id}"}
+
+
 def forwarded_session(agent: str, session_id: str) -> dict[str, str]:
     """What the daemon's `probe` commands carry so what they create is filed as
     the WATCHED session's own work (`X-Probe-Agent-Session`, the server's origin
@@ -3041,10 +3176,28 @@ def _stamp(at: object) -> str | None:
         return None
 
 
+def _run_record(run: str, answer: tools.ProbeResult | None) -> dict | None:
+    """`answer` to `probe run get <run>` as that run's JSON; None when it was not
+    answered, failed, is not a JSON object, or is another run's."""
+    if answer is None or answer.code != 0:
+        return None
+    try:
+        record = json.loads(answer.stdout)
+    except ValueError:
+        return None
+    if not isinstance(record, dict) or str(record.get("id") or "").lower() != run:
+        return None
+    return record
+
+
 def _describe_sdk(msg: dict) -> str:
+    """`<event>: <JSON>`, cut at 900 characters; `run_id` first, so a cut never
+    takes it (`bite.run_id_of`: the writer's message reads that run first)."""
     kind = msg.get("event") or "run event"
-    fields = {k: v for k, v in msg.items() if k in ("run_id", "description", "tags", "config", "intent", "status",
+    fields = {k: v for k, v in msg.items() if k in ("description", "tags", "config", "intent", "status",
                                                     "parent_run_id", "relation", "name", "command")}
+    if "run_id" in msg:
+        fields = {"run_id": msg["run_id"], **fields}
     return f"{kind}: {json.dumps(fields, default=str)[:900]}"
 
 
@@ -3594,6 +3747,7 @@ def run_session(session: Session, hooks: RunHooks, stopper: Stopper) -> int:
     try:
         # At once, not after the folder baseline: `probe ask --writer` refuses a
         # live worker without it as one from before requests.
+        mailbox.keep_folders()
         mailbox.mark_worker_accepts(sid)
     except OSError as exc:
         log.warning("could not say this worker takes requests: %s", exc)
@@ -3604,6 +3758,7 @@ def run_session(session: Session, hooks: RunHooks, stopper: Stopper) -> int:
             _device_error(str(exc))
             return EXIT_DO_NOT_RESPAWN
         stopper.bind(worker)  # a stop asked by now begins before the sweeps, as before
+        worker.marks_requests = True
         if hooks.hosted:
             worker.supervisor_gone = hooks.supervisor_gone
         else:

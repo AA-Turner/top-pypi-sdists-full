@@ -3,6 +3,11 @@ from .access_graph_rules_module_types import (
     AccessGraphImpliedAccessRule,
     AccessGraphRulesSettings,
 )
+from .configured_capabilities_types import (
+    UNGATED_CAPABILITIES,
+    CapabilityGate,
+    ConfiguredCapabilities,
+)
 from .credentials_module_types import (
     AUTH_TYPE_MAP,
     AuthModel,
@@ -13,7 +18,7 @@ from .credentials_module_types import (
     OAuthConfig,
     ValidateCredentialConfigCallable,
 )
-from .itsm_module_types import TICKET_CAPABILITIES, ItsmSettings, TicketInfo, TicketInfoCallable
+from .itsm_module_types import ItsmSettings, TicketInfo, TicketInfoCallable
 from .oauth_module_types import (
     OAUTH_FLOW_TYPE_CAPABILITIES,
     ClientAuthenticationMethod,
@@ -59,7 +64,9 @@ __all__ = [
     "CredentialsSettings",
     "ProbeSettings",
     "ItsmSettings",
-    "TICKET_CAPABILITIES",
+    "CapabilityGate",
+    "ConfiguredCapabilities",
+    "UNGATED_CAPABILITIES",
     "TicketInfo",
     "TicketInfoCallable",
     "DEFAULT_PROBE_CHECK_ORDER",

@@ -34,7 +34,6 @@ Workflows declare connectors via ``@uses_connectors``::
 
 from __future__ import annotations
 
-from datetime import timedelta
 from typing import Any, Sequence, Type
 
 import structlog
@@ -42,6 +41,7 @@ import temporalio.worker
 import temporalio.workflow
 from pydantic import ValidationError
 
+from mistralai.workflows.core._events.event_activities import execute_emitter, execute_emitter_preserving_error
 from mistralai.workflows.core.definition.workflow_definition import get_workflow_definition, is_workflow_on_behalf_of
 from mistralai.workflows.core.temporal.context_handler_interceptor import retrieve_context, workflow_context_var
 
@@ -66,7 +66,7 @@ from .models import (
     ConnectorExtensionBinding,
     MistralaiExtensionPayload,
 )
-from .run_as import ConnectorRunAs
+from .run_as import RunAs
 
 logger = structlog.get_logger(__name__)
 
@@ -97,10 +97,8 @@ async def _wait_for_connector_auth(
 
     # Emit front-end marker so the UI can detect the auth step and
     # extract the OAuth URL, connector ID, etc.
-    await temporalio.workflow.execute_local_activity(
-        _emit_connector_auth_started,
-        args=[task_id, slot.connector_name, connector_id, auth_url, slot.credentials_name],
-        start_to_close_timeout=timedelta(seconds=10),
+    await execute_emitter(
+        _emit_connector_auth_started, task_id, slot.connector_name, connector_id, auth_url, slot.credentials_name
     )
 
     # Single long-lived activity that polls the credentials API
@@ -112,23 +110,18 @@ async def _wait_for_connector_auth(
     )
 
     if not authenticated:
-        await temporalio.workflow.execute_local_activity(
+        await execute_emitter_preserving_error(
             _emit_connector_auth_failed,
-            args=[
-                task_id,
-                slot.connector_name,
-                connector_id,
-                f"Connector '{slot.connector_name}' auth timed out",
-                slot.credentials_name,
-            ],
-            start_to_close_timeout=timedelta(seconds=10),
+            task_id,
+            slot.connector_name,
+            connector_id,
+            f"Connector '{slot.connector_name}' auth timed out",
+            slot.credentials_name,
         )
         raise ConnectorAuthTimeout(f"Connector '{slot.connector_name}' auth timed out")
 
-    await temporalio.workflow.execute_local_activity(
-        _emit_connector_auth_completed,
-        args=[task_id, slot.connector_name, connector_id, slot.credentials_name],
-        start_to_close_timeout=timedelta(seconds=10),
+    await execute_emitter(
+        _emit_connector_auth_completed, task_id, slot.connector_name, connector_id, slot.credentials_name
     )
 
 
@@ -175,7 +168,7 @@ class ConnectorAuthWorkflowInboundInterceptor(temporalio.worker.WorkflowInboundI
                 "on on_behalf_of=True workflows."
             )
 
-        auto_slots = [slot for slot in slots if slot.run_as == ConnectorRunAs.AUTO]
+        auto_slots = [slot for slot in slots if slot.run_as == RunAs.AUTO]
         auto_slot_by_name = {slot.connector_name: slot for slot in auto_slots}
         if not auto_slot_by_name:
             raise ConnectorError(
@@ -366,7 +359,7 @@ class ConnectorAuthWorkflowInboundInterceptor(temporalio.worker.WorkflowInboundI
                     auth_methods = await connector_get_auth_methods(resolved.id, run_as=run_as)
                     method_types = {m.method_type for m in auth_methods}
                     if "oauth2" in method_types:
-                        if slot.run_as == ConnectorRunAs.DEPLOYMENT:
+                        if slot.run_as == RunAs.DEPLOYMENT:
                             raise ConnectorError(
                                 f"Connector '{slot.connector_name}' runs with run_as='deployment' "
                                 f"and requires OAuth2 authorization, but deployment-identity connectors "

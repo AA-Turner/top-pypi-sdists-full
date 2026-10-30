@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: createsend
-Version: 9.1.5
+Version: 9.2.0
 Summary: A library which implements the complete functionality of the Campaign Monitor API.
 Home-page: https://campaignmonitor.github.io/createsend-python/
 Author: Campaign Monitor
@@ -26,10 +26,12 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 License-File: LICENSE
+Requires-Dist: certifi>=2026.10.18
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
+Dynamic: requires-dist
 Dynamic: summary

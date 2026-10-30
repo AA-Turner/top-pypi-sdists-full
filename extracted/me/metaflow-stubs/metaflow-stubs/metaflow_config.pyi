@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.39                                                                                #
-# Generated on 2026-09-02T21:19:46.699429                                                            #
+# MF version: 2.19.40                                                                                #
+# Generated on 2026-10-29T20:14:39.407256                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -132,6 +132,8 @@ GS_STORAGE_WORKLOAD_TYPE: str
 SERVICE_URL: None
 
 SERVICE_RETRY_COUNT: int
+
+SERVICE_PAGE_SIZE: int
 
 SERVICE_AUTH_KEY: None
 

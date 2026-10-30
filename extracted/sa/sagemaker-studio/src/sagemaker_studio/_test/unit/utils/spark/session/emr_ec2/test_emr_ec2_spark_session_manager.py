@@ -126,7 +126,8 @@ def mock_internal_utils():
 @pytest.fixture
 def manager():
     """Create a testable EmrEc2SparkSessionManager with a pre-resolved connection."""
-    return EmrEc2SparkSessionManager(connection=_make_connection())
+    mgr = EmrEc2SparkSessionManager(connection=_make_connection())
+    return mgr
 
 
 class TestInit:
@@ -480,6 +481,24 @@ class TestGetServiceSpecificConfigs:
         configs = manager._get_service_specific_configs()
         assert configs["spark.openlineage.transport.domainId"] == "dzd-test-domain-123"
 
+    def test_openlineage_added_unconditionally_for_all_releases(self, manager):
+        """EC2 passes OpenLineage for every release.
+
+        The client cannot determine the EC2 cluster's release label (the
+        connection carries only computeArn and the session role lacks
+        DescribeCluster), so OpenLineage is not gated here; on EMR 8.2+ the
+        server-side injection takes precedence over the duplicate client config.
+        """
+        manager.project = MagicMock()
+        manager.project.domain_id = "dzd-test-domain"
+        for label in ["emr-7.13.0", "emr-spark-8.0.0", "emr-spark-8.2.0", "emr-spark-9.0.0"]:
+            # release_label is irrelevant to EC2 gating; set only to document intent
+            configs = manager._get_service_specific_configs()
+            assert (
+                configs["spark.extraListeners"]
+                == "io.openlineage.spark.agent.OpenLineageSparkListener"
+            ), label
+
     def test_no_glue_specific_configs(self, manager):
         """Should NOT include Glue-specific keys."""
         manager.project = MagicMock()
@@ -512,6 +531,37 @@ class TestGetServiceSpecificConfigs:
 
         assert configs["spark.hadoop.fs.s3.s3AccessGrants.enabled"] == "true"
         assert configs["spark.hadoop.fs.s3.s3AccessGrants.fallbackToIAM"] == "true"
+
+
+class TestFgac:
+    """FGAC vs FTA selection driven by the connection's
+    spark.emr-ec2.lakeformation.enabled flag. EMR-on-EC2 does not release-gate on the
+    client (no release label on the connection); the cluster's LF config enforces."""
+
+    def test_is_fgac_enabled_true(self, manager):
+        manager.connection_spark_configs = {"spark.emr-ec2.lakeformation.enabled": "true"}
+        assert manager._is_fgac_enabled() is True
+
+    def test_is_fgac_enabled_true_mixed_case(self, manager):
+        manager.connection_spark_configs = {"spark.emr-ec2.lakeformation.enabled": "True"}
+        assert manager._is_fgac_enabled() is True
+
+    def test_is_fgac_enabled_false_when_absent(self, manager):
+        manager.connection_spark_configs = {}
+        assert manager._is_fgac_enabled() is False
+
+    def test_is_fgac_enabled_false_when_explicit_false(self, manager):
+        manager.connection_spark_configs = {"spark.emr-ec2.lakeformation.enabled": "false"}
+        assert manager._is_fgac_enabled() is False
+
+    def test_fgac_skips_compatibility_configs(self, manager):
+        manager.project = MagicMock(domain_id="dzd-test")
+        manager.connection_spark_configs = {"spark.emr-ec2.lakeformation.enabled": "true"}
+        with patch.object(manager, "_get_s3_access_grants_configs", return_value={}):
+            configs = manager._get_service_specific_configs()
+        # Native FGAC: compatibility-mode FTA keys must NOT be applied.
+        assert "spark.hadoop.fs.s3.credentialsResolverClass" not in configs
+        assert "spark.sql.catalog.skipLocationValidationOnCreateTable.enabled" not in configs
 
 
 class TestGetS3AccessGrantsConfigs:

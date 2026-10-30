@@ -2,14 +2,15 @@ import warnings
 from typing import Any, Callable, NamedTuple, Type, TypeVar
 
 import httpx
-import structlog
 from mistralai.client import Mistral
 from mistralai.extra.observability.telemetry import configure_telemetry
 from pydantic import BaseModel
 
+from mistralai.workflows._mistral_http import MISTRAL_HTTP, HttpBackend
 from mistralai.workflows._version import USER_AGENT
 from mistralai.workflows.core import _http_transport as http_transport
-from mistralai.workflows.core.auth import ConnectorRunAs, TokenProvider, get_token_provider
+from mistralai.workflows.core._logger import get_logger
+from mistralai.workflows.core.auth import RunAs, TokenProvider, get_token_provider
 from mistralai.workflows.core.config.config import config
 from mistralai.workflows.core.logging import extract_error_context
 from mistralai.workflows.core.temporal.context_handler_interceptor import retrieve_context
@@ -28,16 +29,17 @@ from mistralai.workflows.hooks.token_provider_hook import (
     TokenProviderHook,
 )
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 
 def _get_headers(
     headers: httpx.Headers | dict[str, str] | None = None,
+    http: HttpBackend = MISTRAL_HTTP,
 ) -> httpx.Headers:
     headers = (
         headers
-        if isinstance(headers, httpx.Headers)
-        else httpx.Headers(headers if headers is not None else config.worker.mistral_api_headers or {})
+        if isinstance(headers, http.Headers)
+        else http.Headers(headers if headers is not None else config.worker.mistral_api_headers or {})
     )
     # Authorization is set per-request by the auth/executor hook, never statically here.
     headers.setdefault("User-Agent", USER_AGENT)
@@ -66,21 +68,21 @@ _SYNC_HOOKS = _HookVariants(
 
 
 def _get_hooks(
-    client_cls: type[httpx.AsyncClient] | type[httpx.Client],
+    is_async: bool,
     server_url: str | None = None,
     token_provider: TokenProvider | None = None,
     use_executor_credentials: bool = False,
-    run_as: ConnectorRunAs | None = None,
+    run_as: RunAs | None = None,
     executor_credentials_server_url: str | None = None,
     executor_credentials_headers: dict[str, str] | None = None,
 ) -> dict[str, list]:
-    hooks = _ASYNC_HOOKS if client_cls is httpx.AsyncClient else _SYNC_HOOKS
+    hooks = _ASYNC_HOOKS if is_async else _SYNC_HOOKS
     request_hooks: list = [hooks.metadata]
     if run_as is not None:
-        run_as = ConnectorRunAs(run_as)
+        run_as = RunAs(run_as)
         if use_executor_credentials:
             raise ValueError("run_as conflicts with use_executor_credentials=True")
-    if run_as == ConnectorRunAs.AUTO:
+    if run_as == RunAs.AUTO:
         request_hooks.append(
             hooks.executor(
                 server_url=executor_credentials_server_url or server_url or "",
@@ -119,21 +121,23 @@ def _get_sync_client(
     server_url: str | None = None,
     use_executor_credentials: bool = False,
     api_key: str | None = None,
-    run_as: ConnectorRunAs | None = None,
+    run_as: RunAs | None = None,
     executor_credentials_server_url: str | None = None,
     executor_credentials_headers: dict[str, str] | None = None,
+    _http: HttpBackend = MISTRAL_HTTP,
 ) -> httpx.Client:
     if token_provider is None:
         token_provider = get_token_provider(api_key)
-    return httpx.Client(
+    return _http.Client(
         timeout=timeout if timeout is not None else config.http.timeout,
         verify=http_transport.verify(),
         headers=_get_headers(
-            headers={} if (use_executor_credentials or run_as == ConnectorRunAs.AUTO) and headers is None else headers
+            headers={} if (use_executor_credentials or run_as == RunAs.AUTO) and headers is None else headers,
+            http=_http,
         ),
         follow_redirects=True,
         event_hooks=_get_hooks(
-            httpx.Client,
+            is_async=False,
             server_url=server_url,
             token_provider=token_provider,
             use_executor_credentials=use_executor_credentials,
@@ -141,9 +145,9 @@ def _get_sync_client(
             executor_credentials_server_url=executor_credentials_server_url,
             executor_credentials_headers=executor_credentials_headers,
         ),
-        transport=http_transport.sync_transport(),
-        mounts=http_transport.sync_mounts(),
-        limits=http_transport.limits(),
+        transport=http_transport.sync_transport(_http),
+        mounts=http_transport.sync_mounts(_http),
+        limits=http_transport.limits(_http),
     )
 
 
@@ -155,21 +159,23 @@ def _get_async_client(
     server_url: str | None = None,
     use_executor_credentials: bool = False,
     api_key: str | None = None,
-    run_as: ConnectorRunAs | None = None,
+    run_as: RunAs | None = None,
     executor_credentials_server_url: str | None = None,
     executor_credentials_headers: dict[str, str] | None = None,
+    _http: HttpBackend = MISTRAL_HTTP,
 ) -> httpx.AsyncClient:
     if token_provider is None:
         token_provider = get_token_provider(api_key)
-    return httpx.AsyncClient(
+    return _http.AsyncClient(
         timeout=timeout if timeout is not None else config.http.timeout,
         verify=http_transport.verify(),
         headers=_get_headers(
-            headers={} if (use_executor_credentials or run_as == ConnectorRunAs.AUTO) and headers is None else headers
+            headers={} if (use_executor_credentials or run_as == RunAs.AUTO) and headers is None else headers,
+            http=_http,
         ),
         follow_redirects=True,
         event_hooks=_get_hooks(
-            httpx.AsyncClient,
+            is_async=True,
             server_url=server_url,
             token_provider=token_provider,
             use_executor_credentials=use_executor_credentials,
@@ -177,9 +183,9 @@ def _get_async_client(
             executor_credentials_server_url=executor_credentials_server_url,
             executor_credentials_headers=executor_credentials_headers,
         ),
-        transport=http_transport.async_transport(),
-        mounts=http_transport.async_mounts(),
-        limits=http_transport.limits(),
+        transport=http_transport.async_transport(_http),
+        mounts=http_transport.async_mounts(_http),
+        limits=http_transport.limits(_http),
     )
 
 
@@ -211,7 +217,7 @@ def get_mistral_client(
     timeout_ms: int | None = None,
     token_provider: TokenProvider | None = None,
     *,
-    run_as: ConnectorRunAs | None = None,
+    run_as: RunAs | None = None,
     executor_credentials_server_url: str | None = None,
     executor_credentials_headers: dict[str, str] | None = None,
 ) -> Mistral:

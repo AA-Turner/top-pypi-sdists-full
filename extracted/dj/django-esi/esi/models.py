@@ -1,8 +1,8 @@
-import datetime
 import logging
 import re
-import warnings
+from datetime import datetime, timedelta
 from typing import Any, ClassVar
+from warnings import warn
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -29,11 +29,11 @@ class Scope(models.Model):
     help_text = models.TextField(help_text="The official EVE description of the scope.")
 
     @property
-    def friendly_name(self):
+    def friendly_name(self) -> str:
         return self._friendly_name(self.name)
 
     @classmethod
-    def _friendly_name(cls, name):
+    def _friendly_name(cls, name: str) -> str:
         try:
             return re.sub('_', ' ', name.split('.')[1]).strip()
         except IndexError:
@@ -129,7 +129,7 @@ class Token(models.Model):
         return bool(self.refresh_token)
 
     @property
-    def expires(self) -> datetime.datetime:
+    def expires(self) -> datetime:
         """Determines when this token expires.
 
         Returns:
@@ -137,7 +137,7 @@ class Token(models.Model):
         """
         return (
             self.created
-            + datetime.timedelta(seconds=app_settings.ESI_TOKEN_VALID_DURATION)
+            + timedelta(seconds=app_settings.ESI_TOKEN_VALID_DURATION)
         )
 
     @property
@@ -186,7 +186,7 @@ class Token(models.Model):
             IncompleteResponseError: SSO response was unusable, the token should be kept
         """
         if session is not None or auth is not None:
-            warnings.warn(
+            warn(
                 "Token.refresh() session and auth arguments are deprecated and ignored.",
                 DeprecationWarning,
                 stacklevel=2
@@ -240,14 +240,14 @@ class Token(models.Model):
             self.delete()
             logger.warning("%s: Refresh failed. Token deleted.", repr(self))
         else:
-            logging.info("%s: Successfully refreshed", self)
+            logger.info("%s: Successfully refreshed", self)
 
     @classmethod
-    def get_token_data(cls, access_token):
+    def get_token_data(cls, access_token: str) -> dict[str, Any] | None:
         return TokenManager.validate_access_token(access_token)
 
     # unused?
-    def update_token_data(self, commit=True):
+    def update_token_data(self, commit: bool = True) -> None:
         logger.debug("Updating token data for %r", self)
         if self.expired:
             if self.can_refresh:

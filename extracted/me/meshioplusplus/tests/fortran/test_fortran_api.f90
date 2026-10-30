@@ -386,6 +386,80 @@ program test_fortran_api
                            'mesh_cad_surface finds no sliver nor declared gap')
                 call tris%free()
             end if
+            ! Roadmap 6.8: the triangle recombined quad-dominant; untangling
+            ! needs curved elements (6.6.3).
+            block
+                integer(int64) :: nq, nl
+                real(real64) :: qsj
+            tris = info%mesh_cad_surface(0.1_real64, min_angle=25.0_real64, &
+                                         quads=MIO_MESH_CAD_QUADS_DOMINANT, &
+                                         quad_pairs=MIO_MESH_CAD_QUAD_PAIRS_GREEDY, stat=ierr, &
+                                         errmsg=msg)
+            call check(ierr == 0, 'mesh_cad_surface recombines quads')
+            if (ierr == 0) then
+                call mio_mesh_cad_get_quad_stats(nq, nl, qsj, ierr)
+                call check(ierr == 0 .and. nq > 0 .and. qsj > 0.0_real64, &
+                           'mesh_cad_surface reports its quads')
+                call check(mio_mesh_cad_min_metric_angle() == 0.0_real64, &
+                           'mesh_cad_surface reports no metric angle without a metric')
+                call tris%free()
+            end if
+            end block
+            tris = info%mesh_cad_surface(0.1_real64, untangle=.true., stat=ierr, errmsg=msg)
+            call check(ierr /= 0, 'mesh_cad_surface refuses untangle at order 1')
+            tris = info%mesh_cad_surface(0.1_real64, order=2, untangle=.true., stat=ierr, &
+                                         errmsg=msg)
+            call check(ierr == 0 .and. mio_mesh_cad_num_untangled() == 0, &
+                       'mesh_cad_surface untangles nothing on a flat triangle')
+            if (ierr == 0) call tris%free()
+            ! Roadmap 6.10.1: the mesh projected back onto its triangle moves
+            ! nothing; a read's own sampling names no face and is refused.
+            block
+                type(mio_mesh) :: projected
+                type(mio_project_to_cad_report) :: prep
+            tris = info%mesh_cad_surface(0.1_real64, stat=ierr, errmsg=msg)
+            if (ierr == 0) then
+                projected = mio_project_to_cad(tris, info, report=prep, stat=ierr, errmsg=msg)
+                call check(ierr == 0 .and. prep%num_projected == tris%num_points() .and. &
+                           prep%max_move < 1.0e-12_real64 .and. prep%num_outside_trim == 0, &
+                           'project_to_cad leaves a mesh on its model')
+                call check(size(mio_project_to_cad_outside_trim()) == 0, &
+                           'project_to_cad lists no point outside the trims')
+                call check(prep%num_on_curves >= 0 .and. &
+                           prep%num_on_curves <= prep%num_on_edges, &
+                           'project_to_cad counts the points on edge curves')
+                ! Roadmap 6.9: layers grown from the triangle are wedges.
+                block
+                    type(mio_mesh) :: grown
+                    type(mio_boundary_layer_report) :: brep
+                    grown = mio_boundary_layer(tris, 0.01_real64, num_layers=2, report=brep, &
+                                               stat=ierr, errmsg=msg)
+                    call check(ierr == 0 .and. brep%num_wedges > 0 .and. &
+                               brep%min_scaled_jacobian > 0.0_real64, &
+                               'boundary_layer grows wedges')
+                    call check(ierr == 0 .and. brep%num_fewer_layers == 0 .and. &
+                               brep%num_front_crossings >= 0, &
+                               'boundary_layer reports the collapse and front counters')
+                    if (ierr == 0) call grown%free()
+                    grown = mio_boundary_layer(tris, 0.01_real64, num_layers=2, report=brep, &
+                                               collapse='layers', normal_smooth_iterations=2, &
+                                               front_check=.false., stat=ierr, errmsg=msg)
+                    call check(ierr == 0 .and. brep%num_wedges > 0 .and. &
+                               brep%num_front_crossings == 0, &
+                               'boundary_layer takes collapse, normal smoothing and front_check')
+                    if (ierr == 0) call grown%free()
+                    grown = mio_boundary_layer(tris, 0.01_real64, collapse='rows', stat=ierr, &
+                                               errmsg=msg)
+                    call check(ierr /= 0, 'boundary_layer refuses an unknown collapse')
+                    grown = mio_boundary_layer(tris, 0.01_real64, normal_smooth_iterations=5000, &
+                                               stat=ierr, errmsg=msg)
+                    call check(ierr /= 0 .and. index(msg, 'normal_smooth_iterations') > 0, &
+                               'boundary_layer refuses normal_smooth_iterations by name')
+                end block
+                if (ierr == 0) call projected%free()
+                call tris%free()
+            end if
+            end block
             ! v17.20.0: corner lopping at 20 degrees lops the two 45-degree
             ! corners and states the straight-segment bound.
             block
@@ -1400,6 +1474,111 @@ program test_fortran_api
         call octa%set_points(octa_points)
         call octa%add_cell_block('triangle', octa_conn)
 
+        ! -- tetrahedralize (roadmap 6.7): the octahedron filled, its skin kept --
+        block
+            type(mio_mesh) :: tet_out
+            type(mio_tetrahedralize_report) :: trep
+            integer :: tst
+            character(:), allocatable :: tmsg
+            tet_out = mio_tetrahedralize(octa, grading=2.0_real64, stat=tst, errmsg=tmsg)
+            call check(tst /= 0 .and. index(tmsg, 'grading') > 0, &
+                       'tetrahedralize refuses grading by name')
+            tet_out = mio_tetrahedralize(octa, backend='tetgen', stat=tst, errmsg=tmsg)
+            call check(tst /= 0, 'tetrahedralize refuses an unknown backend')
+            tet_out = mio_tetrahedralize(octa, max_size=0.5_real64, report=trep, stat=tst, &
+                                         errmsg=tmsg)
+            if (mio_has_netgen()) then
+                call check(tst == 0 .and. trep%num_tetrahedra > 0 .and. &
+                           trep%num_regions == 1_int64 .and. trep%boundary_preserved == 1 .and. &
+                           trep%backend == 1 .and. trep%num_boundary_triangles == 8_int64 .and. &
+                           abs(trep%volume - 4.0_real64/3.0_real64) < 1.0e-9_real64, &
+                           'tetrahedralize fills the octahedron')
+                if (tst == 0) call tet_out%free()
+            else
+                call check(tst == 0 .and. trep%backend == 2, &
+                           'tetrahedralize falls back to the octree backend without Netgen')
+                if (tst == 0) call tet_out%free()
+                tet_out = mio_tetrahedralize(octa, backend='netgen', stat=tst, errmsg=tmsg)
+                call check(tst /= 0 .and. index(tmsg, 'MESHIOPLUSPLUS_WITH_NETGEN') > 0, &
+                           'tetrahedralize names the build flag for netgen without it')
+            end if
+            ! The native octree backend, always there: the boundary fitted.
+            tet_out = mio_tetrahedralize(octa, backend='octree', report=trep, stat=tst, &
+                                         errmsg=tmsg)
+            call check(tst == 0 .and. trep%backend == 2 .and. trep%boundary_preserved == 0 .and. &
+                       trep%num_tetrahedra > 0 .and. trep%hausdorff_to_surface > 0.0_real64, &
+                       'tetrahedralize fills the octahedron with the octree backend')
+            if (tst == 0) call tet_out%free()
+        end block
+
+        ! The MMG backend (roadmap 3.2): adapt with it, its refusal by name
+        ! without it; metric_from_hessian needs no MMG.
+        block
+            type(mio_mesh) :: square, adapted
+            type(mio_mmg_report) :: mrep
+            integer :: mst
+            character(:), allocatable :: mmsg
+            square = mio_rectangle(dims=[4, 4], cell_type='triangle', stat=mst)
+            call check(mst == 0, 'rectangle for adapt')
+            adapted = mio_adapt(square, hsiz=0.1_real64, frozen=[13_int64], report=mrep, &
+                                stat=mst, errmsg=mmsg)
+            if (mio_has_mmg()) then
+                call check(mst == 0 .and. mrep%status == 0 .and. &
+                           mrep%num_elements_out > mrep%num_elements_in .and. &
+                           mrep%library(1) == 'm' .and. mrep%library(4) == '2', &
+                           'adapt remeshes the square with mmg2d')
+                if (mst == 0) call adapted%free()
+            else
+                call check(mst /= 0 .and. index(mmsg, 'MESHIOPLUSPLUS_WITH_MMG') > 0, &
+                           'adapt names the build flag without MMG')
+                call check(mio_mmg_index_bits() == 0, 'no MMG, no index width')
+            end if
+            call square%free()
+        end block
+
+        block
+            ! Roadmap 3.2.3: a unit square's boundary lines, triangulated by mmg2d.
+            type(mio_mesh) :: box, dom
+            type(mio_mmg_report) :: drep
+            integer(int64) :: nsub
+            integer :: dst
+            character(:), allocatable :: dmsg
+            call box%set_points(reshape([0.0_real64, 0.0_real64, 1.0_real64, 0.0_real64, &
+                                         1.0_real64, 1.0_real64, 0.0_real64, 1.0_real64], &
+                                        [2, 4]))
+            call box%add_cell_block('line', reshape([1_int64, 2_int64, 2_int64, 3_int64, &
+                                                     3_int64, 4_int64, 4_int64, 1_int64], &
+                                                    [2, 4]))
+            dom = mio_mesh_domain(box, hsiz=0.1_real64, report=drep, num_subdomains=nsub, &
+                                  stat=dst, errmsg=dmsg)
+            if (mio_has_mmg()) then
+                call check(dst == 0 .and. nsub == 1_int64 .and. drep%num_elements_out > 100, &
+                           'mesh_domain triangulates the square')
+                if (dst == 0) call dom%free()
+            else
+                call check(dst /= 0 .and. index(dmsg, 'MESHIOPLUSPLUS_WITH_MMG') > 0, &
+                           'mesh_domain names the build flag without MMG')
+            end if
+            call box%free()
+        end block
+
+        block
+            ! Roadmap 3.2.4: move refuses a region that is not there, by name,
+            ! or the build that cannot move at all.
+            type(mio_mesh) :: tets, moved
+            integer :: mvst
+            character(:), allocatable :: mvmsg
+            real(real64), allocatable :: zeros(:, :)
+            tets = mio_box(dims=[2, 2, 2], cell_type='tetra', stat=mvst)
+            call check(mvst == 0, 'box for move')
+            allocate (zeros(3, tets%num_points()))
+            zeros = 0.0_real64
+            call tets%add_point_data('d', zeros)
+            moved = mio_move(tets, 'd', ['nope'], stat=mvst, errmsg=mvmsg)
+            call check(mvst /= 0, 'move fails on an unknown region or without its backend')
+            call tets%free()
+        end block
+
         out = octa%remesh(30_int64, num_iterations=niter, subdivide_applied=subapp, &
                           num_isolated_clusters=niso, stat=st)
         call check(st == 0, 'remesh succeeded')
@@ -1631,6 +1810,63 @@ program test_fortran_api
         ! An out-of-range marking_value for "fraction" fails through stat too.
         e = m%estimate_error('temperature', marking='fraction', marking_value=1.5d0, stat=st)
         call check(st /= 0, 'estimate_error rejects an out-of-range marking_value')
+    end block
+
+    ! ---- error_size (roadmap 6.10.2: a size field from the indicator) -----
+    block
+        type(mio_mesh) :: e, s
+        type(mio_error_size_report) :: srep
+        integer :: st
+
+        e = m%estimate_error('temperature', stat=st)
+        call check(st == 0, 'estimate_error for error_size succeeded')
+        if (st == 0) then
+            s = e%error_size(1.0d-3, report=srep, stat=st)
+            call check(st == 0, 'error_size succeeded')
+            if (st == 0) then
+                call check(s%num_point_data() == e%num_point_data() + 1, &
+                           'error_size adds one point_data array')
+                call check(srep%num_cells + srep%num_skipped >= 1_int64, &
+                           'error_size reports the cells it read')
+                call s%free()
+            end if
+            s = e%error_size(1.0d-3, output='h', min_size=0.5d0, max_size=2.0d0, stat=st)
+            call check(st == 0, 'error_size with bounds and an output name succeeded')
+            if (st == 0) call s%free()
+            ! A target error that is not positive fails through stat.
+            s = e%error_size(0.0d0, stat=st)
+            call check(st /= 0, 'error_size rejects a target error of 0')
+            ! min_size above max_size fails through stat.
+            s = e%error_size(1.0d-3, min_size=2.0d0, max_size=1.0d0, stat=st)
+            call check(st /= 0, 'error_size rejects min_size > max_size')
+            ! A missing indicator fails through stat.
+            s = e%error_size(1.0d-3, error_array='nope', stat=st)
+            call check(st /= 0, 'error_size rejects a missing indicator')
+            call e%free()
+        end if
+    end block
+
+    ! ---- check_conformity (roadmap 3.2.1) ------------------------------------
+    block
+        type(mio_mesh) :: cm
+        type(mio_conformity_report) :: crep
+        character(:), allocatable :: cwarn
+        integer :: st
+
+        cm = m%check_conformity(report=crep, warnings=cwarn, stat=st)
+        call check(st == 0, 'check_conformity succeeded')
+        if (st == 0) then
+            call check(crep%dimension >= 2_int64, 'check_conformity examined the cells')
+            call check(crep%num_hanging_nodes == 0_int64 .and. crep%conforming /= 0, &
+                       'a mesh with shared nodes is conforming')
+            call check(crep%interface_mode == MIO_CONFORMITY_CONFORMING, &
+                       'check_conformity suggests the conforming interface mode')
+            call check(cm%num_point_data() == m%num_point_data() + 1, &
+                       'check_conformity attaches its flags')
+            call cm%free()
+        end if
+        cm = m%check_conformity(tolerance=-1.0d0, stat=st)
+        call check(st /= 0, 'check_conformity rejects a negative tolerance')
     end block
 
     ! --- named regions (doc/regions.md) ---------------------------------------
@@ -2043,10 +2279,122 @@ contains
         g = mio_honeycomb(dims=[3, 2], stat=ierr)
         call check(ierr == 0 .and. g%num_points() == 22_int64, 'honeycomb has 22 points')
         call g%free()
+        g = mio_line(n=4, stat=ierr)
+        call check(ierr == 0 .and. g%num_points() == 5_int64, 'line has 5 points')
+        call g%free()
+        g = mio_circle(n=6, order=2, stat=ierr)
+        call check(ierr == 0 .and. g%num_points() == 12_int64, 'circle has 12 points')
+        call g%free()
+        g = mio_helix(n=10, stat=ierr)
+        call check(ierr == 0 .and. g%num_points() == 11_int64, 'helix has 11 points')
+        call g%free()
+        g = mio_sphere_points(n=7, stat=ierr)
+        call check(ierr == 0 .and. g%num_points() == 7_int64, 'sphere_points has 7 points')
+        call g%free()
+        g = mio_box_points(n=7, seed=3_int64, stat=ierr)
+        call check(ierr == 0 .and. g%num_points() == 7_int64, 'box_points has 7 points')
+        call g%free()
+        g = mio_tetra_sphere(subdivisions=1, stat=ierr)
+        call check(ierr == 0 .and. g%num_points() == 10_int64, 'tetra_sphere has 10 points')
+        call g%free()
+        g = mio_octa_sphere(subdivisions=1, stat=ierr)
+        call check(ierr == 0 .and. g%num_points() == 18_int64, 'octa_sphere has 18 points')
+        call g%free()
+        g = mio_cube_sphere(n=2, stat=ierr)
+        call check(ierr == 0 .and. g%num_points() == 26_int64, 'cube_sphere has 26 points')
+        call g%free()
+        g = mio_geo_sphere(n=2, stat=ierr)
+        call check(ierr == 0 .and. g%num_points() == 42_int64, 'geo_sphere has 42 points')
+        call g%free()
+        g = mio_torus(nu=6, nv=4, stat=ierr)
+        call check(ierr == 0 .and. g%num_points() == 24_int64, 'torus has 24 points')
+        call g%free()
+        g = mio_moebius(nu=6, nv=2, num_twists=1, stat=ierr)
+        call check(ierr == 0 .and. g%num_points() == 18_int64, 'moebius has 18 points')
+        call g%free()
+        g = mio_tube(ntheta=6, nz=2, stat=ierr)
+        call check(ierr == 0 .and. g%num_points() == 18_int64, 'tube has 18 points')
+        call g%free()
+        g = mio_cone(ntheta=6, nz=2, stat=ierr)
+        call check(ierr == 0 .and. g%num_points() == 20_int64, 'cone has 20 points')
+        call g%free()
+        g = mio_capsule(ntheta=6, nz=1, ncap=2, stat=ierr)
+        call check(ierr == 0 .and. g%num_points() == 26_int64, 'capsule has 26 points')
+        call g%free()
+        g = mio_box_surface(dims=[1, 2, 3], stat=ierr)
+        call check(ierr == 0 .and. g%num_points() == 24_int64, 'box_surface has 24 points')
+        call g%free()
+        g = mio_platonic(name='dodecahedron', stat=ierr)
+        call check(ierr == 0 .and. g%num_points() == 20_int64, 'platonic has 20 points')
+        call g%free()
+        g = mio_ball(n=1, stat=ierr)
+        call check(ierr == 0 .and. g%num_points() == 27_int64, 'ball has 27 points')
+        call g%free()
+        g = mio_spherical_shell(n=2, nr=1, stat=ierr)
+        call check(ierr == 0 .and. g%num_points() == 52_int64, 'spherical_shell has 52 points')
+        call g%free()
+        g = mio_pipe(ntheta=6, nr=1, nz=2, stat=ierr)
+        call check(ierr == 0 .and. g%num_points() == 36_int64, 'pipe has 36 points')
+        call g%free()
+        g = mio_fichera(n=1, stat=ierr)
+        call check(ierr == 0 .and. g%num_points() == 26_int64, 'fichera has 26 points')
+        call g%free()
+        g = mio_solid_torus(n=2, nu=5, stat=ierr)
+        call check(ierr == 0 .and. g%num_points() == 45_int64, 'solid_torus has 45 points')
+        call g%free()
+        g = mio_box(order=2, complete=.true., stat=ierr)
+        call check(ierr == 0 .and. g%num_points() == 27_int64, 'box has 27 points')
+        call g%free()
+        g = mio_ball(n=1, order=3, stat=ierr)
+        call check(ierr == 0 .and. g%num_points() == 343_int64, 'ball has 343 points')
+        call g%free()
+        g = mio_platonic(name='sphere', stat=ierr)
+        call check(ierr /= 0, 'an unknown platonic solid is an error')
         g = mio_plate_with_hole(radius=0.9d0, stat=ierr)
         call check(ierr /= 0, 'a hole as large as the plate is an error')
         g = mio_box(cell_type='blob', stat=ierr)
         call check(ierr /= 0, 'an unknown cell type is an error')
+
+        ! Roadmap 3.1.2, 3.1.3, 3.2.5: sweeps of a rectangle, a reflected box.
+        block
+            type(mio_mesh) :: rect, swept, boxm
+            type(mio_sweep_report) :: srep
+            type(mio_mirror_report) :: mrep
+            integer(int64) :: ninv
+            character(:), allocatable :: msg
+            rect = mio_rectangle(dims=[3, 2], stat=ierr)
+            call check(ierr == 0, 'rectangle for the sweeps built')
+            swept = mio_extrude(rect, num_layers=4, report=srep, stat=ierr, errmsg=msg)
+            call check(ierr == 0 .and. srep%num_hexahedra == 24_int64, 'extrude gives hexahedra')
+            if (ierr == 0) call swept%free()
+            swept = mio_extrude(rect, offsets=[0.25_real64, 1.0_real64], report=srep, stat=ierr)
+            call check(ierr == 0 .and. srep%num_cells == 12_int64, 'extrude takes offsets')
+            if (ierr == 0) call swept%free()
+            swept = mio_extrude(rect, direction=[0.0_real64, 1.0_real64, 0.0_real64], &
+                                stat=ierr, errmsg=msg)
+            call check(ierr /= 0 .and. index(msg, 'parallel') > 0, &
+                       'extrude refuses a direction in the faces'' plane')
+            swept = mio_revolve(rect, num_layers=8, report=srep, stat=ierr, errmsg=msg)
+            call check(ierr == 0 .and. srep%full == 1 .and. srep%num_on_axis == 3_int64 .and. &
+                       srep%num_wedges == 16_int64, 'revolve closes a full turn')
+            if (ierr == 0) call swept%free()
+            call rect%free()
+            boxm = mio_box(dims=[2, 2, 2], cell_type='tetra', stat=ierr)
+            swept = mio_mirror(boxm, report=mrep, stat=ierr, errmsg=msg)
+            call check(ierr == 0 .and. mrep%num_flipped_cells == 48_int64, 'mirror flips the box')
+            if (ierr == 0) then
+                call swept%quality_counts(num_inverted=ninv)
+                call check(ninv == 0_int64, 'mirror leaves no cell inverted')
+                call swept%free()
+            end if
+            swept = mio_mirror(boxm, keep_original=.true., report=mrep, stat=ierr)
+            call check(ierr == 0 .and. mrep%num_points_on_plane == 9_int64, &
+                       'mirror welds the plane')
+            if (ierr == 0) call swept%free()
+            swept = mio_mirror(boxm, normal=[0.0_real64, 0.0_real64, 0.0_real64], stat=ierr)
+            call check(ierr /= 0, 'mirror refuses a zero normal')
+            call boxm%free()
+        end block
 
         ! The unit cube as a closed, outward-wound triangle surface.
         pts = reshape([0d0, 0d0, 0d0, 1d0, 0d0, 0d0, 1d0, 1d0, 0d0, 0d0, 1d0, 0d0, &
@@ -2138,6 +2486,14 @@ contains
         ! An unknown fill fails by name rather than silently defaulting.
         vox = cube%voxelize(resolution=[2, 2, 2], fill='solid', stat=ierr)
         call check(ierr /= 0, 'an unknown fill is refused')
+
+        ! 2-D pixels in an explicit plane; an unknown plane is refused.
+        vox = cube%voxelize(resolution=[4, 2, 0], plane='yz', dims=dims, stat=ierr)
+        call check(ierr == 0, 'voxelize took a plane')
+        call check(dims(3) == 1_int64, 'voxelize in a plane is one cell thick')
+        call vox%free()
+        vox = cube%voxelize(resolution=[4, 2, 0], plane='uv', stat=ierr)
+        call check(ierr /= 0, 'an unknown plane is refused')
 
         ! The centre is 0.5 inside; the other two are 1.0 outside.
         query = reshape([0.5d0, 0.5d0, 0.5d0, 2d0, 0.5d0, 0.5d0, -1d0, 0.5d0, 0.5d0], [3, 3])
@@ -2445,6 +2801,15 @@ contains
                            stat=ierr)
         call check(ierr == 0 .and. .not. was_refined, 'fit_cad does not refine by default')
         call check(.not. was_kept, 'nothing refined is kept without refinement')
+        call solid%free()
+        ! The constrained primitives: the cube's six planes keep their faces.
+        solid = sq%fit_cad(backend='native', constrain_primitives=.true., num_faces=nfaces, &
+                           num_constrained_primitives=nrsplit, num_constraint_groups=nrmerge, &
+                           stat=ierr, errmsg=msg)
+        call check(ierr == 0, 'fit_cad with constrain_primitives succeeded')
+        call check(nfaces == 6_int64, 'the constrained cube still has six faces')
+        call check(nrsplit >= 0_int64 .and. nrsplit <= 6_int64, 'at most six planes constrained')
+        call check(nrmerge >= 0_int64, 'the constraint groups are counted')
         call solid%free()
         ! The Phase 3 options (v17.11.0): closed on every backend, nothing
         ! measured is NaN, and an option out of range is refused.

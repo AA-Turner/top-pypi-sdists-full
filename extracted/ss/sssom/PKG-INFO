@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sssom
-Version: 0.4.21
+Version: 0.4.22
 Summary: Operations on SSSOM mapping tables
 License-Expression: MIT
 License-File: LICENSE
@@ -8,25 +8,25 @@ Author: Chris Mungall
 Author-email: cjmungall@lbl.gov
 Maintainer: Nicolas Matentzoglu
 Maintainer-email: nicolas.matentzoglu@gmail.com
-Requires-Python: >=3.10,<4.0.0
+Requires-Python: >=3.11
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Provides-Extra: docs
 Provides-Extra: networkx
 Provides-Extra: pansql
 Provides-Extra: rdflib-endpoint
 Provides-Extra: scipy
 Requires-Dist: click (>=8.1.6)
-Requires-Dist: curies (>=0.10.23)
+Requires-Dist: curies (>=0.15.5)
 Requires-Dist: deprecation (>=2.1.0)
 Requires-Dist: fastapi ; extra == "rdflib-endpoint"
 Requires-Dist: httpx ; extra == "rdflib-endpoint"
-Requires-Dist: linkml (>=1.10.0)
-Requires-Dist: linkml-runtime (>=1.10.0)
+Requires-Dist: linkml (>=1.12.0)
+Requires-Dist: linkml-runtime (>=1.12.0)
 Requires-Dist: mkdocs-click (>=0.8.1) ; extra == "docs"
 Requires-Dist: mkdocs-material (>=9.5.0) ; extra == "docs"
 Requires-Dist: mkdocstrings[python] (>=0.24.0) ; extra == "docs"

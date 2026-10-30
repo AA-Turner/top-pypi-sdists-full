@@ -1091,6 +1091,105 @@ class TestConnection(unittest.TestCase):
         s3_client = connection.create_client("dynamodb")
         self.assertEqual("dynamodb", s3_client.meta.service_model.service_name)
 
+    @patch("sagemaker_studio.connections.connection.boto3.Session")
+    def test_get_aws_client_with_prepared_botocore_session(self, session_cls):
+        secrets_manager = Mock()
+        secrets_manager.meta.region_name = "us-east-1"
+        connection = Connection(
+            {
+                "connectionId": "12345",
+                "physicalEndpoints": [{"awsLocation": {"awsRegion": "us-west-2"}}],
+                "type": "ATHENA",
+            },
+            Mock(),
+            Mock(),
+            secrets_manager,
+            self.kms_mock,
+            ClientConfig(overrides={"athena": {"endpoint_url": "https://athena.example"}}),
+        )
+        botocore_session = Mock()
+        expected_client = session_cls.return_value.client.return_value
+
+        actual_client = connection._create_client_with_session("athena", botocore_session)
+
+        self.assertIs(actual_client, expected_client)
+        session_cls.assert_called_once_with(
+            botocore_session=botocore_session, region_name="us-west-2"
+        )
+        session_cls.return_value.client.assert_called_once_with(
+            "athena", endpoint_url="https://athena.example"
+        )
+
+    @patch("sagemaker_studio.connections.connection.boto3.Session")
+    def test_prepared_session_honors_local_kernel_client(self, session_cls):
+        existing_client = Mock()
+        connection = Connection(
+            {"connectionId": "12345", "physicalEndpoints": [], "type": "ATHENA"},
+            Mock(),
+            Mock(),
+            existing_client,
+            self.kms_mock,
+            ClientConfig(),
+        )
+        local_client = Mock()
+
+        with patch.object(connection, "_local_kernel_client", return_value=local_client):
+            actual_client = connection._create_client_with_session("athena", Mock())
+
+        self.assertIs(actual_client, local_client)
+        session_cls.assert_not_called()
+
+    @patch("sagemaker_studio.connections.connection.boto3.client")
+    def test_client_region_uses_endpoint_populated_with_credentials(self, client):
+        existing_client = Mock()
+        existing_client.meta.region_name = "us-east-1"
+        connection = Connection(
+            {"connectionId": "12345", "physicalEndpoints": [], "type": "ATHENA"},
+            Mock(),
+            Mock(),
+            existing_client,
+            self.kms_mock,
+            ClientConfig(),
+        )
+
+        def populate():
+            connection._connection_creds = ConnectionCredentials(
+                access_key_id="key", secret_access_key="secret"
+            )
+            connection.physical_endpoints = [Mock(aws_region="us-west-2")]
+
+        with patch.object(
+            connection, "_invoke_get_connection_and_populate_fields", side_effect=populate
+        ):
+            connection._get_aws_client_with_connection_credentials("athena", None, existing_client)
+
+        self.assertEqual(client.call_args.kwargs["region_name"], "us-west-2")
+
+    @patch("sagemaker_studio.connections.connection.boto3.client")
+    def test_static_client_honors_region_override(self, client):
+        existing_client = Mock()
+        existing_client.meta.region_name = "us-east-1"
+        connection = Connection(
+            {
+                "connectionId": "12345",
+                "physicalEndpoints": [{"awsLocation": {"awsRegion": "us-west-2"}}],
+                "type": "ATHENA",
+            },
+            Mock(),
+            Mock(),
+            existing_client,
+            self.kms_mock,
+            ClientConfig(overrides={"athena": {"region": "eu-west-1"}}),
+        )
+
+        connection._get_aws_client_with_connection_credentials(
+            "athena",
+            ConnectionCredentials(access_key_id="key", secret_access_key="secret"),
+            existing_client,
+        )
+
+        self.assertEqual(client.call_args.kwargs["region_name"], "eu-west-1")
+
     def test_get_aws_client_fails_for_connection_without_default_service(self):
         datazone_api_mock = Mock()
         datazone_api_mock.get_connection.return_value = {
@@ -1683,3 +1782,193 @@ class TestSparkCatalogConfigs(unittest.TestCase):
             conn._spark_catalog_configs()
         self.assertIn("Encountered an error getting spark catalog options", str(cm.exception))
         self.assertIn("Glue API failure", str(cm.exception))
+
+
+class _Provider:
+    """A connection provider stub: answers ``get_connection_by_id`` from a Mock."""
+
+    name = "stub"
+    domain_id = "dzd-stub"
+    project_id = "stub"
+
+    def __init__(self, get_connection_by_id=None, refreshes_credentials=True):
+        self.get_connection_by_id = get_connection_by_id or Mock(
+            side_effect=AssertionError("unexpected fetch")
+        )
+        self.refreshes_credentials = refreshes_credentials
+
+
+class TestProviderBackedConnection(unittest.TestCase):
+    """A connection fetches itself again through the provider it came from."""
+
+    def _record(self, key="AKIA1", expiration="2099-01-01T00:00:00.000Z", with_creds=True):
+        record: Dict[str, Any] = {
+            "connectionId": "c1",
+            "name": "raw",
+            "type": "S3",
+            "physicalEndpoints": [
+                {"awsLocation": {"awsAccountId": "111122223333", "awsRegion": "us-west-2"}}
+            ],
+            "props": {"s3Properties": {"s3Uri": "s3://b/raw/"}},
+        }
+        if with_creds:
+            record["connectionCredentials"] = {
+                "accessKeyId": key,
+                "secretAccessKey": f"{key}-s",
+                "sessionToken": f"{key}-t",
+                "expiration": expiration,
+            }
+        return record
+
+    def _connection(self, record, provider=None, datazone_api=None):
+        glue_api = Mock()
+        glue_api.meta.region_name = "us-east-1"  # a client built from the record falls back to it
+        return Connection(
+            connection_data=record,
+            glue_api=glue_api,
+            datazone_api=datazone_api,
+            secrets_manager_api=Mock(),
+            kms_api=Mock(),
+            project_config=ClientConfig(),
+            provider=provider,
+        )
+
+    def test_the_apps_z_suffixed_expiration_is_parsed(self):
+        connection = self._connection(self._record(expiration="2026-10-06T21:00:00.000Z"))
+        from datetime import timezone
+
+        self.assertEqual(
+            connection.connection_creds.expiration,
+            datetime(2026, 10, 6, 21, 0, tzinfo=timezone.utc),
+        )
+
+    def test_an_unreadable_expiration_is_logged_and_dropped_not_raised(self):
+        with self.assertLogs("sagemaker_studio.local_kernel", level="WARNING") as logs:
+            connection = self._connection(self._record(expiration="next Tuesday-ish"))
+            creds = connection.connection_creds
+        self.assertEqual(creds.access_key_id, "AKIA1")  # the lookup itself still succeeds
+        self.assertIsNone(creds.expiration)
+        self.assertIn("unreadable credentials expiration", logs.output[0])
+        # No expiration: there is nothing to refresh on.
+        self.assertFalse(connection._credentials_need_refresh())
+
+    def test_without_a_provider_nothing_is_fetched(self):
+        connection = self._connection(self._record(with_creds=False))
+        self.assertIsNone(connection.connection_creds)
+
+    def test_the_provider_supplies_missing_credentials_once(self):
+        fetch = Mock(return_value=self._record("FETCHED"))
+        connection = self._connection(self._record(with_creds=False), provider=_Provider(fetch))
+        self.assertEqual(connection.connection_creds.access_key_id, "FETCHED")
+        self.assertEqual(connection.connection_creds.access_key_id, "FETCHED")
+        fetch.assert_called_once_with("c1")
+
+    def test_credentials_about_to_expire_are_fetched_again(self):
+        from datetime import timedelta, timezone
+
+        soon = (datetime.now(timezone.utc) + timedelta(minutes=1)).isoformat()
+        fetch = Mock(return_value=self._record("ROTATED"))
+        connection = self._connection(
+            self._record("SHORT", expiration=soon), provider=_Provider(fetch)
+        )
+        self.assertEqual(connection.connection_creds.access_key_id, "ROTATED")
+        fetch.assert_called_once()
+        self.assertEqual(connection.connection_creds.access_key_id, "ROTATED")
+        fetch.assert_called_once()  # the rotated keys are fresh
+
+    def test_a_provider_that_does_not_revend_credentials_is_not_asked_on_expiry(self):
+        from datetime import timedelta, timezone
+
+        soon = (datetime.now(timezone.utc) + timedelta(minutes=1)).isoformat()
+        provider = _Provider(refreshes_credentials=False)
+        connection = self._connection(self._record("SHORT", expiration=soon), provider=provider)
+        self.assertEqual(connection.connection_creds.access_key_id, "SHORT")
+        provider.get_connection_by_id.assert_not_called()
+
+    def test_datazone_backed_connections_do_not_refresh_on_expiry(self):
+        from datetime import timedelta, timezone
+
+        soon = (datetime.now(timezone.utc) + timedelta(minutes=1)).isoformat()
+        datazone = Mock()
+        connection = self._connection(self._record("SHORT", expiration=soon), datazone_api=datazone)
+        self.assertEqual(connection.connection_creds.access_key_id, "SHORT")
+        datazone.get_connection.assert_not_called()
+
+    def test_a_datazone_client_alone_makes_the_datazone_provider(self):
+        datazone = Mock()
+        datazone.get_connection.return_value = self._record("FROM_DZ")
+        record = {**self._record(with_creds=False), "domainId": "dzd-1", "projectId": "p-1"}
+        connection = self._connection(record, datazone_api=datazone)
+        self.assertEqual(connection.connection_creds.access_key_id, "FROM_DZ")
+        datazone.get_connection.assert_called_once_with(
+            domainIdentifier="dzd-1", identifier="c1", withSecret=True
+        )
+
+    def test_a_datazone_refusal_on_refresh_is_logged_not_raised(self):
+        datazone = Mock()
+        datazone.get_connection.side_effect = ClientError(
+            error_response={"Error": {"Code": "AccessDeniedException", "Message": "no"}},
+            operation_name="GetConnection",
+        )
+        connection = self._connection(self._record(with_creds=False), datazone_api=datazone)
+        with self.assertLogs(level="WARNING") as logs:
+            self.assertIsNone(connection.connection_creds)
+        self.assertIn(
+            "Encountered an error getting connection details for connection raw", logs.output[0]
+        )
+
+    def test_provider_errors_reach_the_caller(self):
+        fetch = Mock(side_effect=LookupError("gone"))
+        connection = self._connection(self._record(with_creds=False), provider=_Provider(fetch))
+        with self.assertRaises(LookupError):
+            connection.connection_creds
+
+    def _redshift_record(self):
+        # No physical endpoint: the Glue-connection probe (which also re-fetches) is skipped, so
+        # the only provider call is the secret-ARN lookup under test.
+        return {
+            **self._record(),
+            "type": "REDSHIFT",
+            "physicalEndpoints": [],
+            "props": {"redshiftProperties": {}},
+        }
+
+    def test_a_redshift_connections_secret_arn_is_looked_up_through_the_provider(self):
+        # The secret ARN is in the record without the secret, so the lookup asks for that form.
+        secret_arn = "arn:aws:secretsmanager:us-west-2:111122223333:secret:example"
+        fetch = Mock(
+            return_value={
+                "props": {"redshiftProperties": {"credentials": {"secretArn": secret_arn}}}
+            }
+        )
+        connection = self._connection(self._redshift_record(), provider=_Provider(fetch))
+        self.assertEqual(connection._find_secret_arn(), secret_arn)
+        fetch.assert_called_once_with("c1", with_secret=False)
+
+    def test_a_redshift_connection_without_a_provider_has_no_secret_to_find(self):
+        with self.assertRaises(AttributeError) as raised:
+            self._connection(self._redshift_record())._find_secret_arn()
+        self.assertIn("does not have associated secret", str(raised.exception))
+
+    def test_sql_engine_type_maps_a_lakehouse_catalog_connection_to_athena(self):
+        lakehouse = {
+            "connectionId": "lh",
+            "name": "lake",
+            "type": "LAKEHOUSE",
+            "configurations": [
+                {"classification": "athena", "properties": {"workgroupName": "primary"}}
+            ],
+            "physicalEndpoints": [
+                {"awsLocation": {"awsAccountId": "111122223333", "awsRegion": "us-west-2"}}
+            ],
+            "props": {"lakehouseProperties": {}},
+            # A LAKEHOUSE connection builds its Glue client at construction, from these.
+            "connectionCredentials": self._record()["connectionCredentials"],
+        }
+        connection = self._connection(lakehouse)
+        self.assertEqual(
+            (connection.athena_workgroup, connection.sql_engine_type), ("primary", "ATHENA")
+        )
+        lakehouse["configurations"] = []
+        self.assertEqual(self._connection(lakehouse).sql_engine_type, "LAKEHOUSE")
+        self.assertEqual(self._connection(self._record()).sql_engine_type, "S3")

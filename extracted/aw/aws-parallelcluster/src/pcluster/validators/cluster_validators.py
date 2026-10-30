@@ -20,7 +20,7 @@ from pcluster.aws.aws_api import AWSApi
 from pcluster.aws.aws_resources import InstanceTypeInfo
 from pcluster.aws.common import AWSClientError
 from pcluster.cli.commands.dcv_util import get_supported_dcv_os
-from pcluster.config.common import CapacityType, SharedStorageType
+from pcluster.config.common import CapacityType, SharedStorageType, merge_tags
 from pcluster.constants import (
     CIDR_ALL_IPS,
     DELETE_POLICY,
@@ -818,6 +818,33 @@ class ManagedFsxMultiAzValidator(Validator):
             )
 
 
+class ManagedFsxCrossAzValidator(Validator):
+    """
+    Managed FSx Storage Vs Compute Subnets AZ validator.
+
+    During update, the managed FSx is kept in its current subnets to not replace it, even if the compute subnets
+    are moved to a different AZ. In these cases we notify customers that they may incur in increased latency and costs.
+    """
+
+    def _validate(self, fsx_name, fsx_subnet_ids, compute_subnet_ids):
+        try:
+            fsx_az_set = set(AWSApi.instance().ec2.get_subnets_az_mapping(fsx_subnet_ids).values())
+        except AWSClientError:
+            # The subnets of the deployed file system may no longer exist, e.g. if the file system and then its subnet
+            # have been deleted out of band. The message is not relevant in this case and must not block the update.
+            return
+        compute_az_set = set(AWSApi.instance().ec2.get_subnets_az_mapping(compute_subnet_ids).values())
+        if not compute_az_set.issubset(fsx_az_set):
+            self._add_failure(
+                f"The managed FSx for Lustre file system '{fsx_name}' is kept in its current Availability Zone "
+                f"({', '.join(sorted(fsx_az_set))}) because changing its subnet would replace the file system "
+                f"and delete its data, but the compute nodes are in a different Availability Zone "
+                f"({', '.join(sorted(compute_az_set - fsx_az_set))}). Accessing a shared storage from different AZs "
+                "can lead to increased storage networking latency and added inter-AZ data transfer costs.",
+                FailureLevel.INFO,
+            )
+
+
 class UnmanagedFsxMultiAzValidator(Validator):
     """
     Unmanaged FSx Storage Vs Multiple Subnets validator.
@@ -1354,6 +1381,9 @@ class ComputeResourceLaunchTemplateValidator(_LaunchTemplateValidator):
             )
 
             placement_group_name = compute_resource_placement_group.assignment
+            # Merge cluster, queue, and compute resource tags to mirror the tags applied at launch time,
+            # so the dry run reflects the tags an actual RunInstances would carry.
+            merged_tags = merge_tags(tags, queue.get_tags(), dry_run_compute_resource.get_tags())
             # For SlurmFlexibleComputeResource test only the first InstanceType through a RunInstances
             self._test_compute_resource(
                 queue=queue,
@@ -1364,7 +1394,7 @@ class ComputeResourceLaunchTemplateValidator(_LaunchTemplateValidator):
                 subnet_id=queue_subnet_id,
                 security_groups_ids=queue_security_groups,
                 placement_group={"GroupName": placement_group_name} if placement_group_name else {},
-                tags=tags,
+                tags=merged_tags,
                 imds_support=imds_support,
             )
         except Exception as e:

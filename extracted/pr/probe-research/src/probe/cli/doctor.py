@@ -19,6 +19,7 @@ import dataclasses
 import json
 import os
 import shutil
+import sys
 import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -665,8 +666,13 @@ def codex_hook_rows(caps: Capabilities) -> list[str]:
     if not caps.codex_available:
         return []
     from probe.cli import codex_hooks
+    from probe.sdk import session_marker
 
-    return codex_hooks.rows(codex_hooks.status(), _row)
+    lines = codex_hooks.rows(codex_hooks.status(), _row)
+    # A state this terminal sets, which Codex's hooks will not see (issue 3620).
+    if codex_hooks.launch_env_unreadable() and session_marker.state_env_override() is not None:
+        lines.append(_row("Session state", codex_hooks.ENV_WARNING))
+    return lines
 
 
 #: Sessions, recorders or holds `doctor` lists one by one before it counts the rest.
@@ -1089,7 +1095,7 @@ def summary(caps_by_source: "dict[str, Capabilities]", *, recorder: str | None =
         if hooks is not None and hooks.untrusted:
             problems.append(
                 f"Codex: {len(hooks.untrusted)} of {hooks.total} Probe hooks are off until approved; "
-                "in Codex, type /hooks and approve the Probe Research hooks."
+                f"{codex_hooks.FIX_HINT}."
             )
         problems += [f"Codex warns: {warning[:200]}" for warning in (hooks.warnings if hooks else ())]
     first = next(iter(caps_by_source.values()), None)
@@ -1655,6 +1661,31 @@ def _outbox_status() -> dict | None:
         return Journal.read_status()
     except Exception:  # noqa: BLE001 - a diagnostic must never crash
         return None
+
+
+def drop_unrecoverable_dead_letters() -> list[str]:
+    """`probe doctor --fix`: dead letters no retry can deliver -- a superseded
+    run attempt's, or a run the server says does not exist, asked again with
+    the write's own credential -- move to `discarded/` (kept, never sent; #3629,
+    T24), and what that did. Every other dead letter stays for `probe outbox
+    retry`. Empty when nothing moved."""
+    try:
+        from probe._shared import telemetry
+        from probe.sdk.journal import Journal
+
+        counts = Journal().drop_unrecoverable()
+        if not counts.writes:
+            return []
+        telemetry.emit_outbox_discarded(
+            counts, reason=telemetry.DiscardReason.UNRECOVERABLE, interactive=sys.stdin.isatty()
+        )
+    except Exception:  # noqa: BLE001 - a diagnostic must never crash
+        return []
+    return [
+        f"Set aside {counts.writes} dead-lettered write(s) that can never be delivered "
+        "(a newer attempt took their run over, or the run no longer exists); "
+        "they are kept in the outbox's discarded/ folder."
+    ]
 
 
 def rescue_outbox() -> dict | None:

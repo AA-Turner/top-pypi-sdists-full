@@ -243,6 +243,9 @@ class GroupAttrs(_HeldKeys):
     # Members of the row-preserving input groups this aggregate computes
     # inline: every reader did, so those groups were never built.
     inlined_members: tuple[str, ...] = ()
+    # Of an aggregate's members, the ones a same-grain grouping group built
+    # before it already outputs: read through that twin, never recomputed.
+    twin_reused: frozenset[str] = frozenset()
 
     @classmethod
     def from_bucket(cls, bucket: "GroupBucket") -> "GroupAttrs":
@@ -354,6 +357,10 @@ class ConceptAttrs:
     # Added only to carry a statement join onto a rowset handle (a mate the
     # statement never names): a join key, not a row the statement demands.
     relation_only: bool = False
+    # A materialized aggregate read under a WHERE finer than its grain: the
+    # WHERE applies on this root's own scan, so it shares the filter columns'
+    # row stream and never splits off as a single row or an entity peel.
+    scan_filtered: bool = False
 
     @property
     def keys_are_conditional_fd(self) -> bool:

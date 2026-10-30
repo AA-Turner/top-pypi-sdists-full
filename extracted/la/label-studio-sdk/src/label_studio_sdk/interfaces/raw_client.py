@@ -13,6 +13,8 @@ from ..core.serialization import convert_and_respect_annotation_metadata
 from ..core.unchecked_base_model import construct_type
 from ..types.lse_interface import LseInterface
 from ..types.lse_interface_append_version_request import LseInterfaceAppendVersionRequest
+from ..types.lse_interface_duplicate_request_mode_enum import LseInterfaceDuplicateRequestModeEnum
+from ..types.lse_interface_move_plan import LseInterfaceMovePlan
 from ..types.paginated_lse_interface_list_list import PaginatedLseInterfaceListList
 from pydantic import ValidationError
 
@@ -119,6 +121,7 @@ class RawInterfacesClient:
         messages: typing.Optional[typing.Any] = OMIT,
         metadata: typing.Optional[typing.Any] = OMIT,
         output_schema: typing.Optional[typing.Any] = OMIT,
+        scenarios: typing.Optional[str] = OMIT,
         versions: typing.Optional[typing.Any] = OMIT,
         workspace: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -161,6 +164,8 @@ class RawInterfacesClient:
         output_schema : typing.Optional[typing.Any]
             JSON Schema declaring the annotation output fields this interface produces (for Prompter/auto-labeling)
 
+        scenarios : typing.Optional[str]
+
         versions : typing.Optional[typing.Any]
             Code version history
 
@@ -187,6 +192,7 @@ class RawInterfacesClient:
                 "messages": messages,
                 "metadata": metadata,
                 "output_schema": output_schema,
+                "scenarios": scenarios,
                 "title": title,
                 "versions": versions,
                 "workspace": workspace,
@@ -274,6 +280,7 @@ class RawInterfacesClient:
         messages: typing.Optional[typing.Any] = OMIT,
         metadata: typing.Optional[typing.Any] = OMIT,
         output_schema: typing.Optional[typing.Any] = OMIT,
+        scenarios: typing.Optional[str] = OMIT,
         versions: typing.Optional[typing.Any] = OMIT,
         workspace: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -319,6 +326,8 @@ class RawInterfacesClient:
         output_schema : typing.Optional[typing.Any]
             JSON Schema declaring the annotation output fields this interface produces (for Prompter/auto-labeling)
 
+        scenarios : typing.Optional[str]
+
         versions : typing.Optional[typing.Any]
             Code version history
 
@@ -345,6 +354,7 @@ class RawInterfacesClient:
                 "messages": messages,
                 "metadata": metadata,
                 "output_schema": output_schema,
+                "scenarios": scenarios,
                 "title": title,
                 "versions": versions,
                 "workspace": workspace,
@@ -426,6 +436,7 @@ class RawInterfacesClient:
         messages: typing.Optional[typing.Any] = OMIT,
         metadata: typing.Optional[typing.Any] = OMIT,
         output_schema: typing.Optional[typing.Any] = OMIT,
+        scenarios: typing.Optional[str] = OMIT,
         title: typing.Optional[str] = OMIT,
         versions: typing.Optional[typing.Any] = OMIT,
         workspace: typing.Optional[int] = OMIT,
@@ -470,6 +481,8 @@ class RawInterfacesClient:
         output_schema : typing.Optional[typing.Any]
             JSON Schema declaring the annotation output fields this interface produces (for Prompter/auto-labeling)
 
+        scenarios : typing.Optional[str]
+
         title : typing.Optional[str]
 
         versions : typing.Optional[typing.Any]
@@ -498,6 +511,7 @@ class RawInterfacesClient:
                 "messages": messages,
                 "metadata": metadata,
                 "output_schema": output_schema,
+                "scenarios": scenarios,
                 "title": title,
                 "versions": versions,
                 "workspace": workspace,
@@ -540,6 +554,7 @@ class RawInterfacesClient:
         messages: typing.Optional[typing.Any] = OMIT,
         metadata: typing.Optional[typing.Any] = OMIT,
         output_schema: typing.Optional[typing.Any] = OMIT,
+        scenarios: typing.Optional[str] = OMIT,
         title: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[LseInterface]:
@@ -575,6 +590,8 @@ class RawInterfacesClient:
 
         output_schema : typing.Optional[typing.Any]
 
+        scenarios : typing.Optional[str]
+
         title : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
@@ -597,6 +614,7 @@ class RawInterfacesClient:
                 "messages": messages,
                 "metadata": metadata,
                 "output_schema": output_schema,
+                "scenarios": scenarios,
                 "title": title,
                 "versions": convert_and_respect_annotation_metadata(
                     object_=versions, annotation=typing.Sequence[LseInterfaceAppendVersionRequest], direction="write"
@@ -631,17 +649,11 @@ class RawInterfacesClient:
         self,
         id: int,
         *,
-        code: str,
-        compiled: str,
-        title: str,
-        artifacts: typing.Optional[typing.Any] = OMIT,
-        data_sample: typing.Optional[typing.Any] = OMIT,
+        compiled: typing.Optional[str] = OMIT,
         description: typing.Optional[str] = OMIT,
-        input_schema: typing.Optional[typing.Any] = OMIT,
-        messages: typing.Optional[typing.Any] = OMIT,
-        metadata: typing.Optional[typing.Any] = OMIT,
-        output_schema: typing.Optional[typing.Any] = OMIT,
-        versions: typing.Optional[typing.Any] = OMIT,
+        mode: typing.Optional[LseInterfaceDuplicateRequestModeEnum] = OMIT,
+        params: typing.Optional[typing.Any] = OMIT,
+        title: typing.Optional[str] = OMIT,
         workspace: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[LseInterface]:
@@ -659,37 +671,26 @@ class RawInterfacesClient:
         id : int
             A unique integer value identifying this interface.
 
-        code : str
-            JSX source code for the interface screen module
-
-        compiled : str
-
-        title : str
-
-        artifacts : typing.Optional[typing.Any]
-            AI-produced code snapshots for session continuity
-
-        data_sample : typing.Optional[typing.Any]
-            Sample task data for preview
+        compiled : typing.Optional[str]
+            Client-compiled bundle, accepted only when the source has none stored (system templates).
 
         description : typing.Optional[str]
+            Description for the copy. Defaults to the source interface's description.
 
-        input_schema : typing.Optional[typing.Any]
-            JSON Schema declaring expected task data field types for import validation
+        mode : typing.Optional[LseInterfaceDuplicateRequestModeEnum]
+            'last' (default) copies only the current state; 'all' carries the full version history.
 
-        messages : typing.Optional[typing.Any]
-            Chat conversation history
+            * `last` - last
+            * `all` - all
 
-        metadata : typing.Optional[typing.Any]
-            Arbitrary metadata for this interface
+        params : typing.Optional[typing.Any]
+            Initial screen params (an object) seeded on the copy. Can't be combined with mode='all'.
 
-        output_schema : typing.Optional[typing.Any]
-            JSON Schema declaring the annotation output fields this interface produces (for Prompter/auto-labeling)
-
-        versions : typing.Optional[typing.Any]
-            Code version history
+        title : typing.Optional[str]
+            Title for the copy. Defaults to "<source title> (Copy)" when omitted or blank.
 
         workspace : typing.Optional[int]
+            Workspace ID to duplicate into. Omit or null for no workspace.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -703,17 +704,11 @@ class RawInterfacesClient:
             f"api/interfaces/{encode_path_param(id)}/duplicate/",
             method="POST",
             json={
-                "artifacts": artifacts,
-                "code": code,
                 "compiled": compiled,
-                "data_sample": data_sample,
                 "description": description,
-                "input_schema": input_schema,
-                "messages": messages,
-                "metadata": metadata,
-                "output_schema": output_schema,
+                "mode": mode,
+                "params": params,
                 "title": title,
-                "versions": versions,
                 "workspace": workspace,
             },
             headers={
@@ -728,6 +723,79 @@ class RawInterfacesClient:
                     LseInterface,
                     construct_type(
                         type_=LseInterface,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def move(
+        self,
+        id: int,
+        *,
+        dry_run: typing.Optional[bool] = OMIT,
+        expected_project_ids: typing.Optional[typing.Sequence[int]] = OMIT,
+        workspace: typing.Optional[int] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[LseInterfaceMovePlan]:
+        """
+        <Card href="https://humansignal.com/goenterprise">
+                <img style="pointer-events: none; margin-left: 0px; margin-right: 0px;" src="https://docs.humansignal.com/images/badge.svg" alt="Label Studio Enterprise badge"/>
+                <p style="margin-top: 10px; font-size: 14px;">
+                    This endpoint is not available in Label Studio Community Edition. [Learn more about Label Studio Enterprise](https://humansignal.com/goenterprise)
+                </p>
+            </Card>
+        Move a saved interface to a workspace, your Personal Sandbox, or Shared (`workspace: null`). A workspace-scoped interface can only be used by projects in its workspace, so connected projects move with it when needed. Send `dry_run: true` first to get the move plan, then confirm with `dry_run: false` and the `expected_project_ids` from that plan. The response is the plan in every case; a blocked move or a changed plan returns 409 with the fresh plan.
+
+        Parameters
+        ----------
+        id : int
+            A unique integer value identifying this interface.
+
+        dry_run : typing.Optional[bool]
+            Return the move plan without changing anything.
+
+        expected_project_ids : typing.Optional[typing.Sequence[int]]
+            Required when dry_run is false: IDs of the projects in workspace groups with outcome "move" from the dry run you confirmed. If the server computes a different set, it responds with 409 "interface_move_plan_changed" and the fresh plan.
+
+        workspace : typing.Optional[int]
+            Target workspace ID, or null to make the interface Shared.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[LseInterfaceMovePlan]
+
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/interfaces/{encode_path_param(id)}/move/",
+            method="POST",
+            json={
+                "dry_run": dry_run,
+                "expected_project_ids": expected_project_ids,
+                "workspace": workspace,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    LseInterfaceMovePlan,
+                    construct_type(
+                        type_=LseInterfaceMovePlan,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -1022,6 +1090,7 @@ class AsyncRawInterfacesClient:
         messages: typing.Optional[typing.Any] = OMIT,
         metadata: typing.Optional[typing.Any] = OMIT,
         output_schema: typing.Optional[typing.Any] = OMIT,
+        scenarios: typing.Optional[str] = OMIT,
         versions: typing.Optional[typing.Any] = OMIT,
         workspace: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -1064,6 +1133,8 @@ class AsyncRawInterfacesClient:
         output_schema : typing.Optional[typing.Any]
             JSON Schema declaring the annotation output fields this interface produces (for Prompter/auto-labeling)
 
+        scenarios : typing.Optional[str]
+
         versions : typing.Optional[typing.Any]
             Code version history
 
@@ -1090,6 +1161,7 @@ class AsyncRawInterfacesClient:
                 "messages": messages,
                 "metadata": metadata,
                 "output_schema": output_schema,
+                "scenarios": scenarios,
                 "title": title,
                 "versions": versions,
                 "workspace": workspace,
@@ -1179,6 +1251,7 @@ class AsyncRawInterfacesClient:
         messages: typing.Optional[typing.Any] = OMIT,
         metadata: typing.Optional[typing.Any] = OMIT,
         output_schema: typing.Optional[typing.Any] = OMIT,
+        scenarios: typing.Optional[str] = OMIT,
         versions: typing.Optional[typing.Any] = OMIT,
         workspace: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -1224,6 +1297,8 @@ class AsyncRawInterfacesClient:
         output_schema : typing.Optional[typing.Any]
             JSON Schema declaring the annotation output fields this interface produces (for Prompter/auto-labeling)
 
+        scenarios : typing.Optional[str]
+
         versions : typing.Optional[typing.Any]
             Code version history
 
@@ -1250,6 +1325,7 @@ class AsyncRawInterfacesClient:
                 "messages": messages,
                 "metadata": metadata,
                 "output_schema": output_schema,
+                "scenarios": scenarios,
                 "title": title,
                 "versions": versions,
                 "workspace": workspace,
@@ -1333,6 +1409,7 @@ class AsyncRawInterfacesClient:
         messages: typing.Optional[typing.Any] = OMIT,
         metadata: typing.Optional[typing.Any] = OMIT,
         output_schema: typing.Optional[typing.Any] = OMIT,
+        scenarios: typing.Optional[str] = OMIT,
         title: typing.Optional[str] = OMIT,
         versions: typing.Optional[typing.Any] = OMIT,
         workspace: typing.Optional[int] = OMIT,
@@ -1377,6 +1454,8 @@ class AsyncRawInterfacesClient:
         output_schema : typing.Optional[typing.Any]
             JSON Schema declaring the annotation output fields this interface produces (for Prompter/auto-labeling)
 
+        scenarios : typing.Optional[str]
+
         title : typing.Optional[str]
 
         versions : typing.Optional[typing.Any]
@@ -1405,6 +1484,7 @@ class AsyncRawInterfacesClient:
                 "messages": messages,
                 "metadata": metadata,
                 "output_schema": output_schema,
+                "scenarios": scenarios,
                 "title": title,
                 "versions": versions,
                 "workspace": workspace,
@@ -1447,6 +1527,7 @@ class AsyncRawInterfacesClient:
         messages: typing.Optional[typing.Any] = OMIT,
         metadata: typing.Optional[typing.Any] = OMIT,
         output_schema: typing.Optional[typing.Any] = OMIT,
+        scenarios: typing.Optional[str] = OMIT,
         title: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[LseInterface]:
@@ -1482,6 +1563,8 @@ class AsyncRawInterfacesClient:
 
         output_schema : typing.Optional[typing.Any]
 
+        scenarios : typing.Optional[str]
+
         title : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
@@ -1504,6 +1587,7 @@ class AsyncRawInterfacesClient:
                 "messages": messages,
                 "metadata": metadata,
                 "output_schema": output_schema,
+                "scenarios": scenarios,
                 "title": title,
                 "versions": convert_and_respect_annotation_metadata(
                     object_=versions, annotation=typing.Sequence[LseInterfaceAppendVersionRequest], direction="write"
@@ -1538,17 +1622,11 @@ class AsyncRawInterfacesClient:
         self,
         id: int,
         *,
-        code: str,
-        compiled: str,
-        title: str,
-        artifacts: typing.Optional[typing.Any] = OMIT,
-        data_sample: typing.Optional[typing.Any] = OMIT,
+        compiled: typing.Optional[str] = OMIT,
         description: typing.Optional[str] = OMIT,
-        input_schema: typing.Optional[typing.Any] = OMIT,
-        messages: typing.Optional[typing.Any] = OMIT,
-        metadata: typing.Optional[typing.Any] = OMIT,
-        output_schema: typing.Optional[typing.Any] = OMIT,
-        versions: typing.Optional[typing.Any] = OMIT,
+        mode: typing.Optional[LseInterfaceDuplicateRequestModeEnum] = OMIT,
+        params: typing.Optional[typing.Any] = OMIT,
+        title: typing.Optional[str] = OMIT,
         workspace: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[LseInterface]:
@@ -1566,37 +1644,26 @@ class AsyncRawInterfacesClient:
         id : int
             A unique integer value identifying this interface.
 
-        code : str
-            JSX source code for the interface screen module
-
-        compiled : str
-
-        title : str
-
-        artifacts : typing.Optional[typing.Any]
-            AI-produced code snapshots for session continuity
-
-        data_sample : typing.Optional[typing.Any]
-            Sample task data for preview
+        compiled : typing.Optional[str]
+            Client-compiled bundle, accepted only when the source has none stored (system templates).
 
         description : typing.Optional[str]
+            Description for the copy. Defaults to the source interface's description.
 
-        input_schema : typing.Optional[typing.Any]
-            JSON Schema declaring expected task data field types for import validation
+        mode : typing.Optional[LseInterfaceDuplicateRequestModeEnum]
+            'last' (default) copies only the current state; 'all' carries the full version history.
 
-        messages : typing.Optional[typing.Any]
-            Chat conversation history
+            * `last` - last
+            * `all` - all
 
-        metadata : typing.Optional[typing.Any]
-            Arbitrary metadata for this interface
+        params : typing.Optional[typing.Any]
+            Initial screen params (an object) seeded on the copy. Can't be combined with mode='all'.
 
-        output_schema : typing.Optional[typing.Any]
-            JSON Schema declaring the annotation output fields this interface produces (for Prompter/auto-labeling)
-
-        versions : typing.Optional[typing.Any]
-            Code version history
+        title : typing.Optional[str]
+            Title for the copy. Defaults to "<source title> (Copy)" when omitted or blank.
 
         workspace : typing.Optional[int]
+            Workspace ID to duplicate into. Omit or null for no workspace.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1610,17 +1677,11 @@ class AsyncRawInterfacesClient:
             f"api/interfaces/{encode_path_param(id)}/duplicate/",
             method="POST",
             json={
-                "artifacts": artifacts,
-                "code": code,
                 "compiled": compiled,
-                "data_sample": data_sample,
                 "description": description,
-                "input_schema": input_schema,
-                "messages": messages,
-                "metadata": metadata,
-                "output_schema": output_schema,
+                "mode": mode,
+                "params": params,
                 "title": title,
-                "versions": versions,
                 "workspace": workspace,
             },
             headers={
@@ -1635,6 +1696,79 @@ class AsyncRawInterfacesClient:
                     LseInterface,
                     construct_type(
                         type_=LseInterface,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def move(
+        self,
+        id: int,
+        *,
+        dry_run: typing.Optional[bool] = OMIT,
+        expected_project_ids: typing.Optional[typing.Sequence[int]] = OMIT,
+        workspace: typing.Optional[int] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[LseInterfaceMovePlan]:
+        """
+        <Card href="https://humansignal.com/goenterprise">
+                <img style="pointer-events: none; margin-left: 0px; margin-right: 0px;" src="https://docs.humansignal.com/images/badge.svg" alt="Label Studio Enterprise badge"/>
+                <p style="margin-top: 10px; font-size: 14px;">
+                    This endpoint is not available in Label Studio Community Edition. [Learn more about Label Studio Enterprise](https://humansignal.com/goenterprise)
+                </p>
+            </Card>
+        Move a saved interface to a workspace, your Personal Sandbox, or Shared (`workspace: null`). A workspace-scoped interface can only be used by projects in its workspace, so connected projects move with it when needed. Send `dry_run: true` first to get the move plan, then confirm with `dry_run: false` and the `expected_project_ids` from that plan. The response is the plan in every case; a blocked move or a changed plan returns 409 with the fresh plan.
+
+        Parameters
+        ----------
+        id : int
+            A unique integer value identifying this interface.
+
+        dry_run : typing.Optional[bool]
+            Return the move plan without changing anything.
+
+        expected_project_ids : typing.Optional[typing.Sequence[int]]
+            Required when dry_run is false: IDs of the projects in workspace groups with outcome "move" from the dry run you confirmed. If the server computes a different set, it responds with 409 "interface_move_plan_changed" and the fresh plan.
+
+        workspace : typing.Optional[int]
+            Target workspace ID, or null to make the interface Shared.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[LseInterfaceMovePlan]
+
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/interfaces/{encode_path_param(id)}/move/",
+            method="POST",
+            json={
+                "dry_run": dry_run,
+                "expected_project_ids": expected_project_ids,
+                "workspace": workspace,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    LseInterfaceMovePlan,
+                    construct_type(
+                        type_=LseInterfaceMovePlan,  # type: ignore
                         object_=_response.json(),
                     ),
                 )

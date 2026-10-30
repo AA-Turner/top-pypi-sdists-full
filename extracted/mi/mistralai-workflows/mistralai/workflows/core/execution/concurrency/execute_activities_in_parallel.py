@@ -2,11 +2,11 @@ import inspect
 from types import NoneType
 from typing import Any, Awaitable, Callable, Dict, List, TypeVar, cast, get_origin, overload
 
-import structlog
 import temporalio.workflow
 from pydantic import TypeAdapter
 from temporalio.exceptions import ApplicationError
 
+from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.activity import check_is_activity
 from mistralai.workflows.core.definition.validation._schema_generator import generate_pydantic_model_from_params
 from mistralai.workflows.core.definition.validation._validator import (
@@ -35,7 +35,7 @@ T = TypeVar("T")
 U = TypeVar("U")
 
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 
 def _parallel_execution_workflow() -> type[ParallelExecutionWorkflow] | type[OnBehalfOfParallelExecutionWorkflow]:

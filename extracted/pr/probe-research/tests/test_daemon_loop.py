@@ -290,6 +290,83 @@ def test_a_bites_tools_get_an_op_seed_the_retry_of_the_same_events_repeats(tmp_p
     assert w.deps(None).op_seed is None, "a held action's Deps (no bite) carry no seed"
 
 
+def test_a_bite_of_only_a_runs_events_files_them_as_the_runs(tmp_path, monkeypatch):
+    """Swarm friction R41: a background job's run starts, ends and files reach
+    the writer while its agent sits idle. A bite of only those
+    (`Store.run_side_only`) runs its `probe` commands marked as a run
+    process's (`RUN_PROCESS_ENV`, the forwarded session's spelling), so they
+    file the run as the watched session's and add no agent-hours. A bite with
+    the agent's own turns, and a held action's Deps, go as the agent's."""
+    from probe.sdk.agent_session import RUN_PROCESS_ENV
+
+    marks = []
+
+    async def run_probe(deps, argv, op_id):
+        marks.append(deps.probe_env.get(RUN_PROCESS_ENV))
+        return tools.ProbeResult(0, "{}")
+
+    calls = {"n": 0}
+
+    def one_command_a_bite(messages, info: AgentInfo) -> ModelResponse:
+        calls["n"] += 1
+        if calls["n"] % 2:
+            return ModelResponse(parts=[ToolCallPart("shell", {"command": f"probe run tag {RUN} svm", "why": "test"})])
+        return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, {"summary": "note"})])
+
+    monkeypatch.setattr(tools, "run_probe_process", run_probe)
+    w = _worker(tmp_path, model=FunctionModel(one_command_a_bite))
+    w.store.add([Event(kind=Kind.RUN_EVENT, stream="sdk", offset=1, text="run started"),
+                 Event(kind=Kind.FILE_CHANGE, stream="folder", offset=1, text="new file out/a.json (10 bytes)")])
+    assert asyncio.run(w.run_bite("run event")) is True
+    assert marks == [f"claude_code:{SID}"]
+    w.read_new()
+    w.store.add([Event(kind=Kind.RUN_EVENT, stream="sdk", offset=2, text="run ended")])
+    assert asyncio.run(w.run_bite("turn end")) is True
+    assert marks == [f"claude_code:{SID}", None]
+    assert RUN_PROCESS_ENV not in w.deps(None).probe_env
+
+
+def test_a_bites_writes_are_dated_at_the_oldest_event_of_the_work_they_file(tmp_path, monkeypatch):
+    """Swarm friction R1 (A10): a bite's `probe` commands run with
+    `PROBE_EVENT_AT` = its oldest pending event's own stamp, so the record
+    carries the session's focus forward from where the work began. A file
+    change's stamp (the file's mtime) and a stamp outside the server's window
+    of the noticing (a bogus year-1 clock) stand in as when the daemon noticed
+    them, never crash the bite. A held action's Deps (no bite) carry none."""
+    from datetime import datetime, timedelta, timezone
+
+    from probe.sdk.agent_session import EVENT_AT_ENV
+
+    stamped = []
+
+    async def run_probe(deps, argv, op_id):
+        stamped.append(deps.probe_env.get(EVENT_AT_ENV))
+        return tools.ProbeResult(0, "{}")
+
+    monkeypatch.setattr(tools, "run_probe_process", run_probe)
+    model, _ = _scripted([f"probe run tag {RUN} svm"])
+    w = _worker(tmp_path, model=model)
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    iso = lambda at: at.isoformat().replace("+00:00", "Z")  # noqa: E731
+    (tmp_path / f"{SID}.jsonl").write_text(
+        _line({"type": "user", "timestamp": iso(now - timedelta(minutes=20)), "message": {"content": "sweep C"}})
+        + _line({"type": "assistant", "timestamp": iso(now - timedelta(minutes=40)),
+                 "message": {"content": [{"type": "text", "text": "SVM C=10: 0.9889."}]}})
+        + _line({"type": "user", "timestamp": "0001-01-01T00:00:00+01:00", "message": {"content": "bogus clock"}})
+    )
+    w.read_new()
+    first = w.store.pending()[0].seq
+    w.store.add([Event(kind=Kind.FILE_CHANGE, stream="folder", offset=1, text="unpacked", ts=iso(now - timedelta(hours=3)))])
+    assert asyncio.run(w.run_bite("turn end")) is True
+    assert stamped == [iso(now - timedelta(minutes=40)).replace("Z", "+00:00")]
+    assert EVENT_AT_ENV not in w.deps(None).probe_env
+    st = w.store
+    assert st.work_began(first, st.newest_seq()) is None, "a covered event dates no later bite"
+    last = st.newest_seq()
+    st.add([Event(kind=Kind.PROMPT, stream="main", offset=10**6, text="undated")], noticed=1_761_700_000.0)
+    assert st.work_began(last + 1, st.newest_seq()) == 1_761_700_000.0
+
+
 @pytest.mark.parametrize("offline", [True, False], ids=["no-network", "refused"])
 def test_a_gateway_release_says_when_the_machine_had_no_network_at_all(tmp_path, offline):
     """The Probe service reports a `gateway` release unless the worker marked it
@@ -1337,8 +1414,9 @@ def test_working_folders_keep_the_session_folder_and_the_most_recent(tmp_path):
     events = []
     for i in range(12):
         (home / f"d{i}").mkdir()
+        # (A folder `cd`'d into only to read is not one: test_daemon_flood_cost.py.)
         events.append(Event(kind=Kind.TOOL_CALL, stream="main", offset=i + 1, tool="Bash",
-                            tool_input={"command": f"cd {home / f'd{i}'} && ls"}))
+                            tool_input={"command": f"cd {home / f'd{i}'} && make"}))
     st.add(events)
     found = folders.working_folders(st, work, home)
     assert len(found) == folders.MAX_WORKING_FOLDERS
@@ -1371,7 +1449,7 @@ def test_a_command_the_folder_check_cannot_read_is_skipped_not_the_workers_crash
     (home / "proj").mkdir()
     st = store_mod.Store(tmp_path / "s.sqlite")
     st.add([Event(kind=Kind.TOOL_CALL, stream="main", offset=1, tool="Bash",
-                  tool_input={"command": f"cd {home / 'proj'} && ls"}),
+                  tool_input={"command": f"cd {home / 'proj'} && make"}),
             Event(kind=Kind.TOOL_CALL, stream="main", offset=2, tool="Bash",
                   tool_input={"command": "echo hi > ~x\x00y/out.txt"})])  # expanduser: embedded null byte
     assert folders.working_folders(st, work, home) == [work.resolve(), (home / "proj").resolve()]

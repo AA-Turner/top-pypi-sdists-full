@@ -67,6 +67,7 @@ from .enums import (  # noqa: F401 - re-exported
     DisabledFilter,
     EntityType,
     Kind1,
+    ExperimentOutcome,
     Nonfinite,
     FeedbackKind,
     FieldSource,
@@ -200,6 +201,7 @@ from .enums import (  # noqa: F401 - re-exported
     AppProjectsTwinScopeKind,
     AppSummariesSchemasAnchorType,
     Source5,
+    DocsState,
 )
 
 
@@ -2146,6 +2148,23 @@ class LeaderChangeOut(BaseModel):
     value: float = Field(..., title='Value')
 
 
+class LineOut(BaseModel):
+    """
+    One line of work (`BranchOut.line`).
+    """
+
+    branches: int = Field(
+        ..., description='Branches in the line, in the scope.', title='Branches'
+    )
+    dead_end: bool = Field(
+        ..., description='Every branch of the line reads `dead_end`.', title='Dead End'
+    )
+    line: UUID = Field(
+        ..., description="The line's first branch (its first experiment).", title='Line'
+    )
+    name: str = Field(..., title='Name')
+
+
 class LineageEdgeOut(BaseModel):
     created_at: AwareDatetime = Field(..., title='Created At')
     customer_id: str = Field(..., title='Customer Id')
@@ -3284,6 +3303,24 @@ class ProjectExperimentMutationOut(BaseModel):
         description="The notes' write counter after this write. Send it as `base_version` with the next `notes` edit; it moves only when the text changed.",
         title='Notes Version',
     )
+    outcome: ExperimentOutcome | None = Field(
+        None,
+        description='`dead_end` when a person or an agent marked the experiment a dead end (0408); null otherwise. A marked experiment still ranks.',
+    )
+    outcome_by: str | None = Field(
+        None,
+        description="The writer of the mark as `user:<uuid>` (a person, or an agent writing with its person's token) or `service:<token id>`; null without a mark.",
+        title='Outcome By',
+    )
+    outcome_reason: str | None = Field(
+        None,
+        description='Why it is a dead end, as its marker said; null without a mark.',
+        title='Outcome Reason',
+    )
+    outcome_source: FieldSource | None = Field(
+        None,
+        description="Who marked it: `human` or `agent`; null when undeclared. A person's mark is never replaced or cleared by an agent. `human` with a null `outcome` is a person's clear.",
+    )
     parallel_coordinates_panel_v1: dict[str, Any] | None = Field(
         None,
         description='The saved parallel-coordinates panel, echoed when the request sent `parallel_coordinates_panel_v1`, else null.',
@@ -3375,6 +3412,24 @@ class ProjectExperimentOut(BaseModel):
         description='How full the notes are, in o200k_base tokens, against `notes_limit_tokens`; 0 for empty notes; null when the count is unknown (a list never counts).',
         title='Notes Tokens',
     )
+    outcome: ExperimentOutcome | None = Field(
+        None,
+        description='`dead_end` when a person or an agent marked the experiment a dead end (0408); null otherwise. A marked experiment still ranks.',
+    )
+    outcome_by: str | None = Field(
+        None,
+        description="The writer of the mark as `user:<uuid>` (a person, or an agent writing with its person's token) or `service:<token id>`; null without a mark.",
+        title='Outcome By',
+    )
+    outcome_reason: str | None = Field(
+        None,
+        description='Why it is a dead end, as its marker said; null without a mark.',
+        title='Outcome Reason',
+    )
+    outcome_source: FieldSource | None = Field(
+        None,
+        description="Who marked it: `human` or `agent`; null when undeclared. A person's mark is never replaced or cleared by an agent. `human` with a null `outcome` is a person's clear.",
+    )
     project_id: UUID = Field(
         ...,
         description='The project this experiment is filed under. Never the experiment itself.',
@@ -3462,6 +3517,15 @@ class Notes(RootModel[str]):
     )
 
 
+class OutcomeReason(RootModel[str]):
+    root: str = Field(
+        ...,
+        description='Why it is a dead end, in a sentence or two. Required with `outcome: dead_end`, and only with it.',
+        max_length=2000,
+        title='Outcome Reason',
+    )
+
+
 class Question(RootModel[str]):
     root: str = Field(
         ...,
@@ -3517,6 +3581,15 @@ class ProjectExperimentPatch(BaseModel):
         None,
         description='Whole-document replace of the experiment\'s Markdown notes; `""` clears them. Requires `base_version`, or `force`. Capped at `notes_limit_tokens` o200k_base tokens and `notes_limit_chars` characters (the experiment GET carries both; a 422 past either); `max_length` bounds the request. Notes already over the cap stay as they are until a write changes them, and that write must bring them under it.',
         title='Notes',
+    )
+    outcome: ExperimentOutcome | None = Field(
+        None,
+        description="Marks the experiment a dead end (`dead_end`, with `outcome_reason`); `null` clears the mark. It still ranks, and its branch reads `dead_end` while it is the branch's newest experiment and no run of it is live. An `authored_by=agent` write over a person's mark is a 409.",
+    )
+    outcome_reason: OutcomeReason | None = Field(
+        None,
+        description='Why it is a dead end, in a sentence or two. Required with `outcome: dead_end`, and only with it.',
+        title='Outcome Reason',
     )
     parallel_coordinates_panel_v1: dict[str, Any] | None = Field(
         None,
@@ -6553,6 +6626,64 @@ class CaptureCredentialIn(BaseModel):
     source: Source5 = Field(..., title='Source')
 
 
+class DocsSectionOut(BaseModel):
+    heading: str = Field(
+        ...,
+        description="The section's `##` heading; the page title for the text before the first one. A long section split at `###` reads `<##> — <###>`.",
+        title='Heading',
+    )
+    page: str = Field(
+        ..., description="The page's title (its `# Title`).", title='Page'
+    )
+    path: str = Field(
+        ...,
+        description='The page path on docs.prbe.ai, e.g. `wizard/flags`.',
+        title='Path',
+    )
+    rank: int = Field(..., description='1-based position, best first.', title='Rank')
+    text: str = Field(..., description="The section's markdown, whole.", title='Text')
+    url: str = Field(
+        ..., description="The page's URL, as the docs publish it.", title='Url'
+    )
+
+
+class UploadManyRequest(BaseModel):
+    items: list[Any] = Field(..., max_length=100, min_length=1, title='Items')
+
+
+class UploadManyItem(BaseModel):
+    """
+    One file's answer, as `presign_upload` gives it: `status` 201 with the
+    `UploadResponse` fields, or the status and `detail` it refuses with.
+    """
+
+    artifact_id: UUID | None = Field(None, title='Artifact Id')
+    detail: Any | None = Field(None, title='Detail')
+    have: bool | None = Field(False, title='Have')
+    key: str | None = Field(None, title='Key')
+    status: int = Field(..., title='Status')
+    upload_headers: dict[str, str] | None = Field(None, title='Upload Headers')
+    upload_url: str | None = Field(None, title='Upload Url')
+
+
+class ConfirmManyItem(BaseModel):
+    """
+    One upload's confirm, as `confirm_upload` answers it: `status` 200 with
+    the stored `artifact`, or the status and `detail` it refuses with.
+    """
+
+    artifact: ArtifactOut | None = None
+    artifact_id: UUID = Field(..., title='Artifact Id')
+    detail: Any | None = Field(None, title='Detail')
+    status: int = Field(..., title='Status')
+
+
+class ConfirmManyRequest(BaseModel):
+    artifact_ids: list[UUID] = Field(
+        ..., max_length=100, min_length=1, title='Artifact Ids'
+    )
+
+
 class ArtifactDetailOut(BaseModel):
     """
     The id-addressed artifact read plus its display containment path.
@@ -6758,6 +6889,7 @@ class CanvasExperiment(BaseModel):
     )
     name: str = Field(..., title='Name')
     origin_session_id: str | None = Field(None, title='Origin Session Id')
+    outcome: ExperimentOutcome | None = None
     project_id: UUID = Field(..., title='Project Id')
     question: str = Field(..., title='Question')
     recent_statuses: list[str] | None = Field([], title='Recent Statuses')
@@ -7424,6 +7556,24 @@ class ExperimentForkOut(BaseModel):
         description="The notes' write counter after this write. Send it as `base_version` with the next `notes` edit; it moves only when the text changed.",
         title='Notes Version',
     )
+    outcome: ExperimentOutcome | None = Field(
+        None,
+        description='`dead_end` when a person or an agent marked the experiment a dead end (0408); null otherwise. A marked experiment still ranks.',
+    )
+    outcome_by: str | None = Field(
+        None,
+        description="The writer of the mark as `user:<uuid>` (a person, or an agent writing with its person's token) or `service:<token id>`; null without a mark.",
+        title='Outcome By',
+    )
+    outcome_reason: str | None = Field(
+        None,
+        description='Why it is a dead end, as its marker said; null without a mark.',
+        title='Outcome Reason',
+    )
+    outcome_source: FieldSource | None = Field(
+        None,
+        description="Who marked it: `human` or `agent`; null when undeclared. A person's mark is never replaced or cleared by an agent. `human` with a null `outcome` is a person's clear.",
+    )
     parallel_coordinates_panel_v1: dict[str, Any] | None = Field(
         None,
         description='The saved parallel-coordinates panel, echoed when the request sent `parallel_coordinates_panel_v1`, else null.',
@@ -7987,6 +8137,9 @@ class LeaderOut(BaseModel):
         False,
         description='The scope was cut at its bounds: a better branch may exist outside it.',
         title='Incomplete',
+    )
+    line: UUID = Field(
+        ..., description="The branch's line of work (`BranchOut.line`).", title='Line'
     )
     name: str = Field(..., title='Name')
 
@@ -9075,6 +9228,9 @@ class StandingOut(BaseModel):
     branch: UUID = Field(
         ..., description="The branch's first experiment.", title='Branch'
     )
+    line: UUID = Field(
+        ..., description="The branch's line of work (`BranchOut.line`).", title='Line'
+    )
     name: str = Field(..., title='Name')
 
 
@@ -9325,6 +9481,23 @@ class AppExperimentsReadSchemasScopeOut(BaseModel):
     )
 
 
+class DocsOut(BaseModel):
+    sections: list[DocsSectionOut] = Field(..., title='Sections')
+    state: DocsState = Field(
+        ...,
+        description='`ok`: a current copy. `stale`: the last good copy, because docs.prbe.ai could not be read. `unavailable`: no copy has loaded yet; `sections` is empty.',
+    )
+
+
+class UploadManyResponse(BaseModel):
+    items: list[UploadManyItem] = Field(..., title='Items')
+    run_id: UUID = Field(..., title='Run Id')
+
+
+class ConfirmManyResponse(BaseModel):
+    items: list[ConfirmManyItem] = Field(..., title='Items')
+
+
 class AccessGroupNode(BaseModel):
     """
     A workspace or project whose whitelist names an access group.
@@ -9375,6 +9548,14 @@ class BranchExperimentOut(BaseModel):
     id: UUID = Field(..., title='Id')
     metric: MetricOut | None = Field(..., description='Its resolved metric.')
     name: str = Field(..., title='Name')
+    outcome: ExperimentOutcome | None = Field(
+        ..., description='`dead_end` when marked so (it still ranks); null otherwise.'
+    )
+    outcome_reason: str | None = Field(
+        ...,
+        description='Why it is a dead end; null without a mark.',
+        title='Outcome Reason',
+    )
     parent: UUID | None = Field(
         ..., description='Its tree parent, when the caller can see it.', title='Parent'
     )
@@ -9413,6 +9594,11 @@ class BranchOut(BaseModel):
     experiments_total: int = Field(..., title='Experiments Total')
     gain: GainOut | None
     last_active_at: AwareDatetime | None = Field(..., title='Last Active At')
+    line: UUID = Field(
+        ...,
+        description="Its line of work, named by the line's first branch. Lines split only at a tree's root (each child of a root with two or more is a line, the root's own branch another) or between separate trees; a fork deeper in a chain stays in its line. The runner-up always comes from another line.",
+        title='Line',
+    )
     metric: MetricOut | None = Field(
         ..., description="Its first experiment's resolved metric."
     )
@@ -9652,7 +9838,9 @@ class GroupOut(BaseModel):
     The branches measured on one metric, ranked. Never compared across groups.
     """
 
-    gap: GapOut | None
+    gap: GapOut | None = Field(
+        ..., description='Leader vs runner-up; null without a runner-up.'
+    )
     leader: LeaderOut | None
     leader_changes: list[LeaderChangeOut] = Field(
         ...,
@@ -9660,7 +9848,15 @@ class GroupOut(BaseModel):
         title='Leader Changes',
     )
     metric: MetricOut
-    runner_up: StandingOut | None
+    no_other_line: bool = Field(
+        ...,
+        description='There is a leader and no other line of work has a value on this metric.',
+        title='No Other Line',
+    )
+    runner_up: StandingOut | None = Field(
+        ...,
+        description="The best branch in ANOTHER line of work than the leader's; null when there is none (`no_other_line`). Never a side branch of the leader's own line.",
+    )
     standings: list[StandingOut] = Field(..., title='Standings')
 
 
@@ -9881,6 +10077,24 @@ class ProjectExperimentDetailOut(BaseModel):
         0,
         description="The notes' write counter; a notes edit names it to refuse a stale overwrite.",
         title='Notes Version',
+    )
+    outcome: ExperimentOutcome | None = Field(
+        None,
+        description='`dead_end` when a person or an agent marked the experiment a dead end (0408); null otherwise. A marked experiment still ranks.',
+    )
+    outcome_by: str | None = Field(
+        None,
+        description="The writer of the mark as `user:<uuid>` (a person, or an agent writing with its person's token) or `service:<token id>`; null without a mark.",
+        title='Outcome By',
+    )
+    outcome_reason: str | None = Field(
+        None,
+        description='Why it is a dead end, as its marker said; null without a mark.',
+        title='Outcome Reason',
+    )
+    outcome_source: FieldSource | None = Field(
+        None,
+        description="Who marked it: `human` or `agent`; null when undeclared. A person's mark is never replaced or cleared by an agent. `human` with a null `outcome` is a person's clear.",
     )
     parallel_coordinates_panel_v1: dict[str, Any] | None = Field(
         None,
@@ -10268,6 +10482,11 @@ class BranchesOut(BaseModel):
         ...,
         description="The leader on `metric` (a workspace: its only group's, if it has one).",
     )
+    lines: list[LineOut] = Field(
+        ...,
+        description='The lines of work of the branches served, oldest first. `branches` and `dead_end` count every branch of the line in the scope.',
+        title='Lines',
+    )
     locked_runs: int = Field(
         ...,
         description="Runs behind the plan's retention lock: no value read.",
@@ -10277,8 +10496,16 @@ class BranchesOut(BaseModel):
         ...,
         description="A project scope's resolved metric. A workspace has none of its own: this is null and `groups` carries each metric's ranking.",
     )
+    no_other_line: bool = Field(
+        ...,
+        description='There is a leader on `metric` and no other line of work has a value on it.',
+        title='No Other Line',
+    )
     pick: PickOut | None
-    runner_up: StandingOut | None
+    runner_up: StandingOut | None = Field(
+        ...,
+        description='The runner-up on `metric`: the best branch in another line of work.',
+    )
     scope: AppBranchesSchemasScopeOut
     truncated: bool = Field(
         ...,

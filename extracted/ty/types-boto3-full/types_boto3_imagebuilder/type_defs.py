@@ -28,6 +28,7 @@ from .literals import (
     DiskImageFormatType,
     EbsVolumeTypeType,
     ImageConfigurationStepType,
+    ImageScanningTypeType,
     ImageScanStatusType,
     ImageSourceType,
     ImageStatusType,
@@ -41,6 +42,7 @@ from .literals import (
     LifecyclePolicyStatusType,
     LifecyclePolicyTimeUnitType,
     MarketplaceResourceTypeType,
+    MaximumSeverityLabelType,
     OnWorkflowFailureType,
     OwnershipType,
     PipelineExecutionStartConditionType,
@@ -340,6 +342,7 @@ __all__ = (
     "RetryImageResponseTypeDef",
     "S3ExportConfigurationTypeDef",
     "S3LogsTypeDef",
+    "ScanResultConditionTypeDef",
     "ScheduleTypeDef",
     "SendWorkflowStepActionRequestTypeDef",
     "SendWorkflowStepActionResponseTypeDef",
@@ -771,6 +774,11 @@ class ImageScanFindingsFilterTypeDef(TypedDict):
 class ImageScanStateTypeDef(TypedDict):
     status: NotRequired[ImageScanStatusType]
     reason: NotRequired[str]
+
+
+class ScanResultConditionTypeDef(TypedDict):
+    maximumSeverityLabel: MaximumSeverityLabelType
+    fixAvailable: NotRequired[bool]
 
 
 ImageVersionTypeDef = TypedDict(
@@ -1617,16 +1625,6 @@ class InstanceBlockDeviceMappingTypeDef(TypedDict):
     noDevice: NotRequired[str]
 
 
-class ImageScanningConfigurationOutputTypeDef(TypedDict):
-    imageScanningEnabled: NotRequired[bool]
-    ecrConfiguration: NotRequired[EcrConfigurationOutputTypeDef]
-
-
-class ImageScanningConfigurationTypeDef(TypedDict):
-    imageScanningEnabled: NotRequired[bool]
-    ecrConfiguration: NotRequired[EcrConfigurationTypeDef]
-
-
 class FastLaunchConfigurationTypeDef(TypedDict):
     enabled: bool
     snapshotConfiguration: NotRequired[FastLaunchSnapshotConfigurationTypeDef]
@@ -1739,6 +1737,20 @@ class ListImageScanFindingsRequestTypeDef(TypedDict):
     filters: NotRequired[Sequence[ImageScanFindingsFilterTypeDef]]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+
+
+class ImageScanningConfigurationOutputTypeDef(TypedDict):
+    imageScanningEnabled: NotRequired[bool]
+    ecrConfiguration: NotRequired[EcrConfigurationOutputTypeDef]
+    imageScanningTypes: NotRequired[list[ImageScanningTypeType]]
+    scanResultCondition: NotRequired[ScanResultConditionTypeDef]
+
+
+class ImageScanningConfigurationTypeDef(TypedDict):
+    imageScanningEnabled: NotRequired[bool]
+    ecrConfiguration: NotRequired[EcrConfigurationTypeDef]
+    imageScanningTypes: NotRequired[Sequence[ImageScanningTypeType]]
+    scanResultCondition: NotRequired[ScanResultConditionTypeDef]
 
 
 class ListImagesResponseTypeDef(TypedDict):
@@ -2132,11 +2144,6 @@ class InstanceConfigurationTypeDef(TypedDict):
     blockDeviceMappings: NotRequired[Sequence[InstanceBlockDeviceMappingTypeDef]]
 
 
-ImageScanningConfigurationUnionTypeDef = Union[
-    ImageScanningConfigurationTypeDef, ImageScanningConfigurationOutputTypeDef
-]
-
-
 class DistributionOutputTypeDef(TypedDict):
     region: str
     amiDistributionConfiguration: NotRequired[AmiDistributionConfigurationOutputTypeDef]
@@ -2146,6 +2153,11 @@ class DistributionOutputTypeDef(TypedDict):
     s3ExportConfiguration: NotRequired[S3ExportConfigurationTypeDef]
     fastLaunchConfigurations: NotRequired[list[FastLaunchConfigurationTypeDef]]
     ssmParameterConfigurations: NotRequired[list[SsmParameterConfigurationTypeDef]]
+
+
+ImageScanningConfigurationUnionTypeDef = Union[
+    ImageScanningConfigurationTypeDef, ImageScanningConfigurationOutputTypeDef
+]
 
 
 class AmiDistributionConfigurationTypeDef(TypedDict):

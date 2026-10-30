@@ -4,7 +4,6 @@ from contextvars import ContextVar
 from functools import wraps
 from typing import Any, Callable, Dict, List, TypeVar, cast
 
-import structlog
 import temporalio
 import temporalio.activity
 import temporalio.common
@@ -17,6 +16,7 @@ from mistralai.workflows.core._events.event_context import (
     EventContext,
     _background_event_publisher,
 )
+from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.config.config import INTERNAL_ACTIVITY_PREFIX, config
 from mistralai.workflows.core.definition.validation._validator import (
     get_function_signature_type_hints,
@@ -38,7 +38,7 @@ from mistralai.workflows.core.rate_limiting.rate_limit import (
 from mistralai.workflows.core.utils.contextvars import reset_contextvar, unwrap_contextual_result
 from mistralai.workflows.exceptions import ErrorCode, WorkflowsException
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 
 _temporal_activities: List[Callable] = []
@@ -378,9 +378,8 @@ def _decorate_activity(
                 await publisher.drain()
 
         except Exception:
-            # Wait for pending events even on failure
             if publisher:
-                await publisher.drain()
+                await publisher.drain_preserving_error()
             raise
         finally:
             if publisher:

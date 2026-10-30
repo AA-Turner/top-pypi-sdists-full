@@ -2005,7 +2005,7 @@ def update_codex_plugins() -> PluginResult:
         message = f"Codex plugins {'updated' if changed else 'verified'} ({after})"
         if read_from_files:
             message += f"; read from Codex's plugin files (`codex plugin list --json`: {list_problem})"
-        message += _approve_codex_hooks()
+        message += approve_codex_hooks_note()
         return PluginResult(True, True, changed, before, after, message, **tap)
     return PluginResult(
         True,
@@ -2028,14 +2028,18 @@ def update_codex_plugins() -> PluginResult:
     )
 
 
-def _approve_codex_hooks() -> str:
-    """Approve Probe's hooks in Codex after an update, and say so. Codex skips an
-    entry whose text changed until it is approved again, and a machine set up
-    before the wizard approved them has never had them approved. Empty when
-    nothing waited or Codex could not be asked (status and doctor still say)."""
+def approve_codex_hooks_note() -> str:
+    """Approve Probe's hooks in Codex after an update, or one a live run deferred
+    (`upgrading._update_prelude`), and say so. Codex skips an entry whose text
+    changed until it is approved again, and a machine set up before the wizard
+    approved them has never had them approved. Empty where Codex holds no copy of
+    Probe's plugins, when nothing waited, or when Codex could not be asked
+    (status and doctor still say). Never raises."""
     from probe.cli import codex_hooks
 
     try:
+        if not codex_hooks.installed_copies():
+            return ""
         outcome = codex_hooks.approve()
     except Exception:  # noqa: BLE001 - approve never raises; an update never fails on it either way
         return ""

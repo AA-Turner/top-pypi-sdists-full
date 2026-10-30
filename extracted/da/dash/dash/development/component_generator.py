@@ -3,7 +3,6 @@ from collections import OrderedDict
 import json
 import sys
 import subprocess
-import shlex
 import os
 import argparse
 import shutil
@@ -56,8 +55,6 @@ def generate_components(
 
     project_shortname = project_shortname.replace("-", "_").rstrip("/\\")
 
-    is_windows = sys.platform == "win32"
-
     # Get path to extract-meta.js using importlib.resources
     try:
         # Python 3.9+
@@ -83,16 +80,12 @@ def generate_components(
         # Ensure local node modules is used when the script is packaged.
         env["MODULES_PATH"] = os.path.abspath("./node_modules")
 
-        cmd = shlex.split(
-            f'node {extract_path} "{ignore}" "{reserved_patterns}" {components_source}',
-            posix=not is_windows,
-        )
+        cmd = ["node", extract_path, ignore, reserved_patterns, components_source]
 
         proc = subprocess.Popen(  # pylint: disable=consider-using-with
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            shell=is_windows,
             env=env,
         )
         out, err = proc.communicate()
@@ -180,10 +173,7 @@ def generate_components(
 
 
 def safe_json_loads(s):
-    jsondata_unicode = json.loads(s, object_pairs_hook=OrderedDict)
-    if sys.version_info[0] >= 3:
-        return jsondata_unicode
-    return byteify(jsondata_unicode)
+    return json.loads(s, object_pairs_hook=OrderedDict)
 
 
 def component_build_arg_parser():
@@ -287,19 +277,6 @@ def cli():
         max_props=args.max_props,
         custom_typing_module=args.custom_typing_module,
     )
-
-
-# pylint: disable=undefined-variable
-def byteify(input_object):
-    if isinstance(input_object, dict):
-        return OrderedDict(
-            [(byteify(key), byteify(value)) for key, value in input_object.items()]
-        )
-    if isinstance(input_object, list):
-        return [byteify(element) for element in input_object]
-    if isinstance(input_object, str):  # noqa:F821
-        return input_object.encode(encoding="utf-8")
-    return input_object
 
 
 if __name__ == "__main__":

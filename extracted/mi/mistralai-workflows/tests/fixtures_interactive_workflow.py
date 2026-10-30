@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 import temporalio.workflow
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from mistralai.workflows import InteractiveWorkflow, workflow
 from mistralai.workflows.core.interactive_workflow import (
@@ -24,6 +24,14 @@ def mock_should_publish_event() -> Generator[Any, None, None]:
 class ApprovalInput(BaseModel):
     approved: bool
     reason: str
+
+
+class AliasedInput(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    customer_name: str = Field(alias="customerName")
+    contract_id: str = Field(alias="contractId")
+    file: str = ""
 
 
 class ApprovalResult(BaseModel):
@@ -119,6 +127,17 @@ class ParallelApprovalWorkflow(InteractiveWorkflow):
 
         all_approved = approval1.approved and approval2.approved
         return MultiStepResult(approvals=approvals, final_status="approved" if all_approved else "rejected")
+
+
+@workflow.define(name="aliased_input_workflow")
+class AliasedInputWorkflow(InteractiveWorkflow):
+    @workflow.entrypoint
+    async def run(self) -> ApprovalResult:
+        form = await self.wait_for_input(AliasedInput, label="Aliased Form")
+        return ApprovalResult(
+            status="ok",
+            reason=f"{form.customer_name}:{form.contract_id}:{form.file}",
+        )
 
 
 @workflow.define(name="workflow_with_validation_failure")

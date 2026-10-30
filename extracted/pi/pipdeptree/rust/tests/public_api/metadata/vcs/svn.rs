@@ -3,11 +3,13 @@ use std::fs;
 use _pipdeptree::{ProcessError, ProcessOutput};
 use rstest::rstest;
 
-use super::super::super::common::{MockProcesses, expect_process, process_output};
+use super::super::super::common::{MockProcesses, expect_process, process_output, write_oversized};
 use super::{editable_site, expect_no_git, freeze};
 
-#[test]
-fn uses_legacy_subversion_metadata() {
+#[rstest]
+#[case::failed_svn(Ok(ProcessOutput { success: false, stdout: Vec::new(), stderr: Vec::new() }))]
+#[case::timed_out_svn(Err(ProcessError::TimedOut))]
+fn uses_legacy_subversion_metadata(#[case] info: Result<ProcessOutput, ProcessError>) {
     let repository = tempfile::tempdir().unwrap();
     fs::create_dir(repository.path().join(".svn")).unwrap();
     fs::write(
@@ -23,6 +25,25 @@ fn uses_legacy_subversion_metadata() {
         &["rev-parse", "--show-toplevel"],
         Err(ProcessError::NotFound),
     );
+    expect_process(&mut processes, "svn", &["info", "--xml"], info);
+
+    assert_eq!(
+        freeze(&site, &processes),
+        "-e svn+https://example.com/repo@12#egg=demo\n"
+    );
+}
+
+#[test]
+fn ignores_oversized_legacy_subversion_metadata() {
+    let repository = tempfile::tempdir().unwrap();
+    fs::create_dir(repository.path().join(".svn")).unwrap();
+    write_oversized(
+        &repository.path().join(".svn/entries"),
+        "10\n\ndir\n12\nhttps://example.com/repo\n",
+    );
+    let site = editable_site(repository.path());
+    let mut processes = MockProcesses::new();
+    expect_no_git(&mut processes, repository.path());
     expect_process(
         &mut processes,
         "svn",
@@ -36,7 +57,10 @@ fn uses_legacy_subversion_metadata() {
 
     assert_eq!(
         freeze(&site, &processes),
-        "-e svn+https://example.com/repo@12#egg=demo\n"
+        format!(
+            "# Editable svn install with no remote (demo==1)\n-e {}/\n",
+            repository.path().display()
+        )
     );
 }
 

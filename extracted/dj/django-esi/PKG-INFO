@@ -1,15 +1,16 @@
 Metadata-Version: 2.4
 Name: django-esi
-Version: 10.0.0
+Version: 10.1.0
 Summary: Django app for accessing the EVE Stable Interface (ESI).
 Keywords: eveonline
 Author-email: Alliance Auth <adarnof@gmail.com>
-Requires-Python: >=3.10,<3.15
+Requires-Python: >=3.10,<3.16
 Description-Content-Type: text/markdown
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
 Classifier: Operating System :: OS Independent
@@ -20,6 +21,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 License-File: LICENSE
@@ -32,6 +34,10 @@ Requires-Dist: python-jose>=3.3
 Requires-Dist: requests>=2.26
 Requires-Dist: requests-oauthlib>=0.8
 Requires-Dist: tenacity
+Requires-Dist: celery-types ; extra == "dev"
+Requires-Dist: djlint ; extra == "dev"
+Requires-Dist: flake8 ; extra == "dev"
+Requires-Dist: isort ; extra == "dev"
 Requires-Dist: docutils==0.22 ; extra == "docs"
 Requires-Dist: myst-parser>=5 ; extra == "docs"
 Requires-Dist: sphinx>=9 ; extra == "docs"
@@ -46,6 +52,7 @@ Project-URL: Documentation, https://django-esi.readthedocs.io/en/latest/
 Project-URL: Homepage, https://gitlab.com/allianceauth/django-esi
 Project-URL: Source, https://gitlab.com/allianceauth/django-esi
 Project-URL: Tracker, https://gitlab.com/allianceauth/django-esi/-/issues
+Provides-Extra: dev
 Provides-Extra: docs
 Provides-Extra: test
 

@@ -1,8 +1,8 @@
 use std::ffi::OsString;
-use std::io::{self, Read as _, Write as _};
+use std::io::{self, Read, Write as _};
 use std::path::PathBuf;
 use std::process::{Child, Command, ExitStatus, Stdio};
-use std::thread;
+use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -12,6 +12,7 @@ pub struct ProcessRequest {
     pub current_dir: Option<PathBuf>,
     pub stdin: Vec<u8>,
     pub timeout: Option<Duration>,
+    pub output_limit: u64,
     pub removed_environment: Vec<OsString>,
     pub added_environment: Vec<(OsString, OsString)>,
 }
@@ -27,6 +28,7 @@ impl ProcessRequest {
             current_dir: None,
             stdin: Vec::new(),
             timeout: None,
+            output_limit: u64::MAX,
             removed_environment: Vec::new(),
             added_environment: Vec::new(),
         }
@@ -47,6 +49,12 @@ impl ProcessRequest {
     #[must_use]
     pub const fn with_timeout(mut self, timeout: Duration) -> Self {
         self.timeout = Some(timeout);
+        self
+    }
+
+    #[must_use]
+    pub const fn with_output_limit(mut self, bytes: u64) -> Self {
+        self.output_limit = bytes;
         self
     }
 
@@ -102,6 +110,10 @@ pub struct SystemProcessRunner;
 
 impl ProcessRunner for SystemProcessRunner {
     fn run(&self, request: &ProcessRequest) -> Result<ProcessOutput, ProcessError> {
+        #[cfg(unix)]
+        let mut command = Command::new(resolve_program(request)?);
+        // Windows searches PATH in the parent, before the child changes directory.
+        #[cfg(not(unix))]
         let mut command = Command::new(&request.program);
         command
             .args(&request.args)
@@ -122,54 +134,68 @@ impl ProcessRunner for SystemProcessRunner {
             command.current_dir(path);
         }
         let mut child = command.spawn()?;
-        thread::scope(|scope| {
-            let writer = (!request.stdin.is_empty()).then(|| {
-                let mut stdin = child.stdin.take().expect("piped process stdin exists");
-                scope.spawn(move || stdin.write_all(&request.stdin))
-            });
-            let mut stdout = child.stdout.take().expect("piped process stdout exists");
-            let stdout = scope.spawn(move || {
-                let mut output = Vec::new();
-                stdout.read_to_end(&mut output)?;
-                Ok::<_, io::Error>(output)
-            });
-            let mut stderr = child.stderr.take().expect("piped process stderr exists");
-            let stderr = scope.spawn(move || {
-                let mut output = Vec::new();
-                stderr.read_to_end(&mut output)?;
-                Ok::<_, io::Error>(output)
-            });
-            let status = wait(&mut child, request.timeout)?;
-            let stdout = stdout
-                .join()
-                .expect("process stdout reader does not panic")?;
-            let stderr = stderr
-                .join()
-                .expect("process stderr reader does not panic")?;
-            if status.success()
-                && let Some(writer) = writer
-            {
-                // The exit status is authoritative: dot stops reading stdin once the graph
-                // parses, so a write error to a finished, successful child is not a failure.
-                writer
-                    .join()
-                    .expect("process stdin writer does not panic")
-                    .ok();
-            }
-            Ok(ProcessOutput {
-                success: status.success(),
-                stdout,
-                stderr,
-            })
+        let deadline = request.timeout.map(|timeout| Instant::now() + timeout);
+        if !request.stdin.is_empty() {
+            let mut stdin = child.stdin.take().expect("piped process stdin exists");
+            let input = request.stdin.clone();
+            // The exit status is authoritative: dot stops reading stdin once the graph parses, so
+            // a write error to a finished child is not a failure.
+            thread::spawn(move || stdin.write_all(&input));
+        }
+        let stdout = child.stdout.take().expect("piped process stdout exists");
+        let limit = request.output_limit;
+        let stdout = thread::spawn(move || read_output(stdout, limit));
+        let stderr = child.stderr.take().expect("piped process stderr exists");
+        let stderr = thread::spawn(move || read_output(stderr, limit));
+        let status = wait(&mut child, deadline)?;
+        Ok(ProcessOutput {
+            success: status.success(),
+            stdout: collect(stdout, deadline)?,
+            stderr: collect(stderr, deadline)?,
         })
     }
 }
 
-fn wait(child: &mut Child, timeout: Option<Duration>) -> Result<ExitStatus, ProcessError> {
-    let Some(timeout) = timeout else {
+// Returning at the limit closes the pipe, so a child that keeps writing gets a broken pipe and exits
+// instead of filling memory or running until its timeout.
+fn read_output(pipe: impl Read, limit: u64) -> io::Result<Vec<u8>> {
+    let mut output = Vec::new();
+    pipe.take(limit.saturating_add(1))
+        .read_to_end(&mut output)?;
+    if output.len() as u64 > limit {
+        return Err(io::Error::other(format!("output exceeds {limit} bytes")));
+    }
+    Ok(output)
+}
+
+// A Unix child searches PATH after it changes into current_dir, so an empty or relative PATH entry
+// would find a program inside that directory. Search from pipdeptree's own directory instead.
+#[cfg(unix)]
+fn resolve_program(request: &ProcessRequest) -> Result<PathBuf, ProcessError> {
+    use std::env;
+    use std::os::unix::ffi::OsStrExt as _;
+    use std::os::unix::fs::PermissionsExt as _;
+    use std::path;
+
+    let search = env::var_os("PATH")
+        .filter(|_| request.current_dir.is_some() && !request.program.as_bytes().contains(&b'/'));
+    let Some(search) = search else {
+        return Ok(PathBuf::from(&request.program));
+    };
+    env::split_paths(&search)
+        .filter_map(|entry| path::absolute(entry.join(&request.program)).ok())
+        .find(|candidate| {
+            candidate.metadata().is_ok_and(|metadata| {
+                metadata.is_file() && metadata.permissions().mode() & 0o111 != 0
+            })
+        })
+        .ok_or(ProcessError::NotFound)
+}
+
+fn wait(child: &mut Child, deadline: Option<Instant>) -> Result<ExitStatus, ProcessError> {
+    let Some(deadline) = deadline else {
         return Ok(child.wait()?);
     };
-    let deadline = Instant::now() + timeout;
     loop {
         match child.try_wait()? {
             Some(status) => return Ok(status),
@@ -181,6 +207,25 @@ fn wait(child: &mut Child, timeout: Option<Duration>) -> Result<ExitStatus, Proc
             None => thread::sleep(Duration::from_millis(10)),
         }
     }
+}
+
+// A process the child started inherits its pipes and can hold them open after the child exits, so
+// stop waiting for the readers at the deadline and let them finish in the background.
+fn collect(
+    reader: JoinHandle<io::Result<Vec<u8>>>,
+    deadline: Option<Instant>,
+) -> Result<Vec<u8>, ProcessError> {
+    if let Some(deadline) = deadline {
+        while !reader.is_finished() {
+            if Instant::now() >= deadline {
+                return Err(ProcessError::TimedOut);
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
+    }
+    Ok(reader
+        .join()
+        .expect("process output reader does not panic")?)
 }
 
 impl From<io::Error> for ProcessError {

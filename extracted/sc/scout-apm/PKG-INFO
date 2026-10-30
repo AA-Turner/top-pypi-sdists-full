@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scout_apm
-Version: 4.0.0
+Version: 4.1.0
 Summary: Scout Application Performance Monitoring Agent
 Home-page: https://github.com/scoutapp/scout_apm_python
 Author: Scout
@@ -31,6 +31,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Requires-Python: >=3.10, <4
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -64,7 +65,9 @@ Monitor the performance of Python Django apps, Flask apps, and Celery workers wi
 
 ## Requirements
 
-Python 3.8+.
+Python 3.10+.
+
+For Python 3.8 and 3.9, pin scout-apm to <=3.5.3.
 For legacy Python versions, including 2.7 and 3.4+, pin scout-apm to <=2.26.1.
 
 Scout APM has integrations for the following frameworks:

@@ -17,6 +17,10 @@ data and the journal may live on shared storage):
     <dir>/paused                         marker: drains are suspended until its
                                          `until` (DEFAULT_PAUSE_HOURS)
     <dir>/.append.lock / .drain.lock     flock sidecars
+    <dir>/.drain.want                    held shared by a close waiting for the
+                                         drain lock (#3618)
+    <dir>/.run-locks/<slot>.lock         held while a run's upload is sent with
+                                         the drain lock let go (#3618)
     <dir>/producers/<producer>.json      per-writer accounting (parity F4):
                                          sequence high-water, delivered tally,
                                          capture gaps, open/closed state
@@ -79,7 +83,7 @@ import uuid
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextvars import copy_context
-from contextlib import closing, contextmanager, suppress
+from contextlib import ExitStack, closing, contextmanager, nullcontext, suppress
 from dataclasses import dataclass, field
 from probe._compat import StrEnum
 from pathlib import Path
@@ -98,6 +102,7 @@ from .durable import (
     now_iso,
     write_text_atomic,
 )
+from .agent_session import queued_event_at, queued_session, run_write_origin
 from .hashing import fingerprint
 from .session_marker import WIZARD_HINT
 # At module load, not inside the drain: a module first imported while a script
@@ -590,7 +595,7 @@ def _failing_for_seconds(op: dict, now: float) -> float:
 _GLOBAL_RANK_VARS = ("SLURM_PROCID", "RANK", "OMPI_COMM_WORLD_RANK")
 
 
-def _rank_suffix() -> str | None:
+def _rank_suffix(environ=None) -> str | None:
     """A per-rank directory component, or None for a single-process job.
 
     A distributed job puts every rank on ONE journal when $HOME is shared, which
@@ -606,11 +611,12 @@ def _rank_suffix() -> str | None:
     A single-process run gets no suffix at all, so the default path is
     byte-identical to what it has always been and nothing needs migrating.
     """
+    env = os.environ if environ is None else environ
     for var in _GLOBAL_RANK_VARS:
-        raw = (os.environ.get(var) or "").strip()
+        raw = (env.get(var) or "").strip()
         if raw:
             return f"rank-{_safe_component(raw)}"
-    local = (os.environ.get("LOCAL_RANK") or "").strip()
+    local = (env.get("LOCAL_RANK") or "").strip()
     if local:
         # Only node-local identity is advertised, so qualify it with the host to
         # keep two nodes' rank 0 apart on shared storage.
@@ -639,16 +645,17 @@ def default_root(environ=None) -> Path:
     return root / "probe" / "outbox"
 
 
-def default_dir() -> Path:
+def default_dir(environ=None) -> Path:
     """This process's queue: the root, or its ``rank-*`` child in a distributed job.
+    ``environ``: another process's variables, as `default_root` takes them.
 
     An explicit ``PROBE_OUTBOX_DIR`` is the ROOT too. It is exported once for a
     whole job -- the reliability plan's rollout note tells a cluster to set it --
     so returning it as is put every rank of every node on one ``.append.lock``:
     on an NFS home a cross-client lock that the kernel polls with backoff, which
     held each ``log()`` up to ~30 s (agent/tests/environments/nfs_home)."""
-    root = default_root()
-    suffix = _rank_suffix()
+    root = default_root(environ)
+    suffix = _rank_suffix(environ)
     return root / suffix if suffix else root
 
 
@@ -720,12 +727,15 @@ def fallback_dir() -> Path:
     return root / suffix if suffix else root
 
 
-def _fallback_roots() -> list[Path]:
+def _fallback_roots(environ=None) -> list[Path]:
     """Every fallback root of this user in ``$TMPDIR`` that is a `trusted_dir`
-    (the fixed name, and any `mkdtemp` one a process had to take)."""
+    (the fixed name, and any `mkdtemp` one a process had to take). ``environ``:
+    another process's variables, whose ``TMPDIR`` names the folder (this
+    process's `tempfile` keeps the first answer it gave)."""
     import tempfile
 
-    base = Path(tempfile.gettempdir())
+    tmpdir = environ.get("TMPDIR") if environ is not None else None
+    base = Path(tmpdir) if tmpdir else Path(tempfile.gettempdir())
     prefix = f"probe-outbox-{_uid()}"
     roots = []
     try:
@@ -822,6 +832,56 @@ def classify(exc: Exception) -> str:
             return "permanent"
         return "transient"
     return "transient"
+
+
+#: A dead letter's ``last_error`` (as `drain` writes it) when the server refused
+#: it for a past write epoch: before T24 such writes were dead-lettered.
+_STALE_EPOCH_LETTER = re.compile("ConflictError: " + errors._STALE_EPOCH_MESSAGE.pattern)
+#: ...and when the server said its run does not exist (`errors.names_no_such_run`;
+#: a workspace limit's 404 says more, so it never matches).
+_NO_SUCH_RUN_LETTER = f"NotFoundError: {errors.RUN_NOT_FOUND_DETAIL}"
+
+
+def _run_exists_now() -> Callable[[dict], bool | None]:
+    """`Journal.drop_unrecoverable`'s question, asked of the server now with
+    each write's own credential (`_settings_for_op`), once per credential and
+    run: True, False on the server's own "run not found", None otherwise."""
+    from urllib.parse import quote
+
+    from .client import Client
+
+    answers: dict[tuple, bool | None] = {}
+
+    def run_exists(op: dict) -> bool | None:
+        context = op.get("context") if isinstance(op.get("context"), dict) else {}
+        stamp = context.get("principal") if isinstance(context.get("principal"), dict) else {}
+        if not stamp.get("fingerprint"):
+            # Queued before writes named their credential (#2035): only today's
+            # login is at hand, and another team's login reads every run as
+            # absent. Cannot tell.
+            return None
+        key = (context.get("name"), context.get("base_url"), stamp.get("fingerprint"), str(op.get("run_ref")))
+        if key in answers:
+            return answers[key]
+        answer: bool | None = None
+        try:
+            client = Client(settings=_settings_for_op(context or None), async_writes=False)
+        except Exception:  # noqa: BLE001 -- no credential here: cannot tell
+            answers[key] = None
+            return None
+        try:
+            client.transport.request("GET", f"/v1/runs/{quote(str(op.get('run_ref')), safe='')}")
+            answer = True
+        except errors.NotFoundError as exc:
+            answer = False if errors.names_no_such_run(exc) else None
+        except Exception:  # noqa: BLE001 -- refused, away, in the trash: cannot tell
+            answer = None
+        finally:
+            client.close()
+        answers[key] = answer
+        return answer
+
+    return run_exists
 
 
 #: The server's 409 for an edge whose exact (source, relation, target) already
@@ -1009,6 +1069,12 @@ class DrainReport:
     #: Runs that had an op delivered or dead-lettered this pass: their backoff,
     #: if any, starts over.
     progressed_runs: set = field(default_factory=set)
+    #: Runs this pass left because another drain was sending them, its drain
+    #: lock let go for their upload (#3618). Also in ``stalled_runs``, held.
+    busy_runs: set = field(default_factory=set)
+    #: Ops the server refused because a newer attempt owns their run (a past
+    #: write epoch), moved to ``discarded/`` rather than dead-lettered (T24).
+    superseded: "DiscardCounts" = field(default_factory=lambda: DiscardCounts())
     #: The pass stopped for EVERY run because the server could not be reached
     #: at all (a connect failure) or stopped answering (a second response lost
     #: after sending in one pass): trying each run's head op in turn would only
@@ -1591,6 +1657,12 @@ class Journal:
         self.paused_file = self.dir / "paused"
         self.append_lock = self.dir / ".append.lock"
         self.drain_lock = self.dir / ".drain.lock"
+        #: Held shared by a run's close while it waits for the drain lock, so a
+        #: pass gives the lock up at its next op (`_DrainHold`, #3618).
+        self.drain_want = self.dir / ".drain.want"
+        #: One flock per run slot, held while a pass sends that run's upload
+        #: with the drain lock let go (`_DrainHold`, #3618).
+        self.run_locks_dir = self.dir / ".run-locks"
         #: Present while a takeover barrier (SDK reliability 2.3) holds some
         #: queued status ops aside in `failed/`: the cheap test that tells every
         #: drain pass and every new client whether to look for abandoned holds.
@@ -2241,7 +2313,7 @@ class Journal:
         return None
 
     @staticmethod
-    def discover() -> list[Path]:
+    def discover(environ=None) -> list[Path]:
         """Every outbox directory of this user on this machine: the default
         root and its ``rank-*`` children, and the ``$TMPDIR`` fallback and
         its. Only directories that hold a queue, their own or a per-credential
@@ -2257,9 +2329,10 @@ class Journal:
 
         A ``$TMPDIR`` fallback is listed only when it is a `trusted_dir`, and so
         is each of its ``rank-*`` children: a directory another user made there
-        must never be drained with this user's credential (review of #2054)."""
+        must never be drained with this user's credential (review of #2054).
+        ``environ``: another process's variables, as `default_root` takes them."""
         found: list[Path] = []
-        roots = [(default_root(), False)] + [(root, True) for root in _fallback_roots()]
+        roots = [(default_root(environ), False)] + [(root, True) for root in _fallback_roots(environ)]
         for root, untrusted_place in roots:
             candidates = [root]
             try:
@@ -2418,7 +2491,8 @@ class Journal:
             pass
 
     def _base_op(self, kind: str, run_ref: str | None) -> dict:
-        return {
+        session = queued_session()
+        op = {
             "schema": SCHEMA,
             "op_id": uuid.uuid4().hex,
             "kind": kind,
@@ -2426,9 +2500,20 @@ class Journal:
             "context": self.context,
             "attribution": self.attribution,
             "enqueued_at": now_iso(),
+            # The session that queued it, sent at delivery whoever drains it,
+            # (a daemon command's) when its work happened, and (a run
+            # process's) that a run made it: `_delivery_scope`.
+            "agent_session": session,
             "attempts": 0,
             "last_error": None,
         }
+        event_at = queued_event_at()
+        if event_at:
+            op["event_at"] = event_at
+        origin = run_write_origin(session)
+        if origin:
+            op["write_origin"] = origin
+        return op
 
     def _append(
         self,
@@ -3733,13 +3818,17 @@ class Journal:
         ops, corrupt = self._scan_ops()
         return self.quarantine_paths(corrupt, known=op_meta(ops))
 
-    def _scan_ops(self) -> tuple[list[tuple[Path, dict]], list[Path]]:
+    def _scan_ops(
+        self, stamps: dict | None = None
+    ) -> tuple[list[tuple[Path, dict]], list[Path]]:
         """ONE parse of ``ops/``, taken outside every lock: the ops in FIFO
         order, and the paths that did not parse (for `quarantine_paths`).
 
         Op files appear by atomic rename, so a file that does not parse is
         corrupt, not half-written. One that vanished between the listing and
         the read was delivered or moved by someone else and is skipped.
+        ``stamps`` gets each parsed op's (inode, size, mtime): how a pass that
+        let go of the drain lock tells an op another drain changed (#3618).
         """
         if not self.ops_dir.exists():
             return [], []
@@ -3768,6 +3857,8 @@ class Journal:
                 if kept + stat.st_size <= SCAN_CACHE_MAX_BYTES:
                     seen[name] = (stamp, op)
                     kept += stat.st_size
+                if stamps is not None:
+                    stamps[name] = stamp
                 ops.append((path, op))
             except FileNotFoundError:
                 continue
@@ -3867,6 +3958,55 @@ class Journal:
             self.gc_blobs()
         return counts
 
+    def drop_unrecoverable(
+        self, *, run_exists: "Callable[[dict], bool | None] | None" = None
+    ) -> DiscardCounts:
+        """Move to ``discarded/`` the dead letters no retry can ever deliver
+        (`probe doctor --fix`, #3629): a write a newer attempt of its run
+        superseded (refused for a past write epoch, and a run's epoch only
+        grows), and a write whose run the server said does not exist, asked
+        again now with the write's own credential. ``run_exists(op)`` answers
+        that: False only on the server's own "run not found", None when it
+        cannot tell (no credential here, the server away) -- then the letter
+        stays, as does every other letter, for `probe outbox retry`. A close a
+        takeover set aside stays too. Returns what moved (`DiscardCounts`)."""
+        check = run_exists if run_exists is not None else _run_exists_now()
+        counts = DiscardCounts()
+        for queue in self.namespaces():
+            if queue.receipt_enabled or not queue.failed_dir.exists():
+                continue
+            doomed: dict[Path, str] = {}
+            for path in sorted(queue.failed_dir.glob("*.json")):
+                op = _read_op_file(path)
+                if not isinstance(op, dict) or op.get(TAKEOVER_HOLD_KEY) is not None:
+                    continue
+                error = str(op.get("last_error") or "")
+                if _STALE_EPOCH_LETTER.match(error) or (
+                    error == _NO_SUCH_RUN_LETTER and op.get("run_ref") and check(op) is False
+                ):
+                    doomed[path] = error
+            if not doomed:
+                continue
+            target = queue._discard_dir()
+            moved = 0
+            with file_lock(queue.append_lock):
+                target.mkdir(parents=True, exist_ok=True, mode=0o700)
+                for path, error in doomed.items():
+                    op = _read_op_file(path)
+                    if not isinstance(op, dict) or str(op.get("last_error") or "") != error:
+                        continue  # retried, discarded or failed again meanwhile
+                    os.replace(path, target / path.name)
+                    counts.add(op)
+                    moved += 1
+                if moved:
+                    fsync_directory(target)
+                    fsync_directory(queue.failed_dir)
+                    queue._write_status_locked()
+                    queue._record_dead_letters()
+        if counts.writes:
+            self.gc_blobs()
+        return counts
+
     def _discard_dir(self) -> Path:
         """Where this queue's discards go: its own ``discarded/``, or for a
         credential queue the root's -- a credential queue is deleted once
@@ -3962,7 +4102,8 @@ class Journal:
         drain` prints it): then that credential's queued writes go too, which
         is how a stranded job's writes are dropped on purpose. An unstamped op
         is never touched. Returns what moved (`DiscardCounts`). Each queue's
-        drain lock is taken, so no pass is mid-way through them. A credential
+        drain lock is taken, so no pass is mid-way through them, and a run a
+        pass is sending with that lock let go (#3618) is left. A credential
         queue's writes go to the root's ``discarded/`` (`_discard_dir`), and a
         credential whose writes all went no longer reads as refused."""
         counts = DiscardCounts()
@@ -4026,6 +4167,14 @@ class Journal:
                         held.append(path)
                 except Exception:  # noqa: BLE001 -- logged out, unroutable: not "held"
                     continue
+            # A run a drain is sending right now, its drain lock let go for an
+            # upload (#3618), stays: that drain settles its files after.
+            lanes = {path: _lane_of(op) for path, op in queued}
+            probe = _DrainHold(self, handle, urgent=False)
+            try:
+                held = [path for path in held if not probe.busy(lanes.get(path))]
+            finally:
+                probe.close()
             if not held:
                 return counts
             by_path = dict(queued)
@@ -5758,7 +5907,7 @@ SCAN_CACHE_MAX_BYTES = 2 * 1024 * 1024
 
 
 def _prefetch_uploads(
-    journal, entries, client_for, workers, run_ref, *, skips=None, already=frozenset()
+    journal, entries, client_for, workers, run_ref, *, skips=None, already=frozenset(), away=None
 ) -> dict:
     """Do the NETWORK half of several upload operations at once.
 
@@ -5787,10 +5936,10 @@ def _prefetch_uploads(
 
     ``skips(path, op)`` names the ops the serial pass would not attempt now
     (a stalled or held run, a barrier's other ops); ``already`` the ops an
-    earlier window delivered.
+    earlier window delivered. ``away(lanes)``, when given, wraps the network
+    half (`_DrainHold.away`: the drain lock let go, those runs' locks held), for
+    a window of run uploads; one carrying a receipt correlation keeps the lock.
     """
-    from .transport import attribution_scope  # loaded by every Client already
-
     limit = workers * UPLOAD_WINDOW_FACTOR
     if journal.receipt_enabled:
         candidates = _receipt_window(journal, entries, client_for, limit, run_ref, already)
@@ -5801,7 +5950,7 @@ def _prefetch_uploads(
 
     def run_one(item):
         path, op, client = item
-        with attribution_scope(op.get("attribution", "ambient")):
+        with _delivery_scope(op):
             # Its own run_ids map: petname resolution is a per-op cache, and
             # sharing a dict across threads would be a race for no benefit.
             # A window's run upload asks for a direct-to-storage link
@@ -5816,14 +5965,28 @@ def _prefetch_uploads(
             alone.append(item)
         else:
             upload = item[1]["upload"]
-            key = (id(item[2]), str(upload["anchor_id"]), item[1].get("attribution", "ambient"))
+            # One request carries one session, one date and one origin
+            # (`_delivery_scope`): ops of other sessions, of another 5-minute
+            # bucket, or a run's beside the agent's own, go apart.
+            key = (
+                id(item[2]),
+                str(upload["anchor_id"]),
+                item[1].get("attribution", "ambient"),
+                item[1].get("agent_session", ""),
+                _queued_bucket(item[1]),
+                item[1].get("write_origin", ""),
+            )
             groups.setdefault(key, []).append((item, many))
     for key in [k for k, members in groups.items() if len(members) < 2]:
         alone.extend(item for item, _ in groups.pop(key))
 
     done = {}
+    if away is None or any(item[1].get("correlation") for item in candidates):
+        away_from_lock = nullcontext()
+    else:
+        away_from_lock = away({_lane_of(item[1]) for item in candidates})
     try:
-        with ThreadPoolExecutor(max_workers=workers) as pool:
+        with away_from_lock, ThreadPoolExecutor(max_workers=workers) as pool:
             _send_window(pool, alone, groups, workers, run_one, done)
     except RuntimeError:
         # "cannot schedule new futures after interpreter shutdown": the close a
@@ -5836,8 +5999,6 @@ def _send_window(pool, alone, groups, workers, run_one, done) -> None:
     """`_prefetch_uploads`' network half on ``pool``: every lone op on a
     worker, each run's small uploads through `upload_many`; ``done`` gets path
     -> result for what landed."""
-    from .transport import attribution_scope
-
     futures = {
         pool.submit(copy_context().run, run_one, item): item[0] for item in alone
     }
@@ -5847,14 +6008,16 @@ def _send_window(pool, alone, groups, workers, run_one, done) -> None:
     # quarter of the time of two of 16 in turn (prod, 2026-10-29).
     chunk_size = min(upload_many.MANY_MAX, max(2, workers))
     chunks = []
-    for (_client, run_id, attribution), members in groups.items():
+    for (_client, run_id, *_), members in groups.items():
         client = members[0][0][2]
         for start in range(0, len(members), chunk_size):
-            chunks.append((client, run_id, attribution, members[start : start + chunk_size]))
+            chunks.append((client, run_id, members[start : start + chunk_size]))
 
     def send_chunk(chunk):
-        client, run_id, attribution, members = chunk
-        with attribution_scope(attribution):
+        client, run_id, members = chunk
+        # One request for the chunk: its ops share a session and a bucket, so
+        # it goes as the oldest of them.
+        with _delivery_scope(min((item[1] for item, _ in members), key=_queued_at)):
             return upload_many.send(client, run_id, [many for _, many in members], pool)
 
     if chunks:
@@ -5863,7 +6026,7 @@ def _send_window(pool, alone, groups, workers, run_one, done) -> None:
         # queued behind it.
         with ThreadPoolExecutor(max_workers=min(len(chunks), MANY_IN_FLIGHT)) as senders:
             sent = list(senders.map(lambda c: copy_context().run(send_chunk, c), chunks))
-        for (_client, _run, _attr, members), landed in zip(chunks, sent):
+        for (_client, _run, members), landed in zip(chunks, sent):
             if landed is None:
                 # The server has no such doors: these go one op per worker.
                 for item, _ in members:
@@ -6095,32 +6258,344 @@ def restore_abandoned_holds(journal: "Journal") -> list[str]:
     return restored
 
 
-def _take_drain_lock(handle, *, wait_for_lock: bool, timeout: float | None) -> bool:
+#: How long a pass keeps the drain lock before it lets go once between two ops
+#: (#3618, R11). A close that says it is waiting (`Journal.drain_want`) gets the
+#: lock at the pass's next op; this is for one that only polls -- an older
+#: release's `finish()`, which waited out whole passes, up to 600 s.
+PASS_HOLD_SECONDS = 3.0
+#: How long that letting go lasts: about half the gap between two polls of an
+#: older release's `_take_drain_lock` late in its wait (0.25 s), so such a close
+#: gets in within a few letting-go's, and a pass that nobody waits on loses 3%.
+_LET_GO_PAUSE_SECONDS = 0.1
+#: Longest a pass waits, the lock let go, for the closes waiting on it to have
+#: taken it in turn (they poll every 20 ms). One that holds the signal and never
+#: takes the lock (a stopped process) is ignored for `PASS_HOLD_SECONDS`, then
+#: twice as long each time it does it again, up to `_WANT_IGNORE_MAX_SECONDS`.
+_WANT_WAIT_SECONDS = 2.0
+_WANT_IGNORE_MAX_SECONDS = 60.0
+#: How soon a pass looks again at a run another drain is sending (it holds that
+#: run's lock): a ceiling on that run's backoff, not a failure.
+_RUN_BUSY_RECHECK_SECONDS = 5.0
+#: Run-lock slots per queue. Two runs that share one only wait for each other.
+_RUN_LOCK_SLOTS = 256
+
+
+@contextmanager
+def _wanting(path: Path | None):
+    """Say "a close is waiting for the drain lock" while the body runs: a shared
+    flock on ``path`` (None: say nothing). Best-effort: a platform with no
+    shared lock (Windows) lets one waiter say it at a time, and that is enough."""
+    if path is None:
+        yield
+        return
+    try:
+        handle = open(path, "a+")
+    except OSError:
+        yield
+        return
+    try:
+        for _ in range(5):
+            try:
+                oscompat.flock(handle.fileno(), oscompat.LOCK_SH | oscompat.LOCK_NB)
+                break
+            except BlockingIOError:
+                # A pass checking the signal holds it exclusively for a moment.
+                time.sleep(0.001)
+            except OSError:
+                break
+        yield
+    finally:
+        try:
+            oscompat.flock(handle.fileno(), oscompat.LOCK_UN)
+        except OSError:
+            pass
+        handle.close()
+
+
+class _LockNotBack(errors.DeadlineExceeded):
+    """A close's pass let go of the drain lock and could not take it back by
+    its deadline (another drain -- an older release's, which never gives it up
+    mid-pass -- kept it). The pass ends where it is and touches no op file:
+    what it sent meanwhile stays queued, for the next drain (#3618)."""
+
+
+def _take_drain_lock(
+    handle, *, wait_for_lock: bool, timeout: float | None, want: Path | None = None
+) -> bool:
     """Take the drain flock. ``timeout`` None: block (``wait_for_lock``) or try
     once. Otherwise POLL until it is free or ``timeout`` seconds pass -- a
     blocking flock has no timeout, and a close waiting on a worker's long pass
-    must still be able to give up at its deadline."""
-    if timeout is None:
-        try:
-            oscompat.flock(
-                handle.fileno(),
-                oscompat.LOCK_EX if wait_for_lock else oscompat.LOCK_EX | oscompat.LOCK_NB,
-            )
-            return True
-        except BlockingIOError:
+    must still be able to give up at its deadline. ``want`` (a run's close):
+    while it waits it says so (`_wanting`), so the pass holding the lock gives
+    it up at its next op, and it polls often enough to take it then."""
+    try:
+        oscompat.flock(handle.fileno(), oscompat.LOCK_EX | oscompat.LOCK_NB)
+        return True
+    except BlockingIOError:
+        if timeout is None and not wait_for_lock:
             return False
-    give_up = time.monotonic() + max(0.0, timeout)
-    pause = 0.01
-    while True:
+    with _wanting(want):
+        if timeout is None:
+            oscompat.flock(handle.fileno(), oscompat.LOCK_EX)
+            return True
+        give_up = time.monotonic() + max(0.0, timeout)
+        pause = 0.01
+        cap = 0.02 if want is not None else 0.25
+        while True:
+            try:
+                oscompat.flock(handle.fileno(), oscompat.LOCK_EX | oscompat.LOCK_NB)
+                return True
+            except BlockingIOError:
+                left = give_up - time.monotonic()
+                if left <= 0:
+                    return False
+                time.sleep(min(pause, left))
+                pause = min(pause * 2, cap)
+
+
+class _DrainHold:
+    """One pass's hold on its queue's drain lock, which it gives up and takes
+    back mid-pass (#3618).
+
+    One pass held the lock from its scan to its status write, so a `finish()`
+    waited behind every upload the pass sent: ~400 s per run behind a swarm's
+    10k ops, against a 600 s cap. Now the pass lets go of the lock:
+
+    * while it waits on the network for an upload (`away`) -- holding that
+      run's lock, one flock per run slot under `Journal.run_locks_dir`, so no
+      other drain sends that run meanwhile and its order holds;
+    * between two ops (`between_ops`) when a close says it is waiting
+      (`Journal.drain_want`), or once it has held the lock `PASS_HOLD_SECONDS`.
+
+    Every drain takes a run's lock only while it holds the drain lock, and only
+    tries one (never waits on it) while holding the drain lock, so a run whose
+    lock is free under the drain lock stays free until this pass lets go, and no
+    two drains can wait on each other. Another drain may deliver, park or
+    dead-letter ops while this pass is away, so after the first letting-go every
+    op is checked on disk before it is acted on (`fresh`). A receipt queue (an
+    import) never lets go: its receipts are written in queue order.
+
+    A close's pass (``urgent``) takes the lock back within its deadline
+    (`transport.deadline_remaining`, `Run.finish`'s one budget) or raises
+    `_LockNotBack`, and lets go only for its uploads and for other closes,
+    never on the time limit: an older release's worker could take the lock in
+    that gap and keep it for its whole pass."""
+
+    def __init__(self, journal: "Journal", handle, *, urgent: bool) -> None:
+        self.journal = journal
+        self.handle = handle
+        #: A run's close (a barrier): it says it is waiting when it takes the
+        #: lock back, so a worker's pass gives way to it.
+        self.urgent = urgent
+        self.yields = not journal.receipt_enabled
+        #: How many times this pass let go of the lock.
+        self.let_go = 0
+        #: Op name -> (inode, size, mtime) when this pass last read it.
+        self.stamps: dict[str, tuple] = {}
+        self._since = time.monotonic()
+        self._slots: dict[str, Any] = {}
+        self._mine: set[str] = set()
+        self._want: Any = None
+        self._ignore_want_until = 0.0
+        self._ignore_for = PASS_HOLD_SECONDS
+
+    # -- the drain lock ------------------------------------------------------
+
+    def _release(self) -> None:
+        oscompat.flock(self.handle.fileno(), oscompat.LOCK_UN)
+        self.let_go += 1
+
+    def _deadline_left(self) -> float | None:
+        """Seconds left of a close's deadline, or None for a pass without one."""
+        if not self.urgent:
+            return None
+        from . import transport  # lazy: enqueue paths must not import httpx
+
+        left = transport.deadline_remaining(float("inf"))
+        return None if left == float("inf") else left
+
+    def _take(self) -> None:
+        left = self._deadline_left()
+        if not _take_drain_lock(
+            self.handle,
+            wait_for_lock=True,
+            timeout=left,
+            want=self.journal.drain_want if self.urgent else None,
+        ):
+            raise _LockNotBack("the close's deadline passed while another drain held the outbox")
+        self._since = time.monotonic()
+
+    def _wanted(self) -> bool:
+        """Whether a close is waiting for the lock (it holds `drain_want`)."""
+        if time.monotonic() < self._ignore_want_until:
+            return False
+        try:
+            if self._want is None:
+                self._want = open(self.journal.drain_want, "a+")
+            oscompat.flock(self._want.fileno(), oscompat.LOCK_EX | oscompat.LOCK_NB)
+        except BlockingIOError:
+            return True
+        except OSError:
+            return False
+        oscompat.flock(self._want.fileno(), oscompat.LOCK_UN)
+        return False
+
+    def _wait_for_wanters(self) -> bool:
+        """With the lock let go: wait until every close that was waiting has
+        taken it (and stopped saying so), at most `_WANT_WAIT_SECONDS` (and
+        never past this pass's own deadline)."""
+        left = self._deadline_left()
+        give_up = time.monotonic() + min(_WANT_WAIT_SECONDS, _WANT_WAIT_SECONDS if left is None else left)
+        pause = 0.001
+        while self._wanted():
+            if time.monotonic() >= give_up:
+                return False
+            time.sleep(pause)
+            pause = min(pause * 2, 0.02)
+        return True
+
+    def between_ops(self) -> None:
+        """Between two ops: give the lock to a close waiting for it, and to
+        anyone else once it has been held `PASS_HOLD_SECONDS`."""
+        if not self.yields:
+            return
+        if self._wanted():
+            self._release()
+            try:
+                if self._wait_for_wanters():
+                    self._ignore_for = PASS_HOLD_SECONDS
+                else:
+                    self._ignore_want_until = time.monotonic() + self._ignore_for
+                    self._ignore_for = min(self._ignore_for * 2, _WANT_IGNORE_MAX_SECONDS)
+            finally:
+                self._take()
+        elif not self.urgent and time.monotonic() - self._since >= PASS_HOLD_SECONDS:
+            self._release()
+            try:
+                time.sleep(_LET_GO_PAUSE_SECONDS)
+            finally:
+                self._take()
+
+    @contextmanager
+    def away(self, lanes):
+        """Let go of the drain lock while the body waits on the network for
+        uploads of ``lanes``, holding their run locks; take it back after, then
+        drop them. Settle what the body sent before the next letting-go: once
+        the run locks are dropped, nothing stops another drain sending it again.
+        Stays put (today's behaviour) when a run's lock cannot be had."""
+        lanes = set(lanes)
+        if not self.yields or any(str(lane).startswith("local:") for lane in lanes):
+            yield
+            return
+        if not self._keep(lanes):
+            self._drop()
+            yield
+            return
+        self._release()
+        try:
+            yield
+        finally:
+            try:
+                self._take()
+            finally:
+                self._drop()
+
+    # -- run locks ------------------------------------------------------------
+
+    def _slot(self, lane: Any) -> str:
+        digest = hashlib.sha256(str(lane).encode("utf-8", "surrogatepass")).digest()
+        return f"{int.from_bytes(digest[:4], 'big') % _RUN_LOCK_SLOTS:03d}"
+
+    def _open_slot(self, slot: str):
+        self.journal.run_locks_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+        return open(self.journal.run_locks_dir / f"{slot}.lock", "a+")
+
+    def busy(self, lane: Any) -> bool:
+        """Whether another drain is sending ``lane`` right now (it holds the
+        run's lock, its drain lock let go). Asked under the drain lock. The
+        slot's file is closed again at once: a pass over hundreds of runs must
+        not keep one descriptor per slot (macOS allows 256)."""
+        if not self.yields:
+            return False
+        slot = self._slot(lane)
+        if slot in self._mine:
+            return False
+        try:
+            handle = self._open_slot(slot)
+        except OSError:
+            return False  # no lock to be had: nobody else can hold it either
         try:
             oscompat.flock(handle.fileno(), oscompat.LOCK_EX | oscompat.LOCK_NB)
-            return True
         except BlockingIOError:
-            left = give_up - time.monotonic()
-            if left <= 0:
+            return True
+        except OSError:
+            return False
+        else:
+            oscompat.flock(handle.fileno(), oscompat.LOCK_UN)
+            return False
+        finally:
+            handle.close()
+
+    def _keep(self, lanes) -> bool:
+        for lane in lanes:
+            slot = self._slot(lane)
+            if slot in self._mine:
+                continue
+            try:
+                handle = self._open_slot(slot)
+            except OSError:
                 return False
-            time.sleep(min(pause, left))
-            pause = min(pause * 2, 0.25)
+            try:
+                oscompat.flock(handle.fileno(), oscompat.LOCK_EX | oscompat.LOCK_NB)
+            except OSError:  # BlockingIOError included
+                handle.close()
+                return False
+            self._slots[slot] = handle
+            self._mine.add(slot)
+        return True
+
+    def _drop(self) -> None:
+        for slot in self._mine:
+            handle = self._slots.pop(slot)
+            try:
+                oscompat.flock(handle.fileno(), oscompat.LOCK_UN)
+            except OSError:
+                pass
+            handle.close()
+        self._mine.clear()
+
+    # -- what changed while away ----------------------------------------------
+
+    def fresh(self, path: Path, op: dict) -> bool:
+        """Whether ``op`` is still queued as this pass knows it. False: it is
+        gone (another drain delivered, parked or dead-lettered it while this
+        pass was away). An op file that changed is read again, in place, so the
+        pass acts on what is on disk. Free until the pass first lets go."""
+        if not self.let_go:
+            return True
+        try:
+            stat = os.stat(path)
+        except OSError:
+            return False
+        stamp = (stat.st_ino, stat.st_size, stat.st_mtime_ns)
+        if self.stamps.get(path.name) == stamp:
+            return True
+        current = _read_op_file(path)
+        if not isinstance(current, dict):
+            return False
+        op.clear()
+        op.update(current)
+        self.stamps[path.name] = stamp
+        return True
+
+    def close(self) -> None:
+        self._drop()
+        if self._want is not None:
+            try:
+                self._want.close()
+            except OSError:
+                pass
+            self._want = None
 
 
 def drain(
@@ -6243,6 +6718,8 @@ def drain(
                 combined.skipped += part.skipped
                 combined.dead_letter_records.extend(part.dead_letter_records)
                 combined.progressed_runs |= part.progressed_runs
+                combined.busy_runs |= part.busy_runs
+                combined.superseded.merge(part.superseded)
                 for lane, stall in part.stalled_runs.items():
                     combined.stalled_runs.setdefault(lane, stall)
                 if part.retry_after is not None:
@@ -6438,12 +6915,21 @@ def drain(
                 pass
 
     lock_handle = journal.drain_lock.open("a+")
-    if not _take_drain_lock(lock_handle, wait_for_lock=wait_for_lock, timeout=lock_timeout):
+    # A run's close (its barrier, or the uploads it must see through) says it is
+    # waiting, so a pass that holds the lock gives it up at its next op (#3618).
+    urgent = run_ref is not None or only_ops is not None
+    if not _take_drain_lock(
+        lock_handle,
+        wait_for_lock=wait_for_lock,
+        timeout=lock_timeout,
+        want=journal.drain_want if urgent and not journal.receipt_enabled else None,
+    ):
         lock_handle.close()
         report.remaining = journal._count_dir(journal.ops_dir)[0]
         report.lock_busy = True
         report.errors.append("another drain holds the lock")
         return report
+    drain_hold = _DrainHold(journal, lock_handle, urgent=urgent)
 
     # Whether an upload LEFT the queue this pass (delivered or dead-lettered):
     # only then can a blob have lost its last reference. `gc_blobs` re-reads
@@ -6521,7 +7007,7 @@ def drain(
         held_back = {} if journal.receipt_enabled else journal.waiting_positions()
         # ONE parse of the queue, outside the append lock (plan 1.9): it is
         # this pass's work list, its quarantine list, and the recount's cache.
-        queued, corrupt = journal._scan_ops()
+        queued, corrupt = journal._scan_ops(stamps=drain_hold.stamps)
         known = op_meta(queued)
         report.queued_runs = {
             _lane_of(op) for _, op in [*queued, *multipart_queue] if isinstance(op, dict)
@@ -6607,7 +7093,16 @@ def drain(
                 or lane in held_runs
                 or lane in credential_lanes
                 or path.name > held_back.get(lane, path.name)
+                or drain_hold.busy(lane)
             )
+
+        def run_busy(lane: Any) -> None:
+            """Another drain is sending ``lane`` (it let go of the drain lock
+            for that run's upload, #3618): the run waits out this pass, and its
+            later ops with it. Not a failure: looked at again soon."""
+            reason = f"another drain is sending the writes of run {lane}"
+            stalled[lane] = LaneStall(reason, held=True, wake_by=_RUN_BUSY_RECHECK_SECONDS)
+            report.busy_runs.add(lane)
 
         # The window REFILLS as the serial loop advances. A single fetch was
         # worse than it looked: it took the first `workers * FACTOR` operations
@@ -6648,12 +7143,56 @@ def drain(
                     return "break"
             return "continue"
 
+        def still_queued(item_path: Path, item_op: dict) -> bool:
+            """For `_coalesce` once this pass has let go of the drain lock: an
+            op another drain sent meanwhile does not ride again (#3618)."""
+            if item_path in consumed:
+                return False
+            if drain_hold.fresh(item_path, item_op):
+                return True
+            consumed.add(item_path)
+            return False
+
+        def settle_window(items: list, landed: dict) -> dict:
+            """Credit the uploads a window sent (`_prefetch_uploads`), now: each
+            leaves the queue (one fsync for all) and is counted as the serial
+            pass counts one. Returns what could not be settled -- a receipt the
+            server's answer cannot make -- for the serial pass, as before."""
+            nonlocal settled_upload
+            ops_of = {item_path: item_op for item_path, item_op in items}
+            left: dict = {}
+            gone: list = []
+            for landed_path, result in landed.items():
+                try:
+                    journal._save_delivery_receipt(ops_of[landed_path], result)
+                except Exception:  # noqa: BLE001 -- settled by the serial pass, as before
+                    left[landed_path] = result
+                    continue
+                landed_path.unlink(missing_ok=True)
+                consumed.add(landed_path)
+                gone.append(landed_path)
+            if not gone:
+                return left
+            fsync_directory(journal.ops_dir)
+            for landed_path in gone:
+                landed_op = ops_of[landed_path]
+                journal._scan_forget(landed_path.name)
+                tally_delivered(landed_op)
+                report.delivered += 1
+                report.progressed_runs.add(_lane_of(landed_op))
+                notify_delivered(landed_op)
+                landed_fp = _stamp_fingerprint(landed_op)
+                if landed_fp is not None:
+                    delivered_fps.add(landed_fp)
+                    learn_account(landed_op)
+            settled_upload = True
+            return left
+
         def settle_failure(path: Path, op: dict, exc: Exception, lane: Any) -> str:
             """What one op's failure does to it and to the pass: ``"continue"``
             or ``"break"``. The single path and a coalesced batch (plan 1.2) both
             come here, so a merged op fails exactly as it would have alone."""
             nonlocal settled_upload, lost_responses
-            from .transport import attribution_scope
 
             if isinstance(exc, errors.OfflineRunNotCreated):
                 # An offline run's op ahead of its run (plan 2.12: its create
@@ -6680,6 +7219,25 @@ def drain(
                 return "break"
             if on_error is not None:
                 on_error(exc)
+            if errors.names_stale_write_epoch(exc) and not _is_multipart(op):
+                # A newer attempt owns the run (the op's write epoch is past):
+                # the server refuses it every time, so it is set aside in
+                # discarded/ -- kept for the record, never sent -- instead of
+                # dead-lettered, where it nagged every session start and `probe
+                # outbox retry` could never deliver it (#3629, T24). Before the
+                # idempotent check: the heartbeat's refusal names `existing_id`.
+                op["attempts"] = _attempts(op) + 1
+                op["last_error"] = _redact(f"{type(exc).__name__}: {exc}")
+                write_text_atomic(path, json.dumps(op, indent=2) + "\n", mode=0o600)
+                target = journal._discard_dir()
+                target.mkdir(parents=True, exist_ok=True, mode=0o700)
+                os.replace(path, target / path.name)
+                fsync_directory(target)
+                fsync_directory(path.parent)
+                report.superseded.add(op)
+                report.progressed_runs.add(lane)
+                settled_upload = settled_upload or op.get("kind") == "upload"
+                return "continue"
             verdict = classify(exc)
             if _edge_already_there(op, exc) or (
                 verdict == "idempotent"
@@ -6804,7 +7362,7 @@ def drain(
                         fallback = client_for(op.get("context"))
                     except Exception:
                         fallback = None
-                    with attribution_scope(op.get("attribution", "ambient")):
+                    with _delivery_scope(op):
                         recorded = fallback is not None and _record_upload_fallback(
                             journal, fallback, op
                         )
@@ -6896,18 +7454,43 @@ def drain(
                 ahead = queued[
                     position : position + workers * UPLOAD_WINDOW_FACTOR * UPLOAD_WINDOW_SCAN_FACTOR
                 ]
-                landed = _prefetch_uploads(
-                    journal,
-                    ahead,
-                    client_for,
-                    workers,
-                    run_ref,
-                    skips=window_skips,
-                    already=prefetched.keys(),
-                )
-                prefetched.update(landed)
+                if drain_hold.let_go:
+                    # Another drain may have sent or changed some of these while
+                    # this pass was away: only what is still queued may go.
+                    ahead = [
+                        item for item in ahead
+                        if item[0] in consumed or drain_hold.fresh(*item)
+                    ]
+                try:
+                    landed = _prefetch_uploads(
+                        journal,
+                        ahead,
+                        client_for,
+                        workers,
+                        run_ref,
+                        skips=window_skips,
+                        already=prefetched.keys() | consumed,
+                        away=drain_hold.away,
+                    )
+                except _LockNotBack:
+                    # Its uploads stay queued (their results unrecorded) for
+                    # the next drain, which sends them again: a file the server
+                    # already holds gets its row back, no bytes move twice.
+                    report.deadline_reached = True
+                    break
+                if drain_hold.yields:
+                    # Settled NOW, not when the serial pass reaches each one:
+                    # this pass lets go of the drain lock again, and another
+                    # drain would then send a landed upload whose op file is
+                    # still queued a second time (`_DrainHold.away`).
+                    prefetched.update(settle_window(ahead, landed))
+                else:
+                    prefetched.update(landed)
                 if landed or not any(
-                    isinstance(o, dict) and o.get("kind") == "upload" and p not in prefetched
+                    isinstance(o, dict)
+                    and o.get("kind") == "upload"
+                    and p not in prefetched
+                    and p not in consumed
                     for p, o in ahead
                 ):
                     cursor = position + workers * UPLOAD_WINDOW_FACTOR
@@ -6940,6 +7523,19 @@ def drain(
                 continue  # its run waits; the other runs do not
             if path.name > held_back.get(lane, path.name):
                 report.held_back += 1
+                continue
+            # Between two ops: a close waiting for the drain lock gets it now
+            # (#3618). Whatever another drain did meanwhile is on disk.
+            try:
+                drain_hold.between_ops()
+            except _LockNotBack:
+                report.deadline_reached = True
+                break
+            if not drain_hold.fresh(path, op):
+                consumed.add(path)
+                continue  # another drain sent it, or set it aside, while this pass was away
+            if drain_hold.busy(lane):
+                run_busy(lane)
                 continue
             kind = op.get("kind")
             if isinstance(kind, str) and kind not in OP_KINDS:
@@ -6979,11 +7575,15 @@ def drain(
             batch = (
                 []
                 if journal.receipt_enabled
-                else _coalesce(lanes.get(lane) or [], lane_index.get(path, 0), held_back.get(lane))
+                else _coalesce(
+                    lanes.get(lane) or [],
+                    lane_index.get(path, 0),
+                    held_back.get(lane),
+                    still_queued=still_queued if drain_hold.let_go else None,
+                )
             )
             for item_path, _ in batch:
                 journal._scan_forget(item_path.name)
-            from .transport import attribution_scope
 
             if batch:
                 # Plan 1.2: this op and the metric ops queued right behind it in
@@ -7003,7 +7603,7 @@ def drain(
                         break
                     continue
                 consumed.update(item[0] for item in batch)
-                with attribution_scope(op.get("attribution", "ambient")):
+                with _delivery_scope(op):
                     landed, failed, merged = _deliver_batch(journal, client, batch, run_ids)
                 report.coalesced += merged
                 try:
@@ -7020,6 +7620,7 @@ def drain(
                 if action == "break":
                     break
                 continue
+            went_away = drain_hold.let_go  # the count before this op's attempt
             try:
                 if journal.receipt_enabled and op.get("schema") != DELIVERY_SCHEMA:
                     raise errors.ValidationError(
@@ -7034,14 +7635,18 @@ def drain(
                     # thread -- see `_prefetch_uploads`.
                     journal._save_delivery_receipt(op, prefetched[path])
                 else:
-                    with attribution_scope(op.get("attribution", "ambient")):
-                        result = _execute(
-                            journal,
-                            client_for(op.get("context"), op_credential(op)[1], op=op),
-                            path,
-                            op,
-                            run_ids,
+                    with _delivery_scope(op):
+                        sender = client_for(op.get("context"), op_credential(op)[1], op=op)
+                        # An upload's bytes go with the drain lock let go and its
+                        # run's lock held (#3618): a 30 MiB file no longer holds
+                        # every other run's close for the length of its PUT.
+                        sending = (
+                            drain_hold.away({lane})
+                            if op.get("kind") == "upload" and not op.get("correlation")
+                            else nullcontext()
                         )
+                        with sending:
+                            result = _execute(journal, sender, path, op, run_ids)
                     journal._save_delivery_receipt(op, result)
                 delivered_fp = _stamp_fingerprint(op)
                 if delivered_fp is not None:
@@ -7070,10 +7675,24 @@ def drain(
                 hold(lane, [(path, op)], held)
                 continue
             except Exception as exc:  # noqa: BLE001 -- classified in settle_failure
+                if (
+                    not isinstance(exc, _LockNotBack)
+                    and drain_hold.let_go != went_away
+                    and not path.exists()
+                ):
+                    # Sent with the lock let go, and meanwhile a drain that
+                    # knows no run locks (an older release, `probe outbox
+                    # discard`) delivered it or set it aside: writing the op back
+                    # would bring it back into the queue (#3618).
+                    continue
                 if settle_failure(path, op, exc, lane) == "break":
                     break
                 continue
             else:
+                if drain_hold.let_go != went_away and not path.exists():
+                    report.delivered += 1  # it landed; another drain settled its file
+                    report.progressed_runs.add(lane)
+                    continue
                 path.unlink(missing_ok=True)
                 # fsync so a post-delivery crash cannot resurrect the op file
                 # and replay a write the server already committed (codex:
@@ -7132,8 +7751,21 @@ def drain(
             # worker does not exit with one half-sent (status.json's count, which
             # older releases read too, stays the shared queue's).
             report.remaining += _multipart_pending_count(journal)
+        drain_hold.close()
         oscompat.flock(lock_handle.fileno(), oscompat.LOCK_UN)
         lock_handle.close()
+        if report.superseded.writes:
+            # Set aside, not lost by us: a newer attempt owns those runs (T24).
+            # Every drain says so -- a `finish()`'s, a flush's, the worker's --
+            # as a dead letter used to reach `probe outbox status`.
+            try:
+                from .._shared import telemetry as _telemetry
+
+                _telemetry.emit_outbox_discarded(
+                    report.superseded, reason=_telemetry.DiscardReason.SUPERSEDED
+                )
+            except Exception:  # noqa: BLE001 -- telemetry never stops delivery
+                pass
     return report
 
 
@@ -7189,10 +7821,18 @@ def _merge_key(op: dict) -> str | None:
         return None
 
 
-def _coalesce(lane: list[tuple[Path, dict]], start: int, held_back: str | None) -> list:
+def _coalesce(
+    lane: list[tuple[Path, dict]],
+    start: int,
+    held_back: str | None,
+    *,
+    still_queued: Callable[[Path, dict], bool] | None = None,
+) -> list:
     """The ops from ``lane[start]`` on that ride in one POST, or [] when fewer
     than two would: consecutive, same `_merge_key`, not held back behind a
-    waiting upload, within the point and byte caps."""
+    waiting upload, within the point and byte caps. ``still_queued(path, op)``
+    (a pass that let go of the drain lock, #3618) leaves out an op another
+    drain sent meanwhile, and reads a changed one again first."""
     if start >= len(lane):
         return []
     head_key = _merge_key(lane[start][1])
@@ -7206,6 +7846,8 @@ def _coalesce(lane: list[tuple[Path, dict]], start: int, held_back: str | None) 
     for path, op in lane[start:]:
         if batch and (held_back is not None and path.name > held_back):
             break
+        if batch and still_queued is not None and not still_queued(path, op):
+            continue
         if _merge_key(op) != head_key or (batch and _attempts(op) > 0):
             break
         count = len(op["body"]["points"])
@@ -7457,6 +8099,43 @@ class LaneBackoff:
     def at_ceiling(self) -> bool:
         """Whether some run has backed off all the way to the ceiling."""
         return any(wait >= self._ceiling for wait in self._last_wait.values())
+
+
+def _queued_at(op: dict) -> str:
+    """When ``op``'s work happened: a daemon command's `event_at`, else when it
+    was queued (ISO 8601; '' for neither)."""
+    return str(op.get("event_at") or op.get("enqueued_at") or "")
+
+
+def _queued_bucket(op: dict) -> int | None:
+    """The 5-minute effort bucket of `_queued_at` (the server's), or None."""
+    from datetime import datetime
+
+    try:
+        return int(datetime.fromisoformat(_queued_at(op)).timestamp() // 300)
+    except (ValueError, OverflowError, OSError):
+        return None
+
+
+@contextmanager
+def _delivery_scope(op: dict):
+    """Deliver ``op`` as its writer queued it: under its persisted attribution,
+    as the agent session that queued it, dated when its work happened
+    (`agent_session.EVENT_AT_HEADER`, swarm friction R2), so a write the
+    backlog held for an hour counts that session's effort when it happened,
+    whichever process drains it. An op an older SDK queued names no session:
+    sent as before (the drainer's session, at its arrival). A run process's op
+    goes as the run's (`X-Probe-Write-Origin`, R41); every other op, an older
+    SDK's included, with no origin, whatever the drainer itself is."""
+    from .transport import attribution_scope, event_at_scope, queued_origin_scope, queued_session_scope
+
+    with ExitStack() as scope:
+        scope.enter_context(attribution_scope(op.get("attribution", "ambient")))
+        scope.enter_context(queued_origin_scope(op.get("write_origin")))
+        if "agent_session" in op:
+            scope.enter_context(queued_session_scope(op["agent_session"]))
+            scope.enter_context(event_at_scope(_queued_at(op) or None))
+        yield
 
 
 def _execute(

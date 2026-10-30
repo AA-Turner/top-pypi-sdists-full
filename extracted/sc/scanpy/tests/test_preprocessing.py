@@ -87,6 +87,26 @@ def base(request):
     return request.param
 
 
+@pytest.mark.parametrize(
+    ("kwargs", "expect_warning"),
+    [
+        pytest.param({}, True, id="X"),
+        pytest.param({"layer": "spliced"}, False, id="layer"),
+        pytest.param({"obsm": "rep"}, False, id="obsm"),
+    ],
+)
+def test_log1p_already_transformed_warning(
+    caplog: pytest.LogCaptureFixture, kwargs: dict[str, str], *, expect_warning: bool
+) -> None:
+    """Only warn when the representation being transformed is `X`."""
+    a = np.random.default_rng(0).random((20, 5)).astype(np.float32)
+    adata = AnnData(a.copy(), layers={"spliced": a.copy()}, obsm={"rep": a.copy()})
+    sc.pp.log1p(adata)
+    caplog.clear()
+    sc.pp.log1p(adata, **kwargs)
+    assert ("already log-transformed" in caplog.text) is expect_warning
+
+
 def test_log1p_rep(count_matrix_format: _MatrixFormat, base, dtype: DTypeLike) -> None:
     x = count_matrix_format(
         np.abs(sparse.random(100, 200, density=0.3, dtype=dtype)).toarray()
@@ -405,6 +425,8 @@ def test_regress_out_ordinal():
     np.testing.assert_array_equal(single.X, multi.X)
 
 
+# genes with equal means in both categories have a constant regressor (collinear with the intercept)
+@pytest.mark.filterwarnings("ignore:The design matrix is rank-deficient:UserWarning")
 @pytest.mark.parametrize("dtype", [np.uint32, np.float64, np.uint64])
 def test_regress_out_int(data_dir: Path, dtype: type[np.generic]):
     adata = pbmc3k()[:200, :200].copy()
@@ -416,8 +438,8 @@ def test_regress_out_int(data_dir: Path, dtype: type[np.generic]):
     adata_other = adata.copy()
     adata_other.X = adata_other.X.astype(dtype)
     # results using only one processor
-    sc.pp.regress_out(adata, keys=["labels"])
-    sc.pp.regress_out(adata_other, keys=["labels"])
+    sc.pp.regress_out(adata, keys=["labels"], n_jobs=1)
+    sc.pp.regress_out(adata_other, keys=["labels"], n_jobs=1)
     assert_equal(adata_other, adata)
     # This file was generated under scanpy 1.10.3
     ground_truth = np.load(data_dir / "cat_regressor_for_int_input.npy")

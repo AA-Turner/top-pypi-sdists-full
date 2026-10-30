@@ -57,6 +57,8 @@ from .literals import (
     InstanceAccessProtocolType,
     InstanceHealthReasonType,
     InstanceHealthStateType,
+    InstanceHealthStatusDetailValueType,
+    InstanceHealthStatusValueType,
     InstanceMetadataStateType,
     InstanceMetricNameType,
     InstancePlatformType,
@@ -456,6 +458,8 @@ __all__ = (
     "InstanceAttributeUpdatesTypeDef",
     "InstanceEntryTypeDef",
     "InstanceHardwareTypeDef",
+    "InstanceHealthStatusDetailTypeDef",
+    "InstanceHealthStatusTypeDef",
     "InstanceHealthSummaryTypeDef",
     "InstanceMetadataOptionsTypeDef",
     "InstanceNetworkingTypeDef",
@@ -1292,6 +1296,7 @@ class InstancePortStateTypeDef(TypedDict):
 
 class GetInstanceRequestTypeDef(TypedDict):
     instanceName: str
+    includeHealthStatus: NotRequired[bool]
 
 
 class GetInstanceSnapshotRequestTypeDef(TypedDict):
@@ -1313,6 +1318,7 @@ class InstanceStateTypeDef(TypedDict):
 
 class GetInstancesRequestTypeDef(TypedDict):
     pageToken: NotRequired[str]
+    includeHealthStatus: NotRequired[bool]
 
 
 class GetKeyPairRequestTypeDef(TypedDict):
@@ -1496,6 +1502,12 @@ class PasswordDataTypeDef(TypedDict):
 
 class InstanceAttributeUpdatesTypeDef(TypedDict):
     bundleId: NotRequired[str]
+
+
+class InstanceHealthStatusDetailTypeDef(TypedDict):
+    name: NotRequired[Literal["reachability"]]
+    status: NotRequired[InstanceHealthStatusDetailValueType]
+    impairedSince: NotRequired[datetime]
 
 
 class InstanceHealthSummaryTypeDef(TypedDict):
@@ -2352,6 +2364,7 @@ class GetInstanceSnapshotsRequestPaginateTypeDef(TypedDict):
 
 
 class GetInstancesRequestPaginateTypeDef(TypedDict):
+    includeHealthStatus: NotRequired[bool]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -2511,6 +2524,11 @@ class InstanceAccessDetailsTypeDef(TypedDict):
 class StartInstanceRequestTypeDef(TypedDict):
     instanceName: str
     attributeUpdates: NotRequired[InstanceAttributeUpdatesTypeDef]
+
+
+class InstanceHealthStatusTypeDef(TypedDict):
+    status: NotRequired[InstanceHealthStatusValueType]
+    details: NotRequired[list[InstanceHealthStatusDetailTypeDef]]
 
 
 class InstanceNetworkingTypeDef(TypedDict):
@@ -3436,6 +3454,8 @@ class InstanceTypeDef(TypedDict):
     username: NotRequired[str]
     sshKeyName: NotRequired[str]
     metadataOptions: NotRequired[InstanceMetadataOptionsTypeDef]
+    instanceStatus: NotRequired[InstanceHealthStatusTypeDef]
+    systemStatus: NotRequired[InstanceHealthStatusTypeDef]
 
 
 class GetInstanceSnapshotResultTypeDef(TypedDict):

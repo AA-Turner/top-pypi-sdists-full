@@ -1,12 +1,12 @@
-import structlog
 import temporalio
 import temporalio.workflow
 
+from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.activity import activity
 
 from .sticky_worker_session import StickyWorkerSession
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 GET_STICKY_WORKER_SESSION_ACTIVITY_NAME = "get_sticky_worker_session"
 

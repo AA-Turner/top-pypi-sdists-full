@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bluesky
-Version: 1.15.1
+Version: 1.16.0
 Summary: Experiment specification & orchestration.
 Author: danielballan
 License: BSD 3-Clause License
@@ -45,7 +45,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: LICENSE_README
 Requires-Dist: cycler
-Requires-Dist: event-model>=1.23.1
+Requires-Dist: event-model>=1.24.0
 Requires-Dist: historydict
 Requires-Dist: msgpack
 Requires-Dist: msgpack-numpy
@@ -78,6 +78,7 @@ Requires-Dist: networkx; extra == "dev"
 Requires-Dist: numpydoc; extra == "dev"
 Requires-Dist: opentelemetry-sdk; extra == "dev"
 Requires-Dist: ophyd; extra == "dev"
+Requires-Dist: ophyd-async>=0.13.5; python_version >= "3.11" and extra == "dev"
 Requires-Dist: orjson; extra == "dev"
 Requires-Dist: packaging; extra == "dev"
 Requires-Dist: pandas; extra == "dev"
@@ -90,6 +91,7 @@ Requires-Dist: pyqt5; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: pytest-faulthandler; extra == "dev"
+Requires-Dist: pytest-xdist>=3.8.0; extra == "dev"
 Requires-Dist: pyyaml; extra == "dev"
 Requires-Dist: pyzmq; extra == "dev"
 Requires-Dist: requests; extra == "dev"
@@ -107,9 +109,9 @@ Requires-Dist: suitcase-jsonl; extra == "dev"
 Requires-Dist: suitcase-mongo; extra == "dev"
 Requires-Dist: suitcase-msgpack; extra == "dev"
 Requires-Dist: tifffile; extra == "dev"
+Requires-Dist: tiled[server]; extra == "dev"
 Requires-Dist: tox-direct; extra == "dev"
 Requires-Dist: types-mock; extra == "dev"
-Requires-Dist: tiled[all]; extra == "dev"
 Requires-Dist: vendoring; extra == "dev"
 Requires-Dist: zict; extra == "dev"
 Requires-Dist: pytest-mock>=3.15.1; extra == "dev"

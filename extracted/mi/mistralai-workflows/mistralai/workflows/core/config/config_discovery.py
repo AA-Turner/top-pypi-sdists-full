@@ -4,10 +4,10 @@ import warnings
 from typing import Any
 from urllib.parse import urlparse
 
-import structlog
 from httpx import HTTPStatusError
 
 from mistralai.workflows.client import translate_model
+from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.auth import get_token_provider
 from mistralai.workflows.core.config.config import adopt_remote_default, apply_remote_defaults, config
 from mistralai.workflows.core.worker_client import get_worker_client
@@ -15,7 +15,7 @@ from mistralai.workflows.exceptions import ErrorCode, WorkflowsException
 from mistralai.workflows.protocol.v1.worker import WorkerInfo
 from mistralai.workflows.worker_client.errors import SDKError
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 
 class WorkerRuntimeConfig(WorkerInfo):

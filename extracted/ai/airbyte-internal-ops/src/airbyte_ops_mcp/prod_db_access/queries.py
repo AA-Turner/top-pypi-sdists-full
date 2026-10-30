@@ -940,7 +940,7 @@ def query_failed_sync_attempts_for_connector(
 
     Args:
         connector_definition_id: Connector definition UUID to filter by
-        organization_id: Optional organization UUID to filter results by (post-query filter)
+        organization_id: Optional organization UUID to filter before applying the limit
         days: Number of days to look back (default: 7)
         limit: Maximum number of results (default: 100)
         is_destination: If `True`, match destination actors (via `connection.destination_id`)
@@ -963,18 +963,13 @@ def query_failed_sync_attempts_for_connector(
         query,
         parameters={
             "connector_definition_id": connector_definition_id,
+            "organization_id": organization_id,
             "cutoff_date": cutoff_date,
             "limit": limit,
         },
         query_name=query_name,
         gsm_client=gsm_client,
     )
-
-    # Post-query filter by organization_id if provided
-    if organization_id is not None:
-        results = [
-            r for r in results if str(r.get("organization_id")) == organization_id
-        ]
 
     return results
 

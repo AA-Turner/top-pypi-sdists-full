@@ -10,6 +10,10 @@ from tests.dialects.test_dialect import Validator
 class TestDuckDB(Validator):
     dialect = "duckdb"
 
+    def test_date_trunc(self):
+        for unit in ("MONTH", "HOUR"):
+            self.validate_identity(f"DATE_TRUNC('{unit}', CAST('2024-05-09' AS DATE))")
+
     def test_join_by_type(self):
         for table in ("directed", "straight_join"):
             self.validate_identity(
@@ -263,24 +267,60 @@ class TestDuckDB(Validator):
         # DuckDB keywords whose sqlglot entries used to carry the Postgres grammar's _p suffix,
         # plus DuckDB-specific reserved keywords (see duckdb_keywords())
         for keyword in (
+            "anti",
             "asc",
+            "asof",
+            "at",
+            "authorization",
+            "binary",
+            "by",
             "check",
+            "collation",
+            "columns",
+            "concurrently",
             "create",
+            "cross",
             "desc",
             "describe",
             "end",
             "false",
+            "freeze",
+            "full",
+            "generated",
+            "glob",
             "group",
+            "ilike",
             "in",
+            "inner",
+            "is",
+            "isnull",
+            "join",
             "lambda",
             "lateral",
+            "left",
+            "like",
+            "map",
+            "natural",
+            "notnull",
             "null",
+            "outer",
+            "overlaps",
             "pivot",
+            "positional",
             "qualify",
+            "right",
+            "semi",
             "show",
+            "similar",
+            "struct",
             "summarize",
+            "tablesample",
             "true",
+            "try_cast",
+            "tuple",
+            "unpack",
             "unpivot",
+            "verbose",
         ):
             with self.subTest(keyword=keyword):
                 self.assertEqual(exp.column(keyword).sql("duckdb"), f'"{keyword}"')
@@ -1348,15 +1388,28 @@ class TestDuckDB(Validator):
             """SELECT DATEDIFF('day', t1."A", t1."B") FROM "table" AS t1""",
             write={
                 "duckdb": """SELECT DATE_DIFF('DAY', t1."A", t1."B") FROM "table" AS t1""",
-                "trino": """SELECT DATE_DIFF('DAY', t1."A", t1."B") FROM "table" AS t1""",
+                "trino": """SELECT DATE_DIFF('DAY', DATE_TRUNC('DAY', t1."A"), DATE_TRUNC('DAY', t1."B")) FROM "table" AS t1""",
             },
         )
         self.validate_all(
             "SELECT DATE_DIFF('day', DATE '2020-01-01', DATE '2020-01-05')",
             write={
                 "duckdb": "SELECT DATE_DIFF('DAY', CAST('2020-01-01' AS DATE), CAST('2020-01-05' AS DATE))",
-                "trino": "SELECT DATE_DIFF('DAY', CAST('2020-01-01' AS DATE), CAST('2020-01-05' AS DATE))",
+                "trino": "SELECT DATE_DIFF('DAY', DATE_TRUNC('DAY', CAST('2020-01-01' AS DATE)), DATE_TRUNC('DAY', CAST('2020-01-05' AS DATE)))",
             },
+        )
+        # DATE_DIFF counts unit boundaries (one month from 2026-01-31 to 2026-03-01 is 2), except WEEK
+        self.validate_all(
+            "SELECT DATE_DIFF('MONTH', CAST('2026-01-31' AS DATE), CAST('2026-03-01' AS DATE))",
+            write={
+                "duckdb": "SELECT DATE_DIFF('MONTH', CAST('2026-01-31' AS DATE), CAST('2026-03-01' AS DATE))",
+                "postgres": "SELECT CAST(EXTRACT(year FROM AGE(DATE_TRUNC('MONTH', CAST(CAST('2026-03-01' AS DATE) AS TIMESTAMP)), DATE_TRUNC('MONTH', CAST(CAST('2026-01-31' AS DATE) AS TIMESTAMP)))) * 12 + EXTRACT(month FROM AGE(DATE_TRUNC('MONTH', CAST(CAST('2026-03-01' AS DATE) AS TIMESTAMP)), DATE_TRUNC('MONTH', CAST(CAST('2026-01-31' AS DATE) AS TIMESTAMP)))) AS BIGINT)",
+            },
+        )
+        self.assertIsNone(
+            parse_one("SELECT DATE_DIFF('WEEK', a, b)", read="duckdb")
+            .find(exp.DateDiff)
+            .args.get("date_part_boundary")
         )
         self.validate_all(
             "WITH 'x' AS (SELECT 1) SELECT * FROM x",
@@ -1931,7 +1984,8 @@ class TestDuckDB(Validator):
         ):
             with self.subTest(f"Testing DuckDB VALUES with modifier option: {option}"):
                 self.validate_identity(
-                    f"SELECT 1 FROM (SELECT 1) AS t(c) WHERE ((VALUES (1), (c) {option}) INTERSECT (SELECT 1))"
+                    f"SELECT 1 FROM (SELECT 1) AS t(c) WHERE ((VALUES (1), (c) {option}) INTERSECT (SELECT 1))",
+                    f"SELECT 1 FROM (SELECT 1) AS t(c) WHERE ((SELECT * FROM (VALUES (1), (c)) AS _values {option}) INTERSECT (SELECT 1))",
                 )
 
         self.validate_identity("FORMAT('foo')")
@@ -2315,6 +2369,18 @@ class TestDuckDB(Validator):
         )
 
     def test_time(self):
+        self.validate_identity(
+            "SELECT DATE_ADD(TIMESTAMP '2024-01-01', INTERVAL 1 DAY) - DATE_ADD(TIMESTAMP '2024-01-01', INTERVAL 1 DAY)",
+            "SELECT CAST('2024-01-01' AS TIMESTAMP) + INTERVAL '1' DAY - (CAST('2024-01-01' AS TIMESTAMP) + INTERVAL '1' DAY)",
+        )
+        self.validate_identity(
+            "SELECT INTERVAL 1 DAY + DATE_ADD(TIMESTAMP '2024-01-30', INTERVAL 1 MONTH)",
+            "SELECT INTERVAL '1' DAY + (CAST('2024-01-30' AS TIMESTAMP) + INTERVAL '1' MONTH)",
+        )
+        self.validate_identity(
+            "SELECT DATE_ADD(TIMESTAMP '2024-01-01', INTERVAL 1 DAY) AT TIME ZONE 'UTC'",
+            "SELECT (CAST('2024-01-01' AS TIMESTAMP) + INTERVAL '1' DAY) AT TIME ZONE 'UTC'",
+        )
         self.validate_identity("SELECT CURRENT_DATE")
         self.validate_identity("SELECT CURRENT_TIMESTAMP")
 
@@ -3445,6 +3511,12 @@ class TestDuckDB(Validator):
         )
 
     def test_to_array(self):
+        for sql in (
+            "SELECT TO_ARRAY([]) AS result",
+            "SELECT TO_ARRAY(ARRAY_CONSTRUCT()) AS result",
+        ):
+            self.validate_all("SELECT [] AS result", read={"snowflake": sql})
+
         self.validate_all(
             "SELECT CASE WHEN 'hello, snowman' IS NULL THEN NULL ELSE ['hello, snowman'] END AS result",
             read={

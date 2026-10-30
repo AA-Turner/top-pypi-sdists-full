@@ -5,6 +5,8 @@ from typing import Any, Callable, Optional
 import torch
 from torch import Tensor
 
+from megatron.core.distributed.fsdp.src.megatron_fsdp.experimental.module import FsdpModule
+from megatron.core.models.common.combined_1f1b_mfsdp_scheduler import reshard_fsdp_module
 from megatron.core.pipeline_parallel.utils import (
     AbstractSchedulePlan,
     NoopScheduleNode,
@@ -339,7 +341,8 @@ class TransformerModelChunkSchedulePlan(AbstractSchedulePlan):
         loss_mask: Optional[Tensor] = None,
         padding_mask=None,
         *,
-        output_processor: Optional[Callable[..., Tensor]] = None,
+        mtp_input_mask: Optional[Tensor] = None,
+        output_processor: Optional[Callable[..., Any]] = None,
         output_processor_context: Optional[Any] = None,
     ):
         """Initialize the schedule plan of all Transformer layers' sub-modules.
@@ -358,6 +361,11 @@ class TransformerModelChunkSchedulePlan(AbstractSchedulePlan):
             extra_block_kwargs: Additional keyword arguments for blocks.
             runtime_gather_output: Whether to gather output at runtime.
             loss_mask (torch.Tensor): Used to mask out some portions of the loss
+            mtp_input_mask (Optional[torch.Tensor]): Tensor of shape ``[batch, sequence]``
+                whose values are converted to booleans. Nonzero/``True`` marks a valid MTP
+                conditioning token; zero/``False`` invalidates that token and any deeper MTP
+                prediction path that crosses it. ``None`` applies no additional conditioning
+                mask.
             output_processor (Callable): Custom postprocess hook to run instead of the
                 default logits/loss path.
             output_processor_context (Any): User-defined context object forwarded to
@@ -386,6 +394,7 @@ class TransformerModelChunkSchedulePlan(AbstractSchedulePlan):
         self._model_chunk_state.labels = labels
         self._model_chunk_state.mtp_hidden_states = None
         self._model_chunk_state.loss_mask = loss_mask
+        self._model_chunk_state.mtp_input_mask = mtp_input_mask  # type: ignore[attr-defined]
         self._model_chunk_state.packed_seq_params = packed_seq_params
         self._model_chunk_state.padding_mask = padding_mask
         self._model_chunk_state.extra_block_kwargs = extra_block_kwargs
@@ -415,6 +424,24 @@ class TransformerModelChunkSchedulePlan(AbstractSchedulePlan):
             self.post_process = post_process_cls(
                 model, self._model_chunk_state, self._event, get_comp_stream
             )
+
+        # setup FSDP hooks
+        has_fsdp_module = any(isinstance(submodule, FsdpModule) for submodule in model.modules())
+        if has_fsdp_module:
+            for layer_plan in self._transformer_layers:
+                # Forward resharding follows the schedule. Backward resharding and
+                # reduction are triggered by each FsdpModule's gradient countdown.
+                #
+                # One hook per layer plan pins the reshard boundary to "one transformer
+                # layer == one FSDP unit": the plan registers it on its own layer module
+                # (TransformerLayer / HybridStack / MTP layer) and fires it on that layer's
+                # last forward node, so the layer's all-gathered parameters are released at
+                # the layer boundary. That only holds while the FSDP unit is the layer
+                # itself -- the granularity `set_fsdp_reshard_hooks` asserts and the MFSDP
+                # v2 adapter forms for EP overlap (``fsdp_unit_modules``). A sub-layer unit
+                # would need a hook per unit; a coarser one would need this hoisted to the
+                # enclosing plan.
+                layer_plan.set_fsdp_reshard_hooks(reshard_fsdp_module, lambda _: None)
 
     def _build_layer_schedule_plan(self, module, comp_stream, comm_stream):
         if module is None:

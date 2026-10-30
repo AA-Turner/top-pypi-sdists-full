@@ -5,7 +5,12 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List, Optional, Tuple
 
 from azure.core.credentials import TokenCredential
-from azure.core.exceptions import HttpResponseError, ResourceExistsError, ResourceNotFoundError
+from azure.core.exceptions import (
+    AzureError,
+    HttpResponseError,
+    ResourceExistsError,
+    ResourceNotFoundError,
+)
 from azure.mgmt import compute as compute_mgmt
 from azure.mgmt import network as network_mgmt
 from azure.mgmt.compute.models import (
@@ -37,6 +42,7 @@ from dstack._internal.core.backends.azure import resources as azure_resources
 from dstack._internal.core.backends.azure import utils as azure_utils
 from dstack._internal.core.backends.azure.models import AzureConfig
 from dstack._internal.core.backends.base.compute import (
+    PROVIDER_REF_TAG_KEY,
     Compute,
     ComputeWithAllOffersCached,
     ComputeWithCreateInstanceSupport,
@@ -44,10 +50,12 @@ from dstack._internal.core.backends.base.compute import (
     ComputeWithInstanceVolumesSupport,
     ComputeWithMultinodeSupport,
     ComputeWithPrivilegedSupport,
+    ComputeWithResourceListingSupport,
     generate_unique_gateway_instance_name,
     generate_unique_instance_name,
     get_gateway_user_data,
     get_user_data,
+    is_valid_provider_ref,
     merge_tags,
     requires_nvidia_proprietary_kernel_modules,
 )
@@ -55,6 +63,11 @@ from dstack._internal.core.backends.base.offers import get_catalog_offers
 from dstack._internal.core.consts import DSTACK_OS_IMAGE_WITH_PROPRIETARY_NVIDIA_KERNEL_MODULES
 from dstack._internal.core.errors import ComputeError, NoCapacityError
 from dstack._internal.core.models.backends.base import BackendType
+from dstack._internal.core.models.backends.orphans import (
+    ListedResourceGroup,
+    OwnerType,
+    ResourceListing,
+)
 from dstack._internal.core.models.gateways import (
     GatewayReplicaConfiguration,
     GatewayReplicaProvisioningData,
@@ -69,6 +82,7 @@ from dstack._internal.core.models.instances import (
 from dstack._internal.core.models.placement import PlacementGroup
 from dstack._internal.core.models.resources import Memory, Range
 from dstack._internal.core.models.runs import JobProvisioningData
+from dstack._internal.utils.common import get_or_error
 from dstack._internal.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -84,6 +98,7 @@ class AzureCompute(
     ComputeWithInstanceVolumesSupport,
     ComputeWithMultinodeSupport,
     ComputeWithGatewaySupport,
+    ComputeWithResourceListingSupport,
     Compute,
 ):
     def __init__(self, config: AzureConfig, credential: TokenCredential):
@@ -139,14 +154,14 @@ class AzureCompute(
         allocate_public_ip = self.config.allocate_public_ips
         network_resource_group, network, subnet = get_resource_group_network_subnet_or_error(
             network_client=self._network_client,
-            resource_group=self.config.resource_group,
+            resource_group=self.config.get_resource_group(),
             vpc_ids=self.config.vpc_ids,
             subnet_ids=self.config.subnet_ids,
             location=location,
             allocate_public_ip=allocate_public_ip,
         )
         network_security_group = azure_utils.get_default_network_security_group_name(
-            resource_group=self.config.resource_group,
+            resource_group=self.config.get_resource_group(),
             location=location,
         )
 
@@ -160,6 +175,8 @@ class AzureCompute(
             "dstack_name": instance_config.instance_name,
             "dstack_user": instance_config.user,
         }
+        if instance_config.provider_ref is not None:
+            base_tags[PROVIDER_REF_TAG_KEY] = instance_config.provider_ref
         tags = merge_tags(
             base_tags=base_tags,
             backend_tags=self.config.tags,
@@ -173,7 +190,7 @@ class AzureCompute(
             compute_client=self._compute_client,
             subscription_id=self.config.subscription_id,
             location=location,
-            resource_group=self.config.resource_group,
+            resource_group=self.config.get_resource_group(),
             network_security_group=network_security_group,
             network=network,
             subnet=subnet,
@@ -197,7 +214,7 @@ class AzureCompute(
         logger.info("Request succeeded")
         public_ip, private_ip = _get_vm_public_private_ips(
             network_client=self._network_client,
-            resource_group=self.config.resource_group,
+            resource_group=self.config.get_resource_group(),
             vm=vm,
         )
         hostname = public_ip
@@ -206,7 +223,7 @@ class AzureCompute(
         return JobProvisioningData(
             backend=instance_offer.backend,
             instance_type=instance_offer.instance,
-            instance_id=vm.name,
+            instance_id=get_or_error(vm.name),
             hostname=hostname,
             internal_ip=private_ip,
             region=location,
@@ -223,9 +240,63 @@ class AzureCompute(
     ):
         _terminate_instance(
             compute_client=self._compute_client,
-            resource_group=self.config.resource_group,
+            resource_group=self.config.get_resource_group(),
             instance_name=instance_id,
         )
+
+    def list_resource_groups(self) -> ResourceListing:
+        """
+        Lists dstack resource groups (`ListedResourceGroup`) for orphan cleanup.
+        Not related to Azure resource groups.
+
+        Each group is a VM tagged with `provider_ref`, listed across all locations of the
+        configured Azure resource group. Groups contain only VMs since Azure deletes the OS disk,
+        NIC, and public IP created with a VM together with the VM.
+        """
+        try:
+            vms = list(
+                self._compute_client.virtual_machines.list(
+                    resource_group_name=self.config.get_resource_group()
+                )
+            )
+        except AzureError as e:
+            raise ComputeError(f"Failed to list VMs: {e}") from e
+        resource_groups = []
+        for vm in vms:
+            provider_ref = _get_vm_provider_ref(vm)
+            if provider_ref is None:
+                continue
+            if (vm.provisioning_state or "").lower() == "deleting":
+                continue
+            resource_groups.append(
+                ListedResourceGroup(
+                    backend=BackendType.AZURE,
+                    owner_type=OwnerType.INSTANCE,
+                    provider_ref=provider_ref,
+                    primary_id=vm.name,
+                    region=vm.location,
+                    created_at=vm.time_created,
+                    description=f"VM {vm.name} ({_get_vm_size(vm)}, {vm.provisioning_state})",
+                    backend_data=None,
+                )
+            )
+        return ResourceListing(resource_groups=resource_groups)
+
+    def delete_resource_group(self, group: ListedResourceGroup) -> None:
+        """
+        Deletes the VM of a dstack resource group (`ListedResourceGroup`).
+        Not related to Azure resource groups.
+        """
+        try:
+            _terminate_instance(
+                compute_client=self._compute_client,
+                resource_group=self.config.get_resource_group(),
+                instance_name=get_or_error(group.primary_id),
+            )
+        except ResourceNotFoundError:
+            pass
+        except AzureError as e:
+            raise ComputeError(f"Failed to delete resource group {group.provider_ref}: {e}") from e
 
     def create_gateway_replica(
         self,
@@ -249,14 +320,14 @@ class AzureCompute(
         )
         network_resource_group, network, subnet = get_resource_group_network_subnet_or_error(
             network_client=self._network_client,
-            resource_group=self.config.resource_group,
+            resource_group=self.config.get_resource_group(),
             vpc_ids=self.config.vpc_ids,
             subnet_ids=self.config.subnet_ids,
             location=configuration.region,
             allocate_public_ip=True,
         )
         network_security_group = azure_utils.get_default_network_security_group_name(
-            resource_group=self.config.resource_group,
+            resource_group=self.config.get_resource_group(),
             location=configuration.region,
         )
 
@@ -278,7 +349,7 @@ class AzureCompute(
             compute_client=self._compute_client,
             subscription_id=self.config.subscription_id,
             location=configuration.region,
-            resource_group=self.config.resource_group,
+            resource_group=self.config.get_resource_group(),
             network_security_group=network_security_group,
             network=network,
             subnet=subnet,
@@ -298,12 +369,12 @@ class AzureCompute(
         logger.info("Request succeeded")
         public_ip, _ = _get_vm_public_private_ips(
             network_client=self._network_client,
-            resource_group=self.config.resource_group,
+            resource_group=self.config.get_resource_group(),
             vm=vm,
         )
         return GatewayReplicaProvisioningData(
-            instance_id=vm.name,
-            ip_address=public_ip,
+            instance_id=get_or_error(vm.name),
+            ip_address=get_or_error(public_ip),
             region=configuration.region,
         )
 
@@ -478,10 +549,11 @@ def _supported_instances(offer: InstanceOffer) -> bool:
 
 def _get_offers_with_availability(
     compute_client: compute_mgmt.ComputeManagementClient,
-    config_locations: List[str],
+    config_locations: Optional[List[str]],
     offers: List[InstanceOffer],
 ) -> List[InstanceOfferWithAvailability]:
-    offers = [offer for offer in offers if offer.region in config_locations]
+    if config_locations is not None:
+        offers = [offer for offer in offers if offer.region in config_locations]
     locations = set(offer.region for offer in offers)
 
     def get_location_quotas(location: str) -> List[str]:
@@ -512,11 +584,12 @@ def _get_offers_with_availability(
 
 
 def _vm_type_available(vm_resource: ResourceSku) -> bool:
-    if len(vm_resource.restrictions) == 0:
+    restrictions = vm_resource.restrictions
+    if not restrictions:
         return True
     # If a VM type is restricted in "Zone", it is still available in other zone.
     # Otherwise the restriction type is "Location"
-    if vm_resource.restrictions[0].type == "Zone":
+    if restrictions[0].type == "Zone":
         return True
     return False
 
@@ -600,10 +673,13 @@ def _begin_create_instance(
             },
         )
     try:
+        # The typed overloads of the TypeSpec-generated models (azure-mgmt-compute 38+) only
+        # accept nested `properties`. The flattened kwargs used here are supported at runtime
+        # and are the only form accepted by older SDK versions.
         poller = compute_client.virtual_machines.begin_create_or_update(
             resource_group,
             instance_name,
-            VirtualMachine(
+            VirtualMachine(  # pyright: ignore[reportCallIssue]
                 location=location,
                 hardware_profile=HardwareProfile(vm_size=vm_size),
                 storage_profile=StorageProfile(
@@ -634,8 +710,10 @@ def _begin_create_instance(
                 ),
                 network_profile=NetworkProfile(
                     network_api_version=network_mgmt.NetworkManagementClient.DEFAULT_API_VERSION,
+                    # Azure deletes the NIC and public IP created from these configurations
+                    # together with the VM.
                     network_interface_configurations=[
-                        VirtualMachineNetworkInterfaceConfiguration(
+                        VirtualMachineNetworkInterfaceConfiguration(  # pyright: ignore[reportCallIssue]
                             name="nic_config",
                             network_security_group=SubResource(
                                 id=azure_utils.get_network_security_group_id(
@@ -645,7 +723,7 @@ def _begin_create_instance(
                                 )
                             ),
                             ip_configurations=[
-                                VirtualMachineNetworkInterfaceIPConfiguration(
+                                VirtualMachineNetworkInterfaceIPConfiguration(  # pyright: ignore[reportCallIssue]
                                     name="ip_config",
                                     subnet=SubResource(
                                         id=azure_utils.get_subnet_id(
@@ -782,14 +860,40 @@ def _get_vm_public_private_ips(
         network_interface_name=nic_name,
     )
 
-    private_ip = nic.ip_configurations[0].private_ip_address
-    if nic.ip_configurations[0].public_ip_address is None:
+    ip_configuration = get_or_error(nic.ip_configurations)[0]
+    private_ip = get_or_error(ip_configuration.private_ip_address)
+    if ip_configuration.public_ip_address is None:
         return None, private_ip
 
-    public_ip_id = nic.ip_configurations[0].public_ip_address.id
+    public_ip_id = get_or_error(ip_configuration.public_ip_address.id)
     public_ip_name = azure_utils.get_resource_name_from_resource_id(public_ip_id)
     public_ip = network_client.public_ip_addresses.get(resource_group, public_ip_name)
     return public_ip.ip_address, private_ip
+
+
+def _get_vm_provider_ref(vm: VirtualMachine) -> Optional[str]:
+    provider_ref = (vm.tags or {}).get(PROVIDER_REF_TAG_KEY)
+    if provider_ref is None:
+        return None
+    if not is_valid_provider_ref(provider_ref):
+        logger.warning(
+            "Skipping Azure VM %s with invalid %s tag value %r",
+            vm.id,
+            PROVIDER_REF_TAG_KEY,
+            provider_ref,
+        )
+        return None
+    return provider_ref
+
+
+def _get_vm_size(vm: VirtualMachine) -> Optional[str]:
+    if vm.hardware_profile is None:
+        return None
+    vm_size = vm.hardware_profile.vm_size
+    # Sizes known to the SDK are `VirtualMachineSizeTypes`, which format as enum names
+    if isinstance(vm_size, enum.Enum):
+        return vm_size.value
+    return vm_size
 
 
 def _terminate_instance(

@@ -81,6 +81,7 @@ from snaptrade_client.model.brokerage_symbol_id import BrokerageSymbolID
 from snaptrade_client.model.brokerage_type import BrokerageType
 from snaptrade_client.model.cancel_order_response import CancelOrderResponse
 from snaptrade_client.model.cancel_order_response_raw_response import CancelOrderResponseRawResponse
+from snaptrade_client.model.cash_instrument import CashInstrument
 from snaptrade_client.model.cef_instrument import CefInstrument
 from snaptrade_client.model.cfd_instrument import CfdInstrument
 from snaptrade_client.model.child_brokerage_order_ids import ChildBrokerageOrderIDs
@@ -92,6 +93,7 @@ from snaptrade_client.model.complex_order_leg import ComplexOrderLeg
 from snaptrade_client.model.complex_order_response import ComplexOrderResponse
 from snaptrade_client.model.connected_asset_partner_stats import ConnectedAssetPartnerStats
 from snaptrade_client.model.connection_account import ConnectionAccount
+from snaptrade_client.model.connection_account_status import ConnectionAccountStatus
 from snaptrade_client.model.connection_account_sync_status import ConnectionAccountSyncStatus
 from snaptrade_client.model.connection_accounts_response import ConnectionAccountsResponse
 from snaptrade_client.model.crypto_instrument import CryptoInstrument

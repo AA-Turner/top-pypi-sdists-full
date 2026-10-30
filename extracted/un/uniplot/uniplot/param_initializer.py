@@ -1,19 +1,19 @@
 import numpy as np
-from typing import Dict
 
-from uniplot.multi_series import MultiSeries
-from uniplot.options import Options, CharacterSet
-from uniplot.conversions import floatify
-from uniplot.colors import Color
+from uniplot.axis_labels.label_set import VALID_UNIT_SCALINGS
 from uniplot.color_themes import COLOR_THEMES
+from uniplot.colors import Color
+from uniplot.conversions import floatify
 from uniplot.legend_placements import LegendPlacement
+from uniplot.multi_series import MultiSeries
+from uniplot.options import CharacterSet, Options
 
 AUTO_WINDOW_ENLARGE_FACTOR = 0.001
 
 
 def validate_and_transform_options(
     series: MultiSeries,
-    kwargs: Dict = {},
+    kwargs: dict | None = None,
     bounds_already_in_plot_space: frozenset = frozenset(),
 ) -> Options:
     """
@@ -33,6 +33,9 @@ def validate_and_transform_options(
     are already in plot space, i.e. pinned bounds that were re-injected from a
     previous render. For those we must not apply the `log10` transform again.
     """
+    if kwargs is None:
+        kwargs = {}
+
     # First, some cleanup, including converting datetimes to float
     for key in ["x_min", "x_max", "y_min", "y_max"]:
         if key in kwargs:
@@ -103,6 +106,18 @@ def validate_and_transform_options(
     for key in ["title", "x_unit", "y_unit"]:
         if key in kwargs:
             kwargs[key] = str(kwargs[key])
+
+    # Normalize and validate unit scaling options
+    for key in ["x_unit_scaling", "y_unit_scaling"]:
+        if key in kwargs:
+            value = str(kwargs[key]).strip().lower()
+            if value not in VALID_UNIT_SCALINGS:
+                valid = ", ".join(repr(v) for v in sorted(VALID_UNIT_SCALINGS))
+                raise ValueError(
+                    f"Invalid '{key}' option: {kwargs[key]!r}. "
+                    f"Valid values are: {valid}."
+                )
+            kwargs[key] = value
     if kwargs.get("legend_labels") is not None:
         kwargs["legend_labels"] = [
             # Make sure the length of the labels is not exceeding the number of

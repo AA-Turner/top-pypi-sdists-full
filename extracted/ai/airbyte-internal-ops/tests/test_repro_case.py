@@ -1807,6 +1807,24 @@ def test_case_mode_passes_when_control_reproduces_and_target_is_fixed(
     assert result["twin_gaps"] == []
 
 
+def test_case_mode_never_starts_a_proxy(tmp_path, capsys, case_run, monkeypatch):
+    """The sandbox is the controlled upstream, so the capture stays off here.
+
+    Comparison mode now captures whether or not it replays; a reproduction
+    case is the one comparison that must keep not doing so.
+    """
+
+    def _no_proxy(*_args, **_kwargs):
+        raise AssertionError("a reproduction case must not start mitmproxy")
+
+    monkeypatch.setattr(cloud, "MitmproxyManager", _no_proxy)
+
+    outputs = case_run(_reproducing_sides(tmp_path))
+    capsys.readouterr()
+
+    assert outputs["success"] is True
+
+
 def test_the_reproduced_goal_passes_when_both_sides_hit_the_bug(tmp_path, case_run):
     outputs = case_run(
         {
@@ -1893,6 +1911,8 @@ def test_case_mode_reports_a_twin_gap(tmp_path, case_run, monkeypatch):
         ({"selected_streams": "threads"}, "selects its own streams"),
         # Only a read is judged against the case.
         ({"command": "check"}, "only `--command read`"),
+        # The expectations are raw values, which masked records never match.
+        ({"output_mode": "masked"}, "Reproduction cases run raw"),
     ],
 )
 def test_case_mode_rejects_conflicting_options(

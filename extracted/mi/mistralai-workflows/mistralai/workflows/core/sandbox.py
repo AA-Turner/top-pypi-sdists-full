@@ -3,13 +3,13 @@ import pkgutil
 import traceback
 from functools import cache
 
-import structlog
 from temporalio.worker.workflow_sandbox import RestrictedWorkflowAccessError, SandboxRestrictions
 
 import mistralai.workflows as _workflows_pkg
+from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.plugins._discovery import PLUGIN_NAMESPACE, list_plugins
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 _EXCLUDED_PREFIXES = (
     "mistralai.workflows.plugins.webhook.examples",

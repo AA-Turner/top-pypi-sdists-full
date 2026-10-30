@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gpuhunt
-Version: 0.1.34
+Version: 0.1.35
 Summary: A catalog of GPU pricing for different cloud providers
 Author: dstack GmbH
 Project-URL: GitHub, https://github.com/dstackai/gpuhunt
@@ -14,6 +14,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: requests
 Requires-Dist: typing-extensions
+Requires-Dist: urllib3>=1.26
 Provides-Extra: aws
 Requires-Dist: boto3; extra == "aws"
 Provides-Extra: azure

@@ -3639,6 +3639,8 @@ def recover_orphans(client: Any, *, now: float | None = None, late_only: bool = 
         run_id = _folder_run(directory.name)
         if run_folder(run_id) != directory.name or run_id in _active:
             continue  # (a folder no run's `run_folder` names is not a run's)
+        if not _sdk_owned(directory):
+            continue  # the Probe daemon's mailbox shares this folder (#3616)
         offline = run_id.startswith(OFFLINE_PREFIX)
         if not offline and not reachable:
             continue
@@ -3692,6 +3694,30 @@ def recover_orphans(client: Any, *, now: float | None = None, late_only: bool = 
         if _recover_one(run_id, spools, owner, target, reads=reads_ok, writes=writes_ok):
             sent += 1
     return sent
+
+
+#: A file only a run's recorder writes in its folder: ``owner.json``, a
+#: ``<host>.<pid>`` spool, live marker or writes sidecar (`_host` never holds a
+#: dot), a close marker (`_mark_closed`), or a late-hash file (`_keep_late`),
+#: claimed (`_resend_late`) or not.
+_RUN_FILE = re.compile(
+    r"owner\.json|[\w-]+\.\d+\.(?:jsonl|live|wf\.json)|closed\.[\w-]+\.\d+\.json"
+    r"|late\.[\w-]+\.\d+\.json(?:\.\d+\.claimed)?"
+)
+
+
+def _sdk_owned(directory: Path) -> bool:
+    """Whether ``directory`` holds a `_RUN_FILE`. The Probe daemon's mailbox
+    lives beside the run folders (``asks``, ``requests``, ``messages``,
+    ``hints``: `probe.daemon.mailbox.root`) under names a run id could take,
+    and holds none: recovery took its folders for dead runs' and deleted
+    them, open ``probe ask --writer`` requests included (#3616). A run folder
+    without one is not left behind either: `discard` removes it whole."""
+    try:
+        with internal(), os.scandir(directory) as entries:
+            return any(_RUN_FILE.fullmatch(entry.name) for entry in entries)
+    except OSError:
+        return False
 
 
 def _recover_one(

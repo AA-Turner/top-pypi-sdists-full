@@ -1,7 +1,6 @@
 import types
 from typing import Any, Type, Union, get_args, get_origin
 
-import structlog
 import temporalio.api.common.v1
 from pydantic import TypeAdapter
 from pydantic_core import from_json
@@ -13,10 +12,11 @@ from temporalio.converter import (
     JSONPlainPayloadConverter,
 )
 
+from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.encoding import CUSTOM_ENCODING_FORMAT, LEGACY_ENCODING_FORMAT
 from mistralai.workflows.models import PayloadMetadataKeys, PayloadWithContext
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 
 class WithContextJSONPayloadConverter(EncodingPayloadConverter):

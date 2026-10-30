@@ -8,9 +8,13 @@ pass through this module. Failures propagate so callers cannot send raw data.
 from __future__ import annotations
 
 import bisect
+import codecs
 import functools
+import io
+import itertools
 import json
 import re
+from collections.abc import Iterator
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
@@ -402,25 +406,27 @@ def scrub_changes(
         return scrub_string(value, _depth=_depth) != value
     if "\x00" in value and scrub_changes(value.replace("\x00", ""), accel=accel, _depth=_depth):
         return True
-    escapes = list(_matches(_ENCODED_ESCAPE, value, windows))
-    if escapes:
+    # Each escape's neighbourhood, not the whole text: text far from every
+    # escape decodes to itself, and the passes below read it as-is. The
+    # accepted limit is `secrets._ESCAPE_REACH`'s.
+    for lo, hi in _neighbourhoods(_matches(_ENCODED_ESCAPE, value, windows), len(value), _ESCAPE_REACH):
         if _depth >= 4:
             raise ValueError("encoded content exceeds scrubber nesting limit")
-        # Each escape's neighbourhood, not the whole text: text far from every
-        # escape decodes to itself, and the passes below read it as-is. The
-        # accepted limit is `secrets._ESCAPE_REACH`'s.
-        for lo, hi in _merge(
-            [(max(0, m.start() - _ESCAPE_REACH), min(len(value), m.end() + _ESCAPE_REACH)) for m in escapes]
-        ):
-            lo, hi, _, _ = _snap(value, lo, hi)
-            region = value[lo:hi]
-            decoded = _decode_escapes(region)
-            if decoded != region and scrub_changes(decoded, accel=accel, _depth=_depth + 1):
-                return True
+        lo, hi, _, _ = _snap(value, lo, hi)
+        region = value[lo:hi]
+        decoded = _decode_escapes(region)
+        if decoded != region and scrub_changes(decoded, accel=accel, _depth=_depth + 1):
+            return True
     if value.lstrip().startswith(("{", "[")):
         try:
             document = json.loads(value)
         except (ValueError, TypeError):
+            pass
+        except MemoryError:
+            # Too big to hold as objects (~26 bytes a byte for `[{},{},...]`):
+            # read it as text by the passes below. Under the multipart
+            # verifier's memory cap (`app/security/capped_inspection.py`) the
+            # alternative is no answer at all, findings already made included.
             pass
         else:
             return _json_changes(document, accel, scanned=_scanned)
@@ -429,7 +435,7 @@ def scrub_changes(
             return True
     if next(_matches(_AUTH_VALUE, value, windows), None) is not None:
         return True
-    if not _scanned and scan(value, _accel=accel):
+    if not _scanned and scan(value, _accel=scan_accelerator(value, accel)):
         return True
     hints = windows(_SENSITIVE_KEY_HINT)
     if hints is None:
@@ -459,7 +465,13 @@ def scrub_changes(
     return next(_matches(_TOKEN_PREFIXED, value, windows), None) is not None
 
 
-_PERCENT_RUN = re.compile(r"(?:%[0-9A-Fa-f]{2})+")
+#: At most this many escapes of a `%XX` run per match. Unbounded, `(?:...)+`
+#: made the regex engine keep backtracking state for every escape of the run
+#: (~140 bytes each: 182 MB for 4 MiB of `%41`). A longer run arrives as
+#: consecutive matches, decoded as one (`_unquote`).
+_PERCENT_RUN_MAX = 4_096
+_PERCENT_RUN = re.compile(rf"(?:%[0-9A-Fa-f]{{2}}){{1,{_PERCENT_RUN_MAX}}}")
+_UTF8_REPLACE = codecs.getincrementaldecoder("utf-8")
 
 
 def _unquote(value: str) -> str:
@@ -468,18 +480,54 @@ def _unquote(value: str) -> str:
     Same answer: each run of `%XX` bytes decodes as UTF-8 with `replace`, and
     anything else is left alone. `unquote` first splits its input at every
     non-ASCII character, which on the `errors="replace"` view of binary data --
-    a U+FFFD every few bytes -- meant millions of pieces per megabyte.
+    a U+FFFD every few bytes -- meant millions of pieces per megabyte. A run
+    longer than `_PERCENT_RUN_MAX` escapes spans several matches and goes
+    through one incremental decoder, which answers exactly as decoding the
+    run's bytes at once; a shorter run is one match, decoded at once.
     """
     if "%" not in value:
         return value
-    return _PERCENT_RUN.sub(
-        lambda m: bytes.fromhex(m.group().replace("%", "")).decode("utf-8", "replace"), value
-    )
+    out = io.StringIO()
+    decoder = None
+    cursor = 0
+    for match in _PERCENT_RUN.finditer(value):
+        start, end = match.span()
+        if start != cursor:
+            if decoder is not None:
+                out.write(decoder.decode(b"", final=True))
+                decoder = None
+            out.write(value[cursor:start])
+        data = bytes.fromhex(match.group().replace("%", ""))
+        if decoder is None and end - start < 3 * _PERCENT_RUN_MAX:
+            out.write(data.decode("utf-8", "replace"))
+        else:
+            if decoder is None:
+                decoder = _UTF8_REPLACE("replace")
+            out.write(decoder.decode(data))
+        cursor = end
+    if decoder is not None:
+        out.write(decoder.decode(b"", final=True))
+    out.write(value[cursor:])
+    return out.getvalue()
 
 
 def _decode_escapes(value: str) -> str:
-    """The escape view `scrub_string` inspects: `%XX` runs, then `\\uXXXX`."""
-    return _UNICODE_ESCAPE.sub(lambda m: chr(int(m.group(1), 16)), _unquote(value))
+    """The escape view `scrub_string` inspects: `%XX` runs, then `\\uXXXX`.
+
+    `_UNICODE_ESCAPE.sub` with a function, written out as it goes: `sub` holds
+    every replacement until the end, and a character past U+00FF is a new
+    string each (~70 bytes: 20 MB for 1.8 MB of `\\u4e00`)."""
+    value = _unquote(value)
+    if "\\u" not in value:
+        return value
+    out = io.StringIO()
+    cursor = 0
+    for match in _UNICODE_ESCAPE.finditer(value):
+        out.write(value[cursor:match.start()])
+        out.write(chr(int(match.group(1), 16)))
+        cursor = match.end()
+    out.write(value[cursor:])
+    return out.getvalue()
 
 
 def _merge(spans: list[tuple[int, int]]) -> list[tuple[int, int]]:
@@ -490,6 +538,52 @@ def _merge(spans: list[tuple[int, int]]) -> list[tuple[int, int]]:
         else:
             merged.append((lo, hi))
     return merged
+
+
+def _neighbourhoods(
+    matches: Iterator[re.Match[str]], length: int, reach: int
+) -> Iterator[tuple[int, int]]:
+    """`_merge` of each match's span widened by `reach`, for matches in text
+    order, one merged span at a time. Never a list of the matches or of their
+    spans: a text of escapes has one per three characters, and holding them
+    cost ~260 bytes each (343 MB for 4 MiB of `%41`)."""
+    lo = hi = -1
+    for match in matches:
+        start, end = max(0, match.start() - reach), min(length, match.end() + reach)
+        if hi >= 0 and start <= hi:
+            hi = max(hi, end)
+            continue
+        if hi >= 0:
+            yield lo, hi
+        lo, hi = start, end
+    if hi >= 0:
+        yield lo, hi
+
+
+#: The accelerated `scan` keeps, for the whole text, a regex match per escape
+#: and the decoded view's pieces around it. A text with more than one escape
+#: per this many characters is scanned without the accelerator instead -- in
+#: the scanner's own 64K windows, as on a researcher's machine, one window's
+#: escapes at a time -- which costs it speed, not memory. The answer is the
+#: one a researcher's machine gives. Measured on 4 MiB, accelerated against
+#: windowed, with an escape every N characters: N=3 (`%41`) 443 MiB 2.4 s
+#: against 7 MiB 3.3 s; N=16 181 MiB 0.95 s against 2.9 MiB 1.8 s; N=64
+#: 59 MiB 0.49 s against 0.9 MiB 1.44 s. Sparser text keeps the accelerator:
+#: N=119 takes 0.41 s, against 1.43 s windowed.
+_ACCEL_CHARS_PER_ESCAPE = 64
+
+
+def scan_accelerator(text: str, accel: Any) -> Any:
+    """`accel` for a `scan` of `text` that decodes escapes, or None when `text`
+    is too dense in them (`_ACCEL_CHARS_PER_ESCAPE`). Counting stops one past
+    the limit: at most one regex step per 64 characters of `text`."""
+    if accel is None:
+        return None
+    from probe.tap_core.secrets import _ENCODED_CHAR
+
+    limit = len(text) // _ACCEL_CHARS_PER_ESCAPE
+    dense = next(itertools.islice(_ENCODED_CHAR.finditer(text), limit, None), None) is not None
+    return None if dense else accel
 
 
 #: What can change a string that has no `:` or `=`: every rule a plain word

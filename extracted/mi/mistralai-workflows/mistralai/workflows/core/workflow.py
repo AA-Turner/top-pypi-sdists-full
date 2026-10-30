@@ -9,11 +9,12 @@ from random import Random
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Iterator, List, Literal, Type, TypeVar, overload
 from uuid import UUID
 
-import structlog
 import temporalio.workflow
 from pydantic import BaseModel
 from temporalio.common import VersioningBehavior
-from temporalio.workflow import ParentClosePolicy
+from temporalio.workflow import ContinueAsNewVersioningBehavior, ParentClosePolicy
+
+from mistralai.workflows.core._logger import get_logger
 
 if TYPE_CHECKING:
     from mistralai.workflows.core.execution import workflow_execution
@@ -66,7 +67,7 @@ from mistralai.workflows.models import (
 
 Schedule = ScheduleDefinition
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 ClassType = TypeVar("ClassType", bound=Type)
 T = TypeVar("T")
@@ -733,15 +734,23 @@ class workflow:
         await temporalio.workflow.wait_condition(predicate, timeout=timeout, timeout_summary=timeout_summary)
 
     @staticmethod
-    def continue_as_new(params: BaseModel) -> None:
+    def continue_as_new(params: BaseModel, *, auto_upgrade: bool = False) -> None:
         """Continue workflow execution with fresh history.
 
         Stops the current workflow and starts a new execution with the same workflow ID
         but a new run ID and empty event history. Use this to prevent history from growing
         too large in long-running or iterative workflows.
 
+        With worker versioning, the new run stays pinned to this run's worker version. With
+        ``auto_upgrade=True``, it starts on the version new executions are routed to, typically
+        the deployment's current version, and is pinned there. ``params`` is then read by that
+        version's code, so its model must stay compatible in both directions (a rollback moves
+        runs back to a previous version the same way).
+
         Args:
             params: Parameters for the new execution (must be BaseModel)
+            auto_upgrade: Start the new run on the version new executions are routed to instead
+                of this run's version. No effect without worker versioning.
 
         Raises:
             WorkflowsException: If called outside workflow context
@@ -768,7 +777,11 @@ class workflow:
                 message="continue_as_new can only be called from within a workflow",
             )
 
-        temporalio.workflow.continue_as_new(params.model_dump())
+        initial_versioning_behavior = ContinueAsNewVersioningBehavior.AUTO_UPGRADE if auto_upgrade else None
+        temporalio.workflow.continue_as_new(
+            params.model_dump(),
+            initial_versioning_behavior=initial_versioning_behavior,
+        )
 
     @staticmethod
     def should_continue_as_new() -> bool:
@@ -791,6 +804,35 @@ class workflow:
         if not temporalio.workflow.in_workflow():
             return False
         return temporalio.workflow.info().is_continue_as_new_suggested()
+
+    @staticmethod
+    def is_target_version_changed() -> bool:
+        """Check if new executions are now routed to a different worker version than this run's.
+
+        With worker versioning, a run stays pinned to the version it started on. This returns
+        True once the deployment routes new executions elsewhere: a newer version was promoted,
+        or a previous one after a rollback. Continue as new with ``auto_upgrade=True`` to move
+        to that version. Call it only where the previous unit of work is complete, since the
+        new run starts from the entrypoint. Always False without worker versioning.
+
+        The value refreshes when the workflow runs a workflow task, so an idle workflow sees
+        the change on its next signal, update, timer or activity result.
+
+        Returns:
+            bool: True if the target worker version changed, False otherwise
+
+        Example:
+            while True:
+                await workflow.wait_condition(
+                    lambda: self.inbox or workflow.should_continue_as_new() or workflow.is_target_version_changed()
+                )
+                if workflow.should_continue_as_new() or workflow.is_target_version_changed():
+                    workflow.continue_as_new(AgentState(inbox=self.inbox), auto_upgrade=True)
+                await handle(self.inbox.pop(0))
+        """
+        if not temporalio.workflow.in_workflow():
+            return False
+        return temporalio.workflow.info().is_target_worker_deployment_version_changed()
 
     @staticmethod
     async def add_search_keys(search_keys: Mapping[str, SearchKeyValue]) -> None:

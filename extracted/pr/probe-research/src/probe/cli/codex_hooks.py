@@ -13,9 +13,11 @@ an unexpected shape all return None, which `probe doctor` prints as
 doctor`, the wizard's Diagnose and `probe status` (at most once per
 STATUS_TTL_S, the answer kept on disk: `status_snapshot`), and never by a hook.
 
-It also WRITES, through `approve` alone: the wizard, a recorder switch and every
-Codex plugin update approve Probe's own hooks in Codex's config.toml the way
-`/hooks` does (see the section above `approve`).
+It also WRITES, through `approve` alone: the wizard, a recorder switch, every
+Codex plugin update (a deferred one too), `probe doctor --fix` and the Probe
+service's healer (`heal`, `probe.service.codextrust`: whenever Codex rewrites
+its copies of Probe's plugins) approve Probe's own hooks in Codex's config.toml
+the way `/hooks` does (see the section above `approve`).
 
 `probe status` reads one more signal, from files alone: the heartbeat the
 tracking plugins' dispatcher leaves for each Codex session it runs in
@@ -63,6 +65,27 @@ _CACHE_VERSION = 1
 #: not read at all.
 HEARTBEAT_GRACE_S = 60.0
 HEARTBEAT_WINDOW_S = 14 * 24 * 3600.0
+
+#: What a person does when Probe's hooks wait in Codex: `probe doctor --fix`
+#: approves them as an update does; `/hooks` in Codex is their own way.
+FIX_HINT = "run `probe doctor --fix`, or in Codex type /hooks and approve the Probe Research hooks"
+
+#: Codex's `shell_environment_policy` drops `PROBE_SESSION_STATE` from what its
+#: hooks inherit (issue 3620). On Linux the session-start hook reads it from the
+#: Codex process itself (`session_marker.harness_launch_environ`); without /proc
+#: it cannot, and `probe session status` and `probe doctor` say this instead.
+ENV_WARNING = (
+    "Codex does not pass PROBE_SESSION_STATE to Probe's hooks, and on this system Probe cannot read "
+    "it from Codex: set the default with `probe session default on|read|off`, or start Codex with "
+    "`codex -c shell_environment_policy.inherit=all` (which also hands the agent's commands every "
+    "variable of your shell)."
+)
+
+
+def launch_env_unreadable() -> bool:
+    """Can a Codex hook here NOT read the environment Codex was started with?"""
+    return not os.path.isdir("/proc/self")
+
 
 #: Codex warnings about Probe that are by design, not a fault: the tap's
 #: SessionEnd entry (`--wait`) keeps 20s for Claude Code's sake
@@ -564,6 +587,30 @@ def approve(
         _remember_trust(trust_before)
 
 
+def heal() -> dict:
+    """`python -m probe.core.run codex_trust`'s answer, for the Probe service's
+    healer (`probe.service.codextrust`, #3617): `approve`, the update's own
+    approval, as `{"outcome", "approved", "error"}` (`codextrust.Trust`).
+    `settled` once nothing `approve` may approve still waits: a Probe-named
+    hook it must not approve is the person's (`/hooks`), as after an update.
+    Never raises."""
+    from probe.service.codextrust import Trust
+
+    try:
+        if codex_binary() is None:
+            return {"outcome": Trust.NO_CODEX, "approved": [], "error": None}
+        outcome = approve()
+    except Exception:  # noqa: BLE001 - approve never raises; the service asks again either way
+        outcome = Approval(error="could not approve them")
+    if outcome is None:
+        return {"outcome": Trust.UNASKED, "approved": [], "error": None}
+    return {
+        "outcome": Trust.WAITING if outcome.error else Trust.SETTLED,
+        "approved": list(outcome.approved),
+        "error": outcome.error,
+    }
+
+
 # -- `probe status` ------------------------------------------------------------
 
 
@@ -730,7 +777,7 @@ def status_line(snapshot: dict | None) -> str | None:
     if state == HooksState.NEEDS_APPROVAL:
         waiting = len((snapshot or {}).get("untrusted") or [])
         what = f"{waiting} Probe hook{'s' if waiting != 1 else ''} switched off" if waiting else "Probe's hooks are off"
-        return f"{what} until approved: in Codex, type /hooks and approve the Probe Research hooks"
+        return f"{what} until approved: {FIX_HINT}"
     if state == HooksState.APPROVED:
         return "all approved"
     if state == HooksState.UNKNOWN:
@@ -752,8 +799,7 @@ def rows(found: HookStatus | None, row) -> list[str]:
         lines.append(
             row(
                 "Probe hooks",
-                f"{len(found.untrusted)} of {found.total} switched off until approved -- "
-                "in Codex, type /hooks and approve the Probe Research hooks",
+                f"{len(found.untrusted)} of {found.total} switched off until approved -- {FIX_HINT}",
             )
         )
         plugins = sorted({_plugin(key) for key in found.untrusted})

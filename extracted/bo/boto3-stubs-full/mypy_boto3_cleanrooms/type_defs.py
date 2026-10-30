@@ -1676,6 +1676,7 @@ class MembershipQueryComputePaymentConfigTypeDef(TypedDict):
 
 class ProtectedJobS3OutputConfigurationInputTypeDef(TypedDict):
     bucket: str
+    resultFormat: NotRequired[ResultFormatType]
     keyPrefix: NotRequired[str]
 
 

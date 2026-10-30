@@ -53,7 +53,7 @@ jobs:
           app-id: ${{ secrets.OCTAVIA_BOT_APP_ID }}
           private-key: ${{ secrets.OCTAVIA_BOT_PRIVATE_KEY }}
           owner: airbytehq
-          repositories: ai-skills,airbyte-ops-mcp
+          repositories: ai-skills,airbyte-ops-mcp,airbyte,oncall
 
       # ---------- Watchdog ----------
       - name: Inspect watched workflows

@@ -9,10 +9,7 @@ pub async fn handle_document_link(
     backend: &Backend,
     params: DocumentLinkParams,
 ) -> Result<Option<Vec<DocumentLink>>, tower_lsp_server::jsonrpc::Error> {
-    log::trace!("{:?}", params);
-
-    let DocumentLinkParams { text_document, .. } = params;
-    let text_document_uri = text_document.uri.into();
+    let text_document_uri: tombi_uri::Uri = params.text_document.uri.clone().into();
 
     let ConfigSchemaStore { config, .. } = backend
         .config_manager
@@ -22,16 +19,17 @@ pub async fn handle_document_link(
     if !config
         .lsp
         .as_ref()
-        .and_then(|server| server.document_link.as_ref())
+        .and_then(|lsp| lsp.document_link.as_ref())
         .and_then(|document_link| document_link.enabled)
         .unwrap_or_default()
         .value()
     {
-        log::debug!("`server.document_link.enabled` is false");
+        log::debug!("skip document link because `lsp.document_link.enabled` is false.");
         return Ok(None);
     }
 
     log::info!("handle_document_link");
+    log::debug!("{:?}", params);
 
     let Some(document_source) = backend.document_source(&text_document_uri) else {
         return Ok(None);

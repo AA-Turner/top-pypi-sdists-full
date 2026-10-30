@@ -92,6 +92,12 @@ ERASED_SINCE_CHECKOUT = "erased_since_checkout"
 SESSION_ERASED = "session_erased"
 VERSION_MOVED = "version_moved"
 WRITER_OFF = "summary_writer_off"
+#: A push the credential scrubber would rewrite: refused before it is sent,
+#: because the scrubber's change would land silently (inside a page's code, a
+#: broken chart).
+SCRUBBED = "scrubbed"
+#: The scrubber's whole-value marker.
+SCRUB_MARK = "<redacted>"
 #: What `mode` says while the overview lane still writes the team's pages, and
 #: once the recorders write them.
 MODE_LANE = "lane"
@@ -577,12 +583,17 @@ def summary_push(
             )
 
         def send(text: str, base_version: int, op_key: str) -> int:
+            field = "html" if html else "markdown"
+            stored = _main()._stored_form(field, text)
+            if stored != text:
+                refused.update(code=SCRUBBED, exit=1, message=scrubbed_message(field, text, stored))
+                raise errors.RosError(refused["message"])
             sent["text"] = text
             sent["base"] = base_version
             try:
                 # By the draft's extension: an HTML draft goes whole as `html`
                 # (the server lifts its series block out), Markdown as before.
-                body = {"html": text} if html else {"markdown": text}
+                body = {"html": text, "whole_page": True} if html else {"markdown": text}
                 row = client.put_summary(
                     **body,
                     expected_version=base_version,
@@ -669,6 +680,27 @@ def summary_push(
         raise typer.Exit(2)
     if refused or (not report.merged and detail and detail != "no local edits"):
         raise typer.Exit(1)
+
+
+def scrubbed_message(field: str, text: str, stored: str) -> str:
+    """Why a push the credential scrubber would rewrite was refused, naming
+    the first place it would change, in the scrubbed text (never echoing the
+    credential itself). A page holding a `%XX` / `\\uXXXX` escape is judged
+    decoded and blanked whole, so the change is looked for in the decoded page."""
+    from ..sdk import redaction
+
+    whole = stored.strip() == SCRUB_MARK and text.strip() != SCRUB_MARK
+    if whole:
+        text = redaction._decode_escapes(text)
+        stored = _main()._stored_form(field, text)
+    at = next((i for i, (a, b) in enumerate(zip(text, stored)) if a != b), min(len(text), len(stored)))
+    near = " ".join(stored[max(0, at - 30): at + 40].split())
+    where = f" near `{near}`" if near and near != SCRUB_MARK else ""
+    why = (" (a `%XX` or `\\u` escape in the page, such as a percent-encoded `data:` URI, makes it blank the whole "
+           "page; base64-encode the URI)") if whole else ""
+    return (f"Probe's credential scrubber would rewrite this page{where}{why}, which would break it silently; "
+            "nothing was written. Rename or remove the credential-shaped text (in code, a variable named like a "
+            "signature, token, API key or password), then push again.")
 
 
 def _adopt_canonical(where, sent: str | None, canonical: str | None, version: int) -> None:

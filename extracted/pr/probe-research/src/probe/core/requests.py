@@ -52,6 +52,11 @@ class ActionName(StrEnum):
     #: Limit what Probe on this computer reads to one workspace, or lift the
     #: limit: `probe workspace limit` (`probe.cli.workspace_limit_cmd`).
     WORKSPACE_LIMIT = "workspace_limit"
+    #: A read in form, though it approves: Probe's own hooks in Codex, as an
+    #: update does (`probe.cli.codex_hooks.heal`), `{"outcome", "approved",
+    #: "error"}` back. The Probe service's healer asks it when Codex rewrote
+    #: its copies of Probe's plugins (`probe.service.codextrust`, #3617).
+    CODEX_TRUST = "codex_trust"
 
 
 def _agent_words() -> dict[str, str]:
@@ -277,6 +282,7 @@ _FIELDS: dict[ActionName, dict[str, tuple[type | tuple[type, ...], bool]]] = {
     ActionName.LOGOUT: {},
     ActionName.UNINSTALL: {},
     ActionName.UPDATE: {},
+    ActionName.CODEX_TRUST: {},
 }
 
 

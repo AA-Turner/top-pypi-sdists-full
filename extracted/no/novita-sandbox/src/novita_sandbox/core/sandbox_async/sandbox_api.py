@@ -39,6 +39,7 @@ from novita_sandbox.core.exceptions import (
 from novita_sandbox.core.sandbox.main import SandboxBase
 from novita_sandbox.core.sandbox.sandbox_api import (
     SandboxLifecycle,
+    legacy_create_network_config,
     get_auto_resume_enabled,
     McpServer,
     SandboxInfo,
@@ -446,12 +447,14 @@ class SandboxApi(SandboxBase):
         **opts: Unpack[ApiParams],
     ) -> SandboxCreateResponse:
         config = ConnectionConfig(**opts)
+        long_running = metadata is not None and metadata.get("long_running") == "true"
+        if long_running:
+            metadata = dict(metadata or {})
 
         if should_use_legacy(opts):
             if mcp is not None:
                 raise_if_legacy(opts, "AsyncSandbox.create mcp")
-            if network is not None:
-                raise_if_legacy(opts, "AsyncSandbox.create network")
+            legacy_network = legacy_create_network_config(network)
             if secret_envs:
                 raise_if_legacy(opts, "AsyncSandbox.create secret_envs")
             if volume_mounts:
@@ -461,10 +464,11 @@ class SandboxApi(SandboxBase):
                 "templateID": template,
                 "autoPause": bool(auto_pause),
                 "metadata": metadata or {},
-                "timeout": timeout,
+                **({} if long_running else {"timeout": timeout}),
                 "envVars": env_vars or {},
                 "secure": secure,
                 "allowInternetAccess": allow_internet_access,
+                **({"network": legacy_network} if legacy_network is not None else {}),
             }
             if node_id:
                 body["nodeID"] = node_id
@@ -491,7 +495,7 @@ class SandboxApi(SandboxBase):
             template_id=template,
             auto_pause=(should_auto_pause if should_auto_pause is not None else UNSET),
             metadata=metadata or {},
-            timeout=timeout,
+            timeout=UNSET if long_running else timeout,
             env_vars=env_vars or {},
             mcp=cast(Any, mcp) or UNSET,
             secure=secure,

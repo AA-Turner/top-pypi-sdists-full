@@ -2,10 +2,13 @@
 
 Registers all MCP tools and runs via stdio or streamable-http transport.
 
-Usage (Claude Code):
-    claude mcp add heylead -- uvx heylead
+Install (local stdio):
+    uv tool install heylead
 
-Usage (Cursor): add an MCP server with command `uvx heylead`.
+Usage (Claude Code):
+    claude mcp add heylead -- heylead
+
+Usage (Cursor): add an MCP server with command `heylead`.
 
 Remote alternative (hosted endpoint, nothing runs locally):
     claude mcp add --transport http heylead https://heylead.dev/mcp
@@ -13,8 +16,15 @@ Remote alternative (hosted endpoint, nothing runs locally):
 
 from __future__ import annotations
 
+import anyio
+import asyncio
 import logging
-from typing import Optional
+import signal
+import sys
+import os
+import select
+from typing import Optional, AsyncIterator
+from contextlib import asynccontextmanager
 
 from mcp.server.fastmcp import FastMCP, Image
 from mcp.types import ToolAnnotations
@@ -36,6 +46,28 @@ def _err_text(exc: BaseException) -> str:
 
 _CHANGELOG = """\
 # HeyLead Changelog
+
+## v0.10.484 (2026-10-30)
+- note hosted HTTP MCP command in nurture_email.py (#4496)
+- Fix: recommend uv tool install heylead and remove dead help branch (#4496)
+- Fix: shim claims v2 at import and restore test clocks (#4489)
+- Fix: fix merge queue shim and mock state (#4489)
+- Fix: orchestrator and status support for claims bypass (#4489)
+- New: support claims bypass notifications and status (api #4489)
+
+## v0.10.483 (2026-10-30)
+- Fix: address review changes for MCP sigint hang (#4473)
+- Fix: remove duplicate imports in server.py
+- Fix: MCP stdio server hang on SIGINT (#4473)
+- New: refuse feat PRs without a feature-contract section (#4790)
+- New: refuse bare outcome creates and sweep missing source:* (#4784)
+
+## v0.10.482 (2026-10-28)
+- Remove unused verdict set that resembles a label declaration
+- Use explicit passing results throughout development proof reporting
+- Fix: name the autonomy renderer so it is not the inbox helper
+- New: inspect effective agent autonomy (#4626)
+- #4568 UI QA missed P2s (F1, F4 qa; F5 designer)
 
 ## v0.10.481 (2026-10-28)
 - Fix: a bare /check-runs is the create endpoint, not a list read (#4234)
@@ -1983,9 +2015,6 @@ logger = logging.getLogger(__name__)
 # Lifespan hook — background scheduler (Sprint 17)
 # ──────────────────────────────────────────────
 
-from contextlib import asynccontextmanager
-from collections.abc import AsyncIterator
-
 
 #: How main() serves. FastMCP enters the lifespan once per session: over
 #: stdio the session's end is the process's end, over HTTP the loop outlives
@@ -2001,12 +2030,119 @@ async def _app_lifespan(app: FastMCP) -> AsyncIterator[dict]:
     after: work still waiting (a ``tool.called`` batch) went with it until
     api #1204. The drain runs first, inside the host's grace period.
     """
-    async with _scheduler_lifespan(app) as state:
-        try:
+    try:
+        async with _scheduler_lifespan(app) as state:
             yield state
-        finally:
-            if _transport == "stdio":
-                await background.drain()
+    finally:
+        if _transport == "stdio":
+            await background.drain()
+            from .db.async_bridge import drain_db
+            await drain_db()
+
+
+class _InterruptibleStdin:
+    """A wrapper for sys.stdin that can be interrupted by a self-pipe."""
+
+    def __init__(self, fd: int):
+        self._fd = fd
+        self._stop_r, self._stop_w = os.pipe()
+        self._buf = bytearray()
+        self._closed = False
+
+    def _read_line(self) -> str:
+        while b"\n" not in self._buf:
+            if self._closed:
+                return ""
+            try:
+                readable, _, _ = select.select([self._fd, self._stop_r], [], [])
+            except (ValueError, OSError):
+                return ""
+            if self._stop_r in readable:
+                return ""
+            try:
+                chunk = os.read(self._fd, 65536)
+            except OSError:
+                return ""
+            if not chunk:
+                break
+            self._buf.extend(chunk)
+
+        if not self._buf:
+            return ""
+        if b"\n" in self._buf:
+            idx = self._buf.find(b"\n")
+            line = self._buf[:idx + 1]
+            del self._buf[:idx + 1]
+        else:
+            line = self._buf[:]
+            self._buf.clear()
+        return line.decode("utf-8", errors="replace")
+
+    async def __anext__(self) -> str:
+        if b"\n" in self._buf:
+            line = self._read_line()
+        else:
+            line = await asyncio.to_thread(self._read_line)
+        if not line:
+            raise StopAsyncIteration
+        return line
+
+    def __aiter__(self):
+        return self
+
+    def close(self) -> None:
+        if not self._closed:
+            self._closed = True
+            try:
+                os.write(self._stop_w, b"\x00")
+            except OSError:
+                pass
+
+    def close_fds(self) -> None:
+        self.close()
+        try:
+            os.close(self._stop_r)
+        except OSError:
+            pass
+        try:
+            os.close(self._stop_w)
+        except OSError:
+            pass
+
+
+async def _run_stdio_async() -> None:
+    from mcp.server.stdio import stdio_server
+    loop = asyncio.get_running_loop()
+    stdin = _InterruptibleStdin(sys.stdin.fileno())
+    main_task = asyncio.current_task()
+
+    def _on_signal():
+        stdin.close()
+        if main_task:
+            main_task.cancel()
+
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        loop.add_signal_handler(sig, _on_signal)
+
+    try:
+        async with stdio_server(stdin=stdin) as (read_stream, write_stream):
+            await mcp._mcp_server.run(
+                read_stream,
+                write_stream,
+                mcp._mcp_server.create_initialization_options(),
+            )
+    except (asyncio.CancelledError, anyio.get_cancelled_exc_class()):
+        pass
+    finally:
+        stdin.close()
+        stdin.close_fds()
+
+
+def _run_stdio() -> None:
+    try:
+        anyio.run(_run_stdio_async)
+    except KeyboardInterrupt:
+        pass
 
 
 @asynccontextmanager
@@ -2086,7 +2222,7 @@ async def _scheduler_lifespan(app: FastMCP) -> AsyncIterator[dict]:
                 pass
 
         if engine is not None:
-            await engine.stop()
+            await engine.stop(verify_cloud_fallback=_transport != "stdio")
 
         if is_leader:
             release_leader()
@@ -2502,7 +2638,7 @@ def capabilities() -> str:
         ],
         "resources": ["heylead://capabilities", "heylead://changelog"],
         "transport": ["stdio", "sse", "streamable-http"],
-        "install": "uvx heylead",
+        "install": "uv tool install heylead",
         "pypi": "https://pypi.org/project/heylead/",
         "repository": "https://github.com/D4umak/linkedin-outreach-mcp",
     }, indent=2)
@@ -3775,6 +3911,7 @@ async def inspect(
             "commons" — digest, beats (including product), live notes, coordinator hold, stale liveness
             "journal" — hosted agent diary (cloud workers). Self-hosted: use the other actions.
             "waiting" — who is waiting on you (Needs attention's people), then messages held for your approval (hosted)
+            "autonomy" — effective agent settings and independent sending/approval gates; grants no authority
         campaign_id: Optional campaign filter (full id or prefix).
         outreach_id: Optional outreach filter (full id or prefix).
         limit: Max rows per slice, 1-100 (default 20).
@@ -5412,4 +5549,7 @@ def main(transport: str = "stdio", host: str = "0.0.0.0", port: int = 8080) -> N
         logger.info(f"HTTP server binding to {host}:{port}")
 
     # Run MCP server
-    mcp.run(transport=transport)
+    if transport == "stdio" and getattr(mcp.run, "__func__", None) is FastMCP.run:
+        _run_stdio()
+    else:
+        mcp.run(transport=transport)

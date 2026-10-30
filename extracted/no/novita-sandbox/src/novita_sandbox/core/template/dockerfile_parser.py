@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import shlex
 import tempfile
 from typing import Dict, List, Optional, Protocol, Union, Literal
 
@@ -40,7 +41,9 @@ class DockerfileParserInterface(Protocol):
         """Handle USER instruction."""
         ...
 
-    def set_envs(self, envs: Dict[str, str]) -> "DockerfileParserInterface":
+    def set_envs(
+        self, envs: Dict[str, str], *, runtime: bool = False
+    ) -> "DockerfileParserInterface":
         """Handle ENV instruction."""
         ...
 
@@ -233,30 +236,19 @@ def _handle_env_instruction(
     if not value.strip():
         return
 
-    # Parse environment variables from the value
-    # Handle both "KEY=value" and "KEY value" formats
+    # Tokenize quoted assignments before splitting at the first '='. An '='
+    # inside a quoted value is data, not the beginning of another variable.
+    parts = shlex.split(value)
     env_vars = {}
-
-    # First try to split on = for KEY=value format
-    if "=" in value:
-        # Handle multiple KEY=value pairs on one line
-        pairs = re.findall(r"(\w+)=([^\s]*(?:\s+(?!\w+=)[^\s]*)*)", value)
-        for key, val in pairs:
-            env_vars[key] = val.strip("\"'")
-    else:
-        # Handle "KEY value" format
-        parts = value.split(None, 1)
-        if len(parts) == 2:
-            key, val = parts
-            env_vars[key] = val.strip("\"'")
-        elif len(parts) == 1 and instruction_type == "ARG":
-            # ARG without default value
-            key = parts[0]
-            env_vars[key] = ""
-
-    # Add each environment variable
+    if parts and "=" in parts[0]:
+        for part in parts:
+            name, separator, declared = part.partition("=")
+            if separator:
+                env_vars[name] = declared
+    elif parts:
+        env_vars[parts[0]] = " ".join(parts[1:])
     if env_vars:
-        template_builder.set_envs(env_vars)
+        template_builder.set_envs(env_vars, runtime=instruction_type == "ENV")
 
 
 def _handle_cmd_entrypoint_instruction(

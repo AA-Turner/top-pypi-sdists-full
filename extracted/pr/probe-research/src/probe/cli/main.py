@@ -93,7 +93,7 @@ from ..sdk.device import (
     device_login,
     hostname,
 )
-from ..sdk.errors import NotFoundError, UnfilteredListing
+from ..sdk.errors import NotFoundError
 from ..sdk import checkpoints as _checkpoints_sdk
 from ..sdk.artifact_kinds import (
     DEFAULT_ARTIFACT_KIND,
@@ -109,7 +109,7 @@ from ..sdk.snapshot import (
 )
 from ..sdk.snapshot import UNRESOLVED_FALLBACK as _UNRESOLVED_FALLBACK
 from ..sdk.surface import Surface
-from . import plugin_cli, refs, statusline
+from . import plugin_cli, reads, refs, statusline
 
 
 # -- global connection state (set by the root callback) ---------------------
@@ -341,11 +341,12 @@ def _warn_file_notes_ignored(what: str) -> None:
 #: leaves raw under ensure_ascii=False. They only ever occur inside string
 #: values (JSON structure is ASCII), so re-escaping them keeps the output
 #: valid JSON byte-for-byte parse-equivalent.
-_DISPLAY_CONTROLS = re.compile("[\u0080-\u009f\u202a-\u202e\u2066-\u2069]")
+_DISPLAY_CONTROLS = reads.DISPLAY_CONTROLS
 
 
 def _print_json(obj: Any) -> None:
-    """One output policy for every read command.
+    """One output policy for every read command (`reads.render_json`; the reads
+    the daemon host answers too print through it, via `_emit`).
 
     Pretty on a terminal, compact on a pipe — the same split `jq` and git
     resolve the same way. The audiences differ: a human scans indentation, but
@@ -372,11 +373,11 @@ def _print_json(obj: Any) -> None:
     """
     if obj is None and _UNDELIVERED.total:
         obj = _UNDELIVERED.result()
-    if sys.stdout.isatty():
-        rendered = json.dumps(obj, indent=2, ensure_ascii=False, default=str)
-    else:
-        rendered = json.dumps(obj, separators=(",", ":"), ensure_ascii=False, default=str)
-    rendered = _DISPLAY_CONTROLS.sub(lambda m: "\\u%04x" % ord(m.group()), rendered)
+    _print_rendered(reads.render_json(obj, sys.stdout.isatty()))
+
+
+def _print_rendered(rendered: str) -> None:
+    """Print one rendered JSON value (`reads.render_json`)."""
     try:
         print(rendered)
     except UnicodeEncodeError:
@@ -386,47 +387,36 @@ def _print_json(obj: Any) -> None:
         print(json.dumps(json.loads(rendered), ensure_ascii=True, default=str))
 
 
-def _select_fields(obj: Any, fields: str | None) -> Any:
-    """Project a read down to the named top-level fields (comma-separated).
+#: Project a read down to the named top-level fields (`reads.select_fields`).
+_select_fields = reads.select_fields
 
-    The CLI-side answer to response bloat: a `--fields` flag is written ONCE
-    into a skill or script and reused, so the selection is authored where a
-    mistake is visible immediately — the property that makes declarative field
-    selection safe here and unsafe as an MCP query language, where a model
-    would re-derive it on every call.
 
-    Applies to the object itself, or to each element of `items` when the read
-    is a page envelope (`next_cursor` always survives — a projection must never
-    hide that a page was a page). An unknown field is a loud 422-style error,
-    never a silently-absent key: `--fields slgu` returning `{}` would read as
-    "the run has no slug", which is a claim the projection has no right to make.
-    """
-    if not fields:
-        return obj
-    wanted = [f.strip() for f in fields.split(",") if f.strip()]
-    if not wanted:
-        # `--fields ","` parses to zero names; projecting to nothing would
-        # print `{}` for every row — exactly the silent-empty answer this
-        # helper exists to forbid.
-        raise typer.BadParameter("--fields names no fields")
+def _api(client: Any, *, pretty: bool = False) -> "reads.Api":
+    """This command's Probe for the shared read bodies (`probe.cli.reads`): its
+    client, this process's environment and settings. `pretty`: JSON laid out for
+    a terminal (a command that prints passes `sys.stdout.isatty()`)."""
+    return reads.Api(
+        client=client,
+        resolve=resolve,
+        env=os.environ,
+        pretty=pretty,
+        base_url=_conn.base_url,
+        # Late-bound: the active project as this module resolves it (a test may stand one in).
+        ambient_project=lambda explicit, **kw: _ambient_project(explicit, **kw),
+    )
 
-    def _pick(row: Any) -> Any:
-        if not isinstance(row, dict):
-            return row
-        missing = [f for f in wanted if f not in row]
-        if missing:
-            raise typer.BadParameter(
-                f"unknown field(s) {', '.join(sorted(missing))}; "
-                f"this read carries: {', '.join(sorted(row))}"
-            )
-        return {f: row[f] for f in wanted}
 
-    if isinstance(obj, dict) and isinstance(obj.get("items"), list):
-        out = {"items": [_pick(row) for row in obj["items"]]}
-        if "next_cursor" in obj:
-            out["next_cursor"] = obj["next_cursor"]
-        return out
-    return _pick(obj)
+def _emit(printed: "reads.Printed") -> None:
+    """Print what a moved read printed (`probe.cli.reads`), and exit with its code."""
+    for to_err, text, is_json in printed.parts:
+        if to_err:
+            print(text, file=sys.stderr)
+        elif is_json:
+            _print_rendered(text)
+        else:
+            print(text)
+    if printed.code:
+        raise typer.Exit(printed.code)
 
 
 #: The shared `--fields` option, declared once so every read spells it the same.
@@ -2924,7 +2914,10 @@ def doctor(
     fix: bool = typer.Option(
         False,
         "--fix",
-        help="turn retired folder defaults (`<folder>/.probe/config.json`) into `.probe.config` files",
+        help="approve Probe's own hooks in Codex again (a plugin change switches them off), turn retired "
+        "folder defaults (`<folder>/.probe/config.json`) into `.probe.config` files, and set aside "
+        "dead-lettered writes that can never be delivered (a newer attempt took their run over, or "
+        "the run no longer exists)",
     ),
     send: bool = typer.Option(
         False,
@@ -2949,7 +2942,8 @@ def doctor(
 
     Prints the LAST UPDATE ATTEMPT, which is the only way to notice a detached
     auto-updater that has been silently failing. Read-only, except `--fix`,
-    which converts retired folder defaults. `--send` sends the Probe team a
+    which approves Probe's hooks in Codex again, converts retired folder
+    defaults and sets aside dead letters no retry can deliver. `--send` sends the Probe team a
     small diagnostic report; `--bundle` saves (and with `--send` sends) the
     full debug log.
     """
@@ -2974,6 +2968,11 @@ def doctor(
     from probe.cli import service_calls
 
     refresh_mcp_token_verdict()  # one /v1/me: a refused read token reads "login needed"
+    # Before the report, so its "Codex hooks" rows say what the fix left.
+    codex_fixed = _doctor_fix_codex_hooks() if fix else []
+    # And its outbox counts what `--fix` left: dead letters that can never land
+    # (a superseded attempt's, a run that is gone) nag every session start.
+    outbox_fixed = doctor_impl.drop_unrecoverable_dead_letters() if fix else []
     caps = doctor_impl.collect()
     # `probe doctor` fixes what it can: writes stranded under a dead credential
     # of this account are rescued now (never from `collect`, which `probe
@@ -2998,11 +2997,28 @@ def doctor(
             caps, codex_hooks=doctor_impl.codex_hook_rows(caps), service=service_calls.view()
         )
     )
+    if codex_fixed:
+        print("\n".join(["", "Codex hooks (--fix)", *(f"  {line}" for line in codex_fixed)]))
+    if outbox_fixed:
+        print("\n".join(["", "Outbox (--fix)", *(f"  {line}" for line in outbox_fixed)]))
     from probe.cli import probe_config_cli
 
     rows = probe_config_cli.doctor_rows(fix=fix)
     if rows:
         print("\n".join(["", "Retired folder defaults", *rows]))
+
+
+def _doctor_fix_codex_hooks() -> list[str]:
+    """`probe doctor --fix`: Probe's own hooks in Codex approved again, as an
+    update and the Probe service's healer approve them (#3617), and what that
+    did. Empty where Codex holds no copy of Probe's plugins."""
+    from probe.cli import codex_hooks
+    from probe.cli import setup as wizard
+
+    if not codex_hooks.installed_copies():
+        return []
+    lines, done = wizard.approve_codex_hooks()
+    return lines if lines or not done else ["None of Probe's hooks waited for approval."]
 
 
 #: What `probe doctor --send` says for each reason a report did not land.
@@ -9143,87 +9159,19 @@ def _bare_id(ref: str | None) -> str | None:
 
 
 def _ref(client: Client, kind: str, ref: str) -> refs.Ref:
-    """Resolve a ref, reporting both failure modes as CLI errors.
-
-    The one adapter between :mod:`probe.cli.refs` (which raises library errors so
-    the SDK and tests can use it) and Typer's exit codes. Ambiguity and absence
-    both surface as ``BadParameter``: each means "this ref does not identify one
-    thing", and neither is something a retry of the same command fixes.
-    """
-    if kind not in refs.SLUG_KINDS and kind not in ("run", "workspace"):
-        # Kinds with no second spelling (artifacts: no item GET, no by-name
-        # index, and a name that is anchor-scoped rather than unique). The id is
-        # passed through -- but the verb still routes through here so it gets the
-        # same prompt and the same "deleted" line as everything else.
-        return refs.Ref(ref, f"{kind} {ref}")
-    try:
-        if kind == "run":
-            return refs.resolve_run(client, ref)
-        if kind == "workspace":
-            return refs.resolve_workspace(client, ref)
-        return refs.resolve(client, kind, ref, project_hint=_active_project_id(kind, ref))
-    except NotFoundError as exc:
-        # Under a workspace limit a miss may be a thing in another workspace:
-        # say so, rather than let it read as gone.
-        from ..sdk.workspace_limit import maybe_hidden_hint, with_hint
-
-        hint = "" if exc.workspace_limit_applied else maybe_hidden_hint(_limit_quietly())
-        raise typer.BadParameter(with_hint(str(exc), hint)) from None
-    except (
-        UnfilteredListing,
-        refs.AmbiguousName,
-        refs.NameFilterUnsupported,
-    ) as exc:
-        raise typer.BadParameter(str(exc)) from None
+    """Resolve a ref, reporting both failure modes as CLI errors
+    (`reads.resolve_ref`, with this process's active project and limit)."""
+    return _api(client).ref(kind, ref)
 
 
-def _limit_quietly():
-    """This process's workspace limit, or None (also when it cannot be read)."""
-    try:
-        return resolve(base_url=_conn.base_url).workspace_limit
-    except Exception:  # noqa: BLE001 - a hint only
-        return None
-
-
-def _filed_under(target: refs.Ref) -> str | None:
-    """The project a resolved experiment ref is filed under, when its row says
-    (so the experiment API's routes need no second lookup)."""
-    row = target.row if isinstance(target.row, dict) else {}
-    project = row.get("project_id")
-    return str(project) if project and refs.is_uuid(str(project)) else None
-
-
-def _active_project_id(kind: str, ref: str) -> str | None:
-    """The active project's id, when it costs nothing to know, for an
-    experiment SLUG: looking there first answers in one request (refs.resolve
-    falls back tenant-wide on a miss). None for anything else, and when the
-    active project is stored as a slug (resolving it would be a request of
-    its own)."""
-    if kind != "experiment" or refs.split_selector(ref)[1] != "slug":
-        return None
-    try:
-        ambient = _ambient_project(None)
-    except Exception:  # noqa: BLE001 - a hint only; the lookup works without it
-        return None
-    if not ambient:
-        return None
-    bare, how = refs.split_selector(ambient)
-    return bare if how == "id" and refs.is_uuid(bare) else None
+#: The project a resolved experiment ref is filed under (`reads.filed_under`).
+_filed_under = reads.filed_under
 
 
 def _ambient_project(explicit: str | None, **kw) -> str | None:
-    """The project ref to use, canonicalising ONLY the ambient one.
-
-    ``from_ambient`` reads a bare UUID as an id, which is right for a value the
-    TOOL stored and catastrophically wrong for one a person typed: rewriting an
-    explicit ``--project <uuid-shaped-slug>`` to ``id:`` is the original bug, back.
-    ``resolve()`` merges flag/env/context into one string and forgets which won,
-    so the provenance has to be decided here, before it is lost.
-    """
-    merged = resolve(project=explicit, **kw).project
-    if explicit is not None:
-        return explicit  # typed by a person: a bare ref is a slug, full stop.
-    return refs.from_ambient(merged)
+    """The project ref to use, canonicalising ONLY the ambient one
+    (`reads.ambient_project`, through this process's settings)."""
+    return reads.ambient_project(resolve, explicit, **kw)
 
 
 def _project_id(client: Client, ref: str) -> str:
@@ -9265,24 +9213,8 @@ def _container(client: Client, ref: str) -> tuple[str, str]:
 
 
 def _project_slug(client: Client, ref: str | None) -> str | None:
-    """The inverse of :func:`_project_id`, for the slug-resolving paths.
-
-    ``Client.run`` resolves a project by *slug* and raises when it is absent, so
-    handing it an id makes the lookup miss a project that genuinely exists. The
-    ambient anchor stores an id (stable across renames), so it has to be
-    translated on the way in -- as does an explicit ``--project id:<uuid>``.
-
-    A bare ref is returned untouched: it is already a slug by definition now, and
-    absence is ``run start``'s to report, whose near-miss guard names the slugs a
-    typo was close to. Resolving it here would replace that with a bare
-    "not found".
-    """
-    if ref is None:
-        return None
-    bare, how = refs.split_selector(ref)
-    if how == "slug":
-        return bare
-    return _ref(client, "project", ref).row.get("slug", bare)
+    """The inverse of :func:`_project_id`, for the slug-resolving paths (`reads.project_slug`)."""
+    return reads.project_slug(_api(client), ref)
 
 
 #: How long a run, group, experiment or project stays restorable in the
@@ -9655,7 +9587,7 @@ def project_get(
 ) -> None:
     """Show one project."""
     with _client() as c:
-        _print_json(_select_fields(c.get_project(_project_id(c, project_id)), fields))
+        _emit(reads.project_get(_api(c, pretty=sys.stdout.isatty()), project_id, fields))
 
 
 @project_app.command("lineage")
@@ -11884,10 +11816,8 @@ def run_check(
     legacy runs without launch context).
     """
     with _client() as c:
-        result = c.check_run(_ref(c, "run", run).id, verify=verify)
-    _print_json(result)
-    if result.get("state") == "incomplete":
-        raise typer.Exit(2)
+        printed = reads.run_check(_api(c, pretty=sys.stdout.isatty()), run, verify)
+    _emit(printed)
 
 
 def _materialize_record(c: Any, run_id: str, record: dict, dest: str) -> dict:
@@ -11969,17 +11899,18 @@ def run_reproduce(
     """
     if export and materialize:
         raise typer.BadParameter("pass --export OR --materialize, not both")
+    if not (export or materialize):
+        with _client() as c:
+            printed = reads.run_reproduce(_api(c, pretty=sys.stdout.isatty()), run)
+        _emit(printed)
+        return
     with _client() as c:
-        run_id = _ref(c, "run", run).id
-        record = c.run_reproduce(run_id)
+        run_id, record = reads.reproduce_record(_api(c), run)
         if materialize:
             _print_json(_materialize_record(c, run_id, record, materialize))
             return
-    if export:
-        Path(export).write_text(json.dumps(record, indent=2, sort_keys=True))
-        typer.echo(f"wrote {export}")
-    else:
-        _print_json(record)
+    Path(export).write_text(json.dumps(record, indent=2, sort_keys=True))
+    typer.echo(f"wrote {export}")
 
 
 @run_app.command("delete")
@@ -12258,6 +12189,12 @@ def exec(
     # must never raise into the job over one refused write (`Client.write`),
     # nor report each failed one on stderr or in its exit code (`_new_client`).
     # Every other verb is a single write a refusal should fail (L14).
+    #
+    # The launcher is the run's process for the job's whole life (R41): its
+    # create, beats, log and close, and every write of the job it starts (which
+    # inherits the mark), are the run's, never its agent being active. A
+    # backgrounded `probe exec` closing at 3 a.m. adds no agent-hours.
+    agent_session.mark_run_process()
     with _client(raise_permanent=False) as c:
         claim = None
         if run is None:
@@ -13699,6 +13636,79 @@ def session_send(
         _print_json(c.send_session_message(session_id, text))
 
 
+#: `probe session delete|undelete` from inside a coding agent's shell, or run by
+#: the Probe daemon (R24).
+SESSION_DELETE_FROM_AGENT = (
+    "`probe session {verb}` was refused: it runs inside a coding agent's session, and only the "
+    "researcher deletes or restores a captured session, from a terminal outside the agent. "
+    "Nothing changed."
+)
+
+
+def _refuse_session_deletion_from_agent(verb: str) -> None:
+    """The researcher's own command, refused before any request when a coding
+    agent's session variable is set (the `INLINE_FROM_AGENT` test: however the
+    call was wrapped) or the Probe daemon runs it (`PROBE_DAEMON_SESSION`).
+    A speed bump, not the boundary: the server refuses the daemon's and the
+    assistant's credentials, and the 7-day undo and the owner's email are what
+    stand behind an agent holding the person's own key (research-os R33)."""
+    if agent_session.session_id_from_env() or os.environ.get(agent_session.DAEMON_SESSION_ENV):
+        print(SESSION_DELETE_FROM_AGENT.format(verb=verb), file=sys.stderr)
+        raise typer.Exit(2)
+
+
+@session_app.command("delete")
+def session_delete(
+    session_id: str = typer.Argument(..., help="the captured session's id, a lowercase UUID"),
+) -> None:
+    """Delete one of your captured sessions: its transcript, and what Probe
+    derived from it.
+
+    It is hidden from search at once and deleted for good after 7 days; until
+    then `probe session undelete <id>` brings it back. You are emailed when you
+    ask. Only your own sessions, and only from a terminal outside a coding
+    agent: you type the id's first 8 characters back to confirm. Run again on a
+    session already asked for, it prints where that deletion stands.
+    """
+    _refuse_session_deletion_from_agent("delete")
+    with _client() as c:
+        preview = c.delete_session(session_id, dry_run=True)
+        if preview.get("state") is not None:
+            # Already asked: where it stands, never a second request.
+            _print_json(preview)
+            return
+        seen = ", ".join(
+            f"{label} {preview[key]}"
+            for label, key in (("first seen", "first_seen_at"), ("last seen", "last_seen_at"))
+            if preview.get(key)
+        )
+        print(
+            f"{preview.get('agent')} session {session_id}" + (f" ({seen})" if seen else "") + ".\n"
+            + str(preview.get("note") or ""),
+            file=sys.stderr,
+        )
+        confirm = session_id[:8]
+        typed = typer.prompt(
+            f"Type {confirm} to delete it", default="", show_default=False, err=True
+        )
+        if typed.strip() != confirm:
+            print("not confirmed: nothing changed", file=sys.stderr)
+            raise typer.Exit(1)
+        _print_json(c.delete_session(session_id))
+
+
+@session_app.command("undelete")
+def session_undelete(
+    session_id: str = typer.Argument(..., help="the session you asked to delete"),
+) -> None:
+    """Undo `probe session delete` while its 7 days are open: nothing was
+    deleted, and the session is back in search. Refused once the deletion has
+    started."""
+    _refuse_session_deletion_from_agent("undelete")
+    with _client() as c:
+        _print_json(c.undelete_session(session_id))
+
+
 @session_app.command("status")
 def session_status(
     session: str = typer.Option(None, "--session", help="session id (defaults to this one)"),
@@ -13731,6 +13741,8 @@ def session_status(
     by_daemon = _daemon_session() is not None
     capture = None if by_daemon else _capture_block(resolved, heal_cwd=os.getcwd())
     reads_allowed = session_marker.state_allows_reads(session_state)
+    # Only this session's own read: another session's harness is not this shell's.
+    codex_env = None if by_daemon or session else _codex_env_warning(resolved)
     _print_json(
         {
             "session_id": resolved,
@@ -13773,8 +13785,25 @@ def session_status(
             # started, and the researcher's answer about the files above it.
             "probe_config": _probe_config_block(resolved),
             **({"note": DAEMON_STATUS_NOTE} if by_daemon else {}),
+            **({"warning": codex_env} if codex_env else {}),
         }
     )
+
+
+def _codex_env_warning(session_id: str) -> str | None:
+    """`codex_hooks.ENV_WARNING` for a Codex session that took the shipped
+    default where its hooks could not read the state Codex was started with
+    (issue 3620: no /proc to read it from), else None. A machine default the
+    researcher set is their choice for these sessions too: nothing to say."""
+    from .codex_hooks import ENV_WARNING, launch_env_unreadable
+    from .plugin_cli import CODEX
+
+    agent = agent_session.detect_agent()
+    if agent is None or agent.label != CODEX or not launch_env_unreadable():
+        return None
+    if session_marker.resolve_state_default(None)[1] != "shipped":
+        return None
+    return ENV_WARNING if session_marker.state_source_label(session_id) == session_marker.SOURCE_DEFAULT else None
 
 
 def _probe_config_block(session_id: str) -> dict:
@@ -17048,6 +17077,8 @@ def _fold_drain_reports(parts: list) -> Any:
                     mine.setdefault(key, value)
             elif isinstance(theirs, (int, float)):
                 setattr(combined, spec.name, mine + theirs)
+            elif hasattr(theirs, "merge"):  # a `DiscardCounts` (T24's `superseded`)
+                mine.merge(theirs)
     return combined
 
 
@@ -17079,6 +17110,12 @@ def _drain_foreground(run_ref: str | None = None, *, every_dir: bool = False) ->
         f"delivered {report.delivered}{scope}; "
         f"{report.dead_lettered} dead-lettered; {report.remaining} remaining"
     )
+    if report.superseded.writes:
+        # Gone from the queue without landing: said, so it never reads as delivered.
+        print(
+            f"{report.superseded.writes} write(s) set aside: a newer attempt took their run over, "
+            "so the server refuses them for good (kept in the outbox's discarded/ folder)"
+        )
     if report.credential_held or getattr(report, "close_held", 0):
         # The drain's own reasons: "another job's PROBE_TOKEN" is one of
         # several, and naming it for a re-login it cannot match misled people
@@ -17126,141 +17163,14 @@ def _drain_foreground(run_ref: str | None = None, *, every_dir: bool = False) ->
         raise typer.Exit(2)
 
 
-def _auth_blocked_since(status: dict) -> str | None:
-    from ..sdk.journal import auth_blocked_since
-
-    return auth_blocked_since(status)
-
-
-def _stored_login(name: str | None):
-    """Settings carrying context ``name``'s stored login alone (never an env
-    token), or None when it stores no token."""
-    from ..sdk.config import DEFAULT_BASE_URL, Settings, load_context
-
-    try:
-        stored = load_context(name)
-    except Exception:  # noqa: BLE001 -- an unreadable config stores nothing
-        return None
-    if not stored.get("token"):
-        return None
-    return Settings(
-        base_url=(stored.get("base_url") or DEFAULT_BASE_URL).rstrip("/"),
-        token=stored["token"],
-        ingest_token=stored.get("ingest_token"),
-    )
-
-
-def _login_account(name: str | None, *, network: bool) -> tuple[str, str] | None:
-    """(customer_id, user_id) of context ``name``'s stored login: as the
-    sign-in recorded it for THIS token, else (``network``) `GET /v1/me`.
-    None when unknown. Raises what `/v1/me` raised."""
-    from ..sdk.config import load_context
-    from ..sdk.journal import _identity_of, credential_fingerprint
-
-    login = _stored_login(name)
-    if login is None:
-        return None
-    recorded = load_context(name).get("identity")
-    if (
-        isinstance(recorded, dict)
-        and recorded.get("fingerprint") == credential_fingerprint(login.token, None)
-        and recorded.get("customer_id")
-        and recorded.get("user_id")
-    ):
-        return str(recorded["customer_id"]), str(recorded["user_id"])
-    return _identity_of(login) if network else None
-
-
-def _credentials_here(name: str | None) -> set[str]:
-    """The credentials this shell sends with: its environment's and the stored login."""
-    from ..sdk import outbox_worker
-    from ..sdk.journal import credential_fingerprint
-
-    here = set(outbox_worker.env_fingerprints())
-    login = _stored_login(name)
-    if login is not None:
-        here.add(credential_fingerprint(login.token, None))
-    return here
+#: Context ``name``'s stored login alone, as Settings (`reads.stored_login`).
+_stored_login = reads.stored_login
 
 
 def _held_credentials(ops: list, status: dict, *, network: bool) -> list[dict]:
-    """Per env/code credential whose queued writes nothing here holds: how
-    many, its latest refusal, who holds it (`journal.credential_holders`) and
-    what to do next -- restart its process, `adopt` its writes (only when
-    that would pass: the same team and user as the login stored here), or
-    `discard` them. ``network``: ask `/v1/me` when the login's account was not
-    recorded at sign-in."""
-    from ..sdk.config import current_context_name
-    from ..sdk.journal import HolderState, Refusal, credential_holders, held_credentials
-
-    name = current_context_name() or None
-    entries = held_credentials(ops, here=_credentials_here(name))
-    if not entries:
-        return []
-    try:
-        mine = _login_account(name, network=network)
-    except Exception:  # noqa: BLE001 -- unknown: adopt checks it itself
-        mine = None
-    refused = status.get("refused_fingerprints") if isinstance(status, dict) else None
-    refused = refused if isinstance(refused, dict) else {}
-    out = []
-    for entry in entries:
-        fp = entry["fingerprint"]
-        account = entry.get("account")
-        holders = [
-            {key: h.get(key) for key in ("pid", "state", "program", "script", "sdk")}
-            for h in credential_holders(fp)
-        ]
-        alive = [h for h in holders if h["state"] == HolderState.ALIVE]
-        refused_at = refused.get(fp)
-        if entry.get("adopted"):
-            step = (
-                "adopted: its writes go out with your login. Still queued means that login is "
-                "another account's or server's, its token was refused, or these are DELETEs or "
-                "writes refused for scope, which go only with their own credential: "
-                "`probe outbox drain` says which"
-            )
-        elif entry.get("refusal") == Refusal.SCOPE:
-            step = (
-                "Probe refused its writes for a missing scope: they may not be sent with a "
-                "login that has it. Give the job a token with that scope, or "
-                f"`probe outbox discard --held --credential {fp}` drops them"
-            )
-        elif alive and not refused_at:
-            step = f"pid {alive[-1]['pid']} holds it and sends them itself"
-        elif account is None:
-            step = (
-                "the account behind it was never recorded here, so nothing can match it to "
-                f"your login: `probe outbox discard --held --credential {fp}` drops them"
-            )
-        elif mine is not None and account != mine:
-            step = (
-                "another account's (team or user): sign in as it here, or "
-                f"`probe outbox discard --held --credential {fp}` drops them"
-            )
-        else:
-            step = (
-                f"`probe outbox adopt --credential {fp}` sends them with your login"
-                + ("" if mine is not None else " (it checks the account first)")
-            )
-        if alive and refused_at and entry.get("refusal") != Refusal.SCOPE:
-            step = (
-                f"its token was refused: restart pid {alive[-1]['pid']} with a valid token. "
-                f"For what it queued: {step}"
-            )
-        out.append(
-            {
-                "fingerprint": fp,
-                "source": entry.get("source"),
-                "writes": entry["writes"],
-                "refused_at": refused_at,
-                "account_known": account is not None,
-                "same_account": None if (account is None or mine is None) else account == mine,
-                "holders": holders,
-                "next": step,
-            }
-        )
-    return out
+    """Per env/code credential whose queued writes nothing here holds
+    (`reads.held_credentials`, over this process's environment)."""
+    return reads.held_credentials(ops, status, network=network, env=os.environ)
 
 
 def _print_held_credentials(entries: list[dict]) -> None:
@@ -17289,113 +17199,8 @@ def outbox_status(
     run: Optional[str] = typer.Option(None, "--run", help="scope counts and ops to one run"),
 ) -> None:
     """Outbox summary. Exit 0 when everything is delivered, 2 otherwise."""
-    journal = _journal()
-    pending = [item for namespace in journal.namespaces() for item in namespace.pending()]
-    failed = [item for namespace in journal.namespaces() for item in namespace.failed()]
-    pending.sort(key=lambda item: item[1].get("enqueued_at") or "")
-    if run is not None:
-        pending = [(p, op) for p, op in pending if op.get("run_ref") == run]
-        failed = [(p, op) for p, op in failed if op.get("run_ref") == run]
-    from ..sdk.journal import Journal
-
-    status = Journal.read_status(journal.dir) or {}
-    others = _outbox_journals()[1:]
-    summary = {
-        "dir": str(journal.dir),
-        **({"run": run} if run is not None else {}),
-        "pending": len(pending),
-        # Uploads queued before their credential scan: they become pending ops
-        # once the worker (or `probe run end`) has scanned them.
-        "waiting": len(journal.waiting(run_ref=run)),
-        "failed": len(failed),
-        "paused": status.get("paused", journal.paused),
-        # When the pause ends by itself; null while paused means until `resume`.
-        "paused_until": status.get("paused_until"),
-        # The queue-wide block, or a credential the drain set aside (#2041).
-        "auth_blocked_since": _auth_blocked_since(status),
-        "oldest_pending": pending[0][1].get("enqueued_at") if pending else None,
-        "last_error": status.get("last_error"),
-        # Ops the journal declined to stage because the disk was near full. They
-        # still deliver -- the drainer reads the source in place -- but they now
-        # depend on that source still existing at drain time, which is a fact an
-        # operator should be able to see rather than infer from a dead letter.
-        "unstaged_low_disk": status.get("unstaged_low_disk"),
-    }
-    try:
-        # Writes that wait for a credential no process here holds: whose,
-        # who holds it, and the command that moves them (#2041 follow-up).
-        held = _held_credentials([op for _, op in pending], status, network=False)
-    except Exception:  # noqa: BLE001 -- advice only; the counts stand
-        held = []
-    if held:
-        summary["held_credentials"] = held
-    producers = journal.producer_report()
-    if producers:
-        summary["producers"] = [
-            {
-                "producer_id": p.get("producer_id"),
-                "role": p.get("role"),
-                "last_sequence": p.get("last_sequence"),
-                # A FLOOR, written after the op file is unlinked. Beside
-                # last_sequence it answers the only question worth asking of a
-                # writer that has gone away: did what it queued actually land.
-                "delivered": p.get("delivered"),
-                "state": p.get("state"),
-                "gaps": p.get("gaps") or [],
-            }
-            for p in producers
-        ]
-    if verbose:
-
-        def row(op: dict, state: str) -> dict:
-            return {
-                "op_id": op.get("op_id"),
-                "state": state,
-                "kind": op.get("kind"),
-                "run_ref": op.get("run_ref"),
-                "detail": (
-                    f"{op.get('method')} {op.get('path')}"
-                    if op.get("kind") == "http"
-                    else (op.get("upload") or {}).get("name")
-                ),
-                "attempts": op.get("attempts"),
-                "last_error": op.get("last_error"),
-            }
-
-        summary["ops"] = [row(op, "pending") for _, op in pending] + [
-            row(op, "failed") for _, op in failed
-        ]
-    undelivered = bool(pending or failed or summary["waiting"])
-    if others:
-        # Every other outbox of this user on this machine: a distributed job's
-        # `rank-*` queues and the $TMPDIR fallback used to be invisible here
-        # (plan 1.5). Banner-grade counts (status.json), never a parse.
-        dirs = [
-            {
-                "dir": str(summary["dir"]),
-                "pending": summary["pending"],
-                "failed": summary["failed"],
-                "waiting": summary["waiting"],
-            }
-        ]
-        for other in others:
-            counts = Journal.read_status(other.dir) or {}
-            dirs.append(
-                {
-                    "dir": str(other.dir),
-                    "pending": int(counts.get("pending") or 0),
-                    "failed": int(counts.get("failed") or 0),
-                    "waiting": int(counts.get("waiting") or 0),
-                }
-            )
-        summary["dirs"] = dirs
-        summary["total"] = {
-            key: sum(entry[key] for entry in dirs) for key in ("pending", "failed", "waiting")
-        }
-        undelivered = undelivered or any(summary["total"].values())
-    _print_json(summary)
-    if undelivered:
-        raise typer.Exit(2)
+    _emit(reads.outbox_status(_api(None, pretty=sys.stdout.isatty()), _journal(), _outbox_journals()[1:],
+                              verbose, run))
 
 
 @outbox_app.command("drain")
@@ -17852,7 +17657,7 @@ def get(run: str = run_ref(), fields: str = _FIELDS_OPTION) -> None:
 def run_get(run: str = run_ref(), fields: str = _FIELDS_OPTION) -> None:
     """Show one run."""
     with _client() as c:
-        _print_json(_select_fields(c.get_run(run), fields))
+        _emit(reads.run_get(_api(c, pretty=sys.stdout.isatty()), run, fields))
 
 
 @app.command()
@@ -17948,33 +17753,12 @@ def agent_rules_refresh() -> None:
 
 
 def _notes_project(client: Client, project: str | None) -> tuple[str, str]:
-    """(project_id, label) for a notes read/write. Explicit beats the active one."""
-    resolved = _ambient_project(project, base_url=_conn.base_url)
-    if not resolved:
-        raise typer.BadParameter(
-            "pass --project, or set an active project with `probe project use <slug>`"
-        )
-    return _project_id(client, resolved), _project_slug(client, resolved) or resolved
+    """(project_id, label) for a notes read/write (`reads.notes_project`)."""
+    return reads.notes_project(_api(client), project)
 
 
-def _entity_notes_row(client: Client, kind: str, entity_id: str) -> dict:
-    """The whole entity row, one explicit branch per kind — the parity check
-    reads paths statically, so no f-string may compute its segment.
-
-    Returns the ROW, not just its `notes`: the headroom pair the read advisory
-    is derived from travels beside the document, and re-fetching to get it would
-    double every `notes show`.
-    """
-    if kind == "project":
-        return client.get_project(entity_id)
-    if kind == "experiment":
-        # The experiment API's detail: it carries the notes, their version and
-        # the headroom (`notes_limit_tokens`, `notes_remaining_tokens`) the
-        # read advisory and the over-cap refusal below need (server X21).
-        return client.get_experiment(entity_id)
-    if kind == "run":
-        return client.get_run(entity_id)
-    raise ValueError(f"{kind!r} carries no notes; expected one of {', '.join(_NOTE_TARGETS)}")
+#: The whole entity row a note lives on (`reads.entity_notes_row`).
+_entity_notes_row = reads.entity_notes_row
 
 
 @notes_app.command("show")
@@ -18040,24 +17824,12 @@ def notes_find(
     mentioning more of the words first: what an edit quotes as its old text,
     without reading the whole note. Reads the current version, like `show`.
     """
-    from . import notes_find as finder
-
     with _client() as c:
-        kind, entity_id, label = _note_target(
-            c, project=project, experiment=experiment, run=run
+        printed = reads.notes_find(
+            _api(c, pretty=sys.stdout.isatty()), list(words), project=project, experiment=experiment,
+            run=run, note=note,
         )
-        if note is not None:
-            found = _resolve_sub_note_by_title(c, kind, entity_id, note)
-            document = c.get_sub_note(found["id"])
-            text = document.get("body") or ""
-            label = f"{label} › {note}"
-        else:
-            document = _entity_notes_row(c, kind, entity_id)
-            text = document.get("notes") or ""
-    if not text:
-        print(f"{label} has no notes yet", file=sys.stderr)
-        return
-    print(finder.report(label, document.get("notes_version"), text, words))
+    _emit(printed)
 
 
 @notes_app.command("checkout")
@@ -18260,7 +18032,7 @@ def notes_write(
 #: there is one per rollout, so a 500-rollout run would offer 500 documents for
 #: an observation that belongs once on the run. Agents READ trial notes
 #: (`probe trial get`); people write them in the dashboard.
-_NOTE_TARGETS = ("project", "experiment", "run")
+_NOTE_TARGETS = reads.NOTE_TARGETS
 
 
 def _sub_note_row_for_headroom(row: object) -> object:
@@ -18289,90 +18061,22 @@ def _sub_note_row_for_headroom(row: object) -> object:
     return adapted
 
 
+def _stderr_line(text: str) -> None:
+    print(text, file=sys.stderr)
+
+
 def _sub_notes_supported(exc: errors.RosError) -> None:
-    """Map a ROUTE-shaped 404 to the honest self-host answer.
-
-    The hosted backend always has these routes; a self-hosted server one
-    release behind answers FastAPI's bare `Not Found` — which is not "no such
-    note", it is "no such door". Saying so beats handing the caller an id hunt.
-    An ENTITY 404 names what is missing ("run not found", "no sub-note
-    titled ...") and passes through untouched.
-    """
-    if exc.status == 404 and str(exc.detail or "").strip() == "Not Found":
-        # A bare `Not Found` is a ROUTE miss, and there are two ways to miss a
-        # route: a server without it, or a request that never reached it (a
-        # malformed id spliced into the path lands here too, against a fully
-        # current server). Name both rather than diagnose confidently.
-        print(
-            "error: the sub-notes route answered a bare 404 — this server may "
-            "predate sub-notes (self-hosted needs research-os >= 0.231.0.0; "
-            "hosted backends already have them), or the target id may be "
-            "malformed",
-            file=sys.stderr,
-        )
-        raise typer.Exit(1) from exc
+    """A ROUTE-shaped 404 said as the honest self-host answer (`reads.sub_notes_supported`)."""
+    reads.sub_notes_supported(exc, _stderr_line)
 
 
-def _sub_note_id_ref(note: str) -> str | None:
-    """The uuid inside an `id:<uuid>` --note value, or None for a plain title.
-
-    The escape hatch for duplicated titles: titles are legal to duplicate
-    (tabs key on id), so every command that refuses an ambiguous title must
-    also take the id the refusal printed — otherwise the advised repair
-    (`probe notes rename`) resolves through the same refusal and the
-    duplicates are unreachable from the CLI entirely.
-    """
-    if note.startswith("id:"):
-        return note[3:].strip()
-    return None
+#: The uuid inside an `id:<uuid>` --note value (`reads.sub_note_id_ref`).
+_sub_note_id_ref = reads.sub_note_id_ref
 
 
 def _resolve_sub_note_by_title(client: Client, kind: str, entity_id: str, title: str) -> dict:
-    """The one sub-note `title` (or `id:<uuid>`) names, via the list read.
-
-    For the ID-ADDRESSED commands (show/rename/delete), which need the id in
-    hand. Writes never come here — append/edit send the title IN the request
-    and the server resolves at apply time, which is what lets them queue.
-    Same exactly-once contract, spoken client-side: zero matches lists what
-    exists, two-plus lists the ids. An `id:<uuid>` value resolves through the
-    SAME entity-scoped list, so an id from some other entity is a miss here,
-    never a cross-entity read that mislabels its output.
-    """
-    try:
-        page = client.list_sub_notes(kind, entity_id)
-    except errors.RosError as exc:
-        _sub_notes_supported(exc)
-        raise
-    id_ref = _sub_note_id_ref(title)
-    if id_ref is not None:
-        matches = [row for row in page.get("sub_notes", []) if row.get("id") == id_ref]
-        if len(matches) == 1:
-            return matches[0]
-        print(
-            f"error: no sub-note with id {id_ref!r} on this {kind} "
-            "(`probe notes list` shows its sub-notes and their ids)",
-            file=sys.stderr,
-        )
-        raise typer.Exit(1)
-    matches = [row for row in page.get("sub_notes", []) if row.get("title") == title.strip()]
-    if len(matches) == 1:
-        return matches[0]
-    if not matches:
-        titles = [row.get("title") for row in page.get("sub_notes", [])]
-        print(
-            f"error: no sub-note titled {title!r} on this {kind}; "
-            f"existing titles: {titles or '(none)'}",
-            file=sys.stderr,
-        )
-        raise typer.Exit(1)
-    ids = [row.get("id") for row in matches]
-    print(
-        f"error: {len(matches)} sub-notes are titled {title!r}: {ids}. "
-        "Address one as `--note id:<uuid>`, or rename one first "
-        "(`probe notes rename --note id:<uuid> --to ...`).",
-        file=sys.stderr,
-    )
-    raise typer.Exit(1)
+    """The one sub-note `title` (or `id:<uuid>`) names (`reads.resolve_sub_note_by_title`)."""
+    return reads.resolve_sub_note_by_title(client, kind, entity_id, title, _stderr_line)
 
 
 def _note_target(
@@ -18382,33 +18086,9 @@ def _note_target(
     experiment: str | None,
     run: str | None,
 ) -> tuple[str, str, str]:
-    """(kind, id, label) for a notes write. Exactly one target, or the default.
-
-    Refusing two targets rather than picking one: "wrote the note" is the same
-    sentence whichever entity received it, so a silent preference order would
-    put prose on the wrong row and say nothing.
-    """
-    chosen = [
-        (kind, value)
-        for kind, value in (("experiment", experiment), ("run", run))
-        if value is not None
-    ]
-    if project is not None:
-        chosen.append(("project", project))
-    if len(chosen) > 1:
-        raise typer.BadParameter("pass exactly one of --project/--experiment/--run")
-    if not chosen:
-        # No flag at all: the project, which is what `notes` has always meant.
-        project_id, label = _notes_project(client, None)
-        return "project", project_id, label
-    kind, value = chosen[0]
-    if kind == "project":
-        project_id, label = _notes_project(client, value)
-        return "project", project_id, label
-    if kind == "run":
-        # Runs resolve by petname OR id -- the one polymorphic ref in the CLI.
-        return "run", refs.resolve_run(client, value).id, value
-    return "experiment", refs.resolve(client, "experiment", value).id, value
+    """(kind, id, label) for a notes write. Exactly one target, or the default
+    (`reads.note_target`)."""
+    return reads.note_target(_api(client), project=project, experiment=experiment, run=run)
 
 
 def _headroom_fields(row: object) -> dict[str, int]:
@@ -19747,8 +19427,7 @@ def experiment_get(experiment_id: str = slug_ref("experiment")) -> None:
     filtering by eye.
     """
     with _client() as c:
-        target = _ref(c, "experiment", experiment_id)
-        _print_json(c.get_experiment(target.id, project_id=_filed_under(target)))
+        _emit(reads.experiment_get(_api(c, pretty=sys.stdout.isatty()), experiment_id))
 
 
 @experiment_app.command("set")
@@ -19757,6 +19436,14 @@ def experiment_set(
     question: str = typer.Option(None, "--question", help="replace the question"),
     conclusion: str = typer.Option(
         None, "--conclusion", help='the answer, once the work gives one ("" clears)'
+    ),
+    dead_end: str = typer.Option(
+        None,
+        "--dead-end",
+        help="mark it a dead end and say why (@file and - read the reason); it still ranks",
+    ),
+    clear_dead_end: bool = typer.Option(
+        False, "--clear-dead-end", help="clear its dead-end mark"
     ),
     name: str = typer.Option(None, "--name"),
     #: 0231: RETIRED, and declared so it can be REFUSED. Deleting the option
@@ -19780,20 +19467,28 @@ def experiment_set(
 ) -> None:
     """Amend an experiment's question, conclusion, name or visible Markdown, in one command.
 
-    Or, alone, override its project's headline metric. A person's metric
-    can't be replaced.
+    `--dead-end "<why>"` marks it a dead end (its branch reads `dead_end` until
+    a run of it is live; it still ranks), `--clear-dead-end` clears the mark.
+    Or, alone, override its project's headline metric. A person's metric or
+    dead-end mark can't be replaced.
     """
     if description is not None:
         raise typer.BadParameter(_EXPERIMENT_DESCRIPTION_RETIRED, param_hint="--description")
     if _tag_flags_given(add_tag, remove_tag, set_tags):
         raise typer.BadParameter(_EXPERIMENT_TAGS_READ_ONLY)
-    if conclusion == "-" and summary == "-":
+    if [conclusion, summary, dead_end].count("-") > 1:
         # The second would read an emptied stdin as "" and clear its field.
-        raise typer.BadParameter("only one of --conclusion and --summary can read stdin (-)")
+        raise typer.BadParameter(
+            "only one of --conclusion, --summary and --dead-end can read stdin (-)"
+        )
+    if dead_end is not None and clear_dead_end:
+        raise typer.BadParameter("--dead-end marks it and --clear-dead-end clears it: pass one")
     if (goal is not None or reduce is not None) and metric is None:
         raise typer.BadParameter("--goal and --reduce need --metric")
     if metric is not None:
-        if any(v is not None for v in (question, conclusion, name, summary, authored_by)):
+        if clear_dead_end or any(
+            v is not None for v in (question, conclusion, name, summary, dead_end, authored_by)
+        ):
             raise typer.BadParameter("--metric goes alone")
         clears = _metric_args(metric, goal, reduce)
         with _client() as c:
@@ -19818,17 +19513,23 @@ def experiment_set(
         "name": name,
         "document": _text_value(summary),
     }
-    if all(value is None for value in fields.values()):
+    reason = _text_value(dead_end)
+    if reason is not None and not reason.strip():
+        raise typer.BadParameter("say why it is a dead end", param_hint="--dead-end")
+    if all(value is None for value in fields.values()) and reason is None and not clear_dead_end:
         raise typer.BadParameter(
-            "pass at least one of --question/--conclusion/--name/--summary/--metric"
+            "pass at least one of --question/--conclusion/--name/--summary/--dead-end/"
+            "--clear-dead-end/--metric"
         )
     with _client() as c:
         target = _ref(c, "experiment", experiment_id)
         result = c.update_experiment(
             target.id,
             **fields,
+            dead_end=reason.strip() if reason is not None else None,
+            clear_dead_end=clear_dead_end,
             authored_by=_authored_by_value(authored_by),
-                project_id=_filed_under(target),
+            project_id=_filed_under(target),
         )
     _print_json(result)
 
@@ -20259,13 +19960,8 @@ def version_list(experiment_id: str = typer.Argument(...)) -> None:
 #: this exact line as "my key was refused": it stops and hands the session back
 #: (`probe/daemon/tools.py`). A 401, or a 403 naming a gone team or membership;
 #: a 403 for a missing scope is an ordinary failure (`sdk/key_refusal.py`).
-from ..sdk.key_refusal import KEY_REFUSED_LINE, credential_refused  # noqa: E402 -- kept beside its use
-
-
-#: 402 `limit`s whose figures are sizes (the storage meters).
-_BYTE_LIMITS = frozenset({"storage_bytes", "hosted_data_bytes"})
-#: The data catalog's hosted-data cap (C8, D2).
-_HOSTED_DATA_LIMIT = "hosted_data_bytes"
+# Printed by `reads.report_error`; re-exported here, where callers and tests read it.
+from ..sdk.key_refusal import KEY_REFUSED_LINE  # noqa: E402,F401
 
 #: What a loose-file write prints once the server has frozen them (C6).
 FILES_FROZEN = (
@@ -20295,10 +19991,16 @@ def _loose_file_write(args: list[str], exc: errors.RosError) -> bool:
     return words == ("artifact", "version-add") and isinstance(exc, errors.ClientTooOldError)
 
 
-def _key_refused(exc: errors.RosError) -> bool:
-    if isinstance(exc, (errors.WorkspaceLockedError, errors.UnroutableEndpointError)):
-        return False
-    return isinstance(exc, (errors.AuthError, errors.ScopeError)) and credential_refused(exc.status, str(exc))
+#: Did Probe refuse the credential itself (`reads.key_refused`)?
+_key_refused = reads.key_refused
+
+
+def _report_error(exc: BaseException) -> int:
+    """`reads.report_error` on this process's stderr: the daemon's own `probe`
+    commands carry `PROBE_DAEMON_SESSION`."""
+    code = reads.report_error(exc, daemon_session=bool(os.environ.get("PROBE_DAEMON_SESSION")))
+    assert code is not None, exc
+    return code
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -20358,52 +20060,6 @@ def main(argv: list[str] | None = None) -> int:
     except typer.Abort:
         print("aborted", file=sys.stderr)
         return 1
-    except ClickException as exc:  # usage / bad-parameter errors
-        exc.show()
-        return exc.exit_code or 2
-    except ValidationError as exc:
-        # A CLI string that fails the generated model's validation is a usage error,
-        # not a crash: `--older-than 2026-07-01` is valid ISO 8601 but not an aware
-        # datetime, and `--id abc` is not a UUID. Report it like one (exit 2).
-        for err in exc.errors():
-            field = ".".join(str(p) for p in err["loc"]) or exc.title
-            print(f"error: invalid {field}: {err['msg']}", file=sys.stderr)
-        return 2
-    except errors.LimitReachedError as exc:
-        # Handled ahead of RosError because a plan refusal is the one error here
-        # that is not a mistake. The generic branch would print a single line that
-        # reads like a failure; this one has to say what the ceiling is, that the
-        # existing work is safe, and how to lift it -- the CTA is the whole reason
-        # the limit exists.
-        print(f"error: {exc}", file=sys.stderr)
-        if exc.current is not None and exc.maximum is not None:
-            if exc.limit in _BYTE_LIMITS:
-                # Sizes, not bare numbers: the storage refusals send GiB.
-                from ..sdk.catalog import bytes_figure
-
-                print(f"       at {bytes_figure(exc.current)} of {bytes_figure(exc.maximum)}.", file=sys.stderr)
-            else:
-                print(f"       at {exc.current} of {exc.maximum}.", file=sys.stderr)
-        if exc.limit == _HOSTED_DATA_LIMIT:
-            # The data catalog's own cap (C8, D2): one figure over hosted
-            # datasets and checkpoints. A reference costs it nothing.
-            print(
-                "       That cap is hosted datasets and checkpoints together. Record the data as a "
-                "reference instead (leave out --upload): Probe then stores no bytes of it.",
-                file=sys.stderr,
-            )
-        print(
-            "       Nothing was deleted and everything already recorded stays readable.",
-            file=sys.stderr,
-        )
-        # The server's message already ENDS with the booking link, because it has
-        # to stand alone for any client that does not special-case 402 (including
-        # this CLI's own generic RosError branch). Printing our own copy under it
-        # put the same URL on screen twice, which reads like a mistake rather than
-        # emphasis. Only add the line when the message somehow lacks the link.
-        if exc.booking_url and exc.booking_url not in str(exc):
-            print(f"       Book 30 minutes: {exc.booking_url}", file=sys.stderr)
-        return 1
     except errors.RosError as exc:
         if exc.status == 410 and not getattr(exc, "in_trash", False) and _loose_file_write(args, exc):
             # The freeze (data-catalog C6): the server answers a new loose
@@ -20411,16 +20067,14 @@ def main(argv: list[str] | None = None) -> int:
             # clients. This one already knows where the file goes instead.
             print(FILES_FROZEN, file=sys.stderr)
             return 1
-        print(f"error: {exc}", file=sys.stderr)
-        if os.environ.get("PROBE_DAEMON_SESSION") and _key_refused(exc):
-            print(KEY_REFUSED_LINE, file=sys.stderr)
-        return 1
-    except OSError as exc:
-        # A bad local path is a usage error, not a crash. The upload commands take a
-        # path and hash it before any request, and the anchored path is strict (no
-        # fail-open spool to absorb it), so a typo would otherwise print a traceback.
-        print(f"error: {exc}", file=sys.stderr)
-        return 1
+        # A plan limit (402) says its ceiling and how to lift it; any other Probe
+        # error is one `error:` line, and under the daemon a refused key adds the
+        # line it stops on (`reads.report_error`, shared with the daemon host).
+        return _report_error(exc)
+    except (ClickException, ValidationError, OSError) as exc:
+        # Usage errors (exit 2), a CLI string the generated model refused (2), a
+        # bad local path (1): never a traceback.
+        return _report_error(exc)
     except SystemExit as exc:  # defensive: coerce any stray SystemExit to a code
         code = exc.code
         if isinstance(code, int):

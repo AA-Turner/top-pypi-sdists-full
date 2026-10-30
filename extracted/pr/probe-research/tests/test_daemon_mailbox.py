@@ -277,6 +277,22 @@ def test_ask_refuses_before_writing_anything(monkeypatch):
     assert mailbox.pending_asks(SID) == []
 
 
+def test_ask_says_when_probes_hooks_never_ran_in_the_session(monkeypatch):
+    """#3621: a session whose SessionStart hook never ran (Codex hooks waiting
+    for approval) has no state, and was told the daemon does not run on the
+    machine and to use the MCP, where the daemon records this agent. Control:
+    where it does not, that text is still the true one."""
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", SID)
+    monkeypatch.setenv(mailbox.ENV_READS, "on")
+    assert session_marker.session_state(SID) is None
+    res = _ask("what lr did we use?")
+    assert res.exit_code == 1 and daemon_cli.ASK_NO_HOOKS in res.output
+    assert _ask("--writer", "file the runs").output.strip() == daemon_cli.ASK_NO_HOOKS
+    monkeypatch.setenv(mailbox.ENV_READS, "off")
+    assert daemon_cli.ASK_NO_DAEMON in _ask("what lr did we use?").output
+    assert mailbox.pending_asks(SID) == [] and mailbox.pending_requests(SID) == []
+
+
 def test_ask_with_no_worker_is_filed_and_says_so(daemon_session):
     res = _ask("what LR did the last sweep use?")
     assert res.exit_code == 0
@@ -689,15 +705,52 @@ def test_the_sweep_keeps_a_live_worker_s_status_and_takes_old_hint_files(monkeyp
 
 
 def test_ask_writer_files_a_request_when_the_worker_takes_them(daemon_session):
+    """A handover keeps its line breaks (its lists and paragraphs); a question
+    to the reader is still one line (`test_ask_returns_at_once_when_a_worker_runs`)."""
     handle = _hold_lock()
     mailbox.mark_worker_accepts(SID)
     try:
-        res = _ask("--writer", "  group the six SFT arms   into an experiment ")
+        res = _ask("--writer", "  phase 2 handover:\r\n  - group the six SFT arms   into an experiment  \n\n\n"
+                               "  - mark lr-spike-5 a dead end\n ")
     finally:
         handle.close()
     req = mailbox.pending_requests(SID)[0]
     assert res.exit_code == 0 and res.output.strip() == daemon_cli.ASK_ASKED.format(id=req.id)
-    assert req.text == "group the six SFT arms into an experiment" and mailbox.pending_asks(SID) == []
+    assert req.text == ("phase 2 handover:\n- group the six SFT arms   into an experiment\n\n"
+                        "- mark lr-spike-5 a dead end")
+    assert mailbox.pending_asks(SID) == []
+
+
+@pytest.mark.parametrize(("text", "filed"), [
+    ("group the arms", "group the arms"),
+    ("  a\r\nb\rc\n", "  a\nb\nc"),  # a first line's own indentation is kept
+    ("    def f():\n        return 1\n", "def f():\n    return 1"),  # what every line shares goes
+    ("a  \t\n\n\n\n  b", "a\n\n  b"),  # one blank line kept; an indent kept
+    ("\n\n a\n\n", "a"),
+    ("table:\n| arm | acc |\n| sft-1 |  0.91 |", "table:\n| arm | acc |\n| sft-1 |  0.91 |"),
+    (" \n\t\n", ""),
+])
+def test_one_rule_shapes_a_writer_request(text, filed):
+    assert mailbox.request_text(text) == filed
+    assert mailbox.request_text(filed) == filed, "the worker reads it again: the same text"
+
+
+def test_ask_writer_counts_the_request_as_filed(daemon_session):
+    """The limit is on what is filed: trailing space and blank lines do not count,
+    the line breaks kept do."""
+    handle = _hold_lock()
+    mailbox.mark_worker_accepts(SID)
+    try:
+        line = "x" * 99
+        fits = "\n".join([line] * (mailbox.REQUEST_MAX_CHARS // 100)) + "   \n\n\n"
+        assert len(mailbox.request_text(fits)) == mailbox.REQUEST_MAX_CHARS - 1
+        assert _ask("--writer", fits).exit_code == 0
+        over = fits.rstrip() + "\nxx"
+        res = _ask("--writer", over)
+        assert res.exit_code == 1 and "at most 16,000 characters" in res.output
+    finally:
+        handle.close()
+    assert len(mailbox.pending_requests(SID)) == 1
 
 
 def test_ask_writer_with_no_worker_is_filed_for_the_next_one(daemon_session):
@@ -709,11 +762,11 @@ def test_ask_writer_with_no_worker_is_filed_for_the_next_one(daemon_session):
 def test_ask_writer_is_refused_when_nothing_would_take_it(daemon_session, monkeypatch):
     handle = _hold_lock()
     try:
-        res = _ask("--writer", "file the runs")  # a worker runs, but writes no marker: from before requests
-        assert res.exit_code == 1 and daemon_cli.ASK_WRITER_OLD_DAEMON in res.output
+        res = _ask("--writer", "file the runs")  # a worker runs, but has no marker: lost, or from before requests
+        assert res.exit_code == 1 and daemon_cli.ASK_WRITER_NO_MARKER in res.output
         mailbox.mark_worker_accepts(SID)
         res = _ask("--writer", "x" * (mailbox.REQUEST_MAX_CHARS + 1))
-        assert res.exit_code == 1 and "at most 4,000 characters" in res.output
+        assert res.exit_code == 1 and "at most 16,000 characters" in res.output
     finally:
         handle.close()
     session_marker.mark_session_profile(SID, session_marker.RECORDER_DAEMON)
@@ -723,6 +776,58 @@ def test_ask_writer_is_refused_when_nothing_would_take_it(daemon_session, monkey
     session_marker.set_session_state(SID, session_marker.STATE_OFF)
     assert daemon_cli.ASK_SESSION_OFF in _ask("--writer", "file the runs").output
     assert mailbox.pending_requests(SID) == []
+
+
+def test_a_lost_marker_is_written_again_whole_and_another_workers_is_left_alone():
+    """The running worker's poll (`keep_worker_marker`): a marker an SDK's
+    recovery deleted (#3616) comes back with `request_chars` (without it the
+    CLI holds the worker to 4,000) and the run-alert offer; a marker that is
+    there is never rewritten, a newer worker's least of all."""
+    assert mailbox.keep_worker_marker(SID, config="/home/x/.probe/config.json")
+    assert json.loads(mailbox.worker_marker_path(SID).read_text()) == {
+        "pid": os.getpid(), "requests": 1, "request_chars": mailbox.REQUEST_MAX_CHARS, "run_alerts": 1,
+        "config": "/home/x/.probe/config.json"}
+    assert mailbox.accepts_requests(SID) and mailbox.worker_request_chars(SID) == mailbox.REQUEST_MAX_CHARS
+    mailbox.mark_worker_accepts(SID, pid=4242)  # a newer worker's, since
+    assert not mailbox.keep_worker_marker(SID)
+    assert json.loads(mailbox.worker_marker_path(SID).read_text())["pid"] == 4242
+
+
+def test_every_mailbox_folder_is_kept_from_dead_run_recovery_and_from_the_sweep():
+    """#3616: each folder under `root` holds `KEEP_FILE`, what keeps an SDK's
+    dead-run recovery from deleting it (test_sdk_inputs.py). A folder a path
+    helper names that `FOLDERS` misses would go unkept; a week-old keep file is
+    not a stale session's to sweep."""
+    import inspect
+    import re
+
+    named = set(re.findall(r'root\(\) / "([a-z_]+)"', inspect.getsource(mailbox)))
+    assert named == set(mailbox.FOLDERS)
+    mailbox.write_ask(SID, "what LR did the last sweep use?")  # `probe ask` makes them first
+    kept = [mailbox.root() / name / mailbox.KEEP_FILE for name in mailbox.FOLDERS]
+    assert all(path.exists() for path in kept)
+    old = time.time() - mailbox.KEEP_CLAIMED_S - 60
+    for path in kept:
+        os.utime(path, (old, old))
+    mailbox.sweep_stale_sessions("88888888-2222-3333-4444-555555555555")
+    assert all(path.exists() for path in kept)
+
+
+def test_ask_writer_takes_a_handover_and_holds_an_older_worker_to_its_own_limit(daemon_session):
+    handover = "phase 2 handover: " + "x" * 12_000
+    handle = _hold_lock()
+    try:
+        mailbox.mark_worker_accepts(SID)
+        assert mailbox.worker_request_chars(SID) == mailbox.REQUEST_MAX_CHARS
+        res = _ask("--writer", handover)
+        assert res.exit_code == 0 and mailbox.pending_requests(SID)[0].text == handover
+        mailbox._write_json(mailbox.worker_marker_path(SID), {"pid": os.getpid(), "requests": 1})  # an older worker
+        assert mailbox.worker_request_chars(SID) == mailbox.LEGACY_REQUEST_MAX_CHARS
+        res = _ask("--writer", handover)
+        assert res.exit_code == 1 and "at most 4,000 characters" in res.output
+        assert len(mailbox.pending_requests(SID)) == 1, "nothing an older worker would cut is filed"
+    finally:
+        handle.close()
 
 
 def test_ask_writer_wait_prints_the_writers_reply(daemon_session):

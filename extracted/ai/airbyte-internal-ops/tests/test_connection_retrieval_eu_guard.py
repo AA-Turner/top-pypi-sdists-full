@@ -91,18 +91,42 @@ def test_eu_connection_is_dropped_off_the_eu_runner(
     assert CONNECTION_ID in caplog.text
 
 
-def test_us_connection_never_checks_the_metadata_server(
+def test_us_connection_is_dropped_on_the_eu_runner(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    eu_runner_check: Mock,
+) -> None:
+    """On the EU runner, a US connection is removed before any object is read."""
+    db_conn = _db_conn(is_eu=False)
+    _patch_prod_db(monkeypatch, db_conn)
+    eu_runner_check.return_value = True
+
+    with caplog.at_level(logging.WARNING, logger=retrieval.LOGGER.name):
+        candidates = retrieve_objects(
+            [ConnectionObject.SOURCE_ID, ConnectionObject.SOURCE_CONFIG],
+            "test",
+            CONNECTION_ID,
+        )
+
+    assert candidates == []
+    eu_runner_check.assert_called_once_with()
+    assert _queries(db_conn) == [SELECT_ON_CONNECTION_DATAPLANE_GROUP_IS_EU]
+    assert "only retrieves EU connections" in caplog.text
+    assert CONNECTION_ID in caplog.text
+
+
+def test_us_connection_off_the_eu_runner_uses_the_eu_filtered_query(
     monkeypatch: pytest.MonkeyPatch,
     eu_runner_check: Mock,
 ) -> None:
-    """A US connection is read with the EU-filtered query and no metadata call."""
+    """Off the EU runner, a US connection is read with the EU-filtered query."""
     db_conn = _db_conn(is_eu=False)
     _patch_prod_db(monkeypatch, db_conn)
 
     candidates = retrieve_objects([ConnectionObject.SOURCE_ID], "test", CONNECTION_ID)
 
     assert [candidate.source_id for candidate in candidates] == ["source-id"]
-    eu_runner_check.assert_not_called()
+    eu_runner_check.assert_called_once_with()
     assert _queries(db_conn) == [
         SELECT_ON_CONNECTION_DATAPLANE_GROUP_IS_EU,
         SELECT_ON_CONNECTION_NOT_EU,

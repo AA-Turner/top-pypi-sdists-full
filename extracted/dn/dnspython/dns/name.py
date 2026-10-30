@@ -103,6 +103,10 @@ class BadLabelType(dns.exception.FormError):
     """The label type in DNS name wire format is unknown."""
 
 
+class DecompressionForbidden(dns.exception.FormError):
+    """A name has a compression pointer but decompression is forbidden."""
+
+
 class NeedAbsoluteNameOrOrigin(dns.exception.DNSException):
     """An attempt was made to convert a non-absolute name to
     wire when there was also a non-absolute (or missing) origin."""
@@ -148,7 +152,9 @@ class NeedSubdomainOfOrigin(dns.exception.DNSException):
 
 
 _escaped = b'"().;\\@$'
-_escaped_text = '"().;\\@$'
+# The Unicode full stops are escaped too, as from_unicode() treats them as label
+# separators.
+_escaped_text = '"().;\\@$。．｡'
 
 
 def _escapify(label: bytes | str) -> str:
@@ -170,12 +176,13 @@ def _escapify(label: bytes | str) -> str:
                 text += f"\\{c:03d}"
         return text
 
-    # Unicode label mode.  Escape only special characters and values < 0x20
+    # Unicode label mode.  Escape only special characters and control
+    # characters, i.e. values <= 0x20 and the DEL and C1 range 0x7f-0x9f.
     text = ""
     for uc in label:
         if uc in _escaped_text:
             text += "\\" + uc
-        elif uc <= "\x20":
+        elif uc <= "\x20" or "\x7f" <= uc <= "\x9f":
             text += f"\\{ord(uc):03d}"
         else:
             text += uc
@@ -199,9 +206,16 @@ class IDNACodec:
         if self.is_idna(label):
             try:
                 slabel = label[4:].decode("punycode")
-                return _escapify(slabel)
             except Exception as e:
                 raise IDNAException(idna_exception=e)
+            # An A-label encodes a U-label, which has at least one non-ASCII
+            # character.  Otherwise e.g. "xn--www-" would decode to "www" and
+            # the name would display as a different one.
+            if is_all_ascii(slabel):
+                raise IDNAException(
+                    idna_exception=f"{label!r} does not decode to a U-label"
+                )
+            return _escapify(slabel)
         else:
             return _escapify(label)
 
@@ -1088,7 +1102,8 @@ def from_text(
         # codepoints > 127.
         text = text.encode("ascii")
     labels = []
-    label = b""
+    # A bytearray, as appending to bytes copies the label each time.
+    label = bytearray()
     escaping = False
     edigits = 0
     total = 0
@@ -1121,8 +1136,8 @@ def from_text(
             elif byte_ == b".":
                 if len(label) == 0:
                     raise EmptyLabel
-                labels.append(label)
-                label = b""
+                labels.append(bytes(label))
+                label = bytearray()
             elif byte_ == b"\\":
                 escaping = True
                 edigits = 0
@@ -1132,7 +1147,7 @@ def from_text(
         if escaping:
             raise BadEscape
         if len(label) > 0:
-            labels.append(label)
+            labels.append(bytes(label))
         else:
             labels.append(b"")
     if (len(labels) == 0 or labels[-1] != b"") and origin is not None:
@@ -1142,15 +1157,41 @@ def from_text(
 
 MAX_COMPRESSION_POINTER_CHAIN = 16
 
+# A Note on Decompressability
+#
+# Dnspython used to be generous about decompression, being willing to decompress
+# any name.  To reduce algorithmic complexity attacks, dnspython now is strict about
+# where compression is permissible.  This policy is applied in the individual
+# rdata parsers, and by having dns.wire.Parser.get_name() disallow compression by
+# default (a breaking change for code which directly calls get_name()).
+#
+# For the record, here are the rules enforced in the library, which is the policy
+# specified in RFC 3597:
+#
+#     All owner names may be compressed and decompressed.
+#
+#     Names in the original types that are not obsolete, namely CNAME, MX, NS, PTR,
+#     and SOA are compressed in wire format and thus may be decompressed too.
+#
+#     Names in types RP, AFSDB, RT, SIG, PX, NXT, NAPTR, and SRV will not be
+#     compressed by dnspython, but MAY be compressed when decoding wire format.
+#
+#     Names in all other types will not be compressed by dnspython, and MUST NOT
+#     be compressed when decoding wire format.
 
-def from_wire_parser(parser: dns.wirebase.Parser) -> Name:
+
+def from_wire_parser(parser: dns.wirebase.Parser, decompress: bool = True) -> Name:
     """Convert possibly compressed wire format into a :py:class:`dns.name.Name`.
 
     :param parser: The wire format parser.
     :type parser: :py:class:`dns.wirebase.Parser`
+    :param decompress: Is decompression allowed?
+    :type decompress: bool
     :raises dns.name.BadPointer: if a compression pointer did not
         point backwards in the message.
     :raises dns.name.BadLabelType: if an invalid label type was encountered.
+    :raises dns.name.DecompressionForbidden: if a name needs decompression but it is
+        not allowed.
     :rtype: :py:class:`dns.name.Name`
     """
 
@@ -1158,11 +1199,16 @@ def from_wire_parser(parser: dns.wirebase.Parser) -> Name:
     biggest_pointer = parser.current
     hops = 0
     with parser.restore_furthest():
+        start = parser.current
         count = parser.get_uint8()
         while count != 0:
             if count < 64:
                 labels.append(parser.get_bytes(count))
             elif count >= 192:
+                # Are compressed names allowed at all?
+                if not decompress:
+                    raise DecompressionForbidden
+                # For sanity, compression pointers must point backwards.
                 current = (count & 0x3F) * 256 + parser.get_uint8()
                 if current >= biggest_pointer:
                     raise BadPointer
@@ -1170,7 +1216,11 @@ def from_wire_parser(parser: dns.wirebase.Parser) -> Name:
                 hops += 1
                 if hops > MAX_COMPRESSION_POINTER_CHAIN:
                     raise PointerChainTooLong
+                # For sanity, the entire compression target must not overlap
+                # with any part of this name.
+                parser.restrict_end(start)
                 parser.seek(current)
+                start = current
             else:
                 raise BadLabelType
             count = parser.get_uint8()

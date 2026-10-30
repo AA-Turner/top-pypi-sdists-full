@@ -1,3 +1,4 @@
+import logging
 import os
 import socket
 from collections.abc import Mapping
@@ -17,18 +18,28 @@ from mistralai.extra.workflows.encoding.config import (
     PayloadEncryptionConfig as PayloadEncryptionConfigBase,
 )
 from mistralai.extra.workflows.encoding.config import (
+    PayloadEncryptionMode,
+)
+from mistralai.extra.workflows.encoding.config import (
     PayloadOffloadingConfig as PayloadOffloadingConfigBase,
 )
 from pydantic import AliasChoices, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic_settings.main import PydanticBaseSettingsSource
 
-from mistralai.workflows.core.logging import LogFormat, LoggerConfig, LogLevel, setup_logging
+from mistralai.workflows.core._logger import get_logger
+from mistralai.workflows.core.logging import (
+    LogFormat,
+    LoggerConfig,
+    LogLevel,
+    route_logs_to_host_logging,
+    setup_logging,
+)
 from mistralai.workflows.core.rate_limiting.rate_limit import RateLimit
 from mistralai.workflows.exceptions import ErrorCode, WorkflowsException
 from mistralai.workflows.protocol.v1.workflow import DeploymentName, LocationType
 
-logger = structlog.getLogger(__name__)
+logger = get_logger(__name__)
 
 env_file = ".env" if os.environ.get("PYTEST_VERSION") is None else ".env.test"
 
@@ -291,7 +302,16 @@ class PayloadOffloadingConfig(PayloadOffloadingConfigBase, BaseSettings):
 
 
 class PayloadEncryptionConfig(PayloadEncryptionConfigBase, BaseSettings):
-    pass
+    # Event payloads use `mode` by default. `custom_event_mode` overrides it for custom task events only,
+    # e.g. `partial` on top of `mode=full` so readers without the key can still read their unmarked fields.
+    custom_event_mode: PayloadEncryptionMode | None = None
+
+    @property
+    def custom_event_config(self) -> Self:
+        """The encryption config to apply to custom task events."""
+        if self.custom_event_mode is None:
+            return self
+        return self.model_copy(update={"mode": self.custom_event_mode, "custom_event_mode": None})
 
 
 class PayloadCompressionConfig(PayloadCompressionConfigBase, BaseSettings):
@@ -597,6 +617,13 @@ class WorkerConfig(BaseSettings):
             self.agent.mistral_client_server_url = self.server_url
         return self
 
+    @property
+    def encrypts_payloads_fully(self) -> bool:
+        return (
+            self.temporal_payload_encryption is not None
+            and self.temporal_payload_encryption.mode == PayloadEncryptionMode.FULL
+        )
+
     @model_validator(mode="after")
     def warn_determinism_disabled(self) -> "WorkerConfig":
         if not self.default_enforce_determinism:
@@ -782,40 +809,44 @@ def _get_or_load_config() -> AppConfig:
     if config.otel_headers is not None:
         os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = config.otel_headers
 
-    # Set up structured logging with OpenTelemetry trace injection if enabled
-    if not structlog.is_configured():
-        setup_logging(
-            log_level=config.common.log_level,
-            log_format=config.common.log_format,
-            app_version=config.common.app_version,
-            inject_otel_trace=config.common.otel_enabled and config.common.otel_inject_logs,
-            extra_config=[
-                # noisy
-                LoggerConfig(
-                    name="httpx",
-                    level=LogLevel.WARNING,
-                ),
-                LoggerConfig(
-                    name="httpcore",
-                    level=LogLevel.WARNING,
-                ),
-                LoggerConfig(
-                    name="asyncio",
-                    level=LogLevel.WARNING,
-                ),
-                LoggerConfig(
-                    name="aiocache",
-                    level=LogLevel.WARNING,
-                ),
-                LoggerConfig(
-                    name="urllib3",
-                    level=LogLevel.WARNING,
-                ),
-            ],
-        )
-
-    logger.info("Configuration loaded", config=_loggable_config(config))
     return config
 
 
 config = _get_or_load_config()
+
+
+def setup_default_logging() -> None:
+    """Set up the SDK's console logging for a process the SDK runs, such as a worker or the SDK CLIs.
+
+    The host's own logging setup wins. If the host configured structlog, this does nothing, and
+    the host owns every logger level. If the host only set up stdlib logging (the root logger has
+    handlers), the SDK logs through those handlers and leaves the root logger, its handlers and
+    the logger levels as they are. Otherwise it installs the SDK's console handler and quiets the
+    noisy libraries. Importing the SDK never sets up logging; entry points that own the process
+    call this instead.
+    """
+    if structlog.is_configured():
+        return
+    inject_otel_trace = config.common.otel_enabled and config.common.otel_inject_logs
+    if logging.getLogger().handlers:
+        route_logs_to_host_logging(inject_otel_trace=inject_otel_trace)
+        return
+    setup_logging(
+        log_level=config.common.log_level,
+        log_format=config.common.log_format,
+        app_version=config.common.app_version,
+        inject_otel_trace=inject_otel_trace,
+        extra_config=[
+            # noisy
+            LoggerConfig(name="httpx", level=LogLevel.WARNING),
+            LoggerConfig(name="httpcore", level=LogLevel.WARNING),
+            LoggerConfig(name="asyncio", level=LogLevel.WARNING),
+            LoggerConfig(name="aiocache", level=LogLevel.WARNING),
+            LoggerConfig(name="urllib3", level=LogLevel.WARNING),
+        ],
+    )
+
+
+def log_configuration() -> None:
+    """Log the loaded configuration, with secrets masked. Called when a worker starts."""
+    logger.info("Configuration loaded", config=_loggable_config(config))

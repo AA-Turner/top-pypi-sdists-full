@@ -21,8 +21,9 @@ from eth_abi.abi import decode
 from eth_abi.exceptions import DecodingError
 
 from mpp import Credential, Receipt
-from mpp._defaults import DEFAULT_CONFIRMATION_TIMEOUT, DEFAULT_TIMEOUT
+from mpp._defaults import DEFAULT_CONFIRMATION_TIMEOUT, DEFAULT_PAID_RETRY_TIMEOUT, DEFAULT_TIMEOUT
 from mpp._did import parse_pkh_source
+from mpp._typing import is_dict, is_list
 from mpp._validation import Validation
 from mpp.errors import (
     CredentialReplayedError,
@@ -30,6 +31,7 @@ from mpp.errors import (
     PaymentExpiredError,
     VerificationError,
 )
+from mpp.methods.tempo import sponsor_budget as _sponsor_budget
 from mpp.methods.tempo._defaults import PATH_USD, fee_tokens_for_chain, rpc_url_for_chain
 from mpp.methods.tempo._rpc import _rpc_call, _tip20_balance
 from mpp.methods.tempo.fee_payer_policy import MIN_REMAINING_VALIDITY_SECONDS, get_policy
@@ -40,7 +42,7 @@ from mpp.methods.tempo.schemas import (
     Split,
     TransactionCredentialPayload,
 )
-from mpp.store import ExpiringStore, MemoryStore, Store
+from mpp.store import CompareAndSetStore, ExpiringStore, MemoryStore, Store
 
 if TYPE_CHECKING:
     import httpx
@@ -79,7 +81,8 @@ def _fallback_store(method: str) -> MemoryStore:
 TRANSFER_SELECTOR = "a9059cbb"
 TRANSFER_WITH_MEMO_SELECTOR = "95777d59"
 APPROVE_SELECTOR = "095ea7b3"
-SWAP_EXACT_AMOUNT_OUT_SELECTOR = "b30d91d5"
+# swapExactAmountOut(address,address,uint128,uint128)
+SWAP_EXACT_AMOUNT_OUT_SELECTOR = "f0122b75"
 
 SELECTOR_HEX_LEN = 8
 ABI_WORD_HEX_LEN = 64
@@ -127,7 +130,7 @@ def _assert_remaining_validity(valid_before: int) -> None:
 def _transaction_valid_before(raw_tx: str) -> int | None:
     """Return a Tempo transaction's ``valid_before`` timestamp, if it has one."""
     try:
-        import rlp
+        from mpp.methods.tempo import _rlp as rlp
 
         tx_bytes = bytes.fromhex(_strip_0x(raw_tx))
         if tx_bytes[:1] not in (b"\x76", b"\x78"):
@@ -135,7 +138,7 @@ def _transaction_valid_before(raw_tx: str) -> int | None:
         decoded = rlp.decode(tx_bytes[1:])
     except Exception:
         return None
-    if not isinstance(decoded, list) or len(decoded) <= 8:
+    if not is_list(decoded) or len(decoded) <= 8:
         return None
     valid_before = decoded[8]
     if not isinstance(valid_before, bytes) or not valid_before:
@@ -172,7 +175,7 @@ def _canonical_raw_transaction(raw_tx: str) -> str:
     canonical envelope keeps replay keys and receipt hashes equal to the node's.
     Anything that does not decode as a 0x76 transaction is returned unchanged.
     """
-    import rlp
+    from mpp.methods.tempo import _rlp as rlp
 
     try:
         tx_bytes = bytes.fromhex(raw_tx.removeprefix("0x"))
@@ -181,7 +184,7 @@ def _canonical_raw_transaction(raw_tx: str) -> str:
         fields = rlp.decode(tx_bytes[1:])
     except Exception:
         return raw_tx
-    if not isinstance(fields, list) or len(fields) not in (14, 15):
+    if not is_list(fields) or len(fields) not in (14, 15):
         return raw_tx
     signature = fields[-1]
     if not isinstance(signature, bytes):
@@ -194,14 +197,14 @@ def _canonical_raw_transaction(raw_tx: str) -> str:
 
 def _transaction_fee_token(raw_tx: str) -> str | None:
     """Return the fee token of a signed 0x76 Tempo transaction, if it sets one."""
-    import rlp
+    from mpp.methods.tempo import _rlp as rlp
 
     try:
         tx_bytes = bytes.fromhex(raw_tx.removeprefix("0x"))
         fields = rlp.decode(tx_bytes[1:])
     except Exception as err:
         raise RuntimeError("fee-sponsored transaction feeToken is invalid") from err
-    if tx_bytes[:1] != b"v" or not isinstance(fields, list) or len(fields) < 11:
+    if tx_bytes[:1] != b"v" or not is_list(fields) or len(fields) < 11:
         raise RuntimeError("fee-sponsored transaction feeToken is invalid")
     fee_token = fields[10]
     if fee_token == b"":
@@ -223,16 +226,17 @@ def _transaction_sender(raw_tx: str) -> str | None:
     Returns ``None`` if the transaction is malformed or the sender cannot be
     derived.
     """
-    import rlp
     from eth_account import Account
     from eth_hash.auto import keccak
+
+    from mpp.methods.tempo import _rlp as rlp
 
     try:
         tx_bytes = bytes.fromhex(raw_tx.removeprefix("0x"))
         fields = rlp.decode(tx_bytes[1:])
     except Exception:
         return None
-    if tx_bytes[0] not in (0x76, 0x78) or not isinstance(fields, list):
+    if tx_bytes[0] not in (0x76, 0x78) or not is_list(fields):
         return None
     if len(fields) not in (14, 15):
         return None
@@ -442,14 +446,18 @@ class SenderValidation:
 ValidateSender = Callable[[SenderValidation], bool]
 
 
-def _rpc_error_msg(result: dict) -> str:
+def _rpc_error_msg(result: dict[str, Any]) -> str:
     """Extract error message from a JSON-RPC error response."""
     error_obj = result["error"]
-    if isinstance(error_obj, dict):
+    if is_dict(error_obj):
         msg = error_obj.get("message") or error_obj.get("name") or str(error_obj)
         data = error_obj.get("data", "")
         return f"{msg}: {data}" if data else msg
     return str(error_obj)
+
+
+# JSON-RPC ``execution reverted`` (EIP-1474); other execution errors say "revert".
+_EXECUTION_ERROR_CODES = frozenset({3})
 
 
 def _is_ambiguous_broadcast_error(error: Exception | dict[str, Any]) -> bool:
@@ -472,7 +480,7 @@ def _is_ambiguous_broadcast_error(error: Exception | dict[str, Any]) -> bool:
 
     if isinstance(error, dict):
         rpc_error = error.get("error")
-        if isinstance(rpc_error, dict) and rpc_error.get("code") == SYNC_CONFIRMATION_TIMEOUT_CODE:
+        if is_dict(rpc_error) and rpc_error.get("code") == SYNC_CONFIRMATION_TIMEOUT_CODE:
             return True
         return ALREADY_KNOWN_TRANSACTION_RE.search(_rpc_error_msg(error)) is not None
 
@@ -495,7 +503,10 @@ def _is_ambiguous_broadcast_error(error: Exception | dict[str, Any]) -> bool:
     return False
 
 
-def _match_transfer_calldata(call_data_hex: str, request: ChargeRequest) -> bool:
+# Kept for tests/test_tempo.py; nothing in the package calls it.
+def _match_transfer_calldata(  # pyright: ignore[reportUnusedFunction]
+    call_data_hex: str, request: ChargeRequest
+) -> bool:
     """Check if ABI-encoded calldata matches the expected transfer parameters."""
     call_data_hex = _strip_0x(call_data_hex)
     if len(call_data_hex) < TRANSFER_CALL_DATA_HEX_LEN:
@@ -578,8 +589,11 @@ def _validate_call_scope(calls: list[tuple[str, int, str]]) -> int:
         raise VerificationError("Invalid transaction: disallowed call pattern")
 
     if has_swap_prefix:
-        approve_to, _, approve_data = calls[0]
-        swap_to, _, swap_data = calls[1]
+        approve_to, approve_value, approve_data = calls[0]
+        swap_to, swap_value, swap_data = calls[1]
+        # Like mppx, no call may carry a native value.
+        if approve_value or swap_value:
+            raise VerificationError("Invalid transaction: call value is not allowed")
         decoded_approve = _decode_static_call_args(
             approve_data,
             ("address", "uint256"),
@@ -589,7 +603,7 @@ def _validate_call_scope(calls: list[tuple[str, int, str]]) -> int:
             raise VerificationError("Invalid transaction: malformed approve call data")
         decoded_swap = _decode_static_call_args(
             swap_data,
-            ("address", "address", "uint256", "uint256"),
+            ("address", "address", "uint128", "uint128"),
             SWAP_EXACT_AMOUNT_OUT_CALL_DATA_HEX_LEN,
         )
         if decoded_swap is None:
@@ -616,7 +630,7 @@ def _funding_currency(raw_tx: str, request: ChargeRequest) -> str | None:
     swap input token; a direct transfer route by the charge currency. Call
     validation has already bound the route to the expected transfers.
     """
-    import rlp
+    from mpp.methods.tempo import _rlp as rlp
 
     try:
         tx_bytes = bytes.fromhex(raw_tx.removeprefix("0x"))
@@ -645,11 +659,11 @@ def _rpc_transaction_calls(transaction: dict[str, Any]) -> list[tuple[str, int, 
             if to
             else []
         )
-    if not isinstance(raw_calls, list):
+    if not is_list(raw_calls):
         return None
     calls: list[tuple[str, int, str]] = []
     for call in raw_calls:
-        if not isinstance(call, dict):
+        if not is_dict(call):
             return None
         to = call.get("to")
         data = call.get("input", call.get("data"))
@@ -692,7 +706,7 @@ def _validate_normalized_calls(
         )
         swap = _decode_static_call_args(
             calls[1][2],
-            ("address", "address", "uint256", "uint256"),
+            ("address", "address", "uint128", "uint128"),
             SWAP_EXACT_AMOUNT_OUT_CALL_DATA_HEX_LEN,
         )
         # Call scope validation has already checked the canonical encoding.
@@ -806,6 +820,7 @@ class ChargeIntent:
         fee_payer: TempoAccount | None = None,
         fee_token: str | None = None,
         allowed_fee_tokens: Sequence[str] | None = None,
+        sponsor_budget: _sponsor_budget.SponsorBudget | Literal[False] | None = None,
     ) -> None:
         """Initialize the charge intent.
 
@@ -837,7 +852,13 @@ class ChargeIntent:
             allowed_fee_tokens: Tokens a sponsored charge may pay gas in.
                 Defaults to :func:`fee_tokens_for_chain` for a local fee payer;
                 restricts an external ``feePayerUrl`` sponsor's token when set.
+            sponsor_budget: Caps the fees ``fee_payer`` has in flight (default:
+                :class:`~mpp.methods.tempo.sponsor_budget.SponsorBudget` on the
+                replay store). Pass ``False`` only when it is enforced elsewhere.
         """
+        if sponsor_budget is not None and sponsor_budget is not False:
+            if not isinstance(sponsor_budget, _sponsor_budget.SponsorBudget):
+                raise TypeError("sponsor_budget must be a SponsorBudget, False or None")
         if rpc_url is None and chain_id is not None:
             rpc_url = rpc_url_for_chain(chain_id)
         self.rpc_url = rpc_url
@@ -850,6 +871,10 @@ class ChargeIntent:
         self._store = store
         self._validate_sender = validate_sender
         self._confirmation_timeout = confirmation_timeout
+        self._sponsor_budget = (
+            None if sponsor_budget is False else sponsor_budget or _sponsor_budget.SponsorBudget()
+        )
+        self._sponsor_budget_shared = True
 
     async def __aenter__(self) -> ChargeIntent:
         """Enter async context, creating HTTP client if needed."""
@@ -1082,7 +1107,7 @@ class ChargeIntent:
             )
         except Exception:
             return None
-        if not isinstance(transaction, dict):
+        if not is_dict(transaction):
             return None
         from_addr = transaction.get("from")
         if not isinstance(from_addr, str) or from_addr.lower() != sender.lower():
@@ -1276,7 +1301,7 @@ class ChargeIntent:
         # the payment invalid.
         if not receipt_data:
             return None
-        if not isinstance(receipt_data, dict):
+        if not is_dict(receipt_data):
             raise InternalPaymentError() from RuntimeError("Invalid transaction receipt")
 
         return receipt_data
@@ -1586,7 +1611,8 @@ class ChargeIntent:
 
         # Multi-transfer: order-insensitive matching
         sorted_expected = sorted(expected, key=lambda t: 0 if t.memo else 1)
-        indexed_logs = list(enumerate(receipt.get("logs", [])))
+        logs: list[Any] = receipt.get("logs", [])
+        indexed_logs = list(enumerate(logs))
         # TIP-20 emits Transfer and TransferWithMemo for one movement. Pair by
         # token, sender, recipient and amount, retaining the memo for attribution.
         # Count multiplicities rather than adjacency so routed payments work too.
@@ -1759,12 +1785,15 @@ class ChargeIntent:
         raw_tx = payload.signature
 
         # Simulation payload for the locally co-signed tx, if we sponsor it.
-        simulate_payload: dict[str, Any] | None = None
+        simulate_payload: list[dict[str, Any]] | None = None
         # Outcome marker for a locally sponsored submission, keyed on the
         # client-signed envelope so it is stable across retries of a credential.
         broadcast_key: str | None = None
         reconciling = False
         legacy_record = False
+        sponsored_fee: int | None = None
+        reservation: _sponsor_budget.Reservation | None = None
+        budget_store: CompareAndSetStore | None = None
         client_store_key: str | None = None
         recovery_expires_at = (
             datetime.fromisoformat(expires.replace("Z", "+00:00")).timestamp()
@@ -1778,12 +1807,16 @@ class ChargeIntent:
                 # Tempo only accepts fee tokens with Fee AMM liquidity.
                 from mpp.methods.tempo.fee_payer_envelope import decode_fee_payer_envelope
 
-                fields, _, _, _ = decode_fee_payer_envelope(
-                    bytes.fromhex(raw_tx.removeprefix("0x"))
-                )
+                try:
+                    fields, _, _, _ = decode_fee_payer_envelope(
+                        bytes.fromhex(raw_tx.removeprefix("0x"))
+                    )
+                except ValueError as error:
+                    raise VerificationError(str(error)) from error
                 max_fee = int.from_bytes(fields[2], "big") * int.from_bytes(fields[3], "big")
                 # Gas prices are attodollars; TIP-20 balances are microdollars.
                 required_balance = max(1, (max_fee + 10**12 - 1) // 10**12)
+                sponsored_fee = max_fee
                 prior_transaction: Any = None
                 if self._store is not None:
                     client_hash = _raw_transaction_hash(raw_tx).lower()
@@ -1957,9 +1990,24 @@ class ChargeIntent:
                 )
                 if prior is not None:
                     return prior
+                # Simulate before reserving, like mppx, so a transaction that
+                # reverts (such as one from an unfunded key) never holds sponsor
+                # budget that honest charges wait on.
                 await self._simulate_before_broadcast(client, simulate_payload, rpc_url)
-                # The store reservation and simulation can take a while: recheck
-                # the sponsored window right before submission.
+                prior = await self._check_sponsored_validity(
+                    client, raw_tx, broadcast_key, request, challenge_id, realm
+                )
+                if prior is not None:
+                    return prior
+                budget_store, reservation = await self._reserve_sponsor_budget(
+                    client, raw_tx, sponsored_fee, request, recovery_expires_at
+                )
+                # Chain state can change while waiting for budget: re-simulate so
+                # the sponsor doesn't pay gas for a transaction that now reverts.
+                if reservation is not None and reservation.waited:
+                    await self._simulate_before_broadcast(client, simulate_payload, rpc_url)
+                # The store reservation and budget wait can take a while:
+                # recheck the sponsored window right before submission.
                 prior = await self._check_sponsored_validity(
                     client, raw_tx, broadcast_key, request, challenge_id, realm
                 )
@@ -2003,6 +2051,14 @@ class ChargeIntent:
                         "Earlier submission of this transaction has an unknown outcome"
                     )
                 raise PaymentExpiredError(expires)
+            if (
+                reservation is not None
+                and budget_store is not None
+                and not await _sponsor_budget.transition(budget_store, reservation, "broadcasting")
+            ):
+                raise VerificationError(
+                    "Sponsor budget reservation ownership was lost before broadcast"
+                )
             broadcast_attempted = True
             outcome_unknown = True
             try:
@@ -2083,7 +2139,7 @@ class ChargeIntent:
                 raise VerificationError("No transaction receipt returned")
             # The transaction was included: its outcome is known.
             outcome_unknown = False
-            if not isinstance(receipt_data, dict):
+            if not is_dict(receipt_data):
                 raise VerificationError("Invalid transaction receipt")
 
             self._verify_receipt_transfers(
@@ -2134,6 +2190,101 @@ class ChargeIntent:
             ):
                 raise InternalPaymentError() from err
             raise
+        finally:
+            if reservation is not None and budget_store is not None:
+                try:
+                    # A transaction that may still land keeps its fee reserved
+                    # until a receipt is observed or it expires.
+                    if outcome_unknown and not verified:
+                        await _sponsor_budget.transition(budget_store, reservation, "pending")
+                    else:
+                        await _sponsor_budget.release(budget_store, reservation)
+                except Exception:
+                    # The reservation expires on its own; the settlement outcome wins.
+                    logger.exception("Sponsor budget cleanup failed")
+
+    def _sponsor_budget_store(self) -> CompareAndSetStore | None:
+        """Return the store holding the local fee payer's in-flight budget, if enforced."""
+        budget = self._sponsor_budget
+        if budget is None or self.fee_payer is None:
+            return None
+        if budget.store is not None:
+            return budget.store
+        if self._sponsor_budget_shared and isinstance(self._store, CompareAndSetStore):
+            return self._store
+        if self._sponsor_budget_shared:
+            self._sponsor_budget_shared = False
+            logger.warning(
+                "tempo.charge's store has no compare_and_set, so the sponsor budget is "
+                "scoped to this process. Pass SponsorBudget(store=...) with a shared store."
+            )
+        return _sponsor_budget.process_store()
+
+    async def _reserve_sponsor_budget(
+        self,
+        client: Any,
+        raw_tx: str,
+        fee: int | None,
+        request: ChargeRequest,
+        challenge_expires_at: float | None,
+    ) -> tuple[CompareAndSetStore | None, _sponsor_budget.Reservation | None]:
+        """Reserve a locally sponsored transaction's fee before it is broadcast."""
+        budget = self._sponsor_budget
+        store = self._sponsor_budget_store()
+        valid_before = _transaction_valid_before(raw_tx)
+        if (
+            budget is None
+            or store is None
+            or self.fee_payer is None
+            or fee is None
+            or valid_before is None
+        ):
+            return None, None
+        # The transaction can still be included for a short grace after
+        # valid_before, so it stays reserved until then.
+        expires_at = int((valid_before + VALID_BEFORE_GRACE) * 1000)
+        # Stop waiting once the transaction falls below the sponsored validity
+        # floor (it could not be broadcast anyway), or before the client gives
+        # up on its paid retry: the confirmation wait still follows.
+        max_wait = max(1.0, DEFAULT_PAID_RETRY_TIMEOUT - self._confirmation_timeout)
+        wait_until = min(
+            (valid_before - MIN_REMAINING_VALIDITY_SECONDS) * 1000,
+            math.ceil((time.time() + max_wait) * 1000),
+        )
+        if challenge_expires_at is not None:
+            # Round up, so a wait that runs out has the challenge expired too.
+            wait_until = min(wait_until, math.ceil(challenge_expires_at * 1000))
+
+        async def is_settled(tx_hash: str) -> bool:
+            return await self._get_transaction_receipt(client, tx_hash) is not None
+
+        sponsor = self.fee_payer.address
+        while True:
+            try:
+                reservation = await _sponsor_budget.reserve(
+                    store,
+                    budget,
+                    chain_id=request.methodDetails.chainId,
+                    sponsor=sponsor,
+                    transaction_hash=_raw_transaction_hash(raw_tx),
+                    fee=fee,
+                    expires_at=expires_at,
+                    wait_until=wait_until,
+                    is_settled=is_settled,
+                )
+                return store, reservation
+            except NotImplementedError:
+                # A replay store without usable compare-and-set (such as Redis
+                # denying EVAL) keeps working with a process-scoped budget.
+                if budget.store is not None or not self._sponsor_budget_shared:
+                    raise
+                self._sponsor_budget_shared = False
+                logger.warning(
+                    "tempo.charge's store cannot compare_and_set, so the sponsor budget "
+                    "is scoped to this process. Pass SponsorBudget(store=...) with a "
+                    "shared store that supports it."
+                )
+                store = _sponsor_budget.process_store()
 
     async def _check_sponsored_validity(
         self,
@@ -2269,7 +2420,7 @@ class ChargeIntent:
         *,
         require_remaining_validity: bool = True,
         allow_expired: bool = False,
-    ) -> tuple[str, dict[str, Any]]:
+    ) -> tuple[str, list[dict[str, Any]]]:
         """Co-sign a client-signed transaction as fee payer.
 
         Deserializes the client's 0x78 fee payer envelope, optionally validates
@@ -2286,8 +2437,12 @@ class ChargeIntent:
         ``allow_expired=True`` as well, an expired one is not rejected either,
         so the caller can reconcile an earlier submission of it.
         """
-        from pytempo import Call, TempoTransaction
-        from pytempo.models import Signature, as_address
+        # pytempo ships no type information.
+        from pytempo import Call, TempoTransaction  # pyright: ignore[reportMissingTypeStubs]
+        from pytempo.models import (  # pyright: ignore[reportMissingTypeStubs]
+            Signature,
+            as_address,
+        )
 
         from mpp.methods.tempo.fee_payer_envelope import decode_fee_payer_envelope
 
@@ -2424,40 +2579,44 @@ class ChargeIntent:
 
         return raw_cosigned, self._build_simulate_payload(cosigned, recovered_address)
 
-    def _build_simulate_payload(self, tx: Any, sender: str) -> dict[str, Any]:
-        """Build a ``tempo_simulateV1`` payload for the co-signed 0x76 tx.
+    def _build_simulate_payload(self, tx: Any, sender: str) -> list[dict[str, Any]]:
+        """Build the ``eth_call`` requests that check a co-signed 0x76 tx.
 
-        Carries the recovered sender as ``from`` (the node needs it to model the
-        sender) plus the sponsor fields (``feeToken``, ``feePayerSignature``) so
-        the node simulates the same tx we are about to broadcast.
+        Like mppx's ``preflightSponsorship``, the calls are simulated twice:
+        first from the sender with no fee fields, so the sender's fee balance is
+        irrelevant, then as the final sponsored transaction with its concrete
+        fee payer and fee token. ``eth_call`` carries neither signature, and
+        every public Tempo RPC serves it (``tempo_simulateV1`` is refused).
 
         Must not be called for a tx that carries a ``key_authorization`` or a
         non-empty ``tempo_authorization_list``: those fields cannot yet be
-        faithfully serialized here, so the resulting payload would describe a
-        different transaction than the one broadcast. Local cosigning rejects
-        these envelopes before applying the sponsor signature.
+        faithfully serialized here, so the request would describe a different
+        transaction than the one broadcast. Local cosigning rejects these
+        envelopes before applying the sponsor signature.
         """
         if getattr(tx, "key_authorization", None) is not None or getattr(
             tx, "tempo_authorization_list", ()
         ):
             raise VerificationError(
-                "Cannot build a faithful tempo_simulateV1 payload for an "
+                "Cannot build a faithful simulation request for an "
                 "authorization-bearing transaction"
             )
-
-        sig = tx.fee_payer_signature
-        parity = sig.v if sig.v in (0, 1) else sig.v - 27
-
-        # The node rebuilds the batch as ``calls[]`` followed by the top-level
-        # call appended last; an absent top-level ``to`` is read as a CREATE and
-        # rejected. So we put the final call top-level and the rest in ``calls``
-        # to preserve order.
-        last_call = tx.calls[-1]
-        leading_calls = tx.calls[:-1]
-
-        tx_request: dict[str, Any] = {
-            "from": sender,
+        calls = [
+            {
+                "to": "0x" + bytes(c.to).hex(),
+                "value": hex(c.value),
+                "data": "0x" + c.data.hex(),
+            }
+            for c in tx.calls
+        ]
+        sender_request: dict[str, Any] = {"type": "0x76", "from": sender, "calls": calls}
+        if self.fee_payer is None:
+            raise InternalPaymentError() from RuntimeError("No fee payer to simulate")
+        fee_payer = self.fee_payer.address
+        sponsored: dict[str, Any] = {
             "type": "0x76",
+            "from": sender,
+            "calls": calls,
             "chainId": hex(tx.chain_id),
             "nonce": hex(tx.nonce),
             "nonceKey": hex(tx.nonce_key),
@@ -2465,88 +2624,60 @@ class ChargeIntent:
             "maxFeePerGas": hex(tx.max_fee_per_gas),
             "maxPriorityFeePerGas": hex(tx.max_priority_fee_per_gas),
             "feeToken": "0x" + bytes(tx.fee_token).hex(),
-            "feePayerSignature": {
-                # Fixed 32-byte r/s so leading zeros are not dropped.
-                "r": f"0x{sig.r:064x}",
-                "s": f"0x{sig.s:064x}",
-                "yParity": hex(parity),
-            },
-            # Top-level payment call so the node does not read this as a CREATE.
-            "to": "0x" + bytes(last_call.to).hex(),
-            "value": hex(last_call.value),
-            "data": "0x" + last_call.data.hex(),
+            # The node rejects ``feePayer: true`` in eth_call; name the sponsor.
+            "feePayer": fee_payer,
         }
-        if leading_calls:
-            tx_request["calls"] = [
-                {
-                    "to": "0x" + bytes(c.to).hex(),
-                    "value": hex(c.value),
-                    "data": "0x" + c.data.hex(),
-                }
-                for c in leading_calls
-            ]
         if tx.valid_before is not None:
-            tx_request["validBefore"] = hex(tx.valid_before)
+            sponsored["validBefore"] = hex(tx.valid_before)
         if tx.valid_after is not None:
-            tx_request["validAfter"] = hex(tx.valid_after)
-
-        return {
-            "blockStateCalls": [{"calls": [tx_request]}],
-            # We only care about execution outcome, not mempool admission.
-            "validation": False,
-            "traceTransfers": False,
-            "returnFullTransactions": False,
-        }
+            sponsored["validAfter"] = hex(tx.valid_after)
+        return [sender_request, sponsored]
 
     async def _simulate_before_broadcast(
-        self, client: Any, simulate_payload: dict[str, Any], rpc_url: str
+        self, client: Any, simulate_payload: list[dict[str, Any]], rpc_url: str
     ) -> None:
-        """Simulate the co-signed tx and raise if it would revert.
+        """Simulate the co-signed tx with ``eth_call`` and raise if it would fail.
 
-        Fails closed: any RPC/transport error is treated as a failed check.
+        Fails closed: a transport error or an unreadable reply is an internal
+        error; an execution error is a verification failure.
         """
-        try:
-            response = await client.post(
-                rpc_url,
-                json={
-                    "jsonrpc": "2.0",
-                    "method": "tempo_simulateV1",
-                    "params": [simulate_payload, "latest"],
-                    "id": 1,
-                },
-            )
-            response.raise_for_status()
-            result = response.json()
-        except Exception as err:
-            raise InternalPaymentError() from err
-
-        if "error" in result:
+        for request in simulate_payload:
+            try:
+                response = await client.post(
+                    rpc_url,
+                    json={
+                        "jsonrpc": "2.0",
+                        "method": "eth_call",
+                        "params": [request, "latest"],
+                        "id": 1,
+                    },
+                )
+                response.raise_for_status()
+                result = response.json()
+            except Exception as err:
+                raise InternalPaymentError() from err
+            if not is_dict(result):
+                raise InternalPaymentError() from RuntimeError(
+                    "Pre-broadcast simulation returned an unreadable reply"
+                )
+            if "error" not in result:
+                if "result" not in result:
+                    raise InternalPaymentError() from RuntimeError(
+                        "Pre-broadcast simulation returned no result"
+                    )
+                continue
+            error = result.get("error")
+            code = error.get("code") if is_dict(error) else None
+            message = _rpc_error_msg(result)
+            if code in _EXECUTION_ERROR_CODES or "revert" in message.lower():
+                raise VerificationError(
+                    f"Sponsored transaction would revert in pre-broadcast simulation: {message}"
+                )
             raise InternalPaymentError() from RuntimeError(
-                f"Pre-broadcast simulation failed: {_rpc_error_msg(result)}"
+                f"Pre-broadcast simulation failed: {message}"
             )
 
-        rpc_result = result.get("result")
-        blocks = rpc_result.get("blocks") if isinstance(rpc_result, dict) else None
-        block0 = blocks[0] if isinstance(blocks, list) and blocks else None
-        calls = block0.get("calls") if isinstance(block0, dict) else None
-        call = None
-        if isinstance(calls, list) and calls and isinstance(calls[0], dict):
-            call = calls[0]
-        if call is None:
-            raise InternalPaymentError() from RuntimeError(
-                "Pre-broadcast simulation returned no call results"
-            )
-
-        status = call.get("status")
-        if status in ("0x1", 1, True):
-            return
-
-        detail = (call.get("error") or {}).get("message") or "no revert reason returned"
-        raise VerificationError(
-            f"Sponsored transaction would revert in pre-broadcast simulation: {detail}"
-        )
-
-    def _validate_calls(self, calls: tuple, request: ChargeRequest) -> None:
+    def _validate_calls(self, calls: tuple[Any, ...], request: ChargeRequest) -> None:
         """Validate that calls match all expected transfers."""
         normalized_calls = [
             ("0x" + bytes(call.to).hex(), int(call.value), call.data.hex()) for call in calls
@@ -2566,7 +2697,7 @@ class ChargeIntent:
         not decode the transaction.
         """
         try:
-            import rlp
+            from mpp.methods.tempo import _rlp as rlp
         except ImportError as error:
             if strict:
                 raise InternalPaymentError() from error
@@ -2587,7 +2718,7 @@ class ChargeIntent:
             if strict:
                 raise VerificationError("Invalid serialized transaction") from error
             return None
-        if not isinstance(decoded, list) or len(decoded) < 5:
+        if not is_list(decoded) or len(decoded) < 5:
             if strict:
                 raise VerificationError("Invalid serialized transaction")
             return None
@@ -2597,16 +2728,21 @@ class ChargeIntent:
         if int.from_bytes(decoded[0], "big") != request.methodDetails.chainId:
             raise VerificationError("Transaction chain ID does not match charge chain ID")
 
-        calls_data = decoded[4] if len(decoded) > 4 else []
+        calls_data: list[Any] = decoded[4] if len(decoded) > 4 else []
         if not calls_data:
             raise VerificationError("Transaction contains no calls")
 
         normalized_calls: list[tuple[str, int, str]] = []
         for call_item in calls_data:
-            if not isinstance(call_item, (list, tuple)) or len(call_item) < 3:
+            call_fields: Sequence[Any] = call_item
+            if not isinstance(call_fields, (list, tuple)) or len(call_fields) < 3:
                 raise VerificationError("Invalid transaction: malformed call data")
 
-            call_to_raw, call_value_raw, call_data_raw = call_item[0], call_item[1], call_item[2]
+            call_to_raw, call_value_raw, call_data_raw = (
+                call_fields[0],
+                call_fields[1],
+                call_fields[2],
+            )
             if not isinstance(call_to_raw, bytes) or not isinstance(call_data_raw, bytes):
                 raise VerificationError("Invalid transaction: malformed call data")
 

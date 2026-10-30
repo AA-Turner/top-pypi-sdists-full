@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chiavdf
-Version: 1.2.1
+Version: 1.2.2
 Summary: Chia vdf verification (wraps C++)
 Home-page: https://github.com/Chia-Network/chiavdf
 Author: Florin Chirica

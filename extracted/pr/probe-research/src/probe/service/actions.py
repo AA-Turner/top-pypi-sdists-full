@@ -4,7 +4,12 @@
                    `busy` naming its holder), journal it, answer `{action_id}`
                    BEFORE any work, then run `python -m probe.core.run <action>`,
                    stopped (and failed) past ACTION_TIMEOUT_S (60 min, C1),
-                   one an earlier service left running too
+                   one an earlier service left running too. While an update
+                   holds the slot (a cycle's CLI step, a person's Update) the
+                   action is journaled and answered `{action_id, queued: true}`
+                   instead, and runs once the update lets go, in the order
+                   accepted (`drain`): a setting changed right after the app
+                   opens, which starts a cycle, is not refused for it
     action.status  from the journal: queued | running | done (+ the `done` event)
     action.events  the journaled events after `since`, and whether it is done
     action.cancel  SIGINT to the child, only while it waits for a browser
@@ -18,6 +23,7 @@ line, appended as things happen, so a client that lost its connection -- or a
 service that restarted -- reads the outcome instead of running it again:
 
     {"type": "accepted", "v": 1, "action_id", "action", "params", "client_request_id", "accepted_at", "service_pid"}
+    {"type": "queued", "at", "holder"}                              (it waited for an update)
     {"type": "child", "pid", "start_time", "at"}
     {"type": "event", "seq": 1.., "event": <NDJSON event v1>}      (`done` last)
     {"type": "cancel", "at"}                                        (a cancel was sent)
@@ -30,6 +36,8 @@ found at the next start: still running, it holds the slot and is watched until
 it exits; gone, it reads as `error{interrupted, "service stopped"}` +
 `done{ok: false, complete: false, exit_code: null}`. Never as success, and
 never run again: `client_request_id` returns the existing `action_id` for 24 h.
+A queued action the service stopped before (a signal, a crash: the restart
+for a new CLI waits for the queue) reads the same way.
 
 The request's context (plan X2) reaches the child's environment only; it is
 never journaled (a proxy URL can carry a password).
@@ -91,6 +99,8 @@ ACTION_TIMEOUT_S = 60 * 60
 #: SIGTERM to SIGKILL: the child's handler (`probe.core.events`) ends the run
 #: through its `finally` blocks, its locks let go and `done` written.
 ACTION_STOP_GRACE_S = 30.0
+#: Actions waiting for an update at once, at most (`run` answers `busy` past it).
+MAX_QUEUED_ACTIONS = 16
 #: Test-only overrides of the two, read where the manager runs (a service that
 #: `client.ensure` starts never gets them: `client.ENV_ALLOWLIST`). Nothing in
 #: production sets them.
@@ -131,6 +141,15 @@ def error_event(code: str, message: str) -> dict:
     return {"v": 1, "event": EVENT_ERROR, "code": code, "message": message}
 
 
+def _is_update(holder: dict | None) -> bool:
+    """Is the slot's holder an update: a cycle's CLI step, or a person's Update action?"""
+    if holder is None:
+        return False
+    return holder.get("kind") == BusyHolder.UPDATE or (
+        holder.get("kind") == BusyHolder.ACTION and holder.get("action") == Action.UPDATE
+    )
+
+
 def shell_status(returncode: int | None) -> int | None:
     """asyncio's -N (killed by signal N) as a shell reports it, 128 + N."""
     if returncode is None:
@@ -151,6 +170,9 @@ class Record:
     exit_code: int | None = None
     child_pid: int | None = None
     child_start: str | None = None
+    #: When the child started (its `child` line): a recovered child's time
+    #: limit counts from it, not from a wait behind an update.
+    child_at: float | None = None
     process: object = None  # our asyncio child, while it runs
     #: A child a previous service started that still ran when this one did.
     orphan: bool = False
@@ -208,7 +230,7 @@ class ActionManager:
     ) -> None:
         #: (topic, payload) to subscribers.
         self.emit = emit
-        #: Called when an action starts or ends (the service re-reads what holds it).
+        #: Called when an action is queued, starts or ends (the service re-reads what holds it).
         self.changed = changed
         #: What holds the mutating slot service-wide (an action, or an update).
         self.holder = holder
@@ -217,6 +239,10 @@ class ActionManager:
         self.records: dict[str, Record] = {}
         self.by_request: dict[str, tuple[str, float]] = {}
         self.running: Record | None = None
+        #: Accepted while an update held the slot, oldest first: (record, request, env).
+        self.queue: list[tuple[Record, dict, dict]] = []
+        #: The service is stopping (`close`): nothing queued starts any more.
+        self.closed = False
         self._fds: dict[str, int] = {}
         self._tasks: set = set()
         #: The time limits of children an earlier service left running (`_limit_orphan`).
@@ -325,6 +351,8 @@ class ActionManager:
                 if isinstance(line.get("pid"), int):
                     record.child_pid = line["pid"]
                     record.child_start = str(line.get("start_time") or "") or None
+                    with contextlib.suppress(TypeError, ValueError):
+                        record.child_at = float(line.get("at"))
                     record.state = ActionState.RUNNING
             elif kind == "cancel":
                 record.cancel_sent = True
@@ -367,15 +395,16 @@ class ActionManager:
 
     def _limit_orphan(self, record: Record) -> None:
         """A child an earlier service left running gets the same time limit as
-        this one's own (ACTION_TIMEOUT_S, C1), counted from its acceptance:
-        stopped then, its group with it, and the action failed saying why. Never
-        raises; with no running loop (a test loading journals) there is none."""
+        this one's own (ACTION_TIMEOUT_S, C1), counted from the child's start
+        (its acceptance, in a journal without one): stopped then, its group with
+        it, and the action failed saying why. Never raises; with no running loop
+        (a test loading journals) there is none."""
         limit = _env_seconds(ACTION_TIMEOUT_ENV, ACTION_TIMEOUT_S)
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
             return
-        delay = max(0.0, record.accepted_at + limit - _now())
+        delay = max(0.0, (record.child_at or record.accepted_at) + limit - _now())
 
         def due() -> None:
             task = asyncio.ensure_future(self._stop_orphan(record, limit))
@@ -420,7 +449,7 @@ class ActionManager:
         now = _now()
         known = self.by_request.get(crid)
         if known is not None and now - known[1] < DEDUPE_S and known[0] in self.records:
-            return {"action_id": known[0], "existing": True}
+            return self._existing_answer(known[0])
         from probe.core import requests as core_requests
 
         try:
@@ -428,8 +457,15 @@ class ActionManager:
         except core_requests.RequestError as exc:
             raise invalid_params(str(exc)) from None
         holder = self.holder()
-        if holder is not None:
+        # Behind an update, or behind actions already waiting for one (they go
+        # first); never an Update while an update holds the slot: that is the same work.
+        # A stopping service queues nothing: it would never start it.
+        updating = _is_update(holder)
+        queued = (bool(self.queue) or updating) and not (updating and action == Action.UPDATE) and not self.closed
+        if holder is not None and not queued:
             raise RpcError(ErrorCode.BUSY, f"busy: {holder.get('kind')} running", {"holder": holder})
+        if queued and len(self.queue) >= MAX_QUEUED_ACTIONS:
+            raise RpcError(ErrorCode.BUSY, f"busy: {len(self.queue)} actions waiting", {"holder": holder})
         action_id = "act_" + secrets.token_hex(8)
         record = Record(action_id, action, crid, now, params=request)
         try:
@@ -463,7 +499,6 @@ class ActionManager:
         self._fds[action_id] = fd
         self.records[action_id] = record
         self.by_request[crid] = (action_id, now)
-        self.running = record
         env = dict(env_extra)
         # Never infer a human from client=app: startup/scheduled update checks
         # use that client too. Only an explicit action carries this provenance.
@@ -471,11 +506,42 @@ class ActionManager:
         if action == Action.UPDATE:
             # By default a person's Update (the app's button).
             env[TRIGGER_ENV] = trigger or ReportTrigger.MANUAL
+        if queued:
+            self._write(record, {"type": "queued", "at": now, "holder": holder})
+            self._close(record)  # opened again when it starts: a waiting action holds no descriptor
+            self.queue.append((record, request, env))
+            self.drain()  # nothing holds the slot by now: the line moves at once
+            self.changed()
+            return {"action_id": action_id, "queued": True}
+        self._start(record, request, env)
+        return {"action_id": action_id}
+
+    def _start(self, record: Record, request: dict, env: dict) -> None:
+        self.running = record
         task = asyncio.ensure_future(self._run(record, request, env))
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
         self.changed()
-        return {"action_id": action_id}
+
+    def pending(self) -> bool:
+        """An action runs, or waits for an update: the service stays up for it."""
+        return self.running is not None or bool(self.queue)
+
+    def queued_ids(self) -> list[str]:
+        """The actions waiting for an update, oldest first."""
+        return [record.action_id for record, _request, _env in self.queue]
+
+    def stop_starting(self) -> None:
+        """The service is stopping: nothing queued starts any more."""
+        self.closed = True
+
+    def drain(self) -> None:
+        """Start the oldest queued action once nothing holds the slot (the
+        update let go, the action before it ended). One at a time: the next
+        starts when this one is done (`_finish`)."""
+        if self.queue and not self.closed and self.running is None and self.holder() is None:
+            record, request, env = self.queue.pop(0)
+            self._start(record, request, env)
 
     def existing(self, params: dict) -> dict | None:
         """`action.run`'s answer for a `client_request_id` already accepted in
@@ -488,8 +554,14 @@ class ActionManager:
             return None
         known = self.by_request.get(crid)
         if known is not None and _now() - known[1] < DEDUPE_S and known[0] in self.records:
-            return {"action_id": known[0], "existing": True}
+            return self._existing_answer(known[0])
         return None
+
+    def _existing_answer(self, action_id: str) -> dict:
+        answer = {"action_id": action_id, "existing": True}
+        if action_id in self.queued_ids():
+            answer["queued"] = True  # still waiting for an update
+        return answer
 
     def _record(self, params: dict) -> Record:
         action_id = params.get("action_id")
@@ -561,9 +633,10 @@ class ActionManager:
             record.process = process
             record.child_pid = process.pid
             record.child_start = procid.start_time(process.pid)
+            record.child_at = _now()
             record.state = ActionState.RUNNING
             self._write(
-                record, {"type": "child", "pid": process.pid, "start_time": record.child_start, "at": _now()}
+                record, {"type": "child", "pid": process.pid, "start_time": record.child_start, "at": record.child_at}
             )
 
         code: int | None
@@ -647,9 +720,13 @@ class ActionManager:
         self.emit("action.done", {"action_id": record.action_id, "done": record.done})
         if self.finished is not None:
             self.finished(record.action)
+        self.drain()
         self.changed()
 
     def close(self) -> None:
+        # What is still queued stays unfinished in its journal: the next service
+        # reads it as stopped with this one (`_recover`), never as run.
+        self.stop_starting()
         for timer in self._timers:
             timer.cancel()
         self._timers.clear()

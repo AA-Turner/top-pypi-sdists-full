@@ -327,3 +327,39 @@ jobs:
           gh api "repos/$GH_REPO/statuses/$HEAD_SHA" -f state="$STATE" \
             -f context="$STATUS_CONTEXT" -f description="$DESCRIPTION" -f target_url="$RUN_URL" > /dev/null
           echo "$DESCRIPTION" >> "$GITHUB_STEP_SUMMARY"
+
+      # Tells the user how the run ended (a DM, or a channel the Hydra bot is
+      # in). Last, after everything that decides, and it cannot fail the run.
+      - name: Alert on Slack
+        if: ${{ !cancelled() && vars.SLACK_CHANNEL_SANDBOX_CASE_ALERTS != '' }}
+        continue-on-error: true
+        timeout-minutes: 2
+        env:
+          SLACK_CHANNEL: ${{ vars.SLACK_CHANNEL_SANDBOX_CASE_ALERTS }}
+          SLACK_TOKEN: ${{ secrets.SLACK_HYDRA_BOT_TOKEN }}
+          ACTION: ${{ steps.decide.outputs.action }}
+          DESCRIPTION: ${{ steps.decide.outputs.description }}
+          MERGE_OUTCOME: ${{ steps.merge.outputs.outcome }}
+          MERGE_DESCRIPTION: ${{ steps.merge.outputs.description }}
+        run: |
+          case "$ACTION:$MERGE_OUTCOME" in
+            merge:merged) EMOJI="✅" ;;
+            report:*) EMOJI="🔵" ;;
+            merge:*) EMOJI="⚠️" ;;
+            *) EMOJI="❌" ;;
+          esac
+          # The same fallbacks as the commit status steps above.
+          if [ "$ACTION" = merge ]; then DESCRIPTION="${MERGE_DESCRIPTION:-validated; merge aborted}"; fi
+          DESCRIPTION="${DESCRIPTION:-validation could not decide}"
+          # The description quotes PR content: escaped, it cannot mention or link.
+          jq -n --arg channel "$SLACK_CHANNEL" --arg emoji "$EMOJI" --arg description "$DESCRIPTION" \
+            --arg pr "$PR" --arg pr_url "$GITHUB_SERVER_URL/$GH_REPO/pull/$PR" --arg run_url "$RUN_URL" '
+            ($description | gsub("&"; "&amp;") | gsub("<"; "&lt;") | gsub(">"; "&gt;")) as $d
+            | {channel: $channel, unfurl_links: false, unfurl_media: false,
+               text: "\($emoji) Case PR <\($pr_url)|#\($pr)>: \($d) (<\($run_url)|run>)"}' > "$RUNNER_TEMP/slack.json"
+          RESPONSE="$(curl -sS --max-time 30 https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_TOKEN" -H "Content-Type: application/json; charset=utf-8" \
+            --data @"$RUNNER_TEMP/slack.json")" || RESPONSE='{"error": "could not reach Slack"}'
+          if [ "$(jq -r '.ok' <<< "$RESPONSE" 2>/dev/null)" != "true" ]; then
+            echo "::warning::Slack alert not sent: $(jq -r '.error // "unknown error"' <<< "$RESPONSE" 2>/dev/null || echo "unreadable response")"
+          fi

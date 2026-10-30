@@ -36,8 +36,13 @@ def get_worker_client(
     resolved_base_url = (base_url or config.worker.server_url).rstrip("/")
     resolved_timeout = timeout if timeout is not None else config.http.timeout
     provider = token_provider or get_token_provider(api_key)
+    # The generated worker client is built on httpx regardless of the installed mistralai major.
     async_client = _get_async_client(
-        timeout=resolved_timeout, token_provider=provider, headers=headers, server_url=resolved_base_url
+        timeout=resolved_timeout,
+        token_provider=provider,
+        headers=headers,
+        server_url=resolved_base_url,
+        _http=httpx,
     )
     client = PrivateWorkerClient(
         server_url=resolved_base_url,

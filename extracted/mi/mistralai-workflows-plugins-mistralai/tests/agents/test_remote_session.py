@@ -15,7 +15,7 @@ from mistralai.client import models as mistralai_models
 from mistralai.workflows.core.temporal.context_handler_interceptor import define_context
 from mistralai.workflows.plugins.mistralai.agent import Agent
 from mistralai.workflows.plugins.mistralai.connectors import connector
-from mistralai.workflows.plugins.mistralai.connectors.run_as import ConnectorRunAs
+from mistralai.workflows.plugins.mistralai.connectors.run_as import RunAs
 from mistralai.workflows.plugins.mistralai.session import remote_session
 from mistralai.workflows.plugins.mistralai.session.remote_session import RemoteSession
 
@@ -62,7 +62,7 @@ class TestAgentConnectorRunAsValidation:
             name="mixed",
             connectors=[connector("github"), connector("slack", run_as="deployment")],
         )
-        assert RemoteSession._resolve_conversation_run_as(agent) == ConnectorRunAs.DEPLOYMENT
+        assert RemoteSession._resolve_conversation_run_as(agent) == RunAs.DEPLOYMENT
 
     def test_uniform_run_as_on_agent_is_allowed(self) -> None:
         agent = Agent(
@@ -79,16 +79,16 @@ class TestAgentConnectorRunAsValidation:
 class TestResolveConversationRunAs:
     def test_no_connectors_defaults_to_auto(self) -> None:
         agent = Agent(name="plain")
-        assert RemoteSession._resolve_conversation_run_as(agent) == ConnectorRunAs.AUTO
+        assert RemoteSession._resolve_conversation_run_as(agent) == RunAs.AUTO
 
     def test_uniform_deployment_returns_deployment(self) -> None:
         agent = Agent(name="dep", connectors=[connector("github", run_as="deployment")])
-        assert RemoteSession._resolve_conversation_run_as(agent) == ConnectorRunAs.DEPLOYMENT
+        assert RemoteSession._resolve_conversation_run_as(agent) == RunAs.DEPLOYMENT
 
     def test_connector_on_handoff_child_is_considered(self) -> None:
         child = Agent(name="child", connectors=[connector("github", run_as="deployment")])
         root = Agent(name="root", handoffs=[child])
-        assert RemoteSession._resolve_conversation_run_as(root) == ConnectorRunAs.DEPLOYMENT
+        assert RemoteSession._resolve_conversation_run_as(root) == RunAs.DEPLOYMENT
 
     def test_mixed_run_as_across_handoff_graph_raises(self) -> None:
         child = Agent(name="child", connectors=[connector("slack", run_as="deployment")])
@@ -115,9 +115,9 @@ class TestInitializeConversationForwardsRunAs:
         ):
             await session.initialize_conversation(agent, ["hi"])
 
-        assert create.await_args.kwargs["run_as"] == ConnectorRunAs.DEPLOYMENT
-        assert update.await_args.kwargs["run_as"] == ConnectorRunAs.DEPLOYMENT
-        assert start.await_args.kwargs["run_as"] == ConnectorRunAs.DEPLOYMENT
+        assert create.await_args.kwargs["run_as"] == RunAs.DEPLOYMENT
+        assert update.await_args.kwargs["run_as"] == RunAs.DEPLOYMENT
+        assert start.await_args.kwargs["run_as"] == RunAs.DEPLOYMENT
 
     @pytest.mark.asyncio
     async def test_default_connector_uses_binding_run_as_for_create_and_start(self) -> None:
@@ -147,9 +147,9 @@ class TestInitializeConversationForwardsRunAs:
         ):
             await session.initialize_conversation(agent, ["hi"])
 
-        assert create.await_args.kwargs["run_as"] == ConnectorRunAs.DEPLOYMENT
-        assert update.await_args.kwargs["run_as"] == ConnectorRunAs.DEPLOYMENT
-        assert start.await_args.kwargs["run_as"] == ConnectorRunAs.DEPLOYMENT
+        assert create.await_args.kwargs["run_as"] == RunAs.DEPLOYMENT
+        assert update.await_args.kwargs["run_as"] == RunAs.DEPLOYMENT
+        assert start.await_args.kwargs["run_as"] == RunAs.DEPLOYMENT
 
     @pytest.mark.asyncio
     async def test_no_connectors_forwards_auto(self) -> None:
@@ -167,13 +167,13 @@ class TestInitializeConversationForwardsRunAs:
         ):
             await session.initialize_conversation(agent, ["hi"])
 
-        assert start.await_args.kwargs["run_as"] == ConnectorRunAs.AUTO
+        assert start.await_args.kwargs["run_as"] == RunAs.AUTO
 
     @pytest.mark.asyncio
     async def test_append_forwards_resolved_run_as(self) -> None:
         session = RemoteSession()
         session._conversation_id = "c"
-        session._run_as = ConnectorRunAs.DEPLOYMENT
+        session._run_as = RunAs.DEPLOYMENT
         with patch.object(
             remote_session,
             "mistralai_append_conversation",
@@ -181,7 +181,7 @@ class TestInitializeConversationForwardsRunAs:
         ) as append:
             await session.append_messages(["more"])
 
-        assert append.await_args.kwargs["run_as"] == ConnectorRunAs.DEPLOYMENT
+        assert append.await_args.kwargs["run_as"] == RunAs.DEPLOYMENT
 
 
 class TestOpenFunctionCallIds:

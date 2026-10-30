@@ -213,7 +213,7 @@ class FeatureSet:
             ## one from those children either: _derive_from_subfeatures skips
             ## every child that has an explicit default, which both of them do,
             ## so is_supported("auth") answers from the type default whatever
-            ## the children say.  Five existing nodes have the same shape.
+            ## the children say.  Other nodes have the same shape.
         },
         "auth.www-authenticate": {
             "description": "Server includes a WWW-Authenticate header in a 401 response, as RFC7235 section 3.1 requires.  Without it a client has no scheme to negotiate with.  Over TLS, with no auth_type configured, this library guesses Basic once (logging a warning); otherwise the supplied credentials are never transmitted, and the bare 401 surfaces as an AuthorizationError indistinguishable from a rejected password.  'unsupported' means a 401 came back carrying no WWW-Authenticate at all (Yahoo Calendar); pinning auth_type skips the guess and its warning, and is the only cure over plain HTTP or for a server wanting a scheme other than Basic - which scheme to pin is not something such a server tells you.  'unknown' means no 401 could be provoked, so the question was never put.  The behaviour field carries the challenge the server sent, where it sent one.",
@@ -244,9 +244,25 @@ class FeatureSet:
         "get-current-user-principal.has-calendar": {
             "type": "server-observation",
             "description": "Principal has one or more calendars.  Some servers and providers come with a pre-defined calendar for each user, for other servers a calendar has to be explicitly created (True means there exists a calendar - it may be because the calendar was already provisioned together with the principal, or it may be because a calendar was created manually, the checks can't see the difference)"},
-        "get-supported-components": {
-            "description": "Server returns the supported-calendar-component-set property (RFC 4791 section 5.2.3).  The property is optional: when absent the RFC mandates that all component types are accepted, so 'unsupported' here is not a protocol violation, but the client cannot determine the actual supported set without trying.",
+        "supported-components": {
+            ## Grouping node for the CALDAV:supported-calendar-component-set
+            ## property, shaped like "auth": the children carry defaults and
+            ## are never derived from each other, so this node answers the type
+            ## default whatever they say.  Do not hint it - the ancestor walk
+            ## would hand the hint to both children.
+        },
+        "supported-components.property-exists": {
+            "description": "Server returns the supported-calendar-component-set property (RFC 4791 section 5.2.3) on a calendar.  The property is optional: when absent the RFC mandates that all component types are accepted, so 'unsupported' here is not a protocol violation, but the client cannot determine the actual supported set without trying.  Up to caldav 3.6.0 this was 'get-supported-components'.",
+            "default": {"support": "full"},
             "links": ["https://datatracker.ietf.org/doc/html/rfc4791#section-5.2.3"],
+        },
+        "supported-components.honoured": {
+            "description": "Server accepts exactly the component types the supported-calendar-component-set property lists, and every type where the property is absent.  RFC 4791 section 5.2.3 makes storing an unlisted type an error (the CALDAV:supported-calendar-component precondition of section 5.3.2.1) and has a calendar without the property accept all types, so 'broken' is either violation: a set advertised but not enforced (Bedework 3.10, DAViCal and Stalwart take a VEVENT into a calendar reporting ['VTODO']), or a type refused by a calendar that advertises no set.  Like save.etag.matches-stored, it holds trivially in the branch a server does not take - an absent property is not a fault here (see supported-components.property-exists).",
+            "default": {"support": "full"},
+            "links": [
+                "https://datatracker.ietf.org/doc/html/rfc4791#section-5.2.3",
+                "https://datatracker.ietf.org/doc/html/rfc4791#section-5.3.2.1",
+            ],
         },
         "propfind": {
             "description": "Server supports the PROPFIND method (RFC4918 section 9.1): a PROPFIND for a named property returns a multistatus response.  Independent feature (not just a grouping node) so that a server lacking a sub-feature like propfind.allprop.resourcetype is not mistaken for one that does not support PROPFIND at all.",
@@ -269,7 +285,14 @@ class FeatureSet:
             "links": ["https://datatracker.ietf.org/doc/html/rfc3744#section-2", "https://datatracker.ietf.org/doc/html/rfc4918#section-9.1"],
         },
         "create-calendar.with-supported-component-types": {
-            "description": "Server honours the supported-calendar-component-set restriction set at MKCALENDAR time.  When 'full', the server both advertises (or enforces) the restriction; when 'unsupported', the restriction is silently ignored (wrong-type objects can be saved to the calendar).  When 'ungraceful', the MKCALENDAR request itself fails when a component set is specified.",
+            "description": "A MKCALENDAR naming a supported-calendar-component-set gives a calendar with that set.  RFC 4791 section 5.3.1.1 has a server that cannot set a property answer 207 with 403 or 409 for it and create nothing; 'unsupported' means the calendar was created with another set (reported as another set, or not reported while an object outside the requested set can be saved to it) - Bedework 5 answers the property '200 ok' and makes a VEVENT-only calendar.  When 'ungraceful', the MKCALENDAR request itself fails when a component set is specified.  Whether the server then obeys the set it reports is supported-components.honoured.",
+            "default": {"support": "full"},
+            "links": ["https://datatracker.ietf.org/doc/html/rfc4791#section-5.3.1.1"],
+        },
+        "create-calendar.with-supported-component-types.multiple": {
+            "description": "A MKCALENDAR naming several component types (VEVENT and VTODO in the probe) gives a calendar taking all of them.  'unsupported' is a refusal the RFC 4791 section 5.3.1.1 way (CCS answers 207 with 403 'Invalid CALDAV:supported-calendar-component-set' and creates nothing); 'broken' is a calendar that refuses a type it was asked to take or reports another set.  Not the same question as save-load.todo.mixed-calendar, which is about the calendar a server already has.  The tester measures it also where the parent is negative, but a profile that hints the parent negative and says nothing about this feature is read as negative here too - state it.",
+            "default": {"support": "full"},
+            "links": ["https://datatracker.ietf.org/doc/html/rfc4791#section-5.3.1.1"],
         },
         "calendar-color": {
             "description": "Server stores the nonstandard Apple/Mozilla {http://apple.com/ns/ical/}calendar-color property on a calendar collection, set with a hex value (e.g. '#FF0000FF') - the de facto format.  'broken' is a read-only property (the same value comes back regardless of what is set).  Not described by RFC4791/RFC5545, so a server that rejects or ignores it ('unsupported') is not breaching any RFC.  The default is 'fragile' because the behaviour varies a lot between servers and is rarely worth asserting on (TODO: wouldn't unknown be better?).",
@@ -381,6 +404,23 @@ hence, "fragile".
             "default": {"support": "full"},
             "links": ["https://datatracker.ietf.org/doc/html/rfc4918#section-15.2"],
         },
+        "propfind.limit": {
+            "description": "A Depth: 1 PROPFIND on a calendar lists every member, however many there are.  When 'unsupported', the server stops at a limit of its own and answers 507 Insufficient Storage for the collection (Stalwart, at its WebDav.maxResults setting, 2000 by default); the behaviour names the number of members seen.  The probe can only see a limit below the number of objects it stores, which the CALDAV_SERVER_TESTER_LIMIT_OBJECTS environment variable sets; without it the feature is not probed.",
+            "default": {"support": "full"},
+        },
+        "multiget": {
+            "description": "The calendar-multiget REPORT (RFC 4791 section 7.9), which fetches calendar objects by href.  The library uses it in load()'s fallback and to fetch the objects a sync report names.",
+            "default": {"support": "full"},
+            "links": ["https://datatracker.ietf.org/doc/html/rfc4791#section-7.9"],
+        },
+        "multiget.missing-href": {
+            "description": "A calendar-multiget naming an href that does not exist answers it with a 404 entry in the multistatus.  RFC 4791 section 7.9 and the multistatus of RFC 4918 section 13 give every requested href a response.  When 'unsupported', the href is left out (Baikal), so a client cannot tell a missing object from one the server forgot to answer for.",
+            "default": {"support": "full"},
+        },
+        "multiget.limit": {
+            "description": "A calendar-multiget answers every href it names, however many.  When 'unsupported', the server answers at most a number of its own and a 507 for the collection, even when the request asked for no more (Stalwart, at its WebDav.maxResults setting, 2000 by default); a client should then fetch in batches.  As for propfind.limit, the probe only sees a limit below CALDAV_SERVER_TESTER_LIMIT_OBJECTS.",
+            "default": {"support": "full"},
+        },
         "delete-calendar": {
             "description": "RFC4791 says nothing about deletion of calendars, so the server implementation is free to choose weather this should be supported or not.  Section 3.2.3.2 in RFC 6638 says that if a calendar is deleted, all the calendarobjectresources on the calendar should also be deleted - but it's a bit unclear if this only applies to scheduling objects or not.  Some calendar servers moves the object to a trashcan rather than deleting it.  'fragile' is a negative status and additionally switches on Calendar.delete()'s retry-and-poll loop, which re-issues the DELETE.  A delete that always goes through but takes a measurable time to settle is not fragile: that is synchronous-write.delete-calendar",
             ## Independent feature (directly probed): the default marks it so the
@@ -429,6 +469,8 @@ hence, "fragile".
         "save-load.todo.recurrences.thisandfuture": {"description": "Completing a recurring task with rrule_mode='thisandfuture' works (modifies RRULE and saves back to server)", "default": {"support": "full"}},
         "save-load.todo.mixed-calendar": {"description": "The same calendar may contain both events and tasks (Zimbra only allows tasks to be placed on special task lists)", "default": {"support": "full"}},
         "save-load.todo.uncomplete": {"description": "A completed task can be made pending again (Todo.uncomplete()): after saving it with STATUS:NEEDS-ACTION and without COMPLETED, it loads back that way.", "default": {"support": "full"}},
+        "save-load.todo.attendee": {"description": "A task with an ATTENDEE (RFC 5545 section 3.6.2 allows it in a VTODO) is stored with it.  The probe sends no ORGANIZER, so no scheduling applies.  'unsupported' when the ATTENDEE is dropped.  'broken' when the task with it is gone although the PUT succeeded: the PUT is answered with 201 and the GET with 404, while the same task without the ATTENDEE is kept.  'ungraceful' when it is refused (Ox, with 409).", "default": {"support": "full"}},
+        "save-load.todo.completed-without-status": {"description": "A task with a COMPLETED date-time but no STATUS (RFC 5545 makes neither require the other) is stored with its COMPLETED.  'unsupported' when COMPLETED is dropped (Ox).  A server adding STATUS:COMPLETED is fine.", "default": {"support": "full"}},
         "save-load.journal": {
             "description": "The server will even accept journals",
             "default": { "support": "full" }
@@ -478,7 +520,10 @@ hence, "fragile".
             "default": {"support": "full"},
         },
         "save-load.stable-url": {
-            "description": "The server reports a calendar object resource under the same URL the client used to store it, so that a client may compare a searched object's URL with one it constructed as '<collection>/<uid>.ics'.  When 'unsupported' it may not, and has to read the URL off the response.  Two different things make it 'unsupported'.  The server may assign the resource a name of its own choosing.  Or the *collection* may not stay at the address it was created at, in which case a constructed object URL is only usable from the address the server reports objects under - and a client is handed either address depending on how it got the Calendar: make_calendar adopts the canonical URL, a calendar listing reports it, while the cal_id shortcut is pure URL arithmetic and never round-trips.  That comes in two flavours.  OX App Suite exposes a calendar both at the requested cal_id and at an opaque internal 'cal://0/NNN' path, a direct GET on either working, so a constructed URL resolves but is not the URL the server reports.  Zimbra instead relocates the collection to a display-name-derived path and leaves an alias at the cal_id that answers PROPFIND but 404s on child objects, so a constructed URL under the cal_id does not resolve at all.  That second case is 'create-calendar.stable-url' seen from the object end, and it is read from there rather than measured again here - measuring it made this feature's verdict depend on which address the probe run happened to be holding.",
+            "description": "The server reports a calendar object resource under the same URL the client used to store it, so that a client may compare a searched object's URL with one it constructed as '<collection>/<uid>.ics'.  When 'unsupported' it may not, and has to read the URL off the response.  Two different things make it 'unsupported'.  The server may assign the resource a name of its own choosing - Zimbra, for one, redirects a PUT under any name but '<uid>.ics' to '<uid>.ics' (see forces_uid_ics).  Or the *collection* may not stay at the address it was created at, in which case a constructed object URL is only usable from the address the server reports objects under - and a client is handed either address depending on how it got the Calendar: make_calendar adopts the canonical URL, a calendar listing reports it, while the cal_id shortcut is pure URL arithmetic and never round-trips.  That comes in two flavours.  OX App Suite exposes a calendar both at the requested cal_id and at an opaque internal 'cal://0/NNN' path, a direct GET on either working, so a constructed URL resolves but is not the URL the server reports.  Zimbra instead relocates the collection to a display-name-derived path and leaves an alias at the cal_id that answers PROPFIND but 404s on child objects, so a constructed URL under the cal_id does not resolve at all.  That second case is 'create-calendar.stable-url' seen from the object end, and it is read from there rather than measured again here - measuring it made this feature's verdict depend on which address the probe run happened to be holding.",
+            "extra_keys": {
+                "forces_uid_ics": "True when the server names every object <uid>.ics whatever name it was PUT to, so a GET of <uid>.ics that misses means the object is not there.  get_object_by_uid() then does not scan the calendar after a failed UID search.",
+            },
             "default": {"support": "full"},
         },
         "save-load.reuse-deleted-uid": {
@@ -487,11 +532,41 @@ hence, "fragile".
         "save-load.event.timezone": {
             "description": "The server accepts events with non-UTC timezone information. When unsupported or broken, the server may reject events with timezone data (e.g., return 403 Forbidden). Related to GitHub issue https://github.com/python-caldav/caldav/issues/372."
         },
+        "save-load.event.floating": {
+            "description": "An event with a floating DTSTART and DTEND (a local time with neither TZID nor a UTC 'Z', RFC 5545 section 3.3.5) is stored floating, meaning the same wall-clock time in whatever time zone the user is in.  When 'unsupported', the server stores the time in a time zone of its own: SOGo adds a VTIMEZONE for Etc/UTC and gives DTSTART and DTEND TZID=Etc/UTC, so the wall-clock time is pinned to UTC.  SOGo keeps tasks floating.  'broken' when the stored time has both a TZID and a 'Z', which section 3.3.5 forbids.  The probe reads the server's own text: the icalendar library (7.3.0) itself writes a TZID=Etc/UTC time back with a 'Z', so a re-serialised object can look broken when the server's is not.",
+            "default": {"support": "full"},
+            "links": ["https://datatracker.ietf.org/doc/html/rfc5545#section-3.3.5"],
+        },
         "save-load.icalendar": {"description": "Is it possible to save icalendar data to the calendar?  (Most likely yes - but we need a parent to collect all icalendar compatibility problems that aren't specific to one kind of object resource types"},
         "save-load.icalendar.related-to": {
             "description": "The server preserves RELATED-TO properties (RFC5545 section 3.8.4.5) when saving and loading calendar objects. When 'unsupported', the server may typically silently strip all RELATED-TO lines",
             "default": {"support": "full"},
             "links": ["https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.4.5"],
+        },
+        "save-load.icalendar.attendee-params": {
+            "description": "The parameters of an ATTENDEE property (RFC 5545 section 3.8.4.1) are stored as sent.  A parameter added with the value RFC 5545 gives as its default (PARTSTAT=NEEDS-ACTION, ROLE=REQ-PARTICIPANT, CUTYPE=INDIVIDUAL, RSVP=FALSE) changes nothing, nor does SCHEDULE-STATUS, which RFC 6638 section 7.3 has the server set; those are 'full', with the additions named in the behaviour.  'unsupported' when a parameter is dropped or changed, or one is added that changes the meaning: SOGo adds RSVP=TRUE to every attendee, while the default is FALSE.  The probe stores an event with attendees but no ORGANIZER, so it is not a scheduling object resource and no iTIP processing applies.  See also save-load.mutable.attendee-partstat.",
+            "default": {"support": "full"},
+            "links": ["https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.4.1", "https://datatracker.ietf.org/doc/html/rfc5545#section-3.2"],
+        },
+        "save-load.icalendar.participant": {
+            "description": "A PARTICIPANT component (RFC 9073 section 7.1) inside a VEVENT is stored and comes back.  'unsupported' when the event is stored without it.  'ungraceful' when the event is refused: CCS and Bedework 3 answer 403, robur 400, GMX and Ox 500 (and Zimbra, reportedly).  A client keeping data of its own in PARTICIPANT components loses it on those servers.",
+            "default": {"support": "full"},
+            "links": ["https://datatracker.ietf.org/doc/html/rfc9073#section-7.1"],
+        },
+        "save-load.icalendar.vtimezone": {
+            "description": "The VTIMEZONE a client sends with an object comes back with it.  RFC 5545 section 3.6.5 requires a VTIMEZONE for every TZID an object uses.  RFC 7809 lets a server leave VTIMEZONEs out, but only for a client asking for that with the CalDAV-Timezones: F request header, which the probe does not send.  'unsupported' when the object comes back without it, so a client that resolves TZIDs only from the object's own VTIMEZONEs cannot place the times.  'ungraceful' when an object carrying a VTIMEZONE is refused.  See also save-load.event.timezone.",
+            "default": {"support": "full"},
+            "links": ["https://datatracker.ietf.org/doc/html/rfc5545#section-3.6.5", "https://datatracker.ietf.org/doc/html/rfc7809"],
+        },
+        "save-load.icalendar.x-property": {
+            "description": "An X- property (RFC 5545 section 3.8.8.2) is stored with the object, in an event and in a task.  'unsupported' when it is dropped from either (Ox keeps it in an event and drops it from a task), so a client cannot keep data of its own in one; the behaviour says which.",
+            "default": {"support": "full"},
+            "links": ["https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.8.2"],
+        },
+        "save-load.icalendar.unknown-property": {
+            "description": "A property whose name RFC 5545 does not define, but which is not an X- one either (iana-token syntax, RFC 5545 section 3.8.8.1), is stored with the object.  The probe sends ESTIMATED-DURATION, from a draft task extension, on a task.  'unsupported' when it is dropped (Ox).",
+            "default": {"support": "full"},
+            "links": ["https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.8.1"],
         },
         "save-load.mutable": {
             "description": "A saved calendar object resource can be modified and PUT back to the server; the server accepts the update and returns the modified data on the next GET/REPORT. When 'unsupported', the server treats calendar objects as immutable after initial creation (e.g. Google Calendar's legacy CalDAV API). Replaces the old 'no_overwrite' compatibility flag.",
@@ -521,6 +596,10 @@ hence, "fragile".
         "search.comp-type": {
             "description": "Server correctly filters calendar-query results by component type.  'unsupported': the comp-filter is silently ignored and the whole calendar is returned, but nothing of the requested type is dropped - the library keeps the comp-filter and filters the result client-side.  'broken': a typed query drops objects of the requested type (e.g. Bedework returns VTODOs for a VEVENT query and nothing for a VTODO query) - the library leaves the comp-filter out of the query and filters client-side.",
             "default": {"support": "full"}
+        },
+        "search.limit": {
+            "description": "A calendar-query answers every object it matches, however many.  When 'unsupported', the server answers at most a number of its own, with a 507 Insufficient Storage for the collection, or a 507 for the whole query (Stalwart lists up to its WebDav.maxResults setting, 2000 by default); a client should then narrow the query, e.g. split its time range.  'broken' when the answer is cut without a 507, so a client takes it as complete.  As for propfind.limit, the probe only sees a limit below CALDAV_SERVER_TESTER_LIMIT_OBJECTS.",
+            "default": {"support": "full"},
         },
         ## TODO - there is still quite a lot of search-related
         ## stuff that hasn't been moved from the old "quirk list"
@@ -630,6 +709,11 @@ hence, "fragile".
             "description": "According to RFC4791 the search done should be a substring search.  The search.text.substring feature is set if the calendar server does this (as opposed to only return full matches).  Substring matches does not always make sense, but it's mandated by the RFC.  When a server does a substring match on some properties but an exact match on others, the support should be marked as fragile.  Except for categories, which are handled in search.text.category.substring",
             "links": ["https://datatracker.ietf.org/doc/html/rfc4791#section-9.7.5"],
         },
+        "search.text.uid": {
+            "description": "A calendar-query with a UID prop-filter works.  'unsupported' when the filter is ignored and the whole calendar comes back; 'ungraceful' or 'broken' when the query fails (iCloud answers any UID filter with 412) or answers wrongly.  A server may do text searches on other properties and still fail on UID, so it can be set on its own; where it is not, it takes the value of search.text, as sub-features do.  See https://github.com/python-caldav/caldav/issues/783",
+            "default": {"support": "full"},
+            "links": ["https://datatracker.ietf.org/doc/html/rfc4791#section-9.7"],
+        },
         "search.text.category": {
             "description": "Search for category should work.  This is not explicitly specified in RFC4791, but covered in section 9.7.5.  No examples targets categories explicitly, but there are some text match examples in section 7.8.6 and following sections",
             ## Independent feature (directly probed): the default marks it so the
@@ -695,6 +779,21 @@ hence, "fragile".
         },
         "sync-token.delete": {
             "description": "Server correctly handles sync-collection reports after objects have been deleted from the calendar (solved in Nextcloud in https://github.com/nextcloud/server/pull/44130)"
+        },
+        "sync-token.delete.created-and-deleted": {
+            "description": "A member created and deleted again between two sync reports is reported as removed in the second one, as RFC 6578 section 3.5.2 requires.  A client that created the object itself learns that it is gone.  When 'unsupported', it is not mentioned at all (Xandikos, Stalwart), so a client waiting for its own create to show up waits forever.",
+            "default": {"support": "full"},
+            "links": ["https://datatracker.ietf.org/doc/html/rfc6578#section-3.5.2"],
+        },
+        "sync-token.recreated": {
+            "description": "A member deleted and re-created at the same href between two sync reports is reported once, as changed (RFC 6578 sections 3.5.1 and 3.2: a member URL appears only once).  Not under sync-token.delete: Bedework 5 does not report deletions, yet reports a re-created member correctly.  'quirk' when it is reported twice, as removed and then as changed (Stalwart): the later entry is the one that counts.  'broken' when it is reported as removed only (Nextcloud, Synology), so a client drops an object that exists.",
+            "default": {"support": "full"},
+            "links": ["https://datatracker.ietf.org/doc/html/rfc6578#section-3.5.1"],
+        },
+        "sync-token.initial-sync": {
+            "description": "A sync report from an empty token lists exactly the current members of the collection: RFC 6578 section 3.4 says it MUST NOT return removed members.  'quirk' when it lists more, which a client can filter away (keep only hrefs below the collection, answered 200): Radicale lists deleted members with a 404, Stalwart also lists the collection itself.  The behaviour says which.  The limit on an initial sync is sync-token.limit.initial-sync, which inherits from sync-token.limit rather than from this.",
+            "default": {"support": "full"},
+            "links": ["https://datatracker.ietf.org/doc/html/rfc6578#section-3.4"],
         },
         "sync-token.invalid-token": {
             "description": "A sync-collection report with a token the server never issued is refused with the DAV:valid-sync-token precondition and a 403, which RFC 4918 section 16 suggests for a request that will always fail, so the client knows to start over with a full sync.  'quirk' means the precondition comes with another status (Xandikos: 412).  'ungraceful' means an error without the precondition (Xandikos and CCS answer 500 for a malformed token).  'broken' means the report succeeds (Stalwart returns a full listing), so a client can't tell a refused token from an ordinary report",
@@ -794,15 +893,96 @@ hence, "fragile".
             "default": {"support": "full"},
             "links": ["https://datatracker.ietf.org/doc/html/rfc9110#section-8.8.3"],
         },
+        "save.etag.matches-stored": {
+            "description": "A strong ETag in a PUT answer belongs to what the server stored.  RFC 4791 section 5.3.4 lets a server store an object otherwise than sent (add DTSTAMP or CLASS, reorder properties), but then the PUT MUST NOT answer with a strong ETag, so that a client holding the data it sent next to that ETag holds what the server has.  When 'broken', the server rewrites the object and still answers with a strong ETag - merely reordering properties included, since a strong ETag promises identical bytes (Radicale, Xandikos, CCS and Infomaniak reorder, SOGo adds CLASS, Zimbra and Bedework 5 add properties); the data the library keeps is then not what a GET returns.  A server storing the object as sent, or rewriting it and answering with a weak ETag or none (Bedework 3, OX), is 'full'.  Not probed where save.etag is broken, since an unusable ETag matches nothing.",
+            "default": {"support": "full"},
+            "links": ["https://datatracker.ietf.org/doc/html/rfc4791#section-5.3.4"],
+        },
         "save.if-none-match": {
             "description": "A PUT carrying If-None-Match: * to an existing object is refused with 412 Precondition Failed, and creates a missing object.  RFC 9110 section 13.1.2 has '*' hold only when the resource has no current representation, so it means 'create, but never overwrite'; RFC 4791 section 5.3.2 tells CalDAV clients to send it when creating.  save(no_overwrite=True) sends it, so the server enforces 'do not overwrite' in the same request rather than after a search.  When 'unsupported', the server overwrites the existing object (SOGo ignores the header; Zimbra compares '*' as a literal etag, so the condition always holds) - the library then does not send it, nor anywhere else this is not supported ('full' or 'quirk'), and relies on the UID search before the PUT, as before.  The default is 'full': RFC 4791 section 2 requires a CalDAV server to support ETags as RFC 2616 defines them, and RFC 2616 section 14.26 (now RFC 9110 section 13.1.2) says the server MUST NOT perform the method when '*' is given and the object exists.",
             "default": {"support": "full"},
             "links": ["https://datatracker.ietf.org/doc/html/rfc4791#section-5.3.2", "https://datatracker.ietf.org/doc/html/rfc4791#section-2", "https://datatracker.ietf.org/doc/html/rfc2616#section-14.26", "https://datatracker.ietf.org/doc/html/rfc9110#section-13.1.2"],
         },
         "save.no-uid-conflict": {
-            "description": "A PUT of an object whose UID another object resource in the same calendar already holds is refused (RFC 4791 section 5.3.2.1, precondition CALDAV:no-uid-conflict; the library raises UidConflictError).  The RFC requires it, but whether a server does is only known where it was observed, hence the default 'unknown'.  'ungraceful': refused, but without a precondition the library recognises, so it cannot tell the refusal from any other failed PUT.  When 'full' and save.if-none-match holds, save(no_overwrite=True) skips the UID search before the PUT: If-None-Match: * covers the same URL, and this covers the same UID under another URL.",
+            "description": (
+                "The server refuses to store two objects with the same UID in one calendar.  RFC 4791 "
+                "section 5.3.2.1 says it MUST: a PUT of an object whose UID another object in the "
+                "calendar already has is refused, with the precondition CALDAV:no-uid-conflict in the "
+                "error body (for a scheduling object RFC 6638 section 3.2.4.1's "
+                "CALDAV:unique-scheduling-object-resource does as well), and the library raises "
+                "UidConflictError.  Graded by a plain PUT, without conditional headers; for one "
+                "carrying If-None-Match: *, see the child feature.  "
+                "'full': refused with 403 or 409 and the precondition.  "
+                "'quirk': refused otherwise, but in a way the library still recognises.  The extra key "
+                "'status' is the HTTP status, 'precondition' whether the body names the precondition.  "
+                "With the precondition (412 from Xandikos and Stalwart) the library goes by the body.  "
+                "Without it, the status alone could mean something else, so the library takes it for "
+                "a UID conflict only where the PUT carried no conditional header except "
+                "If-None-Match: *, and a GET then finds nothing at the URL - which takes a server "
+                "answering 404 for a missing object (non-existing-raises-not-found.object), and a "
+                "status other than 403.  The caldav-server-tester "
+                "grades a bare status 'quirk' only after checking that nothing was stored at the URL, "
+                "and that the same PUT with another UID goes through.  "
+                "'ungraceful': refused, but not recognisably - a bare 403, which a read-only calendar "
+                "answers too, or a refusal the tester could not confirm.  The library then raises "
+                "what the status gives, not UidConflictError.  "
+                "'unsupported': the duplicate is stored.  "
+                "Where the duplicate is refused at all ('full', 'quirk' or 'ungraceful'), "
+                "save(no_overwrite=True) only has to guard the URL, and leaves out its search for the "
+                "UID, which may download the whole calendar: it sends If-None-Match: * (where "
+                "save.if-none-match holds), or else GETs the URL first (where save-load.stable-url "
+                "holds).  "
+                "The default is 'unknown' rather than the 'full' the RFC asks for, since a wrong "
+                "'full' is harmful: save(no_overwrite=True) would leave out the search, and on one of "
+                "the several servers that store duplicates, silently store one."
+            ),
             "default": {"support": "unknown"},
+            "extra_keys": {
+                "status": "quirk: the HTTP status the server refuses with",
+                "precondition": "quirk: whether the error body names the precondition",
+            },
+            "links": ["https://datatracker.ietf.org/doc/html/rfc4791#section-5.3.2.1", "https://datatracker.ietf.org/doc/html/rfc6638#section-3.2.4.1"],
+        },
+        "save.no-uid-conflict.if-none-match": {
+            "description": (
+                "save.no-uid-conflict for a PUT carrying If-None-Match: *, as save(no_overwrite=True) "
+                "sends it, with the same grades and extra keys.  A server may answer it otherwise: "
+                "Bedework refuses a plain PUT with 403 CALDAV:no-uid-conflict, but this one with a bare "
+                "412.  Where it is not stated, it is what save.no-uid-conflict says."
+            ),
+            "default": {"support": "unknown"},
+            "extra_keys": {
+                "status": "quirk: the HTTP status the server refuses with",
+                "precondition": "quirk: whether the error body names the precondition",
+            },
+        },
+        "save.no-uid-conflict.href-given": {
+            "description": (
+                "Where the server refuses a duplicate UID with the precondition, the precondition "
+                "element names the object holding the UID in a DAV:href, as RFC 4791 section 5.3.2.1 "
+                "says it SHOULD; UidConflictError.href gives it, and is None where it is not given.  "
+                "Nothing in the library depends on it.  Only probed where the precondition is given.  "
+                "Where a profile states the parent, this one inherits the parent's level rather than "
+                "its own default, so state it too ('unknown' where the refusal has no "
+                "precondition to read an href from)."
+            ),
+            "default": {"support": "full"},
             "links": ["https://datatracker.ietf.org/doc/html/rfc4791#section-5.3.2.1"],
+        },
+        "delete": {"description": "Deleting a calendar object resource.  Deleting a whole calendar is delete-calendar."},
+        "delete.if-match": {
+            "description": "A DELETE carrying If-Match with an etag the object no longer has is refused with 412 Precondition Failed, and one carrying the current etag goes through.  RFC 9110 section 13.1.1 says the server MUST NOT perform the method when the condition does not hold; delete(if_match=True) relies on it to avoid deleting a version someone else has saved since it was loaded.  When 'broken', the condition is ignored and a stale If-Match deletes the object anyway (SOGo, while it honours a stale If-Match on PUT; Zimbra, Bedework 3 and 5, Posteo).  When 'unsupported', a DELETE with the current etag is refused too.  The default is 'full', as for save-load.mutable.if-match-wildcard: RFC 4791 section 2 requires ETag support as RFC 2616 defines it.",
+            "default": {"support": "full"},
+            "links": ["https://datatracker.ietf.org/doc/html/rfc9110#section-13.1.1", "https://datatracker.ietf.org/doc/html/rfc4791#section-2"],
+        },
+        "delete.missing": {
+            "description": "A DELETE of a calendar object that does not exist answers 404 Not Found (RFC 9110 section 15.5.5).  When 'unsupported', it succeeds anyway (2xx), so a client cannot tell that someone else deleted the object first.",
+            "default": {"support": "full"},
+        },
+        "delete.missing.if-match": {
+            "description": "A DELETE carrying If-Match on an object that does not exist answers as a failing plain DELETE of it does, normally 404; where a plain DELETE of a missing object succeeds, the condition is evaluated and 412 is right.  RFC 9110 section 13.2.1 has a server ignore the preconditions when the request would fail without them, so the missing object wins over the failed condition.  When 'unsupported', the server answers 412 Precondition Failed (Baikal, Davis, Nextcloud, CCS, OX, Robur, Purelymail, Infomaniak), and delete(if_match=True) on an object someone else already deleted raises an etag mismatch rather than NotFoundError.  Independent of delete.if-match: SOGo ignores a stale If-Match, yet answers a missing object with 404.",
+            "default": {"support": "full"},
+            "links": ["https://datatracker.ietf.org/doc/html/rfc9110#section-13.2.1"],
         },
         "save.duplicate-uid": {},
         "save.duplicate-uid.cross-calendar": {
@@ -870,7 +1050,21 @@ hence, "fragile".
     def _bool_key(self, feature):
         return self._BOOL_KEYS.get(self.find_feature(feature).get('type'))
 
+    def _current_name(self, feature):
+        """The name ``feature`` goes by now: a renamed feature is translated,
+        with a DeprecationWarning pointing at the caller of the public method."""
+        if feature in _RENAMED_FEATURES:
+            new_name = _RENAMED_FEATURES[feature]
+            warnings.warn(
+                f"The '{feature}' feature is deprecated - use '{new_name}'",
+                DeprecationWarning,
+                stacklevel=3,
+            )
+            return new_name
+        return feature
+
     def set_feature(self, feature, value=True):
+        feature = self._current_name(feature)
         if isinstance(value, dict) or (isinstance(value, bool) and self._bool_key(feature)):
             fc = {feature: value}
         elif isinstance(value, str):
@@ -917,6 +1111,15 @@ hence, "fragile".
                 feature_set['calendar-color.name'] = feature_set.pop('calendar-color')
             feature_set['calendar-color'] = feature_set.pop('calendar-color.hex')
         for feature in feature_set:
+            if feature in _RENAMED_FEATURES:
+                new_name = _RENAMED_FEATURES[feature]
+                warnings.warn(
+                    f"The '{feature}' feature is deprecated - use '{new_name}'",
+                    DeprecationWarning,
+                    stacklevel=3,
+                )
+                self._copy_feature_set({new_name: feature_set[feature]}, collapse=False)
+                continue
             if feature == 'write-delay':
                 warnings.warn(
                     "The 'write-delay' feature is deprecated - use 'synchronous-write', "
@@ -1089,6 +1292,7 @@ hence, "fragile".
         is unsupported it basically means that feature foo.bar is also
         unsupported.  Hence the extra logic visiting "nodes".
         """
+        feature = self._current_name(feature)
         feature_info = self.find_feature(feature)
         feature_ = feature
         while True:
@@ -1401,12 +1605,15 @@ xandikos = {
         "support": "broken",
         "behaviour": "the reply is cut at DAV:limit without a 507, and the token skips the rest",
     },
-    ## A second object with a UID already in the calendar is refused with 412
-    ## CALDAV:no-uid-conflict (testNoOverwriteSameUidOtherUrl, 2026-10-19).
-    "save.no-uid-conflict": {"support": "full"},
+    ## Measured with caldav-server-tester, 2026-10-28.
+    "save.no-uid-conflict": {"support": "quirk", "status": 412, "precondition": True, "behaviour": "refused with 412 and the precondition"},
+    "save.no-uid-conflict.href-given": {"support": "unsupported"},
     ## Probed 2026-10-21 by caldav-server-tester
     "calendar-color": {"support": "full"},
     "calendar-order": {"support": "full"},
+    ## Probed 2026-10-24 by caldav-server-tester (sync, multiget and DELETE probes)
+    "sync-token.delete.created-and-deleted": {"support": "unsupported", "behaviour": "a member created and deleted between two reports is not reported"},
+    "save.etag.matches-stored": {"support": "broken", "behaviour": "stored with its properties reordered, yet the PUT answered with a strong ETag"},
 }
 
 ## This seems to work as of version 3.5.4 of Radicale.
@@ -1427,9 +1634,9 @@ radicale = {
         "support": "unsupported",
         "behaviour": "If-Match: * is compared as a literal etag: an overwrite of an existing object is refused with 412",
     },
-    ## A second object with a UID already in the calendar is refused with 409
-    ## CALDAV:no-uid-conflict (testNoOverwriteSameUidOtherUrl on 3.8.3, 2026-10-19).
+    ## Measured with caldav-server-tester, 2026-10-28.
     "save.no-uid-conflict": {"support": "full"},
+    "save.no-uid-conflict.href-given": {"support": "unsupported"},
     "search.recurrences.includes-implicit.todo.pending": {"support": "fragile", "behaviour": "inconsistent results between runs"},
     "search.recurrences.expanded.todo": {"support": "unsupported"},
     "search.recurrences.expanded.exception": {"support": "full"},
@@ -1442,6 +1649,11 @@ radicale = {
     "calendar-order": {"support": "full"},
     ## Probed 2026-10-11 by the server tester
     "sync-token.limit": {"support": "unsupported", "behaviour": "DAV:limit is ignored"},
+    ## Probed 2026-10-24 by caldav-server-tester (sync, multiget and DELETE probes)
+    "sync-token.initial-sync": {"support": "quirk", "behaviour": "lists deleted members with a 404"},
+    "save.etag.matches-stored": {"support": "broken", "behaviour": "stored with its properties reordered, yet the PUT answered with a strong ETag"},
+    ## Measured with caldav-server-tester, 2026-10-28.
+    "supported-components.honoured": {"support": "broken", "behaviour": "the restriction is advertised but not enforced: a VTODO-only calendar reports ['VTODO'], and a VEVENT or a VJOURNAL can be saved to it"},
 }
 
 ## Nextcloud can be configured a lot.  What particularly affects the compatibility
@@ -1520,9 +1732,26 @@ nextcloud = {
     ## Probed 2026-10-20 by caldav-server-tester
     "calendar-color": {"support": "full"},
     "calendar-order": {"support": "full"},
+    ## Probed 2026-10-24 by caldav-server-tester (sync, multiget and DELETE probes)
+    "delete.missing.if-match": {"support": "unsupported", "behaviour": "a DELETE with If-Match on a missing object answered 412"},
+    "multiget.missing-href": {"support": "unsupported", "behaviour": "a missing href is left out of the multistatus"},
+    "sync-token.recreated": {"support": "broken", "behaviour": "a member deleted and re-created is reported as removed only"},
 }
 
 ecloud = nextcloud | {
+    ## 2026-10-23: MKCALENDAR failed with 403 "Calendar limit reached" (a
+    ## SabreDAV Forbidden), making the server-tester grade create-calendar
+    ## unsupported.  The account held 27 live calendars, 15 of them empty
+    ## leftovers with bare-uuid cal_ids from test runs.  Calendars sitting in
+    ## the trashbin count towards the limit too: deleting the leftovers gave
+    ## room for one more creation only.  A DELETE carrying the header
+    ## "X-NC-CalDAV-No-Trashbin: 1" removes a calendar for good, and also
+    ## works on one already in the trashbin (it still shows up in a raw
+    ## depth-1 PROPFIND of the calendar home).  With the trashbin purged,
+    ## the next MKCALENDARs got 429 instead - the calendar-creation rate
+    ## limit, after a dozen creations within the hour.  The same run measured
+    ## well-known unsupported: /.well-known/caldav redirects to
+    ## /remote.php/dav/, which does not advertise calendar-access.
     #'search.is-not-defined': {'support': 'unsupported'}, ## observed to work at 4bc0de765a2b53e6f223e0b9ac51c653bac11fb7 (caldav) / 3cae24cf99da1702b851b5a74a9b88c8e5317dad (server checker)
     #'search.text.case-sensitive': {'support': 'unsupported'}, ## observed to work at 4bc0de765a2b53e6f223e0b9ac51c653bac11fb7 (caldav) / 3cae24cf99da1702b851b5a74a9b88c8e5317dad (server checker)
     'delete-calendar.free-namespace': False,
@@ -1542,8 +1771,12 @@ ecloud = nextcloud | {
     },
 }
 
-## Zimbra is not very good at it's caldav support
-zimbra = {
+## Zimbra is not very good at it's caldav support.  Measured against the
+## zimbra/zcs-foss:latest docker image (Zimbra 8.8, built 2017); upgrades
+## have been known to bring regressions, hence the version-stamped name.
+zimbra_8_8 = {
+    ## Measured with caldav-server-tester, 2026-10-27: the UID filter works although search.text does not.
+    'search.text.uid': {'support': 'full'},
     ## Measured with caldav-server-tester, 2026-10-19.
     "save.no-uid-conflict": {"support": "full"},
     ## Observed by testCancelSingleRecurrence, 2026-10-20
@@ -1603,19 +1836,22 @@ zimbra = {
     ##     "404 most of the time but sometimes 200" observation.)
     'create-calendar.set-displayname': {'support': 'full'},
     'create-calendar.stable-url': {'support': 'unsupported', 'behaviour': 'a display name set at creation relocates the collection to a display-name-derived canonical URL; a collection alias lingers at the requested cal_id but child object GETs under it 404'},
-    ## The object end of the same relocation.  Zimbra keeps the name the object
-    ## was stored under, so this is not a rename - but the collection moved, and
-    ## the alias left behind at the requested cal_id does not serve child
-    ## objects, so a URL a client constructed as '<cal_id>/<uid>.ics' 404s.  Only
-    ## a client holding the canonical collection URL can construct an object URL
-    ## at all, and the library hands out either address depending on how the
-    ## Calendar was obtained.  See the OX profile for the other flavour of this:
-    ## there both collection addresses work, so the constructed URL resolves but
-    ## may not be the one the server reports.
-    'save-load.stable-url': {'support': 'unsupported', 'behaviour': "the object keeps the name it was stored under, but the collection moved to its display-name-derived canonical URL and the cal_id alias 404s on child objects, so an object URL constructed under the requested cal_id does not resolve"},
+    ## Zimbra names every object <uid>.ics: a PUT under another name is
+    ## answered with a 302 to <uid>.ics, storing nothing until the client
+    ## repeats the PUT there (the docker image redirects to its internal port
+    ## 8443, so the client cannot).  The collection relocation above is the
+    ## other reason a constructed object URL fails here; it is graded under
+    ## create-calendar.stable-url.  forces_uid_ics makes a 404 on <uid>.ics
+    ## conclusive in get_object_by_uid(), which is wrong under the cal_id
+    ## alias - unreachable while search.text.uid is full, as the UID search
+    ## then answers first.
+    'save-load.stable-url': {'support': 'unsupported', 'forces_uid_ics': True, 'behaviour': "an object PUT under another name is redirected (302) to <uid>.ics"},
     'save-load.todo.mixed-calendar': {'support': 'unsupported'},
+    ## Measured 2026-10-27: a set naming VTODO as well as VEVENT yields an events-only calendar.
+    'create-calendar.with-supported-component-types.multiple': {'support': 'broken', 'behaviour': "asked for VEVENT and VTODO, the calendar reports ['VEVENT', 'VFREEBUSY']"},
     'save-load.todo.recurrences.count': {'support': 'unsupported'}, ## This is a new problem?
     'save-load.journal': {'support': 'ungraceful'},
+    ## One caldav-server-tester run on 2026-10-23 measured this ungraceful.
     'sync-token': {'support': 'fragile'},
     'search.is-not-defined': {'support': 'unsupported'},
     'search.text': {'support': 'unsupported'},
@@ -1630,9 +1866,14 @@ zimbra = {
     'search.comp-type.optional': {'support': 'full'},
     'search.time-range.alarm': {'support': 'unsupported'},
     'principal-search': "unsupported",
-    ## Zimbra implements server-side automatic scheduling: invitations are
-    ## auto-processed into the attendee's calendar; no iTIP notification appears in the inbox.
-    ## TODO: auto-scheduling did not work in the last test?  Check more around it
+    ## Zimbra auto-processes invitations into the attendee's calendar,
+    ## without any iTIP notification in the inbox.  The server tester's
+    ## cross-user probe found the invitation missing once (2026-10-28), and
+    ## in place in three runs on 2026-10-29.  Zimbra is known to need a
+    ## pause before an invitation lands, and the probe looks at the
+    ## attendee's calendar only once, so the miss may have been a delay.
+    ## If it is observed missing again, regrade scheduling.auto-schedule
+    ## (below) as fragile.
     #"scheduling.mailbox.inbox-delivery": False,
     "scheduling.schedule-tag": False,
     'save-load.icalendar.related-to': {'support': 'unsupported'},
@@ -1654,7 +1895,38 @@ zimbra = {
     "calendar-color": {"support": "full"},
     "calendar-color.name": {"support": "unsupported"},
     "calendar-order": {"support": "full"},
+    ## Probed 2026-10-24 by caldav-server-tester (sync, multiget and DELETE probes)
+    "delete.if-match": {"support": "broken", "behaviour": "a DELETE with a stale If-Match deleted the object (204)"},
+    "save.etag.matches-stored": {"support": "broken", "behaviour": "stored with STATUS, CLASS, TRANSP, LAST-MODIFIED and SEQUENCE added, yet the PUT answered with a strong ETag"},
+    ## Measured with caldav-server-tester, 2026-10-28.
+    "save-load.event.floating": {"support": "unsupported", "behaviour": "a floating time is stored with TZID=\"UTC\""},
+    "save-load.icalendar.unknown-property": {"support": "unsupported", "behaviour": "ESTIMATED-DURATION is dropped"},
+    "save-load.icalendar.participant": {"support": "ungraceful", "behaviour": "an event with a PARTICIPANT is refused (500)"},
+    "scheduling.auto-schedule": {"support": "full"},
 }
+
+## Zimbra 10.1.21, measured with caldav-server-tester 2026-10-29 against an
+## external server; there is no docker image of Zimbra 10.  Only the differences found
+## so far - everything else is assumed to be as in 8.8.
+zimbra_10_1 = zimbra_8_8 | {
+    "save.no-uid-conflict": {"support": "quirk", "status": 412, "precondition": True, "behaviour": "refused with 412 and the precondition"},
+    "save.no-uid-conflict.href-given": {"support": "full"},
+}
+
+def __getattr__(name: str) -> Any:
+    """Resolve a renamed profile, such as ``zimbra``, with a DeprecationWarning."""
+    from caldav.config import DEPRECATED_FEATURE_PROFILES
+
+    if name in DEPRECATED_FEATURE_PROFILES:
+        new_name, reason = DEPRECATED_FEATURE_PROFILES[name]
+        warnings.warn(
+            f"compatibility_hints.{name} has been renamed to {new_name} - {reason}",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return globals()[new_name]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 ## Measured against the `ioggstream/bedework:latest` docker image, which is
 ## a quickstart-3.10.3 tree on openjdk-8 and was built 2018-11-05 - the image
@@ -1664,8 +1936,19 @@ zimbra = {
 ## 5.x, hence the version-stamped name - a plain `bedework` would be claiming
 ## far more than we have measured.
 bedework_3_10_3 = {
-    ## Measured with caldav-server-tester, 2026-10-19.
-    "save.no-uid-conflict": {"support": "ungraceful", "behaviour": "refused with a bare 412 when the PUT carries If-None-Match: *"},
+    ## Measured with caldav-server-tester, 2026-10-27: the UID filter works although search.text does not.
+    "search.text.uid": {"support": "full"},
+    ## Probed 2026-10-26 by caldav-server-tester: RFC 4791 section 5.2.3 makes
+    ## storing a component type outside the set an error.
+    "supported-components.honoured": {"support": "broken", "behaviour": "the restriction is advertised but not enforced: a VTODO-only calendar reports ['VTODO'], and a VEVENT can be saved to it"},
+    ## Measured 2026-10-26: several types are reported back as one name.
+    "create-calendar.with-supported-component-types.multiple": {"support": "broken", "behaviour": "asked for VEVENT and VTODO, the calendar reports one concatenated name, ['VEVENTVTODO']"},
+    ## Probed 2026-10-26 by caldav-server-tester
+    "save-load.icalendar.participant": {"support": "ungraceful", "behaviour": "an event with a PARTICIPANT is refused (403)"},
+    ## Measured with caldav-server-tester, 2026-10-28.
+    "save.no-uid-conflict": {"support": "full"},
+    "save.no-uid-conflict.href-given": {"support": "unsupported"},
+    "save.no-uid-conflict.if-none-match": {"support": "quirk", "status": 412, "precondition": False},
     ## If tests are yielding unexpected results, try to increase this:
     'search-cache': {'behaviour': 'delay', 'delay': 3},
     'scheduling.calendar-user-address-set': {'support': 'full'},
@@ -1723,6 +2006,8 @@ bedework_3_10_3 = {
     ## Probed 2026-10-21 by caldav-server-tester
     "calendar-color": {"support": "full"},
     "calendar-order": {"support": "unsupported"},
+    ## Probed 2026-10-24 by caldav-server-tester (sync, multiget and DELETE probes)
+    "delete.if-match": {"support": "broken", "behaviour": "a DELETE with a stale If-Match deleted the object (204)"},
 }
 
 ## Bedework 5.0.0, measured 2026-09-12 with caldav-server-tester against the
@@ -1733,19 +2018,17 @@ bedework_3_10_3 = {
 ## deletes calendars, its sync-token and text search behave differently - so
 ## nothing is inherited from that profile.
 bedework_5_0_0 = {
-    ## Measured with caldav-server-tester, 2026-10-19.
-    "save.no-uid-conflict": {"support": "ungraceful", "behaviour": "refused with a bare 412 when the PUT carries If-None-Match: *"},
+    ## Measured with caldav-server-tester, 2026-10-27: the UID filter works although search.text does not.
+    "search.text.uid": {"support": "full"},
+    ## Measured with caldav-server-tester, 2026-10-28.
+    "save.no-uid-conflict": {"support": "full"},
+    "save.no-uid-conflict.href-given": {"support": "unsupported"},
+    "save.no-uid-conflict.if-none-match": {"support": "quirk", "status": 412, "precondition": False},
     ## Writes are asynchronous: a read-back issued immediately after a PUT may
-    ## 404 or hand back the pre-write copy.  That is what separated the two
-    ## measurement runs - save-load.mutable came out "broken" (modification not
-    ## reflected after save and reload) in one and "full" in the other, and the
-    ## timezone probe's load() 404ed on a resource the PUT had just accepted.
-    ## The delay is what makes the rest of this profile reproducible.  Yet the
-    ## synchronous-write probe itself - one PUT, one direct GET - reads the
-    ## object back at once (save-load-delay 0, 2026-09-13), so it is too fast
-    ## to catch reliably: fragile, not unsupported.  Four runs on 2026-10-20/21
-    ## all measured ~1s; it stays fragile until more rounds show that the 0
-    ## does not come back.
+    ## 404 or hand back the pre-write copy.  However, in some cases the
+    ## delay is small and varies, sometimes the caldav-server-tester tool will
+    ## not catch the async behaviour, hence it's rated "fragile" rather than
+    ## "unsupported".
     "synchronous-write": {"support": "fragile", "delay": 3},
 
     ## MKCALENDAR works, but a successful one that sets no properties is
@@ -1778,16 +2061,24 @@ bedework_5_0_0 = {
         "support": "unsupported",
         "behaviour": "the restriction is accepted with a 200 ok propstat and then ignored; the collection is VEVENT-only",
     },
-    ## So whether Bedework stores tasks is unknown rather than unsupported: the
-    ## server has a task collection type, a CalDAV client just cannot make one.
-    ## What was measured is that a VTODO does not go into an event calendar;
-    ## together with the ignored component set that leaves a client nowhere to
-    ## put a task.  The children inherit "unknown".  The same goes for journals.
-    "save-load.todo": {"support": "unknown"},
+    ## Measured 2026-10-26: a set of several types is ignored just the same.
+    "create-calendar.with-supported-component-types.multiple": {
+        "support": "broken",
+        "behaviour": "asked for VEVENT and VTODO, the calendar reports only VEVENT",
+    },
+    ## The caldav-server-tester will yield "unsupported" on tasks and journals.
+    ## Bedework can store tasks on a tasklist, such task lists have been found
+    ## in the demo data, but the CalDAV user cannot create a tasklist.
+    ## The grading is hence set to "fragile".  Perhaps Bedework also supports
+    ## special journal collections, but this is "unknown" as for now.
+    "save-load.todo": {
+        "support": "fragile",
+        "behaviour": "only in a server-provisioned task collection; a client cannot create one, and a VTODO PUT into an event calendar is 403",
+    },
     "save-load.todo.mixed-calendar": {"support": "unsupported"},
     "save-load.journal": {"support": "unknown"},
     "save-load.journal.mixed-calendar": {"support": "unsupported"},
-    ## Not measured either: the tester had no tasks to search for.  A Bedework
+    ## Not measured: the tester had no task collection to search in.  A Bedework
     ## user with a working `tasks` collection may well see this work.
     "search.time-range.todo": {"support": "unknown"},
 
@@ -1875,6 +2166,10 @@ bedework_5_0_0 = {
     ## One account is configured, so the cross-user half of scheduling is
     ## untested; the server advertises scheduling and the mailboxes are there.
     "scheduling.auto-schedule": {"support": "unknown"},
+    ## Probed 2026-10-24 by caldav-server-tester (sync, multiget and DELETE probes)
+    "delete.if-match": {"support": "broken", "behaviour": "a DELETE with a stale If-Match deleted the object (204)"},
+    "sync-token.delete.created-and-deleted": {"support": "unsupported", "behaviour": "a member created and deleted between two reports is not reported"},
+    "save.etag.matches-stored": {"support": "broken", "behaviour": "stored with CREATED and LAST-MODIFIED added, PRODID and DTSTAMP changed, yet the PUT answered with a strong ETag"},
 }
 
 baikal =  { ## version 0.10.1
@@ -1903,6 +2198,9 @@ baikal =  { ## version 0.10.1
     ## is honoured, on an initial sync it is ignored
     "sync-token.limit": {"support": "full"},
     "sync-token.limit.initial-sync": {"support": "unsupported", "behaviour": "DAV:limit is ignored"},
+    ## Probed 2026-10-24 by caldav-server-tester (sync, multiget and DELETE probes)
+    "delete.missing.if-match": {"support": "unsupported", "behaviour": "a DELETE with If-Match on a missing object answered 412"},
+    "multiget.missing-href": {"support": "unsupported", "behaviour": "a missing href is left out of the multistatus"},
 } ## TODO: testPrincipals, testWrongAuthType, testTodoDatesearch fails
 
 ## Some unknown version of baikal has this
@@ -1969,6 +2267,10 @@ cyrus = {
 ## The 401 offers 'X-MobileMe-AuthToken realm="MMCalDav", Basic realm="MMCalDav"'
 ## - Basic, with an app-specific password, is what works.
 icloud = {
+    ## Measured with caldav-server-tester, 2026-10-28 (by Rusich90, PR 826): a plain
+    ## PUT and one carrying If-None-Match: * both get a bare 412.
+    "save.no-uid-conflict": {"support": "quirk", "status": 412, "precondition": False, "behaviour": "refused with a bare 412"},
+    "save.no-uid-conflict.href-given": {"support": "unknown"},
     'auto-connect.url': {
         'scheme': 'https',
         'domain': 'caldav.icloud.com',
@@ -1994,6 +2296,7 @@ icloud = {
     },
     'save.duplicate-uid.cross-calendar': {'support': 'ungraceful', 'behaviour': 'PUT refused'},
     'scheduling.schedule-tag': {'support': 'unsupported', 'behaviour': 'no Schedule-Tag returned on GET or via PROPFIND'},
+    'search.text.uid': {'support': 'ungraceful', 'behaviour': 'any UID filter in a calendar-query is answered with 412 (#783)'},
     ## 2026-10-14: on another account, is-not-defined.category/class and
     ## search.text.case-* found nothing (an empty 207) in two tester runs, and
     ## SUMMARY and CATEGORIES filters by hand did not either, also 30 minutes
@@ -2020,6 +2323,9 @@ icloud = {
 ## See the synology profile above: Synology Calendar ships a modified DAViCal,
 ## so the two profiles should be kept in sync where the fork has not diverged.
 davical = {
+    ## Probed 2026-10-26 by caldav-server-tester: RFC 4791 section 5.2.3 makes
+    ## storing a component type outside the set an error.
+    "supported-components.honoured": {"support": "broken", "behaviour": "the restriction is advertised but not enforced: a VTODO-only calendar reports ['VTODO'], and a VEVENT can be saved to it"},
     ## Measured with caldav-server-tester, 2026-10-19.
     "save.no-uid-conflict": {"support": "unsupported", "behaviour": "a second object with the same UID was stored (201)"},
     ## A fresh account comes without a calendar (observed on the docker test server)
@@ -2045,6 +2351,8 @@ davical = {
     ## extra properties not specified in RFC4791/RFC5545
     "calendar-color": {"support": "full"},
     "calendar-order": {"support": "full"},
+    ## Probed 2026-10-24 by caldav-server-tester (sync, multiget and DELETE probes)
+    "multiget.missing-href": {"support": "unsupported", "behaviour": "a missing href is left out of the multistatus"},
 }
 
 ## Synology Calendar (the DSM package) embeds a modified DAViCal, hence
@@ -2060,6 +2368,8 @@ synology = davical | {
     ## .delete() degrades to wiping the objects, so a cal_id is never freed for
     ## reuse and a later MKCALENDAR at the same id gets 405.
     'delete-calendar': False,
+    ## sync-token (fragile, inherited from davical) and sync-token.delete
+    ## both came out full in a server-tester run on 2026-10-23.
     ## (scheduling.mailbox.inbox-delivery used to be pinned False here.  It was
     ## added in a bulk hints commit with no per-server evidence, and it cannot be
     ## probed on the configured server - the checker needs a second user account,
@@ -2068,11 +2378,14 @@ synology = davical | {
     ## requests to the attendee inbox.  Pin it again only with a real observation.)
     ## Test bookkeeping rather than a server feature.
     'test-calendar': {'cleanup-regime': 'wipe-calendar'},
+    ## Probed 2026-10-24 by caldav-server-tester (sync, multiget and DELETE probes)
+    "sync-token.recreated": {"support": "broken", "behaviour": "a member deleted and re-created is reported as removed only"},
 }
 
 sogo = {
-    ## Measured with caldav-server-tester, 2026-10-19.
-    "save.no-uid-conflict": {"support": "ungraceful", "behaviour": "refused with 409, without the CALDAV:no-uid-conflict precondition"},
+    ## Measured with caldav-server-tester, 2026-10-28.
+    "save.no-uid-conflict": {"support": "quirk", "status": 409, "precondition": False, "behaviour": "refused with a bare 409"},
+    "save.no-uid-conflict.href-given": {"support": "unknown"},
     "scheduling.schedule-tag": False,
     "scheduling.mailbox.inbox-delivery": False,
     ## SOGo rejects calendar-color set as a colour name, but takes a hex
@@ -2107,6 +2420,8 @@ sogo = {
     },
     ## includes-implicit.todo has been observed as both supported and unsupported
     ## across different test runs.  Other includes-implicit children are unsupported.
+    ## A run on 2026-10-23 measured event, infinite-scope, todo and todo.pending
+    ## all unsupported.
     ## Marking the parent as fragile to avoid cascading derivation issues.
     "search.recurrences.includes-implicit": {
         "support": "fragile"
@@ -2133,14 +2448,25 @@ sogo = {
         "behaviour": "If-Match: * is ignored: it created a missing object (201); If-None-Match: * overwrote an existing object",
     },
     "save.if-none-match": {"support": "unsupported", "behaviour": "If-None-Match: * is ignored: it overwrote an existing object"},
+    ## Measured 2026-10-23.  A stale If-Match on PUT is refused with 412,
+    ## but on DELETE it is ignored.
+    "delete.if-match": {"support": "broken", "behaviour": "a DELETE with a stale If-Match deleted the object (204)"},
+    ## Tasks are kept floating; events are not.  The stored text is valid -
+    ## the 'Z' after the TZID seen client-side comes from the icalendar library.
+    "save-load.event.floating": {"support": "unsupported", "behaviour": "a floating time is stored with TZID=Etc/UTC"},
+    "save-load.icalendar.attendee-params": {"support": "unsupported", "behaviour": "RSVP=TRUE is added; PARTSTAT=NEEDS-ACTION is added"},
     ## Measured 2026-09-15.
     "create-calendar.with-supported-component-types": {
         "support": "unsupported",
-        "behaviour": "the component set is ignored: a VTODO-only calendar advertises VEVENT, VFREEBUSY and VTODO, and a VEVENT can be saved to it",
+        "behaviour": "the component set is ignored: a VTODO-only calendar advertises VEVENT, VFREEBUSY and VTODO",
     },
+    ## Measured 2026-10-26: a set of several types is taken, and both types are stored.
+    "create-calendar.with-supported-component-types.multiple": {"support": "full"},
     # Ephemeral Docker container: wipe objects (delete-calendar fragile)
     'test-calendar': {'cleanup-regime': 'wipe-calendar'},
 
+    ## Probed 2026-10-24 by caldav-server-tester (sync, multiget and DELETE probes)
+    "save.etag.matches-stored": {"support": "broken", "behaviour": "stored with CLASS added, yet the PUT answered with a strong ETag"},
 }
 ## Old notes for sogo (todo - incorporate them in the structure above).
 ## The commented-out lists here and below name flags of the old-style
@@ -2182,6 +2508,10 @@ sogo = {
 #]
 
 robur = {
+    ## Measured with caldav-server-tester, 2026-10-27.
+    "search.text.uid": {"support": "unsupported", "behaviour": "objects not matching the UID come back"},
+    ## Probed 2026-10-26 by caldav-server-tester
+    "save-load.icalendar.participant": {"support": "ungraceful", "behaviour": "an event with a PARTICIPANT is refused (400)"},
     ## Measured with caldav-server-tester, 2026-10-19.
     "save.no-uid-conflict": {"support": "unsupported", "behaviour": "a second object with the same UID was stored (201)"},
     "auto-connect.url": {
@@ -2194,6 +2524,7 @@ robur = {
     "search.time-range.alarm": {'support': 'unsupported'},
     "search.text": { "support": "unsupported", "behaviour": "a text search ignores the filter and returns all elements" },
     "search.recurrences.expanded.todo": { "support": "unsupported" },
+    ## 2026-10-23: one server-tester run measured this full.
     "search.recurrences.expanded.event": { "support": "fragile" },
     'search.recurrences.includes-implicit.todo': {'support': 'unsupported'},
     'principal-search': {'support': 'ungraceful'},
@@ -2214,12 +2545,17 @@ robur = {
     'save-load.icalendar.related-to': {'support': 'unsupported'},
     'test-calendar': {'cleanup-regime': 'wipe-calendar'},
     "sync-token": {"support": "ungraceful"},
-    "get-supported-components": {"support": "unsupported"},
+    "supported-components.property-exists": {"support": "unsupported"},
+    ## No property is reported, which means every type is accepted (RFC 4791
+    ## section 5.2.3), yet VJOURNAL is refused: see save-load.journal above.
+    "supported-components.honoured": {"support": "broken", "behaviour": "the calendar reports no component set, which means every type is accepted, yet a VJOURNAL is refused"},
     "save.etag": {'support': 'broken', 'behaviour': "malformed etag 'a22ccfb2985aed13f50b4991a110d32253fd99aa'"},
     ## Probed 2026-10-20 by caldav-server-tester
     "calendar-color": {"support": "full"},
     "calendar-order": {"support": "full"},
     'well-known': {'support': 'full'},
+    ## Probed 2026-10-24 by caldav-server-tester (sync, multiget and DELETE probes)
+    "delete.missing.if-match": {"support": "unsupported", "behaviour": "a DELETE with If-Match on a missing object answered 412"},
 }
 
 posteo = {
@@ -2260,6 +2596,9 @@ posteo = {
     "calendar-color": {"support": "full"},
     "calendar-order": {"support": "full"},
     'well-known': {'support': 'unsupported'},
+    ## Probed 2026-10-24 by caldav-server-tester (sync, multiget and DELETE probes)
+    "delete.if-match": {"support": "broken", "behaviour": "a DELETE with a stale If-Match deleted the object (204)"},
+    "multiget.missing-href": {"support": "ungraceful", "behaviour": "a multiget naming a missing object failed: calendar-multiget answered 404"},
 }
 
 #calendar_mail_ru = [
@@ -2304,15 +2643,24 @@ davis = {
     ## token the limit is honoured, on an initial sync it is ignored
     "sync-token.limit": {"support": "full"},
     "sync-token.limit.initial-sync": {"support": "unsupported", "behaviour": "DAV:limit is ignored"},
+    ## Probed 2026-10-24 by caldav-server-tester (sync, multiget and DELETE probes)
+    "delete.missing.if-match": {"support": "unsupported", "behaviour": "a DELETE with If-Match on a missing object answered 412"},
+    "multiget.missing-href": {"support": "unsupported", "behaviour": "a missing href is left out of the multistatus"},
 }
 
 ## Apple CalendarServer (CCS) - archived 2019, Python 2/Twisted.
-## MKCALENDAR always creates VEVENT-only calendars; supported-calendar-component-set
-## cannot be changed.  The pre-provisioned "tasks" calendar supports VTODO only.
-## VJOURNAL is not supported at all.
+## MKCALENDAR creates a calendar with the one component type it is asked for;
+## a set naming several is refused.  The pre-provisioned "tasks" calendar
+## supports VTODO only.  VJOURNAL is not supported at all.
 ccs = {
-    ## Measured with caldav-server-tester, 2026-10-19.
+    ## Observed 2026-10-26: refused as RFC 4791 section 5.3.1.1 describes
+    "create-calendar.with-supported-component-types.multiple": {"support": "unsupported", "behaviour": "MKCALENDAR for VEVENT and VTODO answers 207 with 403 'Invalid CALDAV:supported-calendar-component-set', and no calendar is created"},
+    ## Probed 2026-10-26 by caldav-server-tester
+    "save-load.icalendar.participant": {"support": "ungraceful", "behaviour": "an event with a PARTICIPANT is refused (403)"},
+    "save-load.icalendar.vtimezone": {"support": "unsupported", "behaviour": "the event comes back with TZID=Europe/Berlin but no VTIMEZONE for it"},
+    ## Measured with caldav-server-tester, 2026-10-28.
     "save.no-uid-conflict": {"support": "full"},
+    "save.no-uid-conflict.href-given": {"support": "unsupported"},
     ## Probed 2026-10-13: DAV:limit is refused with a 507 and
     ## number-of-matches-within-limits ("Report limit not supported"), as
     ## RFC 6578 section 3.7 says
@@ -2364,6 +2712,10 @@ ccs = {
     ## Probed 2026-10-20 by caldav-server-tester
     "calendar-color": {"support": "full"},
     "calendar-order": {"support": "full"},
+    ## Probed 2026-10-24 by caldav-server-tester (sync, multiget and DELETE probes)
+    "delete.missing.if-match": {"support": "unsupported", "behaviour": "a DELETE with If-Match on a missing object answered 412"},
+    "sync-token.initial-sync": {"support": "quirk", "behaviour": "lists the collection itself"},
+    "save.etag.matches-stored": {"support": "broken", "behaviour": "stored with its properties reordered, yet the PUT answered with a strong ETag"},
 }
 
 ## Stalwart - all-in-one mail & collaboration server (CalDAV added 2024/2025)
@@ -2371,8 +2723,13 @@ ccs = {
 ## CalDAV served at /dav/cal/<username>/ over HTTP on port 8080.
 ## Feature support mostly unknown until tested; starting with empty hints.
 stalwart = {
-    ## Measured with caldav-server-tester, 2026-10-19.
-    "save.no-uid-conflict": {"support": "full"},
+    ## Probed 2026-10-26 by caldav-server-tester: RFC 4791 section 5.2.3 makes
+    ## storing a component type outside the set an error.
+    "supported-components.honoured": {"support": "broken", "behaviour": "the restriction is advertised but not enforced: a VTODO-only calendar reports ['VTODO'], and a VEVENT can be saved to it"},
+    ## Measured with caldav-server-tester, 2026-10-28.
+    "save.no-uid-conflict": {"support": "quirk", "status": 412, "precondition": True, "behaviour": "refused with 412 and the precondition"},
+    ## Spelled out: unset, it would be the parent's 'quirk'.
+    "save.no-uid-conflict.href-given": {"support": "full"},
     ## Probed 2026-10-11.  calendaring-sync found that it also answers a token
     ## whose history is gone with a partial report and no error.
     "sync-token.invalid-token": {"support": "broken", "behaviour": "'http://example.invalid/never-issued': 207, no error; '0000000000000000000000000000000000000000': 207, no error"},
@@ -2469,12 +2826,25 @@ stalwart = {
     ## Probed 2026-10-20 by caldav-server-tester
     "calendar-color": {"support": "full"},
     "calendar-order": {"support": "full"},
+    ## Probed 2026-10-24 by caldav-server-tester (sync, multiget and DELETE probes)
+    "sync-token.initial-sync": {"support": "quirk", "behaviour": "lists the collection itself"},
+    "sync-token.recreated": {"support": "quirk", "behaviour": "reported twice: as removed, then as changed"},
+    "multiget.limit": {"support": "unsupported", "behaviour": "stops at WebDav.maxResults with a 507"},
+    "propfind.limit": {"support": "unsupported", "behaviour": "lists up to WebDav.maxResults members (50 in the docker setup), then a 507 for the collection"},
+    "search.limit": {"support": "unsupported", "behaviour": "a calendar-query stops at WebDav.maxResults with a 507"},
+    "sync-token.delete.created-and-deleted": {
+        "support": "unsupported",
+        "behaviour": "not reported, unless a member it already had changed in the same interval",
+    },
 }
 
 ## Lots of transient problems with purelymail
 purelymail = {
     ## Measured with caldav-server-tester, 2026-10-19.
     "save.no-uid-conflict": {"support": "ungraceful", "behaviour": "refused with 403, with no-uid-conflict in the CardDAV namespace"},
+    "save.no-uid-conflict.href-given": {"support": "unknown"},
+    ## Measured with caldav-server-tester, 2026-10-28.
+    "supported-components.honoured": {"support": "broken", "behaviour": "the restriction is advertised but not enforced: a VTODO-only calendar reports ['VTODO'], and a VEVENT or a VJOURNAL can be saved to it"},
     ## Purelymail claims that the search indexes are "lazily" populated,
     ## so search works some minutes after the event was created/edited.
     ## A plain listing reflects a new, edited, completed or deleted object at
@@ -2509,12 +2879,17 @@ purelymail = {
     ## Known, work in progress
     "scheduling": {"support": "unsupported"},
     ## Known, not a breach of standard
-    "get-supported-components": {"support": "unsupported"},
+    "supported-components.property-exists": {"support": "unsupported"},
+    ## Probed 2026-10-24 by caldav-server-tester (sync, multiget and DELETE probes)
+    "delete.missing.if-match": {"support": "unsupported", "behaviour": "a DELETE with If-Match on a missing object answered 412"},
 }
 
 gmx = {
+    ## Probed 2026-10-26 by caldav-server-tester
+    "save-load.icalendar.participant": {"support": "ungraceful", "behaviour": "an event with a PARTICIPANT is refused (500, ical4j casts the Participant to a VAlarm)"},
     ## Measured with caldav-server-tester, 2026-10-19.
     "save.no-uid-conflict": {"support": "full"},
+    "save.no-uid-conflict.href-given": {"support": "unsupported"},
     'auto-connect.url': {
         'scheme': 'https',
         'domain': 'caldav.gmx.net',
@@ -2551,9 +2926,13 @@ gmx = {
     ## 2026-10-11: two server-tester runs half an hour apart; in the first
     ## every MKCALENDAR/MKCOL attempt failed, in the second calendars were
     ## created (at the requested URL) and deleted on the first attempt.
+    ## 2026-10-23: one run created calendars fine (set-displayname and
+    ## stable-url full too).
     'create-calendar': {'support': 'fragile'},
     'create-calendar.auto': {'support': 'unsupported'},
     'create-calendar.with-supported-component-types': {'support': 'unsupported'},
+    ## Never probed: stated so the parent's hint is not read as an answer
+    'create-calendar.with-supported-component-types.multiple': {'support': 'unknown'},
     ## save.duplicate-uid.cross-calendar and save-load.mutable.attendee-partstat
     ## were once recorded as failing; that was caldav sending the weak PUT
     ## ETag as If-Match on the follow-up save, not a GMX limitation.
@@ -2582,7 +2961,9 @@ gmx = {
     ## but worked 2026-10-11
     'search.time-range.open.end': {'support': 'fragile'},
     ## Open-start searches used to work (no hint, so full), but were
-    ## rejected with 403 Forbidden 2026-10-11
+    ## rejected with 403 Forbidden 2026-10-11.  2026-10-23: ungraceful
+    ## again, while open.end, open.start.duration, comp-type.optional and
+    ## includes-implicit.infinite-scope all came out full.
     'search.time-range.open.start': {'support': 'fragile'},
     ## Probed 2026-10-20
     "save-load.todo.uncomplete": {
@@ -2591,14 +2972,24 @@ gmx = {
     },
     ## Probed 2026-10-20 by caldav-server-tester
     'search.recurrences.includes-implicit.infinite-scope': {'support': 'fragile', 'behaviour': 'unsupported in one run, full in the next (2026-10-20/21)'},
+    ## Probed 2026-10-24 by caldav-server-tester (sync, multiget and DELETE probes)
+    ## save.etag is a quirk (weak on PUT, strong on GET); nothing is rewritten
+    "save.etag.matches-stored": {"support": "full"},
 }
 
 ## https://ox.io/
 ## OX App Suite CalDAV served at /caldav/ (Apache proxies to /servlet/dav/caldav on port 8009).
 ## The Docker image must be built locally before use (see tests/docker-test-servers/ox/build.sh).
 ox = {
-    ## Measured with caldav-server-tester, 2026-10-19.
+    ## Probed 2026-10-26 by caldav-server-tester
+    "save-load.icalendar.participant": {"support": "ungraceful", "behaviour": "an event with a PARTICIPANT is refused (500)"},
+    "save-load.icalendar.x-property": {"support": "unsupported", "behaviour": "X-CALDAV-SERVER-TESTER is dropped, in a task"},
+    "save-load.icalendar.unknown-property": {"support": "unsupported", "behaviour": "ESTIMATED-DURATION is dropped"},
+    "save-load.todo.attendee": {"support": "ungraceful", "behaviour": "a task with an ATTENDEE is refused (409)"},
+    "save-load.todo.completed-without-status": {"support": "unsupported", "behaviour": "COMPLETED is dropped"},
+    ## Measured with caldav-server-tester, 2026-10-28.
     "save.no-uid-conflict": {"support": "full"},
+    "save.no-uid-conflict.href-given": {"support": "unsupported"},
     ## Probed 2026-10-11
     "sync-token.invalid-token": {"support": "broken", "behaviour": "'0000000000000000000000000000000000000000': 207, no error"},
     ## Renaming a calendar after creation via PROPPATCH is not supported, but
@@ -2729,8 +3120,14 @@ ox = {
     },
     ## Probed 2026-10-20 by caldav-server-tester
     "calendar-color": {"support": "full"},
-    "calendar-color.name": {"support": "unsupported", "behaviour": "colour names are accepted but ignored: set 'blue' or 'green', '#CEE7FFFF' comes back"},
+    "calendar-color.name": {"support": "fragile", "behaviour": "colour names are never stored, but what is read back depends on the preceding writes: an earlier colour, then the default '#CEE7FFFF'"},
     "calendar-order": {"support": "unsupported"},
+    ## Probed 2026-10-24 by caldav-server-tester (sync, multiget and DELETE probes)
+    "delete.missing.if-match": {"support": "unsupported", "behaviour": "a DELETE with If-Match on a missing object answered 412"},
+    ## Measured with caldav-server-tester, 2026-10-28.
+    "save-load.icalendar.attendee-params": {"support": "unsupported", "behaviour": "an EMAIL parameter is added to every ATTENDEE"},
+    "create-calendar.with-supported-component-types.multiple": {"support": "broken", "behaviour": "asked for ['VEVENT', 'VTODO'], the calendar reports ['VTODO']"},
+    "search.text.uid": {"support": "unsupported", "behaviour": "objects not matching the UID come back"},
 }
 
 ## Infomaniak (https://www.infomaniak.com/) - kSuite calendar, CalDAV served
@@ -2791,17 +3188,12 @@ infomaniak = {
     ## Principal search is effectively unsupported (lists nothing / errors out).
     'principal-search': {'support': 'ungraceful'},
     'principal-search.by-name.self': {'support': 'unsupported'},
-    ## This was added 2026-08-28.  I believe the compatibility tests have passed
-    ## before.  I don't think this part of the test suite has changed.  It could
-    ## be that the behaviour has changed at the server side.  418 was originally an
-    ## April joke and may mean anything ... but it's sometimes used as a rate-limit
-    ## response.  However, it seems to consistently break exactly here.
-    ## The removed member comes back with status 418 inside the multistatus, which
-    ## caldav's _validate_status turns into a ResponseError - the sync raises rather
-    ## than silently coming back wrong, hence "ungraceful".
-    'sync-token.delete': {'support': 'ungraceful', 'behaviour': "418 I'm a teapot"},
     ## Probed 2026-10-13 by the server tester
     'sync-token.limit': {'support': 'unsupported', 'behaviour': 'DAV:limit is ignored'},
+    ## Probed 2026-10-24 by caldav-server-tester (sync, multiget and DELETE probes)
+    "delete.missing.if-match": {"support": "unsupported", "behaviour": "a DELETE with If-Match on a missing object answered 412"},
+    "multiget.missing-href": {"support": "unsupported", "behaviour": "a missing href is left out of the multistatus"},
+    "save.etag.matches-stored": {"support": "broken", "behaviour": "stored with its properties reordered, yet the PUT answered with a strong ETag"},
 }
 
 ## Yahoo Calendar (https://caldav.calendar.yahoo.com/), a hosted service.
@@ -3013,6 +3405,14 @@ def at_spelling_is_significant(features: Any) -> bool:
     encoded on the way out.
     """
     return not at_spellings_are_aliased(features)
+
+
+## Features that were renamed, old name -> new name.  _copy_feature_set
+## translates the old name with a DeprecationWarning.
+_RENAMED_FEATURES = {
+    ## Renamed after 3.6.0, when the property got an obedience sibling
+    "get-supported-components": "supported-components.property-exists",
+}
 
 
 def write_delay(features: Any, feature: str = "synchronous-write") -> float:

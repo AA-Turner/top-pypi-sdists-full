@@ -186,7 +186,7 @@ class _InterpolateMixin:
         **kwargs: Any,
     ) -> Never: ...
 
-class DatetimeIndexResamplerGroupby(
+class DatetimeIndexResamplerGroupBy(
     _InterpolateMixin, _GroupByMixin[NDFrameT], DatetimeIndexResampler[NDFrameT]
 ):
     @final
@@ -195,7 +195,7 @@ class DatetimeIndexResamplerGroupby(
 
 class PeriodIndexResampler(DatetimeIndexResampler[NDFrameT]): ...
 
-class PeriodIndexResamplerGroupby(
+class PeriodIndexResamplerGroupBy(
     _InterpolateMixin, _GroupByMixin[NDFrameT], PeriodIndexResampler[NDFrameT]
 ):
     @final
@@ -204,7 +204,7 @@ class PeriodIndexResamplerGroupby(
 
 class TimedeltaIndexResampler(DatetimeIndexResampler[NDFrameT]): ...
 
-class TimedeltaIndexResamplerGroupby(
+class TimedeltaIndexResamplerGroupBy(
     _InterpolateMixin, _GroupByMixin[NDFrameT], TimedeltaIndexResampler[NDFrameT]
 ):
     @final

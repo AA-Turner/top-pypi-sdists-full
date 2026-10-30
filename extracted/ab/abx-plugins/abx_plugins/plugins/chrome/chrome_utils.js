@@ -38,7 +38,7 @@ ensureNodeModuleResolution(module);
 
 const exportFocusSessions = new WeakMap();
 
-async function captureOriginalResponseBodies(page, { resourceTypes = null, session: suppliedSession = null, directory: sharedDirectory = null, documents = true, durableCollector: sharedCollector = null, pdfUrls: sharedPdfUrls = null } = {}) {
+async function captureOriginalResponseBodies(page, { resourceTypes = null, session: suppliedSession = null, directory: sharedDirectory = null, documents = true, durableCollector: sharedCollector = null, pdfUrls: sharedPdfUrls = null, cachedBodies: sharedCachedBodies = null } = {}) {
   // Renderer response buffers apply MIME-driven decoding, corrupting binary
   // downloads mislabeled as text. Inline PDFs become viewer HTML too.
   // Preserve raw bytes from the original request without refetching resources.
@@ -92,7 +92,10 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
   });
   const bodies = new Map();
   const streams = new Map();
-  const fontBodies = new Map();
+  // Blink can reuse a resource in another frame after discarding its CDP body.
+  // All readers for this page share exact response identities and local files;
+  // a URL alone cannot distinguish authenticated or Vary-selected responses.
+  const cachedBodies = sharedCachedBodies || new Map();
   const readCachedServiceWorkerBody = async (stream) => {
     if (!stream.fromServiceWorker || stream.method !== "GET" || !stream.frameId ||
         !stream.cacheStorageCacheName ||
@@ -132,7 +135,6 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
     stream.frameId = event.frameId || stream.frameId;
     stream.cacheStorageCacheName = event.response.cacheStorageCacheName;
     stream.serviceWorkerResponseSource = event.response.serviceWorkerResponseSource;
-    if (stream.resourceType !== "Font") return;
     const responseHeaders = headerIdentity(event.response.headers);
     const requestHeaders = new Map(headerIdentity(stream.requestHeaders));
     // CDP omits transport-added Accept-Encoding, including on the original
@@ -148,21 +150,21 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
     const { responseTime, connectionId, timing, fromServiceWorker } = event.response;
     const transportIdentity = !fromServiceWorker &&
       [responseTime, connectionId, timing?.requestTime].every((value) => Number.isFinite(value) && value > 0)
-      ? JSON.stringify(["font-response", stream.url, stream.method, event.response.status,
+      ? JSON.stringify(["response", stream.url, stream.method, event.response.status,
         responseHeaders, responseTime, connectionId, timing]) : null;
-    if (!stream.cached && transportIdentity) fontBodies.set(transportIdentity, stream);
+    if (!stream.cached && transportIdentity) cachedBodies.set(transportIdentity, stream);
     if (!observableVary) {
-      const previous = stream.cached && transportIdentity && fontBodies.get(transportIdentity);
+      const previous = stream.cached && transportIdentity && cachedBodies.get(transportIdentity);
       const previousHeaders = previous && new Map(headerIdentity(previous.requestHeaders));
       if (previous && vary.every((name) => !requestHeaders.has(name) || requestHeaders.get(name) === previousHeaders.get(name))) {
-        stream.previousFont = previous;
+        stream.previousResponse = previous;
       }
       return;
     }
     const identity = JSON.stringify([stream.url, stream.method, event.response.status,
       vary.map((name) => [name, requestHeaders.get(name)]), responseHeaders]);
-    if (stream.cached) stream.previousFont = fontBodies.get(identity);
-    if (!stream.previousFont) fontBodies.set(identity, stream);
+    if (stream.cached) stream.previousResponse = cachedBodies.get(identity);
+    if (!stream.previousResponse) cachedBodies.set(identity, stream);
   });
   // Spool raw chunks to local scratch instead of retaining concurrent bodies
   // or decoding them according to potentially incorrect server MIME headers.
@@ -236,14 +238,14 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
       stream.saved = Promise.all([stream.ready, stream.done]).then(async () => {
         if (stream.error) throw stream.error;
         if (fs.statSync(filename).size === stream.receivedBytes) return;
-        // Chrome drops raw bytes for fonts reused from its memory cache. Reuse
-        // only this listener's identical earlier response, never refetch it.
-        if (stream.previousFont) {
-          await stream.previousFont.saved;
-          if (fs.statSync(stream.previousFont.filename).size !== stream.receivedBytes) {
-            throw new Error("Cached font byte count differs from its captured response");
+        // Chrome drops raw bytes for resources reused from its memory cache. Reuse
+        // only this page's identical earlier response, never refetch it.
+        if (stream.previousResponse) {
+          await stream.previousResponse.saved;
+          if (fs.statSync(stream.previousResponse.filename).size !== stream.receivedBytes) {
+            throw new Error("Cached response byte count differs from its captured response");
           }
-          stream.filename = stream.previousFont.filename;
+          stream.filename = stream.previousResponse.filename;
           return;
         }
         // Network.getResponseBody can re-encode CacheStorage text responses.
@@ -333,7 +335,7 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
   const attach = (child, documents = true) => {
     if (children.has(child)) return;
     watch(child);
-    const reader = captureOriginalResponseBodies(page, { resourceTypes, session: child, directory, documents, durableCollector, pdfUrls });
+    const reader = captureOriginalResponseBodies(page, { resourceTypes, session: child, directory, documents, durableCollector, pdfUrls, cachedBodies });
     children.set(child, reader);
     reader.catch(() => {}); // The owning request or close() reports setup errors.
   };
@@ -441,7 +443,8 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
         streams.delete(id);
         if (stream.error) throw stream.error;
         const body = await fs.promises.readFile(stream.filename);
-        if (stream.resourceType !== "Font") await fs.promises.unlink(stream.filename);
+        // Another frame may reuse these bytes after this response is saved.
+        // Keep disk-backed bodies until the owning page collector closes.
         return body;
       }
       if (bodies.get(id) instanceof Error) throw bodies.get(id);
@@ -3396,79 +3399,17 @@ async function downloadBrowserResource({ cdpSession, url, outputPath, timeoutMs 
 }
 
 /**
- * Configure Chrome's download behavior over the live CDP session.
- *
- * This is the supported way to set the downloads directory for ArchiveBox's
- * Chrome lifecycle. Call it after the browser is reachable but before crawl
- * readiness is published so later snapshot hooks inherit a fully-configured
- * browser without needing to mutate on-disk profile `Preferences`.
- *
- * @param {Object} options - Download behavior options
- * @param {Object} options.browser - Connected puppeteer browser instance
- * @param {string} options.downloadPath - Directory to save downloads in
- * @returns {Promise<boolean>} - True if configuration succeeded
- */
-async function setBrowserDownloadBehavior(options = {}) {
-  const { browser, page, downloadPath } = options;
-
-  if (!browser && !page) {
-    throw new Error("setBrowserDownloadBehavior requires a browser or page");
-  }
-  if (!downloadPath) {
-    throw new Error("setBrowserDownloadBehavior requires downloadPath");
-  }
-
-  await fs.promises.mkdir(downloadPath, { recursive: true });
-  const pageSession = page ? await page.target().createCDPSession() : null;
-
-  // Keep the CDP session alive for the lifetime of the caller's browser/page
-  // connection. Extension-driven downloads regress if we detach immediately
-  // after configuring download behavior.
-  if (page) {
-    try {
-      await pageSession.send("Page.setDownloadBehavior", {
-        behavior: "allow",
-        downloadPath,
-      });
-      console.error(
-        `[+] Configured Chrome download directory via CDP: ${downloadPath}`
-      );
-      return true;
-    } catch (pageError) {
-      if (!browser) {
-        throw new Error(
-          `Page.setDownloadBehavior failed: ${pageError.message}`
-        );
-      }
-    }
-  }
-
-  try {
-    await sendBrowserCommand(browser, "Browser.setDownloadBehavior", {
-      behavior: "allow",
-      downloadPath,
-    });
-    console.error(
-      `[+] Configured Chrome download directory via CDP: ${downloadPath}`
-    );
-    return true;
-  } catch (browserError) {
-    throw new Error(`Browser.setDownloadBehavior failed: ${browserError.message}`);
-  }
-}
-
-/**
  * Wait for Chrome to finish the download with the exact requested filename.
- * Browser.downloadProgress is the completion boundary; the destination file
+ * The native downloadProgress event is the completion boundary; the destination file
  * may exist at zero bytes while Chrome is still writing it.
  */
-function waitForBrowserDownload(session, expectedFilename, timeoutMs, signal) {
+function waitForBrowserDownload(session, expectedFilename, timeoutMs, signal, eventDomain = "Browser") {
   return new Promise((resolve, reject) => {
     let downloadGuid = null;
     const cleanup = () => {
       clearTimeout(timer);
-      session.off("Browser.downloadWillBegin", onDownloadWillBegin);
-      session.off("Browser.downloadProgress", onDownloadProgress);
+      session.off(`${eventDomain}.downloadWillBegin`, onDownloadWillBegin);
+      session.off(`${eventDomain}.downloadProgress`, onDownloadProgress);
       signal?.removeEventListener("abort", onAbort);
     };
     const fail = (error) => {
@@ -3495,8 +3436,8 @@ function waitForBrowserDownload(session, expectedFilename, timeoutMs, signal) {
       timeoutMs
     );
 
-    session.on("Browser.downloadWillBegin", onDownloadWillBegin);
-    session.on("Browser.downloadProgress", onDownloadProgress);
+    session.on(`${eventDomain}.downloadWillBegin`, onDownloadWillBegin);
+    session.on(`${eventDomain}.downloadProgress`, onDownloadProgress);
     signal?.addEventListener("abort", onAbort, { once: true });
     if (signal?.aborted) onAbort();
   });
@@ -3520,7 +3461,6 @@ async function captureBrowserDownloads({
     throw new Error("Expected download count must be a positive integer");
   let succeeded = false;
   let captureError = null;
-  let releaseDownloadLock;
   const deadline = Date.now() + timeoutMs;
   const remaining = () => {
     const ms = deadline - Date.now();
@@ -3530,7 +3470,6 @@ async function captureBrowserDownloads({
   const { targetInfo } = await sendBrowserCommand(browser, "Target.getTargetInfo", { targetId: getTargetIdFromPage(page) });
   const downloadContext = targetInfo.browserContextId ? { browserContextId: targetInfo.browserContextId } : {};
   const session = await page.target().createCDPSession();
-  const connection = getBrowserConnection(browser);
   const frames = new Set();
   const downloads = new Map();
   let prepared = false;
@@ -3578,26 +3517,62 @@ async function captureBrowserDownloads({
       reject(new Error(`Browser download ${event.state}`));
     check();
   };
+  const addTree = (tree) => {
+    frames.add(tree.frame.id);
+    for (const child of tree.childFrames || []) addTree(child);
+  };
+  const watched = new Map();
+  const setup = [];
+  let closing = false;
+  const watch = (client, observeDownloads = false) => {
+    if (watched.has(client)) return;
+    const onAttached = ({ sessionId, targetInfo }) => {
+      if (closing || targetInfo.type !== "iframe") return;
+      const child = client.connection()?.session(sessionId);
+      if (child) watch(child, true);
+    };
+    watched.set(client, onAttached);
+    client.on("Target.attachedToTarget", onAttached);
+    if (observeDownloads) {
+      // Out-of-process frames emit Page download events on their own target.
+      // Reuse Puppeteer's existing child sessions, including frames created by
+      // the export action; never take ownership of their download policy.
+      client.on("Page.frameAttached", attach);
+      client.on("Page.downloadWillBegin", begin);
+      client.on("Page.downloadProgress", progress);
+      const ready = client.send("Page.enable").then(async () => {
+        addTree((await client.send("Page.getFrameTree")).frameTree);
+      });
+      setup.push(ready);
+      ready.catch(error => { if (!closing && !client.detached) reject(error); });
+    }
+  };
   try {
     session.on("Page.frameAttached", attach);
     await session.send("Page.enable");
-    const addTree = (tree) => {
-      frames.add(tree.frame.id);
-      for (const child of tree.childFrames || []) addTree(child);
-    };
     addTree((await session.send("Page.getFrameTree")).frameTree);
-    connection.on("Browser.downloadWillBegin", begin);
-    connection.on("Browser.downloadProgress", progress);
-    // Scope behavior to the real target context, including raw-CDP contexts
-    // Puppeteer has not registered. Share the existing filesystem lock
-    // mechanism with WACZ export and static-file setup across hook processes.
-    releaseDownloadLock = await acquireSessionLock(path.join(downloadPath, ".download.lock"), remaining());
-    await sendBrowserCommand(browser, "Browser.setDownloadBehavior", {
-      behavior: "allowAndName",
-      downloadPath,
-      eventsEnabled: true,
-      ...downloadContext,
-    });
+    session.on("Page.downloadWillBegin", begin);
+    session.on("Page.downloadProgress", progress);
+    const mainClient = page.mainFrame().client;
+    watch(mainClient);
+    for (const frame of page.frames()) {
+      if (frame.client !== mainClient) watch(frame.client, true);
+    }
+    await Promise.all(setup);
+    const { browserContextIds } = await sendBrowserCommand(browser, "Target.getBrowserContexts");
+    if (browserContextIds.includes(targetInfo.browserContextId)) {
+      // Anonymous export contexts belong to this caller, including contexts
+      // created through raw CDP that Puppeteer has not registered. Their
+      // policy cannot reset the crawl owner's separate default context.
+      await sendBrowserCommand(browser, "Browser.setDownloadBehavior", {
+        behavior: "allowAndName", downloadPath, ...downloadContext,
+      });
+    } else if (path.resolve(downloadPath) !== path.resolve(resolveChromeLaunchOptions(loadConfig()).CHROME_DOWNLOADS_DIR)) {
+      throw new Error("Shared browser downloads must use the crawl's CHROME_DOWNLOADS_DIR");
+    }
+    // Page events are deprecated but still supported in pinned Chrome. Browser
+    // subscriptions require a policy override that resets default-context routing
+    // on disconnect; Page events observe targets without owning that policy.
     timer = setTimeout(
       () =>
         reject(
@@ -3641,10 +3616,17 @@ async function captureBrowserDownloads({
       console.error(`Provider download session closed: ${error.stack || error.message}`);
     throw error;
   } finally {
+    closing = true;
+    for (const [client, onAttached] of watched) {
+      client.off("Target.attachedToTarget", onAttached);
+      client.off("Page.frameAttached", attach);
+      client.off("Page.downloadWillBegin", begin);
+      client.off("Page.downloadProgress", progress);
+    }
     clearTimeout(timer);
     await page.evaluate(() => { delete document.documentElement.dataset.abxDownloadActive; }).catch(() => {});
-    connection.off("Browser.downloadWillBegin", begin);
-    connection.off("Browser.downloadProgress", progress);
+    session.off("Page.downloadWillBegin", begin);
+    session.off("Page.downloadProgress", progress);
     for (const item of downloads.values()) {
       if (item.state === "inProgress")
         await sendBrowserCommand(browser, "Browser.cancelDownload", {
@@ -3662,12 +3644,6 @@ async function captureBrowserDownloads({
           });
         }
       }
-    }
-    if (releaseDownloadLock) {
-      await sendBrowserCommand(browser, "Browser.setDownloadBehavior", {
-        behavior: "allow", downloadPath, eventsEnabled: true, ...downloadContext,
-      }).catch(() => {});
-      releaseDownloadLock();
     }
     if (!session.detached) {
       try {
@@ -5318,7 +5294,7 @@ async function holdBaselineEmulation(session, metrics, unemulated, focus) {
   await session.send("Page.enable");
 }
 
-async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage = true, outputDir } = {}) {
+async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage = true, outputDir, downloadsDir } = {}) {
   // This connection belongs to the launch daemon. Keep emulation sessions alive:
   // disconnecting them clears CDP overrides, including for other CDP clients.
   const browser = await connectToBrowserEndpoint(puppeteer, cdpUrl, { defaultViewport: null });
@@ -5329,6 +5305,15 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
   const browserTarget = browser.targets().find(target => getTargetIdFromTarget(target) === targetInfo.targetId);
   if (!browserTarget) throw new Error("Chrome connection's browser target is unavailable");
   const root = await browserTarget.createCDPSession();
+  if (downloadsDir) {
+    // This daemon owns the policy for the browser lifetime. In pinned Chrome,
+    // disconnecting *any* client that set download behavior resets the global
+    // policy, even if another connection still holds the same override.
+    await root.send("Browser.setDownloadBehavior", {
+      behavior: "allowAndName", downloadPath: downloadsDir,
+    });
+    console.error(`[+] Configured Chrome download directory via CDP: ${downloadsDir}`);
+  }
   const version = await root.send("Browser.getVersion");
   const nativeUserAgent = version.userAgent.replace("HeadlessChrome/", "Chrome/");
   if (config.ABXPKG_LIB_DIR) {
@@ -5689,20 +5674,7 @@ async function ensureChromeSession(options = {}) {
       }
       browser = await connectToBrowserEndpoint(puppeteer, resolvedCdpUrl, {
         defaultViewport: null,
-        ...(downloadsDir
-          ? {
-              downloadBehavior: {
-                policy: "allow",
-                downloadPath: downloadsDir,
-              },
-            }
-          : {}),
       });
-      if (downloadsDir) {
-        console.error(
-          `[+] Configured Chrome download directory via CDP: ${downloadsDir}`
-        );
-      }
 
       if (!reusingSession) await waitForBrowserPageReady({
         browser,
@@ -5747,8 +5719,12 @@ async function ensureChromeSession(options = {}) {
     });
   }
 
+  // Launch daemons supply personaConfig and own this persistent connection.
+  // Cookie-only callers borrow an existing session: attaching another owner
+  // leaks a connection and its later disconnect resets the daemon's download
+  // policy. A derived downloadsDir alone must not transfer lifecycle ownership.
   const personaHydration = personaConfig
-    ? await startPersonaHydration(puppeteer, resolvedCdpUrl, personaConfig, { importStorage: !importState.imported, outputDir })
+    ? await startPersonaHydration(puppeteer, resolvedCdpUrl, personaConfig, { importStorage: !importState.imported, outputDir, downloadsDir })
     : null;
   importState.save();
   // Snapshot hooks inherit browser.json; navigation re-applies this identity.
@@ -6092,7 +6068,6 @@ module.exports = {
   waitForNavigationComplete,
   readNavigatedUrls,
   waitForVisibleImages,
-  setBrowserDownloadBehavior,
   waitForBrowserDownload,
   getCookiesViaCdp,
 };

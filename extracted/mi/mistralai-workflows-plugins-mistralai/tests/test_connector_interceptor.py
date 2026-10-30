@@ -6,6 +6,7 @@ auth preflight with Task events, timeout handling, and multi-connector scenarios
 
 from __future__ import annotations
 
+from http import HTTPStatus
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -27,7 +28,7 @@ from mistralai.workflows.core._events.event_activities import (
     _emit_task_in_progress,
     _emit_task_started,
 )
-from mistralai.workflows.core._events.event_context import EventContext
+from mistralai.workflows.core._events.event_context import EventContext, is_permanent_event_publish_failure
 from mistralai.workflows.core._events.event_interceptor import EventInterceptor
 from mistralai.workflows.core.activity import activity
 from mistralai.workflows.core.definition.workflow_definition import get_workflow_definition
@@ -41,6 +42,7 @@ from mistralai.workflows.core.temporal.context_handler_interceptor import (
     retrieve_context,
 )
 from mistralai.workflows.core.temporal.payload_converter import MistralWorkflowsPayloadConverter
+from mistralai.workflows.exceptions import WorkflowsException
 from mistralai.workflows.models import PayloadWithContext, WorkflowContext
 from mistralai.workflows.plugins.mistralai.connectors import (
     ConnectorAuthInterceptor,
@@ -64,7 +66,7 @@ from mistralai.workflows.plugins.mistralai.connectors.models import (
     ResolvedConnector,
     resolved_connector_bindings_from_extension,
 )
-from mistralai.workflows.plugins.mistralai.connectors.run_as import ConnectorRunAs
+from mistralai.workflows.plugins.mistralai.connectors.run_as import RunAs
 from mistralai.workflows.testing import (
     create_capturing_mock_events_client,
     create_test_worker,
@@ -441,6 +443,32 @@ def _unwrap_result(result: Any) -> Any:
 # ---------------------------------------------------------------------------
 
 
+async def _run_auth_timeout(
+    temporal_env: WorkflowEnvironment, events_client: Any, workflow_id: str
+) -> WorkflowFailureError:
+    _reset_fake_state()
+    # No poll credentials → fake_connector_wait_for_credentials returns False → timeout
+    interceptor = ConnectorAuthInterceptor(workflows=[SingleConnectorWorkflow])
+    async with EventContext(events_client):
+        async with Worker(
+            temporal_env.client,
+            task_queue="test-task-queue",
+            workflows=[SingleConnectorWorkflow],
+            activities=CONNECTOR_ACTIVITIES,
+            interceptors=[interceptor, EventInterceptor()],
+            workflow_failure_exception_types=[Exception],
+            workflow_runner=SandboxedWorkflowRunner(restrictions=get_sandbox_restrictions()),
+        ):
+            handle = await temporal_env.client.start_workflow(
+                "test-single-connector-wf",
+                id=workflow_id,
+                task_queue="test-task-queue",
+            )
+            with pytest.raises(WorkflowFailureError) as exc_info:
+                await handle.result()
+    return exc_info.value
+
+
 class TestConnectorInterceptorIntegration:
     @pytest.mark.asyncio
     async def test_no_connector_workflow_passes_through(self, temporal_env: WorkflowEnvironment) -> None:
@@ -662,28 +690,11 @@ class TestConnectorInterceptorIntegration:
     @pytest.mark.asyncio
     async def test_connector_auth_emits_failed_custom_task_on_timeout(self, temporal_env: WorkflowEnvironment) -> None:
         """When polling times out, a CUSTOM_TASK_FAILED event is published."""
-        _reset_fake_state()
-        # No poll credentials → fake_connector_wait_for_credentials returns False → timeout
-        interceptor = ConnectorAuthInterceptor(workflows=[SingleConnectorWorkflow])
         captured_events: list[Any] = []
-        mock_client = create_capturing_mock_events_client(captured_events)
-        async with EventContext(mock_client):
-            async with Worker(
-                temporal_env.client,
-                task_queue="test-task-queue",
-                workflows=[SingleConnectorWorkflow],
-                activities=CONNECTOR_ACTIVITIES,
-                interceptors=[interceptor, EventInterceptor()],
-                workflow_failure_exception_types=[Exception],
-                workflow_runner=SandboxedWorkflowRunner(restrictions=get_sandbox_restrictions()),
-            ):
-                handle = await temporal_env.client.start_workflow(
-                    "test-single-connector-wf",
-                    id="test-auth-timeout-events",
-                    task_queue="test-task-queue",
-                )
-                with pytest.raises(WorkflowFailureError):
-                    await handle.result()
+
+        await _run_auth_timeout(
+            temporal_env, create_capturing_mock_events_client(captured_events), "test-auth-timeout-events"
+        )
 
         connector_events = _filter_connector_auth_events(captured_events)
         started = [e for e in connector_events if e.event_type.value == "CUSTOM_TASK_STARTED"]
@@ -692,6 +703,25 @@ class TestConnectorInterceptorIntegration:
         assert len(failed) == 1, f"Expected 1 failed event, got {len(failed)}"
         assert "timed out" in failed[0].attributes.failure.message
         assert started[0].attributes.custom_task_id == failed[0].attributes.custom_task_id
+
+    @pytest.mark.asyncio
+    async def test_unpublishable_failed_event_does_not_hide_the_auth_timeout(
+        self, temporal_env: WorkflowEnvironment
+    ) -> None:
+        mock_client = create_capturing_mock_events_client([])
+        capture_send_event = mock_client.send_event_async.side_effect
+
+        async def reject_failed_event(*, event: Any, **kwargs: Any) -> None:
+            if event["event_type"] == "CUSTOM_TASK_FAILED":
+                raise WorkflowsException("rejected", status=HTTPStatus.BAD_REQUEST)
+            await capture_send_event(event=event, **kwargs)
+
+        mock_client.send_event_async.side_effect = reject_failed_event
+
+        failure = await _run_auth_timeout(temporal_env, mock_client, "test-auth-timeout-unpublishable")
+
+        assert "timed out" in str(failure.cause)
+        assert not is_permanent_event_publish_failure(failure.cause)
 
     @pytest.mark.asyncio
     async def test_bearer_credentials_set_skips_oauth(self, temporal_env: WorkflowEnvironment) -> None:
@@ -1374,7 +1404,7 @@ class TestRunAsCannotBeCallerInjected:
         assert len(bindings) == 1
         assert bindings[0].credentials_name == "x"
         # run_as stays interceptor-owned; the caller-supplied field had no effect.
-        assert slot.run_as == ConnectorRunAs.AUTO
+        assert slot.run_as == RunAs.AUTO
         assert slot.credentials_name == "x"
 
     def test_runtime_binding_with_unknown_connector_name_is_rejected(self) -> None:
@@ -1675,7 +1705,7 @@ class TestResolvedBindingsSeparateChannel:
         assert len(resolved) == 1
         assert resolved[0].connector_id == "conn-gh"
         assert resolved[0].credentials_name is None
-        assert resolved[0].run_as == ConnectorRunAs.AUTO
+        assert resolved[0].run_as == RunAs.AUTO
 
 
 class TestNoConnectorWorkflowIgnoresInheritedBindings:

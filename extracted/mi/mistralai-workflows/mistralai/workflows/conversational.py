@@ -7,12 +7,12 @@ from collections.abc import Callable, Sequence
 from datetime import date, datetime
 from typing import Any, Generic, Literal, Self, TypeVar, Union, cast, get_args, get_origin, get_type_hints, overload
 
-import structlog
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.task.task import Task
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 ChoiceT = TypeVar("ChoiceT", bound=str)
 

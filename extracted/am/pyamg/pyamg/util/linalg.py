@@ -27,16 +27,16 @@ def norm(x, pnorm='2'):
     n : float
         2-norm of a vector
 
+    See Also
+    --------
+    scipy.linalg.norm : scipy general matrix or vector norm
+
     Notes
     -----
     - currently 1+ order of magnitude faster than scipy.linalg.norm(x), which
       calls sqrt(numpy.sum(real((conjugate(x)*x)),axis=0)) resulting in an
       extra copy
     - only handles the 2-norm and infinity-norm for vectors
-
-    See Also
-    --------
-    scipy.linalg.norm : scipy general matrix or vector norm
 
     """
     x = np.ravel(x)
@@ -63,15 +63,15 @@ def infinity_norm(A):
     n : float
         Infinity norm of the matrix
 
+    See Also
+    --------
+    scipy.linalg.norm : dense matrix norms
+
     Notes
     -----
     - This serves as an upper bound on spectral radius.
     - csr and csc avoid a deep copy
     - dense calls scipy.linalg.norm
-
-    See Also
-    --------
-    scipy.linalg.norm : dense matrix norms
 
     Examples
     --------
@@ -421,9 +421,7 @@ def condest(A, maxiter=25, symmetric=False):
     C = aslinearoperator(A)
     power = 1
     if not symmetric:
-        def matvec(v):
-            return C.rmatvec(C.A @ v)
-        C.matvec = matvec
+        C = C.H @ C
         power = 0.5
 
     [evect, ev, H, V, breakdown_flag] =\

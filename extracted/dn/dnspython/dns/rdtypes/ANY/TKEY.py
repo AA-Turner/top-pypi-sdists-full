@@ -61,7 +61,7 @@ class TKEY(dns.rdata.Rdata):
     def to_styled_text(self, style: dns.rdata.RdataStyle) -> str:
         algorithm = self.algorithm.to_styled_text(style)
         # Not styled
-        key = dns.rdata._base64ify(self.key, 0)
+        key = dns.rdata._base64ify(self.key, 0) or '""'
         other = ""
         if len(self.other) > 0:
             # Not styled
@@ -78,9 +78,9 @@ class TKEY(dns.rdata.Rdata):
         mode = tok.get_uint16()
         error = tok.get_uint16()
         key_b64 = tok.get_string().encode()
-        key = base64.b64decode(key_b64)
+        key = base64.b64decode(key_b64, validate=True)
         other_b64 = tok.concatenate_remaining_identifiers(True).encode()
-        other = base64.b64decode(other_b64)
+        other = base64.b64decode(other_b64, validate=True)
 
         return cls(
             rdclass, rdtype, algorithm, inception, expiration, mode, error, key, other

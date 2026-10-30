@@ -837,7 +837,6 @@ class AgenticPlatformPipelineType(pycarlo.lib.types.Enum):
 
     Enumeration Choices:
 
-    * `AGENT_HEALTH`None
     * `ALERT_ASSESSMENT`None
     * `COST_AGENT_INSIGHTS`None
     * `META_SUMMARIZER`None
@@ -849,7 +848,6 @@ class AgenticPlatformPipelineType(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = (
-        "AGENT_HEALTH",
         "ALERT_ASSESSMENT",
         "COST_AGENT_INSIGHTS",
         "META_SUMMARIZER",
@@ -2691,6 +2689,21 @@ class CostComponent(pycarlo.lib.types.Enum):
     __choices__ = ("CACHE_READ", "CACHE_WRITE", "NEW_INPUT", "OUTPUT")
 
 
+class CostFindingChange(pycarlo.lib.types.Enum):
+    """How a cost finding compares with the same finding in the previous
+    run.
+
+    Enumeration Choices:
+
+    * `CHANGED`None
+    * `NEW`None
+    * `UNCHANGED`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CHANGED", "NEW", "UNCHANGED")
+
+
 class CostFindingFigureStatus(pycarlo.lib.types.Enum):
     """Whether a cost finding's figure is shown, or withheld with a
     reason.
@@ -2742,6 +2755,22 @@ class CostFindingFixType(pycarlo.lib.types.Enum):
     )
 
 
+class CostFindingPreviousRunStatus(pycarlo.lib.types.Enum):
+    """Whether a run's findings were compared with a previous run:
+    compared, no previous run     to compare with, or the previous run
+    could not be read.
+
+    Enumeration Choices:
+
+    * `COMPARED`None
+    * `NO_PREVIOUS_RUN`None
+    * `UNAVAILABLE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("COMPARED", "NO_PREVIOUS_RUN", "UNAVAILABLE")
+
+
 class CostFindingPriceSource(pycarlo.lib.types.Enum):
     """Where the price a figure was converted with came from: the
     platform's list price, or     a price the customer entered.
@@ -2754,6 +2783,23 @@ class CostFindingPriceSource(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = ("CUSTOMER", "STANDARD")
+
+
+class CostFindingRemoveRunsCase(pycarlo.lib.types.Enum):
+    """Why a job's runs can go: its output is unused, its runs fail, its
+    runs duplicate each     other, or it runs more often than its
+    output is read.
+
+    Enumeration Choices:
+
+    * `DUPLICATE`None
+    * `FAILING`None
+    * `TOO_FREQUENT`None
+    * `UNUSED_OUTPUT`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("DUPLICATE", "FAILING", "TOO_FREQUENT", "UNUSED_OUTPUT")
 
 
 class CostFindingTargetKind(pycarlo.lib.types.Enum):
@@ -4853,14 +4899,13 @@ class FilterValueType(pycarlo.lib.types.Enum):
 class FindingAgentType(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
-    * `HEALTH`None
     * `MONITORING`None
     * `TRIAGE`None
     * `TROUBLESHOOTING`None
     """
 
     __schema__ = schema
-    __choices__ = ("HEALTH", "MONITORING", "TRIAGE", "TROUBLESHOOTING")
+    __choices__ = ("MONITORING", "TRIAGE", "TROUBLESHOOTING")
 
 
 class FindingAlertRole(pycarlo.lib.types.Enum):
@@ -4962,7 +5007,6 @@ class FindingStatus(pycarlo.lib.types.Enum):
 class FindingType(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
-    * `AGENT_HEALTH`None
     * `ALERT_ESCALATED`None
     * `ALERT_REMEDIATED`None
     * `ALERT_TRIAGED_LOW`None
@@ -4973,7 +5017,6 @@ class FindingType(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = (
-        "AGENT_HEALTH",
         "ALERT_ESCALATED",
         "ALERT_REMEDIATED",
         "ALERT_TRIAGED_LOW",
@@ -6304,6 +6347,8 @@ class MigrationNoticeKind(pycarlo.lib.types.Enum):
 
     Enumeration Choices:
 
+    * `CUSTOM_MESSAGE_BROADENED`None
+    * `CUSTOM_MESSAGE_COMBINED`None
     * `CUSTOM_MESSAGE_DROPPED`None
     * `ENUMERATED_TABLE_EXCLUSION`None
     * `ENUMERATED_TABLE_FILTER`None
@@ -6311,6 +6356,8 @@ class MigrationNoticeKind(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = (
+        "CUSTOM_MESSAGE_BROADENED",
+        "CUSTOM_MESSAGE_COMBINED",
         "CUSTOM_MESSAGE_DROPPED",
         "ENUMERATED_TABLE_EXCLUSION",
         "ENUMERATED_TABLE_FILTER",
@@ -8388,6 +8435,18 @@ class ReinforcementLoopSnapshotSelection(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = ("LATEST", "OLDEST")
+
+
+class ReinforcementLoopV2ConversationBucketSize(pycarlo.lib.types.Enum):
+    """Bucket width of an RL V2 conversation series. DAY = one UTC day.
+
+    Enumeration Choices:
+
+    * `DAY`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("DAY",)
 
 
 class ReinforcementLoopV2EmptyReason(pycarlo.lib.types.Enum):
@@ -10583,6 +10642,22 @@ class TraceTimeSeriesMetric(pycarlo.lib.types.Enum):
     )
 
 
+class TrajectoryScope(pycarlo.lib.types.Enum):
+    """Where an agent trajectory monitor counts its conditions.
+    ``TRACE`` counts within each trace. ``CONVERSATION`` counts the
+    spans that started     before a trigger span, across all traces of
+    the trigger's conversation.
+
+    Enumeration Choices:
+
+    * `CONVERSATION`None
+    * `TRACE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CONVERSATION", "TRACE")
+
+
 class TriageAgentRunStatus(pycarlo.lib.types.Enum):
     """Lifecycle of a single triage row.
 
@@ -11973,6 +12048,8 @@ class AgentTrajectoryInput(sgqlc.types.Input):
         "agent",
         "trace_table",
         "agent_span_alert_condition",
+        "trajectory_scope",
+        "trigger_span",
         "time_filter",
         "filters",
         "agent_span_filters",
@@ -12047,6 +12124,20 @@ class AgentTrajectoryInput(sgqlc.types.Input):
     agent_span_alert_condition = sgqlc.types.Field(
         AgentSpanConditionInput, graphql_name="agentSpanAlertCondition"
     )
+
+    trajectory_scope = sgqlc.types.Field(TrajectoryScope, graphql_name="trajectoryScope")
+    """TRACE (default) counts the conditions within each trace.
+    CONVERSATION counts them over the spans that ran before each
+    trigger span in the same conversation. On mutation updates,
+    leaving this out keeps the stored monitor's scope. Monitors-as-
+    code apply treats an absent scope as TRACE.
+    """
+
+    trigger_span = sgqlc.types.Field("FilterSpanInput", graphql_name="triggerSpan")
+    """Span that triggers the check. Required for the CONVERSATION scope.
+    On an update that ends up CONVERSATION, leaving this out keeps the
+    stored trigger span.
+    """
 
     time_filter = sgqlc.types.Field("TimeFilterInput", graphql_name="timeFilter")
 
@@ -14609,6 +14700,8 @@ class CustomRuleSqlBlocksInput(sgqlc.types.Input):
         "cluster_filter",
         "agent_span_alert_condition",
         "collection_lag_hours",
+        "trajectory_scope",
+        "trigger_span",
     )
     alert_condition = sgqlc.types.Field("FilterGroupInput", graphql_name="alertCondition")
 
@@ -14627,6 +14720,10 @@ class CustomRuleSqlBlocksInput(sgqlc.types.Input):
     )
 
     collection_lag_hours = sgqlc.types.Field(Int, graphql_name="collectionLagHours")
+
+    trajectory_scope = sgqlc.types.Field(TrajectoryScope, graphql_name="trajectoryScope")
+
+    trigger_span = sgqlc.types.Field("FilterSpanInput", graphql_name="triggerSpan")
 
 
 class CustomSqlRuleAlertConditionInput(sgqlc.types.Input):
@@ -19115,6 +19212,16 @@ class ReinforcementLoopAgentGithubCodeRepoInput(sgqlc.types.Input):
     """Branch the agent runs from. Omitted, null or empty: the repo's
     default branch.
     """
+
+
+class ReinforcementLoopV2ConversationSeriesInput(sgqlc.types.Input):
+    """How to split each issue's conversations in the list's window."""
+
+    __schema__ = schema
+    __field_names__ = ("bucket_size",)
+    bucket_size = sgqlc.types.Field(
+        sgqlc.types.non_null(ReinforcementLoopV2ConversationBucketSize), graphql_name="bucketSize"
+    )
 
 
 class ReportArgumentsUnionInput(sgqlc.types.Input):
@@ -27179,9 +27286,10 @@ class AgentObservabilityBillingInfo(sgqlc.types.Type):
 
 class AgentObservabilitySummary(sgqlc.types.Type):
     """Observed agents and current known dependencies within an alert
-    window.  Null metrics are unavailable; unavailableFields lists
-    their field names. totalRuns, run success rate, p95 latency,
-    historical comparisons, evals, and spend are not yet available.
+    window.  Selected metrics that are null are unavailable;
+    unavailableFields lists the selected fields that are null.
+    totalRuns, run success rate, p95 latency, historical comparisons,
+    evals, and spend are not yet available.
     """
 
     __schema__ = schema
@@ -27596,6 +27704,8 @@ class AgentTrajectoryOutput(sgqlc.types.Type):
         "agent",
         "trace_table",
         "agent_span_alert_condition",
+        "trajectory_scope",
+        "trigger_span",
         "time_filter",
         "filters",
         "agent_span_filters",
@@ -27676,6 +27786,22 @@ class AgentTrajectoryOutput(sgqlc.types.Type):
     agent_span_alert_condition = sgqlc.types.Field(
         AgentSpanCondition, graphql_name="agentSpanAlertCondition"
     )
+
+    trajectory_scope = sgqlc.types.Field(
+        sgqlc.types.non_null(TrajectoryScope), graphql_name="trajectoryScope"
+    )
+    """TRACE (default) counts the conditions within each trace.
+    CONVERSATION counts them over the spans that ran before each
+    trigger span in the same conversation. On mutation updates,
+    leaving this out keeps the stored monitor's scope. Monitors-as-
+    code apply treats an absent scope as TRACE.
+    """
+
+    trigger_span = sgqlc.types.Field("FilterSpan", graphql_name="triggerSpan")
+    """Span that triggers the check. Required for the CONVERSATION scope.
+    On an update that ends up CONVERSATION, leaving this out keeps the
+    stored trigger span.
+    """
 
     time_filter = sgqlc.types.Field("TimeFilter", graphql_name="timeFilter")
 
@@ -34639,6 +34765,32 @@ class CostFindingCalculationOutput(sgqlc.types.Type):
     )
 
 
+class CostFindingDisappearedOutput(sgqlc.types.Type):
+    """A finding the previous cost insights run had and this run does
+    not.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("fix_type", "warehouse_uuids", "targets", "stable_key", "key_version")
+    fix_type = sgqlc.types.Field(sgqlc.types.non_null(CostFindingFixType), graphql_name="fixType")
+
+    warehouse_uuids = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
+        graphql_name="warehouseUuids",
+    )
+    """UUIDs of every warehouse that reported what the finding targeted."""
+
+    targets = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("CostFindingTargetOutput"))),
+        graphql_name="targets",
+    )
+
+    stable_key = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="stableKey")
+    """The finding's key, in the current run's 'keyVersion'."""
+
+    key_version = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="keyVersion")
+
+
 class CostFindingEvidenceOutput(sgqlc.types.Type):
     """One fact, computed from the account's data, that the finding rests
     on.
@@ -34709,16 +34861,29 @@ class CostFindingOutput(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
         "fix_type",
+        "platform",
+        "platform_account",
         "warehouse_uuids",
         "targets",
         "evidence",
         "text",
         "stable_key",
         "key_version",
+        "remove_runs_case",
+        "pattern",
+        "change",
         "current_spend",
         "saving",
     )
     fix_type = sgqlc.types.Field(sgqlc.types.non_null(CostFindingFixType), graphql_name="fixType")
+
+    platform = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="platform")
+    """The warehouse platform, lowercase, e.g. 'snowflake' or 'bigquery'."""
+
+    platform_account = sgqlc.types.Field(String, graphql_name="platformAccount")
+    """The Snowflake account the warehouses connect to. Null for other
+    platforms, or when no connection names it.
+    """
 
     warehouse_uuids = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
@@ -34749,6 +34914,20 @@ class CostFindingOutput(sgqlc.types.Type):
     key_version = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="keyVersion")
     """Changes when the way 'stableKey' is derived changes."""
 
+    remove_runs_case = sgqlc.types.Field(CostFindingRemoveRunsCase, graphql_name="removeRunsCase")
+    """Why the job's runs can go. Set on 'REMOVE_RUNS' findings only."""
+
+    pattern = sgqlc.types.Field(String, graphql_name="pattern")
+    """A code naming what makes the job expensive, e.g.
+    'full_rebuild_could_be_incremental'. Set on 'MAKE_WORK_CHEAPER'
+    findings only.
+    """
+
+    change = sgqlc.types.Field(CostFindingChange, graphql_name="change")
+    """How the finding compares with the same finding in the previous
+    run. Null when the run could not be compared.
+    """
+
     current_spend = sgqlc.types.Field(
         sgqlc.types.non_null("CostFindingFigureOutput"), graphql_name="currentSpend"
     )
@@ -34758,6 +34937,21 @@ class CostFindingOutput(sgqlc.types.Type):
         sgqlc.types.non_null("CostFindingFigureOutput"), graphql_name="saving"
     )
     """What acting on the finding would save."""
+
+
+class CostFindingPreviousRunOutput(sgqlc.types.Type):
+    """The run a cost insights run's findings were compared with."""
+
+    __schema__ = schema
+    __field_names__ = ("status", "thread_id")
+    status = sgqlc.types.Field(
+        sgqlc.types.non_null(CostFindingPreviousRunStatus), graphql_name="status"
+    )
+
+    thread_id = sgqlc.types.Field(String, graphql_name="threadId")
+    """Identifier of the run compared with. Set when 'status' is
+    'COMPARED'.
+    """
 
 
 class CostFindingPriceOutput(sgqlc.types.Type):
@@ -37198,6 +37392,8 @@ class CustomRuleSqlBlocks(sgqlc.types.Type):
         "cluster_filter",
         "agent_span_alert_condition",
         "collection_lag_hours",
+        "trajectory_scope",
+        "trigger_span",
     )
     alert_condition = sgqlc.types.Field(
         sgqlc.types.non_null("FilterGroup"), graphql_name="alertCondition"
@@ -37221,6 +37417,12 @@ class CustomRuleSqlBlocks(sgqlc.types.Type):
     )
 
     collection_lag_hours = sgqlc.types.Field(Int, graphql_name="collectionLagHours")
+
+    trajectory_scope = sgqlc.types.Field(
+        sgqlc.types.non_null(TrajectoryScope), graphql_name="trajectoryScope"
+    )
+
+    trigger_span = sgqlc.types.Field("FilterSpan", graphql_name="triggerSpan")
 
 
 class CustomSQLOutputDownload(sgqlc.types.Type):
@@ -50026,6 +50228,7 @@ class MetaSummarizerCandidateAgentIssue(sgqlc.types.Type):
         "issue_uuid",
         "agent_name",
         "agent_mcon",
+        "agent_identity_mcon",
         "priority",
         "first_detected_at",
         "last_seen_at",
@@ -50045,7 +50248,15 @@ class MetaSummarizerCandidateAgentIssue(sgqlc.types.Type):
     """The agent the issue is about."""
 
     agent_mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentMcon")
-    """The agent's trace table MCON."""
+    """The MCON of the trace table the agent records into. The agent's
+    own MCON is agentIdentityMcon.
+    """
+
+    agent_identity_mcon = sgqlc.types.Field(String, graphql_name="agentIdentityMcon")
+    """MCON that identifies this agent itself, distinct from every other
+    agent sharing its trace table. Null while the registry has not
+    recorded the agent, or once its trace table is no longer live.
+    """
 
     priority = sgqlc.types.Field(
         sgqlc.types.non_null(MetaSummarizerAgentIssuePriority), graphql_name="priority"
@@ -55432,9 +55643,9 @@ class Mutation(sgqlc.types.Type):
     trigger_reinforcement_loop_dispatch = sgqlc.types.Field(
         "TriggerReinforcementLoopDispatch", graphql_name="triggerReinforcementLoopDispatch"
     )
-    """(experimental) Manually queue the reinforcement-loop (agent
-    health) fan-out for the calling account, instead of waiting for
-    the daily schedule. Monte Carlo operators only.
+    """(experimental) DEPRECATED. Manually queue the reinforcement-loop
+    (agent health) fan-out for the calling account. Removed: always
+    returns an error.
     """
 
     delete_reinforcement_loop_issues_by_issue_id = sgqlc.types.Field(
@@ -58171,6 +58382,14 @@ class Mutation(sgqlc.types.Type):
                 ),
                 ("timeout", sgqlc.types.Arg(Int, graphql_name="timeout", default=None)),
                 ("timezone", sgqlc.types.Arg(String, graphql_name="timezone", default=None)),
+                (
+                    "trajectory_scope",
+                    sgqlc.types.Arg(TrajectoryScope, graphql_name="trajectoryScope", default=None),
+                ),
+                (
+                    "trigger_span",
+                    sgqlc.types.Arg(FilterSpanInput, graphql_name="triggerSpan", default=None),
+                ),
             )
         ),
     )
@@ -58262,6 +58481,15 @@ class Mutation(sgqlc.types.Type):
     * `timeout` (`Int`): Timeout for the SQL query
     * `timezone` (`String`): Timezone (DEPRECATED, use timezone in
       scheduleConfig instead
+    * `trajectory_scope` (`TrajectoryScope`): TRACE counts the
+      conditions within each trace. CONVERSATION counts them over the
+      spans that ran before each trigger span in the same
+      conversation. Defaults to TRACE on create. On update, leaving
+      this out keeps the stored scope.
+    * `trigger_span` (`FilterSpanInput`): Span that triggers the
+      check. Required for the CONVERSATION scope. On an update that
+      ends up CONVERSATION, leaving this out keeps the stored trigger
+      span.
     """
 
     create_or_update_validation = sgqlc.types.Field(
@@ -71721,12 +71949,12 @@ class Mutation(sgqlc.types.Type):
     )
     """(experimental) Make an audience a domain's teammate audience.
     Monte Carlo's AI agents post the domain's updates to each Slack
-    channel of the audience; other destinations get nothing. Creates
-    the binding, moves it to another audience, or re-enables a
-    disabled one. Refuses an audience with no Slack channel a Monte
-    Carlo Slack app can post to. Joins public channels the app is not
-    in, and lists the channels it cannot post to. Requires AI agent
-    settings edit access to the domain.
+    and MS Teams channel of the audience; other destinations get
+    nothing. Creates the binding, moves it to another audience, or re-
+    enables a disabled one. Refuses an audience with no Slack or MS
+    Teams channel the teammate can post to. Joins public Slack
+    channels the app is not in, and lists the Slack channels it cannot
+    post to. Requires AI agent settings edit access to the domain.
 
     Arguments:
 
@@ -82297,6 +82525,8 @@ class PerformancePageInsightsOutput(sgqlc.types.Type):
         "created_time",
         "contract_version",
         "lost_analyses",
+        "previous_run",
+        "disappeared_findings",
     )
     is_enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isEnabled")
     """Whether cost insights are fully enabled for the caller's account.
@@ -82352,6 +82582,24 @@ class PerformancePageInsightsOutput(sgqlc.types.Type):
     )
     """Analyses the run could not do, by warehouse, limited to what the
     account has access to. Empty for a version 1 run.
+    """
+
+    previous_run = sgqlc.types.Field(CostFindingPreviousRunOutput, graphql_name="previousRun")
+    """Whether the run's findings were compared with an earlier run. Null
+    for a version 1 run, a result that doesn't say, and when insights
+    are unavailable for the caller's account.
+    """
+
+    disappeared_findings = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null(CostFindingDisappearedOutput))
+        ),
+        graphql_name="disappearedFindings",
+    )
+    """Findings the earlier run had and this run does not, limited to
+    what the account has access to. Empty for a version 1 run, and
+    when the account does not have the Performance & Cost agent
+    feature enabled.
     """
 
 
@@ -86259,6 +86507,14 @@ class Query(sgqlc.types.Type):
                     "conversations_first",
                     sgqlc.types.Arg(Int, graphql_name="conversationsFirst", default=1),
                 ),
+                (
+                    "conversation_series",
+                    sgqlc.types.Arg(
+                        ReinforcementLoopV2ConversationSeriesInput,
+                        graphql_name="conversationSeries",
+                        default=None,
+                    ),
+                ),
             )
         ),
     )
@@ -86300,9 +86556,10 @@ class Query(sgqlc.types.Type):
       ANDs with the other filters — a mismatch returns empty, not an
       error.
     * `start_time` (`DateTime`): Keep issues with lastSeenAt at or
-      after this instant. Omit for no lower bound. Filters issues
-      only: conversations and conversationCount are not restricted to
-      the window.
+      after this instant. Omit for no lower bound. Filters issues by
+      report time. conversations and conversationCount are not
+      restricted to the window; conversationCountInWindow and
+      conversationCountSeries are, by conversation time.
     * `end_time` (`DateTime`): Keep issues with lastSeenAt at or
       before this instant. Omit for no upper bound. Must not precede
       startTime.
@@ -86322,6 +86579,11 @@ class Query(sgqlc.types.Type):
     * `conversations_first` (`Int`): Conversations served per issue,
       newest first, 1..100. conversationCount reports the total.
       (default: `1`)
+    * `conversation_series`
+      (`ReinforcementLoopV2ConversationSeriesInput`): Adds
+      conversationCountSeries to each issue, over [startTime,
+      endTime). Requires both, with at most 366 buckets. Does not
+      change which issues are listed or their order.
     """
 
     get_linear_teams = sgqlc.types.Field(
@@ -112617,6 +112879,48 @@ class ReinforcementLoopTraceRef(sgqlc.types.Type):
     """
 
 
+class ReinforcementLoopV2ConversationBucket(sgqlc.types.Type):
+    """Distinct diagnosed conversations of an issue in one bucket, by
+    conversation time.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("bucket_start", "conversation_count")
+    bucket_start = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="bucketStart")
+    """Start of the UTC day."""
+
+    conversation_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="conversationCount"
+    )
+
+
+class ReinforcementLoopV2ConversationCountSeries(sgqlc.types.Type):
+    """An issue's conversations per bucket of the list's [startTime,
+    endTime) window.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("complete_through", "buckets")
+    complete_through = sgqlc.types.Field(DateTime, graphql_name="completeThrough")
+    """Diagnosis has reached every conversation before this time; counts
+    after it can still grow. It is an estimate: a conversation whose
+    traces arrive late can still be added before it. Null for backtest
+    issues, and when clustering or diagnosis has not started on the
+    issue's Issue space.
+    """
+
+    buckets = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null(ReinforcementLoopV2ConversationBucket))
+        ),
+        graphql_name="buckets",
+    )
+    """One bucket per UTC day of the window, oldest first, zero-filled.
+    The first and last can be partial days. They add up to
+    conversationCountInWindow.
+    """
+
+
 class ReinforcementLoopV2DiagnosisCluster(sgqlc.types.Type):
     """An Issue cluster as the diagnosis run recorded it when the trigger
     fired.  A snapshot from the run's manifest. Name and description
@@ -112661,6 +112965,7 @@ class ReinforcementLoopV2Issue(sgqlc.types.Type):
         "description",
         "recommendation",
         "config_access",
+        "is_data_issue",
         "priority",
         "rank",
         "is_new_to_top",
@@ -112669,6 +112974,8 @@ class ReinforcementLoopV2Issue(sgqlc.types.Type):
         "first_detected_at",
         "last_seen_at",
         "conversation_count",
+        "conversation_count_in_window",
+        "conversation_count_series",
         "conversations",
         "diagnosis_clusters",
         "linear_ticket",
@@ -112723,6 +113030,12 @@ class ReinforcementLoopV2Issue(sgqlc.types.Type):
     with no report. Not subject to redaction.
     """
 
+    is_data_issue = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isDataIssue")
+    """True when the newest report says the agent acted reasonably but
+    the data it got back was bad. False on an issue with no report.
+    Not subject to redaction.
+    """
+
     priority = sgqlc.types.Field(AgentHealthPriority, graphql_name="priority")
     """Impact bucket, computed at read time from the worst user impact
     the agent recorded on the issue's conversations in the last 7
@@ -112773,6 +113086,22 @@ class ReinforcementLoopV2Issue(sgqlc.types.Type):
     )
     """Distinct conversations the issue was diagnosed in, in total; not
     clamped to conversationsFirst.
+    """
+
+    conversation_count_in_window = sgqlc.types.Field(Int, graphql_name="conversationCountInWindow")
+    """Distinct conversations the issue was diagnosed in whose
+    conversation time is in [startTime, endTime). Conversation time is
+    the start of the conversation's latest turn. A missing bound is
+    open. The workflow filter applies. Only diagnosed conversations
+    count, and conversations reported before this field existed have
+    no conversation time. Null when the list has neither bound.
+    """
+
+    conversation_count_series = sgqlc.types.Field(
+        ReinforcementLoopV2ConversationCountSeries, graphql_name="conversationCountSeries"
+    )
+    """conversationCountInWindow per bucket. Null unless
+    conversationSeries is set.
     """
 
     conversations = sgqlc.types.Field(
@@ -121939,12 +122268,7 @@ class TriggerPlatformMigrationTest(sgqlc.types.Type):
 
 
 class TriggerReinforcementLoopDispatch(sgqlc.types.Type):
-    """Manually queue the reinforcement-loop fan-out for the calling
-    account.  Monte Carlo operators only. Queues the same per-(agent,
-    workflow, trace table) runs the daily beat would create; the per-
-    minute run monitor picks them up from there. Skipped while the
-    account still has in-flight runs.
-    """
+    """Deprecated. Always returns an error."""
 
     __schema__ = schema
     __field_names__ = ("outcome", "queued_count")
@@ -128408,6 +128732,8 @@ class CustomRule(sgqlc.types.Type, Node):
         "timeout",
         "agent_span_filters",
         "agent_span_alert_condition",
+        "trajectory_scope",
+        "trigger_span",
         "filters",
         "time_filter",
         "time_filter_sql_expression",
@@ -128803,6 +129129,18 @@ class CustomRule(sgqlc.types.Type, Node):
         AgentSpanCondition, graphql_name="agentSpanAlertCondition"
     )
     """Agent span alert condition for agent trajectory monitors"""
+
+    trajectory_scope = sgqlc.types.Field(TrajectoryScope, graphql_name="trajectoryScope")
+    """Where an agent trajectory monitor counts its conditions: within
+    each trace, or across the conversation before each trigger span.
+    Null for other rule types.
+    """
+
+    trigger_span = sgqlc.types.Field(FilterSpan, graphql_name="triggerSpan")
+    """Span that triggers a check of a conversation-scope agent
+    trajectory monitor. Null for trace-scope monitors and other rule
+    types.
+    """
 
     filters = sgqlc.types.Field("FilterGroup", graphql_name="filters")
     """WHERE condition filters for monitors that support a structured

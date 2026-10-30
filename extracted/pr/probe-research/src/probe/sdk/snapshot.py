@@ -439,6 +439,8 @@ def notice_old_snapshot_refs(cwd: str) -> bool:
 
 
 _SHA_RE = re.compile(r"[0-9a-f]{40,64}")
+#: A commit `commit_on_remote` may ask a remote for: a full or abbreviated SHA.
+_COMMIT_RE = re.compile(r"[0-9a-fA-F]{7,64}")
 _CREDENTIAL_URI = re.compile(r"(?P<scheme>[A-Za-z][A-Za-z0-9+.-]*://)[^/@\s]+@")
 # ssh scp-syntax: user@host:path -- strip the userinfo, keep host:path.
 _SCP_USERINFO = re.compile(r"^[^/@\s]+@(?=[^/\s]+:)")
@@ -563,14 +565,18 @@ def commit_on_remote(remote: str, commit: str, timeout: float = _VERIFY_TIMEOUT)
     Runs from one machine share a base commit, so auditing 200 runs is a handful
     of fetches, not 200. This is never called during a run -- only by an explicit
     `check(verify=True)` -- so it cannot slow training or artifact upload.
+
+    Both come from a run's recorded metadata, which any writer in the team can
+    set: a remote that reads as an option (a leading '-') or a commit that is not
+    hex is never asked about, and `--` ends git's options before them.
     """
-    if not remote or not commit:
+    if not remote or not commit or remote.startswith("-") or not _COMMIT_RE.fullmatch(commit):
         return False
     with tempfile.TemporaryDirectory(prefix="probe-verify-") as tmp:
         _git(tmp, "init", "-q", ".", check=False, timeout=timeout)
         try:
             proc = subprocess.run(
-                ["git", "fetch", "--depth", "1", "--quiet", remote, commit],
+                ["git", "fetch", "--depth", "1", "--quiet", "--", remote, commit],
                 cwd=tmp, capture_output=True, text=True,
                 env=_NONINTERACTIVE_ENV(), timeout=timeout,
             )

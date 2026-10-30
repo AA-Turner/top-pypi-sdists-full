@@ -30,13 +30,6 @@ CONFIG = WatchedWorkflow(
     120,
     frozenset({"schedule"}),
 )
-KNOWLEDGE_CONFIG = WatchedWorkflow(
-    "airbytehq/ai-skills",
-    "devin-knowledge-sync.yml",
-    "Knowledge Sync",
-    None,
-    frozenset({"push", "schedule"}),
-)
 PLAYBOOK_SYNC_CONFIG = WatchedWorkflow(
     "airbytehq/ai-skills",
     "sync-playbooks.yml",
@@ -92,13 +85,20 @@ def test_watched_includes_playbook_sync() -> None:
         None,
         frozenset({"push"}),
     ) in cron_watchdog.WATCHED
-    assert (
-        "airbytehq/ai-skills",
-        "devin-knowledge-sync.yml",
-        "Knowledge Sync",
-        None,
-        frozenset({"push", "schedule"}),
-    ) in cron_watchdog.WATCHED
+
+
+@pytest.mark.unit
+def test_status_line_includes_latest_run_age_and_url() -> None:
+    status = derive_status(
+        PLAYBOOK_SYNC_CONFIG,
+        WORKFLOW,
+        [_run("success", 192, event="push")],
+        NOW,
+    )
+
+    line = cron_watchdog._status_line(status, NOW)
+
+    assert "latest: success (push) 3h 12m ago — <" in line
 
 
 @pytest.mark.unit
@@ -248,10 +248,10 @@ def test_manual_success_does_not_prevent_scheduled_stall() -> None:
 
 
 @pytest.mark.unit
-def test_knowledge_push_success_counts_as_healthy() -> None:
+def test_playbook_sync_push_success_counts_as_healthy() -> None:
     push_success = _run("success", 5, event="push")
 
-    status = derive_status(KNOWLEDGE_CONFIG, WORKFLOW, [push_success], NOW)
+    status = derive_status(PLAYBOOK_SYNC_CONFIG, WORKFLOW, [push_success], NOW)
 
     assert status.unhealthy_since is None
     assert status.latest_run is not None
@@ -259,12 +259,12 @@ def test_knowledge_push_success_counts_as_healthy() -> None:
 
 
 @pytest.mark.unit
-def test_knowledge_manual_success_does_not_silence_push_failure() -> None:
+def test_playbook_sync_manual_success_does_not_silence_push_failure() -> None:
     push_failure = _run("failure", 30, event="push")
     manual_success = _run("success", 5, event="workflow_dispatch")
 
     status = derive_status(
-        KNOWLEDGE_CONFIG, WORKFLOW, [manual_success, push_failure], NOW
+        PLAYBOOK_SYNC_CONFIG, WORKFLOW, [manual_success, push_failure], NOW
     )
 
     assert status.latest_run is not None
@@ -399,12 +399,12 @@ def test_self_workflow_failed_run_is_still_unhealthy() -> None:
 
 
 @pytest.mark.unit
-def test_cancelled_health_run_anchors_knowledge_sync_to_newest_timestamp() -> None:
+def test_cancelled_health_run_anchors_playbook_sync_to_newest_timestamp() -> None:
     older_cancelled = _run("cancelled", 60, event="push")
     newer_cancelled = _run("cancelled", 15, event="push")
 
     status = derive_status(
-        KNOWLEDGE_CONFIG, WORKFLOW, [older_cancelled, newer_cancelled], NOW
+        PLAYBOOK_SYNC_CONFIG, WORKFLOW, [older_cancelled, newer_cancelled], NOW
     )
 
     assert status.unhealthy_since == NOW - timedelta(minutes=15)
@@ -415,12 +415,12 @@ def test_cancelled_health_run_anchors_knowledge_sync_to_newest_timestamp() -> No
     "minutes_ago,expected_ping",
     [(90, False), (180, True)],
 )
-def test_cancelled_knowledge_sync_run_escalates_from_timestamp_anchor(
+def test_cancelled_playbook_sync_run_escalates_from_timestamp_anchor(
     minutes_ago: int, expected_ping: bool
 ) -> None:
     cancelled_run = _run("cancelled", minutes_ago, event="push")
 
-    status = derive_status(KNOWLEDGE_CONFIG, WORKFLOW, [cancelled_run], NOW)
+    status = derive_status(PLAYBOOK_SYNC_CONFIG, WORKFLOW, [cancelled_run], NOW)
     result = decide(
         [status],
         now=NOW,
@@ -438,7 +438,7 @@ def test_finished_health_run_prevents_cancelled_run_anchor() -> None:
     finished_run = _run("success", 15, event="push")
 
     status = derive_status(
-        KNOWLEDGE_CONFIG, WORKFLOW, [cancelled_run, finished_run], NOW
+        PLAYBOOK_SYNC_CONFIG, WORKFLOW, [cancelled_run, finished_run], NOW
     )
 
     assert status.unhealthy_since is None
@@ -455,7 +455,7 @@ def test_cancelled_health_runs_fall_back_to_workflow_creation_time() -> None:
     created_at = NOW - timedelta(minutes=30)
     workflow = {**WORKFLOW, "created_at": created_at.isoformat()}
 
-    status = derive_status(KNOWLEDGE_CONFIG, workflow, [cancelled_run], NOW)
+    status = derive_status(PLAYBOOK_SYNC_CONFIG, workflow, [cancelled_run], NOW)
 
     assert status.unhealthy_since == created_at
 
@@ -1009,3 +1009,130 @@ def test_github_output_preserves_multiline_fallback_text(
     assert "\n".join(lines[first_end + 4 : second_end]) == second_result.fallback_text
     assert first_delimiter != second_delimiter
     assert all(" | " not in line for line in lines)
+
+
+RATE_ONLY_CONFIG = WatchedWorkflow(
+    "airbytehq/airbyte",
+    "ai-ready-command.yml",
+    "AI Ready / Hydra Automerge",
+    None,
+    frozenset({"workflow_dispatch"}),
+    False,
+)
+
+
+def _dispatch_run(conclusion: str, minutes_ago: int) -> dict:
+    return _run(conclusion, minutes_ago, event="workflow_dispatch")
+
+
+@pytest.mark.unit
+def test_watched_includes_hydra_pipeline_workflows() -> None:
+    configs = {
+        (config.repo, config.workflow): config
+        for config in map(cron_watchdog._as_config, cron_watchdog.WATCHED)
+    }
+    for key in [
+        ("airbytehq/airbyte", "ai-review-command.yml"),
+        ("airbytehq/airbyte", "ai-prove-fix-command.yml"),
+        ("airbytehq/airbyte", "ai-ready-command.yml"),
+        ("airbytehq/airbyte", "hydra-stage-handoff.yml"),
+        ("airbytehq/oncall", "ai-triage-command.yml"),
+    ]:
+        assert not configs[key].streak_alerts
+    assert configs["airbytehq/airbyte", "auto-merge-cron.yml"].streak_alerts
+
+
+@pytest.mark.unit
+def test_rate_only_failure_streak_does_not_alert() -> None:
+    runs = [_dispatch_run("failure", 150), _dispatch_run("failure", 200)]
+    status = derive_status(RATE_ONLY_CONFIG, WORKFLOW, runs, NOW)
+
+    assert status.unhealthy_since is None
+    result = decide([status], now=NOW, previous_watchdog_start=NOW - timedelta(hours=1))
+    assert not result.should_post
+
+
+@pytest.mark.unit
+def test_rate_only_disabled_workflow_still_alerts() -> None:
+    workflow = {**WORKFLOW, "state": "disabled_manually"}
+    status = derive_status(RATE_ONLY_CONFIG, workflow, [], NOW)
+
+    assert status.unhealthy_since == NOW
+
+
+@pytest.mark.unit
+def test_daily_summary_lists_high_failure_rate_pipeline_workflow() -> None:
+    daily_now = datetime(2026, 1, 5, 17, 25, tzinfo=timezone.utc)
+    runs = [
+        _dispatch_run("success", 10),
+        _dispatch_run("failure", 30),
+        _dispatch_run("failure", 60),
+        _dispatch_run("success", 90),
+    ]
+    status = derive_status(RATE_ONLY_CONFIG, WORKFLOW, runs, NOW)
+    result = decide(
+        [status],
+        now=daily_now,
+        previous_watchdog_start=daily_now - timedelta(hours=1),
+    )
+
+    lines = result.fallback_text.splitlines()
+    attention = lines[lines.index("*🔴 Needs attention*") + 1 :]
+    assert result.ping_oncall
+    assert "AI Ready / Hydra Automerge (50%)" in result.fallback_text
+    assert any("50% of runs failed in the last 24h" in line for line in attention)
+
+
+@pytest.mark.unit
+def test_fetch_runs_pages_until_24h_window_is_covered() -> None:
+    base = "https://api.github.com/repos/airbytehq/airbyte/actions/workflows/x.yml"
+    pages = {
+        1: [_dispatch_run("success", 5) for _ in range(100)],
+        2: [_dispatch_run("failure", 600) for _ in range(100)],
+        3: [_dispatch_run("failure", 1500) for _ in range(10)],
+    }
+    requested: list[str] = []
+
+    def fetch(url: str, token: str) -> dict:
+        requested.append(url)
+        page = int(url.split("&page=")[1]) if "&page=" in url else 1
+        return {"workflow_runs": pages[page]}
+
+    runs = cron_watchdog._fetch_runs(base, "token", now=NOW, fetch=fetch)
+
+    assert len(runs) == 210
+    assert requested == [
+        f"{base}/runs?per_page=100",
+        f"{base}/runs?per_page=100&page=2",
+        f"{base}/runs?per_page=100&page=3",
+    ]
+
+
+@pytest.mark.unit
+def test_fetch_runs_stops_once_page_predates_window() -> None:
+    requested: list[str] = []
+
+    def fetch(url: str, token: str) -> dict:
+        requested.append(url)
+        return {"workflow_runs": [_run("success", 2000) for _ in range(100)]}
+
+    cron_watchdog._fetch_runs("base", "token", now=NOW, fetch=fetch)
+
+    assert requested == ["base/runs?per_page=100"]
+
+
+@pytest.mark.unit
+def test_large_alert_splits_into_sections_within_slack_limit() -> None:
+    lines = [f"• {'x' * 400} {index}" for index in range(20)]
+
+    blocks = cron_watchdog._make_blocks(lines, ping_oncall=True, oncall_group_id="S123")
+
+    sections = [block for block in blocks if block["type"] == "section"]
+    assert len(sections) > 1
+    assert all(
+        len(block["text"]["text"]) <= cron_watchdog.SLACK_SECTION_LIMIT
+        for block in sections
+    )
+    assert sections[0]["text"]["text"].startswith("<!subteam^S123|")
+    joined = "\n".join(block["text"]["text"] for block in sections)
+    assert joined.count("• ") == 20

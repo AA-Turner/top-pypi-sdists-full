@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: posthog
-Version: 7.79.0
+Version: 7.80.3
 Summary: Integrate PostHog into any python application.
 Home-page: https://github.com/posthog/posthog-python
 Author: Posthog
@@ -35,6 +35,11 @@ Requires-Dist: zstandard>=0.23.0; extra == "zstd"
 Provides-Extra: otel
 Requires-Dist: opentelemetry-sdk>=1.20.0; extra == "otel"
 Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.20.0; extra == "otel"
+Provides-Extra: metrics
+Requires-Dist: opentelemetry-sdk>=1.39.0; extra == "metrics"
+Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.39.0; extra == "metrics"
+Requires-Dist: opentelemetry-instrumentation>=0.60b0; extra == "metrics"
+Requires-Dist: opentelemetry-instrumentation-system-metrics>=0.60b0; extra == "metrics"
 Provides-Extra: dev
 Requires-Dist: django-stubs; extra == "dev"
 Requires-Dist: griffe; extra == "dev"
@@ -85,6 +90,15 @@ Requires-Dist: mcp<2,>=1.28.1; extra == "test"
 Requires-Dist: fastmcp>=2.0; extra == "test"
 Requires-Dist: opentelemetry-sdk>=1.20.0; extra == "test"
 Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.20.0; extra == "test"
+Requires-Dist: opentelemetry-instrumentation>=0.60b0; extra == "test"
+Requires-Dist: opentelemetry-instrumentation-system-metrics>=0.60b0; extra == "test"
+Requires-Dist: opentelemetry-instrumentation-requests>=0.60b0; extra == "test"
+Requires-Dist: opentelemetry-instrumentation-sqlite3>=0.60b0; extra == "test"
+Requires-Dist: opentelemetry-instrumentation-wsgi>=0.60b0; extra == "test"
+Requires-Dist: opentelemetry-instrumentation-flask>=0.60b0; extra == "test"
+Requires-Dist: opentelemetry-instrumentation-httpx>=0.60b0; extra == "test"
+Requires-Dist: opentelemetry-instrumentation-aiohttp-client>=0.60b0; extra == "test"
+Requires-Dist: opentelemetry-instrumentation-django>=0.60b0; extra == "test"
 Requires-Dist: pytest-bdd>=8.1.0; extra == "test"
 Requires-Dist: zstandard>=0.23.0; extra == "test"
 Requires-Dist: gevent>=25.4.1; implementation_name == "cpython" and extra == "test"

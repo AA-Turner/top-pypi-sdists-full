@@ -21,6 +21,7 @@ from google.cloud import secretmanager
 
 from airbyte_ops_mcp.connection_config_retriever.audit_logging import audit
 from airbyte_ops_mcp.connection_config_retriever.residency import (
+    EU_RUNNER_EU_ONLY_MESSAGE,
     EU_RUNNER_REQUIRED_MESSAGE,
     is_running_on_eu_runner,
 )
@@ -368,10 +369,17 @@ def retrieve_objects(
                     f"Credentials were not found for connection ID {candidate.connection_id}."
                 )
             is_eu_connection = is_eu_result[0] is True
-            if is_eu_connection and not is_running_on_eu_runner():
+            # Each runner reads only connections in its own data region: an EU
+            # connection only on the EU runner, any other only off it.
+            if is_eu_connection != is_running_on_eu_runner():
                 connection_candidates.remove(candidate)
+                refusal = (
+                    EU_RUNNER_REQUIRED_MESSAGE
+                    if is_eu_connection
+                    else EU_RUNNER_EU_ONLY_MESSAGE
+                )
                 LOGGER.warning(
-                    f"{EU_RUNNER_REQUIRED_MESSAGE}; connection ID "
+                    f"{refusal}; connection ID "
                     f"{candidate.connection_id} was removed from candidates."
                 )
                 continue

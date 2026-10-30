@@ -7,7 +7,8 @@ https://danjuanfunds.com/funding/003545
 """
 
 import pandas as pd
-import requests
+
+from akshare.utils import http
 
 
 def fund_individual_basic_info_xq(
@@ -28,10 +29,10 @@ def fund_individual_basic_info_xq(
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/80.0.3987.149 Safari/537.36"
     }
-    r = requests.get(url, headers=headers, timeout=timeout)
+    r = http.get(url, headers=headers, timeout=timeout)
     json_data = r.json()["data"]
     temp_df = pd.json_normalize(json_data)
-    temp_df.rename(
+    temp_df = temp_df.rename(
         columns={
             "fd_code": "基金代码",
             "fd_name": "基金名称",
@@ -48,7 +49,6 @@ def fund_individual_basic_info_xq(
             "invest_target": "投资目标",
             "performance_bench_mark": "业绩比较基准",
         },
-        inplace=True,
     )
     if "评级机构" not in temp_df.columns:
         temp_df["评级机构"] = pd.NA
@@ -93,7 +93,7 @@ def fund_individual_achievement_xq(
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/80.0.3987.149 Safari/537.36"
     }
-    r = requests.get(url, headers=headers, timeout=timeout)
+    r = http.get(url, headers=headers, timeout=timeout)
     json_data = r.json()["data"]
     combined_df = None
     type_dict = {
@@ -147,7 +147,7 @@ def fund_individual_analysis_xq(
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/80.0.3987.149 Safari/537.36"
     }
-    r = requests.get(url, headers=headers, timeout=timeout)
+    r = http.get(url, headers=headers, timeout=timeout)
     json_data = r.json()["data"]["index_data_list"]
     temp_df = pd.json_normalize(json_data)
     temp_df = temp_df[
@@ -200,7 +200,7 @@ def fund_individual_profit_probability_xq(
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/80.0.3987.149 Safari/537.36"
     }
-    r = requests.get(url, headers=headers, timeout=timeout)
+    r = http.get(url, headers=headers, timeout=timeout)
     json_data = r.json()["data"]["data_list"]
     temp_df = pd.DataFrame.from_dict(json_data, orient="columns")
     temp_df = temp_df[
@@ -239,7 +239,7 @@ def fund_individual_detail_info_xq(
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/80.0.3987.149 Safari/537.36"
     }
-    r = requests.get(url, headers=headers, timeout=timeout)
+    r = http.get(url, headers=headers, timeout=timeout)
     json_data = r.json()["data"]
     combined_df = None
     rate_type_dict = {
@@ -291,7 +291,7 @@ def fund_individual_detail_hold_xq(
         "fund_code": f"{symbol}",
         "report_date": f"{'-'.join([date[:4], date[4:6], date[6:]])}",
     }
-    r = requests.get(url, headers=headers, params=params, timeout=timeout)
+    r = http.get(url, headers=headers, params=params, timeout=timeout)
     data_json = r.json()
     temp_df = pd.DataFrame.from_dict(data_json["data"]["chart_list"], orient="columns")
     temp_df = temp_df[

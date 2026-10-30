@@ -1,4 +1,4 @@
-__lazy_modules__ = ["django.db.models"]  # py3,15
+__lazy_modules__ = ["django.db.models", "django.http"]  # py3,15
 
 from typing import TYPE_CHECKING
 
@@ -9,6 +9,7 @@ from .models import CallbackRedirect, Scope, Token
 
 if TYPE_CHECKING:  # py3.14
     from django.db.models import QuerySet
+    from django.http import HttpRequest
 
 admin.site.register(CallbackRedirect)
 
@@ -20,14 +21,14 @@ class ScopeAdmin(admin.ModelAdmin):
 
 @admin.register(Token)
 class TokenAdmin(admin.ModelAdmin):
-    def get_queryset(self, request) -> "QuerySet[Token]":
+    def get_queryset(self, request: "HttpRequest") -> "QuerySet[Token]":
         qs = super().get_queryset(request)
         return qs.select_related('user').prefetch_related('scopes')
 
     @admin.display(
         description='Scopes'
     )
-    def get_scopes(self, obj) -> str:
+    def get_scopes(self, obj: Token) -> str:
         return ", ".join([x.name for x in obj.scopes.all()])
 
     User = get_user_model()

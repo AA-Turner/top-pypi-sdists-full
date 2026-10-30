@@ -16,6 +16,7 @@ import asyncio
 import copy
 import logging
 import pickle
+import threading
 import warnings
 from collections.abc import Callable
 from pathlib import Path
@@ -55,6 +56,8 @@ def _normalize_address(inp: str | tuple | int | None):
             protocol = "tcp"
             rest_str = inp
     elif isinstance(inp, tuple):
+        if not inp:
+            raise ValueError("Address tuple may not be empty.")
         if inp[0] in ["tcp", "ipc"]:
             protocol, *rest = inp
         else:
@@ -63,9 +66,13 @@ def _normalize_address(inp: str | tuple | int | None):
         if protocol == "tcp":
             if len(rest) == 2:
                 rest_str = ":".join(str(r) for r in rest)
-            else:
+            elif len(rest) == 1:
                 (rest_str,) = rest
+            else:
+                raise ValueError(f"tcp address tuple must be (host,) or (host, port), got {inp!r}.")
         else:
+            if len(rest) != 1:
+                raise ValueError(f"ipc address tuple must be (path,), got {inp!r}.")
             (rest_str,) = rest
     elif isinstance(inp, int):
         protocol = "tcp"
@@ -469,9 +476,10 @@ class RemoteDispatcher(Dispatcher):
         self._deserializer = deserializer
         self.address = _normalize_address(address)
 
-        if loop is None:
-            loop = asyncio.new_event_loop()
-        self.loop = loop
+        # The event loop is created lazily (see the ``loop`` property) so that a
+        # RemoteDispatcher which is constructed but never started does not leak an
+        # unclosed event loop (and its self-pipe socketpair) at interpreter exit.
+        self._loop = loop
         self._context = None
         self._socket = None
 
@@ -498,9 +506,17 @@ class RemoteDispatcher(Dispatcher):
 
         self.__factory = __finish_setup
         self._task = None
+        self._stopped = threading.Event()
         self.closed = False
         self._strict = strict
         super().__init__()
+
+    @property
+    def loop(self) -> asyncio.AbstractEventLoop:
+        """The event loop the dispatcher runs on, created lazily on first use."""
+        if self._loop is None:
+            self._loop = asyncio.new_event_loop()
+        return self._loop
 
     async def _poll(self):
         our_prefix = self._prefix  # local var to save an attribute lookup
@@ -567,14 +583,36 @@ class RemoteDispatcher(Dispatcher):
             if task_exception is not None:
                 raise task_exception
         finally:
-            self.stop()
+            # The loop has stopped, so tear everything down here and signal
+            # any thread blocked in ``stop`` that cleanup is complete.
+            self._cleanup()
 
-    def stop(self):
+    def _cleanup(self):
+        # Release the task, socket, context and loop. Safe to call only once
+        # the loop has stopped; closing a running loop raises RuntimeError.
         if self._task is not None:
             self._task.cancel()
+            self._task = None
         if self._socket is not None:
             self._socket.close()
+            self._socket = None
         if self._context is not None:
             self._context.destroy()
-        self.loop.close()
+            self._context = None
+        if self._loop is not None and not self._loop.is_closed():
+            self._loop.close()
         self.closed = True
+        self._stopped.set()
+
+    def stop(self):
+        """Stop the dispatcher and wait for it to finish.
+
+        When called from a thread other than the one running the event loop,
+        task cancellation is scheduled on the loop and this method blocks
+        until :meth:`start` has torn the dispatcher down.
+        """
+
+        if self._loop is not None and self._loop.is_running():
+            if self._task is not None:
+                self._loop.call_soon_threadsafe(self._task.cancel)
+            self._stopped.wait()

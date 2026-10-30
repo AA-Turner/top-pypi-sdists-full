@@ -10,9 +10,8 @@ from typing import (
     Any,
     NamedTuple,
     Optional,
+    Self,
     Sequence,
-    Type,
-    Union,
     cast,
 )
 
@@ -47,12 +46,12 @@ class TextRegionMixin(ABC):
         super().__init__(*args, **kwargs)
 
     def register_text_region(
-        self, region: Union["TextRegion", "ParagraphCollectorMixin"]
+        self, region: "TextRegion | ParagraphCollectorMixin"
     ) -> None:
         self.__current_text_region = cast("TextRegion", region)
 
     def is_current_text_region(
-        self, region: Union["TextRegion", "ParagraphCollectorMixin"]
+        self, region: "TextRegion | ParagraphCollectorMixin"
     ) -> bool:
         return self.__current_text_region == region
 
@@ -94,7 +93,7 @@ class Bullet:
 class Paragraph:
     def __init__(
         self,
-        region: Union["TextRegion", "ParagraphCollectorMixin"],
+        region: "TextRegion | ParagraphCollectorMixin",
         text_align: Optional[str | Align] = None,
         line_height: Optional[float] = None,
         top_margin: float = 0,
@@ -157,12 +156,12 @@ class Paragraph:
             f" #text_fragments={len(self._text_fragments)})"
         )
 
-    def __enter__(self) -> "Paragraph":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
+        exc_type: Optional[type[BaseException]],
         exc_value: Optional[BaseException],
         traceback: Optional[TracebackType],
     ) -> None:
@@ -202,10 +201,8 @@ class Paragraph:
         bullet_line_break = MultiLineBreak(
             bullet_fragments,
             max_width=self._region.get_width,
-            margins=(
-                self.pdf.c_margin + (self.indent - fragments_width - bullet_r_margin),
-                self.pdf.c_margin,
-            ),
+            margins=(self.pdf.c_margin, self.pdf.c_margin),
+            indent=self.indent - fragments_width - bullet_r_margin,
             align=self.text_align or self._region.text_align or Align.L,
             wrapmode=self.wrapmode,
             line_height=self.line_height,
@@ -232,7 +229,8 @@ class Paragraph:
         multi_line_break = MultiLineBreak(
             self._text_fragments,
             max_width=self._region.get_width,
-            margins=(self.pdf.c_margin + self.indent, self.pdf.c_margin),
+            margins=(self.pdf.c_margin, self.pdf.c_margin),
+            indent=self.indent,
             first_line_indent=self.first_line_indent,
             align=self.text_align or self._region.text_align or Align.L,
             print_sh=print_sh,
@@ -259,7 +257,7 @@ class Paragraph:
 class ImageParagraph:
     def __init__(
         self,
-        region: Union["TextRegion", "ParagraphCollectorMixin"],
+        region: "TextRegion | ParagraphCollectorMixin",
         name: str,
         align: Optional[str | Align] = None,
         width: Optional[float] = None,
@@ -416,7 +414,7 @@ class ParagraphCollectorMixin(ABC):
         if img:
             self.image(img, fill_width=img_fill_width)
 
-    def __enter__(self) -> "ParagraphCollectorMixin":
+    def __enter__(self) -> Self:
         if self.pdf.is_current_text_region(self):
             raise FPDFException(
                 f"Unable to enter the same {self.__class__.__name__} context recursively."
@@ -429,7 +427,7 @@ class ParagraphCollectorMixin(ABC):
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
+        exc_type: Optional[type[BaseException]],
         exc_value: Optional[BaseException],
         traceback: Optional[TracebackType],
     ) -> None:
@@ -646,7 +644,6 @@ class TextRegion(ParagraphCollectorMixin):
                 if (
                     text_rendered
                     and tl_wrapper.first_line
-                    and not cur_bullet
                     and cur_paragraph.top_margin
                     # Do not render margin on top of page:
                     and self.pdf.y > self.pdf.t_margin
@@ -719,7 +716,7 @@ class TextRegion(ParagraphCollectorMixin):
 
     def get_width(self, height: float) -> float:
         start, end = self.current_x_extents(self.pdf.y, height)
-        if self.pdf.x > start and self.pdf.x < end:
+        if start < self.pdf.x < end:
             start = self.pdf.x
         res = end - start
         return res
@@ -767,6 +764,10 @@ class TextColumns(TextRegion, TextColumnarMixin):
         balance: bool = False,
         **kwargs: Any,
     ) -> None:
+        if ncols < 1:
+            raise ValueError(
+                f"'ncols' parameter must be equal or greater than 1: {ncols}"
+            )
         super().__init__(pdf, *args, **kwargs)
         self._cur_column = 0
         self._ncols = ncols
@@ -781,7 +782,7 @@ class TextColumns(TextRegion, TextColumnarMixin):
             self._cols.append(Extents(c_left, c_left + col_width))
         self._first_page_top = max(self.pdf.t_margin, self.pdf.y)
 
-    def __enter__(self) -> "TextColumns":
+    def __enter__(self) -> Self:
         super().__enter__()
         self._first_page_top = max(self.pdf.t_margin, self.pdf.y)
         if self.balance:

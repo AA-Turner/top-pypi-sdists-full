@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uniplot
-Version: 0.23.2
+Version: 0.24.0
 Summary: Lightweight plotting to the terminal. 4x resolution via Unicode.
 Author-email: Olav Stetter <olav.stetter@googlemail.com>
 License: Copyright (c) 2020 Olav Stetter
@@ -113,8 +113,10 @@ and the options below to select the character set.
 
 ```python
 import math
+
 x = [math.sin(i / 20) + i / 300 for i in range(600)]
 from uniplot import plot
+
 plot(x, title="Sine wave")
 ```
 
@@ -232,12 +234,20 @@ In alphabetical order:
 * `x_gridlines_color` - A boolean or a list of colors for the vertical
   gridlines, as specified above for the `color` option. Defaults to `False`.
 * `x_labels` - Enable axis labels for the x axis. Defaults to `True`.
+* `x_unit_scaling` - Scale the x axis labels, assuming `x_unit` is the base
+  unit. Supported values are `""` (no scaling) and `"si"` (SI prefixes `k`, `M`,
+  `G`, … and `m`, `µ`, `n`, …). For example, with `x_unit=" m"` a label of `1000`
+  is shown as `1 km` and `0.003` as `3 mm`. The prefix is inserted before the
+  first non-whitespace character of the unit (so a leading space is preserved),
+  and a blank unit still gets a prefix (e.g. `200k`). Defaults to `""`.
 * `y_as_log` - Plot the y axis as logarithmic scale. Defaults to `False`.
 * `y_gridlines` - A list of y values that have a horizontal line for better
   orientation. Defaults to `[0]`, or to `[]` if `y_as_log` is enabled.
 * `y_gridlines_color` - A boolean or a list of colors for the horizontal
   gridlines, as specified above for the `color` option. Defaults to `False`.
 * `y_labels` - Enable axis labels for the y axis. Defaults to `True`.
+* `y_unit_scaling` - Scale the y axis labels, assuming `y_unit` is the base
+  unit. See `x_unit_scaling`. Defaults to `""`.
 
 
 ### Changing default parameters
@@ -249,6 +259,7 @@ the following example:
 ```python
 from functools import partial
 from uniplot import plot as default_plot
+
 plot = partial(default_plot, height=25, width=80)
 ```
 
@@ -279,8 +290,10 @@ Example:
 
 ```python
 import numpy as np
+
 x = np.sin(np.linspace(1, 1000))
 from uniplot import histogram
+
 histogram(x)
 ```
 
@@ -402,7 +415,7 @@ ys = []
 with Live(plt, refresh_per_second=10) as live:
     for i in range(400):
         ys.append(math.sin(i / 10))
-        plt.set_data(ys=ys[-100:])   # high-rate updates; no printing
+        plt.set_data(ys=ys[-100:])  # high-rate updates; no printing
         time.sleep(0.005)
 ```
 

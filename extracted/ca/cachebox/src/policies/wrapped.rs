@@ -22,12 +22,16 @@ use crate::policies::traits::VacantExt;
 ///
 /// The shared (lock-free) fields of the policy are accessible directly via
 /// [`Wrapped::shared`], while mutable state is accessed through the inner
-/// [`std::sync::Mutex`].
+/// [`parking_lot::Mutex`].
 pub struct Wrapped<P: PolicyExt> {
     /// Read-only fields after initialization — no lock required.
     /// Accessible directly without acquiring the mutex.
     shared: P::Shared,
-    /// Mutable policy state — protected by a [`std::sync::Mutex`].
+    /// Mutable policy state — protected by a [`parking_lot::Mutex`].
+    ///
+    /// Wait for it with [`Self::policy_py_attached`] (or [`Self::try_policy`]), never
+    /// with a plain `lock()`: a thread blocked while attached deadlocks with a lock
+    /// holder that needs the interpreter (#95).
     inner: parking_lot::Mutex<P>,
 }
 
@@ -47,18 +51,35 @@ impl<P: PolicyExt> Wrapped<P> {
     }
 
     /// Acquires the mutex and returns a guard over the mutable policy state.
-    ///
-    /// Prefer [`Self::policy_py_attached`] when GIL is attached.
-    #[inline(always)]
-    pub fn policy(&self) -> parking_lot::MutexGuard<'_, P> {
-        self.inner.lock()
-    }
-
-    /// Acquires the mutex and returns a guard over the mutable policy state.
     // https://github.com/awolverp/cachebox/issues/95
     #[inline(always)]
-    pub fn policy_py_attached(&self, py: pyo3::Python<'_>) -> parking_lot::MutexGuard<'_, P> {
+    pub fn policy(&self, py: pyo3::Python<'_>) -> parking_lot::MutexGuard<'_, P> {
         pyo3::sync::MutexExt::lock_py_attached(&self.inner, py)
+    }
+
+    /// Acquires the mutexes of two different caches and returns the guards as
+    /// `(self, other)`.
+    ///
+    /// The mutexes are always taken in address order, so `a == b` and `b == a`
+    /// on two threads cannot each hold one lock and wait for the other.
+    // https://github.com/awolverp/cachebox/issues/118
+    pub fn policy_ordered_pair<'a>(
+        &'a self,
+        other: &'a Self,
+        py: pyo3::Python<'_>,
+    ) -> (
+        parking_lot::MutexGuard<'a, P>,
+        parking_lot::MutexGuard<'a, P>,
+    ) {
+        debug_assert!(!std::ptr::eq(self, other));
+
+        if (self as *const Self) < (other as *const Self) {
+            let first = self.policy(py);
+            (first, other.policy(py))
+        } else {
+            let first = other.policy(py);
+            (self.policy(py), first)
+        }
     }
 
     /// Acquires the mutex only if it is free, returning `None` otherwise.
@@ -69,6 +90,23 @@ impl<P: PolicyExt> Wrapped<P> {
     #[inline(always)]
     pub fn try_policy(&self) -> Option<parking_lot::MutexGuard<'_, P>> {
         self.inner.try_lock()
+    }
+}
+
+/// How many handles [`Wrapped::extend`] builds before inserting them, which
+/// bounds its memory when the input is much larger than the cache.
+const EXTEND_CHUNK: usize = 1024;
+
+/// Built-in containers whose iteration runs no Python code. Exact types only:
+/// a subclass can override `__iter__`.
+fn iterates_without_python(obj: &alias::BoundObject) -> bool {
+    let ptr = obj.as_ptr();
+
+    unsafe {
+        pyo3::ffi::Py_TYPE(ptr) == crate::typeref::STD_FROZENSET_TYPE
+            || pyo3::ffi::Py_TYPE(ptr) == crate::typeref::STD_LIST_TYPE
+            || pyo3::ffi::Py_TYPE(ptr) == crate::typeref::STD_SET_TYPE
+            || pyo3::ffi::Py_TYPE(ptr) == crate::typeref::STD_TUPLE_TYPE
     }
 }
 
@@ -115,8 +153,8 @@ fn insert_inner<P: PolicyExt>(
 impl<P: PolicyExt> Wrapped<P> {
     /// Returns the remaining size. Equals to `maxsize - current_size`.
     #[inline]
-    pub fn remaining_size(&self) -> usize {
-        let policy = self.inner.lock();
+    pub fn remaining_size(&self, py: pyo3::Python<'_>) -> usize {
+        let policy = self.policy(py);
         self.shared.maxsize().saturating_sub(policy.current_size())
     }
 
@@ -127,7 +165,7 @@ impl<P: PolicyExt> Wrapped<P> {
         py: pyo3::Python<'_>,
         key: &<P::Handle as HandleExt>::Key,
     ) -> pyo3::PyResult<bool> {
-        let mut lock = self.policy_py_attached(py);
+        let mut lock = self.policy(py);
 
         let handle = lock.get(py, key, &self.shared)?;
         Ok(handle.is_some())
@@ -155,7 +193,7 @@ impl<P: PolicyExt> Wrapped<P> {
         py: pyo3::Python<'_>,
         handle: P::Handle,
     ) -> pyo3::PyResult<Option<P::Handle>> {
-        let mut lock = self.policy_py_attached(py);
+        let mut lock = self.policy(py);
         self.insert_no_lock(&mut lock, py, handle)
     }
 
@@ -167,7 +205,7 @@ impl<P: PolicyExt> Wrapped<P> {
         py: pyo3::Python<'_>,
         key: &<P::Handle as HandleExt>::Key,
     ) -> pyo3::PyResult<Option<P::Handle>> {
-        let mut lock = self.policy_py_attached(py);
+        let mut lock = self.policy(py);
 
         let entry = lock.entry(py, key, &self.shared)?;
         match entry {
@@ -193,6 +231,14 @@ impl<P: PolicyExt> Wrapped<P> {
     ///   other dict-like types; `.items()` is called and the result is iterated.
     /// - **Any other iterable** — iterated directly, with each element expected to
     ///   unpack as a `(key, value)` pair.
+    ///
+    /// A `dict`, `list`, `tuple`, `set` or `frozenset` is inserted in one pass under
+    /// one lock: iterating it runs no Python code. Any other iterable may run Python
+    /// code that uses this cache or locks another one (a generator, another
+    /// cache's `.items()`), so it is never iterated under the lock: handles are
+    /// built in chunks of [`EXTEND_CHUNK`] and each chunk is inserted under one
+    /// lock. Entries read before an error are still inserted, like `dict.update`.
+    // https://github.com/awolverp/cachebox/issues/118
     #[inline]
     pub fn extend<F>(&self, iterable: alias::BoundObject, mut transform: F) -> pyo3::PyResult<()>
     where
@@ -201,14 +247,13 @@ impl<P: PolicyExt> Wrapped<P> {
         use pyo3::types::PyAnyMethods;
         use pyo3::types::PyDictMethods;
 
-        let mut lock = self.policy_py_attached(iterable.py());
+        let py = iterable.py();
 
-        // Using [pyo3::ffi::PyObject_TypeCheck] and [Bound::cast_unchecked] is so faster than [Bound::cast]
-        let is_dictionary = unsafe {
+        if unsafe {
             pyo3::ffi::PyObject_TypeCheck(iterable.as_ptr(), crate::typeref::STD_DICT_TYPE) == 1
-        };
-        if is_dictionary {
+        } {
             let dict = unsafe { iterable.cast_unchecked::<pyo3::types::PyDict>() };
+            let mut lock = self.policy(py);
 
             for pair in dict.items() {
                 let (key, value) = unsafe {
@@ -216,30 +261,68 @@ impl<P: PolicyExt> Wrapped<P> {
                         .unwrap_unchecked()
                 };
 
-                insert_inner(&mut lock, &self.shared, pair.py(), transform(key, value)?)?;
+                insert_inner(&mut lock, &self.shared, py, transform(key, value)?)?;
             }
 
             return Ok(());
         }
 
-        // By this we will support everything has `.items()` attribute,
-        // including our cache classes
-        let items_iterable = {
-            if let Some(items_attribute) = iterable.getattr_opt(c"items")? {
-                items_attribute.call0()?
-            } else {
-                iterable
+        if iterates_without_python(&iterable) {
+            let mut lock = self.policy(py);
+
+            for pair in iterable.try_iter()? {
+                let pair = pair?;
+                let (key, value) = pair.extract::<(alias::PyObject, alias::PyObject)>()?;
+
+                insert_inner(&mut lock, &self.shared, py, transform(key, value)?)?;
             }
-        };
 
-        for pair in items_iterable.try_iter()? {
-            let pair = pair?;
-            let (key, value) = pair.extract::<(alias::PyObject, alias::PyObject)>()?;
-
-            insert_inner(&mut lock, &self.shared, pair.py(), transform(key, value)?)?;
+            return Ok(());
         }
 
-        Ok(())
+        let mut handles = Vec::new();
+
+        let collected = (|| {
+            // By this we will support everything has `.items()` attribute,
+            // including our cache classes
+            let items_iterable = {
+                if let Some(items_attribute) = iterable.getattr_opt(c"items")? {
+                    items_attribute.call0()?
+                } else {
+                    iterable
+                }
+            };
+
+            // Only a hint: a generator has no len() (its TypeError is dropped here).
+            handles.reserve(items_iterable.len().unwrap_or(0).min(EXTEND_CHUNK));
+
+            for pair in items_iterable.try_iter()? {
+                let pair = pair?;
+                let (key, value) = pair.extract::<(alias::PyObject, alias::PyObject)>()?;
+
+                handles.push(transform(key, value)?);
+                if handles.len() == EXTEND_CHUNK {
+                    self.insert_all(py, &mut handles)?;
+                }
+            }
+
+            Ok(())
+        })();
+
+        if !handles.is_empty() {
+            self.insert_all(py, &mut handles)?;
+        }
+        collected
+    }
+
+    /// Inserts `handles` under one lock, leaving `handles` empty.
+    fn insert_all(&self, py: pyo3::Python<'_>, handles: &mut Vec<P::Handle>) -> pyo3::PyResult<()> {
+        // Declared before the lock, so after an error the handles not inserted
+        // are dropped (and their finalizers run) once the lock is released.
+        let mut pending = handles.drain(..);
+        let mut lock = self.policy(py);
+
+        pending.try_for_each(|handle| insert_inner(&mut lock, &self.shared, py, handle).map(drop))
     }
 
     /// Calls the `evict()` `n` times and returns count of removed items.
@@ -253,7 +336,7 @@ impl<P: PolicyExt> Wrapped<P> {
             return Ok(0);
         }
 
-        let mut lock = self.policy_py_attached(py);
+        let mut lock = self.policy(py);
 
         let mut count: pyo3::ffi::Py_ssize_t = 0;
         while count < n {
@@ -277,7 +360,7 @@ impl<P: PolicyExt> Wrapped<P> {
     #[inline]
     pub fn clone_ref(&self, py: pyo3::Python) -> Self {
         let shared = self.shared.clone_ref(py);
-        let policy = self.policy_py_attached(py).clone_ref(py);
+        let policy = self.policy(py).clone_ref(py);
 
         Self {
             shared,

@@ -578,6 +578,16 @@ def test_an_experiment_card_shows_its_conclusion_under_the_question():
     assert not {"conclusion", "conclusion_source"} & unset.keys()
 
 
+def test_an_experiment_card_says_it_is_a_dead_end_and_why():
+    card = _experiment_card(outcome="dead_end", outcome_reason="OOM at batch 64 on 80 GB")
+    assert card["dead_end"] == "OOM at batch 64 on 80 GB"
+    long = _experiment_card(outcome="dead_end", outcome_reason="r" * 2000)
+    assert len(long["dead_end"]) < 2000 and long["dead_end_truncated"] is True
+    # Unmarked (the server sends nulls), or a server before 0408: no key at all.
+    assert "dead_end" not in _experiment_card(outcome=None, outcome_reason=None)
+    assert "dead_end" not in _experiment_card()
+
+
 def test_a_run_card_never_carries_fork_facts():
     entity = {"id": "one", "name": "r", "forked_from": dict(_SOURCE), "fork_count": 3}
     card = ResearchReadService(EntitySource(EntityType.RUN, entity)).get_entity("run:one")

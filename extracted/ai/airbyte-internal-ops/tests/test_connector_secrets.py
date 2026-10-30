@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import json
+import logging
 from contextlib import ExitStack
 from unittest.mock import MagicMock, call, patch
 
@@ -12,25 +14,55 @@ from google.api_core.exceptions import (
     AlreadyExists,
     GoogleAPICallError,
     NotFound,
+    PermissionDenied,
     RetryError,
 )
 
 from airbyte_ops_mcp.cli._base import app
 from airbyte_ops_mcp.connector_secrets import (
     ConnectorSecretAlreadyExistsError,
+    ConnectorSecretConfig,
     ConnectorSecretConnectorMismatchError,
     ConnectorSecretFilenameConflictError,
     ConnectorSecretNotFoundError,
+    ConnectorSecretsUnavailableError,
     ConnectorSecretVersionDisableError,
     ConnectorSecretWithNoValidVersionsError,
     InvalidConnectorSecretFilenameError,
     InvalidConnectorSecretNameError,
     InvalidConnectorSecretPayloadError,
     create_secret,
+    find_usable_connector_config,
     get_gsm_writer_client,
+    read_enabled_secret_value,
     update_secret,
     write_secret_file,
 )
+
+
+def _gsm_secret(name: str, labels: dict[str, str] | None = None) -> MagicMock:
+    secret = MagicMock()
+    secret.name = f"projects/test-project/secrets/{name}"
+    secret.labels = labels or {}
+    return secret
+
+
+def _gsm_version(secret: MagicMock) -> MagicMock:
+    version = MagicMock()
+    version.name = f"{secret.name}/versions/1"
+    return version
+
+
+def _gsm_payload(config: object) -> MagicMock:
+    response = MagicMock()
+    response.payload.data = json.dumps(config).encode("UTF-8")
+    return response
+
+
+def _selection_client(secrets: list[MagicMock]) -> MagicMock:
+    client = MagicMock()
+    client.list_secrets.return_value = secrets
+    return client
 
 
 class TestWriteSecretFile:
@@ -73,6 +105,7 @@ class TestWriteSecretFile:
             name=mock_version.name
         )
         assert mock_file_path.read_text() == '{"key": "value"}'
+        assert mock_file_path.stat().st_mode & 0o777 == 0o600
 
     def test_write_secret_file_with_no_enabled_versions(
         self, mock_client, mock_secret, mock_file_path
@@ -95,6 +128,346 @@ class TestWriteSecretFile:
         assert excinfo.value.secret_name == "test-secret"
         assert excinfo.value.connector_name == "test-connector"
         assert excinfo.value.gcp_project_id == "test-project"
+
+
+def test_read_enabled_secret_value_returns_first_enabled_version() -> None:
+    secret = _gsm_secret("SECRET_SOURCE-TEST__CREDS")
+    first_version = _gsm_version(secret)
+    second_version = MagicMock()
+    second_version.name = f"{secret.name}/versions/2"
+    client = MagicMock()
+    client.list_secret_versions.return_value = [first_version, second_version]
+    response = MagicMock()
+    response.payload.data = b'{"token":"first"}'
+    client.access_secret_version.return_value = response
+
+    result = read_enabled_secret_value(secret, client)
+
+    assert result == '{"token":"first"}'
+    client.list_secret_versions.assert_called_once_with(
+        request={"parent": secret.name, "filter": "state:ENABLED"}
+    )
+    client.access_secret_version.assert_called_once_with(name=first_version.name)
+
+
+def test_accepts_empty_object_config_for_no_auth_connectors() -> None:
+    secret = _gsm_secret("SECRET_SOURCE-TEST__CREDS", {"filename": "config"})
+    client = _selection_client([secret])
+    client.list_secret_versions.return_value = [_gsm_version(secret)]
+    client.access_secret_version.return_value = _gsm_payload({})
+
+    result = find_usable_connector_config(
+        "source-test", gcp_project_id="test-project", client=client
+    )
+
+    assert result == ConnectorSecretConfig(
+        secret_name="SECRET_SOURCE-TEST__CREDS",
+        config={},
+    )
+
+
+def test_connector_secret_config_repr_hides_config_values() -> None:
+    config = ConnectorSecretConfig(
+        secret_name="SECRET_SOURCE-TEST__CREDS",
+        config={"api_key": "sensitive-config-value"},
+    )
+
+    assert "sensitive-config-value" not in repr(config)
+
+
+def test_find_usable_connector_config_propagates_listing_errors() -> None:
+    client = MagicMock()
+    client.list_secrets.side_effect = RuntimeError("listing failed")
+
+    with pytest.raises(RuntimeError, match="listing failed"):
+        find_usable_connector_config(
+            "source-test", gcp_project_id="test-project", client=client
+        )
+
+
+def test_prefers_config_secret_over_earlier_secret() -> None:
+    other = _gsm_secret("SECRET_SOURCE-TEST__OAUTH", {"filename": "oauth_config"})
+    default = _gsm_secret("SECRET_SOURCE-TEST__CREDS", {"filename": "config"})
+    client = _selection_client([other, default])
+    client.list_secret_versions.side_effect = [
+        [_gsm_version(default)],
+        [_gsm_version(other)],
+    ]
+    client.access_secret_version.side_effect = [
+        _gsm_payload({"token": "default"}),
+        _gsm_payload({"token": "oauth"}),
+    ]
+
+    result = find_usable_connector_config(
+        "source-test", gcp_project_id="test-project", client=client
+    )
+
+    assert result == ConnectorSecretConfig(
+        secret_name="SECRET_SOURCE-TEST__CREDS",
+        config={"token": "default"},
+    )
+
+
+def test_config_secret_precedes_secret_without_filename_label() -> None:
+    unlabeled = _gsm_secret("SECRET_SOURCE-TEST__UNLABELED")
+    configured = _gsm_secret("SECRET_SOURCE-TEST__CREDS", {"filename": "config"})
+    client = _selection_client([unlabeled, configured])
+    client.list_secret_versions.side_effect = [
+        [_gsm_version(configured)],
+        [_gsm_version(unlabeled)],
+    ]
+    client.access_secret_version.side_effect = [
+        _gsm_payload({"token": "configured"}),
+        _gsm_payload({"token": "unlabeled"}),
+    ]
+
+    result = find_usable_connector_config(
+        "source-test", gcp_project_id="test-project", client=client
+    )
+
+    assert result is not None
+    assert result.secret_name == "SECRET_SOURCE-TEST__CREDS"
+
+
+def test_secret_without_filename_label_is_a_default() -> None:
+    other = _gsm_secret("SECRET_SOURCE-TEST__OAUTH", {"filename": "oauth_config"})
+    default = _gsm_secret("SECRET_SOURCE-TEST__CREDS")
+    client = _selection_client([other, default])
+    client.list_secret_versions.side_effect = [
+        [_gsm_version(default)],
+        [_gsm_version(other)],
+    ]
+    client.access_secret_version.side_effect = [
+        _gsm_payload({"token": "default"}),
+        _gsm_payload({"token": "oauth"}),
+    ]
+
+    result = find_usable_connector_config(
+        "source-test", gcp_project_id="test-project", client=client
+    )
+
+    assert result is not None
+    assert result.secret_name == "SECRET_SOURCE-TEST__CREDS"
+    assert result.config == {"token": "default"}
+
+
+def test_skips_empty_placeholder_and_uses_next_secret() -> None:
+    placeholder = _gsm_secret("SECRET_SOURCE-TEST__CREDS", {"filename": "config"})
+    usable = _gsm_secret("SECRET_SOURCE-TEST__OAUTH", {"filename": "oauth_config"})
+    client = _selection_client([placeholder, usable])
+    client.list_secret_versions.side_effect = [
+        [_gsm_version(placeholder)],
+        [_gsm_version(usable)],
+    ]
+    client.access_secret_version.side_effect = [
+        _gsm_payload({"credentials": {"token": "", "refresh_token": None}}),
+        _gsm_payload({"token": "usable"}),
+    ]
+
+    result = find_usable_connector_config(
+        "source-test", gcp_project_id="test-project", client=client
+    )
+
+    assert result is not None
+    assert result.secret_name == "SECRET_SOURCE-TEST__OAUTH"
+    assert result.config == {"token": "usable"}
+
+
+def test_skips_secret_without_enabled_version() -> None:
+    disabled = _gsm_secret("SECRET_SOURCE-TEST__CREDS", {"filename": "config"})
+    usable = _gsm_secret("SECRET_SOURCE-TEST__OAUTH", {"filename": "oauth_config"})
+    client = _selection_client([disabled, usable])
+    client.list_secret_versions.side_effect = [[], [_gsm_version(usable)]]
+    client.access_secret_version.return_value = _gsm_payload({"token": "usable"})
+
+    result = find_usable_connector_config(
+        "source-test", gcp_project_id="test-project", client=client
+    )
+
+    assert result is not None
+    assert result.secret_name == "SECRET_SOURCE-TEST__OAUTH"
+    client.access_secret_version.assert_called_once_with(name=_gsm_version(usable).name)
+
+
+@pytest.mark.parametrize("invalid_payload_bytes", [b"not-json", b'{"token": NaN}'])
+def test_skips_non_json_payload(invalid_payload_bytes: bytes) -> None:
+    malformed = _gsm_secret("SECRET_SOURCE-TEST__CREDS", {"filename": "config"})
+    usable = _gsm_secret("SECRET_SOURCE-TEST__OAUTH", {"filename": "oauth_config"})
+    client = _selection_client([malformed, usable])
+    client.list_secret_versions.side_effect = [
+        [_gsm_version(malformed)],
+        [_gsm_version(usable)],
+    ]
+    invalid_payload = MagicMock()
+    invalid_payload.payload.data = invalid_payload_bytes
+    client.access_secret_version.side_effect = [
+        invalid_payload,
+        _gsm_payload({"token": "usable"}),
+    ]
+
+    result = find_usable_connector_config(
+        "source-test", gcp_project_id="test-project", client=client
+    )
+
+    assert result is not None
+    assert result.secret_name == "SECRET_SOURCE-TEST__OAUTH"
+    assert result.config == {"token": "usable"}
+
+
+def test_skips_array_payload_and_uses_next_secret(caplog) -> None:
+    array = _gsm_secret("SECRET_SOURCE-TEST__CREDS", {"filename": "config"})
+    usable = _gsm_secret("SECRET_SOURCE-TEST__OAUTH", {"filename": "oauth_config"})
+    client = _selection_client([array, usable])
+    client.list_secret_versions.side_effect = [
+        [_gsm_version(array)],
+        [_gsm_version(usable)],
+    ]
+    invalid_payload = MagicMock()
+    invalid_payload.payload.data = b"[]"
+    client.access_secret_version.side_effect = [
+        invalid_payload,
+        _gsm_payload({"token": "usable"}),
+    ]
+    caplog.set_level(logging.WARNING)
+
+    result = find_usable_connector_config(
+        "source-test", gcp_project_id="test-project", client=client
+    )
+
+    assert result is not None
+    assert result.secret_name == "SECRET_SOURCE-TEST__OAUTH"
+    assert result.config == {"token": "usable"}
+    assert "Skipping GSM candidate 1 of 2: payload is not a JSON object" in caplog.text
+
+
+def test_returns_none_when_no_secret_is_usable() -> None:
+    nested_empty = _gsm_secret("SECRET_SOURCE-TEST__CREDS", {"filename": "config"})
+    placeholder = _gsm_secret("SECRET_SOURCE-TEST__OAUTH", {"filename": "oauth_config"})
+    client = _selection_client([nested_empty, placeholder])
+    client.list_secret_versions.side_effect = [
+        [_gsm_version(nested_empty)],
+        [_gsm_version(placeholder)],
+    ]
+    client.access_secret_version.side_effect = [
+        _gsm_payload({"credentials": {}}),
+        _gsm_payload({"token": ""}),
+    ]
+
+    assert (
+        find_usable_connector_config(
+            "source-test", gcp_project_id="test-project", client=client
+        )
+        is None
+    )
+
+
+def test_raises_when_every_candidate_cannot_be_read() -> None:
+    config = _gsm_secret("SECRET_SOURCE-TEST__CREDS", {"filename": "config"})
+    oauth = _gsm_secret("SECRET_SOURCE-TEST__OAUTH", {"filename": "oauth_config"})
+    client = _selection_client([config, oauth])
+    client.list_secret_versions.side_effect = PermissionDenied(
+        "sensitive permission detail"
+    )
+
+    with pytest.raises(ConnectorSecretsUnavailableError) as excinfo:
+        find_usable_connector_config(
+            "source-test", gcp_project_id="test-project", client=client
+        )
+
+    assert excinfo.value.error_types == ["PermissionDenied"]
+    assert "Could not read GSM" in str(excinfo.value)
+    assert "SECRET_SOURCE-TEST__CREDS" not in str(excinfo.value)
+    assert "SECRET_SOURCE-TEST__OAUTH" not in str(excinfo.value)
+    assert "sensitive permission detail" not in str(excinfo.value)
+    assert client.list_secret_versions.call_count == 2
+
+
+def test_deduplicates_candidate_error_types_in_first_seen_order() -> None:
+    candidates = [
+        _gsm_secret("SECRET_SOURCE-TEST__CONFIG", {"filename": "config"}),
+        _gsm_secret("SECRET_SOURCE-TEST__OAUTH", {"filename": "oauth_config"}),
+        _gsm_secret("SECRET_SOURCE-TEST__FULL_REFRESH", {"filename": "full_refresh"}),
+    ]
+    client = _selection_client(candidates)
+    client.list_secret_versions.side_effect = [
+        PermissionDenied("first failure"),
+        RuntimeError("second failure"),
+        PermissionDenied("third failure"),
+    ]
+
+    with pytest.raises(ConnectorSecretsUnavailableError) as excinfo:
+        find_usable_connector_config(
+            "source-test", gcp_project_id="test-project", client=client
+        )
+
+    assert excinfo.value.error_types == ["PermissionDenied", "RuntimeError"]
+
+
+def test_read_error_and_validation_skip_raise_when_no_candidate_is_usable() -> None:
+    unreadable = _gsm_secret("SECRET_SOURCE-TEST__CREDS", {"filename": "config"})
+    placeholder = _gsm_secret("SECRET_SOURCE-TEST__OAUTH", {"filename": "oauth_config"})
+    client = _selection_client([unreadable, placeholder])
+    client.list_secret_versions.side_effect = [
+        PermissionDenied("sensitive permission detail"),
+        [_gsm_version(placeholder)],
+    ]
+    client.access_secret_version.return_value = _gsm_payload({"token": ""})
+
+    with pytest.raises(ConnectorSecretsUnavailableError) as excinfo:
+        find_usable_connector_config(
+            "source-test", gcp_project_id="test-project", client=client
+        )
+
+    assert excinfo.value.error_types == ["PermissionDenied"]
+    assert "SECRET_SOURCE-TEST__CREDS" not in str(excinfo.value)
+    assert "SECRET_SOURCE-TEST__OAUTH" not in str(excinfo.value)
+
+
+def test_uses_later_usable_candidate_after_read_error() -> None:
+    unreadable = _gsm_secret("SECRET_SOURCE-TEST__CREDS", {"filename": "config"})
+    usable = _gsm_secret("SECRET_SOURCE-TEST__OAUTH", {"filename": "oauth_config"})
+    client = _selection_client([unreadable, usable])
+    client.list_secret_versions.side_effect = [
+        PermissionDenied("sensitive permission detail"),
+        [_gsm_version(usable)],
+    ]
+    client.access_secret_version.return_value = _gsm_payload({"token": "usable"})
+
+    result = find_usable_connector_config(
+        "source-test", gcp_project_id="test-project", client=client
+    )
+
+    assert result == ConnectorSecretConfig(
+        secret_name="SECRET_SOURCE-TEST__OAUTH",
+        config={"token": "usable"},
+    )
+
+
+def test_logs_candidate_positions_without_resource_names(caplog) -> None:
+    placeholder = _gsm_secret("SECRET_SOURCE-TEST__CREDS", {"filename": "config"})
+    usable = _gsm_secret("SECRET_SOURCE-TEST__OAUTH", {"filename": "oauth_config"})
+    client = _selection_client([placeholder, usable])
+    client.list_secret_versions.side_effect = [
+        [_gsm_version(placeholder)],
+        [_gsm_version(usable)],
+    ]
+    client.access_secret_version.side_effect = [
+        _gsm_payload({"token": ""}),
+        _gsm_payload({"token": "usable"}),
+    ]
+    caplog.set_level(logging.INFO)
+
+    result = find_usable_connector_config(
+        "source-test", gcp_project_id="test-project", client=client
+    )
+
+    assert result is not None
+    assert (
+        "Skipping GSM candidate 1 of 2: config is an empty placeholder" in caplog.text
+    )
+    assert "Using GSM candidate 2 of 2" in caplog.text
+    assert "SECRET_SOURCE-TEST__CREDS" not in caplog.text
+    assert "SECRET_SOURCE-TEST__OAUTH" not in caplog.text
 
 
 @patch("airbyte_ops_mcp.cli.secrets.get_gsm_secrets_client")

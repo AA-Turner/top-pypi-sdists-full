@@ -158,7 +158,10 @@ class PauseAction(Record):
     """
 
     type: str = field(default="pause", init=False, metadata=meta("type", required=True, fixed="pause"))
-    duration: int | UnsetType = field(default=UNSET, metadata=meta("duration", primitive="int"))
+    duration: int | UnsetType = field(
+        default=UNSET,
+        metadata=meta("duration", primitive="int", min=0, max=9007199254740991),
+    )
 
 
 @register("input.KeyDownAction")
@@ -193,7 +196,7 @@ class PointerUpAction(Record):
     See https://w3c.github.io/webdriver-bidi/#cddl-type-inputpointerupaction
     """
 
-    button: int = field(metadata=meta("button", required=True, primitive="int"))
+    button: int = field(metadata=meta("button", required=True, primitive="int", min=0, max=9007199254740991))
     type: str = field(default="pointerUp", init=False, metadata=meta("type", required=True, fixed="pointerUp"))
 
 
@@ -205,18 +208,30 @@ class PointerDownAction(Record):
     See https://w3c.github.io/webdriver-bidi/#cddl-type-inputpointerdownaction
     """
 
-    button: int = field(metadata=meta("button", required=True, primitive="int"))
+    button: int = field(metadata=meta("button", required=True, primitive="int", min=0, max=9007199254740991))
     type: str = field(default="pointerDown", init=False, metadata=meta("type", required=True, fixed="pointerDown"))
-    width: int | UnsetType = field(default=UNSET, metadata=meta("width", primitive="int"))
-    height: int | UnsetType = field(default=UNSET, metadata=meta("height", primitive="int"))
-    pressure: float | UnsetType = field(default=UNSET, metadata=meta("pressure", primitive="float"))
+    width: int | UnsetType = field(
+        default=UNSET,
+        metadata=meta("width", primitive="int", min=0, max=9007199254740991),
+    )
+    height: int | UnsetType = field(
+        default=UNSET,
+        metadata=meta("height", primitive="int", min=0, max=9007199254740991),
+    )
+    pressure: float | UnsetType = field(default=UNSET, metadata=meta("pressure", primitive="float", min=0, max=1))
     tangential_pressure: float | UnsetType = field(
         default=UNSET,
-        metadata=meta("tangentialPressure", primitive="float"),
+        metadata=meta("tangentialPressure", primitive="float", min=-1, max=1),
     )
-    twist: int | UnsetType = field(default=UNSET, metadata=meta("twist", primitive="int"))
-    altitude_angle: float | UnsetType = field(default=UNSET, metadata=meta("altitudeAngle", primitive="float"))
-    azimuth_angle: float | UnsetType = field(default=UNSET, metadata=meta("azimuthAngle", primitive="float"))
+    twist: int | UnsetType = field(default=UNSET, metadata=meta("twist", primitive="int", min=0, max=359))
+    altitude_angle: float | UnsetType = field(
+        default=UNSET,
+        metadata=meta("altitudeAngle", primitive="float", min=0, max=1.5707963267948966),
+    )
+    azimuth_angle: float | UnsetType = field(
+        default=UNSET,
+        metadata=meta("azimuthAngle", primitive="float", min=0, max=6.283185307179586),
+    )
 
 
 @register("input.PointerMoveAction")
@@ -230,18 +245,33 @@ class PointerMoveAction(Record):
     x: float = field(metadata=meta("x", required=True, primitive="float"))
     y: float = field(metadata=meta("y", required=True, primitive="float"))
     type: str = field(default="pointerMove", init=False, metadata=meta("type", required=True, fixed="pointerMove"))
-    duration: int | UnsetType = field(default=UNSET, metadata=meta("duration", primitive="int"))
+    duration: int | UnsetType = field(
+        default=UNSET,
+        metadata=meta("duration", primitive="int", min=0, max=9007199254740991),
+    )
     origin: OriginValue | UnsetType = field(default=UNSET, metadata=meta("origin", ref="input.Origin"))
-    width: int | UnsetType = field(default=UNSET, metadata=meta("width", primitive="int"))
-    height: int | UnsetType = field(default=UNSET, metadata=meta("height", primitive="int"))
-    pressure: float | UnsetType = field(default=UNSET, metadata=meta("pressure", primitive="float"))
+    width: int | UnsetType = field(
+        default=UNSET,
+        metadata=meta("width", primitive="int", min=0, max=9007199254740991),
+    )
+    height: int | UnsetType = field(
+        default=UNSET,
+        metadata=meta("height", primitive="int", min=0, max=9007199254740991),
+    )
+    pressure: float | UnsetType = field(default=UNSET, metadata=meta("pressure", primitive="float", min=0, max=1))
     tangential_pressure: float | UnsetType = field(
         default=UNSET,
-        metadata=meta("tangentialPressure", primitive="float"),
+        metadata=meta("tangentialPressure", primitive="float", min=-1, max=1),
     )
-    twist: int | UnsetType = field(default=UNSET, metadata=meta("twist", primitive="int"))
-    altitude_angle: float | UnsetType = field(default=UNSET, metadata=meta("altitudeAngle", primitive="float"))
-    azimuth_angle: float | UnsetType = field(default=UNSET, metadata=meta("azimuthAngle", primitive="float"))
+    twist: int | UnsetType = field(default=UNSET, metadata=meta("twist", primitive="int", min=0, max=359))
+    altitude_angle: float | UnsetType = field(
+        default=UNSET,
+        metadata=meta("altitudeAngle", primitive="float", min=0, max=1.5707963267948966),
+    )
+    azimuth_angle: float | UnsetType = field(
+        default=UNSET,
+        metadata=meta("azimuthAngle", primitive="float", min=0, max=6.283185307179586),
+    )
 
 
 @register("input.WheelScrollAction")
@@ -252,12 +282,19 @@ class WheelScrollAction(Record):
     See https://w3c.github.io/webdriver-bidi/#cddl-type-inputwheelscrollaction
     """
 
-    x: int = field(metadata=meta("x", required=True, primitive="int"))
-    y: int = field(metadata=meta("y", required=True, primitive="int"))
-    delta_x: int = field(metadata=meta("deltaX", required=True, primitive="int"))
-    delta_y: int = field(metadata=meta("deltaY", required=True, primitive="int"))
+    x: int = field(metadata=meta("x", required=True, primitive="int", min=-9007199254740991, max=9007199254740991))
+    y: int = field(metadata=meta("y", required=True, primitive="int", min=-9007199254740991, max=9007199254740991))
+    delta_x: int = field(
+        metadata=meta("deltaX", required=True, primitive="int", min=-9007199254740991, max=9007199254740991),
+    )
+    delta_y: int = field(
+        metadata=meta("deltaY", required=True, primitive="int", min=-9007199254740991, max=9007199254740991),
+    )
     type: str = field(default="scroll", init=False, metadata=meta("type", required=True, fixed="scroll"))
-    duration: int | UnsetType = field(default=UNSET, metadata=meta("duration", primitive="int"))
+    duration: int | UnsetType = field(
+        default=UNSET,
+        metadata=meta("duration", primitive="int", min=0, max=9007199254740991),
+    )
     origin: OriginValue | UnsetType = field(default=UNSET, metadata=meta("origin", ref="input.Origin"))
 
 
@@ -269,16 +306,28 @@ class PointerCommonProperties(Record):
     See https://w3c.github.io/webdriver-bidi/#cddl-type-inputpointercommonproperties
     """
 
-    width: int | UnsetType = field(default=UNSET, metadata=meta("width", primitive="int"))
-    height: int | UnsetType = field(default=UNSET, metadata=meta("height", primitive="int"))
-    pressure: float | UnsetType = field(default=UNSET, metadata=meta("pressure", primitive="float"))
+    width: int | UnsetType = field(
+        default=UNSET,
+        metadata=meta("width", primitive="int", min=0, max=9007199254740991),
+    )
+    height: int | UnsetType = field(
+        default=UNSET,
+        metadata=meta("height", primitive="int", min=0, max=9007199254740991),
+    )
+    pressure: float | UnsetType = field(default=UNSET, metadata=meta("pressure", primitive="float", min=0, max=1))
     tangential_pressure: float | UnsetType = field(
         default=UNSET,
-        metadata=meta("tangentialPressure", primitive="float"),
+        metadata=meta("tangentialPressure", primitive="float", min=-1, max=1),
     )
-    twist: int | UnsetType = field(default=UNSET, metadata=meta("twist", primitive="int"))
-    altitude_angle: float | UnsetType = field(default=UNSET, metadata=meta("altitudeAngle", primitive="float"))
-    azimuth_angle: float | UnsetType = field(default=UNSET, metadata=meta("azimuthAngle", primitive="float"))
+    twist: int | UnsetType = field(default=UNSET, metadata=meta("twist", primitive="int", min=0, max=359))
+    altitude_angle: float | UnsetType = field(
+        default=UNSET,
+        metadata=meta("altitudeAngle", primitive="float", min=0, max=1.5707963267948966),
+    )
+    azimuth_angle: float | UnsetType = field(
+        default=UNSET,
+        metadata=meta("azimuthAngle", primitive="float", min=0, max=6.283185307179586),
+    )
 
 
 @register("input.ReleaseActionsParameters")

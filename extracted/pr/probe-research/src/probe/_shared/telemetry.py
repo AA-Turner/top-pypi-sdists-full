@@ -252,6 +252,12 @@ class DiscardReason(StrEnum):
     #: cleanup deletes them. Nothing was lost; reported once, with their dates,
     #: so a machine shows what it still keeps.
     RELOCATED = "relocated"
+    #: The drain set aside writes the server refused because a newer attempt of
+    #: their run took it over (a past write epoch): never deliverable (T24).
+    SUPERSEDED = "superseded"
+    #: `probe doctor --fix` dropped dead letters no retry can deliver: a
+    #: superseded attempt's, or a run the server says does not exist (T24).
+    UNRECOVERABLE = "unrecoverable"
 
 
 class InvokedBy(StrEnum):

@@ -66,6 +66,11 @@ pub(crate) fn handle_document_symbol(
                 DocumentSymbolKind::Rule => SymbolKind::Event,
                 DocumentSymbolKind::Policy => SymbolKind::Variable,
                 DocumentSymbolKind::PropertyGraph => SymbolKind::Struct,
+                DocumentSymbolKind::OperatorClass => SymbolKind::Class,
+                DocumentSymbolKind::OperatorFamily => SymbolKind::Namespace,
+                DocumentSymbolKind::Operator => SymbolKind::Operator,
+                DocumentSymbolKind::Publication => SymbolKind::Object,
+                DocumentSymbolKind::Subscription => SymbolKind::Object,
             },
             tags: None,
             range,
@@ -78,7 +83,7 @@ pub(crate) fn handle_document_symbol(
 
     let lsp_symbols: Vec<DocumentSymbol> = symbols
         .into_iter()
-        .map(|sym| convert_symbol(sym, &line_index))
+        .map(|sym| convert_symbol(sym, line_index))
         .collect();
 
     DocumentSymbolResponse::DocumentSymbolList(lsp_symbols)

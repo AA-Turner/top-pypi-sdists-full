@@ -5,7 +5,9 @@ use rstest::{fixture, rstest};
 use serde_json::{Value, json};
 use tempfile::TempDir;
 
-use super::common::{PackageSite, execute, execute_in, execute_with_python, stdout, with_python};
+use super::common::{
+    PackageSite, execute, execute_in, execute_with_python, stdout, with_python, write_oversized,
+};
 
 mod vcs;
 
@@ -139,6 +141,35 @@ fn size_raw(site: &Path) -> Value {
 }
 
 #[rstest]
+#[cfg_attr(unix, case::fifo(make_fifo))]
+#[cfg_attr(unix, case::device(link_to_device))]
+#[case::oversized(write_oversized)]
+fn counts_nothing_for_an_unreadable_record(#[case] create: fn(&Path, &str)) {
+    let site = PackageSite::new();
+    site.write_file("demo.py", "data");
+    let metadata = site.write("demo-1.dist-info", "Name: demo\nVersion: 1\n");
+    create(&metadata.join("RECORD"), "demo.py,,\n");
+
+    assert_eq!(size_raw(site.path()), json!(0));
+}
+
+#[cfg(unix)]
+fn make_fifo(path: &Path, _: &str) {
+    assert!(
+        std::process::Command::new("mkfifo")
+            .arg(path)
+            .status()
+            .unwrap()
+            .success()
+    );
+}
+
+#[cfg(unix)]
+fn link_to_device(path: &Path, _: &str) {
+    std::os::unix::fs::symlink("/dev/zero", path).unwrap();
+}
+
+#[rstest]
 fn ignores_absolute_record_rows_outside_the_site(outside_file: (TempDir, PathBuf)) {
     let (_outside, file) = outside_file;
     let site = PackageSite::new();
@@ -168,6 +199,18 @@ fn ignores_record_rows_that_are_not_regular_files() {
         sized_distribution(site.path(), "demo,,\ndemo/__init__.py,,\n"),
         json!(4)
     );
+}
+
+#[test]
+fn ignores_the_site_record_for_a_single_file_egg_info() {
+    let root = tempfile::tempdir().unwrap();
+    let site = root.path().join("site");
+    fs::create_dir(&site).unwrap();
+    fs::write(site.join("demo-1.egg-info"), "Name: demo\nVersion: 1\n").unwrap();
+    fs::write(site.join("RECORD"), "outside,,\n").unwrap();
+    fs::write(root.path().join("outside"), "data").unwrap();
+
+    assert_eq!(size_raw(&site), json!(0));
 }
 
 #[cfg(unix)]
@@ -307,6 +350,40 @@ fn limits_metadata_name_and_version_length(
             output.stderr.contains("missing or invalid metadata"),
         ),
         (0, listed, !listed)
+    );
+}
+
+#[rstest]
+#[cfg_attr(
+    unix,
+    case::fifo(|metadata: &Path| {
+        assert!(std::process::Command::new("mkfifo").arg(metadata).status().unwrap().success());
+    })
+)]
+#[cfg_attr(
+    unix,
+    case::device(|metadata: &Path| std::os::unix::fs::symlink("/dev/zero", metadata).unwrap())
+)]
+#[case::oversized_headers(|metadata: &Path| {
+    fs::write(metadata, "Name: demo\nVersion: 1\nDescription: ").unwrap();
+    fs::OpenOptions::new().append(true).open(metadata).unwrap().set_len((16 << 20) + 1).unwrap();
+})]
+fn reports_unreadable_metadata_as_invalid(#[case] create: fn(&Path)) {
+    let site = PackageSite::new();
+    site.write("helper-1.dist-info", "Name: helper\nVersion: 1\n");
+    let metadata = site.path().join("demo-1.dist-info");
+    fs::create_dir(&metadata).unwrap();
+    create(&metadata.join("METADATA"));
+
+    let output = execute(&["--path", site.path().to_str().unwrap(), "--freeze"]);
+
+    assert_eq!(
+        (
+            output.code,
+            stdout(&output),
+            output.stderr.contains("missing or invalid metadata")
+        ),
+        (0, "helper==1\n", true)
     );
 }
 
@@ -634,6 +711,26 @@ fn discovers_empty_runtime_path_from_current_directory() {
     r#"{"url":"https://example.com/releases@v1/demo.whl","archive_info":{}}"#,
     "demo @ https://example.com/releases@v1/demo.whl\n"
 )]
+#[case::at_sign_in_password(
+    r#"{"url":"https://corp.example:Sp@rk-s3cr3t@pkgs.example.com/demo.whl","archive_info":{}}"#,
+    "demo @ https://pkgs.example.com/demo.whl\n"
+)]
+#[case::at_sign_in_query(
+    r#"{"url":"https://user:token@example.com?release=v1@main","archive_info":{}}"#,
+    "demo @ https://example.com?release=v1@main\n"
+)]
+#[case::at_sign_in_fragment(
+    r#"{"url":"https://user:token@example.com#egg=demo@v1","archive_info":{}}"#,
+    "demo @ https://example.com#egg=demo@v1\n"
+)]
+#[case::scheme_with_punctuation(
+    r#"{"url":"static-http://deploy:s3cr3t@hg.example.com/repo","vcs_info":{"vcs":"hg","commit_id":"abc"}}"#,
+    "demo @ hg+static-http://hg.example.com/repo@abc\n"
+)]
+#[case::scheme_with_digit(
+    r#"{"url":"s3://access:s3cr3t@bucket.example.com/demo.whl","archive_info":{}}"#,
+    "demo @ s3://bucket.example.com/demo.whl\n"
+)]
 #[case::credentials_without_path(
     r#"{"url":"https://user:token@example.com","archive_info":{}}"#,
     "demo @ https://example.com\n"
@@ -701,6 +798,14 @@ fn discovers_empty_runtime_path_from_current_directory() {
     r#"{"url":"https://example.com/demo\u001b[A.whl","subdirectory":"s\u0007","archive_info":{"hashes":{"sha256":"ab\u009bcd"}}}"#,
     "demo @ https://example.com/demo\u{fffd}[A.whl#sha256=ab\u{fffd}cd&subdirectory=s\u{fffd}\n"
 )]
+#[case::whitespace(
+    r#"{"url":"https://example.com/demo.whl --index-url\u2028https://evil","subdirectory":"s\t--x","archive_info":{}}"#,
+    "demo @ https://example.com/demo.whl%20--index-url%E2%80%A8https://evil#subdirectory=s%09--x\n"
+)]
+#[case::vcs_name_with_space(
+    r#"{"url":"https://example.com/demo","vcs_info":{"vcs":"git --x","commit_id":"abc"}}"#,
+    "demo @ git%20--x+https://example.com/demo@abc\n"
+)]
 fn freezes_direct_urls(#[case] direct_url: &str, #[case] expected: &str) {
     let site = PackageSite::new();
     let metadata = site.write("demo-1.dist-info", "Name: demo\nVersion: 1\n");
@@ -754,11 +859,48 @@ fn falls_back_for_invalid_direct_urls(#[case] direct_url: &str) {
     );
 }
 
+#[rstest]
+#[cfg_attr(unix, case::fifo(make_fifo))]
+#[cfg_attr(unix, case::device(link_to_device))]
+#[case::oversized(write_oversized)]
+fn falls_back_for_unreadable_direct_urls(#[case] create: fn(&Path, &str)) {
+    let site = PackageSite::new();
+    let metadata = site.write("demo-1.dist-info", "Name: demo\nVersion: 1\n");
+    create(
+        &metadata.join("direct_url.json"),
+        r#"{"url":"https://example.com/demo.whl","archive_info":{}}"#,
+    );
+
+    let output = execute_in(&site, &["--freeze"]);
+
+    assert_eq!(
+        (output.code, stdout(&output), output.stderr.as_str()),
+        (0, "demo==1\n", "")
+    );
+}
+
 #[test]
 fn falls_back_for_non_utf8_direct_urls() {
     let site = PackageSite::new();
     let metadata = site.write("demo-1.dist-info", "Name: demo\nVersion: 1\n");
     fs::write(metadata.join("direct_url.json"), [0xff]).unwrap();
+
+    let output = execute_in(&site, &["--freeze"]);
+
+    assert_eq!(
+        (output.code, stdout(&output), output.stderr.as_str()),
+        (0, "demo==1\n", "")
+    );
+}
+
+#[test]
+fn ignores_the_site_direct_url_for_a_single_file_egg_info() {
+    let site = PackageSite::new();
+    site.write_file("demo-1.egg-info", "Name: demo\nVersion: 1\n");
+    site.write_file(
+        "direct_url.json",
+        r#"{"url":"https://example.com/demo.whl","archive_info":{}}"#,
+    );
 
     let output = execute_in(&site, &["--freeze"]);
 
@@ -794,6 +936,57 @@ fn freezes_editable_directories(#[case] file_url: bool) {
     } else {
         "demo==1\n".to_string()
     };
+
+    assert_eq!(
+        (output.code, stdout(&output), output.stderr.as_str()),
+        (0, expected.as_str(), "")
+    );
+}
+
+#[rstest]
+#[case::space("my%20proj")]
+#[case::line_break_and_escape("x%0A--index-url%20https:evil%1B[31m")]
+#[case::unicode_line_separator("x%E2%80%A8--index-url%20https:evil")]
+fn freezes_editable_locations_that_need_encoding_as_file_urls(#[case] encoded: &str) {
+    let site = PackageSite::new();
+    let metadata = site.write("demo-1.dist-info", "Name: demo\nVersion: 1\n");
+    let url = format!(
+        "{}/{encoded}",
+        url::Url::from_file_path(site.path()).unwrap()
+    );
+    fs::write(
+        metadata.join("direct_url.json"),
+        format!(r#"{{"url":"{url}","dir_info":{{"editable":true}}}}"#),
+    )
+    .unwrap();
+
+    let output = execute_in(&site, &["--freeze"]);
+    let expected = format!("# Editable install with no version control (demo==1)\n-e {url}\n");
+
+    assert_eq!(
+        (output.code, stdout(&output), output.stderr.as_str()),
+        (0, expected.as_str(), "")
+    );
+}
+
+#[test]
+fn freezes_unicode_editable_locations_as_paths() {
+    let site = PackageSite::new();
+    let metadata = site.write("demo-1.dist-info", "Name: demo\nVersion: 1\n");
+    fs::write(
+        metadata.join("direct_url.json"),
+        format!(
+            r#"{{"url":"{}/%E6%97%A5%E6%9C%AC","dir_info":{{"editable":true}}}}"#,
+            url::Url::from_file_path(site.path()).unwrap()
+        ),
+    )
+    .unwrap();
+
+    let output = execute_in(&site, &["--freeze"]);
+    let expected = format!(
+        "# Editable install with no version control (demo==1)\n-e {}\n",
+        site.path().join("日本").display()
+    );
 
     assert_eq!(
         (output.code, stdout(&output), output.stderr.as_str()),
@@ -853,6 +1046,54 @@ fn freezes_legacy_editable() {
 }
 
 #[test]
+fn ignores_oversized_legacy_editable_links() {
+    let site = PackageSite::new();
+    let metadata = site.path().join("demo-1.egg-info");
+    fs::create_dir(&metadata).unwrap();
+    fs::write(metadata.join("PKG-INFO"), "Name: demo\nVersion: 1\n").unwrap();
+    write_oversized(
+        &site.path().join("demo.egg-link"),
+        &format!("{}\n", site.path().display()),
+    );
+
+    let output = execute_in(&site, &["--freeze"]);
+
+    assert_eq!(
+        (output.code, stdout(&output), output.stderr.as_str()),
+        (0, "demo==1\n", "")
+    );
+}
+
+#[test]
+fn freezes_legacy_editable_targets_with_spaces_as_file_urls() {
+    let site = PackageSite::new();
+    let project = site.path().join("my proj --index-url=https:evil");
+    let metadata = project.join("demo-1.egg-info");
+    fs::create_dir_all(&metadata).unwrap();
+    fs::write(metadata.join("PKG-INFO"), "Name: demo\nVersion: 1\n").unwrap();
+    site.write_file("demo.egg-link", &format!("{}\n.\n", project.display()));
+
+    let output = execute(&[
+        "--path",
+        site.path().to_str().unwrap(),
+        "--path",
+        project.to_str().unwrap(),
+        "--warn",
+        "silence",
+        "--freeze",
+    ]);
+    let expected = format!(
+        "# Editable install with no version control (demo==1)\n-e {}\n",
+        url::Url::from_file_path(&project).unwrap()
+    );
+
+    assert_eq!(
+        (output.code, stdout(&output), output.stderr.as_str()),
+        (0, expected.as_str(), "")
+    );
+}
+
+#[test]
 fn ignores_empty_legacy_editable_links() {
     let site = PackageSite::new();
     let metadata = site.path().join("demo-1.egg-info");
@@ -868,13 +1109,41 @@ fn ignores_empty_legacy_editable_links() {
     );
 }
 
+#[rstest]
+#[case::dist_info("demo-1.dist-info/METADATA", ".")]
+#[case::another_directory("demo-1.egg-info/PKG-INFO", "other")]
+fn ignores_legacy_editable_links_of_other_installs(#[case] metadata: &str, #[case] link: &str) {
+    let site = PackageSite::new();
+    let metadata = site.path().join(metadata);
+    fs::create_dir(metadata.parent().unwrap()).unwrap();
+    fs::write(&metadata, "Name: demo\nVersion: 1\n").unwrap();
+    fs::create_dir(site.path().join("other")).unwrap();
+    site.write_file(
+        "demo.egg-link",
+        &site.path().join(link).display().to_string(),
+    );
+
+    let output = execute_in(&site, &["--freeze"]);
+
+    assert_eq!(
+        (output.code, stdout(&output), output.stderr.as_str()),
+        (0, "demo==1\n", "")
+    );
+}
+
 #[cfg(unix)]
 #[test]
 fn ignores_symlinked_legacy_editable_links() {
     let site = PackageSite::new();
-    site.write("demo-1.dist-info", "Name: demo\nVersion: 1\n");
+    let metadata = site.path().join("demo-1.egg-info");
+    fs::create_dir(&metadata).unwrap();
+    fs::write(metadata.join("PKG-INFO"), "Name: demo\nVersion: 1\n").unwrap();
     let outside = tempfile::tempdir().unwrap();
-    fs::write(outside.path().join("file"), "first line\n").unwrap();
+    fs::write(
+        outside.path().join("file"),
+        site.path().display().to_string(),
+    )
+    .unwrap();
     std::os::unix::fs::symlink(
         outside.path().join("file"),
         site.path().join("demo.egg-link"),

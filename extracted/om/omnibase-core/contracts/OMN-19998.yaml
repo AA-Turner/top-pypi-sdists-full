@@ -36,7 +36,8 @@ requirements:
         statement: "AC4: A pull request raising a sibling registry floor fails, naming each consumer pull
           request needed, while a consumer's pin excludes the new floor, a consumer of the raising repository
           declares a lower floor, or a consumer is unreadable; it passes once every consumer is ready.
-          -- falsifier: uv run pytest tests/unit/handlers/test_handler_version_floor_consumers.py -q"
+          -- falsifier: uv run pytest tests/unit/validation/test_validator_version_floor_consumers.py
+          -q"
       - id: AC5
         statement: "AC5: In a workflow triggered on merge_group, a missing pull_request trigger, a pull_request
           path filter, a merge_group-only job if, or a job gated on an event-dependent needs output fails
@@ -64,7 +65,7 @@ requirements:
         statement: "AC8: A public repository's pull request that adds a job whose runs-on is a self-hosted
           label or can resolve to one fails, a baselined job that is new or newly self-hosted against
           the base fails, the shipped baseline may only shrink against the base, and a private repository
-          passes. -- falsifier: uv run pytest tests/unit/handlers/test_handler_public_runner_placement.py
+          passes. -- falsifier: uv run pytest tests/unit/validation/test_validator_public_runner_placement.py
           tests/unit/validators/test_canonical_file_shape.py -q -k 'public_runner or runs_on or negative_control
           or cli_ or shipped_baseline or omnibase_core_passes'"
   - id: req-omn19998-dependency-direction-wired
@@ -73,9 +74,9 @@ requirements:
     acceptance:
       - id: AC9
         statement: "AC9: The lint-imports job step and the check-dependency-direction hook both run the
-          handler module omnibase_core.handlers.handler_dependency_direction_cli, and a step that runs
-          only the console script alias fails the check. -- falsifier: uv run pytest tests/ci/test_dependency_direction_wiring_omn19998.py
-          -q"
+          handler module omnibase_core.nodes.node_dependency_direction_check_effect.runtime_dependency_direction_check,
+          and a step that runs only the console script alias fails the check. -- falsifier: uv run pytest
+          tests/ci/test_dependency_direction_wiring_omn19998.py -q"
   - id: req-omn19998-core-hosted-fallbacks
     statement: omnibase_core is public, so no workflow falls back to the self-hosted omnibase-ci fleet
       for a public caller, and the jobs that read the route decision run on a GitHub-hosted runner.
@@ -84,7 +85,7 @@ requirements:
         statement: "AC10: No workflow's OMNI_TRUSTED_CI_RUNS_ON_JSON fallback names the self-hosted fleet
           except a reusable workflow's private-caller branch, lint and wheel-content-parity run on ubuntu-latest
           and are out of the shipped baseline, and the placement check is a lint-imports step under quality-gate
-          and a pre-commit hook. -- falsifier: uv run pytest tests/ci/test_public_runner_placement_omn19998.py
+          and a pre-commit hook. -- falsifier: uv run pytest tests/unit/validation/test_validator_public_runner_placement.py
           -q"
   - id: req-omn19998-full-suite-once
     statement: The heavy test suites run once per change. A run whose tree already passed the full suite
@@ -149,10 +150,11 @@ evidence_requirements:
     command: "uv run pytest tests/unit/handlers/test_handler_dependency_direction_cli.py -q"
   - kind: tests
     description: "The canonical-file-shape ratchet admits the declared gate baseline only."
-    command: "uv run pytest tests/unit/validators/test_canonical_file_shape.py -q -k dependency_direction"
+    command: "uv run pytest tests/unit/nodes/node_canonical_file_shape_check_compute/test_canonical_file_shape_rules.py
+      -q -k dependency_direction"
   - kind: tests
     description: "A floor raise ahead of a registry consumer fails and names the consumer."
-    command: "uv run pytest tests/unit/handlers/test_handler_version_floor_consumers.py -q"
+    command: "uv run pytest tests/unit/validation/test_validator_version_floor_consumers.py -q"
   - kind: tests
     description: "Merge-queue-only jobs fail unless baselined."
     command: "uv run pytest tests/unit/handlers/test_handler_merge_queue_parity.py -q"
@@ -161,20 +163,21 @@ evidence_requirements:
     command: "uv run pytest tests/unit/handlers/test_handler_version_drift_cli.py -q"
   - kind: tests
     description: "A public repository adding a self-hosted job fails; the baseline only shrinks."
-    command: "uv run pytest tests/unit/handlers/test_handler_public_runner_placement.py -q"
+    command: "uv run pytest tests/unit/validation/test_validator_public_runner_placement.py -q"
   - kind: tests
     description: "The dependency-direction step and hook run the handler module."
     command: "uv run pytest tests/ci/test_dependency_direction_wiring_omn19998.py -q"
   - kind: tests
     description: "Public workflows fall back to hosted runners; the placement hook and job are wired."
-    command: "uv run pytest tests/ci/test_public_runner_placement_omn19998.py -q"
+    command: "uv run pytest tests/unit/validation/test_validator_public_runner_placement.py -q"
   - kind: tests
     description: "The full-suite reuse probe and marker refuse every unbound marker and run the suites
       on failure."
     command: "uv run pytest tests/ci/test_full_suite_reuse_omn19998.py -q"
   - kind: tests
     description: "A release, sha or branch pin of an internal sibling fails; a dev merge tag passes."
-    command: "uv run pytest tests/unit/handlers/test_handler_internal_sibling_pins.py -q"
+    command: "uv run pytest tests/unit/validation/first_party_ref/test_checker_first_party_ref.py tests/unit/validation/first_party_ref/test_runtime_first_party_ref.py
+      -q"
 emergency_bypass:
   enabled: false
   justification: ''
@@ -206,7 +209,8 @@ dod_evidence:
     source: manual
     checks:
       - check_type: test_passes
-        check_value: "uv run pytest tests/unit/validators/test_canonical_file_shape.py -q -k dependency_direction"
+        check_value: "uv run pytest tests/unit/nodes/node_canonical_file_shape_check_compute/test_canonical_file_shape_rules.py
+          -q -k dependency_direction"
         cwd: ${OMNI_HOME}/omnibase_core
     binds_ac:
       - AC3
@@ -220,13 +224,13 @@ dod_evidence:
     checks:
       - check_type: command
         check_value: >-
-          bash -o pipefail -c 'curl --fail --silent --show-error --location --max-time 30 https://raw.githubusercontent.com/OmniNode-ai/omnibase_core/142f76653ca70600f1ba2ea7011a276cd7900105/src/omnibase_core/handlers/handler_dependency_direction.py
-          | cmp - src/omnibase_core/handlers/handler_dependency_direction.py'
+          bash -o pipefail -c 'curl --fail --silent --show-error --location --max-time 30 https://raw.githubusercontent.com/OmniNode-ai/omnibase_core/04fca965946ab651513af256b8f84cdecec4a2ab/src/omnibase_core/nodes/node_dependency_direction_check_effect/handler_dependency_direction.py
+          | cmp - src/omnibase_core/nodes/node_dependency_direction_check_effect/handler_dependency_direction.py'
         cwd: ${OMNI_HOME}/omnibase_core
       - check_type: command
         check_value: >-
-          bash -o pipefail -c 'curl --fail --silent --show-error --location --max-time 30 https://raw.githubusercontent.com/OmniNode-ai/omnibase_core/142f76653ca70600f1ba2ea7011a276cd7900105/src/omnibase_core/handlers/handler_dependency_direction_rules.py
-          | cmp - src/omnibase_core/handlers/handler_dependency_direction_rules.py'
+          bash -o pipefail -c 'curl --fail --silent --show-error --location --max-time 30 https://raw.githubusercontent.com/OmniNode-ai/omnibase_core/04fca965946ab651513af256b8f84cdecec4a2ab/src/omnibase_core/nodes/node_dependency_direction_check_effect/matcher_dependency_direction.py
+          | cmp - src/omnibase_core/nodes/node_dependency_direction_check_effect/matcher_dependency_direction.py'
         cwd: ${OMNI_HOME}/omnibase_core
       - check_type: command
         check_value: uv run check-dependency-direction --repo omnibase_core
@@ -239,7 +243,7 @@ dod_evidence:
     source: manual
     checks:
       - check_type: test_passes
-        check_value: "uv run pytest tests/unit/handlers/test_handler_version_floor_consumers.py -q"
+        check_value: "uv run pytest tests/unit/validation/test_validator_version_floor_consumers.py -q"
         cwd: ${OMNI_HOME}/omnibase_core
     binds_ac:
       - AC4
@@ -290,7 +294,7 @@ dod_evidence:
     source: manual
     checks:
       - check_type: test_passes
-        check_value: "uv run pytest tests/unit/handlers/test_handler_public_runner_placement.py -q"
+        check_value: "uv run pytest tests/unit/validation/test_validator_public_runner_placement.py -q"
         cwd: ${OMNI_HOME}/omnibase_core
     binds_ac:
       - AC8
@@ -302,7 +306,8 @@ dod_evidence:
     execution_scope: hosted_and_local
     checks:
       - check_type: command
-        check_value: uv run check-public-runner-placement --repo omnibase_core
+        check_value: bash -c 'uv run python -m omnibase_core.validation.validator_public_runner_placement
+          --repo omnibase_core .github/workflows/*.yml'
         cwd: ${OMNI_HOME}/omnibase_core
     binds_ac:
       - AC8
@@ -325,7 +330,8 @@ dod_evidence:
     execution_scope: hosted_and_local
     checks:
       - check_type: test_passes
-        check_value: uv run pytest tests/ci/test_runner_placement_module_call_omn19854.py -q -o addopts=
+        check_value: uv run pytest tests/unit/validation/test_validator_public_runner_placement.py -q
+          -o addopts=
         cwd: ${OMNI_HOME}/omnibase_core
     binds_ac:
       - AC8
@@ -337,7 +343,7 @@ dod_evidence:
     execution_scope: hosted_and_local
     checks:
       - check_type: test_passes
-        check_value: "uv run pytest tests/ci/test_public_runner_placement_omn19998.py -q"
+        check_value: "uv run pytest tests/unit/validation/test_validator_public_runner_placement.py -q"
         cwd: ${OMNI_HOME}/omnibase_core
     binds_ac:
       - AC10
@@ -397,20 +403,20 @@ dod_evidence:
     execution_scope: hosted_and_local
     checks:
       - check_type: "test_passes"
-        check_value: "uv run pytest tests/unit/handlers/test_handler_internal_sibling_pins.py -q -n 0
-          -o addopts="
+        check_value: "uv run pytest tests/unit/validation/first_party_ref/test_checker_first_party_ref.py
+          tests/unit/validation/first_party_ref/test_runtime_first_party_ref.py -q -n 0 -o addopts="
         cwd: "${OMNI_HOME}/omnibase_core"
     binds_ac: ["AC14"]
   - id: "dod-omn19998-deploy-internal-sibling-release-refs"
-    description: "Hosted deploy probe exercises release-ref classification through the checked-out handler.
-      Ordinary release refs remain release_tag, a dev merge tag passes, and long invalid refs fail as
-      not_dev_tag within a five-second test timeout. The tests require no network or lab services and
-      fail on the exponential-backtracking implementation."
+    description: "Hosted deploy probe exercises release-ref classification through the first-party-ref
+      checker. Ordinary release refs fail as first_party_not_dev_tag, a dev merge tag passes, and long
+      invalid refs fail as first_party_not_dev_tag within a five-second test timeout. The tests require
+      no network or lab services."
     source: "manual"
     execution_scope: hosted_and_local
     checks:
       - check_type: "test_passes"
-        check_value: "uv run pytest tests/unit/handlers/test_handler_internal_sibling_pins.py -q -o addopts=
-          -k 'release_ref'"
+        check_value: "uv run pytest tests/unit/validation/first_party_ref/test_checker_first_party_ref.py
+          -q -o addopts= -k 'release_ref'"
         cwd: "${OMNI_HOME}/omnibase_core"
     binds_ac: ["AC15"]

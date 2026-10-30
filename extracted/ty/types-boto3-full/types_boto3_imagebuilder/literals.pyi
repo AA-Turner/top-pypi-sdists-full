@@ -32,6 +32,7 @@ __all__ = (
     "EbsVolumeTypeType",
     "ImageConfigurationStepType",
     "ImageScanStatusType",
+    "ImageScanningTypeType",
     "ImageSourceType",
     "ImageStatusType",
     "ImageTypeType",
@@ -66,6 +67,7 @@ __all__ = (
     "ListWorkflowStepExecutionsPaginatorName",
     "ListWorkflowsPaginatorName",
     "MarketplaceResourceTypeType",
+    "MaximumSeverityLabelType",
     "OnWorkflowFailureType",
     "OwnershipType",
     "PaginatorName",
@@ -105,6 +107,7 @@ ImageConfigurationStepType = Literal[
 ImageScanStatusType = Literal[
     "ABANDONED", "COLLECTING", "COMPLETED", "FAILED", "PENDING", "SCANNING", "TIMED_OUT"
 ]
+ImageScanningTypeType = Literal["ON_DEMAND_AMI_CVE", "TEST_INSTANCE_CVE"]
 ImageSourceType = Literal["AMAZON_MANAGED", "AWS_MARKETPLACE", "CUSTOM", "IMPORTED"]
 ImageStatusType = Literal[
     "AVAILABLE",
@@ -153,6 +156,7 @@ ListWorkflowExecutionsPaginatorName = Literal["list_workflow_executions"]
 ListWorkflowStepExecutionsPaginatorName = Literal["list_workflow_step_executions"]
 ListWorkflowsPaginatorName = Literal["list_workflows"]
 MarketplaceResourceTypeType = Literal["COMPONENT_ARTIFACT", "COMPONENT_DATA"]
+MaximumSeverityLabelType = Literal["HIGH", "INFORMATIONAL", "LOW", "MEDIUM"]
 OnWorkflowFailureType = Literal["ABORT", "CONTINUE"]
 OwnershipType = Literal["AWSMarketplace", "Amazon", "Self", "Shared", "ThirdParty"]
 PipelineExecutionStartConditionType = Literal[

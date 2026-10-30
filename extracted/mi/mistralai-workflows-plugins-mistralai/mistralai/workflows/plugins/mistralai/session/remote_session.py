@@ -21,7 +21,7 @@ from mistralai.workflows.plugins.mistralai.connectors.models import (
     resolved_connector_bindings_from_extension,
 )
 from mistralai.workflows.plugins.mistralai.connectors.run_as import (
-    ConnectorRunAs,
+    RunAs,
     pinned_run_as_values,
     raise_if_mixed_run_as,
 )
@@ -65,7 +65,7 @@ class RemoteSession(Session[Message]):
         self._mcp_tool_registry: dict[str, int] = {}  # tool_name -> index in _all_mcp_configs
         self._stream = stream
         self._pending_tool_call_ids: set[str] = set()
-        self._run_as: ConnectorRunAs = ConnectorRunAs.AUTO
+        self._run_as: RunAs = RunAs.AUTO
 
     def is_conversation_active(self) -> bool:
         """Return whether a remote conversation is active for this session."""
@@ -319,7 +319,7 @@ class RemoteSession(Session[Message]):
         return mistral_agent
 
     @classmethod
-    def _resolve_conversation_run_as(cls, agent: Agent) -> ConnectorRunAs:
+    def _resolve_conversation_run_as(cls, agent: Agent) -> RunAs:
         """Validate connector bindings across the handoff graph and resolve its identity.
 
         A conversation runs as one identity, so every connector across every agent
@@ -327,11 +327,11 @@ class RemoteSession(Session[Message]):
         impose no constraint. Defaults to AUTO when no connectors are present.
         """
         binding_by_name = cls._resolved_bindings_by_name()
-        graph_run_as: set[ConnectorRunAs] = set()
+        graph_run_as: set[RunAs] = set()
         for reachable in Agent.iterate_agents_deeply_in_handoffs(agent):
             graph_run_as |= cls._validate_connector_bindings(reachable, binding_by_name)
         raise_if_mixed_run_as(f"Agent handoff graph rooted at '{agent.name}'", graph_run_as)
-        return graph_run_as.pop() if graph_run_as else ConnectorRunAs.AUTO
+        return graph_run_as.pop() if graph_run_as else RunAs.AUTO
 
     @staticmethod
     def _resolved_bindings_by_name() -> dict[str, ResolvedConnectorBinding] | None:
@@ -350,7 +350,7 @@ class RemoteSession(Session[Message]):
     @staticmethod
     def _validate_connector_bindings(
         agent: Agent, binding_by_name: dict[str, ResolvedConnectorBinding] | None
-    ) -> set[ConnectorRunAs]:
+    ) -> set[RunAs]:
         """Validate an agent's connectors and return the identities they pin.
 
         Outside a workflow context there are no bindings, so only explicit values pin.

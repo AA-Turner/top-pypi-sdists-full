@@ -20,7 +20,9 @@ capture, the SDK and the daemon share, R4), so `session(op=search)` and
     notes      each run's one-line summary, versioned (it was the running note;
                the daemon keeps no memory of its own now)
     facts      session facts (permission mode, harness, working folders)
-    files      the folder check's last-seen snapshot (size, mtime, text copy)
+    files      the folder check's last-seen snapshot (size, mtime, text copy; the
+               check it last changed at; a growing file's size and text when it
+               started growing, `folders.GROWING`)
     rounds     one row per model response (T10): model, input / cached / output
                tokens, the tools it called, its estimated dollars
     run_alerts the server's run alerts this session's mailbox was handed (its
@@ -51,7 +53,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Iterator
 
-from probe.daemon.events import READER_SOURCE, REQUEST_SOURCE, Event, Kind
+from probe.daemon.events import PEER_TOOL, READER_SOURCE, REQUEST_SOURCE, Event, Kind
 from probe.tap_core import secrets
 
 FORMAT_VERSION = 1
@@ -265,6 +267,10 @@ CREATE TABLE IF NOT EXISTS writer_messages (
 KEEP_ENDED_HISTORIES = 2
 
 #: Kinds a person or the agent produced: what "whole turns" of the chat are made of.
+#: The daemon's own observations of a run's process, not the agent's work: a
+#: run start or end the SDK announced, a file the folder check found
+#: (`Store.run_side_only`, swarm friction R41).
+RUN_SIDE_KINDS = frozenset({Kind.RUN_EVENT.value, Kind.FILE_CHANGE.value})
 CHAT_KINDS = (Kind.PROMPT, Kind.AGENT_TEXT, Kind.AGENT_REASONING, Kind.TOOL_CALL, Kind.TOOL_OUTPUT,
               Kind.SUBAGENT, Kind.COMPACTION, Kind.META, Kind.TURN_END, Kind.FILE_CHANGE, Kind.RUN_EVENT)
 
@@ -477,6 +483,10 @@ UNRECORDED_BITE = -2
 BEFORE_DAEMON_BITE = -3
 #: Fact: a conversation run paused and the next bite carries on (`worker.CARRY_ON`).
 CARRY_ON = "carry_on"
+#: How far an event's own stamp may sit before / after the daemon noticed it and
+#: still date the work it files (`Store.work_began`): the server's window for
+#: a write's event time (`app/sessions/effort.py`, 6 h before, 5 min after).
+WORK_STAMP_WINDOW = (6 * 3600.0, 300.0)
 #: A bite's outcome when its run finished, and when it paused (`Worker._paused`).
 BITE_DONE = "done"
 BITE_PAUSED = "paused"
@@ -620,6 +630,8 @@ class Store:
         self.db.execute("CREATE INDEX IF NOT EXISTS events_sizes_source ON events (turn, kind, source, chars)")
         for column, kind in (("inode", "INTEGER"), ("tail_hash", "TEXT"), ("tail_at", "INTEGER")):
             self._add_column("cursors", column, kind)
+        for column, kind in (("changed_at", "INTEGER"), ("growing_size", "INTEGER"), ("growing_text", "TEXT")):
+            self._add_column("files", column, kind)
         version = self.meta("format_version")
         if version is None:
             self.set_meta("format_version", str(FORMAT_VERSION))
@@ -755,8 +767,19 @@ class Store:
         return int(self.db.execute("SELECT count(*) AS n FROM events WHERE bite IS NULL AND seq BETWEEN ? AND ?",
                                    (first_seq, last_seq)).fetchone()["n"])
 
-    def mark_covered(self, bite_id: int, last_seq: int) -> None:
+    def mark_covered(self, bite_id: int, last_seq: int, leads: tuple[int, ...] = ()) -> None:
+        """Every uncovered event up to `last_seq`, and the run events past it the
+        bite showed first (`bite.runs_ahead`)."""
         self.db.execute("UPDATE events SET bite = ? WHERE bite IS NULL AND seq <= ?", (bite_id, last_seq))
+        if leads:
+            self.db.executemany("UPDATE events SET bite = ? WHERE bite IS NULL AND seq = ?",
+                                [(bite_id, int(seq)) for seq in leads])
+
+    def pending_run_events(self, *, after_seq: int = 0, limit: int = 20) -> list[StoredEvent]:
+        """Run starts and ends (`Kind.RUN_EVENT`) no bite has covered, after `after_seq`."""
+        return [StoredEvent.from_row(r) for r in self.db.execute(
+            "SELECT * FROM events WHERE bite IS NULL AND seq > ? AND kind = ? ORDER BY seq LIMIT ?",
+            (int(after_seq), Kind.RUN_EVENT.value, int(limit)))]
 
     def next_seq(self) -> int:
         """The seq the next stored event will get (at least)."""
@@ -910,16 +933,53 @@ class Store:
             (int(seq), int(limit)))]
 
     def events_between(self, first_seq: int, last_seq: int | None = None, *,
-                       recorded: bool = False, new: bool = False) -> list[StoredEvent]:
+                       recorded: bool = False, new: bool = False, uncovered: bool = False,
+                       kind: Kind | None = None) -> list[StoredEvent]:
         """`recorded`: the writer's view -- no event from `read only (daemon)`.
-        `new`: a span of new events -- none of the history a first worker left as context."""
-        only = (f" AND {_RECORDED}" if recorded else "") + (f" AND {_NOT_BEFORE_DAEMON}" if new else "")
+        `new`: a span of new events -- none of the history a first worker left as context.
+        `uncovered`: none a finished bite covered already (a run event an earlier
+        bite showed first, `bite.runs_ahead`). `kind`: only events of that kind."""
+        only = ((f" AND {_RECORDED}" if recorded else "") + (f" AND {_NOT_BEFORE_DAEMON}" if new else "")
+                + (" AND (bite IS NULL OR bite < 0)" if uncovered else "") + (" AND kind = ?" if kind else ""))
+        tail = (kind.value,) if kind else ()
         if last_seq is None:
-            rows = self.db.execute(f"SELECT * FROM events WHERE seq >= ?{only} ORDER BY seq", (first_seq,))
+            rows = self.db.execute(f"SELECT * FROM events WHERE seq >= ?{only} ORDER BY seq", (first_seq, *tail))
         else:
             rows = self.db.execute(f"SELECT * FROM events WHERE seq BETWEEN ? AND ?{only} ORDER BY seq",
-                                   (first_seq, last_seq))
+                                   (first_seq, last_seq, *tail))
         return [StoredEvent.from_row(r) for r in rows]
+
+    def work_began(self, first_seq: int, last_seq: int) -> float | None:
+        """When the work in the pending events `first_seq`..`last_seq` began, in
+        epoch seconds: the oldest of their own stamps; None for no such event. A
+        bite's `probe` writes are dated by it (`PROBE_EVENT_AT`, swarm friction
+        R1): a record carries the session's focus forward from there, never back.
+
+        When the daemon noticed an event stands in for its stamp when the stamp
+        says nothing about the work: a folder check's file change (its stamp is
+        the file's mtime, which a copy or an unpacked archive keeps), or a stamp
+        outside `WORK_STAMP_WINDOW` of the noticing (a skewed or bogus clock)."""
+        rows = self.db.execute(
+            "SELECT kind, ts, noticed FROM events WHERE seq BETWEEN ? AND ? AND bite IS NULL",
+            (first_seq, last_seq)).fetchall()
+        times = []
+        for row in rows:
+            noticed = float(row["noticed"])
+            at = None if row["kind"] == Kind.FILE_CHANGE.value else _epoch(row["ts"])
+            before, after = WORK_STAMP_WINDOW
+            times.append(at if at is not None and noticed - before <= at <= noticed + after else noticed)
+        return min(times, default=None)
+
+    def run_side_only(self, first_seq: int, last_seq: int) -> bool:
+        """Whether every pending event `first_seq`..`last_seq` is the daemon's
+        own observation of a run (`RUN_SIDE_KINDS`), with none of the agent's:
+        a bite of only these files what a background job did while its agent
+        sat idle, so its `probe` writes go as a run process's (swarm friction
+        R41). False for no such event."""
+        rows = self.db.execute(
+            "SELECT kind FROM events WHERE seq BETWEEN ? AND ? AND bite IS NULL",
+            (first_seq, last_seq)).fetchall()
+        return bool(rows) and all(row["kind"] in RUN_SIDE_KINDS for row in rows)
 
     def first_seq_of_turn(self, turn: int) -> int | None:
         row = self.db.execute("SELECT min(seq) AS s FROM events WHERE turn = ?", (turn,)).fetchone()
@@ -927,8 +987,8 @@ class Store:
 
     def shown_turn_sizes(self) -> list[tuple[int, int, int]]:
         """`[(turn, first_seq, characters as the model sees the turn)]`: outputs are a
-        one-line tag, long texts are capped, the reader's messages show whole up to
-        the text cap (`bite.render`, `bite.shown_chars`). Rows from `read only
+        one-line tag, a file change one line, long texts are capped, the reader's
+        messages show whole up to the text cap (`bite.render`, `bite.shown_chars`). Rows from `read only
         (daemon)` count too: filtering on `bite` would lose the covering index
         (`events_sizes_source`), and they only make the writer's window start later."""
         rows = self.db.execute(
@@ -938,6 +998,8 @@ class Store:
             "WHEN kind = 'agent_reasoning' THEN min(chars, 2000) + 40 "
             "WHEN kind IN ('meta', 'subagent') THEN min(chars, 300) + 40 "
             "WHEN kind = 'tool_call' THEN min(chars, 4000) + 40 "
+            # One line (`bite._file_line`): its first line is not a column, so flat.
+            "WHEN kind = 'file_change' THEN 200 "
             "ELSE min(chars, 20000) + 40 END) AS c FROM events GROUP BY turn ORDER BY turn")
         return [(r["turn"], r["s"], int(r["c"] or 0)) for r in rows]
 
@@ -1279,6 +1341,13 @@ class Store:
         return self.db.execute(f"SELECT 1 FROM events WHERE seq > ? AND kind = ?{only} LIMIT 1",
                                (int(seq), Kind.PROMPT.value)).fetchone() is not None
 
+    def has_peer_message_after(self, seq: int, *, new: bool = False) -> bool:
+        """Did another agent message this session (`events.PEER_TOOL`) after `seq`?
+        `new` as `has_prompt_after`."""
+        only = f" AND {_NOT_BEFORE_DAEMON}" if new else ""
+        return self.db.execute(f"SELECT 1 FROM events WHERE seq > ? AND kind = ? AND tool = ?{only} LIMIT 1",
+                               (int(seq), Kind.META.value, PEER_TOOL)).fetchone() is not None
+
     def mark_read_message_published(self, message_id: str) -> None:
         self.db.execute("UPDATE read_messages SET published = 1 WHERE id = ?", (message_id,))
 
@@ -1448,18 +1517,46 @@ class Store:
         event loop. Summed once, for a store written before the total existed."""
         value = self.meta("files_text_chars")
         if value is None:
-            value = str(self.db.execute("SELECT coalesce(sum(length(text)), 0) AS n FROM files").fetchone()["n"])
+            value = str(self.db.execute("SELECT coalesce(sum(length(text)), 0) + coalesce(sum(length(growing_text)), 0) "
+                                        "AS n FROM files").fetchone()["n"])
             self.set_meta("files_text_chars", value)
         return int(value)
 
-    def set_file(self, path: str, size: int, mtime: float, text: str | None) -> None:
-        total = self.stored_text_bytes()
+    def set_file(self, path: str, size: int, mtime: float, text: str | None, *,
+                 changed_at: int | None = None) -> None:
+        """`changed_at`: the folder check (`folders.CHECKS`) that found it new or
+        changed; None for a check that only moves the snapshot on."""
+        total = self.stored_text_bytes()  # before the row changes: a first sum must not count it
         row = self.db.execute("SELECT length(text) AS n FROM files WHERE path = ?", (path,)).fetchone()
         old = int(row["n"] or 0) if row else 0
-        self.db.execute("INSERT INTO files (path, size, mtime, text) VALUES (?, ?, ?, ?) ON CONFLICT(path) DO UPDATE "
-                        "SET size = excluded.size, mtime = excluded.mtime, text = excluded.text",
-                        (path, size, mtime, text))
+        self.db.execute("INSERT INTO files (path, size, mtime, text, changed_at) VALUES (?, ?, ?, ?, ?) "
+                        "ON CONFLICT(path) DO UPDATE SET size = excluded.size, mtime = excluded.mtime, "
+                        "text = excluded.text, changed_at = excluded.changed_at",
+                        (path, size, mtime, text, changed_at))
         self.set_meta("files_text_chars", str(max(0, total - old + len(text or ""))))
+
+    def start_growing(self, path: str, size: int, text: str | None) -> None:
+        """`path` changed at two checks in a row: what it was before (its size and
+        text), so the line once it stops shows the whole change (`folders.GROWING`)."""
+        total = self.stored_text_bytes()
+        self.db.execute("UPDATE files SET growing_size = ?, growing_text = ? WHERE path = ?", (size, text, path))
+        self.set_meta("files_text_chars", str(total + len(text or "")))
+
+    def stop_growing(self, path: str) -> None:
+        total = self.stored_text_bytes()
+        row = self.db.execute("SELECT length(growing_text) AS n FROM files WHERE path = ?", (path,)).fetchone()
+        self.db.execute("UPDATE files SET growing_size = NULL, growing_text = NULL WHERE path = ?", (path,))
+        self.set_meta("files_text_chars", str(max(0, total - (int(row["n"] or 0) if row else 0))))
+
+    def growing_files(self, *, changed_before: int | None = None) -> list[sqlite3.Row]:
+        """The growing files (`start_growing`), oldest change first; `changed_before`:
+        only those that last changed before that check (quiet since)."""
+        sql = "SELECT * FROM files WHERE growing_size IS NOT NULL"
+        args: tuple = ()
+        if changed_before is not None:
+            sql += " AND (changed_at IS NULL OR changed_at < ?)"
+            args = (int(changed_before),)
+        return list(self.db.execute(sql + " ORDER BY changed_at, path", args))
 
 
 def write_target(head: str, argv: list[str]) -> str:

@@ -19,7 +19,7 @@ from chalk._gen.chalk.graph.v2 import sources_pb2 as chalk_dot_graph_dot_v2_dot_
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n"chalk/dataframe/v1/dataframe.proto\x12\x12\x63halk.dataframe.v1\x1a\x1a\x63halk/arrow/v1/arrow.proto\x1a$chalk/expression/v1/expression.proto\x1a\x1c\x63halk/graph/v2/sources.proto"\x80\x06\n\x10\x44\x61taFrameOperand\x12#\n\x0cvalue_string\x18\x01 \x01(\tH\x00R\x0bvalueString\x12\x1d\n\tvalue_int\x18\x02 \x01(\x03H\x00R\x08valueInt\x12\x1f\n\nvalue_bool\x18\x03 \x01(\x08H\x00R\tvalueBool\x12;\n\nvalue_none\x18\x04 \x01(\x0b\x32\x1a.chalk.dataframe.v1.PyNoneH\x00R\tvalueNone\x12;\n\nvalue_list\x18\x05 \x01(\x0b\x32\x1a.chalk.dataframe.v1.PyListH\x00R\tvalueList\x12;\n\nvalue_dict\x18\x06 \x01(\x0b\x32\x1a.chalk.dataframe.v1.PyDictH\x00R\tvalueDict\x12X\n\x15value_dataframe_index\x18\x07 \x01(\x0b\x32".chalk.dataframe.v1.DataFrameIndexH\x00R\x13valueDataframeIndex\x12;\n\x0c\x61rrow_schema\x18\x08 \x01(\x0b\x32\x16.chalk.arrow.v1.SchemaH\x00R\x0b\x61rrowSchema\x12\x44\n\x0b\x61rrow_table\x18\t \x01(\x0b\x32!.chalk.arrow.v1.TableParquetBytesH\x00R\narrowTable\x12O\n\x0funderscore_expr\x18\n \x01(\x0b\x32$.chalk.expression.v1.LogicalExprNodeH\x00R\x0eunderscoreExpr\x12K\n\rlibchalk_expr\x18\x0b \x01(\x0b\x32$.chalk.expression.v1.LogicalExprNodeH\x00R\x0clibchalkExpr\x12J\n\x0b\x64\x61ta_source\x18\x0c \x01(\x0b\x32\'.chalk.dataframe.v1.DataFrameDataSourceH\x00R\ndataSourceB\t\n\x07operand"^\n\x13\x44\x61taFrameDataSource\x12G\n\x0f\x64\x61tabase_source\x18\x01 \x01(\x0b\x32\x1e.chalk.graph.v2.DatabaseSourceR\x0e\x64\x61tabaseSource">\n\x0e\x44\x61taFrameIndex\x12,\n\x12\x64\x61taframe_op_index\x18\x01 \x01(\x05R\x10\x64\x61taframeOpIndex"\x08\n\x06PyNone"M\n\x06PyList\x12\x43\n\nlist_items\x18\x01 \x03(\x0b\x32$.chalk.dataframe.v1.DataFrameOperandR\tlistItems"\x97\x01\n\x0bPyDictEntry\x12\x41\n\tentry_key\x18\x01 \x01(\x0b\x32$.chalk.dataframe.v1.DataFrameOperandR\x08\x65ntryKey\x12\x45\n\x0b\x65ntry_value\x18\x02 \x01(\x0b\x32$.chalk.dataframe.v1.DataFrameOperandR\nentryValue"L\n\x06PyDict\x12\x42\n\x0c\x64ict_entries\x18\x01 \x03(\x0b\x32\x1f.chalk.dataframe.v1.PyDictEntryR\x0b\x64ictEntries"\xfc\x01\n\x14\x44\x61taFrameConstructor\x12J\n\x0cself_operand\x18\x01 \x01(\x0b\x32".chalk.dataframe.v1.DataFrameIndexH\x00R\x0bselfOperand\x88\x01\x01\x12#\n\rfunction_name\x18\x02 \x01(\tR\x0c\x66unctionName\x12.\n\x04\x61rgs\x18\x03 \x01(\x0b\x32\x1a.chalk.dataframe.v1.PyListR\x04\x61rgs\x12\x32\n\x06kwargs\x18\x04 \x01(\x0b\x32\x1a.chalk.dataframe.v1.PyDictR\x06kwargsB\x0f\n\r_self_operand"]\n\rDataFramePlan\x12L\n\x0c\x63onstructors\x18\x01 \x03(\x0b\x32(.chalk.dataframe.v1.DataFrameConstructorR\x0c\x63onstructorsB\x92\x01\n\x16\x63om.chalk.dataframe.v1B\x0e\x44\x61taframeProtoP\x01\xa2\x02\x03\x43\x44X\xaa\x02\x12\x43halk.Dataframe.V1\xca\x02\x12\x43halk\\Dataframe\\V1\xe2\x02\x1e\x43halk\\Dataframe\\V1\\GPBMetadata\xea\x02\x14\x43halk::Dataframe::V1b\x06proto3'
+    b'\n"chalk/dataframe/v1/dataframe.proto\x12\x12\x63halk.dataframe.v1\x1a\x1a\x63halk/arrow/v1/arrow.proto\x1a$chalk/expression/v1/expression.proto\x1a\x1c\x63halk/graph/v2/sources.proto"\xa5\x06\n\x10\x44\x61taFrameOperand\x12#\n\x0cvalue_string\x18\x01 \x01(\tH\x00R\x0bvalueString\x12\x1d\n\tvalue_int\x18\x02 \x01(\x03H\x00R\x08valueInt\x12\x1f\n\nvalue_bool\x18\x03 \x01(\x08H\x00R\tvalueBool\x12;\n\nvalue_none\x18\x04 \x01(\x0b\x32\x1a.chalk.dataframe.v1.PyNoneH\x00R\tvalueNone\x12;\n\nvalue_list\x18\x05 \x01(\x0b\x32\x1a.chalk.dataframe.v1.PyListH\x00R\tvalueList\x12;\n\nvalue_dict\x18\x06 \x01(\x0b\x32\x1a.chalk.dataframe.v1.PyDictH\x00R\tvalueDict\x12X\n\x15value_dataframe_index\x18\x07 \x01(\x0b\x32".chalk.dataframe.v1.DataFrameIndexH\x00R\x13valueDataframeIndex\x12;\n\x0c\x61rrow_schema\x18\x08 \x01(\x0b\x32\x16.chalk.arrow.v1.SchemaH\x00R\x0b\x61rrowSchema\x12\x44\n\x0b\x61rrow_table\x18\t \x01(\x0b\x32!.chalk.arrow.v1.TableParquetBytesH\x00R\narrowTable\x12O\n\x0funderscore_expr\x18\n \x01(\x0b\x32$.chalk.expression.v1.LogicalExprNodeH\x00R\x0eunderscoreExpr\x12K\n\rlibchalk_expr\x18\x0b \x01(\x0b\x32$.chalk.expression.v1.LogicalExprNodeH\x00R\x0clibchalkExpr\x12J\n\x0b\x64\x61ta_source\x18\x0c \x01(\x0b\x32\'.chalk.dataframe.v1.DataFrameDataSourceH\x00R\ndataSource\x12#\n\x0cvalue_double\x18\r \x01(\x01H\x00R\x0bvalueDoubleB\t\n\x07operand"^\n\x13\x44\x61taFrameDataSource\x12G\n\x0f\x64\x61tabase_source\x18\x01 \x01(\x0b\x32\x1e.chalk.graph.v2.DatabaseSourceR\x0e\x64\x61tabaseSource">\n\x0e\x44\x61taFrameIndex\x12,\n\x12\x64\x61taframe_op_index\x18\x01 \x01(\x05R\x10\x64\x61taframeOpIndex"\x08\n\x06PyNone"M\n\x06PyList\x12\x43\n\nlist_items\x18\x01 \x03(\x0b\x32$.chalk.dataframe.v1.DataFrameOperandR\tlistItems"\x97\x01\n\x0bPyDictEntry\x12\x41\n\tentry_key\x18\x01 \x01(\x0b\x32$.chalk.dataframe.v1.DataFrameOperandR\x08\x65ntryKey\x12\x45\n\x0b\x65ntry_value\x18\x02 \x01(\x0b\x32$.chalk.dataframe.v1.DataFrameOperandR\nentryValue"L\n\x06PyDict\x12\x42\n\x0c\x64ict_entries\x18\x01 \x03(\x0b\x32\x1f.chalk.dataframe.v1.PyDictEntryR\x0b\x64ictEntries"\xfc\x01\n\x14\x44\x61taFrameConstructor\x12J\n\x0cself_operand\x18\x01 \x01(\x0b\x32".chalk.dataframe.v1.DataFrameIndexH\x00R\x0bselfOperand\x88\x01\x01\x12#\n\rfunction_name\x18\x02 \x01(\tR\x0c\x66unctionName\x12.\n\x04\x61rgs\x18\x03 \x01(\x0b\x32\x1a.chalk.dataframe.v1.PyListR\x04\x61rgs\x12\x32\n\x06kwargs\x18\x04 \x01(\x0b\x32\x1a.chalk.dataframe.v1.PyDictR\x06kwargsB\x0f\n\r_self_operand"]\n\rDataFramePlan\x12L\n\x0c\x63onstructors\x18\x01 \x03(\x0b\x32(.chalk.dataframe.v1.DataFrameConstructorR\x0c\x63onstructorsB\x92\x01\n\x16\x63om.chalk.dataframe.v1B\x0e\x44\x61taframeProtoP\x01\xa2\x02\x03\x43\x44X\xaa\x02\x12\x43halk.Dataframe.V1\xca\x02\x12\x43halk\\Dataframe\\V1\xe2\x02\x1e\x43halk\\Dataframe\\V1\\GPBMetadata\xea\x02\x14\x43halk::Dataframe::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -31,21 +31,21 @@ if _descriptor._USE_C_DESCRIPTORS == False:
         "DESCRIPTOR"
     ]._serialized_options = b"\n\026com.chalk.dataframe.v1B\016DataframeProtoP\001\242\002\003CDX\252\002\022Chalk.Dataframe.V1\312\002\022Chalk\\Dataframe\\V1\342\002\036Chalk\\Dataframe\\V1\\GPBMetadata\352\002\024Chalk::Dataframe::V1"
     _globals["_DATAFRAMEOPERAND"]._serialized_start = 155
-    _globals["_DATAFRAMEOPERAND"]._serialized_end = 923
-    _globals["_DATAFRAMEDATASOURCE"]._serialized_start = 925
-    _globals["_DATAFRAMEDATASOURCE"]._serialized_end = 1019
-    _globals["_DATAFRAMEINDEX"]._serialized_start = 1021
-    _globals["_DATAFRAMEINDEX"]._serialized_end = 1083
-    _globals["_PYNONE"]._serialized_start = 1085
-    _globals["_PYNONE"]._serialized_end = 1093
-    _globals["_PYLIST"]._serialized_start = 1095
-    _globals["_PYLIST"]._serialized_end = 1172
-    _globals["_PYDICTENTRY"]._serialized_start = 1175
-    _globals["_PYDICTENTRY"]._serialized_end = 1326
-    _globals["_PYDICT"]._serialized_start = 1328
-    _globals["_PYDICT"]._serialized_end = 1404
-    _globals["_DATAFRAMECONSTRUCTOR"]._serialized_start = 1407
-    _globals["_DATAFRAMECONSTRUCTOR"]._serialized_end = 1659
-    _globals["_DATAFRAMEPLAN"]._serialized_start = 1661
-    _globals["_DATAFRAMEPLAN"]._serialized_end = 1754
+    _globals["_DATAFRAMEOPERAND"]._serialized_end = 960
+    _globals["_DATAFRAMEDATASOURCE"]._serialized_start = 962
+    _globals["_DATAFRAMEDATASOURCE"]._serialized_end = 1056
+    _globals["_DATAFRAMEINDEX"]._serialized_start = 1058
+    _globals["_DATAFRAMEINDEX"]._serialized_end = 1120
+    _globals["_PYNONE"]._serialized_start = 1122
+    _globals["_PYNONE"]._serialized_end = 1130
+    _globals["_PYLIST"]._serialized_start = 1132
+    _globals["_PYLIST"]._serialized_end = 1209
+    _globals["_PYDICTENTRY"]._serialized_start = 1212
+    _globals["_PYDICTENTRY"]._serialized_end = 1363
+    _globals["_PYDICT"]._serialized_start = 1365
+    _globals["_PYDICT"]._serialized_end = 1441
+    _globals["_DATAFRAMECONSTRUCTOR"]._serialized_start = 1444
+    _globals["_DATAFRAMECONSTRUCTOR"]._serialized_end = 1696
+    _globals["_DATAFRAMEPLAN"]._serialized_start = 1698
+    _globals["_DATAFRAMEPLAN"]._serialized_end = 1791
 # @@protoc_insertion_point(module_scope)

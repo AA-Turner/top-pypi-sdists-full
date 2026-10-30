@@ -97,8 +97,11 @@ class OperationId(enum.StrEnum):
     IDENTITY_GET_GROUP_MEMBERS = "identity_get_group_members"
     IDENTITY_GET_USER = "identity_get_user"
     IDENTITY_GET_USER_PICTURE = "identity_get_user_picture"
+    IDENTITY_QUERY_ACCESS_GRANTS = "identity_query_access_grants"
+    IDENTITY_QUERY_APPLICATIONS = "identity_query_applications"
     IDENTITY_QUERY_AUDIT_LOG = "identity_query_audit_log"
     IDENTITY_QUERY_GROUPS = "identity_query_groups"
+    IDENTITY_QUERY_POLICIES = "identity_query_policies"
     IDENTITY_QUERY_RISK_EVENTS = "identity_query_risk_events"
     IDENTITY_QUERY_RISKY_USERS = "identity_query_risky_users"
     IDENTITY_QUERY_USERS = "identity_query_users"
@@ -270,8 +273,11 @@ class OperationId(enum.StrEnum):
         identity_get_group_members: typing.Callable[[], T_Result],
         identity_get_user: typing.Callable[[], T_Result],
         identity_get_user_picture: typing.Callable[[], T_Result],
+        identity_query_access_grants: typing.Callable[[], T_Result],
+        identity_query_applications: typing.Callable[[], T_Result],
         identity_query_audit_log: typing.Callable[[], T_Result],
         identity_query_groups: typing.Callable[[], T_Result],
+        identity_query_policies: typing.Callable[[], T_Result],
         identity_query_risk_events: typing.Callable[[], T_Result],
         identity_query_risky_users: typing.Callable[[], T_Result],
         identity_query_users: typing.Callable[[], T_Result],
@@ -521,10 +527,16 @@ class OperationId(enum.StrEnum):
             return identity_get_user()
         if self is OperationId.IDENTITY_GET_USER_PICTURE:
             return identity_get_user_picture()
+        if self is OperationId.IDENTITY_QUERY_ACCESS_GRANTS:
+            return identity_query_access_grants()
+        if self is OperationId.IDENTITY_QUERY_APPLICATIONS:
+            return identity_query_applications()
         if self is OperationId.IDENTITY_QUERY_AUDIT_LOG:
             return identity_query_audit_log()
         if self is OperationId.IDENTITY_QUERY_GROUPS:
             return identity_query_groups()
+        if self is OperationId.IDENTITY_QUERY_POLICIES:
+            return identity_query_policies()
         if self is OperationId.IDENTITY_QUERY_RISK_EVENTS:
             return identity_query_risk_events()
         if self is OperationId.IDENTITY_QUERY_RISKY_USERS:

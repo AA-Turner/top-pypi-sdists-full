@@ -2027,9 +2027,6 @@ class NativeMacroExpansion:
     def declaration_read(self, kind: str, name: str) -> None: ...
     def block_memo(self) -> None: ...
 
-def relation_key_row(
-    kind: str, name: str, values: dict[str, object], entry: object
-) -> RelationKeyRow: ...
 def declared_relation_keys(
     *,
     model_rows: Iterable[RelationKeyRow],
@@ -4785,7 +4782,6 @@ def write_check_results(
 def format_check_json(*, results: tuple[PythonCheckExecutionResult, ...]) -> str: ...
 def run_test_command(*, request: TestCommandRequest) -> int: ...
 def run_build_command(*, request: BuildCommandRequest) -> int: ...
-def run_review_command(*, request: ReviewCommandRequest) -> int: ...
 def enforce_plan_safety_policies(
     *,
     plan: PlanOutput,
@@ -10019,6 +10015,7 @@ class CompilePipelineOptions(NativeRecord):
     record_migration_fingerprints: bool
     accepts_unit_test_selectors: bool
     sql_test_selection: SqlTestSelection
+    source_lexical_syntax: SqlLexicalSyntax | None
     def __init__(
         self,
         selected_target: str | None = ...,
@@ -10044,6 +10041,7 @@ class CompilePipelineOptions(NativeRecord):
         record_migration_fingerprints: bool = ...,
         accepts_unit_test_selectors: bool = ...,
         sql_test_selection: SqlTestSelection = ...,
+        source_lexical_syntax: SqlLexicalSyntax | None = ...,
     ) -> None: ...
 
 class PythonPlanEntry(NativeRecord):
@@ -15162,6 +15160,7 @@ class MacroContext(NativeRecord):
     _collection_rendering: CollectionRendering
     _constant_declarations: Mapping[str, ConstantDeclaration]
     _enforce_explicit_references: bool
+    _lexical_syntax: SqlLexicalSyntax | None
     def __init__(
         self,
         adapter_name: str,
@@ -15174,6 +15173,7 @@ class MacroContext(NativeRecord):
         _collection_rendering: CollectionRendering = ...,
         _constant_declarations: Mapping[str, ConstantDeclaration] = ...,
         _enforce_explicit_references: bool = ...,
+        _lexical_syntax: SqlLexicalSyntax | None = ...,
     ) -> None: ...
     def render_constant(self, name: str) -> str: ...
     def render_enum_member(self, *, enum_name: str, member_name: str) -> str: ...

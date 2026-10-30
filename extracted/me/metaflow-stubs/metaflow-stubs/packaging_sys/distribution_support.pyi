@@ -1,18 +1,18 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.39                                                                                #
-# Generated on 2026-09-02T21:19:46.733417                                                            #
+# MF version: 2.19.40                                                                                #
+# Generated on 2026-10-29T20:14:39.440980                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import importlib
-import typing
 import abc
+import typing
 if typing.TYPE_CHECKING:
     import importlib.metadata
-    import os
     import abc
+    import os
 
 
 TYPE_CHECKING: bool
@@ -28,7 +28,7 @@ def modules_to_distributions() -> typing.Dict[str, typing.List[importlib.metadat
     """
     ...
 
-class PackagedDistribution(importlib.metadata.Distribution, metaclass=type):
+class PackagedDistribution(importlib.metadata.Distribution, metaclass=abc.ABCMeta):
     """
     A Python Package packaged within a MetaflowCodeContent. This allows users to use use importlib
     as they would regularly and the packaged Python Package would be considered as a

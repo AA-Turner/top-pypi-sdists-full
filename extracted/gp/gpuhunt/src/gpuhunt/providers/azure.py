@@ -124,7 +124,8 @@ class AzureProvider(OfflineProvider):
     def _get_region_pages(self, region: str) -> list[list[dict]]:
         pages = []
         page_id = 0
-        session = get_retrying_session()
+        # Without Retry-After, five retries span a minute to allow throttling to subside.
+        session = get_retrying_session(retries=5, backoff_factor=2)
         while True:
             cached_page = None
             if self.cache_dir is not None:
@@ -214,6 +215,9 @@ class AzureProvider(OfflineProvider):
                 gpu_name, gpu_memory = get_gpu_name_memory(resource.name)
                 if gpu_name is None and gpu_count:
                     logger.warning("Can't parse VM name: %s", resource.name)
+                    continue
+                if gpu_memory is None and gpu_count:
+                    logger.warning("GPU memory is unknown: %s", resource.name)
                     continue
             instance_name_to_spec_map[resource.name] = _InstanceSpec(
                 instance_name=resource.name,

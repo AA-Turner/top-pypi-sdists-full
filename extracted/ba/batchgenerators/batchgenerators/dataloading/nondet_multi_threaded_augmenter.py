@@ -20,9 +20,13 @@ import threading
 from builtins import range
 from multiprocessing import Process
 from multiprocessing import Queue
+from multiprocessing import parent_process
 from queue import Queue as thrQueue, Full, Empty
 import numpy as np
 import logging
+import os
+import random
+import signal
 from multiprocessing import Event
 from time import sleep, time
 
@@ -34,23 +38,76 @@ try:
 except ImportError:
     torch = None
 
+logger = logging.getLogger(__name__)
+
+
+def init_worker(seed):
+    """
+    Prepares a freshly started background worker: restores the default SIGTERM handler and seeds numpy, random and
+    torch.
+
+    Forked workers inherit the parent's signal handlers. A parent that catches SIGTERM must not keep its workers alive
+    when a scheduler such as SLURM sends SIGTERM to every process of the job.
+
+    Forked workers also inherit the parent's torch RNG state. Without a seed they would all draw the same numbers, so
+    torch is reseeded from the OS, as np.random.seed(None) does for numpy (random reseeds itself after a fork).
+    With a seed, torch gets a seed derived from it, not the seed itself: numpy and torch both use MT19937, and with the
+    same seed torch.rand would return the numbers numpy draws.
+    """
+    signal.signal(signal.SIGTERM, signal.SIG_DFL)
+
+    np.random.seed(seed)
+    if seed is not None:
+        # random.seed refuses numpy integers
+        random.seed(int(seed))
+    if torch is not None:
+        if seed is not None:
+            torch.manual_seed(int(np.random.SeedSequence(int(seed)).generate_state(1)[0]))
+        else:
+            torch.seed()
+
+
+class ParentWatch(object):
+    """
+    Tells a background worker whether the process that started it has died. A parent that is killed (SIGKILL, the OOM
+    killer) never sets abort_event, so its workers have to notice on their own.
+
+    parent_process().is_alive() watches a pipe whose other end the parent holds open. Under fork, every process the
+    parent forks later inherits that end too and keeps it open after the parent is gone. Under fork and spawn the
+    parent is also the worker's OS parent, so the worker is reparented when the parent dies and os.getppid() changes,
+    whoever holds the pipe. Under forkserver the OS parent is the fork server, and only the pipe is watched.
+    """
+
+    def __init__(self):
+        self.parent = parent_process()
+        self.watch_ppid = self.parent is not None and os.getppid() == self.parent.pid
+
+    def parent_died(self) -> bool:
+        if self.parent is None:
+            return False
+        return (self.watch_ppid and os.getppid() != self.parent.pid) or not self.parent.is_alive()
+
 
 def producer(queue: Queue, data_loader, transform, thread_id: int, seed,
              abort_event: Event, pause_event=None, wait_time: float = 0.02):
     if torch is not None:
         torch.set_num_threads(1)
-        if seed is not None:
-            torch.manual_seed(seed)
-
-    np.random.seed(seed)
+    init_worker(seed)
 
     # the producer will set the abort event if something happens
     with threadpool_limits(1, None):
         data_loader.set_thread_id(thread_id)
         item = None
+        parent = ParentWatch()
 
         try:
             while not abort_event.is_set():
+                # Nobody reads the queue once the parent is gone, so don't let the exit wait for the queue's feeder
+                # thread either.
+                if parent.parent_died():
+                    queue.cancel_join_thread()
+                    return
+
                 # When paused, stop producing and stop putting. This is the
                 # handshake _finish() uses to drain queues safely.
                 if pause_event is not None and pause_event.is_set():
@@ -137,6 +194,13 @@ def results_loop(in_queue: Queue, out_queue: thrQueue, abort_event: Event,
                     item = in_queue.get(timeout=wait_time)
                 except Empty:
                     continue  # abort_event/worker liveness re-checked at top of loop
+                except Exception:
+                    # A worker can still put a batch during shutdown and exit right after. Torch tensors are unpickled
+                    # by fetching their file descriptor from the sending process, so that batch may fail to load. It
+                    # would be discarded anyway.
+                    if abort_event.is_set():
+                        return
+                    raise
                 if do_pin_memory:
                     item = pin_memory_of_all_eligible_items_in_dict(item)
 
@@ -203,8 +267,8 @@ class NonDetMultiThreadedAugmenter(object):
             if self.abort_event.is_set():
                 # the results loop checks for dead workers and will set the abort event if necessary
                 self._finish()
-                raise RuntimeError("One or more background workers are no longer alive. Exiting. Please check the "
-                                   "print statements above for the actual error message")
+                raise RuntimeError("A background worker or the thread collecting their batches failed. Exiting. Please "
+                                   "check the output above for the actual error message")
 
             try:
                 item = self.results_loop_queue.get(timeout=self.wait_time)
@@ -229,7 +293,7 @@ class NonDetMultiThreadedAugmenter(object):
             self.abort_event = Event()
             self.pause_event = Event()
 
-            logging.debug("starting workers")
+            logger.debug("starting workers")
             if isinstance(self.generator, DataLoader):
                 self.generator.was_initialized = False
 
@@ -258,7 +322,7 @@ class NonDetMultiThreadedAugmenter(object):
 
             self.initialized = True
         else:
-            logging.debug("MultiThreadedGenerator Warning: start() has been called but workers are already running")
+            logger.debug("MultiThreadedGenerator Warning: start() has been called but workers are already running")
 
     def _finish(self, timeout=10, force=False):
         """Graceful shutdown — same pause-drain-exit handshake as MTA.
@@ -332,7 +396,7 @@ class NonDetMultiThreadedAugmenter(object):
         self._start()
 
     def __del__(self):
-        logging.debug("MultiThreadedGenerator: destructor was called")
+        logger.debug("MultiThreadedGenerator: destructor was called")
         self._finish(timeout=2, force=True)
 
 

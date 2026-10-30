@@ -10,6 +10,7 @@ from airbyte_ops_mcp.cli import cloud
 from airbyte_ops_mcp.regression_tests.models import (
     Command,
     ExecutionInputs,
+    MessageSummary,
     TargetOrControl,
 )
 
@@ -52,6 +53,8 @@ def test_run_connector_command_merges_extra_env_over_debug_log_level(
         exit_code = 0
         stdout_file_path = tmp_path / "stdout.txt"
         stderr_file_path = tmp_path / "stderr.txt"
+        stopped_early = None
+        summary = MessageSummary()
 
         def save_artifacts(self, _output_dir: Path) -> None:
             pass

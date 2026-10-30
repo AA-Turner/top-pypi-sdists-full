@@ -165,12 +165,12 @@ def CR(A, method='habituated', B=None, nu=3, thetacr=0.7,
     target = B[:, 0]
 
     # 3.1a - Initialize all nodes as F points
-    splitting = np.zeros((n,), dtype='intc')
-    indices = np.zeros((n+1,), dtype='intc')
+    splitting = np.zeros((n,), dtype=A.indptr.dtype)
+    indices = np.zeros((n+1,), dtype=A.indptr.dtype)
     indices[0] = n
-    indices[1:] = np.arange(0, n, dtype='intc')
+    indices[1:] = np.arange(0, n, dtype=A.indptr.dtype)
     Findex = indices[1:]
-    Cindex = np.empty((0,), dtype='intc')
+    Cindex = np.empty((0,), dtype=A.indptr.dtype)
     gamma = np.zeros((n,))
 
     # 3.1b - Run initial smoothing sweep
@@ -245,18 +245,18 @@ def binormalize(A, tol=1e-5, maxiter=10):
         - easily done with tol=0 if B=DA, but this is not symmetric
         - algorithm is O(N log (1.0/tol))
 
+    References
+    ----------
+    .. [1] Livne, O.E., Golub, G.H. Scaling by Binormalization.
+       Numerical Algorithms 35, 97-120 (2004).
+       https://doi.org/10.1023/B:NUMA.0000016606.32820.69
+
     Examples
     --------
     >>> from pyamg.gallery import poisson
     >>> from pyamg.classical.cr import binormalize
     >>> A = poisson((10,),format='csr')
     >>> C = binormalize(A)
-
-    References
-    ----------
-    .. [1] Livne, O.E., Golub, G.H. Scaling by Binormalization.
-       Numerical Algorithms 35, 97-120 (2004).
-       https://doi.org/10.1023/B:NUMA.0000016606.32820.69
 
     """
     if not issparse(A):

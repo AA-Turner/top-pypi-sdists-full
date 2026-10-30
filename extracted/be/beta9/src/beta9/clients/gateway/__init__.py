@@ -385,6 +385,11 @@ class DatabaseServingConfig(betterproto.Message):
     password_secret_name: str = betterproto.string_field(8)
     database_secret_name: str = betterproto.string_field(9)
     connection_url_secret_name: str = betterproto.string_field(10)
+    commit_lag_ms: int = betterproto.uint32_field(11)
+    """
+    How long an object-store-flush disk may answer flushes before their
+     commits; zero answers each only once it is committed.
+    """
 
 
 @dataclass(eq=False, repr=False)
@@ -1069,7 +1074,6 @@ class AgentBootstrapConfig(betterproto.Message):
     transport: str = betterproto.string_field(7)
     executor: str = betterproto.string_field(8)
     fallback: str = betterproto.string_field(9)
-    disabled_services: List[str] = betterproto.string_field(10)
     image_registry_store: str = betterproto.string_field(11)
     image_clip_version: int = betterproto.uint32_field(12)
     image_local_cache_enabled: bool = betterproto.bool_field(13)
@@ -1363,15 +1367,10 @@ class Machine(betterproto.Message):
     gpu_count: int = betterproto.uint32_field(5)
     status: str = betterproto.string_field(6)
     pool_name: str = betterproto.string_field(7)
-    provider_name: str = betterproto.string_field(8)
-    registration_token: str = betterproto.string_field(9)
-    tailscale_url: str = betterproto.string_field(10)
-    tailscale_auth: str = betterproto.string_field(11)
     last_keepalive: str = betterproto.string_field(12)
     created: str = betterproto.string_field(13)
     agent_version: str = betterproto.string_field(14)
     machine_metrics: "MachineMetrics" = betterproto.message_field(15)
-    user_data: str = betterproto.string_field(16)
     ssh: "MachineSshAccess" = betterproto.message_field(17)
     public_ip: str = betterproto.string_field(18)
     tailnet_hostname: str = betterproto.string_field(19)
@@ -1456,9 +1455,6 @@ class CreateMachineResponse(betterproto.Message):
     ok: bool = betterproto.bool_field(1)
     err_msg: str = betterproto.string_field(2)
     machine: "Machine" = betterproto.message_field(3)
-    agent_upstream_url: str = betterproto.string_field(4)
-    agent_upstream_branch: str = betterproto.string_field(5)
-    agent_upstream_token: str = betterproto.string_field(6)
     install_command: str = betterproto.string_field(7)
     """
     Agent-backed managed pools return the systemd installer here. The join

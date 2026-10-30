@@ -11,10 +11,24 @@ tiers an agent reads:
 Projection only: every number is the server's. Refs are slugs where the read
 names one (`experiment:<slug>`), else ids; times are UTC to the minute. An
 absent key means none; `cost_usd: null` means unknown, never 0.
+
+WHO, AND FOR HOW LONG (swarm friction R5): `agent_h` sums the sessions'
+time (parallel agents add up), `agent_wall_h` is the same time with parallel
+agents once. A compact row splits its time over its two sessions with the
+most (`sessions_top`, `"codex 2.9h · pi 2.1h"`); the detail tier lists the
+branch's sessions by ref and, on each experiment row, that experiment's split.
+
+LINES OF WORK (swarm friction D1 = A): every branch names its `line` (the
+line's first branch). The runner-up is the best branch of ANOTHER line;
+`no_other_line: true` says why there is none. A branch reads `state:
+dead_end` when its newest experiment is marked one; `line_dead_end: true`
+when its line's work has ended in dead ends everywhere (the server's
+`lines[].dead_end`).
 """
 
 from __future__ import annotations
 
+from collections.abc import Set as AbstractSet
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
@@ -40,6 +54,10 @@ def _minute(value: Any) -> Any:
     if moment.tzinfo is None:
         return value
     return moment.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
+
+
+#: The one time format the projected views share (the lineage view's links too).
+minute = _minute
 
 
 def _span(pair: Any) -> list | None:
@@ -68,9 +86,11 @@ class _Refs:
             for row in branch.get("experiments") or []:
                 if isinstance(row, dict) and row.get("id") and row.get("slug"):
                     self.slugs[str(row["id"])] = str(row["slug"])
-        picked = (body.get("pick") or {}).get("experiment")
-        if isinstance(picked, dict) and picked.get("id") and picked.get("slug"):
-            self.slugs[str(picked["id"])] = str(picked["slug"])
+        # The current pick, and a best read's history events (#3624).
+        for event in [body.get("pick"), *(body.get("history") or [])]:
+            picked = event.get("experiment") if isinstance(event, dict) else None
+            if isinstance(picked, dict) and picked.get("id") and picked.get("slug"):
+                self.slugs[str(picked["id"])] = str(picked["slug"])
 
     def experiment(self, ident: Any) -> str | None:
         if not ident:
@@ -105,6 +125,8 @@ def _standing(standing: Any, refs: _Refs) -> dict | None:
     if not isinstance(standing, dict) or not standing.get("branch"):
         return None
     out: dict[str, Any] = {"branch": refs.experiment(standing["branch"]), "name": standing.get("name")}
+    if standing.get("line"):
+        out["line"] = refs.experiment(standing["line"])
     best = _value(standing.get("best"), refs)
     if best is not None:
         out.update(best)
@@ -166,6 +188,8 @@ def header(body: dict, *, workspace: bool = False, full: bool = False) -> dict:
         standing = _standing(body.get(key), refs)
         if standing is not None:
             out[key] = standing
+    if body.get("no_other_line"):
+        out["no_other_line"] = True
     if body.get("gap"):
         out["gap"] = body["gap"]
     pick = _pick(body.get("pick"), refs, full=full)
@@ -185,13 +209,39 @@ def header(body: dict, *, workspace: bool = False, full: bool = False) -> dict:
     return out
 
 
+def pick_history(
+    body: dict, *, hidden: AbstractSet[str] = frozenset()
+) -> tuple[dict | None, list[dict]]:
+    """A best read (`GET /v1/projects/{P}/best?history=N`, or the workspace's):
+    the current pick and its events, newest first, each in the header's pick
+    shape plus its `id` (the event's order, increasing) and `event` (`set` or
+    `clear`). An event naming an experiment the caller cannot read is already
+    left out by the server (#3624); one naming an experiment in `hidden` (the
+    reader's own session's work) is left out here, and so is such a pick."""
+    if not isinstance(body, dict):
+        return None, []
+
+    def shown(event: Any) -> bool:
+        picked = event.get("experiment") if isinstance(event, dict) else None
+        return not (isinstance(picked, dict) and str(picked.get("id") or "").lower() in hidden)
+
+    refs = _Refs(body)
+    events = [
+        {"id": event.get("id"), "event": event.get("event"), **(_pick(event, refs, full=True) or {})}
+        for event in body.get("history") or []
+        if isinstance(event, dict) and shown(event)
+    ]
+    pick = body.get("pick")
+    return (_pick(pick, refs, full=True) if shown(pick) else None), events
+
+
 def _effort(effort: Any, *, full: bool = True) -> dict:
     effort = effort if isinstance(effort, dict) else {}
     out: dict[str, Any] = {}
     span = _span(effort.get("span"))
     if span is not None:
         out["span"] = span
-    for key in ("busy_h", "run_h", "agent_h"):
+    for key in ("busy_h", "run_h", "agent_h", "agent_wall_h"):
         if effort.get(key) is not None:
             out[key] = effort[key]
     if full:
@@ -213,13 +263,28 @@ def _harnesses(rows: Any) -> str | None:
     return " · ".join(f"{name} {n}" for name, n in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])))
 
 
-def compact_branch(branch: dict, refs: _Refs, main: dict | None) -> dict:
+def _dead_lines(body: dict) -> set[str]:
+    """The lines every branch of which is a dead end."""
+    return {
+        str(line["line"])
+        for line in body.get("lines") or []
+        if isinstance(line, dict) and line.get("line") and line.get("dead_end")
+    }
+
+
+def compact_branch(
+    branch: dict, refs: _Refs, main: dict | None, dead_lines: AbstractSet[str] = frozenset()
+) -> dict:
     """One branch's summary row (D6 compact)."""
     out: dict[str, Any] = {
         "ref": refs.experiment(branch.get("root")),
         "name": branch.get("name"),
         "experiments_total": branch.get("experiments_total"),
     }
+    if branch.get("line"):
+        out["line"] = refs.experiment(branch["line"])
+        if str(branch["line"]) in dead_lines:
+            out["line_dead_end"] = True
     metric = _metric(branch.get("metric"))
     other = metric is not None and (main is None or _metric_id(metric) != _metric_id(main))
     if other:
@@ -249,14 +314,37 @@ def compact_branch(branch: dict, refs: _Refs, main: dict | None) -> dict:
         harnesses = _harnesses(branch.get("sessions_by"))
         if harnesses:
             out["harnesses"] = harnesses
+        top = _top(branch.get("sessions"))
+        if top:
+            out["sessions_top"] = top
     if branch.get("cycle"):
         out["cycle"] = True
     return out
 
 
-def _session(row: dict) -> dict:
+def _top(rows: Any) -> str | None:
+    """`"codex 2.9h · pi 2.1h"`: the two sessions with the most agent-hours (the
+    server lists them most first), by harness: who did the work, in a few tokens."""
+    top = [r for r in rows or [] if isinstance(r, dict) and r.get("agent_h") is not None][:2]
+    return " · ".join(f"{r.get('harness') or 'unknown'} {r['agent_h']}h" for r in top) or None
+
+
+def _session_ref(row: dict) -> str:
     sid, harness = row.get("session"), row.get("harness")
-    out: dict[str, Any] = {"session": f"session:{harness}/{sid}" if harness else f"session:{sid}"}
+    return f"session:{harness}/{sid}" if harness else f"session:{sid}"
+
+
+def _split(rows: Any) -> list[dict]:
+    """Sessions as `{session, agent_h}`: who, and for how long."""
+    return [
+        {"session": _session_ref(r), "agent_h": r.get("agent_h")}
+        for r in rows or []
+        if isinstance(r, dict) and r.get("session")
+    ]
+
+
+def _session(row: dict) -> dict:
+    out: dict[str, Any] = {"session": _session_ref(row)}
     for key in ("title", "person"):
         if row.get(key):
             out[key] = row[key]
@@ -283,7 +371,7 @@ def detail_branch(branch: dict, refs: _Refs) -> tuple[dict, list[dict]]:
         "name": branch.get("name"),
         "project": f"project:{project}" if project else None,
     }
-    for key in ("parent_branch", "split_from"):
+    for key in ("line", "parent_branch", "split_from"):
         if branch.get(key):
             out[key] = refs.experiment(branch[key])
     if branch.get("split_at"):
@@ -363,7 +451,15 @@ def detail_branch(branch: dict, refs: _Refs) -> tuple[dict, list[dict]]:
             row["superseded"] = True
         if e.get("conclusion"):
             row["conclusion"] = e["conclusion"]
-        row["effort"] = _effort(e.get("effort"), full=False)
+        if e.get("outcome") == "dead_end":
+            row["dead_end"] = e.get("outcome_reason") or True
+        effort = e.get("effort") if isinstance(e.get("effort"), dict) else {}
+        row["effort"] = _effort(effort, full=False)
+        split = _split(effort.get("sessions"))
+        if split:
+            row["sessions"] = split
+            if (effort.get("sessions_total") or 0) > len(split):
+                row["sessions_total"] = effort["sessions_total"]
         rows.append(row)
     return out, rows
 
@@ -414,14 +510,26 @@ def project(body: dict, *, branch: Any = None, after: str | None = None, workspa
     if branch is not None:
         chosen = _chosen(body, refs, branch)
         full, rows = detail_branch(chosen, refs)
+        if str(chosen.get("line")) in _dead_lines(body):
+            full["line_dead_end"] = True
         return Projected(
             payload={**header(body, workspace=workspace, full=True), "branch": full},
             rows=_after(rows, after, "experiment"),
             rows_key="experiments",
         )
     main = _main_metric(body)
-    rows = [compact_branch(b, refs, main) for b in _branches(body)]
+    dead_lines = _dead_lines(body)
+    rows = [compact_branch(b, refs, main, dead_lines) for b in _branches(body)]
     return Projected(payload=header(body, workspace=workspace), rows=_after(rows, after, "branch"))
 
 
-__all__ = ["MAX_REF_CHARS", "Projected", "compact_branch", "detail_branch", "header", "project"]
+__all__ = [
+    "MAX_REF_CHARS",
+    "Projected",
+    "compact_branch",
+    "detail_branch",
+    "header",
+    "minute",
+    "pick_history",
+    "project",
+]

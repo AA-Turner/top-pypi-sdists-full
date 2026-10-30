@@ -50,7 +50,17 @@ from . import session_marker
 from . import unstorable
 from . import workspace_limit as _workspace_limit
 from .config import DAEMON_SHELL_CONFIG, Settings
-from .agent_session import AGENT_SESSION_HEADER, agent_session_headers
+from .agent_session import (
+    AGENT_HEADER,
+    AGENT_SESSION_HEADER,
+    EVENT_AT_ENV,
+    EVENT_AT_HEADER,
+    RUN_WRITE_ORIGIN,
+    WRITE_ORIGIN_HEADER,
+    agent_session_headers,
+    recorded_session_headers,
+    run_write_origin,
+)
 from .surface import ATTRIBUTION_HEADER, SURFACE_HEADER, TOOL_HEADER, Surface, current_tool
 from .tls import ssl_context
 
@@ -221,6 +231,76 @@ def attribution_scope(value: str):
         yield
     finally:
         _attribution_override.reset(token)
+
+
+_event_at: ContextVar[str | None] = ContextVar("probe_request_event_at", default=None)
+
+
+@contextmanager
+def event_at_scope(value: str | None):
+    """Date every request in this block at ``value`` (ISO 8601; see
+    `agent_session.EVENT_AT_HEADER`). None leaves the enclosing date in force."""
+    if not value:
+        yield
+        return
+    token = _event_at.set(str(value))
+    try:
+        yield
+    finally:
+        _event_at.reset(token)
+
+
+#: No `queued_session_scope` in force: this process's own agent session.
+_OWN_SESSION = object()
+_queued_session: ContextVar[Any] = ContextVar("probe_queued_session", default=_OWN_SESSION)
+
+
+@contextmanager
+def queued_session_scope(recorded: str | None):
+    """Send every request in this block as the agent session an outbox op
+    recorded (`agent_session.queued_session`), or as none when it recorded
+    none: the drainer delivers another writer's op as that writer's."""
+    token = _queued_session.set(recorded)
+    try:
+        yield
+    finally:
+        _queued_session.reset(token)
+
+
+def _session_headers() -> dict[str, str]:
+    recorded = _queued_session.get()
+    return agent_session_headers() if recorded is _OWN_SESSION else recorded_session_headers(recorded)
+
+
+def _event_at_header() -> dict[str, str]:
+    value = _event_at.get() or os.environ.get(EVENT_AT_ENV, "").strip()
+    return {EVENT_AT_HEADER: value[:64]} if value else {}
+
+
+#: No `queued_origin_scope` in force: this process's own (`run_write_origin`).
+_OWN_ORIGIN = object()
+_queued_origin: ContextVar[Any] = ContextVar("probe_queued_origin", default=_OWN_ORIGIN)
+
+
+@contextmanager
+def queued_origin_scope(recorded: str | None):
+    """Send every request in this block with the write origin an outbox op
+    recorded (`agent_session.run_write_origin`), or with none: the drainer
+    delivers a run's queued write as the run's, and never lends its own."""
+    token = _queued_origin.set(recorded)
+    try:
+        yield
+    finally:
+        _queued_origin.reset(token)
+
+
+def _write_origin_header(session: Mapping[str, str]) -> dict[str, str]:
+    """`WRITE_ORIGIN_HEADER` for a request sent as the session `session`'s
+    headers name (R41): a run process's write says so."""
+    recorded = _queued_origin.get()
+    if recorded is _OWN_ORIGIN:
+        recorded = run_write_origin(f"{session.get(AGENT_HEADER)}:{session.get(AGENT_SESSION_HEADER)}")
+    return {WRITE_ORIGIN_HEADER: RUN_WRITE_ORIGIN} if recorded == RUN_WRITE_ORIGIN else {}
 
 
 #: A monotonic deadline every request on THIS thread must respect, or None.
@@ -1000,7 +1080,13 @@ class Transport:
         # header rather than an empty one.
         attribution = _attribution_override.get() or self.attribution
         if attribution is Attribution.AMBIENT:
-            headers.update(agent_session_headers())
+            headers.update(_session_headers())
+            # When the work happened, and whether a run process did it, for the
+            # session's effort (R2, R41): only with a session to date, so a
+            # backfill or a plain shell sends nothing new.
+            if AGENT_SESSION_HEADER in headers:
+                headers.update(_event_at_header())
+                headers.update(_write_origin_header(headers))
         else:
             # Said out loud, not only implied by the missing session headers: the
             # server stamps it as `driven_by`, which is how #probe-usage tells an

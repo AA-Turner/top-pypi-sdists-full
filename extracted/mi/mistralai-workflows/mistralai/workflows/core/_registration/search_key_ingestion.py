@@ -31,13 +31,13 @@ from typing import NoReturn, TypeAlias, TypeVar
 from uuid import UUID
 
 import httpx
-import structlog
 import temporalio.activity
 import temporalio.common
 import temporalio.exceptions
 import temporalio.workflow
 import tenacity
 
+from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core._registration.null_value_compat import call_stripping_nulls_on_rejection
 from mistralai.workflows.core._registration.search_keys import (
     _RESERVED_KEY_PREFIX,
@@ -60,7 +60,7 @@ from mistralai.workflows.worker_client.errors.responsevalidationerror import Res
 from mistralai.workflows.worker_client.errors.sdkerror import SDKError
 from mistralai.workflows.worker_client.sdk import PrivateWorkerClient
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 UPSERT_SEARCH_KEYS_ACTIVITY_NAME = f"{INTERNAL_ACTIVITY_PREFIX}upsert_search_keys"
 DELETE_SEARCH_KEYS_ACTIVITY_NAME = f"{INTERNAL_ACTIVITY_PREFIX}delete_search_keys"

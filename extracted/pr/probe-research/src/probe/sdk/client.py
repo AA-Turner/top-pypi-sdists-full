@@ -16,6 +16,7 @@ import errno
 import json
 import os
 import random
+import re
 import shlex
 import socket
 import sys
@@ -532,6 +533,17 @@ def _is_uuid(value: object) -> bool:
     except (ValueError, AttributeError, TypeError):
         return False
     return True
+
+
+#: A bare ref read as an id (`_id_ref`): the 36-character form an id is printed
+#: in. A 32-hex slug (an md5, say) stays a slug.
+_BARE_ID = re.compile(r"[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}")
+
+
+def _id_ref(ref: str) -> bool:
+    """A ref that names an id: ``id:<anything>``, or a bare `_BARE_ID`
+    (`Client._project_by_id_ref`)."""
+    return ref.startswith("id:") or bool(_BARE_ID.fullmatch(ref))
 
 
 def _offset_cursor(cursor: str | None) -> int:
@@ -3556,6 +3568,62 @@ class Client:
     def get_project(self, project_id: str) -> dict:
         return self.transport.get(f"/v1/projects/{project_id}")
 
+    def _project_named(self, project: object) -> "tuple[dict | None, str | None]":
+        """`run(project=)`'s project (and an offline run's at its sync, `offline`):
+        the row an id-shaped ref names (`_project_by_id_ref`, never created),
+        else the slug to resolve, or create under ``question=``. ``slug:`` is
+        taken off: what follows is a slug, whatever it looks like."""
+        ref = str(project)
+        if ref.startswith("slug:"):
+            return None, ref[len("slug:"):]
+        if _id_ref(ref):
+            return self._project_by_id_ref(ref), None
+        return None, ref
+
+    def _project_by_id_ref(self, ref: str) -> dict:
+        """The project an id-shaped ref (`_id_ref`) names, or raise: never
+        created (#3623: a run given its project's id was refused as "no project
+        with slug", and with ``question=`` could make one slugged by the id).
+        ``id:<uuid>`` is only ever the id. A bare one is a slug too, as
+        everywhere (`test_ref_resolution.py`: one project's id was another's
+        slug, and the wrong one was deleted): it names whichever project it is
+        the slug or the id of, and when it is both, of two projects, it is
+        refused with the spelling for each."""
+        bare = ref.removeprefix("id:")
+        by_slug = None if ref.startswith("id:") else self.resolve_project(ref)
+        row = None
+        if _BARE_ID.fullmatch(bare):
+            try:
+                row = self.get_project(bare.lower())
+            except errors.NotFoundError:
+                row = None
+        if row is not None and row.get("kind") == "experiment":
+            # Every experiment id is served at /v1/projects/{id} too.
+            if by_slug is not None:
+                return by_slug
+            raise errors.ValidationError(
+                f"{bare!r} is experiment {row.get('slug')!r}, not a project: "
+                f"pass experiment={row.get('slug')!r} instead."
+            )
+        if by_slug is not None and row is not None and by_slug.get("id") != row.get("id"):
+            raise errors.ValidationError(
+                f"{bare!r} names two projects: it is the id of {row.get('slug')!r} and the slug of "
+                f"another. Pass project='id:{bare}' for the first, project='slug:{bare}' for the second."
+            )
+        found = by_slug or row
+        if found is None:
+            from .workspace_limit import annotate_not_found, maybe_hidden_hint
+
+            raise annotate_not_found(
+                errors.NotFoundError(
+                    f"no project with id {bare!r}"
+                    + ("" if ref.startswith("id:") else " (nor with it as its slug)")
+                    + ". `probe project list` shows the projects; an id is never created as a project."
+                ),
+                maybe_hidden_hint(getattr(self.settings, "workspace_limit", None)),
+            )
+        return found
+
     def get_project_overview(self, project_id: str) -> dict:
         """Read the complete saved unified Overview; never queue generation."""
         return self.transport.get(f"/v1/projects/{project_id}/overview")
@@ -5014,6 +5082,7 @@ class Client:
         directed: bool = False,
         html: str | None = None,
         series: list | None = None,
+        whole_page: bool = False,
     ) -> dict:
         """Replace the summary from ``markdown``, or from ``html`` -- the full
         page as ``get_summary(format="html")`` gave it, its chart declarations
@@ -5038,6 +5107,10 @@ class Client:
             body["html"] = html
             if series is not None:
                 body["series"] = series
+            if whole_page:
+                # The writer's checkout pushed whole: the only push the server
+                # judges `no_chart` (an older server ignores the field).
+                body["whole_page"] = True
         else:
             body = {"markdown": markdown, **body}
         return self._summary_route(
@@ -5110,13 +5183,21 @@ class Client:
         summary: dict | None = None,
         authored_by: str | None = None,
         project_id: str | None = None,
+        dead_end: str | None = None,
+        clear_dead_end: bool = False,
     ) -> dict:
-        """Amend an experiment's question, conclusion, name or visible Markdown.
+        """Amend an experiment's question, conclusion, name or visible Markdown,
+        or mark it a dead end.
 
         ``question``, ``conclusion`` and ``name`` go to
         ``PATCH /v1/projects/{P}/experiments/{E}``. ``conclusion`` is the
         experiment's answer; ``""`` clears it. The server answers 409 when an
         agent's write would replace a person's conclusion.
+
+        ``dead_end`` marks the experiment a dead end and says why (the server's
+        ``outcome: dead_end`` with ``outcome_reason``); ``clear_dead_end`` clears
+        the mark. Its branch then reads ``dead_end`` until a run of it is live;
+        it still ranks. An agent's mark never replaces a person's (409).
 
         ``document`` replaces the authored Markdown that lives INSIDE the
         experiment's Overview page, as a block the page's AI writer may not
@@ -5136,6 +5217,10 @@ class Client:
         if description is not None:
             raise ValueError(_EXPERIMENT_DESCRIPTION_RETIRED)
         _refuse_read_only_experiment_fields(tags=tags, metadata=metadata, summary=summary)
+        if dead_end is not None and clear_dead_end:
+            raise ValueError("dead_end marks the experiment and clear_dead_end clears it: pass one")
+        if dead_end is not None and not dead_end.strip():
+            raise ValueError("dead_end takes the reason: say why the experiment is a dead end")
         identity = {
             key: value
             for key, value in {
@@ -5145,12 +5230,16 @@ class Client:
             }.items()
             if value is not None
         }
-        if not identity and document is None:
+        if not identity and document is None and dead_end is None and not clear_dead_end:
             raise ValueError("update_experiment needs at least one field to set")
         project, experiment = self._experiment_ids(experiment_id, project_id)
         body: dict[str, Any] = dict(identity)
         if document is not None:
             body["document"] = document
+        if dead_end is not None:
+            body["outcome"], body["outcome_reason"] = "dead_end", dead_end
+        elif clear_dead_end:
+            body["outcome"] = None
         # AFTER the emptiness check, deliberately. `authored_by` declares who
         # wrote the OTHER fields; on its own it declares authorship of nothing.
         _put_authorship(body, authored_by)
@@ -6098,6 +6187,7 @@ class Client:
         capture, but not its code snapshot, taken before the child started:
         put those in ``.probeignore`` or ``PROBE_IGNORE`` (it warns).
         """
+        self._mark_run_process()
         # This process is doing a researcher's run: the scrubber may cache
         # (plan (k); off in every multi-tenant process, see redaction.py).
         from . import redaction as _redaction
@@ -6316,6 +6406,8 @@ class Client:
         # later. It must be None and NOT `name or slug`: runs never pass through
         # `chosen_name()` (that is the projects/experiments door), so a slug sent as
         # a name is indistinguishable from a human choice and re-freezes the row.
+        # A project named by an id must exist: never created, whatever `question=` says.
+        by_id, slug = self._project_named(project) if project else (None, None)
         # Refuse an uncreatable experiment slug BEFORE any parent is committed.
         # ensure_project runs first below, so without this a refused experiment
         # leaves a brand-new orphan project behind — the exact stray identity the
@@ -6323,7 +6415,7 @@ class Client:
         if experiment and question is not None:
             # Read-only: the project may not exist yet (ensure_project below
             # creates it), and then the lookup is tenant-wide.
-            known = self.resolve_project(project) if project else None
+            known = by_id or (self.resolve_project(slug) if slug else None)
             if (
                 self.resolve_experiment(experiment, project_id=known["id"] if known else None)
                 is None
@@ -6338,13 +6430,15 @@ class Client:
             # without it, this computer's workspace (`create_project`). An
             # existing project keeps its own: nothing ever moves.
             project_id = (
-                self.ensure_project(
-                    project,
+                by_id["id"]
+                if by_id is not None
+                else self.ensure_project(
+                    slug,
                     authored_by=run_kw.get("authored_by"),
                     **({"workspace_id": workspace} if workspace else {}),
                 )["id"]
                 if question is not None
-                else self.resolve_or_raise("project", project)["id"]
+                else self.resolve_or_raise("project", slug)["id"]
             )
         if not experiment:
             # Project-direct (0054): the run attaches straight to the project.
@@ -7553,6 +7647,14 @@ class Client:
             parsed = parsed.replace(tzinfo=UTC)
         return (datetime.now(UTC) - parsed).total_seconds() > cls._REOPEN_MAX_AGE_SECONDS
 
+    def _mark_run_process(self) -> None:
+        """A script opening or joining a run is that run's process from now on
+        (`agent_session.mark_run_process`, R41): its writes are the run's, not
+        its agent being active. A `probe` command's run is one write its agent
+        made, so the CLI's client marks nothing (`probe exec` marks itself)."""
+        if getattr(self.transport, "surface", None) == Surface.SDK.value:
+            agent_session.mark_run_process()
+
     def attach_run(
         self,
         run: str | dict,
@@ -7583,6 +7685,7 @@ class Client:
         Modal cold start -- would otherwise beat forever into nothing and never
         learn it. See :meth:`_reopen_for_attach` for which verdicts it will
         reopen and, more importantly, which it refuses."""
+        self._mark_run_process()
         data = self.get_run(run) if isinstance(run, str) else run
         armed_by_attach = False
         if reopen_if_dead:
@@ -10273,6 +10376,33 @@ class Client:
         ...) and ``reachable``. Never retried: a lost answer is no reason to say
         it twice."""
         return self.transport.post(f"/v1/sessions/{session_id}/messages", {"body": body})
+
+    def delete_session(self, session_id: str, *, dry_run: bool = False) -> dict:
+        """``DELETE /v1/sessions/{id}`` -- delete one of your captured sessions
+        (research-os 0411). It is hidden from search at once and deleted for
+        good after ``purge_after`` (7 days), unless ``undelete_session`` undoes
+        it first; the owner is emailed. Answers the request (``state``,
+        ``purge_after``, ``can_undo``, ``note``); an existing request is
+        answered again, never doubled. ``dry_run`` checks and describes, and
+        writes nothing. 403 for a teammate's session or an agent's credential,
+        404 for an id the team has never seen."""
+        resp = self.transport.request(
+            "DELETE",
+            f"/v1/sessions/{session_id}",
+            params={"dry_run": "true"} if dry_run else None,
+            idempotent=True,
+        )
+        return resp.json()
+
+    def undelete_session(self, session_id: str) -> dict:
+        """``POST /v1/sessions/{id}/undelete`` -- undo ``delete_session`` while
+        its window is open. 409 once the deletion has started."""
+        return self.transport.post(f"/v1/sessions/{session_id}/undelete", None, idempotent=True)
+
+    def session_deletion(self, session_id: str) -> dict:
+        """``GET /v1/sessions/{id}/deletion`` -- where your deletion of this
+        session stands. 404 when you asked for none."""
+        return self.transport.get(f"/v1/sessions/{session_id}/deletion")
 
     def session_created(self, session_id: str) -> dict:
         """``GET /v1/sessions/{id}/created`` — the ids of every project,

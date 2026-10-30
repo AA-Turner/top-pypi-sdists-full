@@ -17,6 +17,7 @@ jobs:
       python-versions: ${{ steps.metadata.outputs.python-versions }}
       python-latest: ${{ steps.metadata.outputs.python-latest }}
       os-matrix: ${{ steps.metadata.outputs.os-matrix }}
+      matrix-include: ${{ steps.metadata.outputs.matrix-include }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -46,20 +47,55 @@ jobs:
           ci_config = data.get("tool", {}).get("ci", {})
           os_list = ci_config.get("os", ["ubuntu-latest"])
 
+          # Free-threaded builds from [tool.ci] free-threaded = ["3.15", ...]. They cannot
+          # be classifiers: "3.15t" is not a trove classifier and hatchling refuses to
+          # build with an unknown one. PyPI's own marker is the version-less
+          # "Free Threading :: <level>" classifier, so each entry must name a version
+          # the classifiers already declare.
+          free_threaded = ci_config.get("free-threaded", [])
+          for entry in free_threaded:
+              if not (isinstance(entry, str) and len(entry.split(".")) == 2
+                      and all(p.isascii() and p.isdigit() for p in entry.split("."))):
+                  raise SystemExit(f'[tool.ci] free-threaded: {entry!r} is not an "X.Y" version string')
+              if entry not in versions:
+                  raise SystemExit(
+                      f"[tool.ci] free-threaded: {entry} is not declared as a "
+                      f'"{prefix}{entry}" classifier'
+                  )
+          if free_threaded and not any(c.startswith(prefix + "Free Threading") for c in classifiers):
+              print(f'::warning::[tool.ci] free-threaded is set, but no "{prefix}Free Threading :: '
+                    '<level>" classifier tells PyPI users the package supports it')
+
+          # macOS runners are slow, so macOS tests only the newest declared Python
+          # (the regular build); every other OS tests them all, free-threaded cells
+          # ("3.15t", which setup-python installs) included. Newest by version number,
+          # never by classifier order.
+          latest = max(versions, key=lambda v: tuple(int(p) for p in v.split(".")))
+          include = [
+              {"os": os_name, "python": python}
+              for os_name in os_list
+              for version in versions
+              for python in [version] + ([version + "t"] if version in free_threaded else [])
+              if not os_name.startswith("macos") or python == latest
+          ]
+
           with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
               fh.write(f"python-versions={json.dumps(versions)}\n")
-              fh.write(f"python-latest={versions[-1]}\n")
+              fh.write(f"python-latest={latest}\n")
               fh.write(f"os-matrix={json.dumps(os_list)}\n")
+              fh.write(f"matrix-include={json.dumps(include)}\n")
 
   test:
     name: Tests (Python ${{ matrix.python }}, ${{ matrix.os }})
     needs: setup
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJSON(needs.setup.outputs.os-matrix) }}
-        python: ${{ fromJSON(needs.setup.outputs.python-versions) }}
+        # One entry per (os, python) pair from the setup job's matrix-include,
+        # which keeps macOS to the newest Python.
+        include: ${{ fromJSON(needs.setup.outputs.matrix-include) }}
     env:
       PYO3_USE_ABI3_FORWARD_COMPATIBILITY: "1"
       PYTHONIOENCODING: "utf-8"
@@ -71,7 +107,7 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           enable-cache: true
           prune-cache: false
@@ -80,7 +116,9 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew install bash
-          echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
+          # Only bash's own bin dir: all of $(brew --prefix)/bin would also put Homebrew's
+          # python3 ahead of setup-python's, and every later `python`/`pytest` would run it.
+          echo "$(brew --prefix bash)/bin" >> "$GITHUB_PATH"
 
       - name: Extract project metadata
         id: metadata
@@ -126,7 +164,7 @@ jobs:
       - name: Install dev deps
         shell: python
         run: |
-          import os, subprocess, tempfile
+          import os, subprocess, sys, tempfile
           from pathlib import Path
           try:
               import tomllib
@@ -144,7 +182,9 @@ jobs:
               data = tomllib.load(f)
           # Asking uv for an extra the project does not declare is a hard error.
           extra = ["--extra", "dev"] if "dev" in data.get("project", {}).get("optional-dependencies", {}) else []
-          target = ["--system"]  # setup-python's interpreter; the job runs no venv
+          # The job runs no venv: install into the interpreter running this step, which is
+          # setup-python's. --system would take the first python on PATH instead.
+          target = ["--python", sys.executable]
           locked = Path("uv.lock").is_file() and os.environ["GITHUB_EVENT_NAME"] != "schedule"
           if locked:
               req = Path(tempfile.mkdtemp()) / "locked-requirements.txt"
@@ -154,6 +194,62 @@ jobs:
               subprocess.check_call(["uv", "pip", "install", *target, "--no-deps", "-e", "."])
           else:
               subprocess.check_call(["uv", "pip", "install", *target, "-e", ".[dev]" if extra else "."])
+
+      - name: Assert the matrix interpreter
+        shell: python
+        run: |
+          import os, re, shutil, sys
+          from pathlib import Path
+
+          # Every later step runs python, pytest, ruff ... from PATH. If anything puts another
+          # installation's bin dir ahead of setup-python's (Homebrew's did, on macOS), the job
+          # tests that Python while its name still says the matrix version, and stays green.
+          location = Path(os.environ["pythonLocation"])
+          root = location.resolve()
+          # On macOS the toolcache dir's bin is a SYMLINK into the python.org framework install
+          # (actions/python-versions installers/macos-pkg-setup-template.sh), so a resolved
+          # interpreter path lies there, outside $pythonLocation. Accept the install it points at.
+          roots = {root} | {(location / d).resolve().parent for d in ("bin", "Scripts") if (location / d).is_dir()}
+
+
+          def under_root(path):
+              real = path.resolve()
+              for candidate in roots:
+                  try:
+                      real.relative_to(candidate)
+                      return True
+                  except ValueError:
+                      pass
+              return False
+
+
+          def script_interpreter(script):
+              head = script.read_text(encoding="utf-8", errors="replace").splitlines()[:3]
+              if not head or not head[0].startswith("#!"):
+                  return None
+              # A long interpreter path is written as #!/bin/sh plus an exec line.
+              exec_line = re.search(r"exec' \"([^\"]+)\"", "\n".join(head))
+              return Path(exec_line.group(1) if exec_line else head[0][2:].split()[0])
+
+
+          problems = []
+          if not under_root(Path(sys.executable)):
+              problems.append(f"python on PATH is {Path(sys.executable).resolve()}, not under {root}")
+          pytest_path = shutil.which("pytest")
+          if pytest_path is None:
+              problems.append("pytest is not on PATH")
+          elif os.name == "nt":
+              if not under_root(Path(pytest_path)):
+                  problems.append(f"pytest on PATH is {pytest_path}, not under {root}")
+          else:
+              interpreter = script_interpreter(Path(pytest_path))
+              if interpreter is None or not under_root(interpreter):
+                  problems.append(f"pytest on PATH ({pytest_path}) runs {interpreter}, not an interpreter under {root}")
+          for problem in problems:
+              print(f"::error::{problem}")
+          if problems:
+              sys.exit(1)
+          print(f"python and pytest both run from {root}")
 
       - name: Install CI system dependencies (Windows/choco)
         if: runner.os == 'Windows'
@@ -177,7 +273,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: python
         run: |
-          import subprocess
+          import subprocess, sys
           try:
               import tomllib
           except ModuleNotFoundError:
@@ -187,7 +283,7 @@ jobs:
           deps = data.get("tool", {}).get("ci", {}).get("system-dependencies-windows-pip", [])
           if deps:
               print(f"Installing pip packages: {' '.join(deps)}")
-              subprocess.check_call(["uv", "pip", "install", *deps, "--system"])
+              subprocess.check_call(["uv", "pip", "install", *deps, "--python", sys.executable])
           else:
               print("No CI pip dependencies configured for Windows.")
 
@@ -218,6 +314,135 @@ jobs:
         shell: bash
         run: pyright
 
+      - name: Choose pytest workers
+        id: workers
+        shell: python
+        env:
+          # What CI leaves out of every run; the step combines it with the project's own -m.
+          PYTEST_CI_EXCLUDES: ${{ env.PYTEST_MARKER_EXPR }}
+        run: |
+          # Run the suite across processes exactly when bmk's `make test` does (bmk
+          # adapters/stagerunner/helpers/_parallel.py): only when the project's configured
+          # pytest loads pytest-xdist AND pytest-cov (this job always measures coverage, and
+          # only pytest-cov carries it into the workers), with [tool.scripts.test] workers
+          # as the count ("1" is serial). A project's own -n or --dist is its choice and is
+          # kept. What pytest loads is asked of pytest itself, never inferred from what is
+          # importable: addopts can block a plugin and autoload can be off.
+          import json
+          import os
+          import platform
+          import subprocess
+          import sys
+          import tempfile
+
+          try:
+              import tomllib
+          except ModuleNotFoundError:  # Python 3.10
+              import pip._vendor.tomli as tomllib
+
+          PROBE = """
+          import json, sys
+          import pytest
+          facts = {}
+          class _Probe:
+              @pytest.hookimpl(tryfirst=True)
+              def pytest_cmdline_main(self, config):
+                  plugins = config.pluginmanager
+                  facts["xdist"] = plugins.hasplugin("xdist")
+                  facts["cov"] = plugins.hasplugin("pytest_cov")
+                  facts["own_n"] = getattr(config.option, "numprocesses", None) is not None
+                  facts["own_dist"] = getattr(config.option, "dist", "no") not in ("no", None)
+                  facts["markexpr"] = getattr(config.option, "markexpr", "") or ""
+                  return 0
+          pytest.main(["-p", "no:cacheprovider"], plugins=[_Probe()])
+          # pytest-xdist 3.8.0 groups a test by renaming item._nodeid, which pytest 9.2.0's Node.nodeid never
+          # reads (pytest-xdist issue #1386): --dist loadgroup then spreads every xdist_group over all workers
+          # and the run stays green. Asked of the installed code rather than its versions, so a fixed release
+          # lifts it; a check that cannot answer leaves the field unset and the run parallel.
+          if facts.get("xdist"):
+              try:
+                  import inspect, xdist.remote
+                  from _pytest.nodes import Node
+                  renames = "item._nodeid =" in inspect.getsource(xdist.remote)
+                  node = object.__new__(Node)
+                  try:
+                      node._nodeid = "group-probe"
+                      honoured = node.nodeid == "group-probe"
+                  except Exception:
+                      honoured = False
+                  facts["groups_ignored"] = renames and not honoured
+              except Exception:
+                  pass
+          with open(sys.argv[1], "w", encoding="utf-8") as out:
+              json.dump(facts, out)
+          """
+
+
+          def cpu_model():
+              try:
+                  with open("/proc/cpuinfo", encoding="utf-8") as f:
+                      for line in f:
+                          if line.startswith("model name"):
+                              return line.split(":", 1)[1].strip()
+              except OSError:
+                  pass
+              return platform.processor() or "unknown CPU"
+
+
+          def workers_setting():
+              with open("pyproject.toml", "rb") as f:
+                  raw = tomllib.load(f).get("tool", {}).get("scripts", {}).get("test", {}).get("workers", "auto")
+              if isinstance(raw, str) and raw.strip().lower() == "auto":
+                  return "auto"
+              # bool is an int subclass, and `workers = true` is no count.
+              if isinstance(raw, int) and not isinstance(raw, bool) and raw >= 1:
+                  return str(raw)
+              if isinstance(raw, str) and raw.strip().isascii() and raw.strip().isdigit() and int(raw) >= 1:
+                  return str(int(raw))
+              print(f'::error::[tool.scripts.test] workers must be "auto" or a whole number >= 1 (1 means serial), got: {raw!r}')
+              sys.exit(1)
+
+
+          workers = workers_setting()
+          print(f"Runner: {cpu_model()}, {os.cpu_count()} CPUs")
+          with tempfile.TemporaryDirectory() as tmp:
+              answer = os.path.join(tmp, "plugins.json")
+              subprocess.run([sys.executable, "-c", PROBE, answer], check=True, stdout=subprocess.DEVNULL)
+              with open(answer, encoding="utf-8") as f:
+                  facts = json.load(f)
+
+          if workers == "1":
+              serial = "[tool.scripts.test] workers = 1"
+          elif not (facts["xdist"] and facts["cov"]):
+              serial = "pytest-xdist and pytest-cov are not both loaded"
+          elif facts.get("groups_ignored"):
+              serial = "this pytest drops pytest-xdist's xdist_group marks (pytest-xdist issue #1386)"
+          else:
+              serial = None
+
+          if serial:
+              args = "-n 0" if facts["xdist"] and facts["own_n"] else ""
+              print(f"pytest runs serial: {serial}")
+          elif facts["own_n"]:
+              args = ""
+              print("pytest runs with the project's own -n")
+          else:
+              args = " ".join(["-n", workers] + ([] if facts["own_dist"] else ["--dist", "loadgroup"]))
+              print(f"pytest runs in parallel: {args}")
+
+          # pytest's -m is an argparse store option, so the -m this job passes replaces one the
+          # project keeps in addopts, and tests the project excludes from its own runs would run
+          # here. The probe read the -m pytest settled on after merging addopts and
+          # PYTEST_ADDOPTS; keep it, and leave out what CI excludes (bmk 3.32.0 does the same).
+          excludes = os.environ["PYTEST_CI_EXCLUDES"]
+          own = facts["markexpr"].strip()
+          markexpr = f"({own}) and ({excludes})" if own else excludes
+          print(f"pytest -m: {markexpr}")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+              out.write(f"args={args}\n")
+              out.write(f"markexpr={markexpr}\n")
+
       - name: Run pytest (tests + coverage)
         id: pytest
         continue-on-error: true
@@ -227,8 +452,11 @@ jobs:
           # Write coverage SQLite database to local disk — network mounts
           # and stale journal files cause "database is locked" errors.
           COVERAGE_FILE: "${{ runner.temp }}/.coverage"
+          # From the environment, so a quote in a project's expression cannot end the word early.
+          PYTEST_MARKEXPR: ${{ steps.workers.outputs.markexpr }}
         run: >-
-          pytest -m "${{ env.PYTEST_MARKER_EXPR }}"
+          pytest -m "$PYTEST_MARKEXPR"
+          ${{ steps.workers.outputs.args }}
           --cov=${{ env.SRC_PATH }}/${{ env.PACKAGE_MODULE }}
           --cov-report=term-missing
           --cov-report=xml:${{ env.COV_REPORT_FILE }}
@@ -241,7 +469,7 @@ jobs:
           && steps.pytest.outcome == 'success'
           && matrix.os == 'ubuntu-latest'
           && matrix.python == needs.setup.outputs.python-latest
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
         with:
           files: ${{ env.COV_REPORT_FILE }}
           fail_ci_if_error: false
@@ -268,8 +496,8 @@ jobs:
           from pathlib import Path
 
           # Audit the project's OWN resolved dependency tree, not the ambient
-          # environment. "Install dev deps" uses --system, so the interpreter
-          # being audited is the runner image's, and that image ships packages
+          # environment. "Install dev deps" installs into setup-python's interpreter,
+          # which belongs to the runner image, and that image ships packages
           # this project neither declares nor distributes (setuptools, pip,
           # wheel). Auditing those reported CVEs no consumer of this project is
           # exposed to, and a scan that is permanently yellow is a scan everyone
@@ -387,6 +615,7 @@ jobs:
   pipx-uv:
     name: pipx/uv verification (ubuntu)
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -394,7 +623,7 @@ jobs:
           python-version: "3.14"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           enable-cache: true
           prune-cache: false
@@ -426,6 +655,7 @@ jobs:
   notebooks:
     name: Execute notebooks (ubuntu, Python 3.14)
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -433,7 +663,7 @@ jobs:
           python-version: "3.14"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           enable-cache: true
           prune-cache: false

@@ -13,6 +13,9 @@ where it can:
     streamed     the run's own text as it is written (its log: what it would
                  have printed here, the browser approval's link and code
                  among it); the exit status is the run's
+    queued       asked for while an update holds the service's slot: the
+                 service runs it once that update lets go (`queued: true`),
+                 and this says so before it waits
     Ctrl-C       during the browser approval: `action.cancel`, as SIGINT does
                  in-process; anywhere else the run may be writing, so it goes
                  on (a second Ctrl-C stops following it, never the run)
@@ -33,8 +36,9 @@ where it can:
                      (invalid params), or no answer before it was sent (once
                      sent, it is the service's: asked again by its
                      client_request_id, never run here as well);
-                   - busy (another action or an update): the in-process run
-                     says so itself, from the run lock it cannot take;
+                   - busy (another action, or an Update while an update
+                     runs): the in-process run says so itself, from the run
+                     lock it cannot take;
                    - refused: from inside a session the Probe daemon records
                      (the in-process path's own checks decide, as before), or
                      from a sandbox (the change must land inside it);
@@ -210,7 +214,7 @@ def run(routed: Routed) -> int | None:
         _close(conn)
         return None
     try:
-        return _Follower(conn, action_id, version).follow()
+        return _Follower(conn, action_id, version, queued=answer.get("queued") is True).follow()
     finally:
         _close(conn)
 
@@ -262,10 +266,12 @@ class _Follower:
     """Reads one action's events (for its end and the approval wait) and its
     log (for the text), until it is done."""
 
-    def __init__(self, conn, action_id: str, version: str) -> None:
+    def __init__(self, conn, action_id: str, version: str, queued: bool = False) -> None:
         from probe.service import paths
 
         self.conn = conn
+        #: It waits for an update before it starts (`action.run` said `queued`).
+        self.queued = queued
         self.action_id = action_id
         self.version = version
         # `<service dir>/actions/<id>.log` (`probe.service.actions`); a service
@@ -279,6 +285,10 @@ class _Follower:
         self.done: dict | None = None
         self.interrupts = 0
         self.told_writing = False
+        #: The first Ctrl-C found it still waiting for the update.
+        self.told_waiting = False
+        #: The last `error` event: said when a run that wrote no log text fails.
+        self.error: dict | None = None
         self.cancel_sent = False
 
     # -- the loop --------------------------------------------------------------
@@ -290,6 +300,9 @@ class _Follower:
                 previous = signal.signal(signal.SIGINT, self._on_sigint)
             except ValueError:  # not the main thread: Ctrl-C keeps its default
                 previous = None
+        if self.queued:
+            print("probe wizard: Probe is updating itself; this runs on the Probe service once that update "
+                  "finishes.", file=sys.stderr, flush=True)
         try:
             while self.done is None:
                 self._tail()
@@ -305,6 +318,9 @@ class _Follower:
         finally:
             if previous is not None:
                 signal.signal(signal.SIGINT, previous)
+        if not self.done.get("ok") and not self.offset and self.error and self.error.get("message"):
+            # It never wrote a word (it waited, then never started): say why.
+            print(f"probe wizard: {self.error['message']}", file=sys.stderr, flush=True)
         code = self.done.get("exit_code")
         if isinstance(code, int) and not isinstance(code, bool):
             return code
@@ -333,16 +349,38 @@ class _Follower:
             self.told_writing = True
         if not self.told_writing:
             self.told_writing = True
-            self.interrupts = 0
-            print(
-                "probe wizard: the Probe service is applying this and it cannot be stopped while it "
-                "writes; press Ctrl-C again to stop following it (it carries on).",
-                file=sys.stderr, flush=True,
-            )
+            self.interrupts = 0  # before the call below: a Ctrl-C during it still counts
+            # Not started yet: it may never start without this command (its child
+            # checks that the process that asked is still there), so promise nothing.
+            self.told_waiting = self.queued and self._still_queued()
+            if self.told_waiting:
+                said = ("this waits for Probe's update to finish before it starts; press Ctrl-C again to stop "
+                        "waiting (it may then not run)")
+            else:
+                said = ("the Probe service is applying this and it cannot be stopped while it writes; press "
+                        "Ctrl-C again to stop following it (it carries on)")
+            print(f"probe wizard: {said}.", file=sys.stderr, flush=True)
             return None
-        print("probe wizard: still running on the Probe service; `probe status` shows when it is done.",
-              file=sys.stderr, flush=True)
+        if self.told_waiting:
+            print(f"probe wizard: stopped waiting for {self.action_id}; it may still run once the update finishes.",
+                  file=sys.stderr, flush=True)
+        else:
+            print("probe wizard: still running on the Probe service; `probe status` shows when it is done.",
+                  file=sys.stderr, flush=True)
         return 130
+
+    def _still_queued(self) -> bool:
+        """Is the action still in the service's line for an update (`service.status`
+        `actions.queued`)? `action.status` says `queued` until its child starts, a
+        moment after it left the line too."""
+        from probe.service.protocol import Method
+
+        try:
+            status = self.conn.call(Method.STATUS)
+        except Exception:  # noqa: BLE001 -- unknown: say what holds for a running one
+            return False
+        actions = status.get("actions") if isinstance(status, dict) else None
+        return isinstance(actions, dict) and self.action_id in (actions.get("queued") or [])
 
     # -- reading -----------------------------------------------------------------
 
@@ -369,6 +407,8 @@ class _Follower:
                 self.since = max(self.since, seq)
             event = item["event"]
             self.last_kind = event.get("event") if isinstance(event.get("event"), str) else self.last_kind
+            if self.last_kind == "error":
+                self.error = event
             if self.last_kind == "done":
                 self.done = event
         if page.get("done") and self.done is None:

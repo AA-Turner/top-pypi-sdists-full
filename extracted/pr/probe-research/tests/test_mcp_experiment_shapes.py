@@ -615,7 +615,9 @@ def test_the_answers_are_about_the_right_rows(shape) -> None:
     groups = service.get_entity(f"experiment:{E1}", view="groups")["data"]["groups"]
     assert [(g["name"], g["experiment_id"]) for g in groups] == [("lr-grid", E1)]
     lineage = service.get_entity(f"experiment:{E1}", view="lineage")["data"]
-    assert [(e["source_id"], e["target_id"]) for e in lineage["run_edges"]] == [(R1, F_E1)]
+    assert [(e["from"], e["to"]) for e in lineage["run_edges"]["links"]] == [
+        (f"run:{R1}", f"artifact:{F_E1}")
+    ]
 
     context = service.research_context(task="is lr 3e-4 best", project_ref="rl-scaling")
     active = {r["name"] for r in context["data"]["active_runs"]}

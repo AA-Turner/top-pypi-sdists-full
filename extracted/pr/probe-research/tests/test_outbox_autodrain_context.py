@@ -292,3 +292,64 @@ def test_count_errors_degrade_to_silence(hook, monkeypatch):
     monkeypatch.setattr(hook, "_outbox_dir", _boom)
     assert hook._outbox_dead_letters() == 0
     assert hook._start_context() is None
+
+
+# ---------------------------------------------------------------------------
+# Told once a day (issue 3629): a letter that can never deliver (a stale
+# epoch, a 404) was announced at every session start. A NEW letter is news;
+# one already told is told again only after DEAD_LETTERS_RETELL_S, and each
+# audience is told for itself. `probe doctor` and `probe outbox status` keep
+# counting every one.
+# ---------------------------------------------------------------------------
+
+
+def test_the_same_dead_letters_are_told_once(hook, tmp_path):
+    _seed(tmp_path, "failed", ["100-aa.json", "200-bb.json"])
+    assert hook._start_context() == hook.OUTBOX_REPAIR_CONTEXT.format(failed=2)
+    assert hook._start_context() is None
+    assert hook._outbox_dead_letters() == 2, "still counted"
+
+
+def test_a_new_dead_letter_is_told_with_the_rest(hook, tmp_path):
+    outbox = _seed(tmp_path, "failed", ["100-aa.json"])
+    assert hook._start_context() == hook.OUTBOX_REPAIR_CONTEXT.format(failed=1)
+    (outbox / "failed" / "300-cc.json").write_text("{}")
+    assert hook._start_context() == hook.OUTBOX_REPAIR_CONTEXT.format(failed=2)
+    assert hook._start_context() is None
+
+
+def test_a_letter_set_aside_is_not_news(hook, tmp_path):
+    outbox = _seed(tmp_path, "failed", ["100-aa.json", "200-bb.json"])
+    assert hook._start_context() is not None
+    (outbox / "failed" / "200-bb.json").unlink()
+    assert hook._start_context() is None
+
+
+def test_letters_still_stuck_are_told_again_a_day_later(hook, tmp_path):
+    """A telling can reach nobody (a harness that drops the line, a headless
+    start), and a retried letter fails again under its old name."""
+    _seed(tmp_path, "failed", ["100-aa.json"])
+    told = hook._untold_dead_letters(hook.TELL_REPAIR, now=1_000_000)
+    assert told == 1
+    assert hook._untold_dead_letters(hook.TELL_REPAIR, now=1_000_000 + hook.DEAD_LETTERS_RETELL_S - 1) == 0
+    assert hook._untold_dead_letters(hook.TELL_REPAIR, now=1_000_000 + hook.DEAD_LETTERS_RETELL_S) == 1
+
+
+def test_a_report_or_a_line_never_stands_in_for_the_repair_prompt(hook, tmp_path):
+    """An untracked session's report, or the daemon profile's line to the
+    researcher, used to use up the only telling: the agent that repairs letters
+    was then never told."""
+    _seed(tmp_path, "failed", ["100-aa.json"])
+    assert hook._outbox_context(True) == hook.OUTBOX_REPORT_ONLY_CONTEXT.format(failed=1)
+    assert hook._profile_items() == "1 writes stuck in the outbox"
+    assert hook._outbox_context(False) == hook.OUTBOX_REPAIR_CONTEXT.format(failed=1)
+    assert hook._outbox_context(True) is None and hook._profile_items() == ""
+
+
+def test_an_unwritable_record_still_tells(hook, tmp_path, monkeypatch):
+    """Not recording what was told degrades to telling every time, as before,
+    never to silence about writes that will not deliver."""
+    _seed(tmp_path, "failed", ["100-aa.json"])
+    monkeypatch.setattr(hook.version_policy, "atomic_write_json", lambda *a, **k: False)
+    assert hook._start_context() is not None
+    assert hook._start_context() is not None

@@ -1,9 +1,10 @@
 from typing import Callable
 
-import structlog
 from pydantic import BaseModel
 
-logger = structlog.get_logger(__name__)
+from mistralai.workflows.core._logger import get_logger
+
+logger = get_logger(__name__)
 
 # This is checked during worker registration to determine task queue routing.
 _ACTIVITY_STICKY_TO_WORKER_ATTR_NAME = "__wf_activity_sticky_to_worker"

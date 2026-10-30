@@ -1591,7 +1591,7 @@ def test_the_status_line_stops_following_before_the_recorders_pause():
             order.append(self.name)
 
     names = ("mailwatch", "mailhost", "alerts", "hints", "hookhosts", "hook_queue", "background", "workers",
-             "watch", "statepost", "actions", "notes", "imports", "statusline")
+             "watch", "statepost", "codex_trust", "actions", "notes", "imports", "statusline")
     fake = SimpleNamespace(
         _discovery_handle=None, _grace_handle=None, _expiry_handle=None, _outbox_task=None, _server=None,
         legacy=None, connections=[], watcher=None, _hook_runs=None, _host_starts=None, _queue_stores=None,

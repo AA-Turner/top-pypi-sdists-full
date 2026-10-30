@@ -14,7 +14,6 @@ import math
 import time
 from typing import NamedTuple
 
-import structlog
 from opentelemetry.metrics import Counter, Histogram, Meter, _Gauge
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.view import ExplicitBucketHistogramAggregation, View
@@ -31,6 +30,7 @@ from temporalio.runtime import (
 )
 
 from mistralai.workflows._version import __version__
+from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.auth import TokenProvider, get_token_provider
 from mistralai.workflows.core.config.config import config
 from mistralai.workflows.core.logging import extract_error_context
@@ -42,7 +42,7 @@ from mistralai.workflows.core.tracing._otel_config import (
 )
 from mistralai.workflows.exceptions import WorkflowError
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 TEMPORAL_RUNTIME_METRIC_GLOBAL_TAGS = {
     "service.name": WORKER_SERVICE_NAME,

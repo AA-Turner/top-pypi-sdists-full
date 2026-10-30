@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from typing import Any, TypeAlias
 
 from selenium.webdriver.common._bidi.domain import Domain
-from selenium.webdriver.common._bidi.serialization import Record, Union, meta, register
+from selenium.webdriver.common._bidi.serialization import UNSET, Record, Union, UnsetType, meta, register
 
 
 @register("webExtension.InstallParameters")
@@ -40,6 +40,11 @@ class InstallParameters(Record):
     extension_data: ExtensionDataValue = field(
         metadata=meta("extensionData", required=True, ref="webExtension.ExtensionData"),
     )
+    moz_allow_private_browsing: bool | UnsetType = field(
+        default=UNSET,
+        metadata=meta("moz:allowPrivateBrowsing", primitive="bool"),
+    )
+    moz_permanent: bool | UnsetType = field(default=UNSET, metadata=meta("moz:permanent", primitive="bool"))
 
 
 @register("webExtension.ExtensionPath")
@@ -127,12 +132,21 @@ class WebExtension(Domain):
     See https://w3c.github.io/webdriver-bidi/#module-webExtension
     """
 
-    def install(self, extension_data: ExtensionDataValue) -> InstallResult:
+    def install(
+        self,
+        extension_data: ExtensionDataValue,
+        moz_allow_private_browsing: bool | UnsetType = UNSET,
+        moz_permanent: bool | UnsetType = UNSET,
+    ) -> InstallResult:
         """Execute webExtension.install (internal, unsupported).
 
         See https://w3c.github.io/webdriver-bidi/#command-webExtension-install
         """
-        params = InstallParameters(extension_data=extension_data)
+        params = InstallParameters(
+            extension_data=extension_data,
+            moz_allow_private_browsing=moz_allow_private_browsing,
+            moz_permanent=moz_permanent,
+        )
         return self._execute("webExtension.install", params=params, result=InstallResult)
 
     def uninstall(self, extension: str) -> Any:

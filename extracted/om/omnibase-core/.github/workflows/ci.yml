@@ -160,7 +160,7 @@ jobs:
   # reports for a `uses:` job; renaming either half breaks the registration.
   route:
     name: Runner Route (OMN-18031)
-    uses: OmniNode-ai/omnimarket/.github/workflows/route-runner-reusable.yml@01a0d1b3e7d7ba1a09012f9af245ba29afa000b5
+    uses: OmniNode-ai/omnimarket/.github/workflows/route-runner-reusable.yml@dev-20261016123308-0a385ce46cdf
     with:
       workflow_path: .github/workflows/ci.yml
     secrets:
@@ -187,12 +187,12 @@ jobs:
   # runs on a fork pull request. The whole-tree hygiene job in the same reusable
   # runs in report mode, as it does everywhere the gate was adopted
   # (.public-repo-hygiene.yaml), and is not a required context. The immutable
-  # caller pin is the single source of truth: the reusable checks its validator
-  # out at the pinned SHA, and the pre-commit hook in .pre-commit-config.yaml
-  # runs the same commit.
+  # caller tag owns this reference; the reusable checks its validator out at
+  # the tagged commit. The pre-commit hook owns a distinct canonical dev-merge
+  # tag under the single-home invariant (OMN-21495).
   public-repo-hygiene:
     if: github.event_name == 'pull_request' && github.base_ref == 'dev'
-    uses: OmniNode-ai/omniclaude/.github/workflows/public-repo-hygiene-reusable.yml@0c9f9146d8dd0446fc5c10952aa57247b3a880ae
+    uses: OmniNode-ai/omniclaude/.github/workflows/public-repo-hygiene-reusable.yml@dev-20261024022817-78c9915726cc
     with:
       mode: report
     secrets: inherit
@@ -249,7 +249,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Judge wheel content parity
-        uses: OmniNode-ai/omnibase_infra/.github/actions/wheel-content-parity@147c9a4a7b816d94088e730fe2a665c0c2a0eaee
+        uses: OmniNode-ai/omnibase_infra/.github/actions/wheel-content-parity@dev-20261016190557-eba666a96202
         with:
           package: omnibase_core
 
@@ -276,15 +276,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -328,15 +328,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -434,15 +434,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -575,7 +575,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Validate No Transport Imports (ADR-005)
         run: |
@@ -618,15 +618,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -657,7 +657,25 @@ jobs:
           else
             echo "::notice::no ratchet base ref (push event): baseline ratchet skipped"
           fi
-          uv run python -m omnibase_core.handlers.handler_dependency_direction_cli --repo omnibase_core "${args[@]}"
+          uv run python -m omnibase_core.nodes.node_dependency_direction_check_effect.runtime_dependency_direction_check --repo omnibase_core "${args[@]}"
+
+      # K10 checker_rule_data (OMN-21503) — blocking. No rule table in a checker and no
+      # validator outside the generic format; the tables that sat in checkers before K10
+      # are burn-down children in .onex_ratchets/checker_rule_data_baseline.txt, which may
+      # only shrink against the pull request's base.
+      - name: Run checker rule-data check
+        env:
+          RATCHET_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+        run: |
+          args=(--baseline .onex_ratchets/checker_rule_data_baseline.txt)
+          if [ -n "$RATCHET_BASE_REF" ]; then
+            git fetch --no-tags --depth=1 origin "$RATCHET_BASE_REF"
+            args+=(--base-ref "$RATCHET_BASE_REF")
+          else
+            echo "::notice::no ratchet base ref (push event): baseline and new-validator ratchets skipped"
+            args+=(--base-ref HEAD)
+          fi
+          git ls-files 'src/omnibase_core/handlers/handler_*_cli.py' 'src/omnibase_core/validation/checker_*.py' 'src/omnibase_core/validation/validator_*.py' 'src/omnibase_core/validators/*.py' | xargs uv run python -m omnibase_core.validation.validator_checker_rule_data "${args[@]}"
 
       # Public-repository runner placement (OMN-19998, RULING 2026-10-16T07:07:09Z:
       # "Ci runners should be for private repos only") — blocking. A public
@@ -669,8 +687,8 @@ jobs:
         env:
           VISIBILITY: ${{ github.event.repository.private && 'private' || 'public' }}
         run: |
-          args=(--repo omnibase_core --visibility "$VISIBILITY" --report-json public-runner-placement-report.json)
-          uv run python -m omnibase_core.handlers.handler_public_runner_placement_cli "${args[@]}"
+          args=(--repo omnibase_core --visibility "$VISIBILITY")
+          uv run python -m omnibase_core.validation.validator_public_runner_placement "${args[@]}"
 
       # Version drift at source (OMN-19998) — blocking. A floor raise on a
       # sibling registry package fails while a registry consumer is not ready
@@ -721,12 +739,12 @@ jobs:
           if [ -n "${CONSUMER_READ_TOKEN:-}" ]; then
             auth=(-c "http.extraheader=AUTHORIZATION: basic $(printf 'x-access-token:%s' "$CONSUMER_READ_TOKEN" | base64 | tr -d '\n')")
           fi
-          for repo in $(uv run python -c "from omnibase_core.handlers.handler_version_floor_consumers_cli import load_layer_map; print(' '.join(e.repo for e in load_layer_map().repos))"); do
+          for repo in $(uv run python -c "from omnibase_core.validation.validator_version_floor_consumers import load_layer_map; print(' '.join(e.repo for e in load_layer_map().repos))"); do
             git "${auth[@]}" clone --quiet --depth 1 --no-checkout "https://github.com/OmniNode-ai/${repo}.git" "$consumers/$repo" \
               || echo "::warning::registry consumer ${repo} is not readable from this runner; a floor raise fails until it is"
           done
-          uv run check-version-floor-consumers --repo omnibase_core --base-ref "$RATCHET_BASE_REF" \
-            --consumers-root "$consumers" --report-json version-floor-report.json
+          uv run python -m omnibase_core.validation.validator_version_floor_consumers --repo omnibase_core --base-ref "$RATCHET_BASE_REF" \
+            --consumers-root "$consumers"
 
       # Import-Layering GROWTH RATCHET (OMN-14340, epic OMN-3210) — blocking.
       # import-linter's wildcard ignores are permissive; this freezes protocols->models
@@ -745,19 +763,6 @@ jobs:
       # blocking wiring; mirrored as the `async-fixture-decorator` pre-commit hook.
       - name: Run async-fixture decorator gate
         run: uv run python scripts/ci/check_async_fixture_decorators.py
-
-      # Canonical handler-shape GROWTH RATCHET (OMN-14355) — WARN-only-on-baseline.
-      # compliance_sweep checks handler hygiene but is blind to handler SHAPE, so a
-      # non-canonical handler passes green CI. This classifies each node's
-      # contract-declared handler (definition B: typed-payload handle(request)->
-      # response, adapted by the shared runtime, no envelope in the core), WARNs the
-      # baselined debt, and HARD-FAILS a NEW non-canonical node or baseline growth. A
-      # baselined node flips canonical only with an adequacy receipt (OMN-14353) —
-      # a shape flip alone is not proof of equivalence. Canary scope = omnibase_core;
-      # fan-out to omnimarket/omnibase_infra is a follow-on. Runs in this job so it
-      # inherits the quality-gate blocking wiring.
-      - name: Run canonical handler-shape growth ratchet
-        run: uv run python scripts/ci/canonical_handler_shape.py
 
       # RSD provenance-stamp fail-closed GATE (OMN-15011) — blocking. The OMN-14355
       # ratchet above proves a node's SHAPE but is authorship-agnostic: a brand-new
@@ -836,10 +841,10 @@ jobs:
 
     steps:
       - name: Checkout omnibase_core
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Checkout omniclaude (skill source)
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: OmniNode-ai/omniclaude
           path: _external/omniclaude
@@ -850,7 +855,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -895,15 +900,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -945,10 +950,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -1002,15 +1007,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -1053,15 +1058,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -1102,15 +1107,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -1149,15 +1154,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -1178,7 +1183,7 @@ jobs:
 
       - name: Upload validation report
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: no-env-fallbacks-report
           path: no-env-fallbacks-report.json
@@ -1202,7 +1207,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           # Depth 2 carries the pull_request merge commit's two parents, which
           # ci_scan_scope.py needs to read the PR diff. Shallower, it finds no
@@ -1210,7 +1215,7 @@ jobs:
           fetch-depth: 2
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -1333,15 +1338,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -1366,15 +1371,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -1405,15 +1410,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -1459,17 +1464,17 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -1517,10 +1522,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -1541,10 +1546,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -1583,7 +1588,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           # Depth 2 carries the pull_request merge commit's two parents, which
           # ci_scan_scope.py needs to read the PR diff. Shallower, it finds no
@@ -1591,12 +1596,12 @@ jobs:
           fetch-depth: 2
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -1660,15 +1665,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -1713,15 +1718,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -1763,15 +1768,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -1833,17 +1838,17 @@ jobs:
       # OMN-19677: anti-growth-baseline compares the baseline with its merge-base
       # against origin/dev; a shallow checkout has no origin/dev.
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -1854,7 +1859,7 @@ jobs:
         run: uv sync --frozen
 
       - name: Cache pre-commit hook environments
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: ~/.cache/pre-commit
           key: precommit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
@@ -1905,17 +1910,17 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -1979,15 +1984,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -2003,7 +2008,7 @@ jobs:
 
       - name: Check for duplicate ids in manifest-declared registries
         run: |
-          uv run python -m omnibase_core.validation.validator_duplicate_config_ids \
+          uv run python -m omnibase_core.nodes.node_duplicate_config_ids_check_compute.runtime_duplicate_config_ids_check \
             --manifest .duplicate-id-registries.yaml \
             --repo-root .
 
@@ -2025,15 +2030,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -2071,15 +2076,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -2092,7 +2097,7 @@ jobs:
         run: uv run pytest tests/unit/validators/test_shape_gate_independence.py -v
 
       - name: Refuse shape-gate detector jobs that depend on the preflight
-        run: uv run python -m omnibase_core.handlers.handler_shape_gate_independence
+        run: uv run python -m omnibase_core.nodes.node_shape_gate_independence_check_effect.runtime_shape_gate_independence
 
   # ===========================================================================
   # Phase 1 - Migrated decorative validators (OMN-14877, OMN-14430 fast-follow)
@@ -2117,15 +2122,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -2178,15 +2183,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -2213,7 +2218,7 @@ jobs:
       - name: Scan committed receipts for a runtime-identity block
         run: |
           uv run python -m \
-            omnibase_core.validation.validator_receipt_runtime_identity \
+            omnibase_core.nodes.node_receipt_runtime_identity_check_compute.runtime_receipt_runtime_identity_check \
             --receipts-dir .
 
   # Node-home check (OMN-20702), activated in this repository: a new
@@ -2236,17 +2241,17 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -2256,10 +2261,7 @@ jobs:
         run: uv sync --all-extras
 
       - name: Run ratchet unit tests
-        run: uv run pytest tests/unit/validators/test_canonical_file_shape.py tests/unit/validation/test_validator_canonical_file_shape.py -v
-
-      - name: Run node-home ratchet unit tests
-        run: uv run pytest tests/unit/nodes/node_node_home_check_compute -v
+        run: uv run pytest tests/unit/nodes/node_canonical_file_shape_check_compute tests/unit/validation/test_checker_canonical_file_shape.py -v
 
       - name: Positive control (planted bad sample refused, clean sample accepted)
         run: |
@@ -2267,7 +2269,7 @@ jobs:
           mkdir -p scripts tests
           printf 'print("planted")\n' > scripts/zz_canary_planted.py
           git add scripts/zz_canary_planted.py
-          if uv run python -m omnibase_core.validators.canonical_file_shape; then
+          if uv run python -m omnibase_core.nodes.node_canonical_file_shape_check_compute.runtime_canonical_file_shape_check; then
             echo "POSITIVE CONTROL FAILED: planted scripts/zz_canary_planted.py was accepted"
             exit 1
           fi
@@ -2276,7 +2278,7 @@ jobs:
           rm scripts/zz_canary_planted.py
           printf 'def test_canary() -> None:\n    assert True\n' > tests/zz_canary_clean.py
           git add tests/zz_canary_clean.py
-          uv run python -m omnibase_core.validators.canonical_file_shape
+          uv run python -m omnibase_core.nodes.node_canonical_file_shape_check_compute.runtime_canonical_file_shape_check
           echo "positive control: clean sample accepted"
           git rm -q --cached tests/zz_canary_clean.py
           rm tests/zz_canary_clean.py
@@ -2291,10 +2293,10 @@ jobs:
           base="${PR_BASE:-${MQ_BASE:-${PUSH_BEFORE:-}}}"
           if [ -n "$base" ] && git cat-file -e "${base}^{commit}" 2>/dev/null; then
             base="$(git merge-base "$base" HEAD)"
-            uv run python -m omnibase_core.validators.canonical_file_shape --base "$base" --head HEAD
+            uv run python -m omnibase_core.nodes.node_canonical_file_shape_check_compute.runtime_canonical_file_shape_check --base "$base" --head HEAD
           else
             echo "no base revision on this event; checking the tree against the baseline only"
-            uv run python -m omnibase_core.validators.canonical_file_shape --head HEAD
+            uv run python -m omnibase_core.nodes.node_canonical_file_shape_check_compute.runtime_canonical_file_shape_check --head HEAD
           fi
 
       - name: Node-home positive control (planted node refused, clean tree accepted)
@@ -2305,14 +2307,14 @@ jobs:
           printf 'name: node_zz_canary_planted_compute\n' > "$planted/contract.yaml"
           printf 'class NodeZzCanaryPlantedCompute:\n    pass\n' > "$planted/handler.py"
           git add "$planted"
-          if uv run python -m omnibase_core.nodes.node_node_home_check_compute.runtime_node_home_check; then
+          if uv run python -m omnibase_core.nodes.node_canonical_file_shape_check_compute.runtime_canonical_file_shape_check --rules node-home; then
             echo "POSITIVE CONTROL FAILED: planted $planted was accepted"
             exit 1
           fi
           echo "positive control: planted node refused"
           git rm -q -r --cached "$planted"
           rm -r "$planted"
-          uv run python -m omnibase_core.nodes.node_node_home_check_compute.runtime_node_home_check
+          uv run python -m omnibase_core.nodes.node_canonical_file_shape_check_compute.runtime_canonical_file_shape_check --rules node-home
           echo "positive control: clean tree accepted"
 
       - name: Refuse new ONEX nodes outside omnimarket
@@ -2326,13 +2328,13 @@ jobs:
           base="${PR_BASE:-${MQ_BASE:-${PUSH_BEFORE:-}}}"
           if [ -n "$base" ] && git cat-file -e "${base}^{commit}" 2>/dev/null; then
             base="$(git merge-base "$base" HEAD)"
-            uv run python -m omnibase_core.nodes.node_node_home_check_compute.runtime_node_home_check --base "$base"
+            uv run python -m omnibase_core.nodes.node_canonical_file_shape_check_compute.runtime_canonical_file_shape_check --rules node-home --base "$base"
           elif [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "merge_group" ]; then
             echo "node-home ratchet: no resolvable base revision on $EVENT_NAME; refusing"
             exit 1
           else
             echo "no base revision on this event; checking the tree against HEAD"
-            uv run python -m omnibase_core.nodes.node_node_home_check_compute.runtime_node_home_check --base HEAD
+            uv run python -m omnibase_core.nodes.node_canonical_file_shape_check_compute.runtime_canonical_file_shape_check --rules node-home --base HEAD
           fi
 
   # Migrated from validator-banned-compose-vars.yml (OMN-14877, OMN-14430
@@ -2353,15 +2355,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -2391,7 +2393,7 @@ jobs:
               "ONEX_OUTPUT_TOPIC",
           )
           EOF
-          uv run python -m omnibase_core.validation.validator_banned_compose_vars \
+          uv run python -m omnibase_core.nodes.node_banned_compose_vars_check_compute.runtime_banned_compose_vars_check \
             --kernel-source /tmp/synthetic_kernel.py \
             .
 
@@ -2411,15 +2413,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -2458,15 +2460,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -2497,15 +2499,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -2531,15 +2533,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -2572,15 +2574,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -2608,15 +2610,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -2646,15 +2648,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -2682,15 +2684,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -2722,15 +2724,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -2761,15 +2763,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -2801,15 +2803,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -2837,15 +2839,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -2885,15 +2887,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -2950,7 +2952,7 @@ jobs:
           BASE_BASELINE: ${{ steps.base.outputs.baseline }}
         run: |
           env -u PYTHONPATH uv run python -m \
-            omnibase_core.handlers.handler_ci_inheritance_cli \
+            omnibase_core.nodes.node_ci_inheritance_check_compute.runtime_ci_inheritance_check \
             --base-dir "$BASE_DIR" --head-dir .github/workflows \
             --baseline .onex_ratchets/ci_inheritance_baseline.yaml \
             --base-baseline "$BASE_BASELINE"
@@ -2966,15 +2968,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -3001,12 +3003,12 @@ jobs:
 
     steps:
       - name: Checkout omnibase_core
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           path: omnibase_core
 
       - name: Checkout omnibase_compat (sibling)
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: OmniNode-ai/omnibase_compat
           path: omnibase_compat
@@ -3015,7 +3017,7 @@ jobs:
           fetch-depth: 0
 
       - name: Checkout omnibase_spi (sibling)
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: OmniNode-ai/omnibase_spi
           path: omnibase_spi
@@ -3024,12 +3026,12 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -3064,17 +3066,17 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -3103,17 +3105,17 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -3144,17 +3146,17 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -3229,15 +3231,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -3260,7 +3262,7 @@ jobs:
   # frozen baseline count down (it may never grow).
   pydantic-extra-forbid-baseline-oneway:
     name: Pydantic extra="forbid" Baseline One-way (OMN-19677)
-    uses: OmniNode-ai/omniclaude/.github/workflows/anti-growth-baseline-reusable.yml@cc59bc1087f96c268e797995e17bf5d9bdc0c2db
+    uses: OmniNode-ai/omniclaude/.github/workflows/anti-growth-baseline-reusable.yml@dev-20261024022817-78c9915726cc
     with:
       baseline-path: src/omnibase_core/validators/extra_forbid_baseline.yaml
       parser: yaml-list:violations
@@ -3283,7 +3285,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           # --enforce-modified diffs against the base branch. A shallow clone has no
           # merge base, and the validator fails CLOSED when it cannot read the diff —
@@ -3291,12 +3293,12 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -3339,15 +3341,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -3359,7 +3361,7 @@ jobs:
 
       - name: Ratchet pull_request-triggered workflow files against the frozen budget (OMN-14907)
         run: |
-          .venv/bin/python -m omnibase_core.validation.validator_pull_request_workflow_ratchet --repo-root .
+          .venv/bin/python -m omnibase_core.nodes.node_pull_request_workflow_ratchet_check_compute.runtime_pull_request_workflow_ratchet_check --repo-root .
 
   # Migrated from validator-no-unguarded-git-subprocess.yml (OMN-16281, permanent
   # closure of the OMN-16280 waiver — do not renew a third time). Same OMN-14877
@@ -3400,17 +3402,17 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -3460,13 +3462,12 @@ jobs:
   # another gate to pay for itself. A job inside the existing consolidated
   # workflow costs no file and still fails the merge through quality-gate below.
   #
-  # Pinned to the same omniclaude SHA as the `secrets-baseline-wired` hook in
-  # .pre-commit-config.yaml. The reusable checks its validator out at
-  # github.job_workflow_sha -- i.e. this very SHA -- so local and CI cannot
-  # diverge, and advancing the gate is those two lines changed together.
+  # This file owns its canonical dev-merge tag. The reusable checks its validator
+  # out at github.job_workflow_sha, the commit this tag names. The local hook
+  # owns a distinct tag under the single-home invariant (OMN-21495).
   secrets-baseline-wiring:
     name: secrets-baseline-wiring
-    uses: OmniNode-ai/omniclaude/.github/workflows/secrets-baseline-wiring-reusable.yml@966d61ce9f0c2eb6e18b317c2453bdfbe9eeb7d0
+    uses: OmniNode-ai/omniclaude/.github/workflows/secrets-baseline-wiring-reusable.yml@dev-20261024022817-78c9915726cc
 
   # ===========================================================================
   # OMN-20074: verification gates folded in from standalone workflows.
@@ -3510,7 +3511,7 @@ jobs:
     name: Propagate Config Dry-run (OMN-20074)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
 
@@ -3554,7 +3555,7 @@ jobs:
 
       - name: Set up Python
         if: steps.paths.outputs.changed == 'true'
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: "3.12"
 
@@ -3821,12 +3822,12 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -3921,12 +3922,12 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -3994,7 +3995,7 @@ jobs:
           echo "selected_paths=$paths" >> "$GITHUB_OUTPUT"
 
       - name: Upload selection artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: test-selection
           # shadow_closure.json exists only when ENABLE_SMART_TESTS_FILE_GRAIN_SHADOW
@@ -4027,7 +4028,7 @@ jobs:
           cat shadow_selection.json
 
       - name: Upload shadow inputs
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: shadow-inputs
           path: |
@@ -4107,17 +4108,17 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -4220,7 +4221,7 @@ jobs:
         if: >-
           success()
           && (vars.ENABLE_SMART_TESTS != 'true' || needs.detect-changes.outputs.is_full_suite == 'true')
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: test-durations-${{ matrix.split }}
           path: config/test_durations.json
@@ -4229,7 +4230,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: test-results-${{ matrix.split }}
           path: junit-${{ matrix.split }}.xml
@@ -4260,13 +4261,13 @@ jobs:
     continue-on-error: true
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 1
 
       - name: Download full-suite durations
         if: needs.test-parallel.result == 'success'
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           pattern: test-durations-*
           path: duration-artifacts
@@ -4299,7 +4300,7 @@ jobs:
 
       - name: Upload merged duration record
         if: needs.test-parallel.result == 'success'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: merged-test-durations
           path: test_durations.json
@@ -4307,7 +4308,7 @@ jobs:
           retention-days: 7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -4317,13 +4318,13 @@ jobs:
         run: uv sync --frozen
 
       - name: Download shadow inputs
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: shadow-inputs
           path: shadow-inputs
 
       - name: Download full-suite junit
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           pattern: test-results-*
           path: junit-artifacts
@@ -4345,7 +4346,7 @@ jobs:
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload shadow record
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: shadow-record-${{ github.run_id }}
           path: shadow_record.json
@@ -4376,17 +4377,17 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -4428,7 +4429,7 @@ jobs:
 
       - name: Upload junit
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: junit-int-${{ matrix.split }}
           path: junit-int-${{ matrix.split }}.xml
@@ -4645,13 +4646,13 @@ jobs:
 
       - name: Checkout code
         if: steps.decide.outputs.ratchet == 'true'
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 1
 
       - name: Install uv
         if: steps.decide.outputs.ratchet == 'true'
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78
         with:
           version: ${{ env.UV_VERSION }}
 
@@ -4750,7 +4751,7 @@ jobs:
     name: Cross-repo boundary validation
     runs-on: ubuntu-latest
     steps:
-      - uses: OmniNode-ai/omnibase_core/.github/actions/validate-boundaries@c1f8e8fe0c513c0ac70ad666433a3ce1cec136c1 # omnibase_core dev (OMN-20074): #1972, no change-control boundary
+      - uses: OmniNode-ai/omnibase_core/.github/actions/validate-boundaries@dev-20261018063522-d6ebe6afe7b5 # Dev-merge tag (OMN-21495).
         with:
           checks: "boundary-parity"
           warn-only: "false"
@@ -4792,7 +4793,7 @@ jobs:
     timeout-minutes: 140
     steps:
       - name: Checkout (gate script)
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Poll run jobs and compute fail-closed CI Summary verdict
         working-directory: ${{ github.workspace }}
         env:

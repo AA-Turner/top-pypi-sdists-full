@@ -16,17 +16,12 @@ pub async fn handle_hover(
     backend: &backend::Backend,
     params: HoverParams,
 ) -> Result<Option<HoverContent>, tower_lsp_server::jsonrpc::Error> {
-    log::trace!("{:?}", params);
-
-    let HoverParams {
-        text_document_position_params:
-            TextDocumentPositionParams {
-                text_document,
-                position,
-            },
-        ..
-    } = params;
-    let text_document_uri = text_document.uri.into();
+    let text_document_uri: tombi_uri::Uri = params
+        .text_document_position_params
+        .text_document
+        .uri
+        .clone()
+        .into();
 
     let ConfigSchemaStore {
         config,
@@ -40,16 +35,22 @@ pub async fn handle_hover(
     if !config
         .lsp
         .as_ref()
-        .and_then(|server| server.hover.as_ref())
+        .and_then(|lsp| lsp.hover.as_ref())
         .and_then(|hover| hover.enabled)
         .unwrap_or_default()
         .value()
     {
-        log::debug!("`server.hover.enabled` is false");
+        log::debug!("skip hover because `lsp.hover.enabled` is false.");
         return Ok(None);
     }
 
     log::info!("handle_hover");
+    log::debug!("{:?}", params);
+
+    let HoverParams {
+        text_document_position_params: TextDocumentPositionParams { position, .. },
+        ..
+    } = params;
 
     let Some(document_source) = backend.document_source(&text_document_uri) else {
         return Ok(None);

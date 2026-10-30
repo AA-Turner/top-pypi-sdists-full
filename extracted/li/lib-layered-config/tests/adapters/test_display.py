@@ -6,6 +6,7 @@ implicitly through the public API.
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -99,7 +100,7 @@ def test_display_human_renders_scalars_as_key_value(capsys: pytest.CaptureFixtur
 
     assert "[app_name]" not in output
     assert 'app_name = "myapp"' in output
-    # rtoml skips intermediate sections with no direct keys, goes straight to deepest
+    # The display skips intermediate sections with no direct keys, goes straight to deepest
     assert "[section.nested]" in output
 
 
@@ -139,13 +140,13 @@ def test_display_human_renders_profile_in_provenance(
 
 
 def test_display_human_deeply_nested_section(capsys: pytest.CaptureFixture[str]) -> None:
-    """Deeply nested dicts render as dotted TOML sections (rtoml standard format)."""
+    """Deeply nested dicts render as dotted TOML sections (standard TOML format)."""
     config = Config({"top": {"mid": {"deep": {"deeper": "value"}}}}, {})
 
     display_config(config, output_format=OutputFormat.HUMAN)
 
     output = capsys.readouterr().out
-    # rtoml skips intermediate empty sections, goes directly to deepest section with keys
+    # The display skips intermediate empty sections, goes directly to deepest section with keys
     assert "[top.mid.deep]" in output
     assert 'deeper = "value"' in output
 
@@ -224,9 +225,11 @@ def test_display_human_redacts_sensitive_values(capsys: pytest.CaptureFixture[st
     display_config(config, output_format=OutputFormat.HUMAN)
 
     output = capsys.readouterr().out
+    lines = [line.strip() for line in output.splitlines()]
     assert "secret123" not in output
-    assert "***REDACTED***" in output
-    assert "smtp.example.com" in output
+    assert 'password = "***REDACTED***"' in lines
+    # A whole-line compare: a substring check would also pass a wrong host such as xsmtp.example.com.
+    assert 'host = "smtp.example.com"' in lines
 
 
 def test_display_json_redacts_sensitive_values(capsys: pytest.CaptureFixture[str]) -> None:
@@ -237,8 +240,7 @@ def test_display_json_redacts_sensitive_values(capsys: pytest.CaptureFixture[str
 
     output = capsys.readouterr().out
     assert "secret123" not in output
-    assert "***REDACTED***" in output
-    assert "smtp.example.com" in output
+    assert json.loads(output) == {"email": {"password": "***REDACTED***", "host": "smtp.example.com"}}
 
 
 # ======================== List values ========================
@@ -269,7 +271,7 @@ def test_display_human_renders_empty_list(capsys: pytest.CaptureFixture[str]) ->
 
 
 def test_display_human_renders_empty_dict_as_section(capsys: pytest.CaptureFixture[str]) -> None:
-    """Empty dicts are rendered as empty sections by rtoml (valid TOML)."""
+    """Empty dicts are rendered as empty sections by the display (valid TOML)."""
     config = Config({"lib_log_rich": {"console_styles": {}, "service": "myapp"}}, {})
 
     display_config(config, output_format=OutputFormat.HUMAN)
@@ -277,12 +279,12 @@ def test_display_human_renders_empty_dict_as_section(capsys: pytest.CaptureFixtu
     output = capsys.readouterr().out
     assert "[lib_log_rich]" in output
     assert "service" in output
-    # rtoml renders empty dicts as empty section headers (valid TOML)
+    # The display renders empty dicts as empty section headers (valid TOML)
     assert "[lib_log_rich.console_styles]" in output
 
 
 def test_display_human_renders_nested_empty_dicts(capsys: pytest.CaptureFixture[str]) -> None:
-    """Nested empty dicts are rendered as empty sections by rtoml."""
+    """Nested empty dicts are rendered as empty sections by the display."""
     config = Config({"top": {"mid": {"empty": {}}, "value": "exists"}}, {})
 
     display_config(config, output_format=OutputFormat.HUMAN)
@@ -290,7 +292,7 @@ def test_display_human_renders_nested_empty_dicts(capsys: pytest.CaptureFixture[
     output = capsys.readouterr().out
     assert "[top]" in output
     assert "value" in output
-    # rtoml renders empty dicts as section headers
+    # The display renders empty dicts as section headers
     assert "[top.mid.empty]" in output
 
 
@@ -316,13 +318,13 @@ def test_display_human_prints_leaf_values_under_section(capsys: pytest.CaptureFi
 
 def test_display_human_renders_nested_dict_as_section(capsys: pytest.CaptureFixture[str]) -> None:
     """Nested dicts render as separate section headers (standard TOML format)."""
-    # config_options is a nested dict - rtoml always uses section headers for dicts
+    # config_options is a nested dict - the display always uses section headers for dicts
     config = Config({"lib_log_rich": {"config_options": {"level": "INFO", "format": "json"}, "service": "myapp"}}, {})
 
     display_config(config, output_format=OutputFormat.HUMAN)
 
     output = capsys.readouterr().out
-    # rtoml uses section headers for all nested dicts (standard TOML format)
+    # The display uses section headers for all nested dicts (standard TOML format)
     assert "[lib_log_rich.config_options]" in output
     assert 'level = "INFO"' in output
     assert 'format = "json"' in output
@@ -345,7 +347,7 @@ def test_display_human_renders_empty_dict_value(
     display_config(config, output_format=OutputFormat.HUMAN)
 
     output = capsys.readouterr().out
-    # rtoml renders empty dicts as empty section headers
+    # The display renders empty dicts as empty section headers
     assert "[lib_log_rich.console_styles]" in output
 
 

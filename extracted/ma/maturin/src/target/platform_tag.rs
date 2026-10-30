@@ -15,10 +15,11 @@ use anyhow::{Context, Result, anyhow, bail};
 use once_cell::sync::Lazy;
 use platform_info::*;
 use regex::Regex;
+use std::collections::BTreeSet;
 use std::env;
 use std::path::Path;
 
-/// Returns the platform portion of a wheel tag for the given target.
+/// Returns the platform tags for the given target.
 ///
 /// This is a standalone function so that it can be called without a full
 /// `BuildContext`.  The `BuildContext::get_platform_tag` method delegates
@@ -29,13 +30,14 @@ pub fn get_platform_tag(
     universal2: bool,
     pyproject_toml: Option<&PyProjectToml>,
     manifest_path: &Path,
-) -> Result<String> {
+    is_bin: bool,
+) -> Result<BTreeSet<String>> {
     if let Ok(host_platform) = env::var("_PYTHON_HOST_PLATFORM") {
         let override_platform = host_platform.replace(['.', '-'], "_");
         eprintln!(
             "🚉 Overriding platform tag from _PYTHON_HOST_PLATFORM environment variable as {override_platform}."
         );
-        return Ok(override_platform);
+        return Ok(BTreeSet::from([override_platform]));
     }
 
     let tag = match (&target.target_os(), &target.target_arch()) {
@@ -59,21 +61,19 @@ pub fn get_platform_tag(
         // Linux
         (Os::Linux, _) => {
             let arch = target.get_platform_arch()?;
-            let mut platform_tags = platform_tags.to_vec();
-            platform_tags.sort();
-            let mut tags = vec![];
+            let mut tags = BTreeSet::new();
             for platform_tag in platform_tags {
-                tags.push(format!("{platform_tag}_{arch}"));
+                tags.insert(format!("{platform_tag}_{arch}"));
                 for alias in platform_tag.aliases() {
                     let alias_tag = format!("{alias}_{arch}");
                     // Only add legacy aliases if they're in PyPI's static allow-list,
                     // e.g. manylinux2014 was never defined for riscv64
                     if ALLOWED_PLATFORMS.contains(&alias_tag.as_str()) {
-                        tags.push(alias_tag);
+                        tags.insert(alias_tag);
                     }
                 }
             }
-            tags.join(".")
+            return Ok(tags);
         }
         // macOS
         (Os::Macos, Arch::X86_64) | (Os::Macos, Arch::Aarch64) => {
@@ -99,9 +99,11 @@ pub fn get_platform_tag(
                 format!("{arm64_major}_{arm64_minor}")
             };
             if universal2 {
-                format!(
-                    "macosx_{x86_64_tag}_x86_64.macosx_{arm64_tag}_arm64.macosx_{x86_64_tag}_universal2"
-                )
+                return Ok(BTreeSet::from([
+                    format!("macosx_{x86_64_tag}_x86_64"),
+                    format!("macosx_{arm64_tag}_arm64"),
+                    format!("macosx_{x86_64_tag}_universal2"),
+                ]));
             } else if target.target_arch() == Arch::Aarch64 {
                 format!("macosx_{arm64_tag}_arm64")
             } else {
@@ -162,7 +164,7 @@ pub fn get_platform_tag(
         }
         // Emscripten
         (Os::Emscripten, Arch::Wasm32) => emscripten_platform_tag()?,
-        (Os::Wasi, Arch::Wasm32) => "any".to_string(),
+        (Os::Wasi, Arch::Wasm32) => wasi_platform_tag(is_bin),
         // Cygwin
         (Os::Cygwin, _) => {
             format!(
@@ -198,7 +200,7 @@ pub fn get_platform_tag(
             format!("{os}_{release}_{machine}")
         }
     };
-    Ok(tag)
+    Ok(BTreeSet::from([tag]))
 }
 
 /// Get the default macOS deployment target version
@@ -385,6 +387,32 @@ fn emscripten_platform_tag() -> Result<String> {
 
 fn pep783_emscripten_platform_tag(version: &str) -> String {
     format!("pyemscripten_{version}_wasm32")
+}
+
+/// Resolve the platform tag for `wasm32-wasip1` / `wasm32-wasip2`.
+///
+/// Binary bridges (`bindings = "bin"`) package a `.wasm` binary behind a
+/// wasmtime launcher script, so the wheel runs on any host with wasmtime
+/// installed; it keeps the `any` tag it has used since WASI support was
+/// added in #1107.
+///
+/// Native extension modules (PyO3/cffi/uniffi) are compiled directly to
+/// `.wasm` and are only loadable by a WASI-capable Python build, so `any`
+/// is wrong for them. There is no PEP defining a WASI wheel platform tag
+/// yet (unlike Emscripten's PEP 783), but CPython's `sysconfig.get_platform()`
+/// has no WASI special-case and falls back to `os.uname()`, which on WASI
+/// builds of CPython returns the fixed values `sysname=wasi`,
+/// `release=0.0.0`, `machine=wasm32`. That fallback is reproduced here
+/// directly, rather than queried from the host's `uname`, because
+/// cross-compiling to wasm32-wasip1/wasm32-wasip2 never runs on a WASI
+/// host. This matches the `wasi_0_0_0_wasm32` tag that the wasi-wheels
+/// project already retags built wheels to by hand.
+fn wasi_platform_tag(is_bin: bool) -> String {
+    if is_bin {
+        "any".to_string()
+    } else {
+        "wasi_0_0_0_wasm32".to_string()
+    }
 }
 
 /// Return the first env var in `names` that is set to a non-empty (after
@@ -596,12 +624,15 @@ fn aix_tag_from_lslpp_output(stdout: &str) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        aix_tag_from_lslpp_output, emscripten_platform_tag, extract_android_api_level,
-        iphoneos_deployment_target, macosx_deployment_target, pep783_emscripten_platform_tag,
+        Target, aix_tag_from_lslpp_output, emscripten_platform_tag, extract_android_api_level,
+        get_platform_tag, iphoneos_deployment_target, macosx_deployment_target,
+        pep783_emscripten_platform_tag, wasi_platform_tag,
     };
     use pretty_assertions::assert_eq;
+    use std::collections::BTreeSet;
     use std::env;
     use std::ffi::OsString;
+    use std::path::Path;
 
     struct EnvVarRestore {
         vars: Vec<(&'static str, Option<OsString>)>,
@@ -628,6 +659,33 @@ mod tests {
                     }
                 }
             }
+        }
+    }
+
+    #[test]
+    fn test_wasi_platform_tag() {
+        assert_eq!(wasi_platform_tag(true), "any");
+        assert_eq!(wasi_platform_tag(false), "wasi_0_0_0_wasm32");
+    }
+
+    #[test]
+    fn test_get_platform_tag_wasi() {
+        for triple in ["wasm32-wasip1", "wasm32-wasip2"] {
+            let target = Target::from_resolved_target_triple(triple).unwrap();
+
+            // `bindings = "bin"` ships a wasmtime launcher and stays host-portable.
+            let bin_tag = get_platform_tag(&target, &[], false, None, Path::new("."), true)
+                .unwrap_or_else(|e| panic!("{triple}: {e}"));
+            assert_eq!(bin_tag, BTreeSet::from(["any".to_string()]), "{triple}");
+
+            // PyO3/cffi/uniffi extension modules need a real WASI tag.
+            let ext_tag = get_platform_tag(&target, &[], false, None, Path::new("."), false)
+                .unwrap_or_else(|e| panic!("{triple}: {e}"));
+            assert_eq!(
+                ext_tag,
+                BTreeSet::from(["wasi_0_0_0_wasm32".to_string()]),
+                "{triple}"
+            );
         }
     }
 

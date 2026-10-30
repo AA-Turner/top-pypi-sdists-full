@@ -46,6 +46,7 @@ class DiscoverySourceVendor(str, Enum):
     ZSCALER = 'zscaler'
     CLOUDFLARE = 'cloudflare'
     WIZ = 'wiz'
+    LITELLM = 'litellm'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

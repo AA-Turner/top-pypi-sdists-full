@@ -35,6 +35,9 @@ from dlt.common.schema.typing import (
 from dlt.common.schema.utils import (
     get_columns_names_with_prop,
     get_first_column_name_with_prop,
+    get_nested_tables,
+    get_root_table,
+    has_table_seen_data,
     is_nested_table,
 )
 from dlt.common.storages import FileStorage, fsspec_from_config
@@ -58,7 +61,10 @@ from dlt.common.destination.client import (
     StateInfo,
     LoadJob,
 )
-from dlt.common.destination.utils import resolve_merge_strategy
+from dlt.common.destination.utils import (
+    get_merge_placeholder_values,
+    resolve_merge_strategy,
+)
 from dlt.common.typing import TFun
 
 from dlt.destinations.job_impl import (
@@ -74,7 +80,6 @@ from dlt.destinations.utils import (
 
 
 from dlthub import version
-from dlthub.destinations.impl.iceberg.iceberg_adapter import build_iceberg_partition_spec
 from dlthub.destinations.utils import get_dedup_sort_order_by_sql
 
 from dlthub.destinations.impl.iceberg.configuration import (
@@ -89,6 +94,7 @@ try:
     from dlt.common.libs.pyiceberg import (
         ensure_iceberg_compatible_arrow_data,
         ensure_iceberg_compatible_arrow_schema,
+        create_table,
         write_iceberg_table,
         get_sql_catalog,
         register_table,
@@ -96,16 +102,20 @@ try:
         IcebergCatalog,
     )
     from pyiceberg.table import ALWAYS_TRUE, Transaction
-    from pyiceberg.expressions import BooleanExpression
+    from pyiceberg.expressions import AlwaysFalse, BooleanExpression, In
     from pyiceberg.exceptions import NoSuchTableError, NoSuchViewError, NoSuchNamespaceError
 
     from dlthub.destinations.impl.iceberg.iceberg_adapter import (
-        PARTITION_HINT,
-        iceberg_partition,
-        PartitionSpec as HintPartitionSpec,
+        TABLE_PROPERTIES_HINT,
+        get_partition_specs,
+    )
+    from dlthub.destinations.impl.iceberg.merge_conditions import (
+        render_destination_scope,
+        render_source_filter,
     )
     import pyarrow as pa
     import pyarrow.compute as pc
+    import pyarrow.dataset
 except ImportError:
     raise MissingDependencyException(
         "dlthub iceberg destination",
@@ -178,7 +188,7 @@ class IcebergLoadJob(RunnableLoadJob):
                 primary_keys = get_columns_names_with_prop(self._load_table, "primary_key")
                 merge_keys = get_columns_names_with_prop(self._load_table, "merge_key")
 
-                if primary_keys or merge_keys:
+                if primary_keys or merge_keys or "x-merge-destination-scope" in self._load_table:
                     self._run_delete_insert(iceberg_table, primary_keys, merge_keys)
                 else:
                     # If no keys available, fall back to append mode
@@ -190,15 +200,6 @@ class IcebergLoadJob(RunnableLoadJob):
 
     def _run_append(self, iceberg_table: IcebergTable) -> None:
         ds = pa.dataset.dataset(self._file_paths)
-        # arrow_schema = ensure_iceberg_compatible_arrow_schema(ds_.schema)
-        # iceberg_columns = {f.name for f in iceberg_table.schema().fields}
-        # arrow_columns = {f.name for f in arrow_schema}
-        # if arrow_columns - iceberg_columns:
-        #     with iceberg_table.update_schema() as update:
-        #         update.union_by_name(arrow_schema)
-        # else:
-        #     print("No schema update 🤯")
-
         batch_size = self._job_client.config.iceberg_write_batch_size
 
         if batch_size == 0:
@@ -232,39 +233,34 @@ class IcebergLoadJob(RunnableLoadJob):
             )
 
         ds = pa.dataset.dataset(self._file_paths)
+        source_filter = self._get_source_filter()
+        # the destination scope replaces the delete by keys
+        destination_scope = self._get_destination_scope()
+        # without the primary key, a merge key on a partition column deletes whole data files
+        delete_primary_keys = (
+            primary_keys if not merge_keys or self._job_client.config.delete_by_primary_key else []
+        )
 
         # prepare hard delete info
-        from dlt.destinations import duckdb as duckdb_destination
-
-        caps = duckdb_destination()._raw_capabilities()
         hard_delete_col, _ = SqlMergeFollowupJob._get_hard_delete_col_and_cond(
             self._load_table,
-            caps.escape_identifier,
-            caps.escape_literal,
+            self._duckdb_caps.escape_identifier,
+            self._duckdb_caps.escape_literal,
             invert=True,
         )
 
         if batch_size == 0:
             arrow_table = ensure_iceberg_compatible_arrow_data(ensure_utc_timestamps(ds.to_table()))
+            arrow_table = self._select_staged(
+                arrow_table, source_filter, primary_keys[0] if primary_keys else None
+            )
 
-            # deduplicate if primary key and deduplication is enabled
-            if primary_keys:
-                import duckdb
-
-                order_by = get_dedup_sort_order_by_sql(self._load_table)
-                con = duckdb.connect()
-                arrow_table = (
-                    con.sql(f"""
-                    FROM arrow_table
-                    QUALIFY row_number()
-                        OVER (PARTITION BY {primary_keys[0]} ORDER BY {order_by}) = 1;
-                """)
-                    .to_arrow_table()
-                    .cast(arrow_table.schema)
+            if destination_scope is not None:
+                delete_filter = destination_scope
+            else:
+                delete_filter = self._get_delete_filter(
+                    arrow_table, delete_primary_keys, merge_keys
                 )
-
-            # prepare deletes
-            delete_filter = self._get_delete_filter(arrow_table, primary_keys, merge_keys)
 
             if hard_delete_col is not None:
                 arrow_table = self._exclude_hard_deleted_rows(arrow_table, hard_delete_col)
@@ -273,21 +269,23 @@ class IcebergLoadJob(RunnableLoadJob):
                 iceberg_table.transaction() as txn,
                 self._job_client._clock_iceberg(f"delete-insert `{iceberg_table.name()}`"),
             ):
-                if delete_filter:
-                    txn.delete(delete_filter)
-                txn.append(arrow_table)
+                self._delete(txn, delete_filter)
+                self._append(txn, arrow_table)
         else:
             self._write_filtered_batches(
                 iceberg_table,
                 dataset=ds,
                 batch_size=batch_size,
-                primary_keys=primary_keys,
+                primary_keys=delete_primary_keys,
                 merge_keys=merge_keys,
                 hard_delete_col=hard_delete_col,
                 op_description="batch delete-insert",
+                source_filter=source_filter,
+                initial_delete=destination_scope,
+                delete_by_keys=destination_scope is None,
             )
 
-    def _run_upsert(self, iceberg_table: Any) -> None:
+    def _run_upsert(self, iceberg_table: IcebergTable) -> None:
         batch_size = self._job_client.config.iceberg_write_batch_size
 
         ds = pa.dataset.dataset(self._file_paths)
@@ -300,9 +298,11 @@ class IcebergLoadJob(RunnableLoadJob):
             key_column = primary_keys[0] if primary_keys else None
 
         hard_delete_col = get_first_column_name_with_prop(self._load_table, "hard_delete")
+        source_filter = self._get_source_filter()
 
         if batch_size == 0:
             arrow_table = ensure_iceberg_compatible_arrow_data(ensure_utc_timestamps(ds.to_table()))
+            arrow_table = self._select_staged(arrow_table, source_filter)
             delete_filter = self._get_delete_filter(arrow_table, [key_column])
             if hard_delete_col:
                 arrow_table = self._exclude_hard_deleted_rows(arrow_table, hard_delete_col)
@@ -311,9 +311,8 @@ class IcebergLoadJob(RunnableLoadJob):
                 iceberg_table.transaction() as txn,
                 self._job_client._clock_iceberg(f"upsert `{iceberg_table.name()}`"),
             ):
-                if delete_filter:
-                    txn.delete(delete_filter)
-                txn.append(arrow_table)
+                self._delete(txn, delete_filter)
+                self._append(txn, arrow_table)
         else:
             self._write_filtered_batches(
                 iceberg_table,
@@ -322,6 +321,7 @@ class IcebergLoadJob(RunnableLoadJob):
                 primary_keys=[key_column],
                 hard_delete_col=hard_delete_col,
                 op_description="batch upsert",
+                source_filter=source_filter,
             )
 
     def _write_filtered_batches(
@@ -333,6 +333,9 @@ class IcebergLoadJob(RunnableLoadJob):
         merge_keys: Optional[List[str]] = None,
         hard_delete_col: Optional[str] = None,
         op_description: Optional[str] = None,
+        source_filter: Optional[str] = None,
+        initial_delete: Optional[BooleanExpression] = None,
+        delete_by_keys: bool = True,
     ) -> None:
         """Process PyArrow dataset in batches using delete-then-insert logic for merge operations.
 
@@ -344,21 +347,26 @@ class IcebergLoadJob(RunnableLoadJob):
             merge_keys: Secondary key columns for deletion.
             hard_delete_col: Column marking rows to exclude from insertion.
             op_description: Description for timing/logging.
-
-        Raises:
-            ValueError: If neither primary_keys nor merge_keys are provided.
+            source_filter: duckdb condition that selects the merged rows of each batch.
+            initial_delete: Filter of rows deleted once, before the first batch.
+            delete_by_keys: Deletes the rows with the keys of all loaded records, once, before
+                the first batch.
         """
+        if delete_by_keys:
+            # a merge key repeats across batches, a delete per batch would remove the rows that
+            # earlier batches appended
+            initial_delete = self._get_staged_keys_filter(
+                dataset, primary_keys, merge_keys, source_filter
+            )
 
         def _process(transaction: Transaction, chunk: pa.Table) -> None:
-            delete_filter = self._get_delete_filter(chunk, primary_keys, merge_keys)
+            chunk = self._select_staged(chunk, source_filter)
             insert_chunk = (
                 self._exclude_hard_deleted_rows(chunk, hard_delete_col)
                 if hard_delete_col
                 else chunk
             )
-            if delete_filter:
-                transaction.delete(delete_filter)
-            transaction.append(insert_chunk)
+            self._append(transaction, insert_chunk)
 
         self._write_batches(
             iceberg_table,
@@ -366,6 +374,7 @@ class IcebergLoadJob(RunnableLoadJob):
             batch_size=batch_size,
             op_description=op_description,
             process_fn=_process,
+            initial_delete=initial_delete,
         )
 
     def _write_batches(
@@ -375,6 +384,7 @@ class IcebergLoadJob(RunnableLoadJob):
         batch_size: int,
         op_description: str,
         process_fn: Callable[[Any, pa.Table], None],
+        initial_delete: Optional[BooleanExpression] = None,
     ) -> None:
         with (
             iceberg_table.transaction() as txn,
@@ -382,12 +392,99 @@ class IcebergLoadJob(RunnableLoadJob):
                 f"{op_description} `{iceberg_table.name()}` (batch={batch_size})"
             ),
         ):
+            self._delete(txn, initial_delete)
             for batch_num, record_batch in enumerate(dataset.to_batches(batch_size=batch_size), 1):
                 with self._job_client._clock_iceberg(
                     f"{op_description} batch {batch_num} `{iceberg_table.name()}`"
                 ):
                     table_chunk = ensure_utc_timestamps(pa.Table.from_batches([record_batch]))
                     process_fn(txn, table_chunk)
+
+    @staticmethod
+    def _delete(transaction: Transaction, delete_filter: Optional[BooleanExpression]) -> None:
+        if delete_filter is not None and not isinstance(delete_filter, AlwaysFalse):
+            transaction.delete(delete_filter)
+
+    @staticmethod
+    def _append(transaction: Transaction, arrow_table: pa.Table) -> None:
+        # an empty append still commits a snapshot
+        if arrow_table.num_rows:
+            transaction.append(arrow_table)
+
+    @property
+    def _duckdb_caps(self) -> DestinationCapabilitiesContext:
+        from dlt.destinations import duckdb as duckdb_destination
+
+        return duckdb_destination()._raw_capabilities()
+
+    @property
+    def _root_table_name(self) -> str:
+        return get_root_table(self._job_client.schema.tables, self._table["name"])["name"]
+
+    def _get_source_filter(self) -> Optional[str]:
+        """Returns `source_filter` as a duckdb condition on the `staged` relation."""
+        source_filter = cast(Optional[str], self._load_table.get("x-merge-source-filter"))
+        if not source_filter:
+            return None
+        try:
+            return render_source_filter(
+                self._root_table_name, source_filter, "staged", self._duckdb_caps
+            )
+        except ValueError as filter_ex:
+            raise DestinationTerminalException(filter_ex) from filter_ex
+
+    def _get_destination_scope(self) -> Optional[BooleanExpression]:
+        destination_scope = cast(Optional[str], self._load_table.get("x-merge-destination-scope"))
+        if not destination_scope:
+            return None
+        try:
+            return render_destination_scope(
+                self._root_table_name, destination_scope, self._job_client.capabilities
+            )
+        except ValueError as scope_ex:
+            raise DestinationTerminalException(scope_ex) from scope_ex
+
+    def _select_staged(
+        self, arrow_table: pa.Table, source_filter: Optional[str], dedup_key: Optional[str] = None
+    ) -> pa.Table:
+        """Selects the loaded rows that pass `source_filter` and keeps one row per `dedup_key`."""
+        if not source_filter and not dedup_key:
+            return arrow_table
+        import duckdb
+
+        escape_id = self._duckdb_caps.escape_identifier
+        query = "FROM staged"
+        if source_filter:
+            query += f" WHERE ({source_filter})"
+        if dedup_key:
+            order_by = get_dedup_sort_order_by_sql(self._load_table, escape_id)
+            query += (
+                f" QUALIFY row_number() OVER (PARTITION BY {escape_id(dedup_key)}"
+                f" ORDER BY {order_by}) = 1"
+            )
+        with duckdb.connect() as con:
+            con.register("staged", arrow_table)
+            return con.sql(query).to_arrow_table().cast(arrow_table.schema)
+
+    def _get_staged_keys_filter(
+        self,
+        dataset: pa.dataset.Dataset,
+        primary_keys: List[str],
+        merge_keys: Optional[List[str]],
+        source_filter: Optional[str],
+    ) -> Optional[BooleanExpression]:
+        """Returns a filter of the destination rows with the keys of all loaded records."""
+        key_columns = [*primary_keys, *(merge_keys or [])]
+        # the source filter may use any column
+        columns = None if source_filter else key_columns
+        key_values: Dict[str, List[pa.Array]] = {key: [] for key in key_columns}
+        for batch in dataset.to_batches(columns=columns):
+            chunk = self._select_staged(pa.Table.from_batches([batch]), source_filter)
+            for key in key_columns:
+                key_values[key].append(pc.unique(chunk[key]))
+        return self._keys_filter({
+            key: pc.unique(pa.concat_arrays(values)) for key, values in key_values.items() if values
+        })
 
     def _exclude_hard_deleted_rows(self, arrow_table: pa.Table, hard_delete_col: str) -> pa.Table:
         field = pc.field(hard_delete_col)
@@ -403,10 +500,8 @@ class IcebergLoadJob(RunnableLoadJob):
         primary_keys: List[str],
         merge_keys: Optional[List[str]] = None,
     ) -> Optional[BooleanExpression]:
-        from pyiceberg.expressions import In, Or
         # we know we have one primary key and/or one merge key, because we have already
         # checked this in `verify_schema` method
-
         if merge_keys is None:
             merge_keys = []
 
@@ -416,23 +511,24 @@ class IcebergLoadJob(RunnableLoadJob):
 
         if deleted_table is None or deleted_table.num_rows == 0:
             return None
+        return self._keys_filter({
+            key: pc.unique(deleted_table[key]) for key in [*primary_keys, *merge_keys]
+        })
 
-        if primary_keys and merge_keys:
-            primary_key, merge_key = primary_keys[0], merge_keys[0]
-            key_vals = deleted_table.select([primary_key, merge_key]).to_pydict()
-            return Or(
-                In(primary_key, key_vals[primary_key]),
-                In(merge_key, key_vals[merge_key]),
-            )
-        elif primary_keys:
-            primary_key = primary_keys[0]
-            key_vals = deleted_table.select([primary_key]).to_pydict()
-            return In(primary_key, key_vals[primary_key])
-        elif merge_keys:
-            merge_key = merge_keys[0]
-            key_vals = deleted_table.select([merge_key]).to_pydict()
-            return In(merge_key, key_vals[merge_key])
-        return None
+    @staticmethod
+    def _keys_filter(key_values: Dict[str, pa.Array]) -> Optional[BooleanExpression]:
+        """Returns a filter of the rows that have any of `key_values` in their key column. A NULL
+        key matches nothing, as in SQL."""
+        from pyiceberg.expressions import Or
+
+        filters = [
+            In(key, values.drop_null().to_pylist())
+            for key, values in key_values.items()
+            if values.null_count < len(values)
+        ]
+        if not filters:
+            return None
+        return filters[0] if len(filters) == 1 else Or(*filters)
 
     def metrics(self) -> Optional[LoadJobMetrics]:
         m = super().metrics()
@@ -510,18 +606,29 @@ class PyIcebergJobClient(JobClientBase, WithStateSync, WithSqlClient, SupportsOp
         only_tables: Iterable[str] = None,
         expected_update: TSchemaTables = None,
         force: bool = False,
+        include_existing_tables: bool = False,
     ) -> Optional[TSchemaTables]:
+        super().update_stored_schema(only_tables, expected_update, force, include_existing_tables)
         applied_update: TSchemaTables = {}
-        if force or self.get_stored_schema_by_hash(self.schema.stored_version_hash) is None:
+        schema_info = self.get_stored_schema_by_hash(self.schema.stored_version_hash)
+        if force or schema_info is None:
             logger.info(
-                f"Schema with hash {self.schema.stored_version_hash} not found in the storage."
-                " upgrading"
+                f"Schema with hash {self.schema.stored_version_hash} not found in the storage"
+                " (or update enforced). upgrading"
             )
-            for table_name in only_tables or self.schema.tables.keys():
+            only_tables = set(only_tables or self.schema.tables.keys())
+            for table_name in self.schema.tables.keys() if include_existing_tables else only_tables:
+                # tables outside only_tables get new columns but are not created
+                if table_name not in only_tables and not self._catalog.table_exists(
+                    self.make_qualified_table_name(table_name)
+                ):
+                    continue
                 partial_table = self._create_or_evolve_table(table_name)
                 if partial_table:
                     applied_update[table_name] = partial_table
-            self._update_schema_in_storage(self.schema)
+            # skip writing the version row when the schema is already stored (enforced update)
+            if schema_info is None:
+                self._update_schema_in_storage(self.schema)
         return applied_update
 
     def verify_schema(
@@ -547,7 +654,7 @@ class PyIcebergJobClient(JobClientBase, WithStateSync, WithSqlClient, SupportsOp
                         )
 
                 merge_strategy = resolve_merge_strategy(
-                    self.schema.tables, table, self.capabilities
+                    self.schema.tables, table, self.capabilities, is_prepared=True
                 )
 
                 if merge_strategy == "delete-insert":
@@ -565,8 +672,8 @@ class PyIcebergJobClient(JobClientBase, WithStateSync, WithSqlClient, SupportsOp
                             raise SchemaCorruptedException(
                                 self.schema.name,
                                 f"Could not determine row key for nested table {table['name']} "
-                                f"when using `upsert` merge strategy. Nested tables require "
-                                f"a column with 'unique' property.",
+                                f"when using `{merge_strategy}` merge strategy. Nested tables "
+                                "require a column with 'unique' property.",
                             )
                     else:
                         # For regular tables, require primary keys
@@ -575,18 +682,25 @@ class PyIcebergJobClient(JobClientBase, WithStateSync, WithSqlClient, SupportsOp
                                 self.schema.name,
                                 f'Upsert requires primary keys but table "{table["name"]}" '
                                 "does not define any when using `iceberg` table format "
-                                "and `upsert` merge strategy.",
+                                f"and `{merge_strategy}` merge strategy.",
                             )
+                if not is_nested_table(table):
+                    self._verify_merge_conditions(table, merge_strategy)
 
-        # delete and append jobs cannot apply SQL merge conditions or skip unchanged rows
         exceptions = verify_schema_merge_disposition(
-            self.schema, tables, self.capabilities, warnings=True
+            self.schema,
+            tables,
+            self.capabilities,
+            warnings=True,
+            source_filter_placeholders=("staging_table",),
+            destination_scope_placeholders=("table",),
         ) + verify_unsupported_merge_options(
+            # finding unchanged rows reads every data file of the table
             self.schema,
             tables,
             self.capabilities,
             "iceberg",
-            ("source_filter", "destination_scope", "skip_unchanged_rows"),
+            ("skip_unchanged_rows",),
         )
         for exception in exceptions:
             logger.error(str(exception))
@@ -594,11 +708,56 @@ class PyIcebergJobClient(JobClientBase, WithStateSync, WithSqlClient, SupportsOp
             raise exceptions[0]
         return tables
 
+    def _verify_merge_conditions(self, table: PreparedTableSchema, merge_strategy: str) -> None:
+        """Raises if the merge conditions of root `table` cannot be applied to iceberg tables."""
+        # the job filters and deduplicates the loaded records with duckdb
+        if "x-merge-source-filter" in table or (
+            merge_strategy == "delete-insert" and get_columns_names_with_prop(table, "primary_key")
+        ):
+            try:
+                import duckdb  # noqa: F401
+            except ImportError:
+                raise MissingDependencyException(
+                    "dlthub iceberg destination",
+                    [f"{version.PKG_NAME}[iceberg]"],
+                    f"Table `{table['name']}` uses `source_filter` or deduplicates by primary key"
+                    " with the `delete-insert` merge strategy, which needs duckdb.",
+                )
+        # each table is merged alone, so root row conditions miss the nested rows
+        has_nested_tables = any(
+            has_table_seen_data(nested_table)
+            for nested_table in get_nested_tables(
+                self.schema.tables, table["name"], include_self=False
+            )
+        )
+        if merge_strategy == "upsert" and has_nested_tables and "x-merge-source-filter" in table:
+            raise SchemaCorruptedException(
+                self.schema.name,
+                "dlt does not support `source_filter` with the `upsert` merge strategy on iceberg"
+                f" table `{table['name']}`. The table has nested tables. Remove the source filter"
+                " or the nested data.",
+            )
+        destination_scope = table.get("x-merge-destination-scope")
+        # placeholder values are known only when loading a package
+        if (
+            destination_scope
+            and merge_strategy == "delete-insert"
+            and get_merge_placeholder_values(table["name"])
+        ):
+            try:
+                render_destination_scope(
+                    table["name"], cast(str, destination_scope), self.capabilities
+                )
+            except ValueError as scope_ex:
+                raise SchemaCorruptedException(
+                    self.schema.name, f"Table `{table['name']}`: {scope_ex}"
+                ) from scope_ex
+
     def prepare_load_table(self, table_name: str) -> PreparedTableSchema:
         load_table = super().prepare_load_table(table_name)
         if load_table["write_disposition"] == "merge":
             merge_strategy = resolve_merge_strategy(
-                self.schema.tables, load_table, self.capabilities
+                self.schema.tables, load_table, self.capabilities, is_prepared=True
             )
             load_table["x-merge-strategy"] = merge_strategy  # type: ignore[typeddict-unknown-key]
         return load_table
@@ -837,7 +996,13 @@ class PyIcebergJobClient(JobClientBase, WithStateSync, WithSqlClient, SupportsOp
         state_table = state_table_.scan(
             row_filter=f"{p_pipeline_name} = '{pipeline_name}'"
         ).to_arrow()
+        # an empty scan may return `large_string` columns that do not join with `string` columns
+        # read from data files
+        if state_table.num_rows == 0:
+            return None
         loads_table = loads_table_.scan(row_filter=f"{p_status} = 0").to_arrow()
+        if loads_table.num_rows == 0:
+            return None
 
         # Join arrow tables in-memory.
         joined_table: pa.Table = state_table.join(
@@ -1006,48 +1171,32 @@ class PyIcebergJobClient(JobClientBase, WithStateSync, WithSqlClient, SupportsOp
         except DestinationUndefinedEntity:
             # found no metadata; create new table
             location = self.get_open_table_location("iceberg", table_name)
-            partition_specs = self._get_partition_specs(prepared_table)
-            self._create_table_with_partitions(table_id, arrow_schema, location, partition_specs)
+            self._create_table_with_partitions(table_id, arrow_schema, location, prepared_table)
 
         # return prepared table with only new columns present
         return prepared_table
-
-    def _get_partition_specs(self, prepared_table: TPartialTableSchema) -> List[HintPartitionSpec]:
-        """Returns partition specs both from table partition hints and from column properties."""
-        columns_with_partition = get_columns_names_with_prop(prepared_table, "partition")
-        partition_hints = cast(List[Dict[str, Any]], prepared_table.get(PARTITION_HINT, []))
-
-        hints_specs = []
-        for spec_data in partition_hints:
-            spec = HintPartitionSpec.from_dict(spec_data)
-            if spec.transform == "identity" and spec.source_column in columns_with_partition:
-                raise SchemaCorruptedException(
-                    self.schema.name,
-                    f"Column '{spec.source_column}' is defined both as a partition column "
-                    "and in partition hints.",
-                )
-            hints_specs.append(spec)
-
-        identity_specs = [
-            iceberg_partition.identity(column_name) for column_name in columns_with_partition
-        ]
-        return identity_specs + hints_specs
 
     def _create_table_with_partitions(
         self,
         table_id: str,
         arrow_schema: pa.Schema,
         location: str,
-        helper_specs: List[HintPartitionSpec],
+        prepared_table: TPartialTableSchema,
     ) -> None:
-        partition_spec, iceberg_schema = build_iceberg_partition_spec(arrow_schema, helper_specs)
+        # table properties set via adapter override the ones from config
+        adapter_properties: Optional[Dict[str, str]] = prepared_table.get(TABLE_PROPERTIES_HINT)  # type: ignore[assignment]
+        properties = {**(self.config.table_properties or {}), **(adapter_properties or {})}
         with self._clock_iceberg(f"create_table `{table_id}`"):
-            self._catalog.create_table(
-                identifier=table_id,
-                schema=iceberg_schema,  # must be an IcebergSchema, not pa.Schema
-                location=location,
-                partition_spec=partition_spec,
-                properties={},
+            create_table(
+                self._catalog,
+                table_id,
+                location,
+                arrow_schema,
+                properties=properties or None,
+                partition_fields=[
+                    (spec.source_column, spec.get_transform(), spec.partition_field)
+                    for spec in get_partition_specs(prepared_table, self.schema.name)
+                ],
             )
 
     def get_open_table_catalog(

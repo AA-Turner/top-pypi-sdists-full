@@ -254,7 +254,9 @@ def test_more_new_files_in_a_row_than_the_limit_are_one_list(monkeypatch):
     assert lines == ["/repo/wt/src/: " + " · ".join(f"f{i}.ts ({1000 + i:,} bytes) folders:{2 + i}:0"
                                                      for i in range(11))]
     assert "export const body" not in burst
-    assert "+lr: 2" in shown[2][1], "a diff is shown as before"
+    # A change is one line too (swarm friction T17, R40): its diff is one open away.
+    assert shown[2][1] == ("[file changed · folders:13:0] " + toolset.pick(*bite_mod.MORE_LINES).format(
+        head="changed /repo/cfg.yaml (10 -> 12 bytes)", n=2, id="folders:13:0"))
 
 
 def test_up_to_the_limit_each_new_file_shows_as_before(monkeypatch):
@@ -275,9 +277,9 @@ def test_a_burst_counts_small_toward_a_bites_budget(tmp_path, monkeypatch):
     st.add([Event(kind=Kind.PROMPT, stream="main", offset=1, text="pull the branch")])
     st.add([Event(kind=Kind.FILE_CHANGE, stream=bite_mod.FOLDERS_STREAM, offset=2 + i,
                   text=f"new file /repo/f{i}.py (3,000 bytes)\n" + "x" * 3000) for i in range(300)])
-    monkeypatch.setattr(bite_mod, "NEW_SHOWN_TOKENS", 20_000)
+    monkeypatch.setattr(bite_mod, "NEW_SHOWN_TOKENS", 10_000)
     first, last = bite_mod.cover(st)
-    assert last - first + 1 < 301, "shown whole, 300 files pass the budget"
+    assert last - first + 1 < 301, "a line each, 300 files pass the budget"
     monkeypatch.setenv(model_mod.ENV_WRITER_FILE_BURST, "10")
     first, last = bite_mod.cover(st)
     assert last - first + 1 == 301, "listed, they all fit one bite"
@@ -478,16 +480,17 @@ def test_the_task_model_switch_is_never_restored():
     assert model_mod.task_model_name() is None
 
 
-def test_on_the_index_layout_a_burst_counts_at_its_full_size(tmp_path, monkeypatch):
-    """The indexer reads the files whole, so a bite must not take 400 of them."""
+def test_on_the_index_layout_a_burst_counts_small_too(tmp_path, monkeypatch):
+    """The indexer reads a burst as the list the writer would (swarm friction T17
+    (1)): it counts as listed there too, so one bite takes all 300."""
     from probe.daemon.events import Event
 
     st = Store(tmp_path / "s.sqlite", clock=time.time)
     st.add([Event(kind=Kind.PROMPT, stream="main", offset=1, text="pull the branch")])
     st.add([Event(kind=Kind.FILE_CHANGE, stream=bite_mod.FOLDERS_STREAM, offset=2 + i,
                   text=f"new file /repo/f{i}.py (3,000 bytes)\n" + "x" * 3000) for i in range(300)])
-    monkeypatch.setattr(bite_mod, "NEW_SHOWN_TOKENS", 20_000)
+    monkeypatch.setattr(bite_mod, "NEW_SHOWN_TOKENS", 10_000)
     monkeypatch.setenv(model_mod.ENV_WRITER_FILE_BURST, "10")
     monkeypatch.setenv(model_mod.ENV_WRITER_EVENTS, "index")
     first, last = bite_mod.cover(st)
-    assert last - first + 1 < 301
+    assert last - first + 1 == 301

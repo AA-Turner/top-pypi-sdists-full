@@ -26,6 +26,7 @@ from .list import try_head as list_try_head
 from .list import try_item as list_try_item
 from .option import Option, some, value
 from .protocols import IEnumerable_1, IEnumerator
+from .system import ArgumentException__ctor_Z384F8060, InvalidOperationException__ctor_Z721C83C5
 from .types import UNIT, Unit
 from .util import Enumerator, get_enumerator, to_iterator
 
@@ -160,12 +161,17 @@ def take_while[T](predicate: Callable[[T], bool], xs: IEnumerable_1[T]) -> Nativ
 
 
 def take[T](count: int, xs: IEnumerable_1[T]) -> NativeSeq[T]:
+    if count < 0:
+        raise ArgumentException__ctor_Z384F8060("The input must be non-negative.", "count")
+
     def gen() -> Iterator[T]:
         it = _source_iter(xs)
         for _ in range(count):
             v = next(it, _SENTINEL)
             if v is _SENTINEL:
-                raise Exception("The input sequence has an insufficient number of elements. (Parameter 'source')")
+                raise InvalidOperationException__ctor_Z721C83C5(
+                    "The input sequence has an insufficient number of elements."
+                )
             yield v
 
     return NativeSeq(gen)
@@ -187,7 +193,7 @@ def try_head[T](xs: IEnumerable_1[T]) -> Option[T]:
 def head[T](xs: IEnumerable_1[T]) -> T:
     result = try_head(xs)
     if result is None:
-        raise Exception("The input sequence was empty. (Parameter 'source')")
+        raise ArgumentException__ctor_Z384F8060("The input sequence was empty.", "source")
     return value(result)
 
 
@@ -213,7 +219,7 @@ def try_item[T](index: int, xs: IEnumerable_1[T]) -> Option[T]:
 def item[T](index: int, xs: IEnumerable_1[T]) -> T:
     result = try_item(index, xs)
     if result is None:
-        raise Exception("The input sequence has an insufficient number of elements. (Parameter 'index')")
+        raise ArgumentException__ctor_Z384F8060("The input sequence has an insufficient number of elements.", "index")
     return value(result)
 
 

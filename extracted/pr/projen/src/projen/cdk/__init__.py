@@ -604,7 +604,7 @@ class JsiiBuildOptions:
         :param npm_trusted_publishing: (experimental) Whether to use trusted publishing for npm. Default: false
         :param npm_verify_published: (experimental) Wait until the published package version is available from the npm registry before the publish job completes. Default: false
         :param npm_verify_published_timeout_seconds: (experimental) How long to wait, in seconds, for the published package version to be available. Requires ``npmVerifyPublished`` to be enabled. Default: 3600
-        :param publish_to_go: (experimental) Publish Go bindings to a git repository. Default: - no publishing
+        :param publish_to_go: (experimental) Publish Go bindings to a git repository. A separate repository is recommended. If ``moduleName`` refers to the source repository, set ``publishToSourceRepository`` to ``true``. Default: - no publishing
         :param publish_to_maven: (experimental) Publish to maven. Default: - no publishing
         :param publish_to_nuget: (experimental) Publish to NuGet. Default: - no publishing
         :param publish_to_pypi: (experimental) Publish to pypi. Default: - no publishing
@@ -840,6 +840,9 @@ class JsiiBuildOptions:
     @builtins.property
     def publish_to_go(self) -> typing.Optional["JsiiGoTarget"]:
         '''(experimental) Publish Go bindings to a git repository.
+
+        A separate repository is recommended. If ``moduleName`` refers to the source
+        repository, set ``publishToSourceRepository`` to ``true``.
 
         :default: - no publishing
 
@@ -1348,6 +1351,7 @@ class JsiiDotNetTarget(_release_1fa091fd.NugetPublishOptions):
         "git_user_name": "gitUserName",
         "module_name": "moduleName",
         "package_name": "packageName",
+        "publish_to_source_repository": "publishToSourceRepository",
         "version_suffix": "versionSuffix",
     },
 )
@@ -1369,6 +1373,7 @@ class JsiiGoTarget(_release_1fa091fd.GoPublishOptions):
         git_user_name: typing.Optional[builtins.str] = None,
         module_name: builtins.str,
         package_name: typing.Optional[builtins.str] = None,
+        publish_to_source_repository: typing.Optional[builtins.bool] = None,
         version_suffix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(experimental) Go target configuration.
@@ -1385,8 +1390,9 @@ class JsiiGoTarget(_release_1fa091fd.GoPublishOptions):
         :param github_use_ssh: (experimental) Use SSH to push to GitHub instead of a personal accses token. Ignored if ``githubCredentials`` is set. Default: false
         :param git_user_email: (experimental) The email to use in the release git commit. Default: - default GitHub Actions user email
         :param git_user_name: (experimental) The user name to use for the release git commit. Default: - default GitHub Actions user name
-        :param module_name: (experimental) The name of the target repository in which this module will be published (e.g. github.com/owner/repo). The module itself will always be published under a subdirectory named according to the ``packageName`` of the module (e.g. github.com/foo/bar/pkg).
+        :param module_name: (experimental) The name of the target repository in which this module will be published (e.g. github.com/owner/repo). A repository separate from the source repository is recommended. To publish to the source repository, set ``publishToSourceRepository`` to ``true``. The module itself will always be published under a subdirectory named according to the ``packageName`` of the module (e.g. github.com/foo/bar/pkg).
         :param package_name: (experimental) The name of the Go package name. If not specified, package name will be derived from the JavaScript module name by removing non-alphanumeric characters (e.g. Default: - derived from the JavaScript module name
+        :param publish_to_source_repository: (experimental) Set when ``moduleName`` is the repository this project lives in. A separate target repository for Go is recommended. If the source repository is used instead, set this to ``true`` to adjust gitignore so Git can select the embedded jsii tarballs. Default: false
         :param version_suffix: (experimental) A suffix appended at the end of the module version (e.g ``"-devprefix"``). Default: - none
 
         :stability: experimental
@@ -1409,6 +1415,7 @@ class JsiiGoTarget(_release_1fa091fd.GoPublishOptions):
             check_type(argname="argument git_user_name", value=git_user_name, expected_type=type_hints["git_user_name"])
             check_type(argname="argument module_name", value=module_name, expected_type=type_hints["module_name"])
             check_type(argname="argument package_name", value=package_name, expected_type=type_hints["package_name"])
+            check_type(argname="argument publish_to_source_repository", value=publish_to_source_repository, expected_type=type_hints["publish_to_source_repository"])
             check_type(argname="argument version_suffix", value=version_suffix, expected_type=type_hints["version_suffix"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "module_name": module_name,
@@ -1439,6 +1446,8 @@ class JsiiGoTarget(_release_1fa091fd.GoPublishOptions):
             self._values["git_user_name"] = git_user_name
         if package_name is not None:
             self._values["package_name"] = package_name
+        if publish_to_source_repository is not None:
+            self._values["publish_to_source_repository"] = publish_to_source_repository
         if version_suffix is not None:
             self._values["version_suffix"] = version_suffix
 
@@ -1605,6 +1614,9 @@ class JsiiGoTarget(_release_1fa091fd.GoPublishOptions):
     def module_name(self) -> builtins.str:
         '''(experimental) The name of the target repository in which this module will be published (e.g. github.com/owner/repo).
 
+        A repository separate from the source repository is recommended. To publish
+        to the source repository, set ``publishToSourceRepository`` to ``true``.
+
         The module itself will always be published under a subdirectory named according
         to the ``packageName`` of the module (e.g. github.com/foo/bar/pkg).
 
@@ -1632,6 +1644,21 @@ class JsiiGoTarget(_release_1fa091fd.GoPublishOptions):
         '''
         result = self._values.get("package_name")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def publish_to_source_repository(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Set when ``moduleName`` is the repository this project lives in.
+
+        A separate target repository for Go is recommended. If the source repository
+        is used instead, set this to ``true`` to adjust gitignore so Git can select the
+        embedded jsii tarballs.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("publish_to_source_repository")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def version_suffix(self) -> typing.Optional[builtins.str]:
@@ -2167,7 +2194,7 @@ class JsiiProject(
         :param docgen_file_path: (experimental) File path for generated docs. Default: "API.md"
         :param exclude_typescript: (experimental) Accepts a list of glob patterns. Files matching any of those patterns will be excluded from the TypeScript compiler input. By default, jsii will include all *.ts files (except .d.ts files) in the TypeScript compiler input. This can be problematic for example when the package's build or test procedure generates .ts files that cannot be compiled with jsii's compiler settings.
         :param jsii_version: (experimental) Version of the jsii compiler to use. Set to "*" if you want to manually manage the version of jsii in your project by managing updates to ``package.json`` on your own. NOTE: The jsii compiler releases since 5.0.0 are not semantically versioned and should remain on the same minor, so we recommend using a ``~`` dependency (e.g. ``~5.0.0``). Default: "~5.9.0"
-        :param publish_to_go: (experimental) Publish Go bindings to a git repository. Default: - no publishing
+        :param publish_to_go: (experimental) Publish Go bindings to a git repository. A separate repository is recommended. If ``moduleName`` refers to the source repository, set ``publishToSourceRepository`` to ``true``. Default: - no publishing
         :param publish_to_maven: (experimental) Publish to maven. Default: - no publishing
         :param publish_to_nuget: (experimental) Publish to NuGet. Default: - no publishing
         :param publish_to_pypi: (experimental) Publish to pypi. Default: - no publishing
@@ -3033,7 +3060,7 @@ class JsiiProjectOptions(_typescript_7a66cf84.TypeScriptProjectOptions):
         :param docgen_file_path: (experimental) File path for generated docs. Default: "API.md"
         :param exclude_typescript: (experimental) Accepts a list of glob patterns. Files matching any of those patterns will be excluded from the TypeScript compiler input. By default, jsii will include all *.ts files (except .d.ts files) in the TypeScript compiler input. This can be problematic for example when the package's build or test procedure generates .ts files that cannot be compiled with jsii's compiler settings.
         :param jsii_version: (experimental) Version of the jsii compiler to use. Set to "*" if you want to manually manage the version of jsii in your project by managing updates to ``package.json`` on your own. NOTE: The jsii compiler releases since 5.0.0 are not semantically versioned and should remain on the same minor, so we recommend using a ``~`` dependency (e.g. ``~5.0.0``). Default: "~5.9.0"
-        :param publish_to_go: (experimental) Publish Go bindings to a git repository. Default: - no publishing
+        :param publish_to_go: (experimental) Publish Go bindings to a git repository. A separate repository is recommended. If ``moduleName`` refers to the source repository, set ``publishToSourceRepository`` to ``true``. Default: - no publishing
         :param publish_to_maven: (experimental) Publish to maven. Default: - no publishing
         :param publish_to_nuget: (experimental) Publish to NuGet. Default: - no publishing
         :param publish_to_pypi: (experimental) Publish to pypi. Default: - no publishing
@@ -5817,6 +5844,9 @@ class JsiiProjectOptions(_typescript_7a66cf84.TypeScriptProjectOptions):
     def publish_to_go(self) -> typing.Optional["JsiiGoTarget"]:
         '''(experimental) Publish Go bindings to a git repository.
 
+        A separate repository is recommended. If ``moduleName`` refers to the source
+        repository, set ``publishToSourceRepository`` to ``true``.
+
         :default: - no publishing
 
         :stability: experimental
@@ -6399,7 +6429,7 @@ class ConstructLibrary(
         :param docgen_file_path: (experimental) File path for generated docs. Default: "API.md"
         :param exclude_typescript: (experimental) Accepts a list of glob patterns. Files matching any of those patterns will be excluded from the TypeScript compiler input. By default, jsii will include all *.ts files (except .d.ts files) in the TypeScript compiler input. This can be problematic for example when the package's build or test procedure generates .ts files that cannot be compiled with jsii's compiler settings.
         :param jsii_version: (experimental) Version of the jsii compiler to use. Set to "*" if you want to manually manage the version of jsii in your project by managing updates to ``package.json`` on your own. NOTE: The jsii compiler releases since 5.0.0 are not semantically versioned and should remain on the same minor, so we recommend using a ``~`` dependency (e.g. ``~5.0.0``). Default: "~5.9.0"
-        :param publish_to_go: (experimental) Publish Go bindings to a git repository. Default: - no publishing
+        :param publish_to_go: (experimental) Publish Go bindings to a git repository. A separate repository is recommended. If ``moduleName`` refers to the source repository, set ``publishToSourceRepository`` to ``true``. Default: - no publishing
         :param publish_to_maven: (experimental) Publish to maven. Default: - no publishing
         :param publish_to_nuget: (experimental) Publish to NuGet. Default: - no publishing
         :param publish_to_pypi: (experimental) Publish to pypi. Default: - no publishing
@@ -7275,7 +7305,7 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         :param docgen_file_path: (experimental) File path for generated docs. Default: "API.md"
         :param exclude_typescript: (experimental) Accepts a list of glob patterns. Files matching any of those patterns will be excluded from the TypeScript compiler input. By default, jsii will include all *.ts files (except .d.ts files) in the TypeScript compiler input. This can be problematic for example when the package's build or test procedure generates .ts files that cannot be compiled with jsii's compiler settings.
         :param jsii_version: (experimental) Version of the jsii compiler to use. Set to "*" if you want to manually manage the version of jsii in your project by managing updates to ``package.json`` on your own. NOTE: The jsii compiler releases since 5.0.0 are not semantically versioned and should remain on the same minor, so we recommend using a ``~`` dependency (e.g. ``~5.0.0``). Default: "~5.9.0"
-        :param publish_to_go: (experimental) Publish Go bindings to a git repository. Default: - no publishing
+        :param publish_to_go: (experimental) Publish Go bindings to a git repository. A separate repository is recommended. If ``moduleName`` refers to the source repository, set ``publishToSourceRepository`` to ``true``. Default: - no publishing
         :param publish_to_maven: (experimental) Publish to maven. Default: - no publishing
         :param publish_to_nuget: (experimental) Publish to NuGet. Default: - no publishing
         :param publish_to_pypi: (experimental) Publish to pypi. Default: - no publishing
@@ -10065,6 +10095,9 @@ class ConstructLibraryOptions(JsiiProjectOptions):
     def publish_to_go(self) -> typing.Optional["JsiiGoTarget"]:
         '''(experimental) Publish Go bindings to a git repository.
 
+        A separate repository is recommended. If ``moduleName`` refers to the source
+        repository, set ``publishToSourceRepository`` to ``true``.
+
         :default: - no publishing
 
         :stability: experimental
@@ -10351,6 +10384,7 @@ def _typecheckingstub__b0ea0b1537651364353b8d1546fea1d78af2aaded6dded156ab976119
     git_user_name: typing.Optional[builtins.str] = None,
     module_name: builtins.str,
     package_name: typing.Optional[builtins.str] = None,
+    publish_to_source_repository: typing.Optional[builtins.bool] = None,
     version_suffix: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

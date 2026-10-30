@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: batchgenerators
-Version: 0.25.5
+Version: 0.25.6
 Summary: Data augmentation toolkit
 Author-email: "Division of Medical Image Computing, German Cancer Research Center AND Applied Computer Vision Lab, Helmholtz Imaging Platform" <f.isensee@dkfz-heidelberg.de>
 License:                                  Apache License
@@ -210,13 +210,11 @@ Keywords: data augmentation,deep learning,image segmentation,image classificatio
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pillow>=7.1.2
-Requires-Dist: numpy>=1.10.2
+Requires-Dist: numpy>=1.17
 Requires-Dist: scipy
 Requires-Dist: scikit-image
 Requires-Dist: scikit-learn
-Requires-Dist: future
 Requires-Dist: pandas
-Requires-Dist: unittest2
 Requires-Dist: threadpoolctl
 Dynamic: license-file
 

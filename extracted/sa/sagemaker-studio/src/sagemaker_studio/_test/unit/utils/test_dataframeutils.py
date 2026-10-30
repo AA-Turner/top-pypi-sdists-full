@@ -2,6 +2,10 @@
 Unit tests for dataframeutils module.
 """
 
+import contextlib
+import logging
+import os
+import subprocess
 import sys
 from unittest.mock import MagicMock, Mock, patch
 
@@ -17,7 +21,11 @@ sys.modules["awswrangler.catalog"] = MagicMock()
 sys.modules["awswrangler.s3"] = MagicMock()
 
 # Import after mocking - this is necessary for proper module mocking
-from sagemaker_studio import dataframeutils  # noqa: E402
+from sagemaker_studio import (  # noqa: E402
+    configure_local_kernel,
+    dataframeutils,
+    reset_local_kernel,
+)
 
 
 class TestReadCatalogTable:
@@ -650,6 +658,74 @@ class TestPandasPatching:
         assert hasattr(df, "to_catalog_table")
         # Check that the method exists and is callable
         assert callable(df.to_catalog_table)
+
+    @staticmethod
+    @contextlib.contextmanager
+    def _methods_removed():
+        """Pandas without the import's methods; whatever was found is put back afterwards."""
+        found = {
+            owner: owner.__dict__.get(name)
+            for owner, name in ((pd, "read_catalog_table"), (pd.DataFrame, "to_catalog_table"))
+        }
+        for owner, name in ((pd, "read_catalog_table"), (pd.DataFrame, "to_catalog_table")):
+            if name in owner.__dict__:
+                delattr(owner, name)
+        try:
+            yield
+        finally:
+            for owner, name in ((pd, "read_catalog_table"), (pd.DataFrame, "to_catalog_table")):
+                if found[owner] is not None:
+                    setattr(owner, name, found[owner])
+                elif name in owner.__dict__:
+                    delattr(owner, name)
+
+    def test_on_a_local_kernel_the_methods_are_not_installed(self, caplog):
+        with self._methods_removed():
+            configure_local_kernel("http://127.0.0.1:9", "t")
+            try:
+                with caplog.at_level(logging.INFO):
+                    dataframeutils._patch_pandas()
+            finally:
+                reset_local_kernel()
+            assert not hasattr(pd, "read_catalog_table")
+            assert not hasattr(pd.DataFrame, "to_catalog_table")
+        assert "pandas.read_catalog_table and DataFrame.to_catalog_table are not installed" in (
+            caplog.text
+        )
+
+    def test_outside_a_local_kernel_the_methods_are_installed(self):
+        with self._methods_removed():
+            with patch.dict(os.environ, {}, clear=True):  # no app URL
+                reset_local_kernel()
+                try:
+                    dataframeutils._patch_pandas()
+                finally:
+                    reset_local_kernel()
+            assert pd.read_catalog_table is dataframeutils.read_catalog_table
+            assert pd.DataFrame.to_catalog_table is dataframeutils.to_catalog_table
+
+    def test_the_import_decides_from_the_environment_the_app_sets(self):
+        package_root = os.path.dirname(os.path.dirname(dataframeutils.__file__))
+        code = (
+            "import pandas, sagemaker_studio\n"
+            "print(hasattr(pandas, 'read_catalog_table'), "
+            "hasattr(pandas.DataFrame, 'to_catalog_table'))\n"
+        )
+        env = {k: v for k, v in os.environ.items() if not k.startswith("AWS_NOTEBOOK_APP_")}
+        env["PYTHONPATH"] = os.pathsep.join(
+            [os.path.dirname(package_root)] + [p for p in [env.get("PYTHONPATH")] if p]
+        )
+
+        def imported_with(extra):
+            run = subprocess.run(
+                [sys.executable, "-c", code], env={**env, **extra}, capture_output=True, text=True
+            )
+            assert run.returncode == 0, run.stderr
+            return run.stdout.split()
+
+        assert imported_with({}) == ["True", "True"]
+        app_env = {"AWS_NOTEBOOK_APP_URL": "http://127.0.0.1:9", "AWS_NOTEBOOK_APP_TOKEN": "t"}
+        assert imported_with(app_env) == ["False", "False"]
 
 
 if __name__ == "__main__":

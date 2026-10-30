@@ -178,7 +178,8 @@ async def test_resolved_secret_reaches_subprocess_but_is_never_logged(
     assert captured_env["env"][SUBPROCESS_VAR] == SECRET_VALUE
     # The secret must not appear in structured logs (stdlib records) or console output.
     assert SECRET_VALUE not in caplog.text
-    assert SECRET_VALUE not in capsys.readouterr().err
+    console = capsys.readouterr()
+    assert SECRET_VALUE not in console.out + console.err
 
 
 @pytest.mark.asyncio

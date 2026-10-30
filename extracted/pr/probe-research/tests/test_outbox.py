@@ -720,12 +720,79 @@ def test_worker_loop_backs_off_then_exits_when_empty(tmp_path, monkeypatch):
         DrainReport(delivered=1, remaining=0),
     ]
     slept: list[float] = []
+    monkeypatch.delenv(outbox_worker.LINGER_ENV)
     monkeypatch.setattr("probe.sdk.journal.drain", lambda j, **k: reports.pop(0))
     monkeypatch.setattr(outbox_worker.time, "sleep", slept.append)
     assert outbox_worker.run(str(tmp_path / "outbox")) == 0
-    # 2.0 = transient backoff; 1.5 = the exit-grace linger for a dying
-    # writer's last op (prod smoke 2026-08-06).
-    assert slept == [2.0, outbox_worker._EXIT_GRACE_SECONDS]
+    # 2.0 = transient backoff; then the linger (#3625): 30 s of looks for the
+    # next op of a writer still running, or a dying writer's last one (prod
+    # smoke 2026-08-06), before the worker exits.
+    assert slept == [2.0] + [outbox_worker._LINGER_POLL_SECONDS] * 60
+    assert outbox_worker._LINGER_POLL_SECONDS * 60 == outbox_worker._LINGER_SECONDS
+
+
+def test_a_lingering_worker_sends_the_next_op_itself(tmp_path, monkeypatch):
+    """#3625: a worker left 1.5 s after its queue emptied, and a training loop's
+    next op (a second or two later) started another: 38 starts and 37.5 CPU-s
+    in 155 s. The same worker now takes it, then lingers again and exits."""
+    from probe.sdk import outbox_worker
+    from probe.sdk.journal import DrainReport
+
+    monkeypatch.delenv(outbox_worker.LINGER_ENV)
+    journal = journal_at(tmp_path)
+    journal.append_http("POST", "/v1/runs/r/metrics", {"step": 1})
+    sent: list[int] = []
+
+    def fake_drain(j, **kwargs):
+        ops = sorted(j.ops_dir.glob("*.json"))
+        sent.extend(json.loads(op.read_text())["body"]["step"] for op in ops)
+        for op in ops:
+            op.unlink()
+        j.write_status()
+        return DrainReport(delivered=len(ops), remaining=0)
+
+    slept: list[float] = []
+
+    def sleep(seconds):
+        slept.append(seconds)
+        if len(slept) == 4:  # 2 s into the linger: the loop's next metric
+            journal.append_http("POST", "/v1/runs/r/metrics", {"step": 2})
+
+    monkeypatch.setattr("probe.sdk.journal.drain", fake_drain)
+    monkeypatch.setattr(outbox_worker.time, "sleep", sleep)
+    assert outbox_worker.run(str(journal.dir)) == 0
+    assert sent == [1, 2], "one worker sent both"
+    assert len(slept) == 4 + 60, "then it lingered its whole stay once more"
+
+
+@pytest.mark.parametrize("value,looks", [("1.5", 3), ("0", 1), ("nan", 60), ("inf", 60), ("-4", 60), ("x", 60)])
+def test_the_linger_override_is_bounded(monkeypatch, value, looks):
+    """The test-only override never crashes a worker after its drain, and never
+    keeps one longer than the linger itself."""
+    from probe.sdk import outbox_worker
+
+    monkeypatch.setenv(outbox_worker.LINGER_ENV, value)
+    assert outbox_worker._linger_polls() == looks
+
+
+def test_a_lingering_worker_stops_at_once_when_paused(tmp_path, monkeypatch):
+    from probe.sdk import outbox_worker
+    from probe.sdk.journal import DrainReport
+
+    monkeypatch.delenv(outbox_worker.LINGER_ENV)
+    journal = journal_at(tmp_path)
+    journal._ensure()
+    slept: list[float] = []
+
+    def sleep(seconds):
+        slept.append(seconds)
+        if len(slept) == 3:
+            journal.pause()
+
+    monkeypatch.setattr("probe.sdk.journal.drain", lambda j, **k: DrainReport(remaining=0))
+    monkeypatch.setattr(outbox_worker.time, "sleep", sleep)
+    assert outbox_worker.run(str(journal.dir)) == 4
+    assert len(slept) == 3
 
 
 def test_worker_loop_exits_hard_on_auth_block(tmp_path, monkeypatch):

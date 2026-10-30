@@ -32,6 +32,9 @@ _KEPT = (
     "src/omnibase_core/validation/validator_occ_merge_eligibility.py",
 )
 
+# Still baselined after the generic-format validation/ files became canonical (OMN-21503).
+_BASELINED_VALIDATOR = "src/omnibase_core/validators/canonical_file_shape.py"
+
 _REGISTRIES = (
     ".onex_ratchets/canonical_file_shape_baseline.txt",
     "tests/fixtures/validator_parity/ai_slop/ci_scope.json",
@@ -61,5 +64,7 @@ def test_no_registry_names_a_deleted_validator() -> None:
 
 def test_registries_still_name_a_kept_validator() -> None:
     """Positive control: the registry scan above can find a validator path at all."""
-    baseline = (REPO_ROOT / _REGISTRIES[0]).read_text(encoding="utf-8")
-    assert _KEPT[0] in baseline
+    # validation/validator_*.py is a canonical location (OMN-21515), so the
+    # shrink-only baseline no longer lists it; the CI scope registry still does.
+    scope = (REPO_ROOT / _REGISTRIES[1]).read_text(encoding="utf-8")
+    assert _KEPT[0] in scope

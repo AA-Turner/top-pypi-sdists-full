@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deepspeed
-Version: 0.19.8
+Version: 0.19.9
 Summary: DeepSpeed library
 Home-page: http://deepspeed.ai
 Author: DeepSpeed Team
@@ -84,50 +84,50 @@ Requires-Dist: scipy; extra == "deepcompile"
 Provides-Extra: torchembed
 Requires-Dist: torchembed>=0.3.1; extra == "torchembed"
 Provides-Extra: all
-Requires-Dist: xgboost; extra == "all"
-Requires-Dist: pydantic>=2.0.0; extra == "all"
-Requires-Dist: torch>=2.0.0; extra == "all"
-Requires-Dist: future; extra == "all"
-Requires-Dist: sphinx; extra == "all"
-Requires-Dist: triton>=2.1.0; extra == "all"
-Requires-Dist: lm-eval==0.3.0; extra == "all"
-Requires-Dist: pytest-forked; extra == "all"
-Requires-Dist: pre-commit>=3.2.0; extra == "all"
-Requires-Dist: mup; extra == "all"
-Requires-Dist: packaging; extra == "all"
-Requires-Dist: pytest<8.4.0,>=7.2.0; extra == "all"
-Requires-Dist: wandb; extra == "all"
-Requires-Dist: sphinx_rtd_theme; extra == "all"
-Requires-Dist: tqdm; extra == "all"
-Requires-Dist: pytest-xdist; extra == "all"
-Requires-Dist: tensorboard; extra == "all"
-Requires-Dist: comet_ml>=3.41.0; extra == "all"
-Requires-Dist: torchvision; extra == "all"
-Requires-Dist: sentencepiece; extra == "all"
-Requires-Dist: accelerate; extra == "all"
-Requires-Dist: diffusers>=0.25.0; extra == "all"
-Requires-Dist: tabulate; extra == "all"
-Requires-Dist: qtorch; extra == "all"
-Requires-Dist: protobuf; extra == "all"
-Requires-Dist: google; extra == "all"
-Requires-Dist: qtorch==0.3.0; extra == "all"
-Requires-Dist: safetensors; extra == "all"
-Requires-Dist: clang-format==18.1.3; extra == "all"
-Requires-Dist: recommonmark; extra == "all"
-Requires-Dist: autodoc_pydantic>=2.0.0; extra == "all"
-Requires-Dist: deepspeed-kernels; sys_platform == "linux" and extra == "all"
-Requires-Dist: importlib-metadata>=4; extra == "all"
-Requires-Dist: torchembed>=0.3.1; extra == "all"
 Requires-Dist: scipy; extra == "all"
-Requires-Dist: docutils<0.18; extra == "all"
-Requires-Dist: py-cpuinfo; extra == "all"
+Requires-Dist: autodoc_pydantic>=2.0.0; extra == "all"
+Requires-Dist: torchembed>=0.3.1; extra == "all"
+Requires-Dist: tqdm; extra == "all"
+Requires-Dist: comet_ml>=3.41.0; extra == "all"
+Requires-Dist: deepspeed-kernels; sys_platform == "linux" and extra == "all"
+Requires-Dist: qtorch==0.3.0; extra == "all"
+Requires-Dist: diffusers>=0.25.0; extra == "all"
+Requires-Dist: qtorch; extra == "all"
+Requires-Dist: tabulate; extra == "all"
+Requires-Dist: liger-kernel>=0.8.1; extra == "all"
+Requires-Dist: torch>=2.0.0; extra == "all"
+Requires-Dist: lm-eval==0.3.0; extra == "all"
+Requires-Dist: safetensors; extra == "all"
+Requires-Dist: accelerate; extra == "all"
+Requires-Dist: protobuf; extra == "all"
+Requires-Dist: pydantic>=2.0.0; extra == "all"
+Requires-Dist: psutil; extra == "all"
 Requires-Dist: pytest-randomly; extra == "all"
+Requires-Dist: pytest-xdist; extra == "all"
+Requires-Dist: packaging; extra == "all"
+Requires-Dist: sphinx; extra == "all"
+Requires-Dist: mup; extra == "all"
+Requires-Dist: transformers>=4.51.3; extra == "all"
+Requires-Dist: xgboost; extra == "all"
+Requires-Dist: future; extra == "all"
+Requires-Dist: py-cpuinfo; extra == "all"
+Requires-Dist: google; extra == "all"
+Requires-Dist: clang-format==18.1.3; extra == "all"
+Requires-Dist: pytest-forked; extra == "all"
+Requires-Dist: pytest<8.4.0,>=7.2.0; extra == "all"
+Requires-Dist: pre-commit>=3.2.0; extra == "all"
 Requires-Dist: hjson; extra == "all"
 Requires-Dist: sphinx-rtd-theme; extra == "all"
-Requires-Dist: psutil; extra == "all"
-Requires-Dist: liger-kernel>=0.8.1; extra == "all"
+Requires-Dist: recommonmark; extra == "all"
+Requires-Dist: docutils<0.18; extra == "all"
+Requires-Dist: importlib-metadata>=4; extra == "all"
+Requires-Dist: torchvision; extra == "all"
+Requires-Dist: wandb; extra == "all"
+Requires-Dist: sphinx_rtd_theme; extra == "all"
 Requires-Dist: transformers>=4.32.1; extra == "all"
-Requires-Dist: transformers>=4.51.3; extra == "all"
+Requires-Dist: triton>=2.1.0; extra == "all"
+Requires-Dist: tensorboard; extra == "all"
+Requires-Dist: sentencepiece; extra == "all"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -244,7 +244,7 @@ DeepSpeed has been integrated with several different popular open-source DL fram
 <img src="docs/assets/images/transformers-light.png#gh-light-mode-only" width="250px"><img src="docs/assets/images/transformers-dark.png#gh-dark-mode-only" width="250px"> | [Transformers with DeepSpeed](https://huggingface.co/docs/transformers/deepspeed) |
 | <img src="docs/assets/images/accelerate-light.png#gh-light-mode-only" width="250px"><img src="docs/assets/images/accelerate-dark.png#gh-dark-mode-only" width="250px"> | [Accelerate with DeepSpeed](https://huggingface.co/docs/accelerate/usage_guides/deepspeed) |
 | <img src="docs/assets/images/lightning-light.svg#gh-light-mode-only" width="200px"><img src="docs/assets/images/lightning-dark.svg#gh-dark-mode-only" width="200px"> | [Lightning with DeepSpeed](https://lightning.ai/docs/pytorch/stable/advanced/model_parallel.html#deepspeed) |
-| <img src="docs/assets/images/mosaicml.svg" width="200px"> | [MosaicML with DeepSpeed](https://docs.mosaicml.com/projects/composer/en/latest/trainer/using_the_trainer.html?highlight=deepspeed#deepspeed-integration) |
+| <img src="docs/assets/images/mosaicml.svg" width="200px"> | [MosaicML with DeepSpeed](https://docs.mosaicml.com/projects/composer/en/latest/trainer/using_the_trainer.html#deepspeed-integration) |
 | <img src="docs/assets/images/determined.svg" width="225px"> | [Determined with DeepSpeed](https://docs.determined.ai/latest/training/apis-howto/deepspeed/overview.html) |
 | <img src="https://user-images.githubusercontent.com/58739961/187154444-fce76639-ac8d-429b-9354-c6fac64b7ef8.jpg" width=150> | [MMEngine with DeepSpeed](https://mmengine.readthedocs.io/en/latest/common_usage/large_model_training.html#deepspeed) |
 
@@ -370,7 +370,7 @@ Conduct](https://opensource.microsoft.com/codeofconduct/). For more information 
 4. Jie Ren, Samyam Rajbhandari, Reza Yazdani Aminabadi, Olatunji Ruwase, Shuangyan Yang, Minjia Zhang, Dong Li, Yuxiong He. (2021) ZeRO-Offload: Democratizing Billion-Scale Model Training. [arXiv:2101.06840](https://arxiv.org/abs/2101.06840) and [USENIX ATC 2021](https://www.usenix.org/conference/atc21/presentation/ren-jie). [[paper]](https://arxiv.org/abs/2101.06840) [[slides]](https://www.usenix.org/system/files/atc21_slides_ren-jie.pdf) [[blog]](https://www.microsoft.com/en-us/research/blog/deepspeed-extreme-scale-model-training-for-everyone/)
 5. Hanlin Tang, Shaoduo Gan, Ammar Ahmad Awan, Samyam Rajbhandari, Conglong Li, Xiangru Lian, Ji Liu, Ce Zhang, Yuxiong He. (2021) 1-bit Adam: Communication Efficient Large-Scale Training with Adam's Convergence Speed. [arXiv:2102.02888](https://arxiv.org/abs/2102.02888) and [ICML 2021](http://proceedings.mlr.press/v139/tang21a.html).
 6. Samyam Rajbhandari, Olatunji Ruwase, Jeff Rasley, Shaden Smith, Yuxiong He. (2021) ZeRO-Infinity: Breaking the GPU Memory Wall for Extreme Scale Deep Learning. [arXiv:2104.07857](https://arxiv.org/abs/2104.07857) and [SC 2021](https://dl.acm.org/doi/abs/10.1145/3458817.3476205). [[paper]](https://arxiv.org/abs/2104.07857) [[slides]](docs/assets/files/SC21-ZeRO-Infinity.pdf) [[blog]](https://www.microsoft.com/en-us/research/blog/zero-infinity-and-deepspeed-unlocking-unprecedented-model-scale-for-deep-learning-training/)
-7. Conglong Li, Ammar Ahmad Awan, Hanlin Tang, Samyam Rajbhandari, Yuxiong He. (2021) 1-bit LAMB: Communication Efficient Large-Scale Large-Batch Training with LAMB's Convergence Speed. [arXiv:2104.06069](https://arxiv.org/abs/2104.06069) and [HiPC 2022](https://hipc.org/advance-program/).
+7. Conglong Li, Ammar Ahmad Awan, Hanlin Tang, Samyam Rajbhandari, Yuxiong He. (2021) 1-bit LAMB: Communication Efficient Large-Scale Large-Batch Training with LAMB's Convergence Speed. [arXiv:2104.06069](https://arxiv.org/abs/2104.06069) and HiPC 2022.
 8. Conglong Li, Minjia Zhang, Yuxiong He. (2021) The Stability-Efficiency Dilemma: Investigating Sequence Length Warmup for Training GPT Models. [arXiv:2108.06084](https://arxiv.org/abs/2108.06084) and [NeurIPS 2022](https://openreview.net/forum?id=JpZ5du_Kdh).
 9. Yucheng Lu, Conglong Li, Minjia Zhang, Christopher De Sa, Yuxiong He. (2022) Maximizing Communication Efficiency for Large-scale Training via 0/1 Adam. [arXiv:2202.06009](https://arxiv.org/abs/2202.06009).
 10. Samyam Rajbhandari, Conglong Li, Zhewei Yao, Minjia Zhang, Reza Yazdani Aminabadi, Ammar Ahmad Awan, Jeff Rasley, Yuxiong He. (2022) DeepSpeed-MoE: Advancing Mixture-of-Experts Inference and Training to Power Next-Generation AI Scale [arXiv:2201.05596](https://arxiv.org/abs/2201.05596) and [ICML 2022](https://proceedings.mlr.press/v162/rajbhandari22a.html). [[pdf]](https://arxiv.org/abs/2201.05596) [[slides]](docs/assets/files/ICML-5mins.pdf) [[blog]](https://www.microsoft.com/en-us/research/blog/deepspeed-advancing-moe-inference-and-training-to-power-next-generation-ai-scale/)

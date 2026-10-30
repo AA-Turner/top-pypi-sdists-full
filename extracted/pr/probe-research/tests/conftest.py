@@ -37,6 +37,16 @@ def _daemon_bites_mode(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
+def _outbox_linger(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An outbox worker that found its queue empty stays 30 s looking for more
+    (`outbox_worker._LINGER_SECONDS`, #3625); the suite's workers, run to their
+    exit in-process and as children, stay 1.5 s, the one look they took before
+    it (longer than the client's 1 s kick throttle). The linger's own tests
+    (test_outbox.py) set it back."""
+    monkeypatch.setenv("PROBE_OUTBOX_LINGER_S", "1.5")
+
+
+@pytest.fixture(autouse=True)
 def _daemon_tool_set(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
     """The daemon's default tool set is `bash` (2026-10-18, `probe.daemon.toolset`);
     the suite's daemon tests were written for today's set (`shell`, `read`, `edit`,
@@ -481,9 +491,12 @@ def _no_ambient_agent(monkeypatch: pytest.MonkeyPatch) -> None:
     # exactly what `_no_ambient_pi_binary` below exists to prevent.
     from probe.sdk.agent_session import AGENTS
 
-    from probe.sdk.agent_session import FORWARDED_SESSION_ENV
+    from probe.sdk.agent_session import FORWARDED_SESSION_ENV, RUN_PROCESS_ENV
 
-    markers = {"PROBE_AGENT", "CLAUDE_CODE_SESSION_ID", FORWARDED_SESSION_ENV}
+    # RUN_PROCESS_ENV too: a suite run inside `probe exec` or a training script
+    # would send every request as a run's, and a test that opens a run marks the
+    # process it shares with every later test.
+    markers = {"PROBE_AGENT", "CLAUDE_CODE_SESSION_ID", FORWARDED_SESSION_ENV, RUN_PROCESS_ENV}
     markers.update(var for spec in AGENTS for var in spec.detect_env)
     markers.update(spec.session_env for spec in AGENTS if spec.session_env)
     for marker in sorted(markers):
@@ -856,6 +869,12 @@ CONCLUSION_LOCKED_DETAIL = (
     "replace the conclusion only if the researcher asked for this text "
     "(`--authored-by human`)."
 )
+#: The server's 409 for an agent marking over, or clearing, a person's dead-end
+#: mark (0408; `write_router.OUTCOME_IS_A_PERSONS`).
+OUTCOME_LOCKED_DETAIL = (
+    "A person marked this experiment's outcome. Put your finding in the experiment's "
+    "notes; change the mark only if the researcher asked for it (`--authored-by human`)."
+)
 
 _RUN_METRICS = re.compile(r"^/v1/runs/([^/]+)/metrics$")
 _RUN_METRICS_GROUPED = re.compile(r"^/v1/runs/([^/]+)/metrics/grouped$")
@@ -1200,6 +1219,10 @@ class FakeApp:
     # SDK reliability 1.10: False models a server whose PATCH /v1/runs/{id}
     # ignores write_epoch (every server before 1.10).
     fences_status_patch = True
+    # Swarm friction T24: True models a server whose fence names
+    # `code: stale_write_epoch` (app/telemetry/fencing.py); False, every server
+    # before it, which said so only in the message.
+    stale_write_epoch_code = False
     # 0268: False models a server predating run creation keys -- it IGNORES the
     # body field (pydantic drops it) and does not declare `run_creation_key`, so
     # a re-sent create makes a second run, exactly as the real old server does.
@@ -1240,7 +1263,10 @@ class FakeApp:
         /metrics, /spans and /steps raise a PLAIN 409 (`HTTPException(409,
         str(exc))`), and so does a status PATCH (1.10) -- deliberately without
         `existing_id`, which the drain would count as delivered on a retry.
-        /heartbeat answers `conflict(..., existing_id=run_id)`.
+        /heartbeat answers `conflict(..., existing_id=run_id)`. With
+        `stale_write_epoch_code` (a server with T24) each detail is an object
+        naming `code: stale_write_epoch` and the run's epoch, the message the
+        same, and only /heartbeat keeps `existing_id`.
         """
         if not self.fences_writer_epoch:
             return None
@@ -1279,6 +1305,9 @@ class FakeApp:
             "this writer was superseded by a reopen. Stop logging from this "
             "process, or reopen the run to obtain the current epoch."
         )
+        if self.stale_write_epoch_code:
+            detail = {"message": message, "code": "stale_write_epoch", "write_epoch": current}
+            return httpx.Response(409, json={"detail": detail if plain else {**detail, "existing_id": rid}})
         if plain:
             return httpx.Response(409, json={"detail": message})
         return httpx.Response(409, json={"detail": {"message": message, "existing_id": rid}})
@@ -1582,11 +1611,27 @@ class FakeApp:
             if ("project", pid) in ((e.get("source_type"), e.get("source_id")),
                                     (e.get("target_type"), e.get("target_id")))
         ]
+        # Each far end named, as app/lineage/project_lineage.py `link_ends` does.
+        ends: dict[str, dict] = {}
+        for e in edges:
+            for end_type, end_id in ((e["source_type"], e["source_id"]), (e["target_type"], e["target_id"])):
+                if end_id == pid:
+                    continue
+                if end_type == "project" and end_id in self.experiments:
+                    row = self.experiments[end_id]
+                    ends[end_id] = {"type": "experiment", "slug": row.get("slug"), "name": row.get("name")}
+                elif end_type == "project" and end_id in self.projects:
+                    row = self.projects[end_id]
+                    ends[end_id] = {"type": "project", "slug": row.get("slug"), "name": row.get("name")}
+                elif end_type == "run" and end_id in self.runs:
+                    row = self.runs[end_id]
+                    ends[end_id] = {"type": "run", "slug": row.get("slug"), "name": row.get("name")}
         return httpx.Response(200, json={
             "project_id": pid,
             "kind": "experiment" if pid in self.experiments else self.projects[pid].get("kind"),
             "origin": self._project_origin(pid),
             "edges": list(reversed(edges)),
+            "ends": ends,
             "edges_truncated": False,
             "derived_truncated": False,
             "nodes": nodes[:limit],
@@ -2632,6 +2677,8 @@ class FakeApp:
             "name",
             "question",
             "conclusion",
+            "outcome",
+            "outcome_reason",
             "notes",
             "base_version",
             "force",
@@ -2652,6 +2699,9 @@ class FakeApp:
             "question": row.get("question"),
             "conclusion": row.get("conclusion"),
             "conclusion_source": row.get("conclusion_source"),
+            "outcome": row.get("outcome"),
+            "outcome_reason": row.get("outcome_reason"),
+            "outcome_source": row.get("outcome_source"),
             "run_count": sum(1 for r in self.runs.values() if r.get("experiment_id") == row["id"]),
             "created_at": row.get("created_at") or _T0,
             "updated_at": row.get("updated_at") or row.get("created_at") or _T0,
@@ -2840,6 +2890,24 @@ class FakeApp:
                 row["conclusion_source"] = (
                     body.get("authored_by") if text is not None else None
                 )
+            if "outcome" in body:
+                # 0408: a mark needs its reason; an agent never marks over, or
+                # clears, a person's mark.
+                if (body["outcome"] is not None) != bool((body.get("outcome_reason") or "").strip()):
+                    return httpx.Response(422, json={"detail": "outcome dead_end needs outcome_reason"})
+                reason = (body.get("outcome_reason") or "").strip() or None
+                same = (body["outcome"], reason) == (row.get("outcome"), row.get("outcome_reason"))
+                if not (same and body.get("authored_by") != "human"):
+                    if body.get("authored_by") == "agent" and row.get("outcome") and (
+                        row.get("outcome_source") in ("human", None)
+                    ):
+                        return httpx.Response(409, json={"detail": OUTCOME_LOCKED_DETAIL})
+                    row["outcome"], row["outcome_reason"] = body["outcome"], reason
+                    if body["outcome"] is None:
+                        # A person's clear is kept as theirs; anyone else's hands it back.
+                        row["outcome_source"] = "human" if body.get("authored_by") == "human" else None
+                    elif not (row.get("outcome_source") == "human" and body.get("authored_by") != "human"):
+                        row["outcome_source"] = body.get("authored_by")
             for key in ("name", "question", "authored_by"):
                 if body.get(key) is not None:
                     row[key] = body[key]
@@ -5810,6 +5878,19 @@ class FakeApp:
                     "effort_truncated": None,
                 },
             )
+
+        m = re.match(r"^/v1/(projects|workspaces)/([^/]+)/best$", path)
+        if m and method == "GET":
+            # The best-pick reads (app/metrics/router.py): the current pick and
+            # its events, newest first, `history` of them (the server's 50 at
+            # most). Seeded per test as `best_picks[scope_id] = (pick, events)`.
+            pick, events = self.__dict__.get("best_picks", {}).get(m.group(2), (None, []))
+            history = min(int(request.url.params.get("history", 50)), 50)
+            return httpx.Response(200, json={
+                "scope": {"type": m.group(1)[:-1], "id": m.group(2)},
+                "pick": pick,
+                "history": list(events)[:history],
+            })
 
         m = re.match(r"^/v1/experiments/([^/]+)/inherited$", path)
         if m and method == "GET":

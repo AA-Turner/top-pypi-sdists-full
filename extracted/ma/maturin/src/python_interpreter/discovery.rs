@@ -17,6 +17,7 @@ use pep440_rs::{Version, VersionSpecifiers};
 use regex::Regex;
 use serde::Deserialize;
 use std::collections::HashSet;
+use std::env;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -42,7 +43,9 @@ pub(super) struct InterpreterMetadataMessage {
     // comes from `platform.system()`
     pub system: String,
     pub soabi: Option<String>,
+    pub soabi_platform: Option<String>,
     pub gil_disabled: bool,
+    pub debug: bool,
 }
 
 /// Manages interpreter discovery on Windows.
@@ -178,7 +181,7 @@ fn find_all_windows(
                 Lazy::new(|| Regex::new(r" -(V:)?(\d).(\d+)-?(arm)?(\d*)\s*\*?\s*(.*)?").unwrap());
             &*RE
         };
-        let stdout = str::from_utf8(&output.stdout).unwrap();
+        let stdout = String::from_utf8_lossy(&output.stdout);
         for line in stdout.lines() {
             if let Some(capture) = expr.captures(line) {
                 let major = capture
@@ -214,7 +217,8 @@ fn find_all_windows(
     // Conda environments are also supported on windows
     let conda_info = Command::new("conda").arg("info").arg("-e").output();
     if let Ok(output) = conda_info {
-        let lines = str::from_utf8(&output.stdout).unwrap().lines();
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let lines = stdout.lines();
         // The regex has three parts: The first matches the name and skips
         // comments, the second skips the part in between and the third
         // extracts the path
@@ -298,7 +302,7 @@ pub(super) fn check_executable(
     target: &Target,
     bridge: &BridgeModel,
 ) -> Result<Option<PythonInterpreter>> {
-    let output = Command::new(executable.as_ref())
+    let output = python_command(executable.as_ref())
         .env("PYTHONNOUSERSITE", "1")
         .args(["-c", GET_INTERPRETER_METADATA])
         .output();
@@ -388,6 +392,33 @@ pub(super) fn check_executable(
         .context(String::from_utf8_lossy(&output.stdout).trim().to_string())?;
 
     from_metadata_message(executable, target, bridge, message)
+}
+
+/// Creates a `Command` that runs a Python interpreter given by path or by name.
+///
+/// On Windows, `Command` appends `.exe` only when the program name has no
+/// extension, so a versioned name such as `pypy3.11` or `python3.14t` (whose
+/// "extension" is `.11` or `.14t`) is never found on `PATH`. Look up
+/// `<name>.exe` on `PATH` for such names instead.
+pub(crate) fn python_command(executable: impl AsRef<Path>) -> Command {
+    let executable = executable.as_ref();
+    if cfg!(windows)
+        && executable.parent() == Some(Path::new(""))
+        && executable
+            .extension()
+            .is_some_and(|ext| !ext.eq_ignore_ascii_case("exe"))
+    {
+        let mut name = executable.as_os_str().to_owned();
+        name.push(".exe");
+        let paths = env::var_os("PATH").unwrap_or_default();
+        if let Some(path) = env::split_paths(&paths)
+            .map(|dir| dir.join(&name))
+            .find(|path| path.is_file())
+        {
+            return Command::new(path);
+        }
+    }
+    Command::new(executable)
 }
 
 /// Look up Python interpreters for a given target from maturin's bundled sysconfig data.
@@ -680,6 +711,7 @@ fn from_metadata_message(
         runnable: true,
         implementation_name: message.implementation_name,
         soabi: message.soabi,
+        soabi_platform: message.soabi_platform,
     }))
 }
 
@@ -708,10 +740,12 @@ mod tests {
                 "CPython 3.12",
                 "CPython 3.13",
                 "CPython 3.14",
+                "CPython 3.15",
                 "PyPy 3.8",
                 "PyPy 3.9",
                 "PyPy 3.10",
                 "PyPy 3.11",
+                "PyPy 3.12",
             ]
         "#]];
         expected.assert_debug_eq(&pythons);
@@ -740,10 +774,13 @@ mod tests {
                 "CPython 3.12",
                 "CPython 3.13",
                 "CPython 3.14",
+                "CPython 3.15",
                 "CPython 3.14t",
+                "CPython 3.15t",
                 "PyPy 3.9",
                 "PyPy 3.10",
                 "PyPy 3.11",
+                "PyPy 3.12",
             ]
         "#]];
         expected.assert_debug_eq(&pythons);
@@ -765,10 +802,12 @@ mod tests {
                 "CPython 3.12",
                 "CPython 3.13",
                 "CPython 3.14",
+                "CPython 3.15",
                 "PyPy 3.8",
                 "PyPy 3.9",
                 "PyPy 3.10",
                 "PyPy 3.11",
+                "PyPy 3.12",
             ]
         "#]];
         expected.assert_debug_eq(&pythons);
@@ -788,8 +827,10 @@ mod tests {
                 "CPython 3.12",
                 "CPython 3.13",
                 "CPython 3.14",
+                "CPython 3.15",
                 "PyPy 3.10",
                 "PyPy 3.11",
+                "PyPy 3.12",
             ]
         "#]];
         expected.assert_debug_eq(&pythons);
@@ -817,10 +858,13 @@ mod tests {
                 "CPython 3.12",
                 "CPython 3.13",
                 "CPython 3.14",
+                "CPython 3.15",
                 "CPython 3.14t",
+                "CPython 3.15t",
                 "PyPy 3.9",
                 "PyPy 3.10",
                 "PyPy 3.11",
+                "PyPy 3.12",
             ]
         "#]];
         expected.assert_debug_eq(&pythons);
@@ -881,9 +925,11 @@ mod tests {
             implementation_name: "CPython".to_string(),
             abiflags: None,
             ext_suffix: Some(".pyd".to_string()),
+            debug: false,
             platform: platform.to_string(),
             executable: None,
             soabi: None,
+            soabi_platform: None,
             gil_disabled: false,
             system: "windows".to_string(),
         };
@@ -939,6 +985,7 @@ mod tests {
                     runnable: true,
                     implementation_name: "CPython".to_string(),
                     soabi: None,
+                    soabi_platform: None,
                 }
             );
         }
@@ -984,6 +1031,7 @@ mod tests {
                 runnable: true,
                 implementation_name: "CPython".to_string(),
                 soabi: None,
+                soabi_platform: None,
             }
         );
     }
@@ -1008,9 +1056,11 @@ mod tests {
             implementation_name: "CPython".to_string(),
             abiflags: Some("".to_string()),
             ext_suffix: Some(".cp314-win_amd64.pyd".to_string()),
+            debug: false,
             platform: "win-amd64".to_string(),
             executable: None,
             soabi: None,
+            soabi_platform: None,
             gil_disabled: false,
             system: "windows".to_string(),
         };
@@ -1029,9 +1079,11 @@ mod tests {
             implementation_name: "CPython".to_string(),
             abiflags: Some("t".to_string()),
             ext_suffix: Some(".cp314t-win_amd64.pyd".to_string()),
+            debug: false,
             platform: "win-amd64".to_string(),
             executable: None,
             soabi: None,
+            soabi_platform: None,
             gil_disabled: true,
             system: "windows".to_string(),
         };
@@ -1042,6 +1094,90 @@ mod tests {
         assert_eq!(interp.minor, 14);
         assert_eq!(interp.abiflags, "t");
         assert!(interp.gil_disabled);
+    }
+
+    #[test]
+    fn test_discovery_infers_windows_abiflags() {
+        let target = Target::from_resolved_target_triple("x86_64-pc-windows-msvc").unwrap();
+        for (gil_disabled, debug, expected) in [
+            (false, false, ""),
+            (true, false, "t"),
+            (false, true, "d"),
+            (true, true, "td"),
+        ] {
+            let message = InterpreterMetadataMessage {
+                major: 3,
+                minor: 13,
+                interpreter: "cpython".to_string(),
+                implementation_name: "cpython".to_string(),
+                abiflags: None,
+                ext_suffix: Some("_d.pyd".to_string()),
+                platform: "win-amd64".to_string(),
+                executable: None,
+                soabi: None,
+                soabi_platform: None,
+                gil_disabled,
+                debug,
+                system: "windows".to_string(),
+            };
+            let interpreter =
+                from_metadata_message("python", &target, &BridgeModel::Bin(None), message)
+                    .unwrap()
+                    .unwrap();
+            assert_eq!(interpreter.abiflags, expected);
+        }
+    }
+
+    #[test]
+    fn test_discovery_abiflags() {
+        for (triple, system, platform, minor, flags, expected) in [
+            (
+                "x86_64-pc-windows-msvc",
+                "windows",
+                "win-amd64",
+                13,
+                None,
+                "t",
+            ),
+            (
+                "x86_64-unknown-linux-gnu",
+                "linux",
+                "linux-x86_64",
+                14,
+                Some("d"),
+                "d",
+            ),
+            (
+                "x86_64-unknown-linux-gnu",
+                "linux",
+                "linux-x86_64",
+                14,
+                Some("td"),
+                "td",
+            ),
+        ] {
+            let target = Target::from_resolved_target_triple(triple).unwrap();
+            let message = InterpreterMetadataMessage {
+                major: 3,
+                minor,
+                interpreter: "cpython".to_string(),
+                implementation_name: "cpython".to_string(),
+                abiflags: flags.map(str::to_string),
+                ext_suffix: Some(".so".to_string()),
+                platform: platform.to_string(),
+                executable: None,
+                soabi: None,
+                soabi_platform: None,
+                debug: expected.contains('d'),
+                gil_disabled: expected.contains('t'),
+                system: system.to_string(),
+            };
+            let interpreter =
+                from_metadata_message("python", &target, &BridgeModel::Bin(None), message)
+                    .unwrap()
+                    .unwrap();
+            assert_eq!(interpreter.abiflags, expected);
+        }
     }
 
     #[test]
@@ -1067,5 +1203,31 @@ mod tests {
         let result = check_executables(&executables, &target, &bridge);
         let err_msg = result.unwrap_err().to_string();
         assert_snapshot!(err_msg, @"The following Python interpreters could not be found: `nonexistent-python-1`, `nonexistent-python-2`");
+    }
+
+    #[test]
+    fn test_non_utf8_command_output_is_lossily_decoded() {
+        // Localized Windows installations (e.g. a CJK or accented username
+        // under a legacy console codepage) can make `py --list-paths` and
+        // `conda info -e` emit non-UTF-8 bytes. Interpreter discovery must
+        // lossily decode that output instead of panicking: undecodable bytes
+        // become U+FFFD, which cannot match the interpreter path regexes, so
+        // affected lines are skipped like any other junk line.
+        let mut raw = b" -3.11-64 * C:\\Users\\".to_vec();
+        raw.extend_from_slice(&[0xff, 0xfd, 0xfe]);
+        raw.extend_from_slice(b"\\python.exe\r\n");
+
+        // The previous `str::from_utf8(&output.stdout).unwrap()` panicked here.
+        assert!(str::from_utf8(&raw).is_err());
+
+        let stdout = String::from_utf8_lossy(&raw);
+        let line = stdout.lines().next().unwrap();
+        assert!(line.starts_with(" -3.11-64 * C:\\Users\\"));
+        assert!(line.contains(char::REPLACEMENT_CHARACTER));
+        assert!(line.ends_with("\\python.exe"));
+
+        // Valid UTF-8 output is decoded unchanged.
+        let stdout = String::from_utf8_lossy(b" -3.10-64 * C:\\Python\\python.exe");
+        assert_eq!(stdout, " -3.10-64 * C:\\Python\\python.exe");
     }
 }

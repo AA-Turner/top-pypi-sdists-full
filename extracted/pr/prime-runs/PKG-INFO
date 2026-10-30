@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: prime-runs
-Version: 0.1.4
+Version: 0.1.5
 Summary: Prime Intellect Runs SDK - Track eval and training runs on the Prime platform
 Project-URL: Homepage, https://github.com/PrimeIntellect-ai/prime
 Project-URL: Documentation, https://github.com/PrimeIntellect-ai/prime/tree/main/packages/prime-runs
@@ -22,7 +22,8 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Requires-Dist: httpx>=0.25.0
-Requires-Dist: prime-traces>=0.0.3
+Requires-Dist: orjson>=3.10.0
+Requires-Dist: prime-traces>=0.0.11
 Provides-Extra: dev
 Requires-Dist: pytest-asyncio>=0.23.0; extra == 'dev'
 Requires-Dist: pytest>=7.0.0; extra == 'dev'

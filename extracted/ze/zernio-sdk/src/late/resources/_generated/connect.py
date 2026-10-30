@@ -461,6 +461,7 @@ class ConnectResource:
         client_id: str,
         client_secret: str,
         *,
+        slack_signing_secret: str | None = None,
         scope_areas: list[str] | None = None,
     ) -> dict[str, Any]:
         """Add an OAuth app"""
@@ -469,6 +470,7 @@ class ConnectResource:
             label=label,
             client_id=client_id,
             client_secret=client_secret,
+            slack_signing_secret=slack_signing_secret,
             scope_areas=scope_areas,
         )
         return self._client._post("/v1/connect/oauth-apps", data=payload)
@@ -482,12 +484,14 @@ class ConnectResource:
         *,
         label: str | None = None,
         client_secret: str | None = None,
+        slack_signing_secret: str | None = None,
         scope_areas: list[str] | None = None,
     ) -> dict[str, Any]:
         """Update an OAuth app"""
         payload = self._build_payload(
             label=label,
             client_secret=client_secret,
+            slack_signing_secret=slack_signing_secret,
             scope_areas=scope_areas,
         )
         return self._client._patch("/v1/connect/oauth-apps/{appId}", data=payload)
@@ -569,6 +573,7 @@ class ConnectResource:
         refresh_token: str | None = None,
         expires_in: int | None = None,
         redirect_url: str | None = None,
+        oauth_app_id: str | None = None,
     ) -> dict[str, Any]:
         """Select Pinterest board"""
         payload = self._build_payload(
@@ -580,6 +585,7 @@ class ConnectResource:
             refresh_token=refresh_token,
             expires_in=expires_in,
             redirect_url=redirect_url,
+            oauth_app_id=oauth_app_id,
         )
         return self._client._post("/v1/connect/pinterest/select-board", data=payload)
 
@@ -607,6 +613,7 @@ class ConnectResource:
         refresh_token: str | None = None,
         expires_in: int | None = None,
         redirect_url: str | None = None,
+        oauth_app_id: str | None = None,
     ) -> dict[str, Any]:
         """Select Snapchat profile"""
         payload = self._build_payload(
@@ -617,6 +624,7 @@ class ConnectResource:
             refresh_token=refresh_token,
             expires_in=expires_in,
             redirect_url=redirect_url,
+            oauth_app_id=oauth_app_id,
         )
         headers: dict[str, str] = {}
         if x_connect_token is not None:
@@ -688,6 +696,7 @@ class ConnectResource:
         phone_number_id: str,
         *,
         pin: str | None = None,
+        oauth_app_id: str | None = None,
     ) -> dict[str, Any]:
         """Connect WhatsApp via credentials"""
         payload = self._build_payload(
@@ -696,6 +705,7 @@ class ConnectResource:
             waba_id=waba_id,
             phone_number_id=phone_number_id,
             pin=pin,
+            oauth_app_id=oauth_app_id,
         )
         return self._client._post("/v1/connect/whatsapp/credentials", data=payload)
 
@@ -1526,6 +1536,7 @@ class ConnectResource:
         client_id: str,
         client_secret: str,
         *,
+        slack_signing_secret: str | None = None,
         scope_areas: list[str] | None = None,
     ) -> dict[str, Any]:
         """Add an OAuth app (async)"""
@@ -1534,6 +1545,7 @@ class ConnectResource:
             label=label,
             client_id=client_id,
             client_secret=client_secret,
+            slack_signing_secret=slack_signing_secret,
             scope_areas=scope_areas,
         )
         return await self._client._apost("/v1/connect/oauth-apps", data=payload)
@@ -1547,12 +1559,14 @@ class ConnectResource:
         *,
         label: str | None = None,
         client_secret: str | None = None,
+        slack_signing_secret: str | None = None,
         scope_areas: list[str] | None = None,
     ) -> dict[str, Any]:
         """Update an OAuth app (async)"""
         payload = self._build_payload(
             label=label,
             client_secret=client_secret,
+            slack_signing_secret=slack_signing_secret,
             scope_areas=scope_areas,
         )
         return await self._client._apatch(
@@ -1642,6 +1656,7 @@ class ConnectResource:
         refresh_token: str | None = None,
         expires_in: int | None = None,
         redirect_url: str | None = None,
+        oauth_app_id: str | None = None,
     ) -> dict[str, Any]:
         """Select Pinterest board (async)"""
         payload = self._build_payload(
@@ -1653,6 +1668,7 @@ class ConnectResource:
             refresh_token=refresh_token,
             expires_in=expires_in,
             redirect_url=redirect_url,
+            oauth_app_id=oauth_app_id,
         )
         return await self._client._apost(
             "/v1/connect/pinterest/select-board", data=payload
@@ -1682,6 +1698,7 @@ class ConnectResource:
         refresh_token: str | None = None,
         expires_in: int | None = None,
         redirect_url: str | None = None,
+        oauth_app_id: str | None = None,
     ) -> dict[str, Any]:
         """Select Snapchat profile (async)"""
         payload = self._build_payload(
@@ -1692,6 +1709,7 @@ class ConnectResource:
             refresh_token=refresh_token,
             expires_in=expires_in,
             redirect_url=redirect_url,
+            oauth_app_id=oauth_app_id,
         )
         headers: dict[str, str] = {}
         if x_connect_token is not None:
@@ -1769,6 +1787,7 @@ class ConnectResource:
         phone_number_id: str,
         *,
         pin: str | None = None,
+        oauth_app_id: str | None = None,
     ) -> dict[str, Any]:
         """Connect WhatsApp via credentials (async)"""
         payload = self._build_payload(
@@ -1777,6 +1796,7 @@ class ConnectResource:
             waba_id=waba_id,
             phone_number_id=phone_number_id,
             pin=pin,
+            oauth_app_id=oauth_app_id,
         )
         return await self._client._apost(
             "/v1/connect/whatsapp/credentials", data=payload

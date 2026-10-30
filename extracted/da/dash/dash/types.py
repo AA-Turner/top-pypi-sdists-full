@@ -1,9 +1,9 @@
 import typing
-from typing import Any, Dict, List, Union
+from typing import Annotated, Any, Dict, List, Union
 
 from pydantic import Field, GetCoreSchemaHandler, GetJsonSchemaHandler
 from pydantic_core import core_schema
-from typing_extensions import Annotated, TypedDict, NotRequired
+from typing_extensions import TypedDict, NotRequired
 
 
 class _NumberSchema:  # pylint: disable=too-few-public-methods
@@ -102,3 +102,6 @@ class CallbackExecutionResponse(TypedDict):
     response: NotRequired[Dict[str, CallbackOutput]]
     sideUpdate: NotRequired[Dict[str, CallbackSideOutput]]
     dist: NotRequired[List[Any]]
+    # Streaming callbacks: terminal frame marker and mid-stream error.
+    done: NotRequired[bool]
+    error: NotRequired[Dict[str, str]]

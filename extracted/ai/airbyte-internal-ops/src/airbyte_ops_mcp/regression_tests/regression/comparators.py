@@ -17,14 +17,16 @@ https://github.com/airbytehq/airbyte/blob/master/airbyte-ci/connectors/live-test
 from __future__ import annotations
 
 import collections.abc
-import contextlib
 import hashlib
 import json
+import locale
 import logging
 import re
+from array import array
 from collections import Counter
-from collections.abc import Callable, Hashable, Iterator
-from dataclasses import dataclass, field
+from collections.abc import Callable, Hashable, Iterator, Mapping, Sequence
+from collections.abc import Set as AbstractSet
+from dataclasses import dataclass, field, replace
 from functools import reduce
 from pathlib import Path
 from typing import Any
@@ -112,10 +114,22 @@ class RecordDiff:
     added_copy_count: int = 0
     added_copy_pk_count: int = 0
     added_copy_pks: dict[Any, int] = field(default_factory=dict)
+    # On a stopped-early read (`partial`), the differences found on PK values
+    # with more than one record on either side: a cap or a deadline can cut
+    # such a group on one side, so they are reported and never fail. Kept
+    # apart from `records_with_value_diff`, which then holds only the strict
+    # findings -- PK values both sides emitted once -- with their own capped
+    # examples (`MAX_EXAMPLE_DIFFS`). Empty on a complete read, where every
+    # finding is strict.
+    partial_group_diffs: list[dict[str, Any]] = field(default_factory=list)
+    partial_group_diff_count: int = 0
 
     def __post_init__(self) -> None:
         self.records_with_value_diff_count = max(
             self.records_with_value_diff_count, len(self.records_with_value_diff)
+        )
+        self.partial_group_diff_count = max(
+            self.partial_group_diff_count, len(self.partial_group_diffs)
         )
         self.records_only_in_control_count = max(
             self.records_only_in_control_count, len(self.records_only_in_control)
@@ -144,8 +158,8 @@ class StreamComparisonResult:
     The PK lists hold capped examples (`MAX_EXAMPLE_PKS`), like
     `RecordDiff`'s record lists: the merged summary of a failing run keeps
     every stream's result alive through report generation, and uncapped
-    lists would break the "peak memory is the largest single stream" bound
-    exactly on the runs that drop the most records. The `*_pk_count` fields
+    lists would break the comparison's per-stream memory bound exactly on
+    the runs that drop the most records. The `*_pk_count` fields
     carry the exact totals and are floored to the list lengths on init, so
     constructing with just the lists keeps them consistent.
     """
@@ -169,8 +183,11 @@ class StreamComparisonResult:
     # the control only with records the target dropped or changed (the
     # `lost_*` fields, named for the records rather than the PK). Set by the
     # comparison and identical on both versions' results; zero on a
-    # single-version check. The counts are exact; `lost_duplicate_pks` is
-    # capped like the other PK lists.
+    # single-version check. On a stopped-early read fixed and lost are zero
+    # too: a cut can make either look true, so the control's duplicates that
+    # are not pre-existing stay unclassified
+    # (`_unclassified_duplicate_pk_count`). The counts are exact;
+    # `lost_duplicate_pks` is capped like the other PK lists.
     pre_existing_duplicate_pk_count: int = 0
     new_duplicate_pk_count: int = 0
     fixed_duplicate_pk_count: int = 0
@@ -239,8 +256,8 @@ class ComparisonResult:
 
 
 def compare_record_counts(
-    control_records: dict[str, list[AirbyteMessage]],
-    target_records: dict[str, list[AirbyteMessage]],
+    control_records: Mapping[str, Sequence[AirbyteMessage]],
+    target_records: Mapping[str, Sequence[AirbyteMessage]],
 ) -> ComparisonResult:
     """Compare record counts between control and target versions.
 
@@ -327,6 +344,10 @@ def _allow_dropped_duplicate_rows(
     dropped PK fails PK presence. The count itself cannot tell copies from
     lost records, so its message states the arithmetic and leaves that to the
     field values.
+
+    Not applied to a stopped-early read (`run_record_comparisons`): its
+    counts never decide the verdict there, and a target cut short would only
+    widen the allowance.
     """
     for stream, result in count_comparison.stream_results.items():
         if result.passed:
@@ -358,8 +379,8 @@ def _duplicate_row_count(pk_uniqueness: ComparisonResult, stream: str) -> int:
 
 
 def compare_primary_keys(
-    control_records: dict[str, list[AirbyteMessage]],
-    target_records: dict[str, list[AirbyteMessage]],
+    control_records: Mapping[str, Sequence[AirbyteMessage]],
+    target_records: Mapping[str, Sequence[AirbyteMessage]],
     primary_keys_per_stream: dict[str, PrimaryKeys | None],
 ) -> ComparisonResult:
     """Compare primary keys between control and target versions.
@@ -472,6 +493,12 @@ class _DuplicatePkSplit:
     target no longer emits at all) fail on. The control's duplicates are
     `pre_existing + fixed + lost`, the target's `pre_existing + new`.
     `lost_pks` is the sorted, capped list of those values.
+
+    On a stopped-early read neither `fixed` nor `lost` is decided: a cap or a
+    deadline can cut either side, so a control-only duplicate may be one the
+    target had not reached yet, or one the control read further into. Both
+    stay 0, and the control's duplicates are then `pre_existing` plus the
+    ones not duplicated in the target (partial read).
     """
 
     pre_existing: int = 0
@@ -482,7 +509,7 @@ class _DuplicatePkSplit:
 
 
 def _scan_pk_integrity(
-    messages: list[AirbyteMessage], pk_paths: PrimaryKeys
+    messages: Sequence[AirbyteMessage], pk_paths: PrimaryKeys
 ) -> _PkIntegrityScan:
     records_missing_pk = 0
     # Full copies of the first few offending records, so the report can
@@ -511,7 +538,7 @@ def _scan_pk_integrity(
 
 
 def _scan_pk_integrity_per_stream(
-    records_per_stream: dict[str, list[AirbyteMessage]],
+    records_per_stream: Mapping[str, Sequence[AirbyteMessage]],
     primary_keys_per_stream: dict[str, PrimaryKeys | None],
 ) -> dict[str, _PkIntegrityScan | None]:
     """Scan every stream; `None` stands for a stream without a primary key."""
@@ -527,11 +554,16 @@ def _scan_pk_integrity_per_stream(
 def _split_duplicate_pks(
     control: _PkIntegrityScan | None,
     target: _PkIntegrityScan | None,
-    control_messages: list[AirbyteMessage],
-    target_messages: list[AirbyteMessage],
+    control_messages: Sequence[AirbyteMessage],
+    target_messages: Sequence[AirbyteMessage],
+    partial: bool = False,
 ) -> _DuplicatePkSplit:
     control_pks = (control.duplicates if control else {}).keys()
     target_pks = (target.duplicates if target else {}).keys()
+    pre_existing = len(control_pks & target_pks)
+    new = len(target_pks - control_pks)
+    if partial:
+        return _DuplicatePkSplit(pre_existing=pre_existing, new=new)
     control_only = control_pks - target_pks
     lost = (
         _lost_duplicate_pks(
@@ -541,8 +573,8 @@ def _split_duplicate_pks(
         else []
     )
     return _DuplicatePkSplit(
-        pre_existing=len(control_pks & target_pks),
-        new=len(target_pks - control_pks),
+        pre_existing=pre_existing,
+        new=new,
         fixed=len(control_only) - len(lost),
         lost=len(lost),
         lost_pks=tuple(lost[:MAX_EXAMPLE_PKS]),
@@ -550,10 +582,10 @@ def _split_duplicate_pks(
 
 
 def _lost_duplicate_pks(
-    control_only: set[tuple],
+    control_only: AbstractSet[tuple],
     pk_paths: PrimaryKeys,
-    control_messages: list[AirbyteMessage],
-    target_messages: list[AirbyteMessage],
+    control_messages: Sequence[AirbyteMessage],
+    target_messages: Sequence[AirbyteMessage],
 ) -> list[tuple]:
     """The control-only duplicated PK values the target did not just collapse.
 
@@ -562,20 +594,40 @@ def _lost_duplicate_pks(
     with `EXCLUDE_PATHS`, the field values' matching); otherwise the target
     dropped or changed a record of it, or dropped the value entirely. Sorted
     (`key=repr`), exact.
+
+    One pass over each side, reading only the records of these values. The
+    target's one record per value is kept as a 16-byte blake2b digest of its
+    key rather than the key itself, and each control record is compared as it
+    is read, so what is held does not grow with the records' size. On a read
+    from disk (`_RecordsFile`) that is one more pass over each file, which
+    `_split_duplicate_pks` makes only for a stream with control-only
+    duplicates on a complete read.
     """
 
-    def keyed(messages: list[AirbyteMessage]) -> Iterator[tuple[tuple, str]]:
+    def keyed(
+        messages: Sequence[AirbyteMessage],
+    ) -> Iterator[tuple[tuple, AirbyteMessage]]:
         for message in messages:
             if not (message.record and message.record.data):
                 continue
             pk = _extract_pk_tuple(message.record.data, pk_paths)
             if pk in control_only:
-                record = json.loads(message.record.model_dump_json())
-                yield pk, _canonical_record(record, EXCLUDE_PATHS)
+                yield pk, message
 
-    target_keys = dict(keyed(target_messages))
-    lost = {pk for pk, key in keyed(control_messages) if target_keys.get(pk) != key}
+    target_digests = {
+        pk: _record_digest(message) for pk, message in keyed(target_messages)
+    }
+    lost: set[tuple] = set()
+    for pk, message in keyed(control_messages):
+        if pk not in lost and target_digests.get(pk) != _record_digest(message):
+            lost.add(pk)
     return sorted(lost, key=repr)
+
+
+def _record_digest(message: AirbyteMessage) -> bytes:
+    """A blake2b digest of a record's `_canonical_record` on `EXCLUDE_PATHS`."""
+    key = _canonical_record(_record_dict(message), EXCLUDE_PATHS)
+    return hashlib.blake2b(key.encode(), digest_size=16).digest()
 
 
 def check_pk_uniqueness(
@@ -614,9 +666,10 @@ def check_pk_uniqueness(
 
 
 def _compare_pk_integrity(
-    control_records: dict[str, list[AirbyteMessage]],
-    target_records: dict[str, list[AirbyteMessage]],
+    control_records: Mapping[str, Sequence[AirbyteMessage]],
+    target_records: Mapping[str, Sequence[AirbyteMessage]],
     primary_keys_per_stream: dict[str, PrimaryKeys | None],
+    partial: bool = False,
 ) -> tuple[ComparisonResult, ComparisonResult]:
     """Both versions' PK integrity results, control first.
 
@@ -626,8 +679,12 @@ def _compare_pk_integrity(
     value duplicated in both versions is pre-existing and warns, and one
     duplicated in the control alone warns as fixed by the target -- or, when
     the target dropped or changed records of it, warns that the field values
-    or PK presence fail on it, without failing a second time here. A record
-    missing its PK value fails on either version, as when checked alone.
+    or PK presence fail on it, without failing a second time here. On a
+    `partial` read the target's new duplicates warn too, since the control
+    may have stopped before the second record of the group, and a
+    control-only duplicate is neither fixed nor lost: it warns as "not
+    duplicated in target (partial read)". A record missing its PK value
+    fails on either version, as when checked alone.
     """
     control_scans = _scan_pk_integrity_per_stream(
         control_records, primary_keys_per_stream
@@ -641,12 +698,21 @@ def _compare_pk_integrity(
             target_scans.get(stream),
             control_records.get(stream, []),
             target_records.get(stream, []),
+            partial=partial,
         )
         for stream in set(control_scans) | set(target_scans)
     }
     return (
-        _pk_uniqueness_result(control_scans, "control", splits),
-        _pk_uniqueness_result(target_scans, "target", splits),
+        _pk_uniqueness_result(control_scans, "control", splits, partial=partial),
+        _pk_uniqueness_result(
+            target_scans,
+            "target",
+            splits,
+            partial=partial,
+            control_streams_with_records={
+                name for name, records in control_records.items() if records
+            },
+        ),
     )
 
 
@@ -654,13 +720,19 @@ def _pk_uniqueness_result(
     scans: dict[str, _PkIntegrityScan | None],
     version_label: str = "",
     splits: dict[str, _DuplicatePkSplit] | None = None,
+    partial: bool = False,
+    control_streams_with_records: set[str] | None = None,
 ) -> ComparisonResult:
     """Build one version's PK integrity result from its per-stream scans.
 
     `splits` is the comparison's classification of each stream's duplicates
     (see `_compare_pk_integrity`), with `version_label` naming which version
     this is: the target's new duplicates are errors, everything else warns.
-    Without it, a version checked alone fails on every duplicate.
+    On a `partial` read the target's new duplicates warn as well, and the
+    control's own duplicates are named neutrally, as "not duplicated in
+    target (partial read)", since the split decides neither fixed nor lost
+    there. Without `splits`, a version checked alone fails on every
+    duplicate.
 
     The shared duplicates are reported once, as the control's warning; the
     target's stream message names them too, so its own row can say why it
@@ -707,16 +779,36 @@ def _pk_uniqueness_result(
                 "target"
             )
             if version_label == "target":
-                if split.new:
-                    stream_errors.append(
-                        f"Stream {stream_name} has {split.new} new duplicate "
-                        "primary key value(s) in target (not duplicated in control)"
+                control_note = (
+                    "(stream not read by control)"
+                    if control_streams_with_records is not None
+                    and stream_name not in control_streams_with_records
+                    else "(not duplicated in control)"
+                )
+                new = (
+                    f"Stream {stream_name} has {split.new} new duplicate "
+                    f"primary key value(s) in target {control_note}"
+                )
+                if split.new and partial:
+                    stream_warnings.append(
+                        f"{new}, inconclusive on a stopped-early read: the "
+                        "control may have stopped before the duplicate"
                     )
+                elif split.new:
+                    stream_errors.append(new)
                 if split.pre_existing:
                     stream_notes.append(pre_existing)
             else:
                 if split.pre_existing:
                     stream_warnings.append(pre_existing)
+                control_only = duplicate_pk_count - split.pre_existing
+                if partial and control_only:
+                    stream_warnings.append(
+                        f"Stream {stream_name} has {control_only} duplicate "
+                        "primary key value(s) in control not duplicated in target "
+                        "(partial read): a cap or deadline can cut either side, so "
+                        "they are neither fixed nor lost"
+                    )
                 if split.fixed:
                     stream_warnings.append(
                         f"Stream {stream_name} has {split.fixed} duplicate primary "
@@ -760,14 +852,20 @@ def _pk_uniqueness_result(
     return ComparisonResult(
         passed=all(r.passed for r in stream_results.values()),
         stream_results=stream_results,
-        message=_pk_uniqueness_message(stream_results, version_label),
+        message=_pk_uniqueness_message(
+            stream_results,
+            version_label,
+            new_inconclusive=partial and version_label == "target",
+        ),
         errors=errors,
         warnings=warnings,
     )
 
 
 def _pk_uniqueness_message(
-    stream_results: dict[str, StreamComparisonResult], version_label: str = ""
+    stream_results: dict[str, StreamComparisonResult],
+    version_label: str = "",
+    new_inconclusive: bool = False,
 ) -> str:
     """The check-level message, shared with the merge of per-stream results.
 
@@ -777,15 +875,29 @@ def _pk_uniqueness_message(
     row does not mention them. "Fixed" is said only of values whose records
     all reached the target; values with records the target dropped or
     changed are named apart, as a pointer to the checks that fail on them.
+
+    `new_inconclusive` marks the target's result on a partial read, where new
+    duplicates warn rather than fail. Both versions' results carry the same
+    split, so the control's must not pass it. The control's duplicates that
+    are none of pre-existing, fixed or lost are the ones a partial read does
+    not classify (`_unclassified_duplicate_pk_count`); they are named as not
+    duplicated in the target.
     """
     label = f" in {version_label}" if version_label else ""
     if not all(r.passed for r in stream_results.values()):
         return f"Primary key integrity issues found{label}"
     results = stream_results.values()
+    if new_inconclusive and any(r.new_duplicate_pk_count for r in results):
+        return (
+            f"New duplicate primary keys{label} (inconclusive on a stopped-early read)"
+        )
     pre_existing = any(r.pre_existing_duplicate_pk_count for r in results)
     in_control = version_label == "control"
     fixed = in_control and any(r.fixed_duplicate_pk_count for r in results)
     lost = in_control and any(r.lost_duplicate_pk_count for r in results)
+    unclassified = in_control and any(
+        _unclassified_duplicate_pk_count(r) for r in results
+    )
     if pre_existing and fixed:
         message = (
             f"Pre-existing duplicate primary keys{label}, and others fixed in "
@@ -797,6 +909,11 @@ def _pk_uniqueness_message(
         message = "Duplicate primary keys in control fixed in target (not a regression)"
     else:
         message = ""
+    if unclassified:
+        unclassified_message = "not duplicated in target (partial read)"
+        if message:
+            return f"{message}; others {unclassified_message}"
+        return f"Duplicate primary keys in control {unclassified_message}"
     if lost:
         lost_message = (
             "with records the target dropped or changed (field values or PK "
@@ -808,12 +925,29 @@ def _pk_uniqueness_message(
     return message or f"All primary keys unique and present{label}"
 
 
+def _unclassified_duplicate_pk_count(result: StreamComparisonResult) -> int:
+    """The control's duplicates a partial read leaves neither fixed nor lost.
+
+    A complete read classifies every control duplicate as pre-existing,
+    fixed or lost, so this is 0 there; on a partial read fixed and lost stay
+    0 and the control-only duplicates are what is left.
+    """
+    return max(
+        0,
+        result.duplicate_pk_count
+        - result.pre_existing_duplicate_pk_count
+        - result.fixed_duplicate_pk_count
+        - result.lost_duplicate_pk_count,
+    )
+
+
 def compare_all_records(
-    control_records: dict[str, list[AirbyteMessage]],
-    target_records: dict[str, list[AirbyteMessage]],
+    control_records: Mapping[str, Sequence[AirbyteMessage]],
+    target_records: Mapping[str, Sequence[AirbyteMessage]],
     primary_keys_per_stream: dict[str, PrimaryKeys | None] | None = None,
     exclude_paths: list[str] | None = None,
     directional: bool = False,
+    partial: bool = False,
 ) -> ComparisonResult:
     """Compare all records between control and target versions.
 
@@ -827,6 +961,12 @@ def compare_all_records(
     target fail the comparison. Directional mode only affects streams with
     primary keys — without a PK there is no way to match records, so the
     without-PK path is unchanged.
+
+    When `partial` is True (a side was stopped early), a difference on a PK
+    value with more than one record on either side is reported and does not
+    fail, and no added copies are counted: a cap or a deadline can cut such a
+    group on one side (`RecordDiff.partial_group_diffs`). A PK value both
+    sides emitted once is still compared strictly.
 
     Based on airbyte-ci implementation:
     https://github.com/airbytehq/airbyte/blob/master/airbyte-ci/connectors/live-tests/src/live_tests/regression_tests/test_read.py#L133-L183
@@ -866,6 +1006,7 @@ def compare_all_records(
                 target_msgs=target_msgs,
                 pk_fields=pk_fields,
                 exclude_paths=exclude_paths,
+                partial=partial,
             )
         else:
             record_diff = _compare_records_without_pk(
@@ -886,14 +1027,9 @@ def compare_all_records(
         if not passed:
             messages.append(f"Stream {stream_name} has record differences")
             errors.append(messages[-1])
-        if record_diff.added_copy_count:
-            copies = "copy" if record_diff.added_copy_count == 1 else "copies"
-            messages.append(
-                f"Stream {stream_name}: {record_diff.added_copy_pk_count:,} "
-                f"duplicated PK value(s) emit {record_diff.added_copy_count:,} "
-                f"more identical {copies} in target than in control"
-            )
-            warnings.append(messages[-1])
+        stream_warnings = _record_diff_warnings(stream_name, record_diff)
+        messages.extend(stream_warnings)
+        warnings.extend(stream_warnings)
 
         stream_results[stream_name] = StreamComparisonResult(
             stream_name=stream_name,
@@ -913,10 +1049,38 @@ def compare_all_records(
     )
 
 
+def _record_diff_warnings(stream_name: str, record_diff: RecordDiff) -> list[str]:
+    """A stream's field-value findings that warn rather than fail."""
+    warnings: list[str] = []
+    if record_diff.added_copy_count:
+        copies = "copy" if record_diff.added_copy_count == 1 else "copies"
+        warnings.append(
+            f"Stream {stream_name}: {record_diff.added_copy_pk_count:,} "
+            f"duplicated PK value(s) emit {record_diff.added_copy_count:,} "
+            f"more identical {copies} in target than in control"
+        )
+    if record_diff.partial_group_diff_count:
+        warnings.append(
+            f"Stream {stream_name}: {record_diff.partial_group_diff_count:,} "
+            "duplicated PK value(s) whose records differ, inconclusive on a "
+            "stopped-early read: a cap or deadline can cut a PK's records on "
+            "one side"
+        )
+    return warnings
+
+
 def _field_values_message(stream_results: dict[str, StreamComparisonResult]) -> str:
     """The field check's message, shared with the merge of per-stream results."""
     if not all(r.passed for r in stream_results.values()):
         return "Record differences found"
+    if any(
+        r.record_diff and r.record_diff.partial_group_diff_count
+        for r in stream_results.values()
+    ):
+        return (
+            "All records match, apart from duplicated PK values that are "
+            "inconclusive on a stopped-early read"
+        )
     if any(
         r.record_diff and r.record_diff.added_copy_count
         for r in stream_results.values()
@@ -1426,10 +1590,44 @@ _CHANGED_STATE = 1
 # keys it does not recognise rather than waving them through as drift.
 _VALUE_DIFF_KEY = "values_changed"
 
+# A masked value, as `masking.mask_value` writes it: the type it had, its
+# length where it has one, and a truncated hash.
+_TOKEN = re.compile(
+    r"^(string|integer|number|boolean|null|array|object|unknown)(_len-\d+)?_[0-9a-f]{16}$"
+)
+
+
+def _token_type(value: Any) -> str | None:
+    """The type a masked value's token carries, or `None` for a raw value."""
+    if not isinstance(value, str):
+        return None
+    match = _TOKEN.match(value)
+    return match.group(1) if match else None
+
+
+def _is_token_type_change(change: Any) -> bool:
+    """Whether a `values_changed` entry is two tokens of different types.
+
+    Under masking both sides of a retyped cursor are strings, so DeepDiff
+    files the change as a moved value rather than a `type_changes`. The token
+    still carries the type, and a type that moved is the shape of the state
+    changing, exactly as it is for raw values.
+    """
+    if not isinstance(change, dict):
+        return False
+    old_type = _token_type(change.get("old_value"))
+    new_type = _token_type(change.get("new_value"))
+    return old_type is not None and new_type is not None and old_type != new_type
+
 
 def _is_value_only_diff(diff: DeepDiff) -> bool:
     """Whether a state's diff is a cursor that moved, not a state redeclared."""
-    return set(diff.keys()) == {_VALUE_DIFF_KEY}
+    if set(diff.keys()) != {_VALUE_DIFF_KEY}:
+        return False
+    changes = diff[_VALUE_DIFF_KEY]
+    if not isinstance(changes, dict):
+        return True
+    return not any(_is_token_type_change(change) for change in changes.values())
 
 
 def _final_state_change_message(tally: dict[int, int], value_changes: int) -> str:
@@ -2218,7 +2416,7 @@ def _jsonable_diff(diff: DeepDiff) -> dict[str, Any]:
 
 
 def _extract_pk_values(
-    messages: list[AirbyteMessage],
+    messages: Sequence[AirbyteMessage],
     pk_paths: PrimaryKeys,
 ) -> set[tuple]:
     """Extract primary key values from a list of messages.
@@ -2237,10 +2435,11 @@ def _extract_pk_values(
 
 def _compare_records_with_pk(
     stream_name: str,
-    control_msgs: list[AirbyteMessage],
-    target_msgs: list[AirbyteMessage],
+    control_msgs: Sequence[AirbyteMessage],
+    target_msgs: Sequence[AirbyteMessage],
     pk_fields: PrimaryKeys,
     exclude_paths: list[str],
+    partial: bool = False,
 ) -> RecordDiff:
     """Compare records using primary keys for matching.
 
@@ -2252,8 +2451,18 @@ def _compare_records_with_pk(
     versions' groups for it are compared as multisets (`_record_group_diff`):
     a pre-existing duplicate no longer fails the run, so the comparison has
     to be right about it, and the same rows in a different emission order
-    are not a change.
+    are not a change. On a `partial` read such a PK's findings are reported
+    apart and never fail (`_ValueDiffTally`).
+
+    A stream read from disk (`_RecordsFile`) goes through
+    `_compare_records_with_pk_by_fingerprint` instead, which returns the same
+    result without holding either side's records.
     """
+    if isinstance(control_msgs, _RecordsFile) or isinstance(target_msgs, _RecordsFile):
+        return _compare_records_with_pk_by_fingerprint(
+            stream_name, control_msgs, target_msgs, pk_fields, exclude_paths, partial
+        )
+
     control_by_pk = _group_records_by_pk(control_msgs, pk_fields)
     target_by_pk = _group_records_by_pk(target_msgs, pk_fields)
 
@@ -2263,40 +2472,21 @@ def _compare_records_with_pk(
     only_in_control = control_pks - target_pks
     only_in_target = target_pks - control_pks
 
-    # Records with value differences (same PK, different values). Only the
-    # first MAX_EXAMPLE_DIFFS diffs are kept as examples; the count covers
-    # all of them.
-    records_with_value_diff: list[dict[str, Any]] = []
-    value_diff_count = 0
-    added_copy_count = added_copy_pk_count = 0
-    added_copy_pks: dict[Any, int] = {}
+    tally = _ValueDiffTally(partial=partial)
     # Sorted (`key=repr`: PK tuples mix types) so the kept examples are the
     # same ones on every run; set iteration order varies per process.
     for pk in sorted(control_pks & target_pks, key=repr):
         control_group = control_by_pk[pk]
         target_group = target_by_pk[pk]
-        if len(control_group) == 1 and len(target_group) == 1:
-            example = _single_record_diff(
-                control_group[0], target_group[0], exclude_paths
-            )
-        else:
-            example, added_copies = _record_group_diff(
-                control_group, target_group, exclude_paths
-            )
-            if added_copies:
-                added_copy_count += added_copies
-                added_copy_pk_count += 1
-                if len(added_copy_pks) < MAX_EXAMPLE_PKS:
-                    added_copy_pks[pk] = added_copies
-        if example is None:
-            continue
-        value_diff_count += 1
-        if len(records_with_value_diff) < MAX_EXAMPLE_DIFFS:
-            records_with_value_diff.append({"pk": pk, **example})
+        tally.add(
+            pk,
+            len(control_group),
+            len(target_group),
+            *_pk_group_diff(control_group, target_group, exclude_paths),
+        )
 
     return RecordDiff(
         stream_name=stream_name,
-        records_with_value_diff=records_with_value_diff,
         # Sorted for the same reason as the value-diff examples: which few
         # records survive the example cap must not change run to run.
         records_only_in_control=[
@@ -2307,14 +2497,75 @@ def _compare_records_with_pk(
             target_by_pk[pk][0]
             for pk in sorted(only_in_target, key=repr)[:MAX_EXAMPLE_DIFFS]
         ],
-        records_with_value_diff_count=value_diff_count,
         records_only_in_control_count=len(only_in_control),
         records_only_in_target_count=len(only_in_target),
         pk_paths=pk_fields,
-        added_copy_count=added_copy_count,
-        added_copy_pk_count=added_copy_pk_count,
-        added_copy_pks=added_copy_pks,
+        **tally.fields(),
     )
+
+
+@dataclass
+class _ValueDiffTally:
+    """The value-diff findings on one stream's shared PK values, as found.
+
+    Only the first `MAX_EXAMPLE_DIFFS` findings of each kind are kept as
+    examples; the counts cover all of them. Shared by the in-memory and the
+    fingerprint comparison, so the two count the same way.
+
+    On a `partial` read a PK value with more than one record on either side
+    is judged apart: a cap or a deadline can cut its records on one side, so
+    a lost record, records left on both sides and a capped group may only
+    say where each side stopped. Its difference goes to
+    `partial_group_diffs` and never fails, and its added copies are not
+    counted, since the control may have stopped before them. A PK value both
+    sides emitted once keeps the strict rule.
+    """
+
+    partial: bool
+    value_diffs: list[dict[str, Any]] = field(default_factory=list)
+    value_diff_count: int = 0
+    partial_group_diffs: list[dict[str, Any]] = field(default_factory=list)
+    partial_group_diff_count: int = 0
+    added_copy_count: int = 0
+    added_copy_pk_count: int = 0
+    added_copy_pks: dict[Any, int] = field(default_factory=dict)
+
+    def add(
+        self,
+        pk: tuple,
+        control_size: int,
+        target_size: int,
+        example: dict[str, Any] | None,
+        added_copies: int,
+    ) -> None:
+        """Count one shared PK value's example (or None) and its added copies."""
+        if self.partial and (control_size > 1 or target_size > 1):
+            if example is not None:
+                self.partial_group_diff_count += 1
+                if len(self.partial_group_diffs) < MAX_EXAMPLE_DIFFS:
+                    self.partial_group_diffs.append({"pk": pk, **example})
+            return
+        if added_copies:
+            self.added_copy_count += added_copies
+            self.added_copy_pk_count += 1
+            if len(self.added_copy_pks) < MAX_EXAMPLE_PKS:
+                self.added_copy_pks[pk] = added_copies
+        if example is not None:
+            self.value_diff_count += 1
+            if len(self.value_diffs) < MAX_EXAMPLE_DIFFS:
+                self.value_diffs.append({"pk": pk, **example})
+
+    def fields(self) -> dict[str, Any]:
+        """The `RecordDiff` fields this tally fills."""
+        return {
+            "records_with_value_diff": self.value_diffs,
+            "records_with_value_diff_count": self.value_diff_count,
+            "partial_group_diffs": self.partial_group_diffs,
+            "partial_group_diff_count": self.partial_group_diff_count,
+            "added_copy_count": self.added_copy_count,
+            "added_copy_pk_count": self.added_copy_pk_count,
+            "added_copy_pks": self.added_copy_pks,
+        }
 
 
 def _group_records_by_pk(
@@ -2332,13 +2583,150 @@ def _group_records_by_pk(
     return by_pk
 
 
+# One record's entry in a fingerprint index: its position in the stream and
+# `_record_fingerprint` of it.
+_FingerprintEntry = tuple[int, bytes | None]
+
+
+def _compare_records_with_pk_by_fingerprint(
+    stream_name: str,
+    control_msgs: Sequence[AirbyteMessage],
+    target_msgs: Sequence[AirbyteMessage],
+    pk_fields: PrimaryKeys,
+    exclude_paths: list[str],
+    partial: bool = False,
+) -> RecordDiff:
+    """`_compare_records_with_pk` for streams read from disk, record by record.
+
+    Each side keeps only the position and fingerprint of its records, per PK.
+    A PK whose fingerprints match on both sides has nothing the full
+    comparison would report, so it is skipped; the records of every other
+    shared PK are loaded back and diffed by the same `_pk_group_diff`, and the
+    one-sided examples are loaded the same way. The result is the one
+    `_compare_records_with_pk` returns for the same records held in lists.
+    """
+    control_by_pk = _fingerprint_records_by_pk(control_msgs, pk_fields, exclude_paths)
+    target_by_pk = _fingerprint_records_by_pk(target_msgs, pk_fields, exclude_paths)
+
+    def load(
+        messages: Sequence[AirbyteMessage], entries: list[_FingerprintEntry]
+    ) -> list[dict[str, Any]]:
+        return [_record_dict(messages[position]) for position, _ in entries]
+
+    # The same set operations and sort as the in-memory comparison, so the
+    # same PK spelling (`1` or `1.0`) reaches the examples in the same order.
+    control_pks = set(control_by_pk.keys())
+    target_pks = set(target_by_pk.keys())
+    only_in_control = control_pks - target_pks
+    only_in_target = target_pks - control_pks
+
+    tally = _ValueDiffTally(partial=partial)
+    for pk in sorted(control_pks & target_pks, key=repr):
+        control_group = control_by_pk[pk]
+        target_group = target_by_pk[pk]
+        # The same multiset of fingerprints leaves nothing unmatched on either
+        # side, so no difference and no added copies.
+        if _fingerprints_match(control_group, target_group):
+            continue
+        tally.add(
+            pk,
+            len(control_group),
+            len(target_group),
+            *_pk_group_diff(
+                load(control_msgs, control_group),
+                load(target_msgs, target_group),
+                exclude_paths,
+            ),
+        )
+
+    return RecordDiff(
+        stream_name=stream_name,
+        records_only_in_control=[
+            _record_dict(control_msgs[control_by_pk[pk][0][0]])
+            for pk in sorted(only_in_control, key=repr)[:MAX_EXAMPLE_DIFFS]
+        ],
+        records_only_in_target=[
+            _record_dict(target_msgs[target_by_pk[pk][0][0]])
+            for pk in sorted(only_in_target, key=repr)[:MAX_EXAMPLE_DIFFS]
+        ],
+        records_only_in_control_count=len(only_in_control),
+        records_only_in_target_count=len(only_in_target),
+        pk_paths=pk_fields,
+        **tally.fields(),
+    )
+
+
+def _fingerprint_records_by_pk(
+    messages: Sequence[AirbyteMessage],
+    pk_fields: PrimaryKeys,
+    exclude_paths: list[str],
+) -> dict[tuple, list[_FingerprintEntry]]:
+    """`_group_records_by_pk` with each record's position and fingerprint in its place."""
+    by_pk: dict[tuple, list[_FingerprintEntry]] = {}
+    for position, msg in enumerate(messages):
+        if msg.record and msg.record.data:
+            pk = _extract_pk_tuple(msg.record.data, pk_fields)
+            if not _pk_has_missing_values(pk):
+                fingerprint = _record_fingerprint(_record_dict(msg), exclude_paths)
+                by_pk.setdefault(pk, []).append((position, fingerprint))
+    return by_pk
+
+
+def _record_fingerprint(
+    record: dict[str, Any], exclude_paths: list[str]
+) -> bytes | None:
+    """A digest of the record's `_canonical_record`, or None to compare it in full.
+
+    Equal canonical keys mean records the single-pair comparison finds no
+    difference between (`_canonical_record`), and the group matching pairs
+    records on that same key. NaN and infinity are the exception:
+    `_normalized_value` leaves them as floats, and NaN is spelled one way but
+    never equal to itself. Pydantic writes both as null, so they do not reach
+    a record dict today; a record that has one gets no fingerprint
+    (`allow_nan=False` raises) rather than one that could hide a difference.
+    """
+    try:
+        canonical = _canonical_record(record, exclude_paths, allow_nan=False)
+    except ValueError:
+        return None
+    return hashlib.blake2b(canonical.encode(), digest_size=16).digest()
+
+
+def _fingerprints_match(
+    control_group: list[_FingerprintEntry], target_group: list[_FingerprintEntry]
+) -> bool:
+    """Whether one PK's records are the same multiset of fingerprints on both sides.
+
+    True only where `_pk_group_diff` would find nothing: the fingerprint is a
+    digest of `_canonical_record`, so `1`, `1.0` and `True`, and the same list
+    in another order, give the same fingerprint, as they give the same key to
+    the group matching and to `_single_record_diff`. False is not a
+    difference in itself: lists that differ only in how often an item
+    repeats fingerprint apart while DeepDiff calls them equal, and a record
+    holding NaN or infinity has no fingerprint, so those records are loaded
+    and diffed in full.
+    """
+    control = [fingerprint for _, fingerprint in control_group]
+    target = [fingerprint for _, fingerprint in target_group]
+    if None in control or None in target:
+        return False
+    return sorted(control) == sorted(target)
+
+
+def _record_dict(message: AirbyteMessage) -> dict[str, Any]:
+    """A record message as the plain dict the field comparison diffs."""
+    return json.loads(message.record.model_dump_json())
+
+
 def _compared_fields(
     record: dict[str, Any], exclude_paths: list[str]
 ) -> dict[str, Any]:
     return {key: value for key, value in record.items() if key not in exclude_paths}
 
 
-def _canonical_record(record: dict[str, Any], exclude_paths: list[str]) -> str:
+def _canonical_record(
+    record: dict[str, Any], exclude_paths: list[str], *, allow_nan: bool = True
+) -> str:
     """The compared fields as sorted-key JSON: a hashable key for matching.
 
     Two records get the same key when the single-pair comparison would find
@@ -2346,16 +2734,22 @@ def _canonical_record(record: dict[str, Any], exclude_paths: list[str]) -> str:
     comparison treats `1`, `1.0` and `True` as one value (`==`) and ignores
     list order (DeepDiff `ignore_order=True`), so `_normalized_value` writes
     each bool and whole float as its int and sorts every list, at any depth.
-    #1511's record fingerprints are built on this key, so they ignore list
+    The record fingerprints of the comparison from disk
+    (`_record_fingerprint`) are digests of this key, so they ignore list
     order too. The key still tells apart lists that differ only in how often
     an item repeats, which DeepDiff ignores: such records are left over, and
-    `_record_group_diff` judges them. NaN and infinity never reach here: the
-    protocol models write them as null.
+    `_record_group_diff` judges them.
+
+    The protocol models write NaN and infinity as null, so they do not reach
+    here today. `_normalized_value` leaves them as floats, so with
+    `allow_nan=False` a record holding one still raises `ValueError`, which
+    is how `_record_fingerprint` falls back to comparing it in full.
     """
     return json.dumps(
         _normalized_value(_compared_fields(record, exclude_paths)),
         sort_keys=True,
         default=str,
+        allow_nan=allow_nan,
     )
 
 
@@ -2392,6 +2786,24 @@ def _list_item_order(item: Any) -> tuple[int, Any]:
     return (3, json.dumps(item, sort_keys=True, default=str))
 
 
+def _pk_group_diff(
+    control_group: list[dict[str, Any]],
+    target_group: list[dict[str, Any]],
+    exclude_paths: list[str],
+) -> tuple[dict[str, Any] | None, int]:
+    """One PK's value-diff example (or None) and the identical copies added.
+
+    A single pair has no copies to add, so its count is always 0; a PK with
+    more than one record on either side goes through `_record_group_diff`.
+    """
+    if len(control_group) == 1 and len(target_group) == 1:
+        return (
+            _single_record_diff(control_group[0], target_group[0], exclude_paths),
+            0,
+        )
+    return _record_group_diff(control_group, target_group, exclude_paths)
+
+
 def _single_record_diff(
     control_record: dict[str, Any],
     target_record: dict[str, Any],
@@ -2403,6 +2815,14 @@ def _single_record_diff(
     # a passing run. Plain equality is ~0.9\u00b5s; skipping identical pairs
     # measured 13\u00d7 faster end-to-end on an all-identical stream.
     if _compared_fields(control_record, exclude_paths) == _compared_fields(
+        target_record, exclude_paths
+    ):
+        return None
+    # Equal keys are records the group matching pairs up and the comparison
+    # from disk skips by fingerprint (`1`, `1.0` and `True` as one value, list
+    # order ignored), so a single pair is judged the same way: on its own,
+    # DeepDiff calls a bool beside an int in a reordered list a type change.
+    if _canonical_record(control_record, exclude_paths) == _canonical_record(
         target_record, exclude_paths
     ):
         return None
@@ -2726,6 +3146,14 @@ class RecordComparisonSummary:
     # still fails (fail closed), but as inconclusive \u2014 a comparator bug must
     # not tell a connector developer their change caused a regression.
     errored: bool = False
+    # True when a side was stopped early (deadline or record cap), so the two
+    # outputs end at different points. Record counts, PK presence, the
+    # target's new duplicate PKs and the field values of duplicated PK values
+    # are then reported rather than folded, and `passed` is decided by records
+    # missing their PK and the field values of PK values both sides emitted
+    # once. The fixed/lost split, added copies and the count allowance are not
+    # computed: their counts stay 0.
+    partial: bool = False
     pk_presence: ComparisonResult | None = None
     control_pk_uniqueness: ComparisonResult | None = None
     target_pk_uniqueness: ComparisonResult | None = None
@@ -2773,6 +3201,7 @@ class RecordComparisonSummary:
             {
                 "passed": self.passed,
                 "errored": self.errored,
+                "partial": self.partial,
                 "errors": self.errors,
                 "warnings": self.warnings,
                 "streams_without_pk": self.streams_without_pk,
@@ -2802,9 +3231,10 @@ class RecordComparisonSummary:
 
 
 def run_record_comparisons(
-    control_records: dict[str, list[AirbyteMessage]],
-    target_records: dict[str, list[AirbyteMessage]],
+    control_records: Mapping[str, Sequence[AirbyteMessage]],
+    target_records: Mapping[str, Sequence[AirbyteMessage]],
     primary_keys_per_stream: dict[str, list | None],
+    partial: bool = False,
 ) -> RecordComparisonSummary:
     """Run all record-level comparisons between control and target output.
 
@@ -2826,9 +3256,9 @@ def run_record_comparisons(
       declared primary key cannot be trusted regardless of which version
       introduced it. Duplicates are classified against the other version:
       a PK value duplicated in both is pre-existing and only warns, one
-      duplicated in the target alone is new and fails, one duplicated in
-      the control alone was fixed by the target and warns. Both versions'
-      results carry the split.
+      duplicated in the target alone is new and fails (warns on a partial
+      read), one duplicated in the control alone was fixed by the target and
+      warns. Both versions' results carry the split.
     - Field values (streams with a PK): records matched by PK must have
       identical field values (excluding `emitted_at`). Records that exist
       only in the target do not fail the comparison (directional). A
@@ -2842,6 +3272,23 @@ def run_record_comparisons(
         primary_keys_per_stream: Primary key definition per stream, either
             flat (`["id"]`) or nested (`[["id"]]`) format; falsy values
             mean the stream has no primary key.
+        partial: Whether a side was stopped early, so the two outputs end at
+            different points. A count drop or a PK the target never reached
+            is then expected rather than a regression: record counts and PK
+            presence are still computed and reported, but do not decide
+            `passed`, and the field comparison judges only the records both
+            sides emitted. A cap or a deadline can also cut a duplicated PK
+            value's records on one side, so everything that rests on a whole
+            group is reported, not failed, or not computed: a duplicate PK
+            new in the target only warns; the field values of a PK value
+            with more than one record on either side are reported apart
+            (`RecordDiff.partial_group_diffs`); a control-only duplicate is
+            neither fixed nor lost; no added copies are counted; and the
+            record count gets no duplicate-row allowance, as it does not
+            decide `passed` anyway. A PK value both sides emitted once is
+            still compared strictly, and a record missing its declared PK
+            value still fails -- that is wrong however much of the stream
+            was read.
     """
     normalized_pks: dict[str, PrimaryKeys | None] = {
         stream: normalize_primary_keys(pk)
@@ -2883,28 +3330,41 @@ def run_record_comparisons(
             control_with_pk, target_with_pk, normalized_pks
         )
         control_pk_uniqueness, target_pk_uniqueness = _compare_pk_integrity(
-            control_with_pk, target_with_pk, normalized_pks
+            control_with_pk, target_with_pk, normalized_pks, partial=partial
         )
-        _allow_dropped_duplicate_rows(
-            count_comparison, control_pk_uniqueness, target_pk_uniqueness
-        )
+        # On a partial read the counts are diagnostic whatever they show, and
+        # a cut target would only inflate the allowance.
+        if not partial:
+            _allow_dropped_duplicate_rows(
+                count_comparison, control_pk_uniqueness, target_pk_uniqueness
+            )
         field_comparison = compare_all_records(
             control_with_pk,
             target_with_pk,
             primary_keys_per_stream=normalized_pks,
             directional=True,
+            partial=partial,
         )
+        if partial:
+            field_comparison = _matched_records_only(field_comparison)
         results.extend(
             [pk_presence, control_pk_uniqueness, target_pk_uniqueness, field_comparison]
         )
 
+    def is_diagnostic(result: ComparisonResult) -> bool:
+        return partial and (result is count_comparison or result is pk_presence)
+
     errors: list[str] = []
     for result in results:
-        errors.extend(result.errors)
+        if is_diagnostic(result):
+            warnings.extend(result.errors)
+        else:
+            errors.extend(result.errors)
         warnings.extend(result.warnings)
 
     return RecordComparisonSummary(
-        passed=all(result.passed for result in results),
+        passed=all(result.passed for result in results if not is_diagnostic(result)),
+        partial=partial,
         count_comparison=count_comparison,
         pk_presence=pk_presence,
         control_pk_uniqueness=control_pk_uniqueness,
@@ -2920,14 +3380,18 @@ def run_record_comparisons_from_files(
     control_record_files: dict[str, Path],
     target_record_files: dict[str, Path],
     primary_keys_per_stream: dict[str, list | None],
+    partial: bool = False,
 ) -> RecordComparisonSummary:
     """Run all record-level comparisons from per-stream record files.
 
     Memory-bounded variant of `run_record_comparisons` for full connector
-    outputs: instead of holding every stream of both runs in memory, it
-    loads one stream at a time (both versions), runs the full set of
-    checks on it, and merges the per-stream results. Peak memory is one
-    stream's records rather than the whole sync output. Checks and the
+    outputs: it compares one stream at a time (both versions), runs the full
+    set of checks on it, and merges the per-stream results. A stream is never
+    loaded whole either: each check reads its records from the file
+    (`_RecordsFile`), and the field comparison keeps only a position and a
+    fingerprint per record, loading back the records whose fingerprints
+    differ. Peak memory is the PK indexes of the largest stream -- a few
+    hundred bytes per record -- rather than its records. Checks and the
     resulting summary are identical to the in-memory variant.
 
     Args:
@@ -2936,13 +3400,14 @@ def run_record_comparisons_from_files(
         target_record_files: Target run per-stream record files.
         primary_keys_per_stream: Primary key definition per stream, as for
             `run_record_comparisons`.
+        partial: As for `run_record_comparisons`.
     """
     chunk_summaries: list[RecordComparisonSummary] = []
     for stream in sorted(set(control_record_files) | set(target_record_files)):
-        control_chunk: dict[str, list[AirbyteMessage]] = {}
+        control_chunk: dict[str, Sequence[AirbyteMessage]] = {}
         if stream in control_record_files:
             control_chunk[stream] = _read_records_file(control_record_files[stream])
-        target_chunk: dict[str, list[AirbyteMessage]] = {}
+        target_chunk: dict[str, Sequence[AirbyteMessage]] = {}
         if stream in target_record_files:
             target_chunk[stream] = _read_records_file(target_record_files[stream])
 
@@ -2951,31 +3416,112 @@ def run_record_comparisons_from_files(
                 control_records=control_chunk,
                 target_records=target_chunk,
                 primary_keys_per_stream=primary_keys_per_stream,
+                partial=partial,
             )
         )
 
-    return _merge_summaries(chunk_summaries)
+    return _merge_summaries(chunk_summaries, partial=partial)
 
 
-def _read_records_file(records_path: Path) -> list[AirbyteMessage]:
-    """Load the record messages from a single per-stream jsonl file.
+def _matched_records_only(result: ComparisonResult) -> ComparisonResult:
+    """Re-judge a field comparison on the records both sides emitted.
 
-    This is the one full protocol validation each record gets: the splitter
+    On a stopped-early read the sides end at different points, so a record
+    only the control reached says nothing about the target version. A value
+    that differs on a PK value both sides emitted once still does, and still
+    fails: `records_with_value_diff_count` counts only those on a partial
+    read, since the comparison already set apart the duplicated PK values
+    (`RecordDiff.partial_group_diff_count`), which keep their warning.
+    """
+    stream_results: dict[str, StreamComparisonResult] = {}
+    errors: list[str] = []
+    for name, stream in result.stream_results.items():
+        diff = stream.record_diff
+        passed = diff is None or not diff.records_with_value_diff_count
+        messages = [] if passed else [f"Stream {name} has record differences"]
+        errors.extend(messages)
+        if diff is not None:
+            messages.extend(_record_diff_warnings(name, diff))
+        stream_results[name] = replace(
+            stream, passed=passed, message="; ".join(messages)
+        )
+
+    return ComparisonResult(
+        passed=all(stream.passed for stream in stream_results.values()),
+        stream_results=stream_results,
+        message=_field_values_message(stream_results),
+        errors=errors,
+        warnings=result.warnings,
+    )
+
+
+def _read_records_file(records_path: Path) -> Sequence[AirbyteMessage]:
+    """The record messages of a single per-stream jsonl file, read lazily.
+
+    Full protocol validation happens here, not in the splitter: the splitter
     routes lines on a plain JSON parse, so a RECORD-typed line that fails
     protocol validation lands in the stream file (keeping the artifact an
     honest copy of what the connector emitted) and is skipped here.
     """
-    records: list[AirbyteMessage] = []
-    with records_path.open() as records_file:
-        for line in records_file:
-            line = line.strip()
-            if not line:
-                continue
-            with contextlib.suppress(ValidationError):
-                message = AirbyteMessage.model_validate_json(line)
-                if message.type is AirbyteMessageType.RECORD:
-                    records.append(message)
-    return records
+    return _RecordsFile(records_path)
+
+
+class _RecordsFile(Sequence[AirbyteMessage]):
+    """One stream's RECORD messages, read from its jsonl file when needed.
+
+    Held as parsed messages, a large stream costs over ten times its size on
+    disk, and a check only ever needs one record at a time. Construction reads
+    the file once to note where each valid record starts; iterating reads and
+    validates it again, and indexing seeks to the one record. The lines are
+    those a text-mode read would see -- split on newlines, decoded as `open()`
+    decodes, stripped -- so this holds exactly the records a list read from
+    the file would. Positions only: there is no slicing.
+    """
+
+    def __init__(self, path: Path) -> None:
+        self._path = path
+        # What a text-mode `open()` decodes with, and so what the splitter
+        # wrote the file in.
+        self._encoding = locale.getpreferredencoding(False)
+        self._offsets = array("q", (offset for offset, _ in self._scan()))
+
+    def _scan(self) -> Iterator[tuple[int, AirbyteMessage]]:
+        offset = 0
+        with self._path.open("rb") as records_file:
+            for raw_line in records_file:
+                message = self._parse(raw_line)
+                if message is not None:
+                    yield offset, message
+                offset += len(raw_line)
+
+    def _parse(self, raw_line: bytes) -> AirbyteMessage | None:
+        line = raw_line.decode(self._encoding).strip()
+        if not line:
+            return None
+        try:
+            message = AirbyteMessage.model_validate_json(line)
+        except ValidationError:
+            return None
+        return message if message.type is AirbyteMessageType.RECORD else None
+
+    def __len__(self) -> int:
+        return len(self._offsets)
+
+    def __iter__(self) -> Iterator[AirbyteMessage]:
+        return (message for _, message in self._scan())
+
+    def __getitem__(self, position: int) -> AirbyteMessage:
+        with self._path.open("rb") as records_file:
+            records_file.seek(self._offsets[position])
+            message = self._parse(records_file.readline())
+        if message is None:
+            # IndexError, as a sequence's `__getitem__` raises: the record
+            # this position was noted for is no longer there.
+            raise IndexError(
+                f"{self._path} changed while it was being compared: no record "
+                f"at position {position}"
+            )
+        return message
 
 
 def _merge_comparison_results(
@@ -3005,6 +3551,7 @@ def _merge_comparison_results(
 
 def _merge_summaries(
     chunk_summaries: list[RecordComparisonSummary],
+    partial: bool = False,
 ) -> RecordComparisonSummary:
     """Merge single-stream comparison summaries into one overall summary."""
 
@@ -3023,7 +3570,9 @@ def _merge_summaries(
         merged = merge(results, "", "")
         if merged is not None:
             merged.message = _pk_uniqueness_message(
-                merged.stream_results, version_label
+                merged.stream_results,
+                version_label,
+                new_inconclusive=partial and version_label == "target",
             )
         return merged
 
@@ -3042,6 +3591,7 @@ def _merge_summaries(
 
     return RecordComparisonSummary(
         passed=all(c.passed for c in chunk_summaries),
+        partial=partial,
         count_comparison=count_comparison,
         pk_presence=merge(
             [c.pk_presence for c in chunk_summaries],
@@ -3103,7 +3653,10 @@ def _degrade_diffs_to_placeholders(payload: dict[str, Any]) -> str | None:
     changed = False
     field_values = payload.get("checks", {}).get("field_values", {})
     for stream_info in field_values.get("streams", {}).values():
-        for example in stream_info.get("value_diff_examples", []):
+        for example in (
+            *stream_info.get("value_diff_examples", []),
+            *stream_info.get("partial_group_diff_examples", []),
+        ):
             diff = example.get("diff") or {}
             if not diff or diff.get("truncated") is True:
                 continue
@@ -3306,6 +3859,21 @@ def _pk_uniqueness_check_to_dict(result: ComparisonResult) -> dict[str, Any]:
     }
 
 
+def _value_diff_examples_to_dict(
+    examples: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    return [
+        {
+            "pk": entry.get("pk"),
+            "diff": json_safe(entry.get("diff") or {}),
+            # Set on a lost record inside a duplicated PK, or on a capped
+            # group example (`_record_group_diff`).
+            **({"note": entry["note"]} if entry.get("note") else {}),
+        }
+        for entry in examples[:MAX_EXAMPLE_DIFFS]
+    ]
+
+
 def _field_check_to_dict(result: ComparisonResult) -> dict[str, Any]:
     streams: dict[str, Any] = {}
     for name, r in result.stream_results.items():
@@ -3321,18 +3889,15 @@ def _field_check_to_dict(result: ComparisonResult) -> dict[str, Any]:
             "records_only_in_target": diff.records_only_in_target_count if diff else 0,
             "added_copy_count": diff.added_copy_count if diff else 0,
             "added_copy_pk_count": diff.added_copy_pk_count if diff else 0,
-            "value_diff_examples": [
-                {
-                    "pk": entry.get("pk"),
-                    "diff": json_safe(entry.get("diff") or {}),
-                    # Set on a lost record inside a duplicated PK, or on a
-                    # capped group example (`_record_group_diff`).
-                    **({"note": entry["note"]} if entry.get("note") else {}),
-                }
-                for entry in (
-                    diff.records_with_value_diff[:MAX_EXAMPLE_DIFFS] if diff else []
-                )
-            ],
+            "value_diff_examples": _value_diff_examples_to_dict(
+                diff.records_with_value_diff if diff else []
+            ),
+            # Stopped-early reads only: duplicated PK values whose records
+            # differ, reported and not failed. 0 and [] on a complete read.
+            "partial_group_diff_count": diff.partial_group_diff_count if diff else 0,
+            "partial_group_diff_examples": _value_diff_examples_to_dict(
+                diff.partial_group_diffs if diff else []
+            ),
         }
     return {
         "passed": result.passed,

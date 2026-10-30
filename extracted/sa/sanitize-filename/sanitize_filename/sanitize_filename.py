@@ -15,17 +15,22 @@ def sanitize(filename):
     reserved = [
         "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5",
         "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5",
-        "LPT6", "LPT7", "LPT8", "LPT9",
+        "LPT6", "LPT7", "LPT8", "LPT9", "COM0", "LPT0", "CONIN$", "CONOUT$",
     ]  # Reserved words on Windows
-    filename = "".join(c for c in filename if c not in blacklist)
-    # Remove all charcters below code point 32
-    filename = "".join(c for c in filename if 31 < ord(c))
     filename = unicodedata.normalize("NFKD", filename)
-    filename = filename.rstrip(". ")  # Windows does not allow these at end
+    filename = "".join(c for c in filename if c not in blacklist)
+    # Remove control characters (C0 and C1) and lone surrogates
+    filename = "".join(
+        c for c in filename if unicodedata.category(c) not in ("Cc", "Cs")
+    )
     filename = filename.strip()
+    # Windows does not allow dots or spaces at end. Strip any whitespace too,
+    # so that it can not hide a trailing dot
+    filename = re.sub(r"[\s.]+$", "", filename)
     if all([x == "." for x in filename]):
         filename = "__" + filename
-    if filename in reserved:
+    # Reserved words are case insensitive, and apply regardless of extension
+    if filename.split(".")[0].rstrip().upper() in reserved:
         filename = "__" + filename
     if len(filename) == 0:
         filename = "__"
@@ -44,7 +49,7 @@ def sanitize(filename):
         filename = filename[:maxl]
         filename = filename + ext
         # Re-check last character (if there was no extension)
-        filename = filename.rstrip(". ")
+        filename = re.sub(r"[\s.]+$", "", filename)
         if len(filename) == 0:
             filename = "__"
     return filename

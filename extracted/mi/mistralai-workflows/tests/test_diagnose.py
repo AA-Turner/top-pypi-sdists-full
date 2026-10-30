@@ -1,9 +1,9 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
 import pytest
 from temporalio.service import TLSConfig
 
+from mistralai.workflows._mistral_http import MISTRAL_HTTP
 from mistralai.workflows.core.config.config_discovery import normalize_temporal_url  # noqa: F401
 from mistralai.workflows.core.temporal.temporal_client import _get_proxy_basic_auth  # noqa: F401
 
@@ -82,9 +82,9 @@ class TestCheckMistralApi:
         mock_client = AsyncMock()
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
-        mock_client.get = AsyncMock(side_effect=httpx.ConnectError("unreachable"))
+        mock_client.get = AsyncMock(side_effect=MISTRAL_HTTP.ConnectError("unreachable"))
 
-        with patch("httpx.AsyncClient", return_value=mock_client):
+        with patch.object(MISTRAL_HTTP, "AsyncClient", return_value=mock_client):
             await _check_mistral_api("https://api.mistral.ai", None)
 
         assert "[FAIL]" in capsys.readouterr().out

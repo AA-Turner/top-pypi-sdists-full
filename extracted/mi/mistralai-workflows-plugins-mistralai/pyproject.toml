@@ -19,10 +19,10 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "mistralai[agents]>=2.0.0,<3.0.0",
+    "mistralai[agents]>=2.0.0,<4.0.0",
     "mistralai-workflows>=3.0.0a1,<4.0.0",
     "structlog>=24,<26",
-    "mcp>=1.27.2",
+    "mcp>=1.27.2,<3.0.0",
     "authlib>=1.7.2",  # Required for MCP OAuth support
     "aiocache>=0.12.3",  # Required for in_memory_cache
     "starlette>=1.3.1",  # Not used directly - pinned to override a vulnerable transitive dependency via mcp

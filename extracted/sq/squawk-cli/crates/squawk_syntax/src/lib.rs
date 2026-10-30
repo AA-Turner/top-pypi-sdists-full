@@ -36,7 +36,6 @@ pub mod quote;
 pub mod sql_body;
 pub mod syntax_error;
 mod syntax_node;
-mod token_text;
 pub mod unescape;
 mod validation;
 
@@ -52,7 +51,6 @@ pub use ptr::{AstPtr, SyntaxNodePtr};
 use rowan::GreenNode;
 use syntax_error::SyntaxError;
 pub use syntax_node::{SyntaxElement, SyntaxNode, SyntaxToken};
-pub use token_text::TokenText;
 
 /// `Parse` is the result of the parsing: a syntax tree and a collection of
 /// errors.
@@ -100,8 +98,6 @@ impl<T> Parse<T> {
             vec![]
         };
         validation::validate(&self.syntax_node(), &mut errors);
-        let file = SourceFile::cast(self.syntax_node()).expect("parse root is always a SourceFile");
-        errors.extend(file.sql_body_errors());
         errors.sort_by_key(|error| error.range().start());
         errors
     }

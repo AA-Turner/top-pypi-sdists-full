@@ -52,27 +52,24 @@ class TestTransform(unittest.TestCase):
         mock_spark.sql.assert_called_once_with(query)
         self.assertEqual(result, "spark_result")
 
-    @unittest.mock.patch("sagemaker_studio.utils.sqlutils._ensure_sql_executor")
-    @unittest.mock.patch("sagemaker_studio.utils.sqlutils._get_or_create_connection")
+    @unittest.mock.patch("sagemaker_studio.utils.sqlutils._athena_api")
     @unittest.mock.patch("sagemaker_studio.utils.sqlutils._resolve_connection")
-    def test_athena_routes_to_engine(self, mock_resolve, mock_get_or_create, mock_executor):
+    def test_athena_routes_to_engine(self, mock_resolve, mock_athena_api):
         mock_conn = unittest.mock.MagicMock()
         mock_conn.type = "ATHENA"
         mock_resolve.return_value = mock_conn
-        mock_managed = unittest.mock.MagicMock()
-        mock_managed.engine = unittest.mock.MagicMock()
-        mock_managed.engine.get_execution_options.return_value = {"connection_type": "ATHENA"}
-        mock_managed.connection = None
-        mock_get_or_create.return_value = mock_managed
-        mock_exec_result = unittest.mock.MagicMock()
-        mock_exec_result.result = "mock_df"
-        mock_executor.return_value.execute.return_value = iter([mock_exec_result])
+        mock_executor = unittest.mock.MagicMock()
+        mock_executor.execute.return_value = "mock_df"
+        mock_athena_api.return_value = mock_executor
+
         result = sql("SELECT 1", connection_id="athena-conn")
-        mock_resolve.assert_called_once()
+
+        mock_resolve.assert_called_once_with("athena-conn", None)
+        mock_executor.execute.assert_called_once_with("SELECT 1")
         self.assertEqual(result, "mock_df")
 
     @unittest.mock.patch("sagemaker_studio.utils.sqlutils.get_engine", return_value=None)
-    @unittest.mock.patch("sagemaker_studio.utils.sqlutils._ensure_duckdb")
+    @unittest.mock.patch("sagemaker_studio.sql_engine.duckdb_engine.engine._ensure_duckdb")
     def test_default_connection_calls_duckdb(self, mock_duckdb, mock_get_engine):
         mock_result = unittest.mock.MagicMock()
         mock_result.df.return_value = "mock_df"
@@ -81,42 +78,36 @@ class TestTransform(unittest.TestCase):
         mock_duckdb.return_value.sql.assert_called_once_with("SELECT 1")
         self.assertEqual(result, "mock_df")
 
-    @unittest.mock.patch("sagemaker_studio.utils.sqlutils._ensure_sql_executor")
-    @unittest.mock.patch("sagemaker_studio.utils.sqlutils._get_or_create_connection")
+    @unittest.mock.patch("sagemaker_studio.utils.sqlutils._athena_api")
     @unittest.mock.patch("sagemaker_studio.utils.sqlutils._resolve_connection")
-    def test_athena_passes_connection_id(self, mock_resolve, mock_get_or_create, mock_executor):
+    def test_athena_passes_connection_id(self, mock_resolve, mock_athena_api):
         mock_conn = unittest.mock.MagicMock()
         mock_conn.type = "ATHENA"
         mock_resolve.return_value = mock_conn
-        mock_managed = unittest.mock.MagicMock()
-        mock_managed.engine = unittest.mock.MagicMock()
-        mock_managed.engine.get_execution_options.return_value = {"connection_type": "ATHENA"}
-        mock_managed.connection = None
-        mock_get_or_create.return_value = mock_managed
-        mock_exec_result = unittest.mock.MagicMock()
-        mock_exec_result.result = "mock_df"
-        mock_executor.return_value.execute.return_value = iter([mock_exec_result])
+        mock_executor = unittest.mock.MagicMock()
+        mock_executor.execute.return_value = "mock_df"
+        mock_athena_api.return_value = mock_executor
+
         result = sql("SELECT 1", connection_id="conn-123")
+
         mock_resolve.assert_called_once_with("conn-123", None)
+        mock_executor.execute.assert_called_once_with("SELECT 1")
         self.assertEqual(result, "mock_df")
 
-    @unittest.mock.patch("sagemaker_studio.utils.sqlutils._ensure_sql_executor")
-    @unittest.mock.patch("sagemaker_studio.utils.sqlutils._get_or_create_connection")
+    @unittest.mock.patch("sagemaker_studio.utils.sqlutils._athena_api")
     @unittest.mock.patch("sagemaker_studio.utils.sqlutils._resolve_connection")
-    def test_athena_without_connection_id(self, mock_resolve, mock_get_or_create, mock_executor):
+    def test_athena_without_connection_id(self, mock_resolve, mock_athena_api):
         mock_conn = unittest.mock.MagicMock()
         mock_conn.type = "ATHENA"
         mock_resolve.return_value = mock_conn
-        mock_managed = unittest.mock.MagicMock()
-        mock_managed.engine = unittest.mock.MagicMock()
-        mock_managed.engine.get_execution_options.return_value = {"connection_type": "ATHENA"}
-        mock_managed.connection = None
-        mock_get_or_create.return_value = mock_managed
-        mock_exec_result = unittest.mock.MagicMock()
-        mock_exec_result.result = "mock_df"
-        mock_executor.return_value.execute.return_value = iter([mock_exec_result])
+        mock_executor = unittest.mock.MagicMock()
+        mock_executor.execute.return_value = "mock_df"
+        mock_athena_api.return_value = mock_executor
+
         result = sql("SELECT 1", connection_name="project.athena")
+
         mock_resolve.assert_called_once_with(None, "project.athena")
+        mock_executor.execute.assert_called_once_with("SELECT 1")
         self.assertEqual(result, "mock_df")
 
     @unittest.mock.patch(

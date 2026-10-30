@@ -293,8 +293,14 @@ def drain(directory: str) -> str | None:
         env = _background_env()
         if env is None:
             return None
+        from probe.sdk.agent_session import EVENT_AT_ENV, RUN_PROCESS_ENV
         from probe.service.protocol import Method
 
+        # A drainer sends every writer's ops, each with its own date and origin
+        # (`journal._delivery_scope`), so it inherits neither from this process
+        # (`outbox_worker._worker_env`).
+        env.pop(EVENT_AT_ENV, None)
+        env.pop(RUN_PROCESS_ENV, None)
         path, cwd = os.path.abspath(str(directory)), _cwd()
         _, answer = _ask(Method.OUTBOX_DRAIN, lambda c, deadline, sent: c.drain_outbox(
             path, sys.executable, env, cwd=cwd, deadline=deadline, on_sent=sent, client_version=_version()))

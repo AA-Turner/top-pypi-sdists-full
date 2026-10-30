@@ -21,13 +21,22 @@ from airbyte_ops_mcp.regression_tests.validation.catalog_validators import (
     validate_streams_have_sync_modes,
 )
 from airbyte_ops_mcp.regression_tests.validation.record_validators import (
-    validate_primary_keys_in_records,
-    validate_records_conform_to_schema,
-    validate_state_messages_emitted,
+    CursorResult,
+    RecordSchemaResult,
+    check_incremental_cursor,
+    check_record_schema,
+    declared_types,
+    observed_type,
 )
 
 __all__ = [
+    "CursorResult",
+    "RecordSchemaResult",
     "ValidationResult",
+    "check_incremental_cursor",
+    "check_record_schema",
+    "declared_types",
+    "observed_type",
     "validate_additional_properties_is_true",
     "validate_catalog",
     "validate_catalog_has_streams",
@@ -35,9 +44,6 @@ __all__ = [
     "validate_no_duplicate_stream_names",
     "validate_no_unresolved_refs",
     "validate_primary_keys_exist_in_schema",
-    "validate_primary_keys_in_records",
-    "validate_records_conform_to_schema",
     "validate_schemas_are_valid_json_schema",
-    "validate_state_messages_emitted",
     "validate_streams_have_sync_modes",
 ]

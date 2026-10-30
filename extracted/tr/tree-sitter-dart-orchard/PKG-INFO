@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tree-sitter-dart-orchard
-Version: 0.7.0
+Version: 0.7.1
 Summary: Parser for Dart files
 Author-email: Tim Whiting <tim@whitings.org>
 License: MIT
@@ -32,6 +32,7 @@ You can obtain this parser in various formats:
 * as a Rust crate: `cargo add tree-sitter-dart-orchard`
 * as a Python package: `pip install tree-sitter-dart-orchard`
 * as an NPM package: `npm install tree-sitter-dart-orchard`
+* As a Git repository with check-in generated files, via the [GitHub mirror](https://github.com/grammar-orchard/tree-sitter-dart-orchard)
 
 ### Contributing
 

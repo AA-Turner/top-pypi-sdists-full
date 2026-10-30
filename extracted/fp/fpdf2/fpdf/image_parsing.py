@@ -3,9 +3,10 @@
 import base64
 import hashlib
 import http.client
-import ipaddress
 import io
+import ipaddress
 import logging
+import re
 import socket
 import zlib
 from dataclasses import dataclass
@@ -20,7 +21,6 @@ from typing import (
     Optional,
     TypeAlias,
     TypeGuard,
-    Union,
     no_type_check,
 )
 from urllib.parse import urlsplit
@@ -41,13 +41,20 @@ from .image_datastructures import (
     RasterImageInfo,
     VectorImageInfo,
 )
-from .svg import SVGObject, SVGLimits
+from .svg import SVGLimits, SVGObject
 from .util import ImageType
 
 try:
-    from PIL import Image, ImageCms, TiffImagePlugin, features as PIL_features
+    from PIL import (
+        Image,
+        ImageChops,
+        ImageCms,
+        TiffImagePlugin,
+        features as PIL_features,
+    )
 except ImportError:
     Image = None  # type: ignore[assignment]
+    ImageChops = None  # type: ignore[assignment]
     ImageCms = None  # type: ignore[assignment]
     TiffImagePlugin = None  # type: ignore[assignment]
     PIL_features = None  # type: ignore[assignment]
@@ -355,11 +362,7 @@ def preload_image(
     dims: Optional[tuple[float, float]] = None,
     resource_access_policy: ResourceAccessPolicy = ResourceAccessPolicy.DEFAULT,
     svg_limits: Optional[SVGLimits] = None,
-) -> tuple[
-    str,
-    Union[SVGObject, "PILImage", bytes, BinaryIO, Path, None],
-    RasterImageInfo | VectorImageInfo,
-]:
+) -> "tuple[str, SVGObject | PILImage | bytes | BinaryIO | Path | None, RasterImageInfo | VectorImageInfo]":
     """
     Read an image and load it into memory.
 
@@ -426,7 +429,7 @@ def preload_image(
         )
 
     # Load raster data.
-    img: Union["PILImage", bytes, BinaryIO, Path, None]
+    img: "PILImage | bytes | BinaryIO | Path | None"
     raster_name: str
     if isinstance(name, str):
         raster_name, img = name, None
@@ -479,7 +482,8 @@ def preload_image(
 
 
 def _is_svg(bytes_: bytes) -> bool:
-    return bytes_.startswith(b"<?xml ") or bytes_.startswith(b"<svg ")
+    bytes_ = bytes_.removeprefix(b"\xef\xbb\xbf").lstrip(b" \t\r\n")
+    return bool(re.match(rb"(?:<\?xml[ \t\r\n]|<svg[ \t\r\n/>])", bytes_))
 
 
 def _is_pil_image(obj: Any) -> TypeGuard[PILImage]:
@@ -584,9 +588,27 @@ def get_svg_info(
     return filename, svg, info
 
 
+def _from_16_bit_grayscale(img: "PILImage") -> "PILImage":
+    """
+    Scale a 16-bit grayscale image, such as a 16-bit grayscale PNG, down to 8 bits.
+    Converting it with `convert("RGBA")` instead clips every value above 255 to white.
+    A tRNS color key becomes an alpha channel.
+    """
+    if img.mode != "I":
+        img = img.convert("I")
+    gray = img.point(lambda value: value * (1 / 256)).convert("L")
+    key = img.info.get("transparency")
+    if key is None:
+        return gray
+    # 0 for the key, and at least 255 (clipped to 255) for any other value
+    above = img.point(lambda value: value * 255 + (-key * 255)).convert("L")
+    below = img.point(lambda value: value * -255 + key * 255).convert("L")
+    return Image.merge("LA", (gray, ImageChops.lighter(above, below)))
+
+
 def get_img_info(
-    filename: Union[str, BinaryIO, Path],
-    img: Union["PILImage", bytes, BinaryIO, Path, str, None] = None,
+    filename: str | BinaryIO | Path,
+    img: "PILImage | bytes | BinaryIO | Path | str | None" = None,
     image_filter: ImageFilter = "AUTO",
     dims: Optional[tuple[float, float]] = None,
     resource_access_policy: ResourceAccessPolicy = ResourceAccessPolicy.DEFAULT,
@@ -622,8 +644,16 @@ def get_img_info(
         img = Image.open(img_raw_data)
         is_pil_img = False
     assert _is_pil_image(img)
+    # Pillow opens 16-bit grayscale PNG files in mode "I;16", or "I" before 10.3.0
+    is_16_bit_grayscale = img.mode in ("I;16", "I;16B", "I;16L") or (
+        img.mode == "I" and img.format == "PNG"
+    )
 
     img_altered = False
+    # Before resizing, so that the tRNS color key is compared with the original values
+    if is_16_bit_grayscale:
+        img = _from_16_bit_grayscale(img)
+        img_altered = True
     if dims:
         img = img.resize(dims, resample=RESAMPLE)  # type: ignore[arg-type]
         img_altered = True

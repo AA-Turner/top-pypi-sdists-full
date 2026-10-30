@@ -5,7 +5,7 @@ use std::path::Path;
 use _pipdeptree::{ProcessError, ProcessOutput};
 use rstest::rstest;
 
-use super::super::super::common::{MockProcesses, process_output};
+use super::super::super::common::{MockProcesses, process_output, write_oversized};
 use super::{editable_site, expect_no_git, freeze};
 
 const REMOTE: &str = "[paths]\ndefault = https://example.com/repo\n";
@@ -70,7 +70,6 @@ fn freeze_hg(repository: &Path, commit: Result<ProcessOutput, ProcessError>) -> 
 )]
 #[case::empty_remote(Some("[paths]\ndefault =\n"), Ok(process_output("abc")), true)]
 #[case::missing_hg(Some(REMOTE), Err(ProcessError::NotFound), false)]
-#[case::timed_out_hg(Some(REMOTE), Err(ProcessError::TimedOut), true)]
 #[case::empty_commit(Some(REMOTE), Ok(process_output("")), true)]
 #[case::failed_commit(
     Some(REMOTE),
@@ -108,6 +107,18 @@ fn ignores_hgrc_includes() {
         repository.path(),
         &format!("%include {}\n", included.display()),
     );
+
+    assert!(
+        freeze_hg(repository.path(), Ok(process_output("abc")))
+            .contains("Editable hg install with no remote")
+    );
+}
+
+#[test]
+fn ignores_oversized_hgrc() {
+    let repository = tempfile::tempdir().unwrap();
+    fs::create_dir(repository.path().join(".hg")).unwrap();
+    write_oversized(&repository.path().join(".hg/hgrc"), REMOTE);
 
     assert!(
         freeze_hg(repository.path(), Ok(process_output("abc")))

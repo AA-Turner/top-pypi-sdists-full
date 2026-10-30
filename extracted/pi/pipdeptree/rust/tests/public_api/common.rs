@@ -1,7 +1,7 @@
 use std::ffi::{CStr, OsString};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, MutexGuard, Once, PoisonError};
+use std::sync::{Mutex, MutexGuard, OnceLock, PoisonError};
 
 use _pipdeptree::{
     Application, Execution, ProcessError, ProcessOutput, ProcessRequest, ProcessRunner,
@@ -14,7 +14,7 @@ use rstest::fixture;
 use tempfile::{TempDir, tempdir};
 
 static PYTHON_LOCK: Mutex<()> = Mutex::new(());
-static RESOLVER: Once = Once::new();
+static RESOLVER: OnceLock<PyResult<()>> = OnceLock::new();
 
 pub const VERSION: &str = env!("PIPDEPTREE_VERSION");
 
@@ -61,6 +61,13 @@ pub fn execute_in(site: &PackageSite, args: &[&str]) -> Execution {
             .chain(args.iter().copied())
             .collect::<Vec<_>>(),
     )
+}
+
+pub fn extra_clauses(count: usize) -> String {
+    (0..count)
+        .map(|index| format!("(extra == 'x{index}' or extra == 'y{index}')"))
+        .collect::<Vec<_>>()
+        .join(" and ")
 }
 
 pub fn stdout(output: &Execution) -> &str {
@@ -115,10 +122,12 @@ pub fn execute_with_runner(
 
 pub fn install_resolver(python: Python<'_>, capture: &Path) -> PyResult<()> {
     // create_autospec has to see the real function, so the patch happens once per process; each
-    // test then re-points the capture file the stub writes the generated project to.
-    let mut installed = Ok(());
-    RESOLVER.call_once(|| installed = patch_resolver(python));
-    installed?;
+    // test then re-points the capture file the stub writes the generated project to. A failed
+    // patch stays cached so every later test reports it instead of reaching the real resolver.
+    RESOLVER
+        .get_or_init(|| patch_resolver(python))
+        .as_ref()
+        .map_err(|err| err.clone_ref(python))?;
     let locals = PyDict::new(python);
     locals.set_item("capture", capture)?;
     python.run(
@@ -136,6 +145,7 @@ const RESOLVER_STUB: &CStr = c_str!(
     r#"
 from __future__ import annotations
 
+import logging
 from collections.abc import Sequence
 from pathlib import Path
 from unittest.mock import create_autospec
@@ -162,6 +172,10 @@ def resolved(
     assert isinstance(cache_dir, Path)
     resolve_module.last_cache_dir = cache_dir
     source = path.read_text()
+    if '"logs"' in source:
+        logging.getLogger("nab_provider.provider").warning("Skipping logs==2: %s\n    ~~^", "d[x\x1b]0;t\x07]")
+    if '"raises"' in source:
+        raise ValueError("no version of \x1b[2Jraises")
     chain = '"chain"' in source
     child_requirements = (
         DependencyDeclaration(
@@ -189,6 +203,10 @@ def resolved(
     Path(resolve_module.capture).write_text(text)
     target = targets[0]
     pins = {"parent": Version("1"), "child": Version("2")}
+    if '"long-name"' in source:
+        pins["p" * 256] = Version("1")
+    if '"long-version"' in source:
+        pins["child"] = Version("1" * 256)
     dependencies = {"parent": ("child", "external")}
     declarations = {
         "parent": {
@@ -327,4 +345,9 @@ impl PackageSite {
     pub fn write_file(&self, path: impl AsRef<Path>, content: &str) {
         fs::write(self.path().join(path), content).unwrap();
     }
+}
+
+// Trailing spaces keep JSON valid and name no RECORD file, so only the 16 MiB read cap rejects it.
+pub fn write_oversized(path: &Path, content: &str) {
+    fs::write(path, format!("{content}{}", " ".repeat(16 << 20))).unwrap();
 }

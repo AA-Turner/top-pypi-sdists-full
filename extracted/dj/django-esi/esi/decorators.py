@@ -14,19 +14,22 @@ from celery import Task
 from django.core.cache import cache
 
 from esi.exceptions import ESIBucketLimitException, ESIErrorLimitException, TaskBucketLimitException
-from esi.rate_limiting import (
-    ESIRateLimitBucket, ESIRateLimits, TaskRateLimitBucket, TaskRateLimits, task_bucket_slug_key,
-)
+from esi.rate_limiting import ESIRateLimits, TaskRateLimitBucket, TaskRateLimits, task_bucket_slug_key
 
 from .models import CallbackRedirect, Token
 
 if TYPE_CHECKING:  # py3.14
     from collections.abc import Callable
 
+    from django.http import HttpRequest, HttpResponseBase
+
+    from esi.rate_limiting import ESIRateLimitBucket
+
+
 logger = logging.getLogger(__name__)
 
 
-def _check_callback(request) -> Token | None:
+def _check_callback(request: HttpRequest) -> Token | None:
     # ensure session installed in database
     if not request.session.exists(request.session.session_key):
         logger.debug("Creating new session for %s", request.user)
@@ -53,7 +56,7 @@ def _check_callback(request) -> Token | None:
         return None
 
 
-def tokens_required(scopes: list[str] | str = '', new=False):
+def tokens_required(scopes: list[str] | str = '', new: bool = False):
     """
     Decorator for views to request an ESI Token.
     Accepts required scopes as a space-delimited string
@@ -64,7 +67,7 @@ def tokens_required(scopes: list[str] | str = '', new=False):
 
     def decorator(view_func):
         @wraps(view_func)
-        def _wrapped_view(request, *args, **kwargs):
+        def _wrapped_view(request: HttpRequest, *args, **kwargs) -> HttpResponseBase:
 
             # if we're coming back from SSO with a new token, return it
             token = _check_callback(request)
@@ -113,7 +116,7 @@ def tokens_required(scopes: list[str] | str = '', new=False):
     return decorator
 
 
-def token_required(scopes: list[str] | str = '', new=False):
+def token_required(scopes: list[str] | str = '', new: bool = False):
     """
     Decorator for views which supplies a single,
     user-selected token for the view to process.
@@ -122,7 +125,7 @@ def token_required(scopes: list[str] | str = '', new=False):
 
     def decorator(view_func):
         @wraps(view_func)
-        def _wrapped_view(request, *args, **kwargs):
+        def _wrapped_view(request: HttpRequest, *args, **kwargs) -> HttpResponseBase:
 
             # if we're coming back from SSO with a new token, return it
             token = _check_callback(request)
@@ -209,7 +212,7 @@ def token_required(scopes: list[str] | str = '', new=False):
     return decorator
 
 
-def single_use_token(scopes='', new=False):
+def single_use_token(scopes: list[str] | str = '', new: bool = False):
     """
     Decorator for views which supplies a single use token granted via sso login
     regardless of login state.
@@ -218,7 +221,7 @@ def single_use_token(scopes='', new=False):
 
     def decorator(view_func):
         @wraps(view_func)
-        def _wrapped_view(request, *args, **kwargs):
+        def _wrapped_view(request: HttpRequest, *args, **kwargs) -> HttpResponseBase:
 
             # if we're coming back from SSO for a new token, return it
             token = _check_callback(request)
@@ -241,7 +244,7 @@ def single_use_token(scopes='', new=False):
     return decorator
 
 
-def wait_for_esi_errorlimit_reset(cache_key="esi_error_limit_reset", poll_interval=1) -> Callable[..., Callable[..., Any]]:
+def wait_for_esi_errorlimit_reset(cache_key: str = "esi_error_limit_reset", poll_interval: float = 1):
     """
     Decorator to apply a polling sleep while the ESI Server/Client is in an Error Limit state
     The preferred non-blocking method is to retry your tasks after the limit reset time has passed
@@ -300,13 +303,13 @@ def rate_limit_retry_task(func):
                 context.retry(countdown=ex.reset)
             else:
                 logger.error(
-                    f"{ex.bucket} Exhausted. Unable to retry Task first arg is not a Task instance."
+                    f"{ex.bucket if ex is ESIBucketLimitException else 'ESI Error Limit'} Exhausted. Unable to retry Task first arg is not a Task instance."
                 )
                 raise ex
     return wrapper
 
 
-def rate_limited_task(rate: str, keys: list | None = None):
+def rate_limited_task(rate: str, keys: list[str] | None = None):
     """_summary_
 
     Args:

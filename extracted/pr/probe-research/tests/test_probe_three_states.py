@@ -606,3 +606,147 @@ def test_typing_probe_read_lands_on_read_only(guard, monkeypatch, capsys, tmp_pa
     })
     assert guard._session_marker.session_state(SESSION_ID) == "read-only"
     assert "READ" in json.loads(out)["hookSpecificOutput"]["additionalContext"]
+
+
+# ---------------------------------------------------------------------------
+# 6. A STATE CODEX WAS LAUNCHED WITH REACHES THE SESSION (issue 3620).
+#    Codex's `shell_environment_policy` drops `PROBE_SESSION_STATE` from what
+#    its hooks inherit, so the seed stored the machine default and a session
+#    launched to record nothing recorded. The hook reads the `codex` process's
+#    own environment instead (Linux /proc).
+# ---------------------------------------------------------------------------
+
+_SEED = """
+import importlib.util, sys
+hooks = sys.argv[1]
+sys.path.insert(0, hooks)
+spec = importlib.util.spec_from_file_location("_vc_seed", hooks + "/version_check.py")
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+module._seed_tracking_signal()
+"""
+
+
+def _seed_under_codex(env, tmp_path, *, launched: str, hook_env: "dict[str, str]") -> None:
+    """Run the SessionStart seed as the child of a real process titled `codex`
+    (`exec -a`) that was started with `PROBE_SESSION_STATE=launched`, while the
+    hook itself runs without it (`env -u`), as Codex runs it."""
+    import os
+    import subprocess
+
+    script = tmp_path / "seed.py"
+    script.write_text(_SEED)
+    base = {k: v for k, v in os.environ.items() if not k.startswith(("PROBE_", "CODEX_", "CLAUDE"))}
+    done = subprocess.run(
+        ["bash", "-c", 'exec -a codex sh -c "env -u PROBE_SESSION_STATE \\"$PY\\" \\"$SEED\\" \\"$HOOKS\\"; true"'],
+        env={**base, **hook_env, "PROBE_SESSION_STATE": launched, "PY": sys.executable, "SEED": str(script),
+             "HOOKS": str(PLUGIN / "hooks"), "PROBE_SESSION_ID": SESSION_ID,
+             "XDG_STATE_HOME": str(env / "state"), "XDG_CONFIG_HOME": str(env / "config")},
+        capture_output=True, text=True, timeout=60, check=False,
+    )
+    assert done.returncode == 0, done.stderr
+
+
+linux_only = pytest.mark.skipif(not Path("/proc/self").is_dir(), reason="reads /proc")
+
+
+@linux_only
+def test_a_codex_session_starts_in_the_state_codex_was_launched_with(marker, env, tmp_path):
+    _seed_under_codex(env, tmp_path, launched="off", hook_env={"PLUGIN_ROOT": str(PLUGIN)})
+    assert marker.session_state(SESSION_ID) == "off"
+    assert marker.state_source(SESSION_ID) == "explicit", "the environment is the researcher's own setting"
+
+
+@linux_only
+def test_the_hooks_own_environment_still_wins(marker, env, tmp_path):
+    hook_env = {"PLUGIN_ROOT": str(PLUGIN), "PROBE_SESSION_TRACKING": "off"}
+    _seed_under_codex(env, tmp_path, launched="off", hook_env=hook_env)
+    assert marker.session_state(SESSION_ID) == "read-only", "the old variable the hook did get, not Codex's"
+
+
+@linux_only
+def test_another_harness_never_reads_a_codex_ancestor(marker, env, tmp_path):
+    """Claude Code passes its environment to its hooks whole; a `codex` above it
+    (Claude Code run from a Codex shell) is not its launcher."""
+    _seed_under_codex(env, tmp_path, launched="off", hook_env={"PROBE_AGENT": "claude"})
+    assert marker.session_state(SESSION_ID) == "full"
+
+
+def test_without_proc_the_launch_environment_is_not_walked(marker, monkeypatch):
+    monkeypatch.setattr(marker.os.path, "isdir", lambda path: False)
+    monkeypatch.setattr(marker, "_ancestors", lambda pid=None: pytest.fail("walked the processes"))
+    assert marker.harness_launch_environ("codex") is None
+
+
+def test_the_walk_stops_at_another_agent_and_passes_an_unreadable_match(marker, monkeypatch):
+    """Above another coding agent is whoever launched THAT agent, not this
+    session; a `codex` whose environment cannot be read has the wrapper that
+    started it (node's `codex` shim) above it."""
+    monkeypatch.setattr(marker.os.path, "isdir", lambda path: True)
+    environs = {12: {"PROBE_SESSION_STATE": "off"}, 13: {"PROBE_SESSION_STATE": "read"}}
+    monkeypatch.setattr(marker, "process_environ", lambda pid: environs.get(pid))
+    chain = [(10, "1", "sh"), (11, "1", "claude"), (12, "1", "codex")]
+    monkeypatch.setattr(marker, "_ancestors", lambda pid=None: chain)
+    assert marker.harness_launch_environ("codex", stop_titles=("claude",)) is None
+    assert marker.harness_launch_environ("codex") == environs[12]
+    chain[:] = [(10, "1", "sh"), (11, "1", "codex"), (13, "1", "codex")]
+    assert marker.harness_launch_environ("codex", stop_titles=("claude",)) == environs[13]
+
+
+@pytest.fixture
+def codex_shell(env, monkeypatch):
+    """This process as a Codex tool shell: no other agent's markers (the suite
+    may itself run inside one)."""
+    from probe.harness import get_registry
+
+    for harness in get_registry().all():
+        for name in (*harness.detect_env, *((harness.session_env,) if harness.session_env else ())):
+            monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("CODEX_THREAD_ID", SESSION_ID)
+    return env
+
+
+def test_a_defaulted_codex_session_without_proc_is_told_how(monkeypatch, codex_shell):
+    """macOS: no /proc to read Codex's environment from, so `probe session
+    status` says how to pass the state (R18) -- until a machine default is set,
+    which is then the researcher's choice for these sessions too."""
+    import importlib
+
+    from probe.cli import codex_hooks
+    from probe.sdk import session_marker
+
+    cli_main = importlib.import_module("probe.cli.main")  # the package attribute is a function
+    monkeypatch.setattr(codex_hooks, "launch_env_unreadable", lambda: True)
+    session_marker.set_session_state_if_absent(SESSION_ID, "full", source=session_marker.SOURCE_DEFAULT)
+    assert cli_main._codex_env_warning(SESSION_ID) == codex_hooks.ENV_WARNING
+    monkeypatch.setattr(codex_hooks, "launch_env_unreadable", lambda: False)
+    assert cli_main._codex_env_warning(SESSION_ID) is None, "Linux: the hook read it"
+    monkeypatch.setattr(codex_hooks, "launch_env_unreadable", lambda: True)
+    session_marker.write_default_state(session_marker.STATE_READ_ONLY)
+    assert cli_main._codex_env_warning(SESSION_ID) is None, "the researcher set a machine default"
+    session_marker.set_session_state(SESSION_ID, "read-only")
+    assert cli_main._codex_env_warning(SESSION_ID) is None, "the researcher set the session"
+
+
+def test_session_status_carries_the_warning_for_its_own_session_only(monkeypatch, codex_shell, capsys):
+    from probe import cli
+    from probe.cli import codex_hooks
+    from probe.sdk import session_marker
+
+    monkeypatch.setattr(codex_hooks, "launch_env_unreadable", lambda: True)
+    session_marker.set_session_state_if_absent(SESSION_ID, "full", source=session_marker.SOURCE_DEFAULT)
+    assert cli.main(["session", "status"]) in (0, None)
+    assert json.loads(capsys.readouterr().out)["warning"] == codex_hooks.ENV_WARNING
+    assert cli.main(["session", "status", "--session", SESSION_ID]) in (0, None)
+    assert "warning" not in json.loads(capsys.readouterr().out)
+
+
+def test_doctor_names_a_state_codex_hooks_will_not_see(monkeypatch, env):
+    from probe.cli import codex_hooks, doctor
+
+    caps = type("Caps", (), {"codex_available": True})()
+    monkeypatch.setattr(codex_hooks, "status", lambda *a, **k: None)
+    monkeypatch.setattr(codex_hooks, "launch_env_unreadable", lambda: True)
+    assert not any(codex_hooks.ENV_WARNING in line for line in doctor.codex_hook_rows(caps))
+    monkeypatch.setenv("PROBE_SESSION_STATE", "off")
+    assert any(codex_hooks.ENV_WARNING in line for line in doctor.codex_hook_rows(caps))

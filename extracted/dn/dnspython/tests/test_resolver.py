@@ -37,6 +37,7 @@ import dns.rdataclass
 import dns.rdatatype
 import dns.resolver
 import dns.reversename
+import dns.rrset
 import dns.tsig
 import dns.tsigkeyring
 import dns.win32util
@@ -304,6 +305,28 @@ class BaseResolverTests(unittest.TestCase):
                 cache.get((name, dns.rdatatype.A, dns.rdataclass.IN)) is None
             )
 
+    def testCacheNegativeWithoutSOA(self):
+        # A negative answer with no SOA is cached for the default negative
+        # TTL, not for the initial maximum TTL.
+        with FakeTime() as fake_time:
+            message = dns.message.from_text("""id 1
+flags QR RA
+rcode NXDOMAIN
+;QUESTION
+www.example. IN A
+""")
+            name = dns.name.from_text("www.example.")
+            key = (name, dns.rdatatype.ANY, dns.rdataclass.IN)
+            answer = dns.resolver.Answer(
+                name, dns.rdatatype.ANY, dns.rdataclass.IN, message
+            )
+            self.assertEqual(answer.expiration, fake_time.time() + 300)
+            cache = dns.resolver.Cache()
+            cache.put(key, answer)
+            self.assertIs(cache.get(key), answer)
+            fake_time.sleep(301)
+            self.assertIsNone(cache.get(key))
+
     def testCacheCleaning(self):
         with FakeTime() as fake_time:
             message = dns.message.from_text(message_text)
@@ -363,6 +386,26 @@ class BaseResolverTests(unittest.TestCase):
         answer = dns.resolver.Answer(name, dns.rdatatype.A, dns.rdataclass.IN, message)
         del answer[0]
         self.assertEqual(len(answer), 0)
+
+    def testAnswerNegativeIndex(self):
+        query = dns.message.make_query("example.", "A")
+        response = dns.message.make_response(query)
+        rrset = dns.rrset.from_text(
+            "example.", 300, "IN", "A", "192.0.2.1", "192.0.2.2"
+        )
+        response.answer.append(rrset)
+        response = dns.message.from_wire(response.to_wire(want_shuffle=False))
+        answer = dns.resolver.Answer(
+            query.question[0].name, dns.rdatatype.A, dns.rdataclass.IN, response
+        )
+        self.assertEqual(answer[-1].address, "192.0.2.2")
+        self.assertEqual(answer[-2].address, "192.0.2.1")
+        for i in (-3, 2):
+            with self.subTest(index=i):
+                with self.assertRaises(IndexError):
+                    answer[i]
+        del answer[-1]
+        self.assertEqual([rd.address for rd in answer], ["192.0.2.1"])
 
     def testLRUReplace(self):
         cache = dns.resolver.LRUCache(4)
@@ -1081,6 +1124,19 @@ class NanoTests(unittest.TestCase):
             self.assertEqual(answer[0].replacement, dns.name.root)
             with self.assertRaises(dns.resolver.NXDOMAIN):
                 dns.e164.query("0123456789", ["e164.arpa"], res)
+
+    def testNXDOMAINWithoutSOACachedBriefly(self):
+        with AlwaysType3NXDOMAINNanoNameserver() as na:
+            res = dns.resolver.Resolver(configure=False)
+            res.port = na.udp_address[1]
+            res.nameservers = [na.udp_address[0]]
+            res.cache = dns.resolver.Cache()
+            qname = dns.name.from_text("www.example.")
+            with self.assertRaises(dns.resolver.NXDOMAIN):
+                res.resolve(qname, "A")
+            answer = res.cache.get((qname, dns.rdatatype.ANY, dns.rdataclass.IN))
+            self.assertIsNotNone(answer)
+            self.assertLessEqual(answer.expiration, time.time() + 300)
 
 
 class AlwaysType3NXDOMAINNanoNameserver(Server):

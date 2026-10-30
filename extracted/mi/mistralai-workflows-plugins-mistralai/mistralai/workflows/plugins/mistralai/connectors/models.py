@@ -5,7 +5,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from .run_as import ConnectorRunAs
+from .run_as import RunAs
 
 
 class ResolvedConnectorBinding(BaseModel):
@@ -13,7 +13,7 @@ class ResolvedConnectorBinding(BaseModel):
     connector_id: str | None = None
     authentication_name: str | None = None
     credentials_name: str | None = None
-    run_as: ConnectorRunAs = ConnectorRunAs.AUTO
+    run_as: RunAs = RunAs.AUTO
     allow_mcp_ui: bool = False
     mcp_ui_resource_uris: dict[str, str] = Field(default_factory=dict)
     mcp_ui_resource_uris_fetched: bool = False
@@ -39,7 +39,7 @@ class ConnectorDefinition(BaseModel):
     auto_auth: bool = True
     credentials_name: str | None = None
     allow_mcp_ui: bool = False
-    run_as: ConnectorRunAs = ConnectorRunAs.AUTO
+    run_as: RunAs = RunAs.AUTO
 
 
 def resolved_connector_bindings_from_extension(raw: Mapping[str, Any]) -> list[ResolvedConnectorBinding]:

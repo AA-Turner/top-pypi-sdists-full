@@ -21,6 +21,28 @@ import typer
 
 from ..connectors import wandb as wb
 
+
+def _cli_client():
+    """The command's client: the CLI surface, as every `probe` command's, so the
+    run its import opens is one write the agent made, never a run process's
+    (`Client._mark_run_process`, swarm friction R41).
+
+    async_writes=False, matching `_new_client`: this is a CLI command, and its
+    printed points_written/requests counters must count writes that LANDED, not
+    writes that were queued. Journaling whole curves through log_derived_series
+    would also fsync megabytes to the outbox only to read them straight back
+    out."""
+    from .. import __version__
+    from ..client_headers import client_version_headers
+    from ..sdk.client import Client
+    from ..sdk.surface import Surface
+
+    return Client(
+        async_writes=False,
+        surface=Surface.CLI.value,
+        client_headers=client_version_headers(Surface.CLI.value, __version__),
+    )
+
 app = typer.Typer(help="Import Weights & Biases runs into Probe.", no_args_is_help=True)
 key_app = typer.Typer(help="Manage the stored W&B API key.", no_args_is_help=True)
 app.add_typer(key_app, name="key")
@@ -63,14 +85,7 @@ def import_local(
     dry_run: bool = typer.Option(False, "--dry-run", help="Report the plan, write nothing."),
 ) -> None:
     """Import every readable W&B run under ROOT into an existing Probe project."""
-    from ..sdk.client import Client
-
-    # async_writes=False, matching `_new_client`: this is a CLI command, and its
-    # printed points_written/requests counters must count writes that LANDED,
-    # not writes that were queued. Journaling whole curves through
-    # log_derived_series would also fsync megabytes to the outbox only to read
-    # them straight back out.
-    client = Client(async_writes=False)
+    client = _cli_client()
     results = wb.import_local_runs(client, root, project=project, dry_run=dry_run)
     _echo(
         [
@@ -97,14 +112,7 @@ def import_hosted(
     dry_run: bool = typer.Option(False, "--dry-run", help="Report the plan, write nothing."),
 ) -> None:
     """Pull runs from wandb.ai and import them into an existing Probe project."""
-    from ..sdk.client import Client
-
-    # async_writes=False, matching `_new_client`: this is a CLI command, and its
-    # printed points_written/requests counters must count writes that LANDED,
-    # not writes that were queued. Journaling whole curves through
-    # log_derived_series would also fsync megabytes to the outbox only to read
-    # them straight back out.
-    client = Client(async_writes=False)
+    client = _cli_client()
     runs = wb.fetch_hosted_runs(entity, wandb_project, run_ids=run_id or None)
     results = [
         wb.import_wandb_run(client, run, project=project, dry_run=dry_run) for run in runs

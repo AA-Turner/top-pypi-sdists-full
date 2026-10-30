@@ -195,13 +195,27 @@ def _invoke_list(arguments: dict, call: Callable[[dict], dict], scope: str) -> d
     ]
     views = data.get("available_views")
 
-    def result(count: int, *, with_views: bool = True) -> dict:
+    def result(
+        count: int, *, with_views: bool = True, with_history: bool = True, with_total: bool = True
+    ) -> dict:
         native = end if count == len(rows) else after[count - 1]
         missing = list(source_missing)
         if count < len(rows):
             missing.append(MissingMarker.TRUNCATED_BY_TOKEN_BUDGET)
         sent = rows[:count]
         out_data = {k: v for k, v in data.items() if k != "available_views"}
+        history = out_data.get("pick_history")
+        if not with_history and isinstance(history, list):
+            # The workspace's pick history is the optional part of a branches
+            # page (its total and marker still say it is there to read).
+            del out_data["pick_history"]
+            out_data.setdefault("pick_history_total", len(history))
+        if not with_history and "pick_history_total" in out_data:
+            if not with_total:
+                # Last, before refusing the row: the marker alone still says so.
+                del out_data["pick_history_total"]
+            if MissingMarker.PICK_HISTORY_BEYOND_PAGE not in missing:
+                missing.append(MissingMarker.PICK_HISTORY_BEYOND_PAGE)
         out_data[key] = sent
         if with_views and isinstance(views, dict):
             kinds = {row.get("entity_type") for row in sent if isinstance(row, dict)}
@@ -233,9 +247,14 @@ def _invoke_list(arguments: dict, call: Callable[[dict], dict], scope: str) -> d
         return best
     # One row and the per-kind views do not fit together: the views are the
     # optional part (they say what `entity` can do next), the row is the answer.
-    lean = result(1, with_views=False)
-    if budget.fits(lean):
-        return lean
+    # So is a branches page's pick history, sized by an estimate of this page.
+    for lean in (
+        result(1, with_views=False),
+        result(1, with_views=False, with_history=False),
+        result(1, with_views=False, with_history=False, with_total=False),
+    ):
+        if budget.fits(lean):
+            return lean
     raise ContinuationError("Browse row exceeds this budget; use a larger token_budget.")
 
 

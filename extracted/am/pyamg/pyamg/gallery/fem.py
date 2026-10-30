@@ -388,7 +388,7 @@ def l2norm(u, mesh):
         jac = np.abs((x[1]-x[0])*(y[2]-y[0]) - (x[2]-x[0])*(y[1]-y[0]))
 
         # add up each quadrature point
-        for wv, xv, yv in zip(ww, xx, yy):
+        for wv, xv, yv in zip(ww, xx, yy, strict=False):
             val += (jac / 2) * wv * np.dot(u[e[I]], basis(xv, yv))**2
 
     # take the square root for the norm
@@ -516,7 +516,8 @@ class Mesh:
                      (Vnew[edge0, 1] - Vnew[edge1, 1])**2
 
         maxit = 100
-        for _it in range(maxit):
+        totalit = 0
+        for it in range(maxit):
             Vnew = G @ Vnew
             Vnew /= W[:, None]  # scale the columns by 1/W
             Vnew[bid, :] = self.V[bid, :]
@@ -525,10 +526,11 @@ class Mesh:
             move = np.max(np.abs(newedgelength - edgelength) / newedgelength)
             edgelength = newedgelength
             if move < tol:
+                totalit = it
                 break
 
         self.V = Vnew
-        return _it
+        return totalit
 
 
 def _compute_diffusion_matrix(kappa_lmbda, x, y):
@@ -729,7 +731,7 @@ def gradgradform(mesh, kappa=None, f=None, degree=1):
             Aelem = np.zeros((m, m))
             belem = np.zeros((m,))
 
-            for w, x, y in zip(ww, xx, yy):
+            for w, x, y in zip(ww, xx, yy, strict=False):
                 # Step 3
                 basis = np.array([(1-x-y)*(1-2*x-2*y),
                                   x*(2*x-1),
@@ -819,7 +821,7 @@ def divform(mesh):
                        [-0.10810301816806966, -0.10810301816807061],
                        [-0.78379396366386020, -0.10810301816806944],
                        [-0.81684757298045740, -0.81684757298045920],
-                       [ 0.63369514596091700, -0.81684757298045810],   # noqa: E201
+                       [ 0.63369514596091700, -0.81684757298045810],
                        [-0.81684757298045870,  0.63369514596091750]])
         xx, yy = (xy[:, 0]+1)/2, (xy[:, 1]+1)/2
         ww *= 0.5
@@ -827,7 +829,7 @@ def divform(mesh):
         DXelem = np.zeros((3, 6))
         DYelem = np.zeros((3, 6))
 
-        for w, x, y in zip(ww, xx, yy):
+        for w, x, y in zip(ww, xx, yy, strict=False):
             basis1 = np.array([1-x-y, x, y])
 
             # basis2 = np.array([(1-x-y)*(1-2*x-2*y),
@@ -941,7 +943,7 @@ def applybc(A, b, mesh, bc, remove_dirichlet=False):
         if c['degree'] == 2:
             idx = c['id']
             newidx = []
-            for j, ed in zip(mesh.newID, mesh.Edges):
+            for j, ed in zip(mesh.newID, mesh.Edges, strict=False):
                 if ed[0] in idx and ed[1] in idx:
                     newidx.append(j)
             c['id'] = np.hstack((idx, newidx))

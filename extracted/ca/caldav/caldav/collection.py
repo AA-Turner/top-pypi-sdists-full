@@ -15,6 +15,7 @@ import logging
 import re
 import uuid
 import warnings
+from collections.abc import Generator
 from dataclasses import dataclass
 from datetime import date as _date
 from datetime import datetime, timezone
@@ -40,6 +41,7 @@ from .calendarobjectresource import (
     FreeBusy,
     Journal,
     Todo,
+    _quote_uid,
 )
 from .compatibility_hints import (
     at_literal_is_refused,
@@ -50,7 +52,7 @@ from .elements import cdav, dav
 from .lib import error, vcal
 from .lib.error import errmsg
 from .lib.python_utilities import to_wire
-from .lib.url import URL, normalise_path, requote_path
+from .lib.url import URL, normalise_path, quote_href
 from .response import _status_to_code
 
 _CC = TypeVar("_CC", bound="CalendarObjectResource")
@@ -126,17 +128,18 @@ def _quote_url_path(url: str, features: Any = None) -> str:
     Servers do hand out hrefs containing raw spaces (Zimbra), and
     ``DAVObject.__init__`` refuses a URL with a space in it, so the path has to
     be run through ``quote`` before anything can be built from it - returning
-    it untouched is not an option.  The round-trip through ``unquote`` first is
-    what stops an already-encoded path being encoded twice.
+    it untouched is not an option.  The href has been decoded by
+    ``_normalize_href`` already, so this only quotes: decoding it again would
+    turn the ``%2F`` of a name holding a ``/`` into a ``/``.
 
-    That round-trip also normalises ``%40`` down to a literal ``@``, which is
-    the historic behaviour and stays the default: where the two spellings name
+    ``_normalize_href`` also decoded ``%40`` to a literal ``@``, which is the
+    historic behaviour and stays the default: where the two spellings name
     one resource it makes no difference which one is sent.  Only a server whose
     ``url.encode-at.identity`` says otherwise gets both spellings left alone.
     The netloc is never touched, so credentials embedded in the URL survive.
     """
     parsed = urlparse(url)
-    path = normalise_path(parsed.path, safe="/@", preserve_at=at_spelling_is_significant(features))
+    path = quote_href(parsed.path, safe="/@", preserve_at=at_spelling_is_significant(features))
     return urlunparse(parsed._replace(path=path))
 
 
@@ -975,6 +978,9 @@ class Calendar(DAVObject):
             root=mkcol, query_method=method, url=path, expected_return_value=_CREATED_STATUSES
         )
         _assert_created(response, method)
+        if isinstance(getattr(response, "redirected_to", None), URL):
+            ## Created at the Location of a redirect
+            self.url = self.url.relocate(response.redirected_to)
 
         if creation_delay:
             self._wait_until(self._exists, creation_delay, "the new calendar to appear")
@@ -1101,6 +1107,9 @@ class Calendar(DAVObject):
             root=mkcol, query_method=method, url=path, expected_return_value=_CREATED_STATUSES
         )
         _assert_created(response, method)
+        if isinstance(getattr(response, "redirected_to", None), URL):
+            ## Created at the Location of a redirect
+            self.url = self.url.relocate(response.redirected_to)
 
         if creation_delay:
             await self._async_wait_until(
@@ -1547,9 +1556,7 @@ class Calendar(DAVObject):
             self._calendar_comp_class_by_data(data)(
                 self.client,
                 # Quote path to handle servers returning unencoded spaces (e.g., Zimbra)
-                url=self.url.join(
-                    normalise_path(str(url), safe="/:@", preserve_at=self._preserve_at)
-                ),
+                url=self.url.join(quote_href(str(url), safe="/:@", preserve_at=self._preserve_at)),
                 data=data,
                 parent=self,
                 props=dict(tags) or None,
@@ -1597,10 +1604,14 @@ class Calendar(DAVObject):
         went through `quote()` with the default `safe="/"` -- so a UID of the
         conventional `<something>@<domain>` form ends up as `%40` on one side
         and `@` on the other.  Comparing the unquoted forms makes the two
-        spellings equal instead of silently dropping the object.
+        spellings equal instead of silently dropping the object.  The href
+        arrives decoded already, so it is quoted without a second decode,
+        which would turn the ``%2F`` of a UID holding a ``/`` into a ``/``.
         """
         url_to_data = {
-            unquote(str(self.url.join(quote(unquote(str(href)), safe="/:@")))): (data, tags)
+            unquote(
+                str(self.url.join(quote_href(str(href), safe="/:@", preserve_at=self._preserve_at)))
+            ): (data, tags)
             for href, data, tags in results
         }
         for obj in unloaded:
@@ -1792,27 +1803,30 @@ class Calendar(DAVObject):
         url = URL(href)
         if url.hostname is None:
             # Quote when result is not a full URL
-            return requote_path(href) if self._preserve_at else quote(href)
+            return quote_href(href, preserve_at=self._preserve_at)
         return url
 
     def _request_report_build_resultlist(
-        self, xml, comp_class=None, props=None, no_calendardata=False
+        self, xml, comp_class=None, props=None, no_calendardata=False, depth=1
     ) -> "tuple[Any, list[CalendarObjectResource]] | Coroutine[Any, Any, tuple[Any, list[CalendarObjectResource]]]":
         """
         Takes some input XML, does a report query on a calendar object
         and returns the resource objects found.
 
+        ``depth`` is 1 for calendar-query; sync-collection needs 0
+        (RFC 6578 section 3.2).
+
         For async clients, returns a coroutine that must be awaited.
         """
         props_ = [cdav.CalendarData()] if props is None else [cdav.CalendarData()] + props
         if self.is_async_client:
-            return self._async_request_report_build_resultlist(xml, comp_class, props_)
-        response = self._query(xml, 1, "report")
+            return self._async_request_report_build_resultlist(xml, comp_class, props_, depth)
+        response = self._query(xml, depth, "report")
         return self._post_request_report_build_resultlist(response, comp_class, props_)
 
-    async def _async_request_report_build_resultlist(self, xml, comp_class, props_):
+    async def _async_request_report_build_resultlist(self, xml, comp_class, props_, depth=1):
         """Async implementation of _request_report_build_resultlist."""
-        response = await self._query(xml, 1, "report")
+        response = await self._query(xml, depth, "report")
         return self._post_request_report_build_resultlist(response, comp_class, props_)
 
     def _populate_searcher(self, my_searcher, searchargs: dict, sort_reverse: bool) -> None:
@@ -2144,11 +2158,65 @@ class Calendar(DAVObject):
          comp_class: filter by component type (Event, Todo, Journal)
          comp_filter: for backward compatibility.  Don't use!
 
+        Unless the ``search.text.uid`` feature says the server handles
+        UID searches, a failing search (iCloud answers 412, issue #783)
+        makes this fetch the object as ``<uid>.ics``, the name ``save()``
+        gives it.  If the server is known not to handle UID searches
+        (``search.text.uid`` unsupported, broken or ungraceful), the search is
+        skipped.  Should the object not be found that way, and the
+        search failed with 412 or is known to fail, the object is found
+        among all objects of the type - a download of the whole calendar
+        for every missing UID - unless the server is known to name every
+        object ``<uid>.ics`` (``forces_uid_ics`` on ``save-load.stable-url``).
+
         Returns:
          CalendarObjectResource (Event, Todo, or Journal)
         """
+        gen = self._uid_lookup(uid, comp_filter, comp_class)
         if self.is_async_client:
-            return self._async_get_object_by_uid(uid, comp_filter, comp_class)
+            return self._async_run_uid_lookup(gen)
+        try:
+            step = next(gen)
+            while True:
+                try:
+                    result = self._uid_lookup_step(*step)
+                except error.DAVError as e:
+                    step = gen.throw(e)
+                else:
+                    step = gen.send(result)
+        except StopIteration as done:
+            return done.value
+
+    async def _async_run_uid_lookup(self, gen: Generator) -> "CalendarObjectResource":
+        """Async driver for _uid_lookup(), see get_object_by_uid()."""
+        try:
+            step = next(gen)
+            while True:
+                try:
+                    result = await self._uid_lookup_step(*step)
+                except error.DAVError as e:
+                    step = gen.throw(e)
+                else:
+                    step = gen.send(result)
+        except StopIteration as done:
+            return done.value
+
+    def _uid_lookup_step(self, action: str, arg: Any) -> Any:
+        """Execute one step of _uid_lookup().  Returns a coroutine with
+        an async client."""
+        if action == "search":
+            return self.search(**arg)
+        return self.client.request(str(arg))
+
+    def _uid_lookup(
+        self,
+        uid: str,
+        comp_filter: cdav.CompFilter | None,
+        comp_class: Optional["CalendarObjectResource"],
+    ) -> Generator:
+        """The logic of get_object_by_uid(), as a generator yielding
+        ``("search", kwargs)`` and ``("request", url)`` for the driver to
+        execute, and getting the results (or the DAVError) back."""
         ## Use self.search() rather than CalDAVSearcher directly, so that any
         ## monkey-patching of Calendar.search (e.g. the search-cache delay that
         ## tests/test_caldav.py wraps it with for servers with lazy search
@@ -2158,38 +2226,116 @@ class Calendar(DAVObject):
         ## search(uid=...) does substring matching on the server side, so we
         ## apply an exact match filter afterwards to preserve the semantics of
         ## this method (see testObjectByUID).
-        items_found = self.search(
-            uid=uid,
-            comp_class=comp_class,
-            xml=comp_filter,
-            post_filter=True,
-            _hacks="insist",
-            include_completed=True,
+        ##
+        ## No return_defaults: an unconfigured server is not known to be fine.
+        uid_search = self.client.features.is_supported(
+            "search.text.uid", return_type=str, return_defaults=False
         )
-        items_found = [o for o in items_found if o.id == uid]
+        known_to_fail = uid_search in ("unsupported", "broken", "ungraceful")
+        ## The deprecated comp_filter has no fallback.
+        fallback = comp_filter is None and uid_search not in ("full", "quirk")
+        scan = False
+        absent = False
+        search_error = None
+        if not (fallback and known_to_fail):
+            try:
+                items_found = yield (
+                    "search",
+                    dict(
+                        uid=uid,
+                        comp_class=comp_class,
+                        xml=comp_filter,
+                        post_filter=True,
+                        _hacks="insist",
+                        include_completed=True,
+                    ),
+                )
+                return self._uid_match(items_found, uid)
+            except (error.NotFoundError, error.RateLimitError, error.AuthorizationError):
+                ## the fallback won't help with these
+                raise
+            except error.DAVError as e:
+                if not fallback:
+                    raise
+                scan = e.status == 412
+                search_error = e
+                log.debug(f"Search by UID failed ({e}), trying GET {uid}.ics")
+        else:
+            scan = True
+        url = self._uid_fallback_url(uid)
+        if url is not None:
+            try:
+                response = yield ("request", url)
+                found = self._uid_fallback_object(url, response, uid, comp_class)
+                if (
+                    found is None
+                    and response.status in (404, 410)
+                    and self.client.features.is_supported(
+                        "save-load.stable-url", return_type=dict
+                    ).get("forces_uid_ics")
+                ):
+                    ## the server names every object <uid>.ics: nothing to scan for
+                    scan = False
+                    absent = True
+            except error.RateLimitError:
+                raise
+            except error.DAVError:
+                found = None
+            if found is not None:
+                return found
+        items_found = []
+        if search_error is not None and not (scan or absent):
+            ## the search failed and nothing says the object is not there:
+            ## a NotFoundError would be a false answer
+            raise search_error
+        if scan:
+            try:
+                items_found = yield (
+                    "search",
+                    dict(comp_class=comp_class, include_completed=True),
+                )
+            except error.DAVError as e:
+                if search_error is None:
+                    raise
+                raise e from search_error
+        return self._uid_match(items_found, uid)
 
-        if not items_found:
-            raise error.NotFoundError("%s not found on server" % uid)
-        error.assert_(len(items_found) == 1)
-        return items_found[0]
+    def _uid_fallback_url(self, uid: str) -> "URL | None":
+        """Return the URL save() would use for this UID, or None if GET
+        by URL is unsupported."""
+        if not self.client.features.is_supported("save-load.get-by-url"):
+            return None
+        return self.url.join(_quote_uid(uid, self.client.features) + ".ics")
 
-    async def _async_get_object_by_uid(
+    def _uid_fallback_object(
         self,
+        url: "URL",
+        response: Any,
         uid: str,
-        comp_filter: cdav.CompFilter | None = None,
-        comp_class: Optional["CalendarObjectResource"] = None,
-    ) -> "Event":
-        """Async helper for get_object_by_uid()."""
-        items_found = await self.search(
-            uid=uid,
-            comp_class=comp_class,
-            xml=comp_filter,
-            post_filter=True,
-            _hacks="insist",
-            include_completed=True,
-        )
-        items_found = [o for o in items_found if o.id == uid]
+        comp_class: Optional["CalendarObjectResource"],
+    ) -> "CalendarObjectResource | None":
+        """Return the object in a GET response if it has this UID and
+        type, else None."""
+        if not 200 <= response.status < 300:
+            return None
+        found_class = self._calendar_comp_class_by_data(response.raw)
+        if found_class is CalendarObjectResource:  ## not calendar data
+            return None
+        if comp_class is not None and found_class is not comp_class:
+            return None
+        obj = found_class(self.client, url=url, data=response.raw, parent=self)
+        try:
+            if obj.id != uid:
+                return None
+        except ValueError:  ## unparsable data
+            return None
+        obj._keep_raw_data(getattr(response, "_raw_body", None))
+        obj._update_tag_props(response)
+        return obj
 
+    def _uid_match(self, items_found: list, uid: str) -> "CalendarObjectResource":
+        """Return the single object in items_found with exactly this UID."""
+        items_found = [o for o in items_found if o.id == uid]
         if not items_found:
             raise error.NotFoundError("%s not found on server" % uid)
         error.assert_(len(items_found) == 1)
@@ -2349,7 +2495,9 @@ class Calendar(DAVObject):
         ## while the calendar URL may keep a literal @ (Nextcloud).
         marker = unquote(self.url.join(self._href_to_url(href)).path).rstrip("/")
         if marker != unquote(self.url.path).rstrip("/"):
-            raise error.ResponseError(f"sync-collection: 507 Insufficient Storage for {href}")
+            raise error.ResponseError(
+                f"sync-collection: 507 Insufficient Storage for {href}", status=507
+            )
         return True
 
     def _absorb_sync_page(
@@ -2541,7 +2689,7 @@ class Calendar(DAVObject):
                         sync_token=token, props=["getetag"]
                     )
                     (response, objects) = self._request_report_build_resultlist(
-                        root, props=[dav.GetEtag()], no_calendardata=True
+                        root, props=[dav.GetEtag()], no_calendardata=True, depth=0
                     )
                     (token, truncated, again) = self._absorb_sync_page(
                         response, objects, collected, token, deleted
@@ -2642,7 +2790,7 @@ class Calendar(DAVObject):
                         sync_token=token, props=["getetag"]
                     )
                     (response, objects) = await self._request_report_build_resultlist(
-                        root, props=[dav.GetEtag()], no_calendardata=True
+                        root, props=[dav.GetEtag()], no_calendardata=True, depth=0
                     )
                     (token, truncated, again) = self._absorb_sync_page(
                         response, objects, collected, token, deleted

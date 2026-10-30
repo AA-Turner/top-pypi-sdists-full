@@ -6,6 +6,8 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from ..types.lse_interface import LseInterface
 from ..types.lse_interface_append_version_request import LseInterfaceAppendVersionRequest
+from ..types.lse_interface_duplicate_request_mode_enum import LseInterfaceDuplicateRequestModeEnum
+from ..types.lse_interface_move_plan import LseInterfaceMovePlan
 from ..types.paginated_lse_interface_list_list import PaginatedLseInterfaceListList
 from .raw_client import AsyncRawInterfacesClient, RawInterfacesClient
 
@@ -111,6 +113,7 @@ class InterfacesClient:
         messages: typing.Optional[typing.Any] = OMIT,
         metadata: typing.Optional[typing.Any] = OMIT,
         output_schema: typing.Optional[typing.Any] = OMIT,
+        scenarios: typing.Optional[str] = OMIT,
         versions: typing.Optional[typing.Any] = OMIT,
         workspace: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -153,6 +156,8 @@ class InterfacesClient:
         output_schema : typing.Optional[typing.Any]
             JSON Schema declaring the annotation output fields this interface produces (for Prompter/auto-labeling)
 
+        scenarios : typing.Optional[str]
+
         versions : typing.Optional[typing.Any]
             Code version history
 
@@ -190,6 +195,7 @@ class InterfacesClient:
             messages=messages,
             metadata=metadata,
             output_schema=output_schema,
+            scenarios=scenarios,
             versions=versions,
             workspace=workspace,
             request_options=request_options,
@@ -247,6 +253,7 @@ class InterfacesClient:
         messages: typing.Optional[typing.Any] = OMIT,
         metadata: typing.Optional[typing.Any] = OMIT,
         output_schema: typing.Optional[typing.Any] = OMIT,
+        scenarios: typing.Optional[str] = OMIT,
         versions: typing.Optional[typing.Any] = OMIT,
         workspace: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -292,6 +299,8 @@ class InterfacesClient:
         output_schema : typing.Optional[typing.Any]
             JSON Schema declaring the annotation output fields this interface produces (for Prompter/auto-labeling)
 
+        scenarios : typing.Optional[str]
+
         versions : typing.Optional[typing.Any]
             Code version history
 
@@ -331,6 +340,7 @@ class InterfacesClient:
             messages=messages,
             metadata=metadata,
             output_schema=output_schema,
+            scenarios=scenarios,
             versions=versions,
             workspace=workspace,
             request_options=request_options,
@@ -386,6 +396,7 @@ class InterfacesClient:
         messages: typing.Optional[typing.Any] = OMIT,
         metadata: typing.Optional[typing.Any] = OMIT,
         output_schema: typing.Optional[typing.Any] = OMIT,
+        scenarios: typing.Optional[str] = OMIT,
         title: typing.Optional[str] = OMIT,
         versions: typing.Optional[typing.Any] = OMIT,
         workspace: typing.Optional[int] = OMIT,
@@ -430,6 +441,8 @@ class InterfacesClient:
         output_schema : typing.Optional[typing.Any]
             JSON Schema declaring the annotation output fields this interface produces (for Prompter/auto-labeling)
 
+        scenarios : typing.Optional[str]
+
         title : typing.Optional[str]
 
         versions : typing.Optional[typing.Any]
@@ -467,6 +480,7 @@ class InterfacesClient:
             messages=messages,
             metadata=metadata,
             output_schema=output_schema,
+            scenarios=scenarios,
             title=title,
             versions=versions,
             workspace=workspace,
@@ -487,6 +501,7 @@ class InterfacesClient:
         messages: typing.Optional[typing.Any] = OMIT,
         metadata: typing.Optional[typing.Any] = OMIT,
         output_schema: typing.Optional[typing.Any] = OMIT,
+        scenarios: typing.Optional[str] = OMIT,
         title: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> LseInterface:
@@ -521,6 +536,8 @@ class InterfacesClient:
         metadata : typing.Optional[typing.Any]
 
         output_schema : typing.Optional[typing.Any]
+
+        scenarios : typing.Optional[str]
 
         title : typing.Optional[str]
 
@@ -560,6 +577,7 @@ class InterfacesClient:
             messages=messages,
             metadata=metadata,
             output_schema=output_schema,
+            scenarios=scenarios,
             title=title,
             request_options=request_options,
         )
@@ -569,17 +587,11 @@ class InterfacesClient:
         self,
         id: int,
         *,
-        code: str,
-        compiled: str,
-        title: str,
-        artifacts: typing.Optional[typing.Any] = OMIT,
-        data_sample: typing.Optional[typing.Any] = OMIT,
+        compiled: typing.Optional[str] = OMIT,
         description: typing.Optional[str] = OMIT,
-        input_schema: typing.Optional[typing.Any] = OMIT,
-        messages: typing.Optional[typing.Any] = OMIT,
-        metadata: typing.Optional[typing.Any] = OMIT,
-        output_schema: typing.Optional[typing.Any] = OMIT,
-        versions: typing.Optional[typing.Any] = OMIT,
+        mode: typing.Optional[LseInterfaceDuplicateRequestModeEnum] = OMIT,
+        params: typing.Optional[typing.Any] = OMIT,
+        title: typing.Optional[str] = OMIT,
         workspace: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> LseInterface:
@@ -597,37 +609,26 @@ class InterfacesClient:
         id : int
             A unique integer value identifying this interface.
 
-        code : str
-            JSX source code for the interface screen module
-
-        compiled : str
-
-        title : str
-
-        artifacts : typing.Optional[typing.Any]
-            AI-produced code snapshots for session continuity
-
-        data_sample : typing.Optional[typing.Any]
-            Sample task data for preview
+        compiled : typing.Optional[str]
+            Client-compiled bundle, accepted only when the source has none stored (system templates).
 
         description : typing.Optional[str]
+            Description for the copy. Defaults to the source interface's description.
 
-        input_schema : typing.Optional[typing.Any]
-            JSON Schema declaring expected task data field types for import validation
+        mode : typing.Optional[LseInterfaceDuplicateRequestModeEnum]
+            'last' (default) copies only the current state; 'all' carries the full version history.
 
-        messages : typing.Optional[typing.Any]
-            Chat conversation history
+            * `last` - last
+            * `all` - all
 
-        metadata : typing.Optional[typing.Any]
-            Arbitrary metadata for this interface
+        params : typing.Optional[typing.Any]
+            Initial screen params (an object) seeded on the copy. Can't be combined with mode='all'.
 
-        output_schema : typing.Optional[typing.Any]
-            JSON Schema declaring the annotation output fields this interface produces (for Prompter/auto-labeling)
-
-        versions : typing.Optional[typing.Any]
-            Code version history
+        title : typing.Optional[str]
+            Title for the copy. Defaults to "<source title> (Copy)" when omitted or blank.
 
         workspace : typing.Optional[int]
+            Workspace ID to duplicate into. Omit or null for no workspace.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -646,24 +647,75 @@ class InterfacesClient:
         )
         client.interfaces.duplicate(
             id=1,
-            code="code",
-            compiled="compiled",
-            title="title",
         )
         """
         _response = self._raw_client.duplicate(
             id,
-            code=code,
             compiled=compiled,
-            title=title,
-            artifacts=artifacts,
-            data_sample=data_sample,
             description=description,
-            input_schema=input_schema,
-            messages=messages,
-            metadata=metadata,
-            output_schema=output_schema,
-            versions=versions,
+            mode=mode,
+            params=params,
+            title=title,
+            workspace=workspace,
+            request_options=request_options,
+        )
+        return _response.data
+
+    def move(
+        self,
+        id: int,
+        *,
+        dry_run: typing.Optional[bool] = OMIT,
+        expected_project_ids: typing.Optional[typing.Sequence[int]] = OMIT,
+        workspace: typing.Optional[int] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> LseInterfaceMovePlan:
+        """
+        <Card href="https://humansignal.com/goenterprise">
+                <img style="pointer-events: none; margin-left: 0px; margin-right: 0px;" src="https://docs.humansignal.com/images/badge.svg" alt="Label Studio Enterprise badge"/>
+                <p style="margin-top: 10px; font-size: 14px;">
+                    This endpoint is not available in Label Studio Community Edition. [Learn more about Label Studio Enterprise](https://humansignal.com/goenterprise)
+                </p>
+            </Card>
+        Move a saved interface to a workspace, your Personal Sandbox, or Shared (`workspace: null`). A workspace-scoped interface can only be used by projects in its workspace, so connected projects move with it when needed. Send `dry_run: true` first to get the move plan, then confirm with `dry_run: false` and the `expected_project_ids` from that plan. The response is the plan in every case; a blocked move or a changed plan returns 409 with the fresh plan.
+
+        Parameters
+        ----------
+        id : int
+            A unique integer value identifying this interface.
+
+        dry_run : typing.Optional[bool]
+            Return the move plan without changing anything.
+
+        expected_project_ids : typing.Optional[typing.Sequence[int]]
+            Required when dry_run is false: IDs of the projects in workspace groups with outcome "move" from the dry run you confirmed. If the server computes a different set, it responds with 409 "interface_move_plan_changed" and the fresh plan.
+
+        workspace : typing.Optional[int]
+            Target workspace ID, or null to make the interface Shared.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        LseInterfaceMovePlan
+
+
+        Examples
+        --------
+        from label_studio_sdk import LabelStudio
+
+        client = LabelStudio(
+            api_key="YOUR_API_KEY",
+        )
+        client.interfaces.move(
+            id=1,
+        )
+        """
+        _response = self._raw_client.move(
+            id,
+            dry_run=dry_run,
+            expected_project_ids=expected_project_ids,
             workspace=workspace,
             request_options=request_options,
         )
@@ -911,6 +963,7 @@ class AsyncInterfacesClient:
         messages: typing.Optional[typing.Any] = OMIT,
         metadata: typing.Optional[typing.Any] = OMIT,
         output_schema: typing.Optional[typing.Any] = OMIT,
+        scenarios: typing.Optional[str] = OMIT,
         versions: typing.Optional[typing.Any] = OMIT,
         workspace: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -952,6 +1005,8 @@ class AsyncInterfacesClient:
 
         output_schema : typing.Optional[typing.Any]
             JSON Schema declaring the annotation output fields this interface produces (for Prompter/auto-labeling)
+
+        scenarios : typing.Optional[str]
 
         versions : typing.Optional[typing.Any]
             Code version history
@@ -998,6 +1053,7 @@ class AsyncInterfacesClient:
             messages=messages,
             metadata=metadata,
             output_schema=output_schema,
+            scenarios=scenarios,
             versions=versions,
             workspace=workspace,
             request_options=request_options,
@@ -1063,6 +1119,7 @@ class AsyncInterfacesClient:
         messages: typing.Optional[typing.Any] = OMIT,
         metadata: typing.Optional[typing.Any] = OMIT,
         output_schema: typing.Optional[typing.Any] = OMIT,
+        scenarios: typing.Optional[str] = OMIT,
         versions: typing.Optional[typing.Any] = OMIT,
         workspace: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -1107,6 +1164,8 @@ class AsyncInterfacesClient:
 
         output_schema : typing.Optional[typing.Any]
             JSON Schema declaring the annotation output fields this interface produces (for Prompter/auto-labeling)
+
+        scenarios : typing.Optional[str]
 
         versions : typing.Optional[typing.Any]
             Code version history
@@ -1155,6 +1214,7 @@ class AsyncInterfacesClient:
             messages=messages,
             metadata=metadata,
             output_schema=output_schema,
+            scenarios=scenarios,
             versions=versions,
             workspace=workspace,
             request_options=request_options,
@@ -1218,6 +1278,7 @@ class AsyncInterfacesClient:
         messages: typing.Optional[typing.Any] = OMIT,
         metadata: typing.Optional[typing.Any] = OMIT,
         output_schema: typing.Optional[typing.Any] = OMIT,
+        scenarios: typing.Optional[str] = OMIT,
         title: typing.Optional[str] = OMIT,
         versions: typing.Optional[typing.Any] = OMIT,
         workspace: typing.Optional[int] = OMIT,
@@ -1261,6 +1322,8 @@ class AsyncInterfacesClient:
 
         output_schema : typing.Optional[typing.Any]
             JSON Schema declaring the annotation output fields this interface produces (for Prompter/auto-labeling)
+
+        scenarios : typing.Optional[str]
 
         title : typing.Optional[str]
 
@@ -1307,6 +1370,7 @@ class AsyncInterfacesClient:
             messages=messages,
             metadata=metadata,
             output_schema=output_schema,
+            scenarios=scenarios,
             title=title,
             versions=versions,
             workspace=workspace,
@@ -1327,6 +1391,7 @@ class AsyncInterfacesClient:
         messages: typing.Optional[typing.Any] = OMIT,
         metadata: typing.Optional[typing.Any] = OMIT,
         output_schema: typing.Optional[typing.Any] = OMIT,
+        scenarios: typing.Optional[str] = OMIT,
         title: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> LseInterface:
@@ -1361,6 +1426,8 @@ class AsyncInterfacesClient:
         metadata : typing.Optional[typing.Any]
 
         output_schema : typing.Optional[typing.Any]
+
+        scenarios : typing.Optional[str]
 
         title : typing.Optional[str]
 
@@ -1408,6 +1475,7 @@ class AsyncInterfacesClient:
             messages=messages,
             metadata=metadata,
             output_schema=output_schema,
+            scenarios=scenarios,
             title=title,
             request_options=request_options,
         )
@@ -1417,17 +1485,11 @@ class AsyncInterfacesClient:
         self,
         id: int,
         *,
-        code: str,
-        compiled: str,
-        title: str,
-        artifacts: typing.Optional[typing.Any] = OMIT,
-        data_sample: typing.Optional[typing.Any] = OMIT,
+        compiled: typing.Optional[str] = OMIT,
         description: typing.Optional[str] = OMIT,
-        input_schema: typing.Optional[typing.Any] = OMIT,
-        messages: typing.Optional[typing.Any] = OMIT,
-        metadata: typing.Optional[typing.Any] = OMIT,
-        output_schema: typing.Optional[typing.Any] = OMIT,
-        versions: typing.Optional[typing.Any] = OMIT,
+        mode: typing.Optional[LseInterfaceDuplicateRequestModeEnum] = OMIT,
+        params: typing.Optional[typing.Any] = OMIT,
+        title: typing.Optional[str] = OMIT,
         workspace: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> LseInterface:
@@ -1445,37 +1507,26 @@ class AsyncInterfacesClient:
         id : int
             A unique integer value identifying this interface.
 
-        code : str
-            JSX source code for the interface screen module
-
-        compiled : str
-
-        title : str
-
-        artifacts : typing.Optional[typing.Any]
-            AI-produced code snapshots for session continuity
-
-        data_sample : typing.Optional[typing.Any]
-            Sample task data for preview
+        compiled : typing.Optional[str]
+            Client-compiled bundle, accepted only when the source has none stored (system templates).
 
         description : typing.Optional[str]
+            Description for the copy. Defaults to the source interface's description.
 
-        input_schema : typing.Optional[typing.Any]
-            JSON Schema declaring expected task data field types for import validation
+        mode : typing.Optional[LseInterfaceDuplicateRequestModeEnum]
+            'last' (default) copies only the current state; 'all' carries the full version history.
 
-        messages : typing.Optional[typing.Any]
-            Chat conversation history
+            * `last` - last
+            * `all` - all
 
-        metadata : typing.Optional[typing.Any]
-            Arbitrary metadata for this interface
+        params : typing.Optional[typing.Any]
+            Initial screen params (an object) seeded on the copy. Can't be combined with mode='all'.
 
-        output_schema : typing.Optional[typing.Any]
-            JSON Schema declaring the annotation output fields this interface produces (for Prompter/auto-labeling)
-
-        versions : typing.Optional[typing.Any]
-            Code version history
+        title : typing.Optional[str]
+            Title for the copy. Defaults to "<source title> (Copy)" when omitted or blank.
 
         workspace : typing.Optional[int]
+            Workspace ID to duplicate into. Omit or null for no workspace.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1499,9 +1550,6 @@ class AsyncInterfacesClient:
         async def main() -> None:
             await client.interfaces.duplicate(
                 id=1,
-                code="code",
-                compiled="compiled",
-                title="title",
             )
 
 
@@ -1509,17 +1557,79 @@ class AsyncInterfacesClient:
         """
         _response = await self._raw_client.duplicate(
             id,
-            code=code,
             compiled=compiled,
-            title=title,
-            artifacts=artifacts,
-            data_sample=data_sample,
             description=description,
-            input_schema=input_schema,
-            messages=messages,
-            metadata=metadata,
-            output_schema=output_schema,
-            versions=versions,
+            mode=mode,
+            params=params,
+            title=title,
+            workspace=workspace,
+            request_options=request_options,
+        )
+        return _response.data
+
+    async def move(
+        self,
+        id: int,
+        *,
+        dry_run: typing.Optional[bool] = OMIT,
+        expected_project_ids: typing.Optional[typing.Sequence[int]] = OMIT,
+        workspace: typing.Optional[int] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> LseInterfaceMovePlan:
+        """
+        <Card href="https://humansignal.com/goenterprise">
+                <img style="pointer-events: none; margin-left: 0px; margin-right: 0px;" src="https://docs.humansignal.com/images/badge.svg" alt="Label Studio Enterprise badge"/>
+                <p style="margin-top: 10px; font-size: 14px;">
+                    This endpoint is not available in Label Studio Community Edition. [Learn more about Label Studio Enterprise](https://humansignal.com/goenterprise)
+                </p>
+            </Card>
+        Move a saved interface to a workspace, your Personal Sandbox, or Shared (`workspace: null`). A workspace-scoped interface can only be used by projects in its workspace, so connected projects move with it when needed. Send `dry_run: true` first to get the move plan, then confirm with `dry_run: false` and the `expected_project_ids` from that plan. The response is the plan in every case; a blocked move or a changed plan returns 409 with the fresh plan.
+
+        Parameters
+        ----------
+        id : int
+            A unique integer value identifying this interface.
+
+        dry_run : typing.Optional[bool]
+            Return the move plan without changing anything.
+
+        expected_project_ids : typing.Optional[typing.Sequence[int]]
+            Required when dry_run is false: IDs of the projects in workspace groups with outcome "move" from the dry run you confirmed. If the server computes a different set, it responds with 409 "interface_move_plan_changed" and the fresh plan.
+
+        workspace : typing.Optional[int]
+            Target workspace ID, or null to make the interface Shared.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        LseInterfaceMovePlan
+
+
+        Examples
+        --------
+        import asyncio
+
+        from label_studio_sdk import AsyncLabelStudio
+
+        client = AsyncLabelStudio(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.interfaces.move(
+                id=1,
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.move(
+            id,
+            dry_run=dry_run,
+            expected_project_ids=expected_project_ids,
             workspace=workspace,
             request_options=request_options,
         )

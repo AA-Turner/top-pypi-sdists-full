@@ -1,75 +1,92 @@
-Metadata-Version: 2.1
-Name: sanitize-filename
-Version: 1.2.0
+Metadata-Version: 2.4
+Name: sanitize_filename
+Version: 1.2.1
 Summary: A permissive filename sanitizer.
 Home-page: https://gitlab.com/jplusplus/sanitize-filename
 Author: Leo Wallentin | J++ Stockholm
 Author-email: mejl@leowallentin.se
-License: UNKNOWN
-Description: A simple, dependency-free, blacklist-based filename sanitizer, for when you want to keep the original filename.
-        
-        Note that a blacklist based sanitizer will _never_ be as safe as a whitelist based one. In most cases, your best option is to create a safe filename yourself. Your second safest option is to use a whitelist approach (allowing only certain characters). This sanitizer is useful when you want to keep the original filename, including non ascii characters, whenever possible.
-        
-        ## Installation
-        
-        ```sh
-        pip install sanitize_filename
-        ```
-        
-        ## Usage
-        
-        ```python3
-        from sanitize_filename import sanitize
-        
-        
-        filename = input("Enter a file name:")
-        filename = sanitize(filename)
-        ```
-        
-        Examples:
-        
-        ```python3
-        > sanitize("A/B/C.txt")
-        'ABC.txt'
-        
-        > sanitize("this𓀦filenameḜisあactually...valid.txt")
-        'this𓀦filenameḜisあactually...valid.txt'
-        
-        > sanitize("def.")
-        'def'
-        
-        > sanitize("NUL")
-        '__NUL'
-        
-        > sanitize("..")
-        '__'
-        ```
-        
-        ## Changelog
-        
-        - 1.2.0
-        
-          - Get rid of os dependent checks; ensure uniform behaviour
-          - Now works on long filenames where the non-extensions part consists of only dots
-        
-        - 1.1.0
-        
-          - Try to preserve filename extensions if possible
-        
-        - 1.0.1
-        
-          - First release (as 1.0.1 due to a version number mix-up in 1.0.0)
-        
-        - 1.0.0-dev3
-        
-          - Black list low code point characters (<32)
-        
-        - 1.0.0-dev1
-        
-          - First version
-Platform: UNKNOWN
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Requires-Python: ~=3.7
 Description-Content-Type: text/markdown
+License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-python
+Dynamic: summary
+
+A simple, dependency-free, blacklist-based filename sanitizer, for when you want to keep the original filename.
+
+**Note that a blacklist based sanitizer will _never_ be as safe as a whitelist based one. In most cases, your best option is to create a safe filename yourself. Your second safest option is to use a whitelist approach (allowing only certain characters).**  This sanitizer is useful when you want to keep the original filename, including non ascii characters, whenever possible. It might be useful for trusted but dirty input, but **should not be used with raw user input**!
+
+## Installation
+
+```sh
+pip install sanitize_filename
+```
+
+## Usage
+
+```python3
+from sanitize_filename import sanitize
+
+
+filename = input("Enter a file name:")
+filename = sanitize(filename)
+```
+
+Examples:
+
+```python3
+> sanitize("A/B/C.txt")
+'ABC.txt'
+
+> sanitize("this𓀦filenameḜisあactually...valid.txt")
+'this𓀦filenameḜisあactually...valid.txt'
+
+> sanitize("def.")
+'def'
+
+> sanitize("NUL")
+'__NUL'
+
+> sanitize("..")
+'__'
+```
+
+## Changelog
+
+- 1.2.1
+
+  - Fix a bug where a fullwidth character could be used craft path traversal attack
+  - Add some missing Windows device names
+  - Remove lone surrogates
+  - Fix a bug where names could be crafted to end in a dot.
+  - Remove C1 range control characters
+
+- 1.2.0
+
+  - Get rid of os dependent checks; ensure uniform behaviour
+  - Now works on long filenames where the non-extensions part consists of only dots
+
+- 1.1.0
+
+  - Try to preserve filename extensions if possible
+
+- 1.0.1
+
+  - First release (as 1.0.1 due to a version number mix-up in 1.0.0)
+
+- 1.0.0-dev3
+
+  - Black list low code point characters (<32)
+
+- 1.0.0-dev1
+
+  - First version

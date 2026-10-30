@@ -245,6 +245,11 @@ impl TVMFFIByteArray {
     /// # Returns
     /// * `&str` - The converted str view.
     pub fn as_str(&self) -> &str {
+        // An empty array may hold a null pointer, as the type table stores an
+        // empty doc string.
+        if self.data.is_null() {
+            return "";
+        }
         unsafe { std::str::from_utf8_unchecked(std::slice::from_raw_parts(self.data, self.size)) }
     }
     /// Unsafe function to create a TVMFFIByteArray from a string
@@ -493,6 +498,10 @@ unsafe extern "C" {
         name: *const TVMFFIByteArray,
         f: TVMFFIObjectHandle,
         can_override: i32,
+    ) -> i32;
+    pub fn TVMFFIFunctionSetGlobalFromMethodInfo(
+        method_info: *const TVMFFIMethodInfo,
+        allow_override: i32,
     ) -> i32;
     pub fn TVMFFIFunctionCreate(
         self_ptr: *mut c_void,

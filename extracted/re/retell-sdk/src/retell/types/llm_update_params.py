@@ -73,6 +73,11 @@ __all__ = [
     "ModelConfigCascadingModelConfigPrimary",
     "ModelConfigS2SModelConfig",
     "ModelConfigS2SModelConfigPrimary",
+    "ModelConfigDuplexModelConfig",
+    "ModelConfigDuplexModelConfigBackend",
+    "ModelConfigDuplexModelConfigBackup",
+    "ModelConfigDuplexModelConfigBackupBackupModelRef",
+    "ModelConfigDuplexModelConfigPrimary",
     "State",
     "StateEdge",
     "StateEdgeParameters",
@@ -291,12 +296,6 @@ class LlmUpdateParams(TypedDict, total=False):
     one state).
     """
 
-    tool_call_strict_mode: Optional[bool]
-    """Whether to use strict mode for tool calls.
-
-    Only applicable when using certain supported models.
-    """
-
 
 class BackupModelBackupModelChoice(TypedDict, total=False):
     """Backup models are supported only for call agents.
@@ -454,6 +453,20 @@ class GeneralToolTransferCallToolTransferOptionTransferOptionColdTransfer(TypedD
 
     If set to `sip_refer`, will use SIP REFER to transfer the call. If set to
     `sip_invite`, will use SIP INVITE to transfer the call.
+    """
+
+    custom_on_hold_music_asset_id: str
+    """Asset ID of the uploaded hold music to play.
+
+    Required when `on_hold_music` is `custom`. Must reference an audio asset owned
+    by the organization (see create-asset).
+    """
+
+    on_hold_music: Literal["none", "relaxing_sound", "uplifting_beats", "ringtone", "custom"]
+    """The music to play while the caller is being transferred.
+
+    If omitted, preserves the existing transfer audio behavior. Use `custom`
+    together with `custom_on_hold_music_asset_id` to play an uploaded audio asset.
     """
 
     show_transferee_as_caller: bool
@@ -1853,7 +1866,159 @@ class ModelConfigS2SModelConfig(TypedDict, total=False):
     """Runs a speech-to-speech model."""
 
 
-ModelConfig: TypeAlias = Union[ModelConfigCascadingModelConfig, ModelConfigS2SModelConfig]
+class ModelConfigDuplexModelConfigBackend(TypedDict, total=False):
+    """The text LLM that answers the voice model's delegations."""
+
+    model: Required[
+        Literal[
+            "gpt-4.1",
+            "gpt-4.1-mini",
+            "gpt-5",
+            "gpt-5-mini",
+            "gpt-5-nano",
+            "gpt-5.1",
+            "gpt-5.2",
+            "gpt-5.4",
+            "gpt-5.4-mini",
+            "gpt-5.4-nano",
+            "gpt-5.5",
+            "gpt-5.6-terra",
+            "gpt-5.6-luna",
+            "gpt-6-astra",
+            "gpt-6-sol",
+            "gpt-6.1-sol",
+            "gpt-6.1-terra",
+            "gpt-6-luna",
+            "claude-4.6-sonnet",
+            "claude-5-opus",
+            "claude-5.5-opus",
+            "claude-5-sonnet",
+            "claude-5.5-sonnet",
+            "claude-5.5-haiku",
+            "claude-4.5-haiku",
+            "gemini-3.0-flash",
+            "gemini-3.1-flash-lite",
+            "gemini-3.5-flash",
+            "gemini-3.5-flash-lite",
+            "gemini-3.6-flash",
+            "gemini-3.7-flash",
+            "gemini-3.8-flash",
+            "gemini-4-argon",
+        ]
+    ]
+    """Available LLM models for agents."""
+
+    tier: Literal["standard", "fast", "ultrafast"]
+    """Capacity tier for a model.
+
+    standard is always available. fast draws from dedicated capacity for lower,
+    steadier latency, and ultrafast is faster still on voice agents; faster tiers
+    cost more. Each model offers its own set of tiers, and a tier the model does not
+    offer is rejected.
+    """
+
+
+class ModelConfigDuplexModelConfigBackupBackupModelRef(TypedDict, total=False):
+    """Backup models are supported only for call agents.
+
+    Response engines with a backup model cannot be used by chat agents.
+    """
+
+    model: Required[
+        Literal[
+            "gpt-4.1",
+            "gpt-4.1-mini",
+            "gpt-5",
+            "gpt-5-mini",
+            "gpt-5-nano",
+            "gpt-5.1",
+            "gpt-5.2",
+            "gpt-5.4",
+            "gpt-5.4-mini",
+            "gpt-5.4-nano",
+            "gpt-5.5",
+            "gpt-5.6-terra",
+            "gpt-5.6-luna",
+            "gpt-6-astra",
+            "gpt-6-sol",
+            "gpt-6.1-sol",
+            "gpt-6.1-terra",
+            "gpt-6-luna",
+            "claude-4.6-sonnet",
+            "claude-5-opus",
+            "claude-5.5-opus",
+            "claude-5-sonnet",
+            "claude-5.5-sonnet",
+            "claude-5.5-haiku",
+            "claude-4.5-haiku",
+            "gemini-3.0-flash",
+            "gemini-3.1-flash-lite",
+            "gemini-3.5-flash",
+            "gemini-3.5-flash-lite",
+            "gemini-3.6-flash",
+            "gemini-3.7-flash",
+            "gemini-3.8-flash",
+            "gemini-4-argon",
+        ]
+    ]
+    """Available LLM models for agents."""
+
+    kick_in_timeout_ms: int
+    """
+    How long to prefer the primary model's output while both models run, in
+    milliseconds. Defaults to 1500.
+    """
+
+    tier: Literal["standard", "fast", "ultrafast"]
+    """Capacity tier for a model.
+
+    standard is always available. fast draws from dedicated capacity for lower,
+    steadier latency, and ultrafast is faster still on voice agents; faster tiers
+    cost more. Each model offers its own set of tiers, and a tier the model does not
+    offer is rejected.
+    """
+
+
+ModelConfigDuplexModelConfigBackup: TypeAlias = Union[
+    ModelConfigDuplexModelConfigBackupBackupModelRef, Optional[object]
+]
+
+
+class ModelConfigDuplexModelConfigPrimary(TypedDict, total=False):
+    model: Required[Literal["gpt-live-1"]]
+
+
+class ModelConfigDuplexModelConfig(TypedDict, total=False):
+    """Retell LLMs only.
+
+    A full-duplex voice model talks to the user and delegates to a cascading backend model, which runs the LLM's prompt, tools and knowledge base. Requires backend and voice_prompt. Tools' speak_during_execution is ignored, since the voice model covers the wait itself, and speak_after_execution is always on.
+    """
+
+    backend: ModelConfigDuplexModelConfigBackend
+    """The text LLM that answers the voice model's delegations."""
+
+    backup: ModelConfigDuplexModelConfigBackup
+    """A backup for the backend model."""
+
+    primary: ModelConfigDuplexModelConfigPrimary
+
+    temperature: float
+    """Randomness of the response, from 0 to 1.
+
+    Defaults to 0; a lower value is recommended for tool calling.
+    """
+
+    type: Literal["duplex"]
+    """Runs a full-duplex voice model with a cascading backend."""
+
+    voice_prompt: str
+    """The voice model's prompt, at most 15,000 tokens.
+
+    The LLM's general_prompt is the backend's prompt.
+    """
+
+
+ModelConfig: TypeAlias = Union[ModelConfigCascadingModelConfig, ModelConfigS2SModelConfig, ModelConfigDuplexModelConfig]
 
 
 class StateEdgeParameters(TypedDict, total=False):
@@ -1998,6 +2163,20 @@ class StateToolTransferCallToolTransferOptionTransferOptionColdTransfer(TypedDic
 
     If set to `sip_refer`, will use SIP REFER to transfer the call. If set to
     `sip_invite`, will use SIP INVITE to transfer the call.
+    """
+
+    custom_on_hold_music_asset_id: str
+    """Asset ID of the uploaded hold music to play.
+
+    Required when `on_hold_music` is `custom`. Must reference an audio asset owned
+    by the organization (see create-asset).
+    """
+
+    on_hold_music: Literal["none", "relaxing_sound", "uplifting_beats", "ringtone", "custom"]
+    """The music to play while the caller is being transferred.
+
+    If omitted, preserves the existing transfer audio behavior. Use `custom`
+    together with `custom_on_hold_music_asset_id` to play an uploaded audio asset.
     """
 
     show_transferee_as_caller: bool

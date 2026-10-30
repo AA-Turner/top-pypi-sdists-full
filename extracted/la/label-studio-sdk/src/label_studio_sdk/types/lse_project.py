@@ -132,6 +132,11 @@ class LseProject(UncheckedBaseModel):
     Description (Public)
     """
 
+    dm_column_access: typing.Optional[typing.Any] = pydantic.Field(default=None)
+    """
+    Effective Annotator/Reviewer column deny lists. Managers+ see both roles.
+    """
+
     dm_column_defaults: typing.Optional[LseProjectDmColumnDefaults] = pydantic.Field(default=None)
     """
     Soft Data Manager column visibility and order defaults. Returned on project reads for every role so Data Manager can apply them at runtime; Managers and above may set this. explore is the main grid (shared order, role-keyed visible lists). labeling is reserved for independent Quick View defaults. On update, omitted surfaces keep their stored values; send null to clear both surfaces.
@@ -180,6 +185,11 @@ class LseProject(UncheckedBaseModel):
     is_published: typing.Optional[bool] = pydantic.Field(default=None)
     """
     Whether or not the project is published to annotators
+    """
+
+    is_skill_assessment: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Skill assessment: tests contributors instead of producing work
     """
 
     label_config: typing.Optional[str] = pydantic.Field(default=None)

@@ -32,7 +32,36 @@ def test_normalize_host_result_is_expected(host: str, expected: str) -> None:
     assert result == expected, host
 
 
-@pytest.mark.parametrize("charset", ["utf-8", "utf-16", "utf-32", "iso-8859-1"])
+@pytest.mark.parametrize("separator", [".", "\u3002", "\uff0e", "\uff61"])
+@pytest.mark.parametrize(
+    ("host", "expected"),
+    [
+        ("EXAMPLE.COM", "example.com"),
+        ("faß.de", "xn--fa-hia.de"),
+        ("under_score.example", "under_score.example"),
+    ],
+)
+def test_normalize_host_strips_trailing_idna_separator(host, expected, separator):
+    """Strip equivalent trailing label separators before IDNA conversion."""
+    normalized = normalize_host(host + separator)
+    assert normalized == expected
+    assert normalize_host(normalized) == normalized
+
+
+@pytest.mark.parametrize("prefix", ["", "."])
+@pytest.mark.parametrize("separator", ["\u3002", "\uff0e", "\uff61"])
+def test_normalize_host_rejects_leading_unicode_separator(prefix, separator):
+    """Keep rejecting leading Unicode label separators as before."""
+    with pytest.raises(UnicodeError):
+        normalize_host(prefix + separator + "example.com")
+
+
+@pytest.mark.parametrize("prefix", [".", ".."])
+def test_normalize_host_strips_leading_ascii_dots(prefix):
+    """Retain the existing normalization of leading ASCII dots."""
+    assert normalize_host(prefix + "example.com") == "example.com"
+
+
 @pytest.mark.parametrize(
     ("host", "expected"),
     [
@@ -42,17 +71,16 @@ def test_normalize_host_result_is_expected(host: str, expected: str) -> None:
         ("[2001:DB8::1]", "[2001:db8::1]"),
     ],
 )
-def test_normalize_host_decodes_idna_output_as_ascii(host, expected, charset):
-    """Decode ASCII IDNA output independently of the input byte encoding."""
-    assert normalize_host(host, charset) == expected
-    assert normalize_host(expected.encode(charset), charset) == expected
+def test_normalize_host_accepts_text_and_utf8_bytes(host, expected):
+    """Normalize text and UTF-8 bytes to the same ASCII hostname."""
+    assert normalize_host(host) == expected
+    assert normalize_host(host.encode("utf-8")) == expected
 
 
 @pytest.mark.parametrize("zone", ["%25ethA", "%ethA", "%25Interface.10", "%25ETH0"])
-@pytest.mark.parametrize("charset", ["utf-8", "utf-16"])
-def test_normalize_host_preserves_ipv6_zone_case(zone, charset):
+def test_normalize_host_preserves_ipv6_zone_case(zone):
     """Lowercase the IPv6 address without changing its interface identifier."""
     host = f"[FE80::ABCD{zone}]"
     expected = f"[fe80::abcd{zone}]"
-    assert normalize_host(host, charset) == expected
-    assert normalize_host(host.encode(charset), charset) == expected
+    assert normalize_host(host) == expected
+    assert normalize_host(host.encode("utf-8")) == expected

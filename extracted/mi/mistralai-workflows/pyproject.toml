@@ -19,7 +19,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "mistralai>=2.9.3,<3.0.0",
+    "mistralai>=2.9.3,<4.0.0",
     # The Speakeasy-generated worker client is generated in worker_client/ and
     # vendored into this package via the symlinked mistralai/workflows/worker_client
     # directory, so the published wheel carries the code itself rather than depending
@@ -70,7 +70,6 @@ Documentation = "https://docs.mistral.ai/workflows/getting-started/introduction"
 [project.optional-dependencies]
 mistralai = [
     "mistralai-workflows-plugins-mistralai>=3.0.0a1,<4.0.0",
-    "mcp>=1.27.2,<2.0.0",
     "aiocache>=0.12.3,<1.0.0",
 ]
 webhook = [

@@ -99,7 +99,11 @@ def validate_schemas_are_valid_json_schema(catalog: AirbyteCatalog) -> Validatio
     return ValidationResult.success("All stream schemas are valid JSON Schema Draft 7")
 
 
-def validate_cursors_exist_in_schema(catalog: AirbyteCatalog) -> ValidationResult:
+def validate_cursors_exist_in_schema(
+    catalog: AirbyteCatalog,
+    *,
+    cursor_paths_by_stream: dict[str, list[str]] | None = None,
+) -> ValidationResult:
     """Validate that all defined cursor fields exist in their stream schemas.
 
     Args:
@@ -110,7 +114,12 @@ def validate_cursors_exist_in_schema(catalog: AirbyteCatalog) -> ValidationResul
     """
     errors = []
     for stream in catalog.streams:
-        if not stream.default_cursor_field:
+        cursor_fields = (
+            cursor_paths_by_stream.get(stream.name)
+            if cursor_paths_by_stream and stream.name in cursor_paths_by_stream
+            else stream.default_cursor_field
+        )
+        if not cursor_fields:
             continue
 
         schema = stream.json_schema
@@ -120,11 +129,11 @@ def validate_cursors_exist_in_schema(catalog: AirbyteCatalog) -> ValidationResul
             )
             continue
 
-        cursor_path = "/properties/".join(stream.default_cursor_field)
+        cursor_path = "/properties/".join(cursor_fields)
         cursor_field_location = dpath.util.search(schema["properties"], cursor_path)
         if not cursor_field_location:
             errors.append(
-                f"Stream '{stream.name}': cursor field {stream.default_cursor_field} "
+                f"Stream '{stream.name}': cursor field {cursor_fields} "
                 "not found in schema properties"
             )
 

@@ -392,7 +392,9 @@ def log1p_anndata(
     layer: str | None = None,
     obsm: str | None = None,
 ) -> AnnData | None:
-    if "log1p" in adata.uns:
+    # `uns["log1p"]` only tells us that `adata.X` was transformed, so don’t warn
+    # when the call targets a layer or obsm instead.
+    if layer is None and obsm is None and "log1p" in adata.uns:
         logg.warning("adata.X seems to be already log-transformed.")
 
     adata = adata.copy() if copy else adata
@@ -837,6 +839,11 @@ def _regress_out_chunk(
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter("error", sme.PerfectSeparationWarning)
+                # For a categorical key, `regres` is [1, per-category mean].
+                # If the category means coincide, that’s rank-deficient, but the
+                # (pseudo-inverse) fit still yields the correct residuals.
+                # statsmodels ≥0.15 warns about it: SingularMatrixWarning
+                warnings.filterwarnings("ignore", "The design matrix is rank-deficient")
                 result = sm.GLM(
                     data_chunk[:, col_index], regres, family=sm.families.Gaussian()
                 ).fit()

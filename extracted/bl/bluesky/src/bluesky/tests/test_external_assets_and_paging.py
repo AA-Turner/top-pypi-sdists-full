@@ -12,6 +12,7 @@ from event_model.documents.stream_resource import StreamResource
 
 import bluesky.plan_stubs as bps
 import bluesky.plans as bp
+from bluesky.bundlers import RunBundler
 from bluesky.protocols import (
     Asset,
     Collectable,
@@ -24,6 +25,7 @@ from bluesky.protocols import (
     WritesExternalAssets,
     WritesStreamAssets,
 )
+from bluesky.tests import requires_ophyd
 
 
 class DocHolder(dict):
@@ -461,6 +463,37 @@ def test_old_datum_collectable(RE):
     assert docs["event_page"][0]["filled"] == {"det-datum": [False]}
 
 
+def test_repeated_old_style_collect_describes_once(RE, mocker):
+    """An old-style (doubly-nested) device is described only on the first collect.
+
+    Regression test for a dead membership check in ``RunBundler.collect``: it
+    tested ``frozenset(collect_objects) not in self._local_descriptors``, but
+    ``_local_descriptors`` is keyed by individual objects, so that clause was
+    always True and ``_describe_collect`` was re-run on every repeat collect of
+    the same object instead of being skipped once the object was described.
+    """
+    spy = mocker.spy(RunBundler, "_describe_collect")
+
+    det = OldDatumCollectable(name="det")
+    docs = DocHolder()
+
+    def plan():
+        yield from bps.open_run()
+        yield from bps.collect(det)
+        yield from bps.collect(det)
+        yield from bps.close_run()
+
+    RE(plan(), docs.append)
+
+    # The object is described exactly once, on the first collect.
+    assert spy.call_count == 1
+    # The emitted documents are unchanged: one descriptor, one event_page per
+    # collect (two total), and matching external assets.
+    docs.assert_emitted(start=1, descriptor=1, resource=2, datum=2, event_page=2, stop=1)
+    # Sequence numbers advance across the two collects.
+    assert [ep["seq_num"] for ep in docs["event_page"]] == [[1], [2]]
+
+
 def test_old_datum_and_pv_collectable(RE):
     det = OldPvAndDatumCollectable(name="det")
     docs = DocHolder()
@@ -544,6 +577,25 @@ def test_many_collectables_fails(RE, cls1, cls2):
         RE(collect_plan(det1, det2, pre_declare=False))
 
 
+def test_collect_all_return_payload(RE):
+    """collect_all returns None when return_payload is False, else a list of events."""
+    results: dict[str, object] = {}
+
+    def plan(det, return_payload):
+        yield from bps.open_run()
+        yield from bps.declare_stream(det, name="main", collect=True)
+        results["ret"] = yield from bps.collect_all(det, name="main", return_payload=return_payload)
+        yield from bps.close_run()
+
+    RE(plan(PvCollectable(name="det"), return_payload=False))
+    assert results["ret"] is None
+
+    RE(plan(PvCollectable(name="det"), return_payload=True))
+    assert isinstance(results["ret"], list)
+    assert len(results["ret"]) == 2
+    assert all(isinstance(event, dict) for event in results["ret"])
+
+
 def test_many_stream_datum_collectables(RE):
     """Test collecting from multiple StreamDatum-producing devices."""
     det1 = StreamDatumReadableCollectable(name="det1")
@@ -624,3 +676,63 @@ def test_multiple_declare_in_same_stream(RE):
     assert docs["descriptor"][1]["name"] == "main"
     assert frozenset(docs["descriptor"][1]["data_keys"]) == frozenset(data_keys)
     assert all(d["descriptor"] == docs["descriptor"][1]["uid"] for d in docs["stream_datum"][4:])
+
+
+@requires_ophyd
+def test_object_classes(RE):
+    from ophyd.sim import SynAxis  # type: ignore
+
+    axis = SynAxis(name="det1")
+
+    class SomeReadable:
+        parent = None
+
+        @property
+        def name(self):
+            return "some_readble"
+
+        def describe(self):
+            return {f"{self.name}-sig1": DataKey(source="pv", dtype="number", shape=[])}
+
+        def read(self):
+            return {f"{self.name}-sig1": Reading(value=0, timestamp=123)}
+
+    class SomeClassReadable:
+        parent = None
+        name = "some_class_readble"
+
+        @classmethod
+        def describe(cls):
+            return {f"{cls.name}-sig1": DataKey(source="pv", dtype="number", shape=[])}
+
+        @classmethod
+        def read(cls):
+            return {f"{cls.name}-sig1": Reading(value=0, timestamp=123)}
+
+    class SomeStaticReadable:
+        parent = None
+        name = "some_static_readble"
+
+        @staticmethod
+        def describe():
+            return {"some_static_readble-sig1": DataKey(source="pv", dtype="number", shape=[])}
+
+        @staticmethod
+        def read():
+            return {"some_static_readble-sig1": Reading(value=0, timestamp=123)}
+
+    docs = DocHolder()
+
+    RE(bp.count([SomeReadable(), axis, SomeStaticReadable, SomeClassReadable]), docs.append)  # type: ignore
+    assert len(docs["descriptor"]) == 1
+    descriptor = docs["descriptor"][0]
+    assert descriptor["object_classes"] == {
+        "det1": "ophyd.sim.SynAxis",
+        "some_class_readble": (
+            "bluesky.tests.test_external_assets_and_paging.test_object_classes.<locals>.SomeClassReadable"
+        ),
+        "some_readble": "bluesky.tests.test_external_assets_and_paging.test_object_classes.<locals>.SomeReadable",
+        "some_static_readble": (
+            "bluesky.tests.test_external_assets_and_paging.test_object_classes.<locals>.SomeStaticReadable"
+        ),
+    }

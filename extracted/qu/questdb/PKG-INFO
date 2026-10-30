@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: questdb
-Version: 6.0.0
+Version: 6.0.1
 Summary: QuestDB client library for Python
 Author-email: Vlad Ilyushchenko <vlad@questdb.com>
 License-Expression: Apache-2.0
@@ -64,7 +64,7 @@ and full-connection encryption with
 Install
 =======
 
-The latest version of the library is 6.0.0 (`changelog <https://py-questdb-client.readthedocs.io/en/latest/changelog.html>`_).
+The latest version of the library is 6.0.1 (`changelog <https://py-questdb-client.readthedocs.io/en/latest/changelog.html>`_).
 
 ::
 

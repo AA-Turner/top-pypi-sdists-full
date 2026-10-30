@@ -22,7 +22,7 @@ log = logging.getLogger(__name__)
 # Pinned Coana CLI version. Bumped deliberately per Python CLI release so the
 # reachability engine version only changes through a standard pip upgrade (advance notice).
 # Pass --reach-version latest to opt into the newest published version instead.
-DEFAULT_COANA_CLI_VERSION: Final = "15.13.0"
+DEFAULT_COANA_CLI_VERSION: Final = "15.13.2"
 
 # Vendored from coana-package-manager, where it is generated; the only code that may read or
 # write the cache Coana shares with the Socket CLIs. See "Launching Coana" in that repo's
@@ -124,6 +124,7 @@ class ReachabilityAnalyzer:
         continue_on_no_source_files: bool = False,
         reach_debug: bool = False,
         disable_external_tool_checks: bool = False,
+        disable_dependency_downloads: bool = False,
     ) -> Dict[str, Any]:
         """
         Run reachability analysis.
@@ -212,6 +213,9 @@ class ReachabilityAnalyzer:
 
         if disable_external_tool_checks:
             coana_args.append("--disable-external-tool-checks")
+
+        if disable_dependency_downloads:
+            coana_args.append("--disable-dependency-downloads")
 
         if use_only_pregenerated_sboms:
             coana_args.append("--use-only-pregenerated-sboms")

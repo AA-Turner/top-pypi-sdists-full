@@ -24,10 +24,10 @@ fn create_fix(range: TextRange, args: Option<ast::ArgList>) -> Fix {
     if let Some(args_list) = args {
         let end = args_list.syntax().text_range().start();
         let edit = Edit::replace(TextRange::new(range.start(), end), "varchar");
-        Fix::new("Replace with `varchar`".to_string(), vec![edit])
+        Fix::new("Replace with `varchar`", vec![edit])
     } else {
         let edit = Edit::replace(range, "text");
-        Fix::new("Replace with `text`".to_string(), vec![edit])
+        Fix::new("Replace with `text`", vec![edit])
     }
 }
 
@@ -38,7 +38,7 @@ fn check_path_type(ctx: &mut Linter, path_type: &ast::PathType) {
         let fix = create_fix(name_ref.syntax().text_range(), path_type.arg_list());
         ctx.report(Violation::for_node(
             Rule::BanCharField,
-            "Using `character` is likely a mistake and should almost always be replaced by `text` or `varchar`.".into(),
+            "using `character` is likely a mistake and should almost always be replaced by `text` or `varchar`".into(),
             path_type.syntax(),
         ).fix(fix));
     }
@@ -51,7 +51,7 @@ fn check_character_type(ctx: &mut Linter, character_type: &ast::CharacterType) {
     );
     ctx.report(Violation::for_node(
         Rule::BanCharField,
-        "Using `character` is likely a mistake and should almost always be replaced by `text` or `varchar`.".into(),
+        "using `character` is likely a mistake and should almost always be replaced by `text` or `varchar`".into(),
         character_type.syntax(),
     ).fix(fix));
 }

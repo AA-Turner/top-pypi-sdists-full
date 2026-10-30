@@ -85,6 +85,7 @@ import json
 import os
 import re
 import secrets
+import textwrap
 import threading
 import time
 from collections.abc import Iterator
@@ -132,8 +133,12 @@ MESSAGE_MAX_CHARS = 1200
 LABEL_QUESTION_CHARS = 120
 #: `probe ask --wait` gives up after this long; the answer then goes out as a message.
 WAIT_MAX_S = 2 * 3600
-#: The most a request to the writer may carry (`probe ask --writer`).
-REQUEST_MAX_CHARS = 4000
+#: The most a request to the writer may carry (`probe ask --writer`): room for a
+#: phase handover or a branch's conclusion, and under the 20,000 characters the
+#: writer is shown of one (`bite.TEXT_SHOWN_CHARS`).
+REQUEST_MAX_CHARS = 16_000
+#: What a worker whose marker names no `request_chars` takes (it cuts the rest).
+LEGACY_REQUEST_MAX_CHARS = 4000
 #: `Message.origin` of what the daemon's WRITER sends: its reply to a request,
 #: a request that failed, a receipt for structural writes nobody asked for, and
 #: a receipt for the researcher (WRITER_RELAY_PREFIX).
@@ -670,6 +675,7 @@ def new_ask_id() -> str:
 
 def write_ask(session_id: str, question: str, *, wait: bool = False, now: "float | None" = None) -> Ask:
     """File a new ask for the reader; its id is never reused while the file exists."""
+    keep_folders()  # it may wait for the next worker a while (`ASK_NO_WORKER`)
     for _ in range(32):
         ask = Ask(id=new_ask_id(), session=session_id, question=question,
                   asked_at=time.time() if now is None else now, wait=wait)
@@ -759,8 +765,27 @@ def new_request_id() -> str:
     return "w" + secrets.token_hex(6)
 
 
+def request_text(value: str) -> str:
+    """A request to the writer as it is filed and shown: its line breaks and
+    indentation kept (a handover reads as the lists, paragraphs and code it was
+    written in), every kind of line end read as one, each line's trailing space,
+    the blank lines at either end and the indentation every line shares
+    dropped, and a run of blank lines kept as one. `probe ask --writer` files
+    it so (its length is the one checked against REQUEST_MAX_CHARS) and the
+    worker reads it so (a CLI before this one filed one line)."""
+    lines: list[str] = []
+    for line in value.splitlines():
+        line = line.rstrip()
+        if line or (lines and lines[-1]):
+            lines.append(line)
+    while lines and not lines[-1]:
+        lines.pop()
+    return textwrap.dedent("\n".join(lines))
+
+
 def write_request(session_id: str, text: str, *, wait: bool = False, now: "float | None" = None) -> Request:
     """File a request for the daemon's writer; its id is never reused while the file exists."""
+    keep_folders()  # it may wait for the next worker a while (`ASK_NO_WORKER`)
     for _ in range(32):
         req = Request(id=new_request_id(), session=session_id, text=text,
                       asked_at=time.time() if now is None else now, wait=wait)
@@ -792,9 +817,66 @@ def take_request(session_id: str, request_id: str) -> None:
         pass
 
 
+def _accepts_record(pid: "int | None") -> dict:
+    return {"pid": os.getpid() if pid is None else pid, "requests": 1, "request_chars": REQUEST_MAX_CHARS}
+
+
 def mark_worker_accepts(session_id: str, pid: "int | None" = None) -> None:
     """The running worker takes requests: written at its start, removed at its end."""
-    _write_json(worker_marker_path(session_id), {"pid": os.getpid() if pid is None else pid, "requests": 1})
+    _write_json(worker_marker_path(session_id), _accepts_record(pid))
+
+
+def worker_request_chars(session_id: str) -> int:
+    """The longest request the session's running worker takes whole: its marker's
+    `request_chars`, else LEGACY_REQUEST_MAX_CHARS (a worker from before it)."""
+    data = _read_json(worker_marker_path(session_id)) or {}
+    n = data.get("request_chars")
+    if isinstance(n, bool) or not isinstance(n, int) or n <= 0:
+        return LEGACY_REQUEST_MAX_CHARS
+    return min(n, REQUEST_MAX_CHARS)
+
+
+def keep_worker_marker(session_id: str, *, config: "str | None" = None) -> bool:
+    """The running worker's every poll: its marker again when it is gone, with
+    its run-alert offer (`config`, `offer_run_alerts`), in one write. Without
+    one `probe ask --writer` reads the live worker as one from before requests,
+    and another worker's start-up sweep may take the session
+    (`sweep_stale_sessions`): an SDK's dead-run recovery deleted the whole
+    `requests/` folder (#3616). True when it was written."""
+    if worker_marker_path(session_id).exists():
+        return False
+    _write_json(worker_marker_path(session_id),
+                {**_accepts_record(None), **({"run_alerts": 1, "config": config} if config else {})})
+    return True
+
+
+#: The folders under `root`, one per kind of mailbox file. A run's read
+#: recorder keeps its own folders beside them (`probe.sdk.inputs.state_dir`).
+FOLDERS = ("asks", "messages", "claimed", "requests", "turns", "status", "alerts", "alive", "hints")
+#: In each of `FOLDERS`, empty, read by nothing: what keeps an SDK's dead-run
+#: recovery from deleting the folder. Every SDK since recovery began leaves a
+#: folder holding a `*.jsonl` its `<host>.<pid>` rule does not parse
+#: (`inputs._clear_dead_folder`), and one from #3616 on takes no folder
+#: without a run's own file (`inputs._sdk_owned`).
+KEEP_FILE = "probe-mailbox.jsonl"
+
+
+def keep_folders() -> None:
+    """Each of `FOLDERS`, made if missing, with its `KEEP_FILE`: an SDK from
+    before #3616, in a training venv nobody updates, takes any folder under
+    `root` unchanged for 10 minutes for a dead run's and deletes it whole,
+    every session's asks, requests and messages with it, whether or not a
+    worker runs. Called by the running worker at its start and every poll, and
+    by `probe ask` before it files anything. Best effort."""
+    base = root()
+    for name in FOLDERS:
+        path = base / name / KEEP_FILE
+        try:
+            if not path.exists():
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.touch()
+        except OSError:
+            pass  # the next caller makes it
 
 
 def clear_worker_accepts(session_id: str, pid: "int | None" = None) -> None:
@@ -1609,6 +1691,8 @@ def sweep_stale_sessions(keep: str, *, now: "float | None" = None, max_age: floa
         if not folder.is_dir():
             continue
         for path in folder.iterdir():
+            if path.name == KEEP_FILE:
+                continue  # the folder's own (`keep_folders`), not a session's
             if path.name.startswith(_safe(keep)) or accepts_requests(path.name.split(".", 1)[0]):
                 continue  # a live worker's status says what it is doing, however old
             try:

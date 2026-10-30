@@ -44,13 +44,18 @@ def cli(monkeypatch: pytest.MonkeyPatch) -> Mock:
     return stubs
 
 
-def _run(tmp_path: Path, connection_id: str | None = CONNECTION_ID) -> None:
+def _run(
+    tmp_path: Path,
+    connection_id: str | None = CONNECTION_ID,
+    output_mode: str | None = None,
+) -> None:
     cloud.regression_test(
         skip_compare=True,
         test_image="airbyte/source-test:2.0.0",
         command="spec",
         connection_id=connection_id,
         output_dir=str(tmp_path),
+        output_mode=output_mode,
     )
 
 
@@ -90,16 +95,35 @@ def test_eu_connection_on_the_eu_runner_is_fetched(tmp_path: Path, cli: Mock) ->
     cli.fetch_connection_data.assert_called_once_with(CONNECTION_ID)
 
 
-def test_us_connection_is_fetched_without_a_metadata_check(
-    tmp_path: Path, cli: Mock
-) -> None:
-    """A US connection goes straight to the fetch; the metadata server is not asked."""
+def test_us_connection_off_the_eu_runner_is_fetched(tmp_path: Path, cli: Mock) -> None:
+    """Off the EU runner, the guard lets a US connection through to the fetch."""
     with pytest.raises(_FetchReachedError):
         _run(tmp_path)
 
     cli.get_connection_residency.assert_called_once_with(CONNECTION_ID)
-    cli.is_running_on_eu_runner.assert_not_called()
+    cli.is_running_on_eu_runner.assert_called_once_with()
     cli.fetch_connection_data.assert_called_once_with(CONNECTION_ID)
+
+
+def test_us_connection_is_refused_before_the_fetch_on_the_eu_runner(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    cli: Mock,
+) -> None:
+    """On the EU runner, a US connection's config and catalog are never fetched."""
+    cli.is_running_on_eu_runner.return_value = True
+
+    with pytest.raises(SystemExit) as exc_info:
+        _run(tmp_path)
+
+    assert exc_info.value.code == 1
+    cli.fetch_connection_data.assert_not_called()
+    assert cli.github_outputs["success"] is False
+    assert cli.github_outputs["error"] == (
+        f"{cloud.EU_RUNNER_EU_ONLY_MESSAGE}; connection ID {CONNECTION_ID} was "
+        "refused before its config or catalog was fetched."
+    )
+    assert "only retrieves EU connections" in " ".join(capsys.readouterr().err.split())
 
 
 def test_failed_residency_lookup_stops_before_the_fetch(
@@ -121,7 +145,7 @@ def test_failed_residency_lookup_stops_before_the_fetch(
     }
 
 
-def test_residency_is_not_checked_when_the_retriever_is_off(
+def test_residency_is_checked_when_the_retriever_is_off(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, cli: Mock
 ) -> None:
     """Without the secret retriever, the CLI behaves as before."""
@@ -130,8 +154,28 @@ def test_residency_is_not_checked_when_the_retriever_is_off(
     with pytest.raises(_FetchReachedError):
         _run(tmp_path)
 
-    cli.get_connection_residency.assert_not_called()
+    cli.get_connection_residency.assert_called_once_with(CONNECTION_ID)
     cli.fetch_connection_data.assert_called_once_with(CONNECTION_ID)
+
+
+def test_eu_raw_mode_is_refused_before_fetch_or_metadata_check(
+    tmp_path: Path, cli: Mock
+) -> None:
+    cli.get_connection_residency.return_value = "eu"
+
+    with pytest.raises(SystemExit) as exc_info:
+        _run(tmp_path, output_mode="raw")
+
+    assert exc_info.value.code == 1
+    cli.get_connection_residency.assert_called_once_with(CONNECTION_ID)
+    cli.is_running_on_eu_runner.assert_not_called()
+    cli.fetch_connection_data.assert_not_called()
+    assert cli.github_outputs == {
+        "success": False,
+        "error": (
+            "EU-resident connections always run masked; output_mode=raw is refused."
+        ),
+    }
 
 
 def test_gsm_path_does_not_check_residency(

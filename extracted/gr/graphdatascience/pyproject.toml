@@ -16,26 +16,25 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Database",
     "Topic :: Scientific/Engineering",
     "Topic :: Software Development",
     "Typing :: Typed",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "multimethod >= 1.0, < 3.0",
     "neo4j >= 5.26.0, < 7.0",
     "numpy < 3.0",
     "pandas>=2.0,<4.0",
-    "pyarrow >= 21.0, < 26.0",
+    "pyarrow >= 22.0, < 27.0",
     "textdistance >= 4.0, < 5.0",
     "tqdm >= 4.0, < 5.0",
-    "typing-extensions >= 4.0, < 5.0",
     "requests",
     "tenacity >= 9.0",
     "pydantic >= 2.11",
@@ -62,12 +61,11 @@ dev = [
 ]
 
 dev-base = [
-    "ruff==0.16.8",
-    "mypy == 2.3.1",
-    "pandas-stubs == 2.3.3.260113 ; python_version < '3.11'",
-    "pandas-stubs == 3.0.3.260530 ; python_version >= '3.11'",
-    "tox==4.63.0",
-    "types-setuptools == 83.0.0.20260807",
+    "ruff==0.17.1",
+    "mypy == 2.4.0",
+    "pandas-stubs == 3.0.5.260914",
+    "tox==4.66.0",
+    "types-setuptools == 84.0.0.20261006",
     "enum-tools[sphinx]==0.13.0",
     "autodoc_pydantic",
     "types-requests",
@@ -80,7 +78,7 @@ test = [
     "pytest == 9.1.1",
     "pytest-timeout",
     "requests_mock == 1.12.1",
-    "pytest_mock == 3.15.1",
+    "pytest_mock == 3.16.0",
     "testcontainers == 4.15.0",
     "python-dateutil >= 2.9",
 ]
@@ -92,10 +90,10 @@ docs-ci = [
     "networkx >= 2.0, < 4.0"
 ]
 notebook-base = [
-    "nbconvert==7.17.1",
+    "nbconvert==7.17.2",
     "nbformat==5.11.1",
     "nbclient==0.11.0",
-    "ipykernel==7.3.0",
+    "ipykernel==7.4.0",
     "neo4j-viz>=1.6.0"
 ]
 notebook-aura-ci = [

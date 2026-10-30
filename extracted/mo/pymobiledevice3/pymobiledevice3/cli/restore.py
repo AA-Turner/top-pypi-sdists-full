@@ -2,6 +2,7 @@ import asyncio
 import contextlib
 import hashlib
 import logging
+import os
 import plistlib
 import re
 import sys
@@ -48,6 +49,7 @@ from pymobiledevice3.restore.recovery import Behavior, Recovery
 from pymobiledevice3.restore.restore import Restore
 from pymobiledevice3.service_connection import ServiceConnection
 from pymobiledevice3.services.diagnostics import DiagnosticsService
+from pymobiledevice3.usb import USB_BACKEND_ENV_VAR, power_delivery
 from pymobiledevice3.utils import ask_prompt, file_download, start_ipython_shell
 
 logger = logging.getLogger(__name__)
@@ -71,6 +73,22 @@ cli = InjectingTyper(
     help="Restore/erase IPSWs, fetch blobs, and manage devices in Recovery/DFU.",
     no_args_is_help=True,
 )
+
+
+@cli.callback()
+def callback(
+    libusb: Annotated[
+        bool,
+        typer.Option(
+            "--libusb",
+            help=f"macOS: reach Recovery/DFU devices through libusb instead of IOKit (same as "
+            f"{USB_BACKEND_ENV_VAR}=libusb). libusb cannot see A16-or-later devices in DFU mode.",
+        ),
+    ] = False,
+) -> None:
+    if libusb:
+        os.environ[USB_BACKEND_ENV_VAR] = "libusb"
+
 
 # How long the device prompt waits on each device for its description.
 DEVICE_DESCRIPTION_TIMEOUT = 5.0
@@ -425,8 +443,8 @@ async def restore_update_task(
     ).update()
 
 
-async def _choose_dfu_sequence(product_type: str) -> dfu_guide.ButtonSequence:
-    sequence = dfu_guide.iphone_sequence(product_type)
+async def _choose_dfu_sequence(product_type: str, assisted: bool) -> dfu_guide.ButtonSequence:
+    sequence = dfu_guide.iphone_sequence(product_type, assisted=assisted)
     if sequence is not None:
         return sequence
     if product_type.startswith("iPad"):
@@ -435,9 +453,12 @@ async def _choose_dfu_sequence(product_type: str) -> dfu_guide.ButtonSequence:
     raise typer.BadParameter(f"The DFU guide does not know the buttons of {product_type}.")
 
 
-async def guide_into_dfu(device: Device) -> dfu_guide.UsbState:
+async def guide_into_dfu(device: Device, manual: bool = False) -> dfu_guide.UsbState:
     """
     Walk the user through putting ``device`` into DFU mode, retrying until it works or they give up.
+
+    A booted device is restarted from here, so only the buttons that pick DFU mode are left to the user, unless
+    ``manual`` asks for the whole button sequence.
 
     :returns: the DFU flavor the device came up in (``DFU`` or ``KIS``).
     """
@@ -448,11 +469,20 @@ async def guide_into_dfu(device: Device) -> dfu_guide.UsbState:
         raise typer.Exit(code=1)
 
     product_type = await device.get_product_type()
-    sequence = await _choose_dfu_sequence(product_type)
-    udid = device.lockdown.udid if device.lockdown is not None else None
-    if device.lockdown is not None:
+    lockdown = device.lockdown
+    sequence = await _choose_dfu_sequence(product_type, assisted=lockdown is not None and not manual)
+    udid = lockdown.udid if lockdown is not None else None
+
+    async def restart() -> None:
+        assert lockdown is not None
+        # the device goes down once the service connection closes
+        async with DiagnosticsService(lockdown) as diagnostics:
+            await diagnostics.restart()
+        await lockdown.close()
+
+    if lockdown is not None and not any(step.restart_after for step in sequence.steps):
         # the device is about to drop off USB
-        await device.lockdown.close()
+        await lockdown.close()
 
     console = Console()
     console.print(
@@ -475,7 +505,7 @@ async def guide_into_dfu(device: Device) -> dfu_guide.UsbState:
         for count in (3, 2, 1):
             console.print(f"[bold]{count}...[/bold]")
             await asyncio.sleep(1)
-        result = await dfu_guide.run_sequence(console, sequence, udid)
+        result = await dfu_guide.run_sequence(console, sequence, udid, restart)
         if result.in_dfu:
             console.print(
                 f"\n[bold green]Done! The device is in {result.state.value}.[/bold green] You can let go of the buttons."
@@ -488,19 +518,24 @@ async def guide_into_dfu(device: Device) -> dfu_guide.UsbState:
             raise typer.Exit(code=1)
 
 
-async def _reconnect_in_dfu(ecid: int, state: dfu_guide.UsbState) -> Device:
-    if state == dfu_guide.UsbState.KIS:
-        raise PyMobileDevice3Exception(
-            "The device came up in DFU mode over Debug USB (KIS), which restores do not support yet."
-        )
+async def _reconnect_in_dfu(ecid: int) -> Device:
     return Device(irecv=IRecv(ecid=ecid, is_recovery=False))
+
+
+ManualDfuOption = Annotated[
+    bool,
+    typer.Option(
+        "--manual",
+        help="Do the whole DFU button sequence yourself, instead of having a booted device restarted from here.",
+    ),
+]
 
 
 @cli.command("enter-dfu")
 @async_command
-async def restore_enter_dfu(device: DeviceDep) -> None:
+async def restore_enter_dfu(device: DeviceDep, manual: ManualDfuOption = False) -> None:
     """Guide you, step by step, through the buttons that put the device into DFU mode."""
-    await guide_into_dfu(device)
+    await guide_into_dfu(device, manual=manual)
 
 
 @cli.command("shell")
@@ -533,10 +568,76 @@ def restore_exit() -> None:
     irecv.reboot()
 
 
+def _choose_vdm_port(ecid: Optional[str]) -> power_delivery.ApplePort:
+    ports = power_delivery.list_apple_ports()
+    if ecid is not None:
+        ecid_value = int(ecid, 0)
+        ports = [port for port in ports if port.ecid == ecid_value]
+    if not ports:
+        typer.secho(
+            "No Apple device is connected directly to a Thunderbolt/USB4 port of this Mac"
+            + ("" if ecid is None else f" with ECID {ecid}")
+            + ". Connect it to one of those ports with no hub in between (USB-C power messages only reach the "
+            "device at the other end of the cable), or restart it without --vdm.",
+            err=True,
+            fg="red",
+        )
+        raise typer.Exit(code=1)
+    if len(ports) == 1:
+        return ports[0]
+    selected = cast(
+        int,
+        prompt_selection(
+            [port.describe() for port in ports],
+            "Choose device",
+            idx=True,
+            hint="Pass --ecid to choose a device non-interactively.",
+        ),
+    )
+    return ports[selected]
+
+
+def _restart_over_power_delivery(ecid: Optional[str]) -> None:
+    if sys.platform != "darwin":
+        typer.secho("--vdm is only supported on macOS.", err=True, fg="red")
+        raise typer.Exit(code=1)
+    if os.geteuid() != 0:
+        typer.secho("--vdm needs root: rerun the command with sudo.", err=True, fg="red")
+        raise typer.Exit(code=1)
+    try:
+        port = _choose_vdm_port(ecid)
+        logger.info(f"Restarting the {port.describe()}")
+        power_delivery.reboot(port.port)
+    except power_delivery.PowerDeliveryError as e:
+        typer.secho(str(e), err=True, fg="red")
+        raise typer.Exit(code=1) from e
+
+
 @cli.command("restart")
 @async_command
-async def restore_restart(device: DeviceDep) -> None:
+async def restore_restart(
+    ecid: Annotated[
+        Optional[str],
+        typer.Option(
+            help="Target device ECID; defaults to the first connected USB device or waits for Recovery/DFU.",
+        ),
+    ] = None,
+    vdm: Annotated[
+        bool,
+        typer.Option(
+            "--vdm",
+            help="macOS, needs root: restart through the USB-C port controller with Apple's USB Power Delivery "
+            "reboot message. Needs no pairing and works in Recovery mode; the device must be directly on a "
+            "Thunderbolt/USB4 port.",
+        ),
+    ] = False,
+) -> None:
     """restarts device"""
+    if vdm:
+        _restart_over_power_delivery(ecid)
+        return
+    device = await _device_dependency_async(ecid)
+    assert device is not None  # only None while completing the command line
     if await device.get_is_lockdown():
         assert device.lockdown is not None  # get_is_lockdown() guarantees it
         async with DiagnosticsService(device.lockdown) as diagnostics:
@@ -670,15 +771,23 @@ async def restore_update(
             help="Restore from DFU mode: first guide you, step by step, through the buttons that put the device into it.",
         ),
     ] = False,
+    manual_dfu: ManualDfuOption = False,
 ) -> None:
     """
     Update or restore the device using an IPSW (local path or URL).
     """
-    if dfu:
-        ecid = await device.get_ecid()
-        device = await _reconnect_in_dfu(ecid, await guide_into_dfu(device))
     if exclusive_usb and sys.platform != "darwin":
         raise typer.BadParameter("--exclusive-usb is only supported on macOS", param_hint="--exclusive-usb")
+    if dfu:
+        ecid = await device.get_ecid()
+        await guide_into_dfu(device, manual=manual_dfu)
+        device = await _reconnect_in_dfu(ecid)
+    if exclusive_usb and device.irecv is not None and device.irecv.is_kis:
+        raise typer.BadParameter(
+            "On macOS a device in DFU mode behind KIS is reached through deviceinterfaced, which --exclusive-usb "
+            "boots out.",
+            param_hint="--exclusive-usb",
+        )
     async with ipsw_ctx as ipsw:
         with DeviceInterfacedControl() if exclusive_usb else contextlib.nullcontext():
             await restore_update_task(

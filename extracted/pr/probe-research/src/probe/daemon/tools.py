@@ -6,7 +6,9 @@ judgment lives in the skills, checks live in plain code (`shell.classify`,
 
 `shell(command, why)`:
     a `probe ...` command   -> the pre-checks (`precheck`), then the real CLI with
-                               the daemon's key and an Idempotency-Key
+                               the daemon's key and an Idempotency-Key; the
+                               commonest reads (`host_reads.MOVED`) run the CLI
+                               command's own body in this process instead
     several commands with   -> run in order by the daemon itself (`_run_steps`):
     `probe` among them         each probe command as above, in the folder the
                                `cd` parts set, `&&` / `||` / `;` as bash, and
@@ -566,12 +568,19 @@ async def run_probe_process(deps: Deps, argv: list[str], op_id: str, *, cwd: Pat
     must still hold the session (`write_refusal`); when it no longer does, the
     command's process group is killed. A cancelled caller (the session's end
     cut the bite short) kills and reaps it too before the cancellation goes on.
-    Probe refusing the key sets `deps.key_refused` and `deps.stopped`."""
+    Probe refusing the key sets `deps.key_refused` and `deps.stopped`.
+
+    A read in `host_reads.MOVED` starts no process: the daemon host answers it
+    with the CLI command's own body, under the same budget, lease watch and
+    retries (`_in_host`). Every other read -- and one the host hands back --
+    still spawns, and each read is counted by where it ran (`_count_read`)."""
     if deps.replay is not None:
         code, output = await deps.replay.run(argv, op_id)
         return ProbeResult(code, output)
-    env = {**_base_env(), **deps.probe_env, "PROBE_IDEMPOTENCY_KEY": op_id, "PROBE_ASYNC": "0",
-           "NO_COLOR": "1", "COLUMNS": "200"}
+    from probe.daemon import host_reads
+
+    env = _command_env(deps, op_id)
+    where = host_reads.route(argv)
     deadline = _clock() + PROBE_TOTAL_S
     result: ProbeResult | None = None
     for attempt in range(PROBE_ATTEMPTS):
@@ -580,7 +589,16 @@ async def run_probe_process(deps: Deps, argv: list[str], op_id: str, *, cwd: Pat
                 return ProbeResult(None, "", f"not run: {deps.stopped}")
             return ProbeResult(result.code, result.stdout,
                                f"{result.stderr.rstrip()}\nnot run again: {deps.stopped}".lstrip("\n"))
-        result = await _attempt(deps, argv, env, min(PROBE_TIMEOUT_S, deadline - _clock()), cwd or deps.cwd)
+        budget = min(PROBE_TIMEOUT_S, deadline - _clock())
+        result = None
+        if where.call is not None:
+            result = await _in_host(deps, where.call, env, budget)
+            if result is None:  # handed back (`host_reads.start`): the CLI answers it
+                where = host_reads.Route(read=where.call.path)
+        if result is None:
+            result = await _attempt(deps, argv, env, budget, cwd or deps.cwd)
+        if attempt == 0:
+            _count_read(deps, where)
         if _key_refused(result):
             _mark_key_refused(deps)
             break
@@ -590,6 +608,39 @@ async def run_probe_process(deps: Deps, argv: list[str], op_id: str, *, cwd: Pat
             break
         await asyncio.sleep(wait)
     assert result is not None
+    return result
+
+
+def _command_env(deps: Deps, op_id: str) -> dict[str, str]:
+    """What a `probe` command runs with: the session's key, URL and session
+    (`deps.probe_env`), never this process's."""
+    return {**_base_env(), **deps.probe_env, "PROBE_IDEMPOTENCY_KEY": op_id, "PROBE_ASYNC": "0",
+            "NO_COLOR": "1", "COLUMNS": "200"}
+
+
+async def read_in_host(deps: Deps, argv: list[str], op_id: str, timeout: float) -> ProbeResult | None:
+    """A `probe` read plain code makes for the writer (its message's runs,
+    `worker._read_runs`, swarm friction T18): answered in the daemon host
+    (`host_reads`) within `timeout`, or by the bench's replay -- never a new
+    process, never retried, counted apart from the model's (`PREFETCHED`). Probe
+    refusing the key sets `deps.key_refused` and `deps.stopped`, as
+    `run_probe_process` does. None: a read the host leaves to the CLI, or this
+    process no longer holds the session (`deps.stopped`, `write_refusal`)."""
+    if deps.replay is not None:
+        code, output = await deps.replay.run(argv, op_id)
+        return ProbeResult(code, output)
+    if write_refusal(deps) is not None:
+        return None
+    from probe.daemon import host_reads
+
+    where = host_reads.route(argv)
+    if where.call is None:
+        return None
+    result = await _in_host(deps, where.call, _command_env(deps, op_id), timeout)
+    if result is not None:
+        _count_read(deps, where, how=PREFETCHED)
+        if _key_refused(result):
+            _mark_key_refused(deps)
     return result
 
 
@@ -619,6 +670,59 @@ async def _attempt(deps: Deps, argv: list[str], env: dict[str, str], timeout: fl
     except BaseException:
         await stop_group(proc, reader)
         raise
+
+
+async def _in_host(deps: Deps, call: Any, env: dict[str, str], timeout: float) -> ProbeResult | None:
+    """`_attempt` for a read the daemon host answers itself (`host_reads`): on a
+    thread of its own, waited for until its answer, `timeout`, or this process
+    no longer holding the session -- each said as `_attempt` says it. None: the
+    host hands it back, and the CLI answers it. A cancelled caller stops waiting
+    at once; the read ends by its own (later) deadline."""
+    from probe.daemon import host_reads
+
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout  # before the read's own, which is later (`host_reads.THREAD_GRACE_S`)
+    answer = host_reads.start(call, env, timeout)
+    if answer is None:
+        return None
+    while True:
+        left = deadline - loop.time()
+        if left <= 0:
+            return ProbeResult(None, "", f"stopped after {timeout:.0f}s")
+        done, _ = await asyncio.wait({answer}, timeout=min(LEASE_POLL_S, left))
+        if done:
+            got = answer.result()
+            return None if got is None else ProbeResult(*got)
+        if write_refusal(deps) is not None:
+            return ProbeResult(None, "", f"stopped while it ran ({deps.stopped}) - it may have written part "
+                                         "of its work")
+
+
+#: The store fact counting this session's `probe` reads by where they ran:
+#: `{"in_host": {"run get": n, ...}, "spawned": {...}, "prefetched": {...}}`. A
+#: read not moved into the host yet is the `spawned` part (R38: the remainder
+#: stays visible); `prefetched` (PREFETCHED) is plain code's own, in the host
+#: (`read_in_host`), never the model's.
+PROBE_READS_FACT = "probe_reads"
+PREFETCHED = "prefetched"
+
+
+def _count_read(deps: Deps, where: Any, *, how: str | None = None) -> None:
+    """Count a read that ran under where it ran (`PROBE_READS_FACT`), or under
+    `how`; a spawned one is also a log line naming the command. A count never
+    fails the command."""
+    if where.call is None and where.read is None:
+        return  # not a read
+    ran, path = ("in_host", where.call.path) if where.call is not None else ("spawned", where.read)
+    how = how or ran
+    if how == "spawned":
+        log.info("probe read spawned a CLI process (not answered in the daemon host): probe %s", path)
+    try:
+        counts = deps.store.fact(PROBE_READS_FACT) or {}
+        counts.setdefault(how, {})[path] = int(counts.get(how, {}).get(path, 0)) + 1
+        deps.store.set_fact(PROBE_READS_FACT, counts)
+    except Exception:  # noqa: BLE001 -- a count, never the command's failure
+        log.debug("probe read count not kept", exc_info=True)
 
 
 async def _probe_process(deps: Deps, argv: list[str], op_id: str, cwd: Path) -> ProbeResult:
@@ -2180,9 +2284,10 @@ def _run_names(words: list[str], parsed: precheck.Parsed, output: str | None) ->
 
 def entity_activity(store, kind: str, ref: str, since: float) -> list[str]:
     """What the session's writes did to the entity since `since` (epoch), from
-    the logbook: a conclusion set, a new experiment under a project, a run
-    started under it and how it ended (a run is the entity's when the session
-    started it there), else the command; repeated ones counted. Oldest first.
+    the logbook: a conclusion set, a dead end marked or cleared, a new
+    experiment under a project, a run started under it and how it ended (a run
+    is the entity's when the session started it there), else the command;
+    repeated ones counted. Oldest first.
     A run the agent's own code ended, with no write of the daemon's, is not in
     the logbook and is not listed."""
     from probe.cli import summary_cli
@@ -2214,6 +2319,10 @@ def entity_activity(store, kind: str, ref: str, since: float) -> list[str]:
                 what = "created"
             elif first("conclusion"):
                 what = "conclusion set"
+            elif first("dead_end"):
+                what = "dead end marked"
+            elif parsed.path == "experiment set" and parsed.params.get("clear_dead_end"):
+                what = "dead end cleared"
             elif parsed.path == "run start":
                 what = "run started"
             else:
@@ -2782,13 +2891,15 @@ def session_open(deps: Deps, event_id: str | None = None, turn: int | None = Non
     if outline:
         return _outline(deps.store, recorded=recorded)
     if turn is not None:
-        from probe.daemon.bite import render
+        from probe.daemon.bite import rendered
 
         rows = deps.store.db.execute("SELECT seq FROM events WHERE turn = ? ORDER BY seq", (turn,)).fetchall()
         if not rows:
             return f"no turn {turn}"
         events = deps.store.events_between(rows[0]["seq"], rows[-1]["seq"], recorded=recorded)
-        text = "\n\n".join(render(ev) for ev in events if ev.turn == turn)
+        # As a bite shows them: a file change one line, a file burst a list. Its
+        # content is one `op=open event_id=` away.
+        text = "\n\n".join(shown for _, shown in rendered([ev for ev in events if ev.turn == turn]))
         return _page(text, page, f"turn {turn}")
     if not event_id:
         return "give an event_id or a turn (op=outline: one line per turn)"

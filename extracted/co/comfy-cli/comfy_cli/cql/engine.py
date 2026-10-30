@@ -41,16 +41,56 @@ _IMPLICIT_WIDGET_TYPES = frozenset({"STRING", "INT", "FLOAT", "NUMBER", "BOOLEAN
 # type is a link. Kept to types verified against saved workflows:
 # ``Load3D.image`` / ``Load3DAdvanced.viewport_state`` (``LOAD_3D``),
 # ``SaveGLB``/``Preview3D``'s injected ``image`` (``PREVIEW_3D``),
-# ``LoadAudioUI.audioUI`` (``AUDIO_UI``). ``LOAD3D_CAMERA`` is deliberately
+# ``LoadAudioUI.audioUI`` (``AUDIO_UI``), ``RecordAudio.audio``
+# (``AUDIO_RECORD``), ``WebcamCapture.image`` (``WEBCAM``).
+# ``LOAD3D_CAMERA`` is deliberately
 # absent: ``camera_info`` is ``serialize: false`` and writes no slot.
+#
+# ``BOUNDING_BOXES``, ``COLORS`` and ``COLOR`` are here for the inputs that
+# keep their socket: ``CreateBoundingBoxes.editor_state`` and
+# ``BuildJsonPromptIdeogram.color_palette`` (``socketless: false``), and
+# old-style ``["COLOR", {"default": "#FFFFFF"}]`` inputs such as LayerStyle's
+# ``LayerMask: MaskByColor``. The frontend renders a widget for any type it has
+# a constructor for (``widgetStore.inputIsWidget``), and these widgets
+# serialize, so the slot exists with or without a socket. Read as a link,
+# ``editor_state`` fell out of the widget order: the doc host refused every box
+# edit (``unknown_widget``) and the saved boxes decoded into ``last_incoming``;
+# a saved MaskByColor ``["#e64549", "", 100, ...]`` put the colour into
+# ``color_in_HEX`` and shifted every later value.
 _FRONTEND_DOM_WIDGET_TYPES = frozenset(
-    {"LOAD_3D", "LOAD_3D_ADVANCED", "PREVIEW_3D", "AUDIO_UI", "IMAGEUPLOAD", "AUDIOUPLOAD"}
+    {
+        "LOAD_3D",
+        "LOAD_3D_ADVANCED",
+        "PREVIEW_3D",
+        "AUDIO_UI",
+        "AUDIO_RECORD",
+        "WEBCAM",
+        "IMAGEUPLOAD",
+        "AUDIOUPLOAD",
+        "BOUNDING_BOXES",
+        "COLORS",
+        "COLOR",
+    }
 )
 
 # What a fresh node serializes in a DOM-widget slot. ``add_node`` must emit
 # these for NON-trailing slots (``Load3D.image`` sits before ``width``), or the
 # frontend reads ``width`` into the viewport slot.
-_FRONTEND_DOM_WIDGET_DEFAULTS: dict[str, Any] = {"LOAD_3D": "", "LOAD_3D_ADVANCED": "", "PREVIEW_3D": ""}
+_FRONTEND_DOM_WIDGET_DEFAULTS: dict[str, Any] = {
+    "LOAD_3D": "",
+    "LOAD_3D_ADVANCED": "",
+    "PREVIEW_3D": "",
+    # The frontend's constructors start these at an empty list
+    # (``useBoundingBoxesWidget`` / ``useColorsWidget``); ComfyUI's own schemas
+    # always declare ``default: []``, but a custom schema may omit it.
+    "BOUNDING_BOXES": [],
+    "COLORS": [],
+}
+
+# Widget types that also keep a TYPED input socket. A connect to one is checked
+# against that type, as the frontend checks it; other widget-to-input conversions
+# take the source type.
+SOCKETED_WIDGET_TYPES = frozenset({"BOUNDING_BOXES", "COLORS", "COLOR"})
 
 # ``getCustomWidgets().LOAD_3D`` adds three button widgets BEFORE its own
 # component widget, and only when the node already carries a ``model_file``
@@ -885,12 +925,15 @@ def _edge_types_compatible(src_type: str, dst_type: str) -> bool:
     return _is_valid_connection(src_type, dst_type)
 
 
-#: ``(class_type, input)`` pairs whose value is a viewport capture the frontend
-#: serializes at queue time, read unconditionally by the node
-#: (``Load3D.execute``: ``image['image']``). A headless submit carries the
-#: add-node default ``""`` and crashes with "string indices must be integers".
-#: The ``viewport_state`` siblings tolerate a non-dict, so they are not listed.
-_FRONTEND_CAPTURE_INPUTS = frozenset({("Load3D", "image")})
+#: ``(class_type, input)`` pairs whose value the frontend captures at queue
+#: time, with the shape the server-side node requires. A headless ``add_node``
+#: carries only the DOM-widget placeholder and otherwise crashes in the node.
+#: ``Load3D.viewport_state`` tolerates a non-dict, so it is not listed.
+_FRONTEND_CAPTURE_INPUTS = {
+    ("Load3D", "image"): "image_bundle",
+    ("RecordAudio", "audio"): "filename",
+    ("WebcamCapture", "image"): "filename",
+}
 
 
 #: Types the frontend registers a widget constructor for (``ComfyWidgets`` in
@@ -961,6 +1004,20 @@ def _has_control_after_generate_slot(port: Port) -> bool:
     return port.type == "INT" and port.name in ("seed", "noise_seed")
 
 
+def load_3d_advanced_has_legacy_buttons(widgets_values: list[Any] | dict[str, Any] | None) -> bool:
+    """Whether a saved ``Load3DAdvanced`` node still uses the legacy button layout.
+
+    Two consecutive fixed markers right after ``model_file`` are an unambiguous
+    legacy prefix. Accepting a single marker could mistake current viewport
+    state for the old upload button, while requiring all three makes a
+    truncated legacy node unsafe to extend by name. The editor
+    (``load_3d_button_slots``) and the API converter both decide through this
+    one predicate so they never disagree about which value is which.
+    """
+    expected = [value for _name, value in _LOAD_3D_BUTTON_SLOTS]
+    return isinstance(widgets_values, list) and widgets_values[1:3] == expected[:2]
+
+
 def load_3d_button_slots(
     m: Morphism, widgets_values: list[Any] | dict[str, Any] | None = None
 ) -> tuple[tuple[str, str], ...]:
@@ -971,7 +1028,8 @@ def load_3d_button_slots(
     adds only the viewport component, so the static catalog and fresh nodes
     must not inherit these slots from the raw ``object_info`` shape. A saved
     legacy node can still contain the three button values, however; the
-    value-aware walk retains those slots so edits stay positionally aligned.
+    value-aware walk names those slots so reads stay positionally aligned, and
+    an edit drops them (``strip_legacy_load_3d_buttons``) before writing.
 
     ``getCustomWidgets().LOAD_3D`` attaches them only when the node already
     carries a ``model_file`` WIDGET (``hasModelFileWidget``), so ``Load3D``
@@ -981,17 +1039,27 @@ def load_3d_button_slots(
     immediately BEFORE the ``LOAD_3D`` slot — unlike every entry in
     ``frontend_extra_widget_names``, which trails the declared inputs.
     """
-    if getattr(m, "id", "") == "Load3DAdvanced":
-        expected = [value for _name, value in _LOAD_3D_BUTTON_SLOTS]
-        # Two consecutive fixed markers are an unambiguous legacy prefix.
-        # Accepting a single marker could mistake current viewport state for
-        # the old upload button, while requiring all three makes a truncated
-        # legacy node unsafe to extend by name.
-        if not isinstance(widgets_values, list) or widgets_values[1:3] != expected[:2]:
-            return ()
+    if getattr(m, "id", "") == "Load3DAdvanced" and not load_3d_advanced_has_legacy_buttons(widgets_values):
+        return ()
     if not any(p.name == "model_file" and not p.is_link for p in m.inputs):
         return ()
     return _LOAD_3D_BUTTON_SLOTS
+
+
+def strip_legacy_load_3d_buttons(m: Morphism, widgets: list[Any]) -> list[Any]:
+    """Drop the LOAD_3D button slots a legacy save carries in a
+    Load3DAdvanced node (older frontend builds and pre-#1031 comfy-cli both
+    wrote them). The current frontend builds that node with four widgets and
+    restores widgets_values by position, so the constants would land in
+    viewport_state/width/height. Detection is the two-marker rule of
+    load_3d_button_slots, and exactly the slots that function names are
+    dropped, so the read and write layouts agree on where viewport_state is."""
+    if getattr(m, "id", "") != "Load3DAdvanced":
+        return widgets
+    slots = load_3d_button_slots(m, widgets)
+    if not slots:
+        return widgets
+    return widgets[:1] + widgets[1 + len(slots) :]
 
 
 def frontend_extra_widget_names(m: Morphism) -> list[str]:
@@ -2349,15 +2417,22 @@ class Graph:
                     continue
                 if port is None:
                     continue
-                if (class_type, input_name) in _FRONTEND_CAPTURE_INPUTS and (
-                    not isinstance(value, dict) or "image" not in value
-                ):
+                capture_kind = _FRONTEND_CAPTURE_INPUTS.get((class_type, input_name))
+                capture_missing = (
+                    capture_kind == "image_bundle" and (not isinstance(value, dict) or "image" not in value)
+                ) or (capture_kind == "filename" and (not isinstance(value, str) or not value.strip()))
+                if capture_missing:
+                    capture_description = (
+                        "browser viewport capture ({image, mask, normal, …})"
+                        if capture_kind == "image_bundle"
+                        else "filename uploaded by the browser capture widget"
+                    )
                     finding = {
                         "node_id": node_id,
                         "field": input_name,
                         "code": "frontend_capture_required",
                         "message": (
-                            f"{class_type}.{input_name} is the browser viewport capture ({{image, mask, normal, …}}) "
+                            f"{class_type}.{input_name} is the {capture_description} "
                             f"that only the ComfyUI frontend produces at queue time; {value!r} makes the node crash "
                             f"on the server"
                         ),
@@ -2638,7 +2713,8 @@ def _widget_default(p: Port) -> Any:
     if p.enum_values:
         return p.enum_values[0]
     if p.type in _FRONTEND_DOM_WIDGET_TYPES:
-        return _FRONTEND_DOM_WIDGET_DEFAULTS.get(p.type)
+        # A copy: the list defaults must not be shared between nodes.
+        return copy.deepcopy(_FRONTEND_DOM_WIDGET_DEFAULTS.get(p.type))
     return None
 
 
@@ -3874,6 +3950,123 @@ def _definition_alias_conflicts(
     return conflicts
 
 
+class _SubgraphDefs(dict[str, dict]):
+    """Definition index with per-index promotion traversal caches."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.registered_definition_ids: set[int] = set()
+        self._registered_definition_refcounts: dict[int, int] = {}
+        self.promotion_visit_limit: int | None = None
+        self.promotion_visit_limits: dict[int, int] = {}
+        self.promotion_definition_metrics: dict[int, tuple[dict, int, tuple[dict, ...]]] = {}
+        self.promotion_budget_roots: dict[str, set[int]] = {}
+        self.promotion_holders: dict[int, tuple[dict, dict[Any, list[tuple[dict, int, dict]]]]] = {}
+        self.promotion_links: dict[int, tuple[dict, dict[Any, dict]]] = {}
+        self.promotion_input_positions: dict[int, tuple[dict, dict[int, int]]] = {}
+        self.promotion_input_memberships: dict[int, tuple[dict, dict[Any, set[int]]]] = {}
+        self.promotion_sources: dict[
+            int,
+            tuple[dict, dict[int, tuple[str, str]], dict[tuple[str, str], str]],
+        ] = {}
+        self.promotion_inputs: dict[int, tuple[dict, list[Any]]] = {}
+        self.promotion_boundaries: dict[tuple[int, int], tuple[dict, list[tuple[list[str], str]]]] = {}
+        self.promotion_inputs_budget: list[int] | None = None
+        self.promotion_sources_budget: list[int] | None = None
+        self.promotion_boundary_budget: list[int] | None = None
+        self.promotion_inputs_memo: dict[tuple[int, int, tuple[int, ...]], list[Any]] = {}
+        self.promotion_inputs_stable_memo: dict[tuple[int, int], tuple[list[Any], frozenset[int]]] = {}
+        self.promotion_inputs_dependencies: dict[tuple[int, int, tuple[int, ...]], frozenset[int]] = {}
+        self.promotion_inputs_cycle_memo: dict[tuple[int, int, tuple[int, ...]], bool] = {}
+        self.promotion_inputs_names: dict[int, dict[str, Any]] = {}
+        self.promotion_boundary_memo: dict[tuple[int, int, int, tuple[int, ...]], list[tuple[list[str], str]]] = {}
+        self.promotion_boundary_stable_memo: dict[
+            tuple[int, int, int], tuple[list[tuple[list[str], str]], frozenset[int]]
+        ] = {}
+        self.promotion_boundary_dependencies: dict[tuple[int, int, int, tuple[int, ...]], frozenset[int]] = {}
+        self.promotion_boundary_cycle_memo: dict[tuple[int, int, int, tuple[int, ...]], bool] = {}
+        self.promotion_boundary_names: dict[int, dict[Any, dict]] = {}
+        self.promotion_boundary_output_budget: list[int] | None = None
+
+    def _invalidate_derived_state(self) -> None:
+        # Local import avoids an engine/promoted import cycle. Definition
+        # membership changes can otherwise leave id-keyed results attached to
+        # a later object that reuses the removed definition's address.
+        from comfy_cli.cql.promoted import _invalidate_promotion_caches
+
+        _invalidate_promotion_caches(self)
+
+    def _add_registered_definition(self, value: object) -> None:
+        if not isinstance(value, dict):
+            return
+        identity = id(value)
+        self._registered_definition_refcounts[identity] = self._registered_definition_refcounts.get(identity, 0) + 1
+        self.registered_definition_ids.add(identity)
+
+    def _remove_registered_definition(self, value: object) -> None:
+        if not isinstance(value, dict):
+            return
+        identity = id(value)
+        remaining = self._registered_definition_refcounts.get(identity, 0) - 1
+        if remaining > 0:
+            self._registered_definition_refcounts[identity] = remaining
+        else:
+            self._registered_definition_refcounts.pop(identity, None)
+            self.registered_definition_ids.discard(identity)
+
+    def __setitem__(self, key: str, value: dict) -> None:
+        exists = key in self
+        previous = self.get(key)
+        if exists and previous is value:
+            return
+        if exists:
+            self._remove_registered_definition(previous)
+        super().__setitem__(key, value)
+        self._add_registered_definition(value)
+        self._invalidate_derived_state()
+
+    def __delitem__(self, key: str) -> None:
+        previous = self[key]
+        super().__delitem__(key)
+        self._remove_registered_definition(previous)
+        self._invalidate_derived_state()
+
+    def update(self, *args, **kwargs) -> None:
+        for key, value in dict(*args, **kwargs).items():
+            self[key] = value
+
+    def clear(self) -> None:
+        changed = bool(self)
+        super().clear()
+        self.registered_definition_ids.clear()
+        self._registered_definition_refcounts.clear()
+        if changed:
+            self._invalidate_derived_state()
+
+    def pop(self, key: str, *args):
+        exists = key in self
+        value = super().pop(key, *args)
+        if exists:
+            self._remove_registered_definition(value)
+            self._invalidate_derived_state()
+        return value
+
+    def popitem(self):
+        item = super().popitem()
+        self._remove_registered_definition(item[1])
+        self._invalidate_derived_state()
+        return item
+
+    def setdefault(self, key: str, default=None):
+        if key not in self:
+            self[key] = default
+        return self[key]
+
+    def __ior__(self, other):
+        self.update(other)
+        return self
+
+
 def _subgraph_defs_by_id(workflow: dict) -> dict[str, dict]:
     """Index subgraph definitions so an instance's ``type`` resolves to its def.
 
@@ -3898,7 +4091,7 @@ def _subgraph_defs_by_id(workflow: dict) -> dict[str, dict]:
     defs = definitions.get("subgraphs")
     if not isinstance(defs, list):
         return {}
-    by_id: dict[str, dict] = {}
+    by_id: dict[str, dict] = _SubgraphDefs()
     name_counts: dict[str, int] = {}
     name_first: dict[str, dict] = {}
     for sg in defs:
@@ -4659,11 +4852,11 @@ def _declared_subgraph_slots(
     any_declared = False
     all_resolved = True
     defs = _subgraph_defs_by_id(workflow) if workflow is not None else {}
-    promoted_by_name = {p.name: p for p in _promoted.promoted_inputs(sg, defs)}
+    promoted_by_name = _promoted._promoted_name_index(_promoted.promoted_inputs(sg, defs))
     for inp in sg.get("inputs") or []:
         if not isinstance(inp, dict):
             continue
-        inp_name = inp.get("name", "")
+        inp_name = _promoted._input_name(inp.get("name"))
         if not inp_name:
             continue
         pi = promoted_by_name.get(inp_name)
@@ -4677,7 +4870,7 @@ def _declared_subgraph_slots(
             # Only a LIVE link counts (the workflow's for a top-level instance,
             # the containing definition's for a nested one); a dangling id is
             # what the frontend drops on load, so the host value runs.
-            linked_from = _promoted.live_external_link(scope if scope is not None else workflow, instance, inp_name)
+            linked_from = _promoted.live_external_link(scope if scope is not None else workflow, instance, inp_name, sg)
         elif pi is not None and pi.is_widget:
             current = _UNRESOLVED
         else:
@@ -4816,6 +5009,16 @@ def _write_widget(node: dict, input_name: str, value: Any, graph: Graph, *, exte
     # invalid write promises that nothing changed, so none of this may reach the
     # node before the target exists and its value has validated.
     widgets = list(_widgets_as_positional(node.get("widgets_values"), graph, node_type))
+    # The canvas would load a legacy button run into viewport/width/height, so
+    # an edit writes the node back in the frontend's four-widget shape.
+    legacy_widgets = widgets
+    widgets = strip_legacy_load_3d_buttons(m, widgets)
+    if widgets is not legacy_widgets:
+        # The legacy order still names the button slots; refuse them with the
+        # same diagnostic a current node gives, not a generic "not found".
+        legacy_entries = _expand_widget_entries(m, legacy_widgets)
+        if any(e.frontend_injected and e.name == input_name for e in legacy_entries):
+            raise frontend_injected_widget_error(node_type, input_name, _editable_widget_names(legacy_entries))
     if extend:
         button_defaults = dict(load_3d_button_slots(m, widgets))
 

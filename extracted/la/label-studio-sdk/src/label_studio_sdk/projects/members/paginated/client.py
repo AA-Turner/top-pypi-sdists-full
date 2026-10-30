@@ -9,6 +9,7 @@ from ....core.request_options import RequestOptions
 from ....types.paginated_paginated_project_member_list import PaginatedPaginatedProjectMemberList
 from ....types.paginated_project_member import PaginatedProjectMember
 from .raw_client import AsyncRawPaginatedClient, RawPaginatedClient
+from .types.list_paginated_request_tags_operator import ListPaginatedRequestTagsOperator
 
 
 class PaginatedClient:
@@ -32,6 +33,7 @@ class PaginatedClient:
         *,
         ids: typing.Optional[str] = None,
         implicit: typing.Optional[bool] = None,
+        include_skills: typing.Optional[bool] = None,
         last_activity_gte: typing.Optional[dt.datetime] = None,
         last_activity_lte: typing.Optional[dt.datetime] = None,
         no_annotators: typing.Optional[bool] = None,
@@ -42,6 +44,7 @@ class PaginatedClient:
         role: typing.Optional[str] = None,
         search: typing.Optional[str] = None,
         tags: typing.Optional[str] = None,
+        tags_operator: typing.Optional[ListPaginatedRequestTagsOperator] = None,
         user_type: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         with_deleted: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
@@ -72,6 +75,9 @@ class PaginatedClient:
 
         implicit : typing.Optional[bool]
             Include/Exclude implicit project members in the results. If not provided, explicit + implicit members are returned.
+
+        include_skills : typing.Optional[bool]
+            Add `skills` to each row: the member's skills with their status, those the `filters` payload matched first. Owners, Administrators and Managers only; ignored for other roles.
 
         last_activity_gte : typing.Optional[dt.datetime]
             Filter by last activity time (ISO 8601 datetime). Returns users with last activity greater than or equal to this time.
@@ -127,6 +133,9 @@ class PaginatedClient:
 
         tags : typing.Optional[str]
             Filter members by tags. Use a comma-separated list of tag IDs.
+
+        tags_operator : typing.Optional[ListPaginatedRequestTagsOperator]
+            How the `tags` ids combine: `any` (at least one tag), `all` (every tag, the default), `none` (no selected tag).
 
         user_type : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Multiple values may be separated by commas.
@@ -162,6 +171,7 @@ class PaginatedClient:
             id,
             ids=ids,
             implicit=implicit,
+            include_skills=include_skills,
             last_activity_gte=last_activity_gte,
             last_activity_lte=last_activity_lte,
             no_annotators=no_annotators,
@@ -172,6 +182,7 @@ class PaginatedClient:
             role=role,
             search=search,
             tags=tags,
+            tags_operator=tags_operator,
             user_type=user_type,
             with_deleted=with_deleted,
             request_options=request_options,
@@ -199,6 +210,7 @@ class AsyncPaginatedClient:
         *,
         ids: typing.Optional[str] = None,
         implicit: typing.Optional[bool] = None,
+        include_skills: typing.Optional[bool] = None,
         last_activity_gte: typing.Optional[dt.datetime] = None,
         last_activity_lte: typing.Optional[dt.datetime] = None,
         no_annotators: typing.Optional[bool] = None,
@@ -209,6 +221,7 @@ class AsyncPaginatedClient:
         role: typing.Optional[str] = None,
         search: typing.Optional[str] = None,
         tags: typing.Optional[str] = None,
+        tags_operator: typing.Optional[ListPaginatedRequestTagsOperator] = None,
         user_type: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         with_deleted: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
@@ -239,6 +252,9 @@ class AsyncPaginatedClient:
 
         implicit : typing.Optional[bool]
             Include/Exclude implicit project members in the results. If not provided, explicit + implicit members are returned.
+
+        include_skills : typing.Optional[bool]
+            Add `skills` to each row: the member's skills with their status, those the `filters` payload matched first. Owners, Administrators and Managers only; ignored for other roles.
 
         last_activity_gte : typing.Optional[dt.datetime]
             Filter by last activity time (ISO 8601 datetime). Returns users with last activity greater than or equal to this time.
@@ -294,6 +310,9 @@ class AsyncPaginatedClient:
 
         tags : typing.Optional[str]
             Filter members by tags. Use a comma-separated list of tag IDs.
+
+        tags_operator : typing.Optional[ListPaginatedRequestTagsOperator]
+            How the `tags` ids combine: `any` (at least one tag), `all` (every tag, the default), `none` (no selected tag).
 
         user_type : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Multiple values may be separated by commas.
@@ -338,6 +357,7 @@ class AsyncPaginatedClient:
             id,
             ids=ids,
             implicit=implicit,
+            include_skills=include_skills,
             last_activity_gte=last_activity_gte,
             last_activity_lte=last_activity_lte,
             no_annotators=no_annotators,
@@ -348,6 +368,7 @@ class AsyncPaginatedClient:
             role=role,
             search=search,
             tags=tags,
+            tags_operator=tags_operator,
             user_type=user_type,
             with_deleted=with_deleted,
             request_options=request_options,

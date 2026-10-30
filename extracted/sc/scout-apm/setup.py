@@ -33,7 +33,7 @@ else:
 
 setup(
     name="scout_apm",
-    version="4.0.0",
+    version="4.1.0",
     description="Scout Application Performance Monitoring Agent",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -88,5 +88,6 @@ setup(
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
         "Programming Language :: Python :: 3.14",
+        "Programming Language :: Python :: 3.15",
     ],
 )

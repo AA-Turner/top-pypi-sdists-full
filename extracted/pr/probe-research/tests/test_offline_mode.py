@@ -276,6 +276,19 @@ def test_a_missing_project_dead_letters_with_the_override_hint(outbox, no_networ
     assert row["status"] == "completed"
 
 
+def test_a_run_recorded_offline_for_a_projects_id_is_filed_in_it(outbox, no_network, lab, monkeypatch):
+    """#3623: an offline run given its project's id and a question made a new
+    project slugged by the id at its sync. It is filed in that project."""
+    (pid,) = [p for p, row in lab.projects.items() if row["slug"] == "p1"]
+    _record(project=pid, experiment="lr-sweep", question="does warmup remove the spike?")
+    no_network.restore()
+    (result,) = _sync(lab)
+    assert result["clean"], result
+    assert pid not in [row["slug"] for row in lab.projects.values()], "no project slugged by the id"
+    (exp,) = [e for e in lab.experiments.values() if e["slug"] == "lr-sweep"]
+    assert exp["project_id"] == pid
+
+
 def test_sync_refuses_another_tenant(outbox, no_network, lab, monkeypatch):
     _record()
     (directory,) = offline.find_offline_dirs()

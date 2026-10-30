@@ -57,7 +57,7 @@ class BaseLogEntry(Record):
     level: Level = field(metadata=meta("level", required=True, enum="log.Level"))
     source: Source = field(metadata=meta("source", required=True, ref="script.Source"))
     text: str | None = field(metadata=meta("text", required=True, nullable=True, primitive="str"))
-    timestamp: int = field(metadata=meta("timestamp", required=True, primitive="int"))
+    timestamp: int = field(metadata=meta("timestamp", required=True, primitive="int", min=0, max=9007199254740991))
     stack_trace: StackTrace | UnsetType = field(default=UNSET, metadata=meta("stackTrace", ref="script.StackTrace"))
 
 
@@ -72,7 +72,7 @@ class GenericLogEntry(Record):
     level: Level = field(metadata=meta("level", required=True, enum="log.Level"))
     source: Source = field(metadata=meta("source", required=True, ref="script.Source"))
     text: str | None = field(metadata=meta("text", required=True, nullable=True, primitive="str"))
-    timestamp: int = field(metadata=meta("timestamp", required=True, primitive="int"))
+    timestamp: int = field(metadata=meta("timestamp", required=True, primitive="int", min=0, max=9007199254740991))
     type: str = field(metadata=meta("type", required=True, primitive="str"))
     stack_trace: StackTrace | UnsetType = field(default=UNSET, metadata=meta("stackTrace", ref="script.StackTrace"))
 
@@ -88,7 +88,7 @@ class ConsoleLogEntry(Record):
     level: Level = field(metadata=meta("level", required=True, enum="log.Level"))
     source: Source = field(metadata=meta("source", required=True, ref="script.Source"))
     text: str | None = field(metadata=meta("text", required=True, nullable=True, primitive="str"))
-    timestamp: int = field(metadata=meta("timestamp", required=True, primitive="int"))
+    timestamp: int = field(metadata=meta("timestamp", required=True, primitive="int", min=0, max=9007199254740991))
     method: str = field(metadata=meta("method", required=True, primitive="str"))
     args: list[RemoteValueValue] = field(
         metadata=meta("args", required=True, ref="script.RemoteValue", is_list=True),
@@ -108,7 +108,7 @@ class JavascriptLogEntry(Record):
     level: Level = field(metadata=meta("level", required=True, enum="log.Level"))
     source: Source = field(metadata=meta("source", required=True, ref="script.Source"))
     text: str | None = field(metadata=meta("text", required=True, nullable=True, primitive="str"))
-    timestamp: int = field(metadata=meta("timestamp", required=True, primitive="int"))
+    timestamp: int = field(metadata=meta("timestamp", required=True, primitive="int", min=0, max=9007199254740991))
     type: str = field(default="javascript", init=False, metadata=meta("type", required=True, fixed="javascript"))
     stack_trace: StackTrace | UnsetType = field(default=UNSET, metadata=meta("stackTrace", ref="script.StackTrace"))
 

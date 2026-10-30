@@ -9,7 +9,7 @@ import time
 from unittest.mock import Mock, patch
 
 import pytest
-from botocore.exceptions import ClientError, NoCredentialsError
+from botocore.exceptions import ClientError, NoCredentialsError, ParamValidationError
 
 from ...dbapi.connection import Connection
 from ...dbapi.cursor import StatementExecutor
@@ -18,6 +18,7 @@ from ...dbapi.exceptions import (
     ClusterNotFoundError,
     DatabaseError,
     InvalidParameterError,
+    OperationalError,
     StatementLimitExceededError,
     StatementTimeoutError,
     TransientError,
@@ -198,6 +199,48 @@ class TestExceptionMapping:
         assert isinstance(mapped, StatementTimeoutError)
         assert mapped.statement_id == "stmt-456"
         assert mapped.timeout_seconds == 300
+
+    @pytest.mark.parametrize(
+        "context",
+        [
+            {},
+            {"statement_id": "stmt-456"},
+            {
+                "statement_id": "stmt-456",
+                "database_name": "test_db",
+                "cluster_identifier": "test-cluster",
+            },
+        ],
+        ids=["empty_context", "statement_id_only", "statement_id_plus_unrelated_keys"],
+    )
+    def test_map_client_error_statement_timeout_without_timeout_in_context(self, context):
+        """Feature: remove-redshift-data-api-query-timeout, Property 16: A context without a
+        timeout omits the timeout detail.
+
+        Every execution context the driver builds now omits ``timeout_seconds``, so the mapper's
+        ``execution_context.get("timeout_seconds")`` yields ``None`` and the ``if
+        self.timeout_seconds:`` guard in ``StatementTimeoutError.__str__`` drops the detail.
+
+        Validates: Requirements 3.3
+        """
+        boto3_error = ClientError(
+            error_response={
+                "Error": {
+                    "Code": "StatementTimeoutException",
+                    "Message": "Statement stmt-456 timed out",
+                }
+            },
+            operation_name="describe_statement",
+        )
+
+        mapped = map_boto3_exception(boto3_error, context)
+
+        assert isinstance(mapped, StatementTimeoutError)
+        # The mapper resolves the statement id from the error message first and only falls back
+        # to the context, so "stmt-456" is recovered even from the empty context.
+        assert mapped.statement_id == "stmt-456"
+        assert mapped.timeout_seconds is None
+        assert "Timeout:" not in str(mapped)
 
     def test_map_client_error_throttling(self):
         """Test mapping ClientError for throttling (transient error)."""
@@ -560,7 +603,7 @@ class TestStatementExecutorErrorHandling:
             "RecordsUpdated": 0,
         }
 
-        result = executor.execute_statement("SELECT 1", timeout_seconds=30)
+        result = executor.execute_statement("SELECT 1")
 
         assert result["statement_id"] == "stmt-123"
 
@@ -579,30 +622,6 @@ class TestStatementExecutorErrorHandling:
 
         with pytest.raises(InvalidParameterError, match="Invalid SQL syntax"):
             executor.execute_statement("INVALID SQL")
-
-    def test_polling_with_timeout_and_cancellation(self, mock_connection):
-        """Test statement polling with timeout and cancellation."""
-        executor = StatementExecutor(mock_connection)
-
-        # Mock statement submission
-        mock_connection.client.execute_statement.return_value = {"Id": "stmt-123"}
-
-        # Mock polling that never completes (always returns STARTED)
-        mock_connection.client.describe_statement.return_value = {"Status": "STARTED"}
-
-        # Mock cancellation
-        mock_connection.client.cancel_statement.return_value = {}
-
-        with pytest.raises(StatementTimeoutError) as exc_info:
-            executor.execute_statement("SELECT pg_sleep(1000)", timeout_seconds=0.1)
-
-        # Verify timeout error details
-        error = exc_info.value
-        assert error.statement_id == "stmt-123"
-        assert error.timeout_seconds == 0.1
-
-        # Verify cancellation was attempted
-        mock_connection.client.cancel_statement.assert_called_once_with(Id="stmt-123")
 
     def test_polling_statement_failure(self, mock_connection):
         """Test handling of statement execution failure."""
@@ -743,6 +762,518 @@ class TestConnectionErrorHandling:
             conn.begin_transaction()
 
         assert conn.transaction_id is None  # No transaction should be created
+
+
+# --- Long-poll fallback helpers -------------------------------------------------------
+#
+# The resolved botocore's DescribeStatementRequest declares members ['Id'] only, so
+# faking the service model is the only way to reach long-poll mode at all. Every case
+# below fakes it; none depends on the real model carrying the parameter.
+
+_LONG_POLL_MEMBER = "WaitTimeSeconds"
+_LONG_POLL_WAIT_SECONDS = 30
+_NON_TERMINAL_STATUSES = ("SUBMITTED", "PICKED", "STARTED")
+
+# Codes map_boto3_exception treats as parameter problems. A rejection needs one of
+# these *and* a message naming the member, so all three are exercised.
+_PARAM_REJECTION_ERROR_CODES = ("ValidationException", "InvalidParameterValue", "MissingParameter")
+
+_FINISHED_RESPONSE = {"Status": "FINISHED", "HasResultSet": True, "RecordsUpdated": 0}
+
+
+def _expected_backoff(poll_count):
+    """The classic schedule: min(0.1 * 1.5**k, 1.0) for k in range(poll_count)."""
+    return [min(0.1 * 1.5**k, 1.0) for k in range(poll_count)]
+
+
+def _param_validation_rejection():
+    """
+    The rejection shape botocore itself produces, verified against the resolved
+    botocore: describe_statement(Id=..., WaitTimeSeconds=30) against a model that
+    declares only Id raises ParamValidationError, not ClientError.
+    """
+    return ParamValidationError(
+        report='Unknown parameter in input: "WaitTimeSeconds", must be one of: Id'
+    )
+
+
+def _client_error_rejection(error_code="ValidationException"):
+    """A service-side rejection: a parameter error code whose message names the member."""
+    return ClientError(
+        error_response={
+            "Error": {
+                "Code": error_code,
+                "Message": "The parameter WaitTimeSeconds is not supported by this endpoint",
+            }
+        },
+        operation_name="describe_statement",
+    )
+
+
+def _long_poll_connection():
+    """A mock connection shaped like the one the other classes in this file build."""
+    connection = Mock()
+    connection.connection_params = Mock()
+    connection.connection_params.database_name = "test_db"
+    connection.connection_params.cluster_identifier = "test-cluster"
+    connection.connection_params.workgroup_name = None
+    connection.connection_params.region = "us-east-1"
+    connection.connection_params.secret_arn = None
+    connection.connection_params.db_user = "test_user"
+    connection.get_transaction_id.return_value = None
+    connection.client = Mock()
+    return connection
+
+
+def _fake_supporting_service_model(executor):
+    """
+    Make the executor's client advertise WaitTimeSeconds on DescribeStatement, so the
+    capability check succeeds and the first poll runs in long-poll mode.
+    """
+    executor.client.meta.service_model.operation_model.return_value.input_shape.members = {
+        "Id": object(),
+        _LONG_POLL_MEMBER: object(),
+    }
+    return executor
+
+
+def _rejection_side_effect(rejection, polls_before, polls_after):
+    """
+    Build a describe_statement side_effect that reports `polls_before` non-terminal
+    statuses, then raises `rejection` on the next call, then reports `polls_after`
+    non-terminal statuses before FINISHED.
+    """
+    responses = [
+        {"Status": _NON_TERMINAL_STATUSES[index % len(_NON_TERMINAL_STATUSES)]}
+        for index in range(polls_before)
+    ]
+    responses.append(rejection)
+    responses.extend(
+        {"Status": _NON_TERMINAL_STATUSES[index % len(_NON_TERMINAL_STATUSES)]}
+        for index in range(polls_after)
+    )
+    responses.append(dict(_FINISHED_RESPONSE))
+    return responses
+
+
+def _describe_kwargs(executor):
+    return [call.kwargs for call in executor.client.describe_statement.call_args_list]
+
+
+def _recorded_sleeps(mock_sleep):
+    return [call.args[0] for call in mock_sleep.call_args_list]
+
+
+# (non-terminal polls before the rejection, non-terminal polls after it). The first
+# entry is the scenario named in the plan: rejection on the first poll, then two
+# non-terminal statuses and FINISHED. The last has a post-fallback tail long enough
+# for the backoff schedule to saturate at its 1.0 second cap.
+_REJECTION_SEQUENCES = [
+    pytest.param(0, 2, id="reject_first_poll_then_two_non_terminal"),
+    pytest.param(0, 0, id="reject_first_poll_then_finished"),
+    pytest.param(1, 3, id="reject_second_poll"),
+    pytest.param(3, 1, id="reject_fourth_poll"),
+    pytest.param(2, 10, id="reject_third_poll_then_saturating_tail"),
+]
+
+
+class TestLongPollFallback:
+    """
+    Feature: remove-redshift-data-api-query-timeout
+
+    A describe_statement call rejected because it carried WaitTimeSeconds must degrade
+    to classic polling and finish the same statement, rather than failing it. The
+    internal _LongPollRejected sentinel is a private control signal, so these cases
+    assert that no exception surfaces and that the statement completes -- not on the
+    sentinel's type.
+
+    The correctness properties these realize are specified as property-based, but the
+    package declares only pytest and has no property-testing dependency,
+    so they are parameterized pytest cases over a table of rejection points --
+    matching how the rest of this suite is written.
+    """
+
+    @pytest.fixture
+    def supporting_executor(self):
+        """An executor whose client advertises the long-poll parameter."""
+        return _fake_supporting_service_model(StatementExecutor(_long_poll_connection()))
+
+    @staticmethod
+    def _assert_fell_back_and_finished(executor, result, polls_before, polls_after, sleeps):
+        """
+        The shared outcome for every rejection shape and every rejection point: the
+        statement completes through classic polls that omit the parameter, and the
+        post-fallback waits restart the backoff schedule.
+        """
+        assert result["status"] == "FINISHED"
+        assert result["statement_id"] == "stmt-fallback"
+
+        kwargs = _describe_kwargs(executor)
+        # polls_before long-poll responses, the rejected call, polls_after classic
+        # responses, then FINISHED.
+        assert len(kwargs) == polls_before + polls_after + 2
+
+        # Every call up to and including the rejected one carried the parameter.
+        for index, call_kwargs in enumerate(kwargs[: polls_before + 1]):
+            assert call_kwargs == {
+                "Id": "stmt-fallback",
+                _LONG_POLL_MEMBER: _LONG_POLL_WAIT_SECONDS,
+            }, f"long-poll call {index}"
+
+        # Every call after it is classic: exactly the statement id, nothing else.
+        for index, call_kwargs in enumerate(kwargs[polls_before + 1 :]):
+            assert call_kwargs == {"Id": "stmt-fallback"}, f"post-fallback call {index}"
+
+        # Long-poll mode performs no client-side wait and the fallback itself does not
+        # sleep, so every recorded sleep belongs to the post-fallback classic polls.
+        assert sleeps == pytest.approx(_expected_backoff(polls_after))
+        if polls_after:
+            assert sleeps[0] == 0.1
+
+    @pytest.mark.parametrize("polls_before, polls_after", _REJECTION_SEQUENCES)
+    def test_param_validation_rejection_falls_back_and_finishes(
+        self, supporting_executor, polls_before, polls_after
+    ):
+        """
+        Feature: remove-redshift-data-api-query-timeout, Property 11: A parameter
+        rejection falls back and completes the same statement
+
+        Feature: remove-redshift-data-api-query-timeout, Property 12: A fallback
+        restarts the backoff schedule
+
+        A botocore ParamValidationError naming WaitTimeSeconds is the only rejection
+        shape reachable against any botocore resolvable today, and it is the harder of
+        the two to handle: it is not a ClientError, so outside the describe_statement
+        closure it has already been rewritten into a bare OperationalError and the
+        botocore type is gone. Reaching FINISHED here is what proves the detection sits
+        inside the closure and that `except _LongPollRejected` precedes
+        `except Exception`.
+
+        **Validates: Requirements 9.1, 9.2, 9.3, 9.4, 11.4**
+        """
+        supporting_executor.client.execute_statement.return_value = {"Id": "stmt-fallback"}
+        supporting_executor.client.describe_statement.side_effect = _rejection_side_effect(
+            _param_validation_rejection(), polls_before, polls_after
+        )
+
+        # No pytest.raises: the call completing is the assertion that the sentinel
+        # never escapes to the caller.
+        with patch("time.sleep") as mock_sleep:
+            result = supporting_executor.execute_statement("SELECT pg_sleep(1000)")
+
+        self._assert_fell_back_and_finished(
+            supporting_executor, result, polls_before, polls_after, _recorded_sleeps(mock_sleep)
+        )
+
+    @pytest.mark.parametrize("polls_before, polls_after", _REJECTION_SEQUENCES)
+    @pytest.mark.parametrize("error_code", _PARAM_REJECTION_ERROR_CODES)
+    def test_service_rejection_falls_back_and_finishes(
+        self, supporting_executor, error_code, polls_before, polls_after
+    ):
+        """
+        Feature: remove-redshift-data-api-query-timeout, Property 11: A parameter
+        rejection falls back and completes the same statement
+
+        Feature: remove-redshift-data-api-query-timeout, Property 12: A fallback
+        restarts the backoff schedule
+
+        The second rejection shape: a service error whose code is one of the parameter
+        codes and whose message names the member. All three codes are exercised,
+        because the discriminator admits any of them in combination with the message.
+
+        **Validates: Requirements 9.1, 9.2, 9.3, 9.4, 11.4**
+        """
+        supporting_executor.client.execute_statement.return_value = {"Id": "stmt-fallback"}
+        supporting_executor.client.describe_statement.side_effect = _rejection_side_effect(
+            _client_error_rejection(error_code), polls_before, polls_after
+        )
+
+        with patch("time.sleep") as mock_sleep:
+            result = supporting_executor.execute_statement("SELECT pg_sleep(1000)")
+
+        self._assert_fell_back_and_finished(
+            supporting_executor, result, polls_before, polls_after, _recorded_sleeps(mock_sleep)
+        )
+
+    @pytest.mark.parametrize(
+        "rejection_factory",
+        [
+            pytest.param(_param_validation_rejection, id="param_validation_error"),
+            pytest.param(_client_error_rejection, id="client_error"),
+        ],
+    )
+    @pytest.mark.parametrize("polls_after", [1, 3, 7, 12])
+    def test_post_fallback_backoff_restarts_and_stays_capped(
+        self, supporting_executor, rejection_factory, polls_after
+    ):
+        """
+        Feature: remove-redshift-data-api-query-timeout, Property 12: A fallback
+        restarts the backoff schedule
+
+        The fallback resets poll_interval rather than inheriting whatever the interval
+        happened to be, so the first wait after it is 0.1 seconds and the sequence is
+        the full schedule from k=0. The 12-poll case runs past k=6, where
+        0.1 * 1.5**k would exceed 1.0, so it also pins the cap.
+
+        **Validates: Requirements 9.3**
+        """
+        supporting_executor.client.execute_statement.return_value = {"Id": "stmt-fallback"}
+        supporting_executor.client.describe_statement.side_effect = _rejection_side_effect(
+            rejection_factory(), 0, polls_after
+        )
+
+        with patch("time.sleep") as mock_sleep:
+            result = supporting_executor.execute_statement("SELECT 1")
+
+        assert result["status"] == "FINISHED"
+        sleeps = _recorded_sleeps(mock_sleep)
+        assert len(sleeps) == polls_after
+        assert sleeps[0] == 0.1
+        assert sleeps == pytest.approx(_expected_backoff(polls_after))
+        assert max(sleeps) <= 1.0
+
+    def test_fallback_is_scoped_to_the_statement_it_occurred_in(self, supporting_executor):
+        """
+        Feature: remove-redshift-data-api-query-timeout, Property 11: A parameter
+        rejection falls back and completes the same statement
+
+        A fallback is loop-local by design: _long_poll_supported_memo records only the
+        service-model inspection, never a runtime rejection, because Requirement 9.1
+        scopes a fallback to "the statement execution in which it occurred". So the
+        next statement on the same executor tries long poll again. That costs at most
+        one wasted request on a client that advertises the parameter but refuses it,
+        and it is the design's stated intent -- not a leak to be read as a defect.
+
+        **Validates: Requirements 9.1, 9.2**
+        """
+        supporting_executor.client.execute_statement.return_value = {"Id": "stmt-fallback"}
+        supporting_executor.client.describe_statement.side_effect = _rejection_side_effect(
+            _param_validation_rejection(), 0, 1
+        )
+
+        with patch("time.sleep"):
+            first = supporting_executor.execute_statement("SELECT 1")
+
+        assert first["status"] == "FINISHED"
+        assert _describe_kwargs(supporting_executor)[-1] == {"Id": "stmt-fallback"}
+
+        supporting_executor.client.describe_statement.reset_mock()
+        supporting_executor.client.describe_statement.side_effect = None
+        supporting_executor.client.describe_statement.return_value = dict(_FINISHED_RESPONSE)
+
+        with patch("time.sleep"):
+            second = supporting_executor.execute_statement("SELECT 2")
+
+        assert second["status"] == "FINISHED"
+        assert _describe_kwargs(supporting_executor) == [
+            {"Id": "stmt-fallback", _LONG_POLL_MEMBER: _LONG_POLL_WAIT_SECONDS}
+        ]
+
+
+# --- Non-rejection discrimination helpers ---------------------------------------------
+#
+# The discriminator is deliberately narrower than the error code: a ValidationException
+# must *also* name WaitTimeSeconds to count as a parameter rejection. Every failure below
+# is one the narrowed discriminator has to let through unchanged.
+
+
+def _non_rejection_client_error(error_code, message):
+    """A describe_statement service error that must not be read as a parameter rejection."""
+    return ClientError(
+        error_response={"Error": {"Code": error_code, "Message": message}},
+        operation_name="describe_statement",
+    )
+
+
+def _executor_in_mode(long_poll):
+    """
+    An executor polling in long-poll or classic mode.
+
+    Classic mode needs no shaping: `"WaitTimeSeconds" in Mock()` raises TypeError and the
+    capability check's fail-open guard turns that into "not supported", which is why the
+    rest of this suite polls classically.
+    """
+    executor = StatementExecutor(_long_poll_connection())
+    return _fake_supporting_service_model(executor) if long_poll else executor
+
+
+# One call, plus the three retries RetryConfig(max_attempts=3) allows. Only the transient
+# codes in RetryConfig.should_retry reach this count; everything else raises on the first.
+_RETRIED_CALLS = 4
+
+# Each row: the failure describe_statement raises, how many describe_statement calls the
+# driver makes, and the exception type and message fragment the caller actually receives.
+#
+# The expected types were measured by running the chain, not predicted from it. Worth
+# knowing when reading them: retry_on_transient_error maps the exception onto a local and
+# then re-raises with a bare `raise`, which re-raises the *original* exception rather than
+# the mapped local, so the mapping the caller sees is the polling loop's own single
+# map_boto3_exception call. A ClientError therefore keeps its per-code mapping
+# (InvalidParameterError, TransientError) instead of collapsing into OperationalError,
+# while a non-ClientError has no per-code mapping and becomes "AWS service error: ...".
+_NON_REJECTION_FAILURES = [
+    pytest.param(
+        lambda: _non_rejection_client_error("ValidationException", "Invalid session id"),
+        1,
+        InvalidParameterError,
+        "Invalid session id",
+        id="validation_exception_not_naming_member",
+    ),
+    pytest.param(
+        lambda: _non_rejection_client_error("ValidationException", "Invalid NextToken"),
+        1,
+        InvalidParameterError,
+        "Invalid NextToken",
+        id="validation_exception_invalid_next_token",
+    ),
+    pytest.param(
+        lambda: _non_rejection_client_error(
+            "ValidationException", "Statement id abc-123 is not valid"
+        ),
+        1,
+        InvalidParameterError,
+        "Statement id abc-123 is not valid",
+        id="validation_exception_bad_statement_id",
+    ),
+    pytest.param(
+        # A parameter code is not enough on its own, and naming the member is not enough
+        # on its own either: throttling names it here and is still not a rejection,
+        # because ThrottlingException is not a parameter code.
+        lambda: _non_rejection_client_error(
+            "ThrottlingException", "Rate exceeded while waiting WaitTimeSeconds"
+        ),
+        _RETRIED_CALLS,
+        TransientError,
+        "Rate exceeded while waiting WaitTimeSeconds",
+        id="throttling_exception_naming_member",
+    ),
+    pytest.param(
+        # Not a botocore exception at all, so neither discriminator arm applies however
+        # suggestive the text is.
+        lambda: RuntimeError("socket closed during WaitTimeSeconds wait"),
+        1,
+        OperationalError,
+        "AWS service error: socket closed during WaitTimeSeconds wait",
+        id="non_botocore_error_naming_member",
+    ),
+    pytest.param(
+        # The ParamValidationError arm is exact: botocore enumerates the offending member,
+        # so a report about some other parameter is not this parameter's rejection.
+        lambda: ParamValidationError(
+            report='Unknown parameter in input: "Nonsense", must be one of: Id'
+        ),
+        1,
+        OperationalError,
+        "AWS service error: Parameter validation failed",
+        id="param_validation_error_not_naming_member",
+    ),
+]
+
+_POLLING_MODES = [
+    pytest.param(True, id="long_poll"),
+    pytest.param(False, id="classic"),
+]
+
+
+class TestNonRejectionDiscrimination:
+    """
+    Feature: remove-redshift-data-api-query-timeout
+
+    The negative half of the fallback: a describe_statement failure that is *not* a
+    parameter rejection must reach the caller as the error it is.
+
+    This is what keeps the narrowing in _is_long_poll_rejection honest. If the ClientError
+    arm matched on error code alone, redshift-data's ValidationException -- which it also
+    returns for a malformed statement id, a stale session id, or a bad NextToken -- would
+    be silently converted into a mode switch. The statement would then fail or hang for a
+    reason the user never gets told, which is precisely the misreading Requirement 9.1
+    warns against.
+
+    Both polling modes are covered because the loop must behave the same way in each: in
+    classic mode the discriminator is not even consulted (the `use_long_poll and ...`
+    guard short-circuits), and in long-poll mode it is consulted and says no.
+
+    As with the fallback cases, the package declares only pytest and has no
+    property-testing dependency, so this property is realized as parameterized cases over
+    a table of failure shapes.
+    """
+
+    @pytest.mark.parametrize("long_poll", _POLLING_MODES)
+    @pytest.mark.parametrize(
+        "failure_factory, expected_calls, expected_type, message_fragment",
+        _NON_REJECTION_FAILURES,
+    )
+    def test_non_rejection_describe_failure_propagates_mapped(
+        self, long_poll, failure_factory, expected_calls, expected_type, message_fragment
+    ):
+        """
+        Feature: remove-redshift-data-api-query-timeout, Property 13: Every non-rejection
+        describe failure propagates mapped
+
+        The failure surfaces as the driver's mapping chain produces it, the mode never
+        switches, and the loop neither swallows the error nor keeps polling past it.
+
+        **Validates: Requirements 2.6, 9.5, 11.5**
+        """
+        executor = _executor_in_mode(long_poll)
+        executor.client.execute_statement.return_value = {"Id": "stmt-error"}
+        executor.client.describe_statement.side_effect = failure_factory()
+
+        expected_kwargs = {"Id": "stmt-error"}
+        if long_poll:
+            expected_kwargs[_LONG_POLL_MEMBER] = _LONG_POLL_WAIT_SECONDS
+
+        with patch("time.sleep") as mock_sleep:
+            with pytest.raises(expected_type) as exc_info:
+                executor.execute_statement("SELECT 1")
+
+        # Pin the exact class, not just the branch of the hierarchy: the point of the
+        # property is that this failure is reported as itself.
+        assert type(exc_info.value) is expected_type
+        assert message_fragment in str(exc_info.value)
+
+        # No fallback: the request shape is the same on every call, so a long-poll call
+        # that failed was never retried without the parameter.
+        kwargs = _describe_kwargs(executor)
+        assert len(kwargs) == expected_calls
+        for index, call_kwargs in enumerate(kwargs):
+            assert call_kwargs == expected_kwargs, f"describe call {index}"
+
+        # Every recorded wait belongs to the retry helper between its attempts. The loop
+        # never reached a non-terminal status, so none of these is a poll interval -- and
+        # a fallback-and-continue would have added both a poll and a 0.1 second wait.
+        assert len(_recorded_sleeps(mock_sleep)) == expected_calls - 1
+
+    def test_unrelated_validation_error_is_not_absorbed_into_a_mode_switch(self):
+        """
+        Feature: remove-redshift-data-api-query-timeout, Property 13: Every non-rejection
+        describe failure propagates mapped
+
+        The case the narrowing exists for, spelled out: long-poll mode is active, the
+        service answers with ValidationException, and the message is about a session --
+        nothing to do with WaitTimeSeconds. Exactly one describe call is the assertion
+        that matters. A second one would mean the driver had read "ValidationException"
+        as "the parameter was refused", dropped the parameter, and re-polled the same
+        statement, leaving the real error unreported.
+
+        **Validates: Requirements 2.6, 9.5, 11.5**
+        """
+        executor = _executor_in_mode(long_poll=True)
+        executor.client.execute_statement.return_value = {"Id": "stmt-error"}
+        executor.client.describe_statement.side_effect = _non_rejection_client_error(
+            "ValidationException", "Invalid session id"
+        )
+
+        with patch("time.sleep") as mock_sleep:
+            with pytest.raises(InvalidParameterError) as exc_info:
+                executor.execute_statement("SELECT 1")
+
+        assert "Invalid session id" in str(exc_info.value)
+        assert executor.client.describe_statement.call_count == 1
+        assert _describe_kwargs(executor) == [
+            {"Id": "stmt-error", _LONG_POLL_MEMBER: _LONG_POLL_WAIT_SECONDS}
+        ]
+        assert _recorded_sleeps(mock_sleep) == []
 
 
 if __name__ == "__main__":

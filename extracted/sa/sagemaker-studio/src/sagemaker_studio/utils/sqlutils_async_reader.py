@@ -19,8 +19,12 @@ when the engine exposes it cheaply (Redshift ``TotalNumRows``); it is ``None`` f
 Athena (no cheap upfront count) so the UI paginates from the manifest instead.
 """
 
+import base64
+import json
 import logging
 from typing import Any, Iterator, List, Optional, Tuple
+
+from sagemaker_studio.utils.athena_type_converter import convert_athena_value
 
 logger = logging.getLogger(__name__)
 
@@ -61,45 +65,9 @@ INLINE_FIRST_PAGE_ROWS = 999
 MAX_INLINE_FIRST_PAGE_ROWS = 20000
 
 
-def _load_athena_converter():
-    """PyAthena's public, connection-free type converter -- the SAME conversion table its
-    sync cursor uses (``DefaultTypeConverter`` wraps ``_DEFAULT_CONVERTERS``). Reusing the
-    PUBLIC class (not the private dict) keeps async dtypes identical to the sync PyAthena
-    path (decimal/date/time/timestamp/timestamp-with-tz incl. named zones/varbinary/json)
-    and eliminates per-type parity drift, while staying on a supported API. Returns None if
-    PyAthena is somehow unavailable at import; callers then leave values as strings."""
-    try:
-        from pyathena.converter import DefaultTypeConverter
-
-        return DefaultTypeConverter()
-    except Exception:  # pragma: no cover - availability guard
-        logger.debug(
-            "PyAthena DefaultTypeConverter unavailable; async keeps raw strings", exc_info=True
-        )
-        return None
-
-
-_ATHENA_CONVERTER = _load_athena_converter()
-
-
 def _athena_coerce(value: Optional[str], type_name: str) -> Any:
-    """Coerce an Athena ``VarCharValue`` string to the SAME Python type the sync PyAthena
-    driver yields, by delegating to PyAthena's public ``DefaultTypeConverter`` (single
-    source of truth, so async == sync dtypes). The engine's ColumnInfo ``Type`` may be
-    parameterized (``decimal(10,2)``, ``varchar(20)``); the converter keys on the bare
-    name, so strip the ``(...)`` suffix. ``convert`` already returns the value unchanged
-    (as a string) for unmapped types; any conversion error also degrades to the raw
-    string -- matching PyAthena's own default-converter behavior."""
-    if value is None:
-        return None
-    converter = _ATHENA_CONVERTER
-    if converter is None:
-        return value  # PyAthena converter unavailable -> leave as string
-    base = (type_name or "").lower().split("(", 1)[0].strip()
-    try:
-        return converter.convert(base, value)
-    except Exception:
-        return value
+    """Convert a Row/Datum string to the Python type used by Athena result DataFrames."""
+    return convert_athena_value(value, type_name)
 
 
 def read_athena_result(
@@ -183,6 +151,47 @@ def read_athena_output_rows(client: Any, query_execution_id: str) -> Optional[in
     return extract_output_rows(stats)
 
 
+_RECORDS_PASSTHROUGH_EVENT = "before-parse.redshift-data.GetStatementResult"
+_RECORDS_PASSTHROUGH_ID = "sagemaker_studio.sqlutils_async_reader.records_passthrough"
+
+
+def _records_passthrough(response_dict, customized_response_dict=None, **_kwargs) -> None:
+    """Move GetStatementResult ``Records`` from the body to the parsed response as plain JSON."""
+    if customized_response_dict is None or response_dict.get("status_code") != 200:
+        return
+    body = response_dict.get("body")
+    if not isinstance(body, (bytes, bytearray)):
+        return
+    try:
+        parsed = json.loads(body)
+    except ValueError:
+        return
+    records = parsed.pop("Records", None) if isinstance(parsed, dict) else None
+    if records is None:
+        return
+    if b'"blobValue"' in body:
+        for row in records:
+            for field in row:
+                if "blobValue" in field:
+                    field["blobValue"] = base64.b64decode(field["blobValue"])
+    response_dict["body"] = json.dumps(parsed).encode("utf-8")
+    customized_response_dict["Records"] = records
+
+
+def enable_records_passthrough(client: Any) -> bool:
+    """Register ``_records_passthrough`` on ``client``; False when the client has no event system."""
+    try:
+        client.meta.events.register(
+            _RECORDS_PASSTHROUGH_EVENT, _records_passthrough, unique_id=_RECORDS_PASSTHROUGH_ID
+        )
+        return True
+    except Exception:
+        logger.debug(
+            "Records passthrough unavailable; botocore parses GetStatementResult", exc_info=True
+        )
+        return False
+
+
 def read_redshift_result(
     client: Any,
     statement_id: str,
@@ -205,6 +214,7 @@ def read_redshift_result(
         ResultConverter,
     )
 
+    enable_records_passthrough(client)
     first = client.get_statement_result(Id=statement_id)
     column_metadata = first.get("ColumnMetadata", [])
     columns = [desc[0] for desc in ResultConverter.convert_column_metadata(column_metadata)]

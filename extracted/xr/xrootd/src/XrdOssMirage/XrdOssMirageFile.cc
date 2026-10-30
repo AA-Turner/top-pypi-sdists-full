@@ -43,6 +43,9 @@ int XrdOssMirageFile::Fsync(XrdSfsAio *aiop)
 
 int XrdOssMirageFile::Ftruncate(unsigned long long flen)
 {
+    if (flen > XrdOssMirageEntry::max_file_size)
+        return -EFBIG;
+
     entry->size = flen;
     return XrdOssOK;
 }
@@ -101,20 +104,34 @@ ssize_t XrdOssMirageFile::Read(off_t offset, size_t size)
 
 ssize_t XrdOssMirageFile::Read(void *buffer, off_t offset, size_t size)
 {
+    if (offset < 0 || static_cast<uint64_t>(offset) > entry->size)
+        return -EINVAL;
+
     if (entry->read.return_code != XrdOssOK && 
-        entry->read.return_position >= static_cast<std::size_t>(offset) && 
-        entry->read.return_position <= static_cast<std::size_t>(offset + size))
+        entry->read.return_position >= static_cast<std::uint64_t>(offset) && 
+        entry->read.return_position  - static_cast<std::uint64_t>(offset) <= size)
         return -entry->read.return_code;
 
-    const std::size_t num_bytes = std::min(size, static_cast<std::size_t>(entry->size - offset));
+    const std::size_t num_bytes = static_cast<std::size_t>(std::min<std::uint64_t>(size, entry->size - offset));
 
     if (entry->pattern.size() == 1)
         std::fill_n(static_cast<char *>(buffer), num_bytes, entry->pattern.front());
 
     if (entry->pattern.size() > 1)
-        std::generate_n(static_cast<char *>(buffer), num_bytes, [i = offset % entry->pattern.size(), this] () mutable {
-            return entry->pattern[i++ % entry->pattern.size()]; 
+    {
+        std::call_once(pattern_buffer_once, [this, size] () {
+            while (pattern_buffer.size() < size)
+                pattern_buffer.insert(pattern_buffer.end(), entry->pattern.begin(), entry->pattern.end());
         });
+
+        const std::size_t start = offset % entry->pattern.size();
+        const std::size_t first_chunk = std::min(num_bytes, pattern_buffer.size() - start);
+
+        char *out = static_cast<char *>(buffer);
+        std::copy(pattern_buffer.begin() + start, pattern_buffer.begin() + start + first_chunk, out);
+        if (first_chunk < num_bytes)
+            std::copy(pattern_buffer.begin(), pattern_buffer.begin() + (num_bytes - first_chunk), out + first_chunk);
+    }
 
     return num_bytes;
 }
@@ -131,10 +148,16 @@ ssize_t XrdOssMirageFile::ReadRaw(void *buffer, off_t offset, size_t size)
 
 ssize_t XrdOssMirageFile::Write(const void *buffer, off_t offset, size_t size)
 {
-    if (entry->write.return_code != XrdOssOK && 
-        entry->write.return_position >= static_cast<std::size_t>(offset) && 
-        entry->write.return_position <= static_cast<std::size_t>(offset + size))
+    if (offset < 0)
+        return -EINVAL;
+
+    if (entry->write.return_code != XrdOssOK &&
+        entry->write.return_position >= static_cast<std::uint64_t>(offset) && 
+        entry->write.return_position  - static_cast<std::uint64_t>(offset) <= size)
         return -entry->write.return_code;
+
+    if (size > XrdOssMirageEntry::max_file_size - entry->size)
+        return -EFBIG;
 
     entry->size += size;
     return size;
@@ -147,7 +170,13 @@ int XrdOssMirageFile::Write(XrdSfsAio *aiop)
 
 int XrdOssMirageFile::Close(long long *retsz)
 {
+    const int return_code = entry->close.return_code;
+
     if (std::holds_alternative<XrdOssMirageEntryPtr>(entry_storage))
         std::get<XrdOssMirageEntryPtr>(entry_storage).reset();
+
+    if (return_code != XrdOssOK)
+        return -return_code;
+
     return XrdOssOK;
 }

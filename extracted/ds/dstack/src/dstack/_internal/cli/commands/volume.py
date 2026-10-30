@@ -1,4 +1,5 @@
 import argparse
+import sys
 import time
 
 from rich.live import Live
@@ -10,6 +11,7 @@ from dstack._internal.cli.utils.common import (
     LIVE_TABLE_REFRESH_RATE_PER_SEC,
     confirm_ask,
     console,
+    error_console,
 )
 from dstack._internal.cli.utils.volume import get_volumes_table, print_volumes_table
 from dstack._internal.core.errors import ResourceNotExistsError
@@ -94,7 +96,7 @@ class VolumeCommand(APIBaseCommand):
             self.api.client.volumes.get(project_name=self.api.project, name=args.name)
         except ResourceNotExistsError:
             console.print(f"Volume [code]{args.name}[/] does not exist")
-            exit(1)
+            sys.exit(1)
 
         if not args.yes and not confirm_ask(f"Delete the volume [code]{args.name}[/]?"):
             console.print("\nExiting...")
@@ -110,7 +112,7 @@ class VolumeCommand(APIBaseCommand):
         try:
             volume = self.api.client.volumes.get(project_name=self.api.project, name=args.name)
         except ResourceNotExistsError:
-            console.print("Volume not found")
-            exit(1)
+            error_console.print("Volume not found")
+            sys.exit(1)
 
         print(volume.model_dump_json(indent=2))

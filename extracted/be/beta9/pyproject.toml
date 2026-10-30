@@ -8,7 +8,8 @@ dependencies = [
     "typeguard<5.0.0,>=4.4.3; python_version >= '3.9'",
     "typing-extensions<5.0.0,>=4.7.1",
     "grpclib<1.0.0,>=0.4.7",
-    "grpcio<2.0.0,>=1.69.0",
+    "grpcio<2.0.0,>=1.69.0; python_version < '3.9'",
+    "grpcio<2.0.0,>=1.75.0; python_version >= '3.9'",
     "asgiref<4.0.0,>=3.8.1",
     "cloudpickle<4.0.0,>=3.0.0",
     "rich<15.0.0,>=13.9.4",
@@ -28,7 +29,7 @@ dependencies = [
     "jsonschema>=4.17.3,<5",
 ]
 name = "beta9"
-version = "0.1.291"
+version = "0.1.292"
 description = ""
 
 [project.scripts]
@@ -37,17 +38,8 @@ beta9 = "beta9.cli.main:start"
 [tool.setuptools.package-data]
 beta9 = [
     "abstractions/vm/assets.tar.gz",
+    "abstractions/vm/assets/*",
     "skills/**/*.md",
-    "abstractions/vm/*.service",
-    "abstractions/vm/*.desktop",
-    "abstractions/vm/*.svg",
-    "abstractions/vm/boot",
-    "abstractions/vm/browser-trust",
-    "abstractions/vm/browser-trust-update",
-    "abstractions/vm/browser",
-    "abstractions/vm/desktop",
-    "abstractions/vm/install",
-    "abstractions/vm/xstartup",
 ]
 
 [dependency-groups]
@@ -60,6 +52,8 @@ dev = [
     "gunicorn<23.0.0,>=22.0.0",
     "requests<3.0.0,>=2.32.3",
     "pytest-cov<6.0.0,>=5.0.0",
+    "fastmcp==4.1.4 ; python_full_version >= '3.10'",
+    "httpx2<3,>=2.14 ; python_full_version >= '3.10'",
 ]
 
 [tool.uv]

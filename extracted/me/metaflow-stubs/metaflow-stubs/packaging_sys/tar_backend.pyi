@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.39                                                                                #
-# Generated on 2026-09-02T21:19:46.735401                                                            #
+# MF version: 2.19.40                                                                                #
+# Generated on 2026-10-29T20:14:39.443200                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -10,10 +10,10 @@ import abc
 import metaflow
 import typing
 if typing.TYPE_CHECKING:
-    import abc
     import typing
     import _io
     import tarfile
+    import abc
     import metaflow.packaging_sys.backend
 
 from .backend import PackagingBackend as PackagingBackend

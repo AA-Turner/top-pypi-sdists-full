@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: akshare
-Version: 1.20.2
+Version: 1.20.9
 Summary: AKShare is an elegant and simple financial data interface library for Python, built for human beings!
 Author-email: AKFamily <albertandking@gmail.com>
 License: MIT
@@ -16,19 +16,16 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: beautifulsoup4>=4.9.1
-Requires-Dist: lxml>=4.2.1
-Requires-Dist: pandas>=2.0.0
+Requires-Dist: beautifulsoup4>=4.11.2
+Requires-Dist: lxml>=4.9.2
+Requires-Dist: pandas>=2.2.2
 Requires-Dist: requests>=2.22.0
 Requires-Dist: curl_cffi>=0.13.0
-Requires-Dist: html5lib>=1.0.1
-Requires-Dist: xlrd>=1.2.0
+Requires-Dist: html5lib>=1.1
+Requires-Dist: xlrd>=2.0.1
 Requires-Dist: urllib3>=1.25.8
 Requires-Dist: tqdm>=4.43.0
-Requires-Dist: openpyxl>=3.0.3
-Requires-Dist: jsonpath>=0.82
-Requires-Dist: tabulate>=0.8.6
-Requires-Dist: decorator>=4.4.2
+Requires-Dist: openpyxl>=3.1.0
 Requires-Dist: mini-racer>=0.12.4; platform_system != "Linux"
 Requires-Dist: py-mini-racer>=0.6.0; platform_system == "Linux"
 Requires-Dist: akracer>=0.0.13; platform_system == "Linux"
@@ -67,6 +64,7 @@ aims to simplify the process of fetching financial data.
 **Write less, get more!**
 
 - Documentation: [中文文档](https://akshare.akfamily.xyz/)
+- HTTP API & MCP server: [AKTools](https://aktools.akfamily.xyz/) lets other programming languages and AI assistants (Claude, Cursor) use AKShare data
 
 ## Installation
 
@@ -213,7 +211,7 @@ opening a pull request.
 4. [AKShare](https://github.com/akfamily/akshare) will insist on providing open-source financial data;
 5. Based on some uncontrollable factors, some data interfaces in [AKShare](https://github.com/akfamily/akshare) may be removed;
 6. Please follow the relevant open-source protocol used by [AKShare](https://github.com/akfamily/akshare);
-7. Provide HTTP API for the person who uses other program language: [AKTools](https://aktools.akfamily.xyz/).
+7. Provide HTTP API and MCP server for other programming languages and AI assistants: [AKTools](https://aktools.akfamily.xyz/).
 
 ## Show your style
 

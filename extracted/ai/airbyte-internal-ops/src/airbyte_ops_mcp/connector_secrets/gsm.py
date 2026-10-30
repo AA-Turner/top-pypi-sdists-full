@@ -28,13 +28,14 @@ import json
 import logging
 import os
 import re
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import google.api_core.exceptions
 import google.auth.exceptions
 from google.cloud import secretmanager_v1 as secretmanager
-from google.cloud.secretmanager_v1 import Secret
+from google.cloud.secretmanager_v1 import Secret, SecretManagerServiceClient
 
 from airbyte_ops_mcp.connector_secrets._gcp_urls import (
     extract_gcp_secret_name,
@@ -57,15 +58,19 @@ __all__ = [
     "DEFAULT_GCP_PROJECT_ID",
     "FILENAME_LABEL",
     "GSM_WRITER_CREDENTIALS_ENV_VAR",
+    "ConnectorSecretConfig",
+    "ConnectorSecretsUnavailableError",
     "create_secret",
     "extract_gcp_secret_name",
     "fetch_secret_handles",
+    "find_usable_connector_config",
     "get_connector_secret",
     "get_gcp_secret_url",
     "get_gsm_secrets_client",
     "get_gsm_writer_client",
     "get_secret_filepath",
     "get_secrets_dir",
+    "read_enabled_secret_value",
     "update_secret",
     "validate_new_secret_name",
     "write_secret_file",
@@ -90,6 +95,35 @@ FILENAME_LABEL = "filename"
 
 GSM_WRITER_CREDENTIALS_ENV_VAR = "GCP_GSM_WRITER_CREDENTIALS"
 """Environment variable containing the dedicated GSM writer service account key."""
+
+
+@dataclass(frozen=True)
+class ConnectorSecretConfig:
+    """A usable connector config and its GSM secret name."""
+
+    secret_name: str
+    config: dict[str, Any] = field(repr=False)
+
+
+class ConnectorSecretsUnavailableError(Exception):
+    """Raised when GSM cannot be read for integration-test secrets."""
+
+    def __init__(
+        self,
+        *,
+        connector_name: str,
+        gcp_project_id: str,
+        error_types: list[str],
+    ) -> None:
+        self.connector_name = connector_name
+        self.gcp_project_id = gcp_project_id
+        self.error_types = error_types
+        super().__init__(
+            f"Could not read GSM integration-test secrets for {connector_name} "
+            f"in {gcp_project_id} ({', '.join(error_types)}). Check that the "
+            "GSM credentials (GCP_GSM_CREDENTIALS) are valid and can access "
+            "this project."
+        )
 
 
 def fetch_secret_handles(
@@ -120,6 +154,22 @@ def fetch_secret_handles(
     return list(secrets)
 
 
+def read_enabled_secret_value(
+    secret: Secret,
+    client: SecretManagerServiceClient,
+) -> str | None:
+    """Return the value of the first enabled version of `secret`, if present."""
+    versions = list(
+        client.list_secret_versions(
+            request={"parent": secret.name, "filter": "state:ENABLED"}
+        )
+    )
+    if not versions:
+        return None
+    response = client.access_secret_version(name=versions[0].name)
+    return response.payload.data.decode("UTF-8")
+
+
 def write_secret_file(
     secret: Secret,
     client: secretmanager.SecretManagerServiceClient,
@@ -132,19 +182,14 @@ def write_secret_file(
     Raises `ConnectorSecretWithNoValidVersionsError` if the secret has no
     enabled versions.
     """
-    response = client.list_secret_versions(
-        request={"parent": secret.name, "filter": "state:ENABLED"}
-    )
-    versions = list(response)
-    if not versions:
+    value = read_enabled_secret_value(secret, client)
+    if value is None:
         raise ConnectorSecretWithNoValidVersionsError(
             connector_name=connector_name,
             secret_name=extract_gcp_secret_name(secret.name),
             gcp_project_id=gcp_project_id,
         )
-    enabled_version = versions[0]
-    payload = client.access_secret_version(name=enabled_version.name)
-    file_path.write_text(payload.payload.data.decode("UTF-8"))
+    file_path.write_text(value)
     file_path.chmod(0o600)
 
 
@@ -193,14 +238,100 @@ def _reject_json_constant(_: str) -> None:
     raise ValueError
 
 
-def _validate_secret_payload(value: str) -> None:
-    """Require a non-empty JSON object without exposing the payload on failure."""
+def _parse_secret_payload(
+    value: str,
+    *,
+    allow_empty: bool = False,
+) -> dict[str, Any]:
+    """Parse a JSON object, allowing `{}` when `allow_empty` is true."""
     try:
         parsed_value = json.loads(value, parse_constant=_reject_json_constant)
     except (ValueError, RecursionError):
         raise InvalidConnectorSecretPayloadError(is_valid_json=False) from None
-    if not isinstance(parsed_value, dict) or not parsed_value:
+    if not isinstance(parsed_value, dict) or (not parsed_value and not allow_empty):
         raise InvalidConnectorSecretPayloadError(is_valid_json=True)
+    return parsed_value
+
+
+def _is_empty_placeholder(value: Any) -> bool:
+    if isinstance(value, dict):
+        return not value or all(_is_empty_placeholder(item) for item in value.values())
+    if isinstance(value, list):
+        return not value or all(_is_empty_placeholder(item) for item in value)
+    return value is None or value == ""
+
+
+def _candidate_rank(secret: Secret) -> int:
+    labels = secret.labels or {}
+    if labels.get(FILENAME_LABEL) == "config":
+        return 0
+    if FILENAME_LABEL not in labels:
+        return 1
+    return 2
+
+
+def find_usable_connector_config(
+    connector_name: str,
+    gcp_project_id: str = DEFAULT_GCP_PROJECT_ID,
+    *,
+    client: SecretManagerServiceClient | None = None,
+) -> ConnectorSecretConfig | None:
+    """Find the first usable integration-test config for a connector."""
+    if client is None:
+        client = get_gsm_secrets_client()
+    secrets = fetch_secret_handles(
+        connector_name,
+        gcp_project_id,
+        client=client,
+    )
+    candidates = sorted(secrets, key=_candidate_rank)
+    total = len(candidates)
+    error_types: list[str] = []
+    for index, secret in enumerate(candidates, start=1):
+        try:
+            payload = read_enabled_secret_value(secret, client)
+            if payload is None:
+                logger.warning(
+                    f"Skipping GSM candidate {index} of {total}: no enabled versions"
+                )
+                continue
+
+            try:
+                config = _parse_secret_payload(payload, allow_empty=True)
+            except InvalidConnectorSecretPayloadError as exc:
+                reason = (
+                    "payload is not valid JSON"
+                    if not exc.is_valid_json
+                    else "payload is not a JSON object"
+                )
+                logger.warning(f"Skipping GSM candidate {index} of {total}: {reason}")
+                continue
+
+            if config and _is_empty_placeholder(config):
+                logger.warning(
+                    f"Skipping GSM candidate {index} of {total}: "
+                    "config is an empty placeholder"
+                )
+                continue
+
+            logger.info(f"Using GSM candidate {index} of {total}")
+            return ConnectorSecretConfig(
+                secret_name=extract_gcp_secret_name(secret.name),
+                config=config,
+            )
+        except Exception as exc:
+            error_type = type(exc).__name__
+            logger.warning(f"Skipping GSM candidate {index} of {total}: {error_type}")
+            if error_type not in error_types:
+                error_types.append(error_type)
+
+    if error_types:
+        raise ConnectorSecretsUnavailableError(
+            connector_name=connector_name,
+            gcp_project_id=gcp_project_id,
+            error_types=error_types,
+        )
+    return None
 
 
 def _validate_secret_filename(filename: str) -> None:
@@ -250,7 +381,7 @@ def create_secret(
 ) -> str:
     """Create a connector secret and its initial version in GSM."""
     validate_new_secret_name(connector_name, secret_name)
-    _validate_secret_payload(value)
+    _parse_secret_payload(value)
     if filename is not None:
         _validate_secret_filename(filename)
 
@@ -311,7 +442,7 @@ def update_secret(
     If disabling any previous version fails, the new version remains added and
     latest, and the exception lists versions that still need disabling.
     """
-    _validate_secret_payload(value)
+    _parse_secret_payload(value)
     secret = get_connector_secret(
         connector_name=connector_name,
         secret_name=secret_name,

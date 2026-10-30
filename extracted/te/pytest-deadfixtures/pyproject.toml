@@ -1,18 +1,94 @@
-[tool.black]
-line-length = 90
-target-version = ['py38']
+[project]
+name = "pytest-deadfixtures"
+description = "A simple plugin to list unused fixtures in pytest"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "João Luiz Lorencetti", email = "me@dirtycoder.net" }]
+maintainers = [
+  { name = "João Luiz Lorencetti", email = "me@dirtycoder.net" },
+  { name = "Christian Hartung", email = "6785871+hartungstenio@users.noreply.github.com" },
+]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Framework :: Pytest",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+  "Topic :: Software Development :: Testing",
+]
+dependencies = ["pytest>=9.0"]
+dynamic = ["version"]
+
+[project.urls]
+Issues = "https://github.com/jllorencetti/pytest-deadfixtures/issues"
+Source = "https://github.com/jllorencetti/pytest-deadfixtures"
+
+[project.entry-points.pytest11]
+deadfixtures = "pytest_deadfixtures.plugin"
+
+[dependency-groups]
+dev = [
+  "pre-commit",
+  "pytest>=9.0",
+  "pytest-cov",
+  "pytest-github-actions-annotate-failures",
+]
+
+[build-system]
+requires = ["hatch-vcs", "hatchling"]
+build-backend = "hatchling.build"
 
 [tool.coverage.run]
+source_pkgs = ["pytest_deadfixtures", "tests"]
 branch = true
+parallel = true
 
 [tool.coverage.report]
 precision = 2
 
-[tool.isort]
-include_trailing_comma = true
-use_parentheses = true
-known_first_party = 'pytest_deadfixtures'
-known_localfolder = 'tests'
-line_length = 90
-multi_line_output = 3
-force_grid_wrap = 0
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.envs.default]
+python = "3.13"
+dependency-groups = ["dev"]
+
+[tool.hatch.envs.hatch-test]
+dependency-groups = ["dev"]
+
+[[tool.hatch.envs.hatch-test.matrix]]
+python = ["3.10", "3.11", "3.12", "3.13", "3.14", "3.15", "pypy3.10", "pypy3.11", "pypy3.12"]
+pytest = ["9.0", "9.1", "9.2"]
+
+[tool.hatch.envs.hatch-test.overrides]
+matrix.pytest.dependencies = [
+  { value = "pytest>=9.0,<9.1", if = ["9.0"] },
+  { value = "pytest>=9.1,<9.2", if = ["9.1"] },
+  { value = "pytest>=9.2,<9.3", if = ["9.2"] },
+]
+
+[tool.hatch.envs.hatch-static-analysis]
+config-path = "none"
+dependencies = ["ruff (>=0.17.3)"]
+
+[tool.hatch.envs.hatch-static-analysis.scripts]
+format = "ruff format ."
+
+[tool.ruff]
+target-version = "py310"
+line-length = 90
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E501"]

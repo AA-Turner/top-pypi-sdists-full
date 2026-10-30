@@ -33,10 +33,20 @@ class AthenaSqlHelper(SqlHelper):
         """
         connection_data = SqlHelper.get_connection_data(connection)
         physical_endpoints = connection_data["physical_endpoints"]
-        aws_location = physical_endpoints[0].get("awsLocation", {})
+        aws_location = physical_endpoints[0].get("awsLocation", {}) if physical_endpoints else {}
         region = aws_location.get("awsRegion")
-        work_group = connection_data["workgroup_name"]
-        catalog_name = kwargs.get("catalog_name")
+        # ``props.athenaProperties.workgroupName`` for an ATHENA connection; a LAKEHOUSE catalog
+        # connection names its workgroup in ``configurations`` (see Connection.athena_workgroup).
+        work_group = connection_data.get("workgroup_name") or getattr(
+            connection, "athena_workgroup", None
+        )
+        if not work_group:
+            name = getattr(connection, "name", None)
+            raise RuntimeError(f"Connection {name} names no Athena workgroup")
+        # A query-level catalog (USE ... / catalog.database.table) wins; otherwise the catalog the
+        # connection itself names applies (AWS Notebook connections carry a top-level ``catalog``;
+        # DataZone records carry none, so the workgroup's default is used).
+        catalog_name = kwargs.get("catalog_name") or connection_data.get("catalog")
         schema_name = kwargs.get("schema_name")
 
         config = {

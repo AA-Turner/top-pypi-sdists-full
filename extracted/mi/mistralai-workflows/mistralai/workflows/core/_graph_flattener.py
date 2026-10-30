@@ -8,8 +8,6 @@ from __future__ import annotations
 
 from typing import Any, Union
 
-import structlog
-
 from mistralai.workflows.core._graph_types import (
     TreeNode,
     _AgentNode,
@@ -27,8 +25,9 @@ from mistralai.workflows.core._graph_types import (
     _TryExceptNode,
     _WaitConditionNode,
 )
+from mistralai.workflows.core._logger import get_logger
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 
 class GraphValidationError(ValueError):

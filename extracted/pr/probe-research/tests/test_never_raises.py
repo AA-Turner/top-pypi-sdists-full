@@ -36,6 +36,7 @@ their tests).
 
 from __future__ import annotations
 
+import gc
 import errno
 import os
 import signal
@@ -129,6 +130,17 @@ def _clean(monkeypatch, tmp_path):
     monkeypatch.setattr(run_module, "FINISH_TIMEOUT_DEFAULT_SECONDS", 0.5)
     yield
     _reset_fluent()
+    _stop_leaked_beats()
+
+
+def _stop_leaked_beats() -> None:
+    """A run a fault left open keeps beating every 0.05 s from its daemon thread
+    until the process exits, and the next test on this worker that counts what
+    is sent sees its beats (`test_offline_mode`'s no-network guard failed on the
+    shard that held both files)."""
+    for obj in gc.get_objects():
+        if isinstance(obj, run_module.Run):
+            obj.stop_heartbeat()
 
 
 def _reset_fluent():

@@ -24,8 +24,6 @@
 // IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-use std::borrow::Cow;
-
 use either::Either;
 #[cfg(test)]
 use insta::assert_snapshot;
@@ -48,7 +46,7 @@ use crate::unescape::{
     decode_esc_string, decode_plain_string, decode_unicode_esc_string, escape_unicode_esc_str,
     uescape_char,
 };
-use crate::{SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken, TokenText};
+use crate::{SyntaxElement, SyntaxKind, SyntaxNode, SyntaxToken};
 
 use super::support;
 
@@ -383,6 +381,26 @@ impl ast::Literal {
             IntegerRadix::Binary | IntegerRadix::Hexadecimal | IntegerRadix::Octal => &text[2..],
         };
         BigUint::parse_bytes(digits.replace('_', "").as_bytes(), radix.base())
+    }
+
+    pub fn integer_value_u64(&self) -> Option<u64> {
+        let LitKind::IntNumber(token) = self.kind()? else {
+            return None;
+        };
+        let radix = self.integer_radix()?;
+        let text = token.text();
+        let digits = match radix {
+            IntegerRadix::Decimal => text,
+            IntegerRadix::Binary | IntegerRadix::Hexadecimal | IntegerRadix::Octal => &text[2..],
+        };
+        let base = radix.base();
+        let mut value: u64 = 0;
+        for c in digits.chars().filter(|&c| c != '_') {
+            value = value
+                .checked_mul(base.into())?
+                .checked_add(c.to_digit(base)?.into())?;
+        }
+        Some(value)
     }
 }
 
@@ -1460,14 +1478,14 @@ impl ast::PlpgsqlOptionValue {
 
 impl ast::VarcharType {
     #[inline]
-    pub fn text(&self) -> TokenText<'_> {
+    pub fn text(&self) -> &str {
         text_of_first_token(self.syntax())
     }
 }
 
 impl ast::CharacterType {
     #[inline]
-    pub fn text(&self) -> TokenText<'_> {
+    pub fn text(&self) -> &str {
         text_of_first_token(self.syntax())
     }
 }
@@ -1545,6 +1563,11 @@ impl ast::Type {
     }
 }
 
+pub const KEYWORD_TYPE_NAMES: &[&str] = &[
+    "int", "integer", "smallint", "bigint", "real", "float", "dec", "decimal", "numeric",
+    "boolean", "json",
+];
+
 impl ast::PathType {
     pub fn keyword_type_name(&self) -> Option<&'static str> {
         let segment = self.path_ref()?.unqualified_segment()?;
@@ -1560,7 +1583,9 @@ impl ast::PathType {
                 let precision = self
                     .arg_list()
                     .and_then(|args| args.args().next())
-                    .and_then(|arg| u32::try_from(arg.expr()?.as_literal()?.integer_value()?).ok());
+                    .and_then(|arg| {
+                        u32::try_from(arg.expr()?.as_literal()?.integer_value_u64()?).ok()
+                    });
                 if precision.is_some_and(|precision| precision <= 24) {
                     "float4"
                 } else {
@@ -2102,7 +2127,7 @@ impl ast::TableConstraint {
     }
 }
 
-pub(crate) fn text_of_first_token(node: &SyntaxNode) -> TokenText<'_> {
+pub(crate) fn text_of_first_token(node: &SyntaxNode) -> &str {
     fn first_token(green_ref: &GreenNodeData) -> &GreenTokenData {
         green_ref
             .children()
@@ -2111,10 +2136,7 @@ pub(crate) fn text_of_first_token(node: &SyntaxNode) -> TokenText<'_> {
             .unwrap()
     }
 
-    match node.green() {
-        Cow::Borrowed(green_ref) => TokenText::borrowed(first_token(green_ref).text()),
-        Cow::Owned(green) => TokenText::owned(first_token(&green).to_owned()),
-    }
+    first_token(node.green()).text()
 }
 
 impl ast::WithQuery {
@@ -2609,6 +2631,22 @@ fn op_sig_none() {
     let postfix = sigs.next().unwrap();
     assert_snapshot!(postfix.lhs().unwrap().syntax(), @"int4");
     assert!(matches!(postfix.rhs(), Some(ast::OpSigOperand::None(_))));
+}
+
+#[test]
+fn keyword_type_names() {
+    for name in KEYWORD_TYPE_NAMES {
+        let parse = SourceFile::parse(&format!("drop cast (text as {name});"));
+        assert!(parse.errors().is_empty());
+        let stmt = parse.tree().stmts().next().unwrap();
+        let ast::Stmt::DropCast(drop_cast) = stmt else {
+            unreachable!()
+        };
+        let Some(ast::Type::PathType(path_type)) = drop_cast.cast_sig().unwrap().rhs() else {
+            unreachable!()
+        };
+        assert!(path_type.keyword_type_name().is_some(), "{name}");
+    }
 }
 
 #[test]

@@ -3,16 +3,14 @@
 
 from __future__ import annotations
 
-import contextlib
 import json
 import logging
 import re
 from collections import Counter, OrderedDict, defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from functools import cached_property
 from pathlib import Path
-from typing import IO, Any, Iterator
+from typing import IO, Any, Callable, Iterator, Literal
 
 from airbyte_protocol.models import (
     AirbyteCatalog,
@@ -20,6 +18,7 @@ from airbyte_protocol.models import (
     AirbyteStateType,
     AirbyteStreamState,
     ConfiguredAirbyteCatalog,
+    TraceType,
 )
 from airbyte_protocol.models import Type as AirbyteMessageType
 from pydantic import ValidationError
@@ -33,6 +32,13 @@ from airbyte_ops_mcp.regression_tests.normalization import to_plain_dict, to_str
 SHARED_STATE_LABEL = "(shared)"
 LEGACY_STATE_LABEL = "(legacy)"
 
+# How a run's output is written: `masked` masks it in the write pass, so raw
+# records never reach disk; `raw` keeps what the connector emitted. Here
+# rather than in `masking`, so the MCP tool can name the modes without
+# importing the masking library and the comparators behind it.
+OutputMode = Literal["masked", "raw"]
+OUTPUT_MODES: tuple[OutputMode, ...] = ("masked", "raw")
+
 # The identities those two are keyed by, alongside the real streams. The empty
 # namespace is what makes them unreachable as a stream: `to_stream_id` maps a falsy
 # namespace to `None`, so no connector-declared stream can key here, not even one
@@ -40,6 +46,10 @@ LEGACY_STATE_LABEL = "(legacy)"
 # `stream_label` treats an empty namespace as no namespace.
 SHARED_STATE_KEY: tuple[str | None, str] = ("", SHARED_STATE_LABEL)
 LEGACY_STATE_KEY: tuple[str | None, str] = ("", LEGACY_STATE_LABEL)
+
+MAX_STREAM_STATUSES_PER_STREAM = 16
+MAX_STREAM_ERRORS_PER_KEY = 5
+MAX_ERROR_MESSAGE_CHARS = 200
 
 
 class Command(Enum):
@@ -152,9 +162,182 @@ class ExecutionInputs:
             raise ValueError(f"State is required for {self.command.value} command")
 
 
+@dataclass(frozen=True)
+class StoppedEarly:
+    """Why the harness cut a run short, instead of the connector ending it.
+
+    A read stopped at a deadline or a record cap is not a crash and not a
+    complete run: its output is real up to the point it stopped, and nothing
+    past that point can be compared. `records_seen` is the number of RECORD
+    messages in the stdout that was kept.
+    """
+
+    reason: Literal["timeout", "cap"]
+    records_seen: int
+    elapsed_s: float
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "reason": self.reason,
+            "records_seen": self.records_seen,
+            "elapsed_s": self.elapsed_s,
+        }
+
+
+@dataclass(frozen=True)
+class StreamError:
+    failure_type: str | None
+    message: str | None
+
+
+# Distinct `ANALYTICS` types one summary keeps. The CDK emits a handful per
+# run; the cap is what keeps the summary bounded if a connector emits one per
+# page instead.
+MAX_ANALYTICS_TYPES = 32
+
+
+@dataclass
+class MessageSummary:
+    """Everything bounded that one pass over a run's messages can collect.
+
+    A `read` emits the whole dataset, so nothing here may grow with it: counts,
+    the first spec, catalog and connection status, one state blob per stream,
+    and the last value of each analytics counter -- the CDK emits those once
+    per run, so they number a handful whatever the dataset. `ExecutionResult`
+    fills one of these the first time anything asks, and `save_artifacts`
+    fills it on the same pass that writes the files, so the output is parsed
+    once however many questions are asked of it.
+    """
+
+    message_counts: dict[AirbyteMessageType, int] = field(
+        default_factory=lambda: defaultdict(int)
+    )
+    record_counts_per_stream: dict[str, int] = field(
+        default_factory=lambda: defaultdict(int)
+    )
+    spec: Any | None = None
+    catalog: AirbyteCatalog | None = None
+    connection_status: Any | None = None
+    final_states: dict[tuple[str | None, str], Any] = field(default_factory=dict)
+    stream_statuses: dict[str, list[str]] = field(default_factory=dict)
+    stream_errors: dict[str | None, list[StreamError]] = field(default_factory=dict)
+    # `ANALYTICS` trace type to the value it last carried, as the protocol
+    # carries it: a string, or `None` when the message declared no value. Last
+    # one wins, which is the pair that saw the whole run if a run somehow
+    # emitted two. Reading a number out of it is the caller's job; see
+    # `http_metrics.parse_connector_cache_metrics`. Capped at
+    # `MAX_ANALYTICS_TYPES` distinct types, so a connector that mints a type
+    # per page cannot grow this with the read.
+    analytics: dict[str, str | None] = field(default_factory=dict)
+
+    def add(self, message: AirbyteMessage) -> None:
+        kind = message.type
+        self.message_counts[kind] += 1
+        if kind is AirbyteMessageType.RECORD:
+            self.record_counts_per_stream[message.record.stream] += 1
+        elif kind is AirbyteMessageType.STATE and message.state is not None:
+            _fold_state(self.final_states, message.state)
+        elif kind is AirbyteMessageType.TRACE and message.trace is not None:
+            trace = message.trace
+            if trace.type is TraceType.ANALYTICS and trace.analytics is not None:
+                name = trace.analytics.type
+                # The first `MAX_ANALYTICS_TYPES` types are kept and updated;
+                # a type past the cap is dropped. A run that floods the cap
+                # before its counters arrive loses them, and reads as "not
+                # reported" -- bounded memory is the property that matters.
+                if name in self.analytics or len(self.analytics) < MAX_ANALYTICS_TYPES:
+                    self.analytics[name] = trace.analytics.value
+            elif (
+                trace.type is TraceType.STREAM_STATUS
+                and trace.stream_status is not None
+                and trace.stream_status.stream_descriptor is not None
+            ):
+                name = trace.stream_status.stream_descriptor.name
+                statuses = self.stream_statuses.setdefault(name, [])
+                if len(statuses) < MAX_STREAM_STATUSES_PER_STREAM:
+                    status = trace.stream_status.status
+                    statuses.append(str(getattr(status, "value", status)))
+            elif trace.type is TraceType.ERROR and trace.error is not None:
+                descriptor = trace.error.stream_descriptor
+                name = descriptor.name if descriptor is not None else None
+                errors = self.stream_errors.setdefault(name, [])
+                if len(errors) < MAX_STREAM_ERRORS_PER_KEY:
+                    failure_type = trace.error.failure_type
+                    errors.append(
+                        StreamError(
+                            failure_type=(
+                                str(getattr(failure_type, "value", failure_type))
+                                if failure_type is not None
+                                else None
+                            ),
+                            message=(
+                                trace.error.message[:MAX_ERROR_MESSAGE_CHARS]
+                                if trace.error.message is not None
+                                else None
+                            ),
+                        )
+                    )
+        elif kind is AirbyteMessageType.SPEC and self.spec is None:
+            self.spec = message.spec
+        elif kind is AirbyteMessageType.CATALOG and self.catalog is None:
+            self.catalog = message.catalog
+        elif (
+            kind is AirbyteMessageType.CONNECTION_STATUS
+            and self.connection_status is None
+        ):
+            self.connection_status = message.connectionStatus
+
+
+def _fold_state(final_states: dict[tuple[str | None, str], Any], state: Any) -> None:
+    """Overwrite the resume point of every stream this state message carries.
+
+    See `ExecutionResult.get_final_state_per_stream` for why all three state
+    types are kept and how they are keyed.
+    """
+    if state.type is AirbyteStateType.GLOBAL and state.global_ is not None:
+        for stream_state in state.global_.stream_states or []:
+            stream_id, value = _stream_state_entry(stream_state)
+            final_states[stream_id] = value
+        if state.global_.shared_state is not None:
+            final_states[SHARED_STATE_KEY] = to_plain_dict(
+                state.global_.shared_state, exclude_none=False
+            )
+    elif state.type is AirbyteStateType.STREAM and state.stream is not None:
+        stream_id, value = _stream_state_entry(state.stream)
+        final_states[stream_id] = value
+    elif state.data is not None:
+        # LEGACY, and a message that declared no type at all: the protocol's
+        # own default, and still what the connector resumes from.
+        final_states[LEGACY_STATE_KEY] = state.data
+
+
+def _stream_state_entry(
+    stream_state: AirbyteStreamState,
+) -> tuple[tuple[str | None, str], Any]:
+    """One stream's state, under the identity comparisons key streams by."""
+    descriptor = stream_state.stream_descriptor
+
+    return (
+        to_stream_id(descriptor.namespace, descriptor.name),
+        # `exclude_none=False`: a `null` inside a state blob is the connector's
+        # own data, not an unset protocol optional. Dropping the key would
+        # report a cursor one version emits as `null` and the other omits as
+        # an unchanged state.
+        to_plain_dict(stream_state.stream_state, exclude_none=False),
+    )
+
+
 @dataclass
 class ExecutionResult:
-    """Result of executing a connector command."""
+    """Result of executing a connector command.
+
+    The messages the run emitted stay on disk in `stdout_file_path`: for a
+    `read` they are the whole dataset, and holding them would make the
+    harness's memory grow with the connector's output. `airbyte_messages`
+    walks the file; the questions that have bounded answers -- counts, the
+    spec, the catalog, the final states -- are answered from one `MessageSummary`
+    collected on the first pass that needs it.
+    """
 
     connector_under_test: ConnectorUnderTest
     command: Command
@@ -164,8 +347,8 @@ class ExecutionResult:
     exit_code: int
     configured_catalog: ConfiguredAirbyteCatalog | None = None
     config: dict[str, Any] | None = None
-    _airbyte_messages: list[AirbyteMessage] = field(default_factory=list)
-    _messages_loaded: bool = field(default=False, repr=False)
+    stopped_early: StoppedEarly | None = None
+    _summary: MessageSummary | None = field(default=None, init=False, repr=False)
 
     @property
     def logger(self) -> logging.Logger:
@@ -173,22 +356,46 @@ class ExecutionResult:
             f"{self.connector_under_test.target_or_control.value}-{self.command.value}"
         )
 
-    @cached_property
-    def airbyte_messages(self) -> list[AirbyteMessage]:
-        """Parse and return all Airbyte messages from stdout."""
-        if self._messages_loaded:
-            return self._airbyte_messages
+    @property
+    def airbyte_messages(self) -> Iterator[AirbyteMessage]:
+        """The run's messages, parsed from stdout one line at a time.
 
-        messages = []
-        for line in self.stdout_file_path.read_text().splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            with contextlib.suppress(ValidationError):
-                messages.append(AirbyteMessage.parse_raw(line))
-        self._airbyte_messages = messages
-        self._messages_loaded = True
-        return messages
+        A fresh pass over the file on every access, and never a list: a
+        `read`'s output is the dataset, and the comparison keeps two results
+        alive at once.
+        """
+        # `errors="replace"`: a byte that does not decode becomes U+FFFD and the
+        # line fails validation below like any other malformed one, rather than
+        # the iteration itself raising and taking the whole run's report with it.
+        with self.stdout_file_path.open(errors="replace") as stdout:
+            for line in stdout:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    message = AirbyteMessage.model_validate_json(line)
+                except ValidationError:
+                    continue
+                yield message
+
+    def _scan(
+        self, on_message: Callable[[AirbyteMessage], None] | None = None
+    ) -> MessageSummary:
+        """One pass over the messages: collect the summary, hand each to `on_message`."""
+        summary = MessageSummary()
+        for message in self.airbyte_messages:
+            summary.add(message)
+            if on_message is not None:
+                on_message(message)
+        self._summary = summary
+        return summary
+
+    @property
+    def summary(self) -> MessageSummary:
+        """The bounded facts about the run, parsed from stdout at most once."""
+        if self._summary is None:
+            return self._scan()
+        return self._summary
 
     @property
     def configured_streams(self) -> list[str]:
@@ -248,54 +455,24 @@ class ExecutionResult:
         Returns:
             Stream identity to state value, empty when the run emitted no state.
         """
-        final_states: dict[tuple[str | None, str], Any] = {}
+        return dict(self.summary.final_states)
 
-        for message in self.get_states():
-            state = message.state
-            if state is None:
-                continue
+    def get_stream_statuses(self) -> dict[str, list[str]]:
+        """Get the bounded stream statuses emitted during the run."""
+        return {
+            name: list(statuses)
+            for name, statuses in self.summary.stream_statuses.items()
+        }
 
-            if state.type is AirbyteStateType.GLOBAL and state.global_ is not None:
-                for stream_state in state.global_.stream_states or []:
-                    stream_id, value = self._stream_state_entry(stream_state)
-                    final_states[stream_id] = value
-                if state.global_.shared_state is not None:
-                    final_states[SHARED_STATE_KEY] = to_plain_dict(
-                        state.global_.shared_state, exclude_none=False
-                    )
-            elif state.type is AirbyteStateType.STREAM and state.stream is not None:
-                stream_id, value = self._stream_state_entry(state.stream)
-                final_states[stream_id] = value
-            elif state.data is not None:
-                # LEGACY, and a message that declared no type at all: the
-                # protocol's own default, and still what the connector resumes
-                # from.
-                final_states[LEGACY_STATE_KEY] = state.data
-
-        return final_states
-
-    @staticmethod
-    def _stream_state_entry(
-        stream_state: AirbyteStreamState,
-    ) -> tuple[tuple[str | None, str], Any]:
-        """One stream's state, under the identity comparisons key streams by."""
-        descriptor = stream_state.stream_descriptor
-
-        return (
-            to_stream_id(descriptor.namespace, descriptor.name),
-            # `exclude_none=False`: a `null` inside a state blob is the
-            # connector's own data, not an unset protocol optional. Dropping the
-            # key would report a cursor one version emits as `null` and the
-            # other omits as an unchanged state.
-            to_plain_dict(stream_state.stream_state, exclude_none=False),
-        )
+    def get_stream_errors(self) -> dict[str | None, list[StreamError]]:
+        """Get the bounded, public details of stream error traces."""
+        return {
+            name: list(errors) for name, errors in self.summary.stream_errors.items()
+        }
 
     def get_message_count_per_type(self) -> dict[AirbyteMessageType, int]:
         """Count messages by type."""
-        counts: dict[AirbyteMessageType, int] = defaultdict(int)
-        for message in self.airbyte_messages:
-            counts[message.type] += 1
-        return dict(counts)
+        return dict(self.summary.message_counts)
 
     def get_record_count_per_stream(self) -> dict[str, int]:
         """Count records by stream name.
@@ -303,31 +480,19 @@ class ExecutionResult:
         Returns:
             Dictionary mapping stream names to record counts.
         """
-        counts: dict[str, int] = defaultdict(int)
-        for message in self.get_records():
-            counts[message.record.stream] += 1
-        return dict(counts)
+        return dict(self.summary.record_counts_per_stream)
 
     def get_catalog(self) -> AirbyteCatalog | None:
         """Get discovered catalog from messages."""
-        for message in self.airbyte_messages:
-            if message.type is AirbyteMessageType.CATALOG:
-                return message.catalog
-        return None
+        return self.summary.catalog
 
     def get_spec(self) -> Any | None:
         """Get connector spec from messages."""
-        for message in self.airbyte_messages:
-            if message.type is AirbyteMessageType.SPEC:
-                return message.spec
-        return None
+        return self.summary.spec
 
     def get_connection_status(self) -> Any | None:
         """Get connection status from check command."""
-        for message in self.airbyte_messages:
-            if message.type is AirbyteMessageType.CONNECTION_STATUS:
-                return message.connectionStatus
-        return None
+        return self.summary.connection_status
 
     def is_check_successful(self) -> bool:
         """Check if the check command was successful."""
@@ -337,20 +502,36 @@ class ExecutionResult:
         return status.status.value == "SUCCEEDED"
 
     def save_artifacts(self, output_dir: Path) -> None:
-        """Save execution artifacts to the output directory."""
+        """Save execution artifacts to the output directory.
+
+        One streaming pass writes every message to `airbyte_messages/<type>.jsonl`
+        and collects the run's summary, so the counts and declared objects the
+        caller asks for next cost no second parse. One handle per message type
+        stays open for the pass: the protocol has a handful of types, not a
+        stream's worth.
+        """
         output_dir.mkdir(parents=True, exist_ok=True)
 
         airbyte_messages_dir = output_dir / "airbyte_messages"
         airbyte_messages_dir.mkdir(parents=True, exist_ok=True)
 
-        messages_by_type: dict[str, list[str]] = defaultdict(list)
-        for message in self.airbyte_messages:
-            type_name = message.type.value.lower()
-            messages_by_type[type_name].append(message.model_dump_json())
+        handles: dict[str, IO[str]] = {}
 
-        for type_name, messages in messages_by_type.items():
-            file_path = airbyte_messages_dir / f"{type_name}.jsonl"
-            file_path.write_text("\n".join(messages))
+        def write(message: AirbyteMessage) -> None:
+            type_name = message.type.value.lower()
+            handle = handles.get(type_name)
+            if handle is None:
+                handle = (airbyte_messages_dir / f"{type_name}.jsonl").open("w")
+                handles[type_name] = handle
+            else:
+                handle.write("\n")
+            handle.write(message.model_dump_json())
+
+        try:
+            self._scan(write)
+        finally:
+            for handle in handles.values():
+                handle.close()
 
         # Save configured catalog (input) if available
         if self.configured_catalog is not None:
@@ -446,12 +627,11 @@ def split_records_per_stream(
     JSON RECORD messages (e.g. plain log lines) are skipped. Splitting
     needs only the message type and stream name, so lines are routed on a
     plain JSON parse -- the comparison layer, which reads these files one
-    stream at a time, does the full protocol validation once per record
-    instead of twice. Records are never held in memory and at most
-    `MAX_OPEN_RECORD_FILES` file handles are open at once (least recently
-    written streams are closed and reopened in append mode), so this scales
-    to arbitrarily large outputs and stream counts; the per-stream files
-    double as debugging artifacts.
+    stream at a time, does the full protocol validation. Records are never
+    held in memory and at most `MAX_OPEN_RECORD_FILES` file handles are open
+    at once (least recently written streams are closed and reopened in
+    append mode), so this scales to arbitrarily large outputs and stream
+    counts; the per-stream files double as debugging artifacts.
 
     Args:
         stdout_path: The connector run's stdout file.
@@ -492,7 +672,9 @@ def split_records_per_stream(
         return handle
 
     try:
-        with stdout_path.open() as stdout:
+        # Same backstop as `ExecutionResult.airbyte_messages`: an undecodable
+        # byte spoils one line, not the pass.
+        with stdout_path.open(errors="replace") as stdout:
             for line in stdout:
                 line = line.strip()
                 if not line:
@@ -542,6 +724,8 @@ class ComparableOutputs:
     spec: Any | None = None
     catalog: AirbyteCatalog | None = None
     final_states: dict[tuple[str | None, str], Any] | None = None
+    stream_statuses: dict[str, list[str]] | None = None
+    stream_errors: dict[str | None, list[StreamError]] | None = None
 
     @classmethod
     def from_execution_result(cls, result: ExecutionResult) -> ComparableOutputs:
@@ -553,10 +737,12 @@ class ComparableOutputs:
         a `read` and meaningless anywhere else -- so the command decides whether
         it is collected at all.
         """
-        emits_state = result.command in (Command.READ, Command.READ_WITH_STATE)
+        emits_read = result.command in (Command.READ, Command.READ_WITH_STATE)
 
         return cls(
             spec=result.get_spec(),
             catalog=result.get_catalog(),
-            final_states=(result.get_final_state_per_stream() if emits_state else None),
+            final_states=(result.get_final_state_per_stream() if emits_read else None),
+            stream_statuses=(result.get_stream_statuses() if emits_read else None),
+            stream_errors=(result.get_stream_errors() if emits_read else None),
         )

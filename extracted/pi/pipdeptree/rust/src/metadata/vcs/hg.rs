@@ -1,18 +1,23 @@
 use std::fs;
 use std::path::Path;
 
+use crate::metadata::read_bounded;
 use crate::process::ProcessRunner;
 
 use super::shared::{
-    CommandError, ExitStatusPolicy, VcsError, VcsRequirement, VcsResult, build_requirement,
-    command, marker_root, normalize_local_remote,
+    ExitStatusPolicy, VcsError, VcsRequirement, VcsResult, build_requirement, command, marker_root,
+    normalize_local_remote,
 };
 
 pub(super) struct Hg;
 
 impl super::Vcs for Hg {
-    fn root(&self, _processes: &dyn ProcessRunner, location: &Path) -> Option<std::path::PathBuf> {
-        marker_root(location, ".hg", false)
+    fn root(
+        &self,
+        _processes: &dyn ProcessRunner,
+        location: &Path,
+    ) -> Result<Option<std::path::PathBuf>, VcsError> {
+        Ok(marker_root(location, ".hg", false))
     }
 
     fn requirement(
@@ -49,7 +54,7 @@ fn default_path(root: &Path) -> Option<String> {
     let hgrc = store.join("hgrc");
     (fs::symlink_metadata(&store).ok()?.is_dir() && fs::symlink_metadata(&hgrc).ok()?.is_file())
         .then_some(())?;
-    let content = fs::read_to_string(hgrc).ok()?;
+    let content = read_bounded(&hgrc).ok()?;
     let mut in_paths = false;
     let mut remote = None;
     for line in content.lines() {
@@ -78,7 +83,7 @@ fn required_command(
         ExitStatusPolicy::RequireSuccess,
     ) {
         Ok(value) if !value.is_empty() => Ok(value),
-        Ok(_) | Err(CommandError::Failed) => Err(VcsError::NoRemote),
-        Err(CommandError::NotFound) => Err(VcsError::CommandNotFound),
+        Ok(_) => Err(VcsError::NoRemote),
+        Err(error) => Err(error.into()),
     }
 }

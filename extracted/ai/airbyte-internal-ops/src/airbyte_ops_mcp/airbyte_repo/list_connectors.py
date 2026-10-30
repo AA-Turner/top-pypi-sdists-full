@@ -23,6 +23,10 @@ from airbyte_ops_mcp.github_api import GitHubAPIError, get_pr_changed_files
 from airbyte_ops_mcp.registry._enums import ConnectorLanguage, ConnectorType
 
 CONNECTOR_PATH_PREFIX = "airbyte-integrations/connectors"
+# Mirrors the root-level documentation exclusions in airbytehq/airbyte's `poe-tasks/get-modified-connectors.sh`.
+IGNORED_CONNECTOR_FILE_NAMES = frozenset(
+    {"README.md", "CONTRIBUTING.md", "AGENTS.md", "CLAUDE.md"}
+)
 METADATA_FILE_NAME = "metadata.yaml"
 GIT_DEFAULT_BRANCH = "origin/master"
 
@@ -41,6 +45,13 @@ class ConnectorSubtype(StrEnum):
 def _extract_connector_names(changed_files: list[str]) -> list[str]:
     """Extract unique connector names from a list of changed file paths.
 
+    Only include directories prefixed with `source-` or `destination-`;
+    entries directly under the connectors directory that do not match are not
+    connectors.
+    Ignore root-level `README.md`, `CONTRIBUTING.md`, `AGENTS.md`, and
+    `CLAUDE.md` files inside connector directories; nested files with those
+    names still count as connector changes.
+
     Args:
         changed_files: File paths relative to the repo root.
 
@@ -49,11 +60,25 @@ def _extract_connector_names(changed_files: list[str]) -> list[str]:
     """
     changed_connectors: set[str] = set()
     for file_path in changed_files:
-        if file_path.startswith(CONNECTOR_PATH_PREFIX + "/"):
-            # e.g. "airbyte-integrations/connectors/source-faker/..." -> "source-faker"
-            path_parts = file_path.split("/")
-            if len(path_parts) >= 3:
-                changed_connectors.add(path_parts[2])
+        if not file_path.startswith(CONNECTOR_PATH_PREFIX + "/"):
+            continue
+
+        # e.g. "airbyte-integrations/connectors/source-faker/..." -> "source-faker"
+        path_parts = file_path.split("/")
+        if len(path_parts) < 3:
+            continue
+
+        connector_name = path_parts[2]
+        if not connector_name.startswith(("source-", "destination-")):
+            continue
+
+        is_root_doc = (
+            len(path_parts) == 4 and path_parts[3] in IGNORED_CONNECTOR_FILE_NAMES
+        )
+        if is_root_doc:
+            continue
+
+        changed_connectors.add(connector_name)
     return sorted(changed_connectors)
 
 

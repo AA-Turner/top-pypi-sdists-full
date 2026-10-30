@@ -8,7 +8,7 @@ import struct
 import warnings
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from tesla_fleet_api.const import (
     AuthorizationRole,
@@ -16,6 +16,8 @@ from tesla_fleet_api.const import (
     AuthorizedClientState,
     AuthorizedClientType,
     AuthorizedVerificationType,
+    EnergyDeviceIdentifierType,
+    EnergyIslandMode,
     Method,
 )
 from tesla_fleet_api.exceptions import (
@@ -29,6 +31,9 @@ from tesla_fleet_api.tesla.energysite import (
     EnergySites,
     validate_dispatch_battery_power,
 )
+
+if TYPE_CHECKING:
+    from cryptography.hazmat.primitives.asymmetric import rsa
 
 DEFAULT_PAIRING_TIMEOUT = 600.0
 DEFAULT_PAIRING_POLL_INTERVAL = 5.0
@@ -328,7 +333,231 @@ def _parse_gateway_address(payload: Any) -> str | None:
 
 
 class TeslemetryEnergySite(EnergySite):
-    """Teslemetry specific energy site."""
+    """Teslemetry specific energy site.
+
+    With a signing ``private_key`` (see :class:`EnergySite`), every device
+    command except the four pre-pairing reads is signed with that key and
+    sent through Teslemetry's ``device_command`` route. Without a key, a
+    command uses its Teslemetry route. The ``set_island_mode``,
+    ``backup_events`` and ``config`` routes sign with Teslemetry's own key,
+    which must be verified on the gateway, or the route answers 409
+    ``energy_site_not_paired`` and sends nothing. As of 2026-10-29 the
+    ``dispatch_battery_power``, ``resume_battery_operation`` and backup-event
+    schedule/cancel routes still send unsigned, so Tesla answers HTTP 400:
+    keyless dispatch does not work until Teslemetry signs those routes.
+    """
+
+    async def _device_command(
+        self,
+        routable_message: bytes,
+        target_id: str,
+        identifier_type: EnergyDeviceIdentifierType
+        | int = EnergyDeviceIdentifierType.GATEWAY_DIN,
+    ) -> dict[str, Any]:
+        """Send a signed ``RoutableMessage`` through Teslemetry's ``device_command`` route.
+
+        Teslemetry takes the flat body and adds Tesla's ``data`` wrapper itself.
+        """
+        return await self._request(
+            Method.POST,
+            f"api/1/energy_sites/{self.energy_site_id}/device_command",
+            json=self._device_command_body(
+                routable_message, target_id, identifier_type
+            ),
+        )
+
+    async def set_island_mode(
+        self,
+        mode: EnergyIslandMode | int,
+        force: bool | None = None,
+    ) -> dict[str, Any]:
+        """Set the island mode on the energy gateway.
+
+        With a signing key this signs the command with that key. Without one
+        it calls the Teslemetry route, which signs it with Teslemetry's key.
+        See :meth:`EnergySite.set_island_mode`.
+        """
+        if self._signer is not None:
+            return await super().set_island_mode(mode, force)
+        data: dict[str, Any] = {"mode": int(mode)}
+        if force is not None:
+            data["force"] = force
+        return await self._request(
+            Method.POST,
+            f"api/1/energy_sites/{self.energy_site_id}/command/set_island_mode",
+            json=data,
+        )
+
+    async def get_backup_events(self) -> dict[str, Any]:
+        """Get backup events from the energy gateway.
+
+        With a signing key this signs the command with that key. Without one
+        it calls the Teslemetry route, which signs it with Teslemetry's key.
+        """
+        if self._signer is not None:
+            return await super().get_backup_events()
+        return await self._request(
+            Method.GET,
+            f"api/1/energy_sites/{self.energy_site_id}/command/backup_events",
+        )
+
+    async def get_teg_config(self) -> dict[str, Any]:
+        """Get Tesla Energy Gateway configuration from the TEG service.
+
+        With a signing key this signs the command with that key. Without one
+        it calls the Teslemetry route, which signs it with Teslemetry's key.
+        """
+        if self._signer is not None:
+            return await super().get_teg_config()
+        return await self._request(
+            Method.GET,
+            f"api/1/energy_sites/{self.energy_site_id}/command/config",
+        )
+
+    async def _get_route(self, route: str) -> dict[str, Any]:
+        return await self._request(
+            Method.GET,
+            f"api/1/energy_sites/{self.energy_site_id}/command/{route}",
+        )
+
+    async def _post_route(self, route: str, json: dict[str, Any]) -> dict[str, Any]:
+        return await self._request(
+            Method.POST,
+            f"api/1/energy_sites/{self.energy_site_id}/command/{route}",
+            json=json,
+        )
+
+    async def get_system_info(self) -> dict[str, Any]:
+        """Get energy device system information via the Teslemetry custom
+        endpoint. A pre-pairing read: never signed, even with a key."""
+        return await self._get_route("system_info")
+
+    async def raw_networking_status(self) -> dict[str, Any]:
+        """Get energy device networking status via the Teslemetry custom
+        endpoint. Teslemetry returns it already unwrapped. A pre-pairing
+        read: never signed, even with a key."""
+        return await self._get_route("networking_status")
+
+    async def wifi_scan(self) -> dict[str, Any]:
+        """Scan for WiFi networks on the energy gateway.
+
+        With a signing key this signs the command with that key. Without one
+        it calls the Teslemetry route.
+        """
+        if self._signer is not None:
+            return await super().wifi_scan()
+        return await self._get_route("wifi_scan")
+
+    async def get_device_cert(self) -> dict[str, Any]:
+        """Get the energy device certificate.
+
+        With a signing key this signs the command with that key. Without one
+        it calls the Teslemetry route.
+        """
+        if self._signer is not None:
+            return await super().get_device_cert()
+        return await self._get_route("device_cert")
+
+    async def get_cellular_info(self) -> dict[str, Any]:
+        """Get cellular modem information from the energy gateway.
+
+        With a signing key this signs the command with that key. Without one
+        it calls the Teslemetry route, which signs it with Teslemetry's key.
+        """
+        if self._signer is not None:
+            return await super().get_cellular_info()
+        return await self._get_route("cellular_info")
+
+    async def check_for_update(self) -> dict[str, Any]:
+        """Check if a firmware update is available for the energy gateway.
+
+        With a signing key this signs the command with that key. Without one
+        it calls the Teslemetry route, which signs it with Teslemetry's key.
+        """
+        if self._signer is not None:
+            return await super().check_for_update()
+        return await self._get_route("check_for_update")
+
+    async def check_for_update_urgency(self) -> dict[str, Any]:
+        """Check the urgency of any available firmware update.
+
+        With a signing key this signs the command with that key. Without one
+        it calls the Teslemetry route, which signs it with Teslemetry's key.
+        """
+        if self._signer is not None:
+            return await super().check_for_update_urgency()
+        return await self._get_route("check_for_update_urgency")
+
+    async def check_internet(self) -> dict[str, Any]:
+        """Test internet connectivity on the energy gateway.
+
+        With a signing key this signs the command with that key. Without one
+        it calls the Teslemetry route, which signs it with Teslemetry's key.
+        """
+        if self._signer is not None:
+            return await super().check_internet()
+        return await self._get_route("check_internet")
+
+    async def set_local_site_config(
+        self, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Update local site configuration on the energy gateway.
+
+        Accepts raw protobuf request fields. This writes gateway
+        configuration and is an undocumented energy device gRPC command.
+        With a signing key this signs the command with that key. Without one
+        it calls the Teslemetry route.
+        """
+        if self._signer is not None:
+            return await super().set_local_site_config(params)
+        return await self._post_route("set_local_site_config", params or {})
+
+    async def get_signed_commands_public_key(self) -> dict[str, Any]:
+        """Get the gateway's signed commands public key via the Teslemetry
+        custom endpoint. A pre-pairing read: never signed, even with a key."""
+        return await self._get_route("signed_commands_public_key")
+
+    async def schedule_backup_event(
+        self,
+        start_time: str | None = None,
+        duration_seconds: int | None = None,
+        priority: int | None = None,
+    ) -> dict[str, Any]:
+        """Schedule a manual backup event on the energy gateway.
+
+        With a signing key this signs the command with that key. Without one
+        it calls the Teslemetry route.
+
+        Args:
+            start_time: ISO 8601 timestamp for when the backup event should start.
+            duration_seconds: Duration of the backup event in seconds.
+            priority: Priority level for the backup event.
+        """
+        if self._signer is not None:
+            return await super().schedule_backup_event(
+                start_time, duration_seconds, priority
+            )
+        data: dict[str, Any] = {}
+        scheduling_info: dict[str, Any] = {}
+        if start_time is not None:
+            scheduling_info["start_time"] = start_time
+        if duration_seconds is not None:
+            scheduling_info["duration_seconds"] = duration_seconds
+        if priority is not None:
+            scheduling_info["priority"] = priority
+        if scheduling_info:
+            data["scheduling_info"] = scheduling_info
+        return await self._post_route("schedule_backup_event", data)
+
+    async def cancel_backup_event(self) -> dict[str, Any]:
+        """Cancel a scheduled backup event on the energy gateway.
+
+        With a signing key this signs the command with that key. Without one
+        it calls the Teslemetry route.
+        """
+        if self._signer is not None:
+            return await super().cancel_backup_event()
+        return await self._post_route("cancel_backup_event", {})
 
     async def add_authorized_client(
         self,
@@ -341,7 +570,9 @@ class TeslemetryEnergySite(EnergySite):
         Teslemetry custom endpoint.
 
         All arguments are optional — if omitted, the Teslemetry server
-        pre-populates the request with its own key details.
+        pre-populates the request with its own key details. A site with a
+        signing key signs the request with that key instead, when
+        ``public_key`` is given.
 
         Args:
             public_key: The public key to register. Either raw DER bytes in
@@ -352,6 +583,15 @@ class TeslemetryEnergySite(EnergySite):
             key_type: The type of key being registered.
             authorized_client_type: The authorized client type.
         """
+        if self._signer is not None and public_key is not None:
+            kwargs: dict[str, Any] = {}
+            if description is not None:
+                kwargs["description"] = description
+            if key_type is not None:
+                kwargs["key_type"] = key_type
+            if authorized_client_type is not None:
+                kwargs["authorized_client_type"] = authorized_client_type
+            return await super().add_authorized_client(public_key, **kwargs)
         data: dict[str, Any] = {}
         if public_key is not None:
             if isinstance(public_key, bytes):
@@ -429,7 +669,8 @@ class TeslemetryEnergySite(EnergySite):
 
     async def remove_authorized_client(self, public_key: bytes | str) -> dict[str, Any]:
         """Remove an authorized client from the energy gateway via the
-        Teslemetry custom endpoint.
+        Teslemetry custom endpoint. A site with a signing key signs the
+        request with that key instead.
 
         Security note: unlike adding a client, removal requires no physical
         presence proof - an authenticated session is sufficient, including
@@ -443,6 +684,8 @@ class TeslemetryEnergySite(EnergySite):
                 so a listed record round-trips to removal with no
                 re-encoding.
         """
+        if self._signer is not None:
+            return await super().remove_authorized_client(public_key)
         if isinstance(public_key, bytes):
             public_key_b64 = base64.b64encode(public_key).decode("ascii")
         else:
@@ -456,13 +699,18 @@ class TeslemetryEnergySite(EnergySite):
     async def dispatch_battery_power(
         self, power_watts: float, duration_seconds: int
     ) -> dict[str, Any]:
-        """Request a timed battery power setpoint via the Teslemetry custom
-        endpoint.
+        """Request a timed battery power setpoint on the energy gateway.
 
         ``power_watts`` is battery power in watts: **positive discharges,
         negative charges**. The gateway holds it for ``duration_seconds``
         (1 to 86400). See :meth:`EnergySite.dispatch_battery_power`.
+
+        With a signing key this signs the command with that key. Without one
+        it calls the Teslemetry route, which still sends unsigned and gets
+        Tesla's HTTP 400 (2026-10-29).
         """
+        if self._signer is not None:
+            return await super().dispatch_battery_power(power_watts, duration_seconds)
         validate_dispatch_battery_power(power_watts, duration_seconds)
         return await self._request(
             Method.POST,
@@ -474,8 +722,14 @@ class TeslemetryEnergySite(EnergySite):
         )
 
     async def resume_battery_operation(self) -> dict[str, Any]:
-        """Release a :meth:`dispatch_battery_power` setpoint via the Teslemetry
-        custom endpoint."""
+        """Release a :meth:`dispatch_battery_power` setpoint.
+
+        With a signing key this signs the command with that key. Without one
+        it calls the Teslemetry route, which still sends unsigned and gets
+        Tesla's HTTP 400 (2026-10-29).
+        """
+        if self._signer is not None:
+            return await super().resume_battery_operation()
         return await self._request(
             Method.POST,
             f"api/1/energy_sites/{self.energy_site_id}/command/resume_battery_operation",
@@ -612,8 +866,17 @@ class TeslemetryEnergySites(EnergySites):
 
     Site = TeslemetryEnergySite
 
-    def create(self, energy_site_id: int) -> TeslemetryEnergySite:
-        """Create a specific energy site."""
-        site = self.Site(self._parent, energy_site_id)
+    def create(
+        self,
+        energy_site_id: int,
+        private_key: rsa.RSAPrivateKey | None = None,
+        din: str | None = None,
+    ) -> TeslemetryEnergySite:
+        """Create a specific energy site.
+
+        Pass ``private_key`` and ``din`` to enable client-signed device
+        commands; see :class:`EnergySite`.
+        """
+        site = self.Site(self._parent, energy_site_id, private_key=private_key, din=din)
         self[energy_site_id] = site
         return site

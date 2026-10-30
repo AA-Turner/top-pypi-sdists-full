@@ -1239,6 +1239,14 @@ def test_the_daemon_never_writes_the_team_note_past_its_question(tmp_path, argv)
     assert "team note" in block.why
 
 
+def test_the_daemon_reads_doctor_but_never_runs_its_fix(tmp_path):
+    """`probe doctor --fix` approves Probe's hooks in Codex (#3617) and converts
+    folder defaults: setup, the researcher's to run. Plain `doctor` stays a read."""
+    block = _blocked(["doctor", "--fix"], tmp_path)
+    assert block is not None and block.check == "option" and "researcher's" in block.why
+    assert _blocked(["doctor"], tmp_path) is None
+
+
 def test_every_team_note_change_is_a_question_with_its_diff(tmp_path):
     team = tmp_path / "state" / "probe" / "team-note"
     team.mkdir(parents=True)

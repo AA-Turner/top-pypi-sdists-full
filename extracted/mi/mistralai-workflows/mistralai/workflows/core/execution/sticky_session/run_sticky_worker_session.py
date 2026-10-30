@@ -1,14 +1,13 @@
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
-import structlog
-
+from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.activity import context_var_task_queue
 from mistralai.workflows.core.execution.sticky_session.get_sticky_worker_session import get_sticky_worker_session
 from mistralai.workflows.core.execution.sticky_session.sticky_worker_session import StickyWorkerSession
 from mistralai.workflows.core.utils.contextvars import reset_contextvar
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 
 @asynccontextmanager

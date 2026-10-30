@@ -6,6 +6,7 @@
 //! coverage, and aggregate outcome classification.
 
 pub mod digest;
+pub mod handoff;
 pub mod landing;
 pub mod outcome;
 pub mod remaining;
@@ -17,6 +18,15 @@ pub mod wire;
 pub use digest::{
     canonical_json_bytes, canonical_json_sha256, finalizer_digest_json_value,
     finalizer_digest_serializable,
+};
+pub use handoff::{
+    check_repository_action, dirty_requirement_may_omit_submission,
+    validate_finalizer_handoff, FinalizerHandoffKindWire,
+    FinalizerHandoffSuccessorWire, FinalizerHandoffWire,
+    RepositoryActionCheckRequestWire, RepositoryActionOutcomeWire,
+    REPOSITORY_ACTION_CODE_CARRY_NOT_ALLOWED,
+    REPOSITORY_ACTION_CODE_CARRY_REQUIRES_HANDOFF,
+    REPOSITORY_ACTION_CODE_UNKNOWN_ACTION,
 };
 pub use landing::{
     assess_repository_landing_proof, LandingAttemptFactWire,

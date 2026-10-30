@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: megatron-core
-Version: 0.19.2
+Version: 0.20.0
 Summary: Megatron Core - a library for efficient and scalable training of transformer based models
 Author-email: NVIDIA <nemo-toolkit@nvidia.com>
 Maintainer-email: NVIDIA <nemo-toolkit@nvidia.com>
@@ -40,6 +40,7 @@ Requires-Dist: wandb; extra == "training"
 Requires-Dist: transformers; extra == "training"
 Requires-Dist: accelerate; extra == "training"
 Requires-Dist: omegaconf; extra == "training"
+Requires-Dist: gigatoken; extra == "training"
 Provides-Extra: mlm
 Requires-Dist: flask-restful; extra == "mlm"
 Requires-Dist: sentencepiece; extra == "mlm"
@@ -48,19 +49,21 @@ Requires-Dist: wandb; extra == "mlm"
 Requires-Dist: transformers; extra == "mlm"
 Requires-Dist: accelerate; extra == "mlm"
 Requires-Dist: omegaconf; extra == "mlm"
+Requires-Dist: gigatoken; extra == "mlm"
 Provides-Extra: dev
-Requires-Dist: nvidia-modelopt[torch]>=0.44; sys_platform != "darwin" and extra == "dev"
-Requires-Dist: nvidia-resiliency-ext==0.6.0; extra == "dev"
+Requires-Dist: nvidia-modelopt[torch]>=0.47; sys_platform != "darwin" and extra == "dev"
+Requires-Dist: nvidia-resiliency-ext==0.7.0; extra == "dev"
 Requires-Dist: tqdm; extra == "dev"
 Requires-Dist: einops~=0.8; extra == "dev"
 Requires-Dist: tensorstore!=0.1.46,!=0.1.72,~=0.1; extra == "dev"
 Requires-Dist: multi-storage-client~=0.50; extra == "dev"
-Requires-Dist: opentelemetry-api~=1.43.0; extra == "dev"
-Requires-Dist: flash-linear-attention~=0.4.0; extra == "dev"
+Requires-Dist: opentelemetry-api<2,>=1.33.1; extra == "dev"
+Requires-Dist: nemo-lens; extra == "dev"
 Requires-Dist: megatron-energon[av_decode]~=7.0; extra == "dev"
 Requires-Dist: av; extra == "dev"
+Requires-Dist: Pillow>=13.0.0; extra == "dev"
 Requires-Dist: flashinfer-python<0.7.0,>=0.5.0; extra == "dev"
-Requires-Dist: nvidia-cudnn-frontend[cutedsl]==1.26.0; extra == "dev"
+Requires-Dist: nvidia-cudnn-frontend[cutedsl]==1.29.0; extra == "dev"
 Requires-Dist: wget; extra == "dev"
 Requires-Dist: onnxscript; extra == "dev"
 Requires-Dist: fastapi~=0.50; extra == "dev"
@@ -72,12 +75,17 @@ Requires-Dist: openai[aiohttp]; extra == "dev"
 Requires-Dist: orjson; extra == "dev"
 Requires-Dist: fast-hadamard-transform; extra == "dev"
 Requires-Dist: zstandard; extra == "dev"
+Provides-Extra: inference
+Requires-Dist: torch-memory-saver; extra == "inference"
+Provides-Extra: otel
+Requires-Dist: nemo-lens[sdk]; extra == "otel"
 Provides-Extra: lts
 Provides-Extra: te
 Requires-Dist: transformer-engine[core_cu13,pytorch]; extra == "te"
 Provides-Extra: ssm
 Requires-Dist: mamba-ssm; extra == "ssm"
 Requires-Dist: causal-conv1d~=1.5; extra == "ssm"
+Requires-Dist: flash-linear-attention==0.5.1; extra == "ssm"
 
 <div align="center">
 
@@ -87,7 +95,7 @@ Megatron-LM and Megatron Core
 <h4>GPU-optimized library for training transformer models at scale</h4>
 
 [![Documentation](https://img.shields.io/badge/docs-latest-brightgreen.svg?style=flat)](https://docs.nvidia.com/megatron-core/developer-guide/latest/index.html)
-[![version](https://img.shields.io/badge/release-0.15.0-green)](./CHANGELOG.md)
+[![version](https://img.shields.io/badge/release-0.19.0-green)](https://github.com/NVIDIA/Megatron-LM/releases)
 [![license](https://img.shields.io/badge/license-Apache-blue)](./LICENSE)
 
 <div align="left">
@@ -125,6 +133,7 @@ For NVIDIA GPU Cloud (NGC) container setup and all installation options, review 
 - **[Your First Training Run](https://docs.nvidia.com/megatron-core/developer-guide/latest/get-started/quickstart.html)** - End-to-end training examples with data preparation
 - **[Parallelism Strategies](https://docs.nvidia.com/megatron-core/developer-guide/latest/user-guide/parallelism-guide.html)** - Scale training across GPUs with TP, PP, DP, EP, and CP
 - **[Contribution Guide](https://docs.nvidia.com/megatron-core/developer-guide/latest/developer/contribute.html)** - How to contribute to Megatron Core
+- **[Style Guide](style-guide.md)** - Python style overrides
 
 # Latest News
 

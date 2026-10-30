@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: acvl_utils
-Version: 0.2.6
+Version: 0.2.7
 Summary: Super cool utilities that we just love to use
 Author-email: "Applied Computer Vision Lab, Helmholtz Imaging & Division of Medical Image Computing, German Cancer Research Center" <f.isensee@dkfz.de>
 License-Expression: Apache-2.0
@@ -13,6 +13,7 @@ Requires-Dist: SimpleITK
 Requires-Dist: scikit-image
 Requires-Dist: connected-components-3d
 Requires-Dist: blosc2>=3.0.0b4
+Requires-Dist: tqdm
 Dynamic: license-file
 
 # ACVL Utilities

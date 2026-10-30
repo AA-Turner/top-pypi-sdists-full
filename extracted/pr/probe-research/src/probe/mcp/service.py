@@ -16,6 +16,7 @@ from collections.abc import Callable
 from typing import Any
 
 from ._generated.sql import MAX_ROWS_CEILING
+from .._compat import StrEnum
 from ..sdk import errors, links
 from ..sdk.notes import read_advisory
 from . import accounting
@@ -131,11 +132,39 @@ _NO_READ_LINEAGE = (
     "feature): file readers and the upstream walk need a newer server"
 )
 
-#: Links a project or experiment `lineage` view carries on its first page, per
-#: list (its own links; the links among an experiment's runs and files). They
-#: are the fixed part of a view whose rows are its children, so they are bounded
-#: here, and a cut is flagged rather than passed off as the whole graph.
-_LINEAGE_LINKS_CAP = 20
+#: Links a project or experiment `lineage` view shows per list on its first
+#: page (`built_on`, `used_by`, an experiment's `run_edges`). They are the fixed
+#: part of a view whose rows are its children, so each list is a glance: at most
+#: this many, fewer when they would take more than `_LINEAGE_LINKS_SHARE` of the
+#: budget, its `total` kept and `view_options.links` paging the whole list.
+_LINEAGE_LINKS_GLANCE = 10
+#: The share of `token_budget` the glance may take; the rest pages children.
+_LINEAGE_LINKS_SHARE = 0.5
+#: Links among an experiment's runs and files read for `view_options.links=
+#: run_edges`: the edges route's own ceiling (`limit` 1-1000).
+_LINEAGE_RUN_EDGES_MAX = 1000
+#: A link's stored `reason`, as the first page's glance shows it.
+_LINK_REASON_CHARS = 200
+#: The end type a lineage read names a paper with: no `entity` kind.
+_PAPER_END = "paper"
+#: Pick events a best read returns: the server's own ceiling (`MAX_PICK_HISTORY`).
+_PICK_HISTORY_MAX = 50
+#: The share of a `browse mode=branches` page the workspace's pick history may
+#: take on its first page; the branches page in the rest.
+_PICK_HISTORY_SHARE = 1 / 3
+#: What a browse page costs beyond its data -- completeness markers and the
+#: delivery cursor (~150 base64 characters) -- left free beside the first row.
+_BROWSE_PAGE_SLACK = 150
+
+
+class _LineageLinks(StrEnum):
+    """`view_options.links` on a project or experiment lineage view: which of
+    its link lists to page in full as the rows."""
+
+    BUILT_ON = "built_on"
+    USED_BY = "used_by"
+    #: An experiment's only: the links among its own runs and files.
+    RUN_EDGES = "run_edges"
 
 #: Card cap: the card is the cheap glance, and `token_budget` bounds ROWS,
 #: not payload -- so each block caps itself.
@@ -1202,6 +1231,17 @@ class _Req:
     #: The ref as the caller wrote it -- a catalog view reads its version
     #: selector (`dataset:c4@3`) to show the version that was asked for.
     ref: str | None = None
+    #: The caller's `token_budget`, for a view that sizes its FIXED part to it
+    #: (the lineage view's link glance).
+    token_budget: int = 2000
+    #: Ids of the work the caller's own session created, when it asked not to
+    #: see it (`X-Probe-Hide-Session-Work`) and the entity asked for is not
+    #: that work itself; None otherwise. For a view that reshapes what it reads
+    #: before the structural scrub could find it (the lineage view's named
+    #: links, the picks view's events). A call, read once and only when made:
+    #: a view makes it AFTER its own reads, so work the session creates in
+    #: between is in the set rather than shown.
+    hidden: Callable[[], frozenset[str] | None] = lambda: None
 
 
 @dataclass
@@ -1238,6 +1278,12 @@ class _ViewData:
     #: the walk resumes past it; resuming from where the page began would ask
     #: the route for the same rows forever.
     resume_fetched: str | None = None
+    #: Fit WHOLE rows to the budget exactly (`_fit_resume_rows`), as a
+    #: `resume_key` view is, but with an offset cursor: for rows with no unique
+    #: key of their own. The chars/4 estimate other views fit on undercounts
+    #: uuid-heavy rows, so a page it fills overflows and goes out as text
+    #: fragments of its JSON.
+    exact_fit: bool = False
 
 
 # (entity kind, view) -> builder method. Explicit and greppable: this table IS the
@@ -1380,6 +1426,81 @@ def _card_text(out: dict, entity: dict, key: str, limit: int) -> None:
         out[f"{key}_truncated"] = True
 
 
+def _end_ref(end_type: Any, end_id: Any, end: dict | None) -> dict:
+    """A link's far end as `entity` takes it: `kind:slug` and its name, from
+    the lineage read's `ends` (swarm friction P6); `kind:<uuid>` for a slug past
+    what `entity` takes, and the edge's own end type, unnamed, when the read did
+    not name it (an older server). A paper is no `entity` kind, so a paper end
+    is its `paper_id` and title, never a ref `entity` would refuse."""
+    kind = (end or {}).get("type") or end_type
+    out: dict[str, Any]
+    if kind == _PAPER_END:
+        out = {"paper_id": end_id}
+    else:
+        slug = (end or {}).get("slug")
+        ref = f"{kind}:{slug}"
+        out = {"ref": ref if slug and len(ref) <= _branches.MAX_REF_CHARS else f"{kind}:{end_id}"}
+    if end and end.get("name"):
+        out["name"] = end["name"]
+    return out
+
+
+def _lineage_link(
+    edge: dict, *, outgoing: bool, ends: dict[str, dict], reason_chars: int | None
+) -> dict:
+    """One of a project's or experiment's OWN links, compact: the far end
+    named, the relation, how it is known, its reason and date. `edge_id` only
+    on a stored link (a derived one has no row); a derived one carries how many
+    runs and files it was derived from instead. `reason_chars` cuts the reason
+    for the first page's glance (`reason_truncated`); paged rows carry it whole
+    (the server keeps at most 500 characters)."""
+    end_type, end_id = (
+        (edge.get("target_type"), edge.get("target_id"))
+        if outgoing
+        else (edge.get("source_type"), edge.get("source_id"))
+    )
+    out: dict[str, Any] = {
+        **_end_ref(end_type, end_id, ends.get(str(end_id).lower())),
+        "relation": edge.get("relation"),
+    }
+    if edge.get("provenance"):
+        out["provenance"] = edge["provenance"]
+    if edge.get("derived"):
+        out["derived"] = True
+        meta = edge.get("meta") if isinstance(edge.get("meta"), dict) else {}
+        for key in ("runs", "files"):
+            if meta.get(key) is not None:
+                out[key] = meta[key]
+    if reason_chars is None:
+        if edge.get("reason"):
+            out["reason"] = edge["reason"]
+    else:
+        _card_text(out, edge, "reason", reason_chars)
+    if edge.get("created_at"):
+        out["at"] = _branches.minute(edge["created_at"])
+    if edge.get("id"):
+        out["edge_id"] = edge["id"]
+    return out
+
+
+def _among_link(edge: dict) -> dict:
+    """One link among an experiment's runs and files, compact: both ends as
+    typed ids (the edges route names neither), the relation, how it is known,
+    and a stored link's `edge_id` (what `probe edge remove` takes)."""
+    out: dict[str, Any] = {
+        "from": f"{edge.get('source_type')}:{edge.get('source_id')}",
+        "relation": edge.get("relation"),
+        "to": f"{edge.get('target_type')}:{edge.get('target_id')}",
+    }
+    if edge.get("provenance"):
+        out["provenance"] = edge["provenance"]
+    if edge.get("derived"):
+        out["derived"] = True
+    if edge.get("id"):
+        out["edge_id"] = edge["id"]
+    return out
+
+
 #: Where a fork's inherited runs and files are read, on its card. A hint
 #: rather than a line in the tool description: that description is at the
 #: client's 2,048-char cap, and this costs nothing on an experiment that is
@@ -1482,6 +1603,11 @@ def _entity_projection(kind: str, entity: dict, *, card: bool, document: bool = 
     if out.get("conclusion") and entity.get("conclusion_source"):
         # Whose answer it is: `human`, `agent`, or `lane` (the page's AI summary).
         out["conclusion_source"] = entity["conclusion_source"]
+    if kind == EntityType.EXPERIMENT and entity.get("outcome") == "dead_end":
+        # Marked a dead end (0408): why, bounded like the conclusion (the
+        # branches view's `dead_end` row key; `True` when no reason came).
+        _card_text(out, {"dead_end": entity.get("outcome_reason")}, "dead_end", _CARD_DESCRIPTION_CHARS)
+        out.setdefault("dead_end", True)
     if kind == EntityType.ARTIFACT:
         _card_text(out, entity, "resolution_note", _CARD_DESCRIPTION_CHARS)
         if entity.get("shared") is False:
@@ -1855,6 +1981,11 @@ _VIEWS: dict[tuple[str, str], str] = {
     # one branch in full with `view_options.branch`.
     (EntityType.PROJECT, View.BRANCHES): "_view_project_branches",
     (EntityType.EXPERIMENT, View.BRANCHES): "_view_experiment_branches",
+    # The project's best-pick history (#3624): every pick and clear, newest
+    # first, who and why -- pick churn, which the branches header's one
+    # current pick cannot show. A project's only: the best route takes a
+    # project, and a workspace's history rides `browse mode=branches`.
+    (EntityType.PROJECT, View.PICKS): "_view_project_picks",
     (EntityType.GROUP, View.CARD): "_view_card",
     # One rollout as an entity (0135). NO `notes` view and no notes excerpt on the
     # card, unlike every other entity here: a Trial carries no notes document at
@@ -2008,6 +2139,12 @@ _VIEW_OPTIONS: dict[tuple[str, str], set[str]] = {
     # in full; a ref that is not one of them is refused, naming those that are.
     **{
         (kind, View.BRANCHES): {"branch"}
+        for kind in (EntityType.PROJECT, EntityType.EXPERIMENT)
+    },
+    # `links` (swarm friction P6) makes one of the view's link lists the ROWS,
+    # paged whole by `cursor`: the first page shows only a glance of each.
+    **{
+        (kind, View.LINEAGE): {"links"}
         for kind in (EntityType.PROJECT, EntityType.EXPERIMENT)
     },
     # GET /v1/provenance's own parameters: `direction` and `depth` shape the
@@ -2528,14 +2665,15 @@ class ResearchReadService:
         ids = [*(answer.get("project_ids") or []), *(answer.get("run_ids") or [])]
         return frozenset(str(i).lower() for i in ids), bool(answer.get("truncated"))
 
+    @staticmethod
     def _without_session_work(
-        self, result: _ViewData, session_id: str, *, own_id: str | None
+        result: _ViewData, created: tuple[frozenset[str], bool] | None, *, own_id: str | None
     ) -> _ViewData:
-        """`result` with every row, edge and origin naming work `session_id`
-        created taken out -- except the entity the caller asked for by address.
-        Marked `session_work_exclusion_unsupported` when the created set could
-        not be read, or was cut at its cap: the view may still hold that work."""
-        created = self._session_created_ids(session_id)
+        """`result` with every row, edge and origin naming work the caller's
+        session created (`created`, `_session_created_ids`) taken out -- except
+        the entity the caller asked for by address. Marked
+        `session_work_exclusion_unsupported` when the created set could not be
+        read, or was cut at its cap: the view may still hold that work."""
         if created is None:
             return dataclass_replace(
                 result,
@@ -2928,10 +3066,14 @@ class ResearchReadService:
         provider: str | None = None,
         kind: str | None = None,
         branch: str | None = None,
+        token_budget: int = 2000,
     ) -> dict:
         """One page of a flat listing: runs (newest first), workspaces, the
         notes catalog, the files in Shared / one workspace, or the data
         catalog's datasets, checkpoints or sources.
+
+        `token_budget` sizes only a fixed part that scales: the workspace's
+        pick history on the first branches page. Delivery fits the rows.
 
         Returns the compact envelope plus private keys browse delivery
         consumes and strips: `_list_after` (per row, the cursor resuming after
@@ -3264,6 +3406,10 @@ class ResearchReadService:
             )
             data.update(tier.payload)
             list_key = tier.rows_key
+            if branch is None and last_sent is None:
+                self._workspace_pick_history(
+                    data, workspace_id, token_budget, missing, rows={list_key: tier.rows}
+                )
             if hide_session is not None:
                 missing.append(MissingMarker.SESSION_WORK_EXCLUSION_UNSUPPORTED)
             for offset, row in enumerate(tier.rows):
@@ -4219,11 +4365,36 @@ class ResearchReadService:
             raise
         view = self._checked_view(kind, view)
         offset, after = _split_get_cursor(cursor, view)
+        options = self._checked_view_options(kind, view, filters)
+        # `X-Probe-Hide-Session-Work` (the daemon's reader): the entity asked for
+        # is shown, but the rows, edges and origins in its view that name work the
+        # caller's own session created are not -- after browse, a prior project's
+        # lineage is where the session's new experiments and runs would surface.
+        # The created set is read ONCE and AFTER the view's own reads (the set is
+        # then a superset of the work they could show): by the view when it hides
+        # that work itself (`_Req.hidden`), else here, after the builder.
+        hide_session = accounting.session_work_to_hide()
+        own_id = str(entity.get("id")) if isinstance(entity, dict) else None
+        read_once: list[tuple[frozenset[str], bool] | None] = []
+
+        def created() -> tuple[frozenset[str], bool] | None:
+            if hide_session is None:
+                return None
+            if not read_once:
+                read_once.append(self._session_created_ids(hide_session))
+            return read_once[0]
+
+        def hidden() -> frozenset[str] | None:
+            ids = created()
+            return ids[0] if ids is not None and (own_id or "").lower() not in ids[0] else None
+
         request = _Req(
-            filters=self._checked_view_options(kind, view, filters),
+            filters=options,
             offset=offset,
             after=after,
             ref=ref,
+            token_budget=token_budget,
+            hidden=hidden,
         )
         if isinstance(entity, dict) and CATALOG_NO_MATCH in entity:
             # Whichever view was asked, the version it names does not exist:
@@ -4231,17 +4402,8 @@ class ResearchReadService:
             result = self._catalog_no_match(entity)
         else:
             result = getattr(self, _VIEWS[(kind, view)])(entity, request)
-        # `X-Probe-Hide-Session-Work` (the daemon's reader): the entity asked for
-        # is shown, but the rows, edges and origins in its view that name work the
-        # caller's own session created are not -- after browse, a prior project's
-        # lineage is where the session's new experiments and runs would surface.
-        hide_session = accounting.session_work_to_hide()
         if hide_session is not None:
-            result = self._without_session_work(
-                result,
-                hide_session,
-                own_id=str(entity.get("id")) if isinstance(entity, dict) else None,
-            )
+            result = self._without_session_work(result, created(), own_id=own_id)
 
         data: dict[str, Any] = {
             "entity_type": kind,
@@ -4297,8 +4459,12 @@ class ResearchReadService:
             # _fit still emits one row at a floor of 0, so a caller always makes
             # progress and the overflow is reported below rather than hidden.
             window = result.rows[request.offset :]
-            if result.resume_key and _MIN_TOKEN_BUDGET <= token_budget <= _MAX_TOKEN_BUDGET:
-                emitted = self._fit_resume_rows(view, data, window, result, missing, token_budget)
+            if (result.resume_key or result.exact_fit) and (
+                _MIN_TOKEN_BUDGET <= token_budget <= _MAX_TOKEN_BUDGET
+            ):
+                emitted = self._fit_resume_rows(
+                    view, data, window, result, missing, token_budget, offset=request.offset
+                )
             else:
                 emitted = _fit(window, max(0, token_budget - _tokens(data)))
             data[result.rows_key] = emitted
@@ -4375,11 +4541,14 @@ class ResearchReadService:
         result: _ViewData,
         missing: list[str],
         token_budget: int,
+        *,
+        offset: int = 0,
     ) -> list[dict]:
         """As many WHOLE rows of a `resume_key` view as the delivered page holds,
         measured EXACTLY -- the compact envelope, its markers, and the cursor
         delivery will wrap around the last row's key -- as `metrics_series`
-        measures its series.
+        measures its series. An `exact_fit` view's cursor is the offset past
+        the last row sent (`offset` is where this page began).
 
         Its cursor carries that KEY (a diff carries a path), so it grows with
         the rows, and the chars/4 estimate other views fit on undercounts
@@ -4393,15 +4562,13 @@ class ResearchReadService:
         def page(count: int) -> dict:
             rows = window[:count]
             more = count < len(window) or result.more_beyond
+            native = (
+                _join_get_cursor(view, 0, after=str(rows[-1].get(result.resume_key)))
+                if result.resume_key and rows
+                else _join_get_cursor(view, offset + count)
+            )
             cursor = (
-                _encode_delivery_cursor(
-                    {
-                        "native": _join_get_cursor(
-                            view, 0, after=str(rows[-1].get(result.resume_key))
-                        )
-                    },
-                    request_id,
-                )
+                _encode_delivery_cursor({"native": native}, request_id)
                 if more and rows
                 else None
             )
@@ -4419,9 +4586,13 @@ class ResearchReadService:
                 }
             )
 
+        # Room a multi-ref batch's row wrapper takes around this page.
+        context = current_delivery()
+        reserve = context.reserve if context is not None else 0
+
         def fits(count: int) -> bool:
             try:
-                return budget.fits(page(count))
+                return budget.fits(page(count), reserve=reserve)
             except ContinuationError:
                 # A cursor too large to encode (one very long path as the
                 # last row) cannot end a page; a shorter page may still fit.
@@ -4747,6 +4918,71 @@ class ResearchReadService:
             resume_fetched=str(items[-1]["id"]) if items and items[-1].get("id") else None,
         )
 
+    def _workspace_pick_history(
+        self,
+        data: dict[str, Any],
+        workspace_id: str,
+        token_budget: int,
+        missing: list[str],
+        *,
+        rows: dict[str, list],
+    ) -> None:
+        """`pick_history` on the first compact page of `browse mode=branches`
+        (#3624, R13): the workspace pick's events, newest first, in the picks
+        view's shape (`GET /v1/workspaces/{W}/best?history=50`).
+
+        The branch rows are the page's answer and the history its optional
+        part, so the history never costs the page a row: when every row fits
+        one page, it takes only the room they leave; when the rows page anyway,
+        it takes up to `_PICK_HISTORY_SHARE` of the budget, never the room the
+        header and the first row need. Measured exactly. When that is not every
+        event, `pick_history_total` says how many were read and `missing` says
+        `pick_history_beyond_page` (delivery also drops the history before it
+        would refuse a page that cannot hold one row). A failed read is
+        `pick_history` in `missing`, never an absent key."""
+        try:
+            body = self.source.workspace_best(workspace_id, history=_PICK_HISTORY_MAX)
+        except Exception:  # noqa: BLE001 -- an additive read never breaks the branches page
+            missing.append(MissingMarker.PICK_HISTORY)
+            return
+        _, events = _branches.pick_history(body)
+
+        def whole_page(n: int) -> dict:
+            # The page as delivery will send it when every row fits: no cursor.
+            out_data: dict[str, Any] = {**data, **rows}
+            marked = list(missing)
+            if n:
+                out_data["pick_history"] = events[:n]
+            if n < len(events):
+                out_data["pick_history_total"] = len(events)
+                marked.append(MissingMarker.PICK_HISTORY_BEYOND_PAGE)
+            page: dict[str, Any] = {"data": out_data}
+            if marked:
+                page["completeness"] = {"state": EnvelopeState.PARTIAL, "missing": marked}
+            return page
+
+        share = int(token_budget * _PICK_HISTORY_SHARE)
+        if _budget_cost(whole_page(0)) <= token_budget:
+            # Every row fits one page: the history takes only what they leave.
+            shown = _largest(
+                len(events),
+                lambda n: _budget_cost({"pick_history": events[:n]}) <= share
+                and _budget_cost(whole_page(n)) <= token_budget,
+            )
+        else:
+            first = {key: listed[:1] for key, listed in rows.items()}
+            room = token_budget - _budget_cost({"data": {**data, **first}}) - _BROWSE_PAGE_SLACK
+            shown = _largest(
+                len(events), lambda n: _budget_cost({"pick_history": events[:n]}) <= min(share, room)
+            )
+        if shown:
+            data["pick_history"] = events[:shown]
+        if shown < len(events):
+            data["pick_history_total"] = len(events)
+            missing.append(MissingMarker.PICK_HISTORY_BEYOND_PAGE)
+        if len(events) >= _PICK_HISTORY_MAX:
+            missing.append(MissingMarker.PICKS_BEYOND_SERVER_LIMIT)
+
     def _view_project_branches(self, entity: dict, request: _Req) -> _ViewData:
         return self._branches_view(self.source.project_branches(str(entity["id"])), request)
 
@@ -4756,6 +4992,41 @@ class ResearchReadService:
             str(entity["id"]), project_id=str(home) if home else None
         )
         return self._branches_view(body, request)
+
+    def _view_project_picks(self, entity: dict, request: _Req) -> _ViewData:
+        """The project's best pick and its history (#3624), from
+        `GET /v1/projects/{P}/best?history=50`: `pick` is the current one (null
+        with none), the ROWS every pick and clear, newest first -- its `id` (the
+        event's order), what was picked (`experiment`, `name`; `gone` when it is
+        in the trash or left the tree), the `reason`, who (`by`, an agent read
+        as its person; `source` human or agent) and when (`at`). Events naming
+        an experiment the caller cannot read are left out by the server; under
+        `X-Probe-Hide-Session-Work`, those naming the session's own experiments
+        are left out here.
+
+        Rows resume after the last event `id` sent, not at an offset: the route
+        is read again for each page, and a pick made mid-walk would otherwise
+        repeat a row (inflating the churn this view exists to show). The route
+        reads at most 50 events and takes no offset; a full 50 is flagged
+        `picks_beyond_server_limit` (older events are not reachable -- it hides
+        unreadable ones AFTER that limit, so fewer than 50 can still sit on
+        more)."""
+        body = self.source.project_best(str(entity["id"]), history=_PICK_HISTORY_MAX)
+        read = len((body or {}).get("history") or []) if isinstance(body, dict) else 0
+        pick, events = _branches.pick_history(body, hidden=request.hidden() or frozenset())
+        if request.after is not None:
+            try:
+                last = int(request.after)
+            except ValueError:
+                raise source_changed("the pick this page stopped after is not an event id") from None
+            events = [e for e in events if isinstance(e.get("id"), int) and e["id"] < last]
+        return _ViewData(
+            payload={"pick": pick},
+            rows=events,
+            rows_key="picks",
+            missing=[MissingMarker.PICKS_BEYOND_SERVER_LIMIT] if read >= _PICK_HISTORY_MAX else [],
+            resume_key="id",
+        )
 
     @staticmethod
     def _branches_view(body: dict, request: _Req) -> _ViewData:
@@ -5475,56 +5746,185 @@ class ResearchReadService:
 
     def _view_project_lineage(self, entity: dict, request: _Req) -> _ViewData:
         """A project's or experiment's OWN lineage (server 0278, lineage plan 2
-        L12/L13/L18), read from `GET /v1/projects/{id}/lineage`.
+        L12/L13/L18), read from `GET /v1/projects/{id}/lineage` (an experiment's
+        through the experiment API, `.../experiments/{E}/lineage`).
 
         `origin`: a project it builds on or replaces, else its parent project;
-        null for a root. `edges`: its links in and out -- stored ones (with
-        `provenance`, and `meta.via` on the daemon's), then "built on" DERIVED
-        from what its runs used (`derived: true`, `meta.basis: runs_read`), so
-        a fact never reads like a guess. On an experiment, `run_edges` is the
-        graph AMONG its runs and files (`GET /v1/projects/{P}/experiments/{E}/edges`,
-        stored edges first), and the read is the experiment API's
-        (`.../experiments/{E}/lineage`). The ROWS are its children (its experiments,
-        groups, runs filed directly under it), each with its own origin, which
-        is what connects the graph.
+        null for a root. Its links, split by direction (swarm friction P6):
+        `built_on` -- what it builds on, replaces or drew on (it is the link's
+        source) -- and `used_by` -- what builds on or replaced it (the target).
+        Each link names its far end (`ref`, `name`, from the read's `ends`) and
+        says how it is known (`provenance`; `derived: true` for "built on"
+        derived from what its runs used), so a fact never reads like a guess.
+        On an experiment, `run_edges` is the graph AMONG its runs and files
+        (`GET /v1/projects/{P}/experiments/{E}/edges`). The ROWS are its
+        children (its experiments, groups, runs filed directly under it), each
+        with its own origin, which is what connects the graph.
 
-        The links are the FIXED part, so they are capped and sent on the first
-        page only: a cursor walk over the children would otherwise re-send them
-        with every page. Neither route takes an offset, so anything past a
-        window -- children past the route's limit, links past a cap, "built on"
-        over only the newest runs -- is flagged (`*_truncated`) and the view
-        reports `partial` with `lineage_beyond_window`, never `complete`.
+        The links are the FIXED part, so the first page shows a glance of each
+        list -- at most `_LINEAGE_LINKS_GLANCE`, fewer when they would take
+        more than `_LINEAGE_LINKS_SHARE` of the budget -- with its `total` and,
+        when cut, a `read_more` naming `view_options.links`; later pages carry
+        none. `view_options.links` makes one list the rows instead, paged whole.
+        Rows are fitted exactly, so a page is whole JSON at any budget, never a
+        text fragment of it. A window the SERVER stopped at -- children past the
+        route's limit, stored links past its 500, "built on" over only the
+        newest runs -- is flagged (`*_truncated`) with `lineage_beyond_window`.
         """
-        experiment_home = entity.get("project_id") if entity.get("kind") == "experiment" else None
-        if entity.get("kind") == "experiment":
-            read = self.source.experiment_lineage(str(entity["id"]), project_id=experiment_home)
+        ident = str(entity["id"])
+        has_run_edges = entity.get("kind") == "experiment"
+        experiment_home = entity.get("project_id") if has_run_edges else None
+        # Checked before any read: a refused option costs no lineage read.
+        side = self._lineage_side(request.filters.get("links"), has_run_edges=has_run_edges)
+        if side is _LineageLinks.RUN_EDGES:
+            # Their own route alone: the lineage read (its derived roll-up over
+            # 500 runs) would be thrown away. The route takes no offset, so each
+            # page reads its ceiling again (as `_bounded`'s routes do).
+            fetched = self.source.experiment_edges(
+                ident, _LINEAGE_RUN_EDGES_MAX, project_id=experiment_home
+            )
+            return self._lineage_rows(
+                side,
+                self._among_links(fetched, request.hidden()),
+                {"run_edges_truncated": len(fetched) >= _LINEAGE_RUN_EDGES_MAX},
+            )
+        if has_run_edges:
+            read = self.source.experiment_lineage(ident, project_id=experiment_home)
         else:
-            read = self.source.project_lineage(str(entity["id"]))
-        payload: dict[str, Any] = {"origin": read.get("origin")}
+            read = self.source.project_lineage(ident)
+        glance = side is None and not request.offset
+        among_fetched = (
+            self.source.experiment_edges(
+                ident, _LINEAGE_LINKS_GLANCE + 1, project_id=experiment_home
+            )
+            if glance and has_run_edges
+            else []
+        )
+        # After every read: the session's work made meanwhile is in the set.
+        hidden = request.hidden()
+        ends = {
+            str(key).lower(): end
+            for key, end in (read.get("ends") or {}).items()
+            if isinstance(end, dict)
+        }
+        here = ident.lower()
+        own: dict[_LineageLinks, list[dict]] = {
+            _LineageLinks.BUILT_ON: [],
+            _LineageLinks.USED_BY: [],
+        }
+        for edge in read.get("edges") or []:
+            if not isinstance(edge, dict) or (hidden and _names_session_work(edge, hidden)):
+                continue
+            outgoing = str(edge.get("source_id") or "").lower() == here
+            own[_LineageLinks.BUILT_ON if outgoing else _LineageLinks.USED_BY].append(
+                _lineage_link(
+                    edge,
+                    outgoing=outgoing,
+                    ends=ends,
+                    reason_chars=_LINK_REASON_CHARS if glance else None,
+                )
+            )
+        # Windows the SERVER stopped at: no paging here reaches past them.
         # Present only when true: a flag that is always there stops being read.
-        flags: dict[str, bool] = {"nodes_truncated": bool(read.get("truncated"))}
-        if request.offset:
+        windows = {
+            "edges_truncated": bool(read.get("edges_truncated")),
+            "derived_truncated": bool(read.get("derived_truncated")),
+        }
+        if side is not None:
+            return self._lineage_rows(side, own[side], windows)
+
+        payload: dict[str, Any] = {"origin": read.get("origin")}
+        windows["nodes_truncated"] = bool(read.get("truncated"))
+        missing: list[str] = []
+        if not glance:
             payload["links_on_first_page"] = True
         else:
-            edges = list(read.get("edges") or [])
-            payload["edges"] = edges[:_LINEAGE_LINKS_CAP]
-            flags["edges_truncated"] = bool(read.get("edges_truncated")) or len(edges) > _LINEAGE_LINKS_CAP
-            flags["derived_truncated"] = bool(read.get("derived_truncated"))
-            if read.get("kind") == "experiment":
-                # One past the cap, so a full window says so rather than passing
-                # for the whole graph.
-                among = self.source.experiment_edges(
-                    str(entity["id"]), _LINEAGE_LINKS_CAP + 1, project_id=experiment_home
-                )
-                payload["run_edges"] = among[:_LINEAGE_LINKS_CAP]
-                flags["run_edges_truncated"] = len(among) > _LINEAGE_LINKS_CAP
-        payload.update({flag: True for flag, cut in flags.items() if cut})
+            lists: dict[_LineageLinks, list[dict]] = {k: v for k, v in own.items() if v}
+            # Known totals; the links among an experiment's runs are read one
+            # past the glance, so past it there is only "more" -- kept even when
+            # the session's own work filled the whole window it read.
+            totals: dict[_LineageLinks, int | None] = {k: len(v) for k, v in lists.items()}
+            among = self._among_links(among_fetched, hidden)
+            more_among = len(among_fetched) > _LINEAGE_LINKS_GLANCE
+            if among or more_among:
+                lists[_LineageLinks.RUN_EDGES] = among[:_LINEAGE_LINKS_GLANCE]
+                totals[_LineageLinks.RUN_EDGES] = None if more_among else len(among)
+            shown = {k: min(len(v), _LINEAGE_LINKS_GLANCE) for k, v in lists.items()}
+            asked = request.ref or f"{entity.get('kind')}:{ident}"
+
+            def glance_payload() -> dict[str, Any]:
+                out: dict[str, Any] = dict(payload)
+                for key, count in shown.items():
+                    block: dict[str, Any] = (
+                        {"more": True} if totals[key] is None else {"total": totals[key]}
+                    )
+                    block["links"] = lists[key][:count]
+                    if totals[key] is None or count < totals[key]:
+                        # A whole call: the page's own cursor walks the children
+                        # and is bound to these options, so it must not ride along.
+                        block["read_more"] = (
+                            f'entity(refs=["{asked}"], view="lineage", '
+                            f'view_options={{"links": "{key}"}}) without cursor'
+                        )
+                    out[str(key)] = block
+                return out
+
+            # Fewer links, never a text fragment: the widest list gives one up
+            # until the glance fits its share of the budget, measured exactly.
+            share = max(1, int(request.token_budget * _LINEAGE_LINKS_SHARE))
+            while any(shown.values()) and _budget_cost(glance_payload()) > share:
+                widest = max(shown, key=lambda key: shown[key])
+                shown[widest] -= 1
+            payload = glance_payload()
+            if any("read_more" in payload[str(key)] for key in lists):
+                missing.append(MissingMarker.LINKS_BEYOND_PAGE)
+        payload.update({flag: True for flag, cut in windows.items() if cut})
+        if any(windows.values()):
+            missing.append(MissingMarker.LINEAGE_BEYOND_WINDOW)
         return _ViewData(
             payload=payload,
             rows=list(read.get("nodes") or []),
             rows_key="nodes",
-            missing=[MissingMarker.LINEAGE_BEYOND_WINDOW] if any(flags.values()) else [],
+            missing=missing,
+            exact_fit=True,
         )
+
+    @staticmethod
+    def _lineage_rows(side: _LineageLinks, rows: list[dict], windows: dict[str, bool]) -> _ViewData:
+        """`view_options.links`: that whole list as the rows, paged."""
+        payload: dict[str, Any] = {"links": str(side), "total": len(rows)}
+        payload.update({flag: True for flag, cut in windows.items() if cut})
+        return _ViewData(
+            payload=payload,
+            rows=rows,
+            rows_key=str(side),
+            missing=[MissingMarker.LINEAGE_BEYOND_WINDOW] if any(windows.values()) else [],
+            exact_fit=True,
+        )
+
+    @staticmethod
+    def _lineage_side(value: Any, *, has_run_edges: bool) -> _LineageLinks | None:
+        """`view_options.links`, checked: a list this view has, or None."""
+        if value is None:
+            return None
+        valid = [m.value for m in _LineageLinks if has_run_edges or m is not _LineageLinks.RUN_EDGES]
+        if value not in valid:
+            raise errors.ValidationError(
+                f"view_options.links takes one of {valid} on this "
+                f"{'experiment' if has_run_edges else 'project'}, not {value!r}",
+                status=422,
+            )
+        return _LineageLinks(value)
+
+    @staticmethod
+    def _among_links(fetched: list, hidden: frozenset[str] | None) -> list[dict]:
+        """The links among an experiment's runs and files, compact, less those
+        naming the session's own work when it is hidden."""
+        return [
+            _among_link(edge)
+            for edge in fetched
+            if isinstance(edge, dict) and not (hidden and _names_session_work(edge, hidden))
+        ]
 
     def _view_events(self, entity: dict, request: _Req) -> _ViewData:
         return _ViewData(rows=self.source.run_events(str(entity["id"])), rows_key="events")

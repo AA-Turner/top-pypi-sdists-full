@@ -2,7 +2,6 @@ import uuid
 from datetime import timedelta
 from typing import Any, TypeVar, Union
 
-import structlog
 import temporalio.workflow
 from pydantic import BaseModel, ValidationError
 from temporalio.exceptions import ApplicationError
@@ -11,11 +10,15 @@ from mistralai.workflows.core._events.event_activities import (
     _emit_waiting_for_input_completed,
     _emit_waiting_for_input_failed,
     _emit_waiting_for_input_started,
+    execute_emitter,
+    execute_emitter_preserving_error,
 )
+from mistralai.workflows.core._events.event_failure import event_failure_message
+from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core._registration.search_key_ingestion import discard_search_keys, ingest_search_keys
 from mistralai.workflows.core.workflow import workflow
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -181,19 +184,13 @@ class InteractiveWorkflow:
 
         try:
             # Emit CUSTOM_TASK_STARTED event via activity to notify stream consumers
-            await temporalio.workflow.execute_local_activity(
-                _emit_waiting_for_input_started,
-                args=[task_id, schema_dict, label],
-                start_to_close_timeout=timedelta(seconds=10),
-            )
+            await execute_emitter(_emit_waiting_for_input_started, task_id, schema_dict, label)
             await self._set_waiting_state(WAITING_FOR_INPUT_STATE)
             await temporalio.workflow.wait_condition(check_received, timeout=timeout)
             validated_input = schema.model_validate(pending_request.input)
         except BaseException as e:
-            await temporalio.workflow.execute_local_activity(
-                _emit_waiting_for_input_failed,
-                args=[task_id, schema_dict, label, str(e)],
-                start_to_close_timeout=timedelta(seconds=10),
+            await execute_emitter_preserving_error(
+                _emit_waiting_for_input_failed, task_id, schema_dict, label, event_failure_message(e)
             )
             raise
         finally:
@@ -205,10 +202,12 @@ class InteractiveWorkflow:
                 else:
                     await self._set_waiting_state(_LEGACY_RUNNING_STATE)
 
-        await temporalio.workflow.execute_local_activity(
+        await execute_emitter(
             _emit_waiting_for_input_completed,
-            args=[task_id, schema_dict, label, validated_input.model_dump(mode="json")],
-            start_to_close_timeout=timedelta(seconds=10),
+            task_id,
+            schema_dict,
+            label,
+            validated_input.model_dump(mode="json", by_alias=True),
         )
 
         return validated_input

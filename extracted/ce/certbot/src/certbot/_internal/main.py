@@ -872,6 +872,9 @@ def unregister(config: configuration.NamespaceConfig,
 
     if not accounts:
         return f"Could not find existing account for server {config.server}."
+
+    acc, acme = _determine_account(config)
+
     prompt = ("Are you sure you would like to irrevocably deactivate "
               "your account?")
     wants_deactivate = display_util.yesno(prompt, yes_label='Deactivate', no_label='Abort',
@@ -880,7 +883,6 @@ def unregister(config: configuration.NamespaceConfig,
     if not wants_deactivate:
         return "Deactivation aborted."
 
-    acc, acme = _determine_account(config)
     cb_client = client.Client(config, acc, None, None, acme=acme)
 
     if not cb_client.acme:
@@ -1882,6 +1884,12 @@ def main(cli_args: Optional[list[str]] = None) -> Optional[Union[str, int]]:
         # Let plugins_cmd be run as un-privileged user.
         if config.func != plugins_cmd:  # pylint: disable=comparison-with-callable
             raise
+
+    if sys.version_info[:2] == (3, 10):
+        logger.warning(
+            "Python 3.10 support will be dropped in the next release "
+            "of Certbot. Please upgrade your Python version.",
+        )  # pragma: no cover
 
     with make_displayer(config) as displayer:
         display_obj.set_display(displayer)

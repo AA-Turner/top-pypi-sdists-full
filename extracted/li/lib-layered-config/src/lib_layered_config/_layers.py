@@ -22,9 +22,16 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from .adapters._path_probe import PathKind, checked_kind
 from .adapters.env.default import DefaultEnvLoader, default_env_prefix
 from .adapters.file_loaders._dot_d import expand_dot_d
-from .adapters.file_loaders.structured import JSONFileLoader, TOMLFileLoader, YAMLFileLoader
+from .adapters.file_loaders.structured import (
+    JSONFileLoader,
+    TOMLFileLoader,
+    YAMLFileLoader,
+    special_file_not_config_file,
+    unsupported_config_format,
+)
 from .application.merge import LayerSnapshot, MergeResult, merge_layers
 from .domain.deploy_permissions import drop_app_and_host_modes
 from .domain.errors import InvalidFormatError, NotFoundError
@@ -192,6 +199,7 @@ def _default_snapshots(default_file: str | None) -> Iterator[LayerSnapshot]:
     """
     if not default_file:
         return
+    _refuse_an_unloadable_default_file(Path(default_file))
 
     snapshots = list(_load_entry_with_dot_d(Layer.DEFAULTS, default_file))
     if not snapshots:
@@ -200,6 +208,28 @@ def _default_snapshots(default_file: str | None) -> Iterator[LayerSnapshot]:
     for snapshot in snapshots:
         _note_layer_loaded(snapshot.name, snapshot.origin, {"keys": len(snapshot.payload)})
         yield snapshot
+
+
+def _refuse_an_unloadable_default_file(path: Path) -> None:
+    """Refuse a *path* that exists but cannot be read as the defaults file.
+
+    Discovered layer paths have fixed names and pass a FIFO or device over
+    (``config_path_present``), and a ``.d`` directory skips a README on purpose. A
+    ``default_file`` is named by the caller, so an existing path no loader reads is refused,
+    never dropped: dropped, the defaults layer vanished without a word. A missing path stays
+    no defaults layer.
+
+    Args:
+        path: The caller's ``default_file``.
+
+    Raises:
+        InvalidFormatError: *path* is a FIFO, device or socket, or a file whose suffix no loader reads.
+    """
+    kind = checked_kind(path)
+    if kind is PathKind.OTHER:
+        raise special_file_not_config_file(path)
+    if kind is PathKind.FILE and path.suffix.lower() not in _FILE_LOADERS:
+        raise unsupported_config_format(path, tuple(_FILE_LOADERS))
 
 
 def _filesystem_snapshots(
@@ -271,7 +301,7 @@ def _env_snapshots(loader: DefaultEnvLoader, slug: str) -> Iterator[LayerSnapsho
 
 
 def _snapshots_from_paths(
-    layer: str,
+    layer: Layer,
     paths: Iterable[str],
     prefer: Sequence[str] | None,
     *,
@@ -282,7 +312,7 @@ def _snapshots_from_paths(
     Each path is expanded to include any companion ``.d`` directory files.
 
     Args:
-        layer: Logical layer name the files belong to.
+        layer: The layer the files belong to.
         paths: Iterable of candidate file paths.
         prefer: Optional suffix ordering hint passed by the CLI/API.
         skip: Resolved paths that are not loaded (empty for every normal read).
@@ -294,11 +324,11 @@ def _snapshots_from_paths(
         yield from _load_entry_with_dot_d(layer, path, skip=skip)
 
 
-def _load_entry(layer: str, path: str) -> LayerSnapshot | None:
+def _load_entry(layer: Layer, path: str) -> LayerSnapshot | None:
     """Load *path* using the configured file loaders and return a snapshot.
 
     Args:
-        layer: Logical layer name associated with the file.
+        layer: The layer the file belongs to.
         path: Absolute path to the candidate configuration file.
 
     Returns:
@@ -323,7 +353,7 @@ def _load_entry(layer: str, path: str) -> LayerSnapshot | None:
     return LayerSnapshot(layer, data, path)
 
 
-def _load_entry_with_dot_d(layer: str, path: str, *, skip: frozenset[Path] = frozenset()) -> Iterator[LayerSnapshot]:
+def _load_entry_with_dot_d(layer: Layer, path: str, *, skip: frozenset[Path] = frozenset()) -> Iterator[LayerSnapshot]:
     """Load *path* and any companion .d directory files as snapshots.
 
     For a file ``foo.toml``, checks for ``foo.toml.d/`` directory and yields
@@ -334,7 +364,7 @@ def _load_entry_with_dot_d(layer: str, path: str, *, skip: frozenset[Path] = fro
     Both the base file and .d directory are optional.
 
     Args:
-        layer: Logical layer name associated with the files.
+        layer: The layer the files belong to.
         path: Absolute path to the base configuration file.
         skip: Resolved paths that are not loaded, base file or ``.d`` entry alike (empty for
             every normal read).
@@ -381,11 +411,11 @@ def _paths_in_preferred_order(paths: Iterable[str], prefer: Sequence[str] | None
     return sorted(ordered, key=lambda candidate: ranking.get(Path(candidate).suffix.lower().lstrip("."), len(ranking)))
 
 
-def _note_layer_loaded(layer: str, path: str | None, details: Mapping[str, object]) -> None:
+def _note_layer_loaded(layer: Layer, path: str | None, details: Mapping[str, object]) -> None:
     """Emit a debug event capturing successful layer discovery.
 
     Args:
-        layer: Logical layer name.
+        layer: The layer that was loaded.
         path: Optional path associated with the event.
         details: Additional structured metadata (e.g., number of files or keys).
 
@@ -395,7 +425,7 @@ def _note_layer_loaded(layer: str, path: str | None, details: Mapping[str, objec
     log_debug("layer_loaded", **make_event(layer, path, dict(details)))
 
 
-def _note_layer_error(layer: str, path: str, exc: Exception) -> None:
+def _note_layer_error(layer: Layer, path: str, exc: Exception) -> None:
     """Emit a debug event describing a recoverable layer error.
 
     Args:

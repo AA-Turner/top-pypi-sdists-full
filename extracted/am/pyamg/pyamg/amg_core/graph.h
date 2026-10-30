@@ -5,6 +5,7 @@
 #include <stack>
 #include <cassert>
 #include <limits>
+#include <string>
 #include <vector>
 #include <iostream>
 
@@ -310,7 +311,7 @@ T vertex_coloring_jones_plassmann(const I num_rows,
     T K = 0; //iteration number
 
     while(N < num_rows){
-        N += maximal_independent_set_parallel(num_rows,Ap,Ap_size,Aj,Aj_size,-1,K,-2,x,x_size,z,z_size,1);
+        N += maximal_independent_set_parallel<I, T, R>(num_rows,Ap,Ap_size,Aj,Aj_size,-1,K,-2,x,x_size,z,z_size,1);
         for(I i = 0; i < num_rows; i++){
             if(x[i] == -2)
                 x[i] = -1;
@@ -374,7 +375,7 @@ T vertex_coloring_LDF(const I num_rows,
             weights[i] = y[i] + num_neighbors;
         }
 
-        N += maximal_independent_set_parallel(num_rows,Ap,Ap_size,Aj,Aj_size,-1,K,-2,x,x_size,&weights[0],num_rows,1);
+        N += maximal_independent_set_parallel<I, T, R>(num_rows,Ap,Ap_size,Aj,Aj_size,-1,K,-2,x,x_size,&weights[0],num_rows,1);
         for(I i = 0; i < num_rows; i++){
             if(x[i] == -2)
                 x[i] = -1;
@@ -492,7 +493,7 @@ void floyd_warshall(const I num_nodes,
 //   Aj[]       : (IN) CSR column index for A                             (num_edges x 1)
 //   Ax[]       : (IN) CSR data array (edge weights)                      (num_edges x 1)
 // Cptr[]       : (INOUT) ptr to start of indices in C for each cluster   (num_clusters x 1)
-//    D[]       : (INOUT) FW distance array                               (max_size x max_size)
+//    D[]       : (OUT) FW distances, N x N block per cluster, stacked     (sum(s**2) x 1)
 //    P[]       : (INOUT) FW predecessor array                            (max_size x max_size)
 //    C[]       : (INOUT) FW global index for current cluster             (num_nodes x 1)
 //    L[]       : (INOUT) FW local index for current cluster              (num_nodes x 1)
@@ -526,6 +527,8 @@ void floyd_warshall(const I num_nodes,
 //         0  1  2  3  4  5  6  7  8  9  10 ...
 // - pass pointer to start of each C[start,...., start+N]
 // - N is the cluster size
+// - D holds the N x N distances of each cluster, stored one after another
+//   (cluster a starts at s[0]**2 + ... + s[a-1]**2)
 template<class I, class T>
 bool center_nodes(const I num_nodes,
                   const I Ap[], const int Ap_size,
@@ -575,19 +578,20 @@ bool center_nodes(const I num_nodes,
   }
 
   // for each cluster a
+  T *Da = D;                         // start of the distances for cluster a
   for(I a=0; a<num_clusters; a++){
     // call Floyd–Warshall for cluster a
-    // D: (max_N, max_N)
+    // Da: (N, N)
     // P: (max_N, max_N)
     // C: (max_N,)
     // L: (num_nodes,)
-    // initialize
-    std::fill(D, D+D_size, std::numeric_limits<T>::infinity());
-    std::fill(P, P+P_size, -1);
-
+    // initialize (only the N x N block is used)
     I N = s[a];
+    std::fill(Da, Da+N*N, std::numeric_limits<T>::infinity());
+    std::fill(P, P+N*N, -1);
+
     floyd_warshall(num_nodes, Ap, Ap_size, Aj, Aj_size, Ax, Ax_size,
-                   D,  D_size, P,  P_size, C+Cptr[a], s[a], L,  L_size,
+                   Da, N*N, P,  P_size, C+Cptr[a], s[a], L,  L_size,
                    m,  m_size, a, N);
 
     // sum of square distances to the other nodes
@@ -595,7 +599,7 @@ bool center_nodes(const I num_nodes,
       q[_i] = 0;
       for(I _j=0; _j<N; _j++){
         I _ij = _i * N + _j;
-        q[_i] += D[_ij]*D[_ij];
+        q[_i] += Da[_ij]*Da[_ij];
       }
     }
 
@@ -612,7 +616,7 @@ bool center_nodes(const I num_nodes,
         I j = C[Cptr[a] + _j];    // global index of every node in the cluster
         I _ij = _i * N + _j;
 
-        d[j] = D[_ij];            // new distance from i->j
+        d[j] = Da[_ij];           // new distance from i->j
 
         pc[p[j]]--;               // update predecessor count (old j)
         p[j] = P[_ij];            // set predecessor
@@ -621,8 +625,169 @@ bool center_nodes(const I num_nodes,
         changed = true;
       }
     }
+    Da += N*N;                    // next cluster
   }
   return changed;
+}
+
+/*
+ * Elimination penalty of each cluster (for balanced Lloyd rebalancing).
+ *
+ * Parameters
+ * ----------
+ * num_nodes : int
+ *     Number of nodes (number of rows in A).
+ * Ap : array
+ *     CSR row pointer for A, (num_nodes, 1).
+ * Aj : array
+ *     CSR column index for A, (num_edges, 1).
+ * Ax : array
+ *     CSR data array (edge weights), (num_edges, 1).
+ * m : array
+ *     Cluster index, (num_nodes, 1).
+ * d : array
+ *     Distance to cluster center, (num_nodes, 1).
+ * D : array
+ *     FW distances, N x N block per cluster, stacked, (sum(s**2), 1).
+ * C : array
+ *     Nodes of each cluster, in ascending order, (num_nodes, 1).
+ * Cptr : array
+ *     Cluster a is C[Cptr[a]:Cptr[a+1]], (num_clusters+1, 1).
+ * Dptr : array
+ *     Cluster a has distances D[Dptr[a]:Dptr[a+1]], (num_clusters+1, 1).
+ * b : array
+ *     Work array, (num_nodes, 1).
+ * E : array, inplace
+ *     Elimination penalty, (num_clusters, 1).
+ *
+ * Notes
+ * -----
+ *     - There are no checks within this kernel
+ *     - b[j] = min over edges (k, j) leaving the cluster of j of d[k] + A[k, j]
+ *     - E[a] = sum_i (min_j b[j] + D[j, i])**2 - sum_i d[i]**2, i, j in cluster a
+ *
+ * See Also
+ * --------
+ * pyamg.graph._rebalance
+ */
+template<class I, class T>
+void elimination_penalty(const I num_nodes,
+                         const I Ap[],   const int Ap_size,
+                         const I Aj[],   const int Aj_size,
+                         const T Ax[],   const int Ax_size,
+                         const I m[],    const int m_size,
+                         const T d[],    const int d_size,
+                         const T D[],    const int D_size,
+                         const I C[],    const int C_size,
+                         const I Cptr[], const int Cptr_size,
+                         const I Dptr[], const int Dptr_size,
+                               T b[],    const int b_size,
+                               T E[],    const int E_size)
+{
+  I num_clusters = E_size;
+
+  // b[j] = min over edges (k, j) leaving the cluster of j of d[k] + A[k, j]
+  std::fill(b, b+num_nodes, std::numeric_limits<T>::infinity());
+  for(I k=0; k<num_nodes; k++){
+    for(I jj=Ap[k]; jj<Ap[k+1]; jj++){
+      I j = Aj[jj];
+      if(m[k] != m[j]){
+        b[j] = std::min(b[j], d[k] + Ax[jj]);
+      }
+    }
+  }
+
+  for(I a=0; a<num_clusters; a++){
+    const I *Va = C + Cptr[a];          // nodes in cluster a
+    const T *Da = D + Dptr[a];          // Da[jloc, iloc]
+    I N = Cptr[a+1] - Cptr[a];          // cluster size
+
+    E[a] = 0;
+    for(I iloc=0; iloc<N; iloc++){
+      T dmin = std::numeric_limits<T>::infinity();
+      for(I jloc=0; jloc<N; jloc++){
+        dmin = std::min(dmin, b[Va[jloc]] + Da[jloc * N + iloc]);
+      }
+      E[a] += dmin * dmin;
+    }
+    for(I iloc=0; iloc<N; iloc++){
+      E[a] -= d[Va[iloc]] * d[Va[iloc]];
+    }
+  }
+}
+
+/*
+ * Split improvement of each cluster (for balanced Lloyd rebalancing).
+ *
+ * Parameters
+ * ----------
+ * d : array
+ *     Distance to cluster center, (num_nodes, 1).
+ * D : array
+ *     FW distances, N x N block per cluster, stacked, (sum(s**2), 1).
+ * C : array
+ *     Nodes of each cluster, in ascending order, (num_nodes, 1).
+ * Cptr : array
+ *     Cluster a is C[Cptr[a]:Cptr[a+1]], (num_clusters+1, 1).
+ * Dptr : array
+ *     Cluster a has distances D[Dptr[a]:Dptr[a+1]], (num_clusters+1, 1).
+ * S : array, inplace
+ *     Split improvement, (num_clusters, 1).
+ * c1 : array, inplace
+ *     First center if cluster a is split, (num_clusters, 1).
+ * c2 : array, inplace
+ *     Second center if cluster a is split, (num_clusters, 1).
+ *
+ * Notes
+ * -----
+ *     - There are no checks within this kernel
+ *     - Snew(i, j) = sum_k min(D[i, k], D[j, k])**2, i, j, k in cluster a
+ *     - (c1[a], c2[a]) is the first (i, j) minimizing Snew, in row-major order
+ *     - S[a] = sum_i d[i]**2 - Snew(c1[a], c2[a])
+ *
+ * See Also
+ * --------
+ * pyamg.graph._rebalance
+ */
+template<class I, class T>
+void split_improvement(const T d[],    const int d_size,
+                       const T D[],    const int D_size,
+                       const I C[],    const int C_size,
+                       const I Cptr[], const int Cptr_size,
+                       const I Dptr[], const int Dptr_size,
+                             T S[],    const int S_size,
+                             I c1[],   const int c1_size,
+                             I c2[],   const int c2_size)
+{
+  I num_clusters = S_size;
+
+  for(I a=0; a<num_clusters; a++){
+    const I *Va = C + Cptr[a];          // nodes in cluster a
+    const T *Da = D + Dptr[a];          // Da[iloc, kloc]
+    I N = Cptr[a+1] - Cptr[a];          // cluster size
+
+    T Smin = std::numeric_limits<T>::infinity();
+    for(I iloc=0; iloc<N; iloc++){
+      for(I jloc=0; jloc<N; jloc++){
+        T Snew = 0;
+        for(I kloc=0; kloc<N; kloc++){
+          T dk = std::min(Da[iloc * N + kloc], Da[jloc * N + kloc]);
+          Snew += dk * dk;
+        }
+        if(Snew < Smin){
+          Smin = Snew;
+          c1[a] = Va[iloc];
+          c2[a] = Va[jloc];
+        }
+      }
+    }
+
+    S[a] = 0;
+    for(I iloc=0; iloc<N; iloc++){
+      S[a] += d[Va[iloc]] * d[Va[iloc]];
+    }
+    S[a] -= Smin;
+  }
 }
 
 /*
@@ -748,7 +913,7 @@ bool bellman_ford_balanced(const I num_nodes,
   bool done;            // did we make any changes during this iteration?
   bool changed = false; // indicate a change for the return
   bool swap;            // should we swap node i to the same clusters as node j?
-  int iter = 0;         // iteration count for safety check
+  long long iter = 0;   // iteration count for safety check
   const double tol = 1e-14; // precision tolerance
 
   do{
@@ -799,8 +964,12 @@ bool bellman_ford_balanced(const I num_nodes,
     }
 
     // safety check, regular unweighted BF is actually O(|V|.|E|)
-    if (++iter > num_nodes*num_nodes){
-      throw std::runtime_error("pyamg-error (amg_core) -- too many iterations!");
+    // use long to avoid overflow
+    if (++iter > static_cast<long long>(num_nodes)*num_nodes){
+      throw std::runtime_error("pyamg-error (amg_core) -- too many iterations! "
+                               "bellman_ford_balanced did not converge after "
+                               + std::to_string(iter) + " sweeps (num_nodes = "
+                               + std::to_string(num_nodes) + ")");
     }
   } while(!done);
   return changed;

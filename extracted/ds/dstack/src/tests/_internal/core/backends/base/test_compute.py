@@ -12,6 +12,7 @@ from dstack._internal.core.backends.base.compute import (
     generate_unique_instance_name,
     generate_unique_volume_name,
     normalize_arch,
+    parse_provider_ref_from_name,
 )
 from dstack._internal.core.models.instances import Disk, InstanceOfferWithAvailability
 from dstack._internal.core.models.resources import Memory, Range, ResourcesSpec
@@ -59,7 +60,9 @@ class TestComputeWithAllOffersCachedGetOffers:
         compute = _ComputeWithCachedOffers(
             [gpu_offer, cpu_offer], {"gpu": configurable, "cpu": configurable}
         )
-        requirements = Requirements(resources=ResourcesSpec(gpu=1, disk="200GB.."))
+        requirements = Requirements(
+            resources=ResourcesSpec.model_validate({"gpu": 1, "disk": "200GB.."})
+        )
 
         offers = list(compute.get_offers(requirements, False, False))
 
@@ -76,7 +79,7 @@ class TestComputeWithAllOffersCachedGetOffers:
             [configurable_offer, fixed_offer],
             {"configurable": Range[Memory](min=Memory.parse("50GB"), max=None), "fixed": None},
         )
-        requirements = Requirements(resources=ResourcesSpec(disk="200GB.."))
+        requirements = Requirements(resources=ResourcesSpec.model_validate({"disk": "200GB.."}))
 
         offers = list(compute.get_offers(requirements, False, False))
 
@@ -89,6 +92,29 @@ class TestGenerateUniqueInstanceName:
             project_name="project1", instance_name="my-instance"
         )
         name = generate_unique_instance_name(configuration, 60)
+        assert re.match(r"^dstack-project1-my-instance-[a-z0-9]{8}$", name)
+
+    def test_generates_name_with_provider_ref(self):
+        configuration = get_instance_configuration(
+            project_name="project1", instance_name="my-instance"
+        )
+        configuration.provider_ref = "abc123def456"
+        name = generate_unique_instance_name(configuration, 60, with_provider_ref=True)
+        assert re.match(r"^dstack-project1-my-instance-abc123def456[a-z0-9]{4}$", name)
+
+    def test_ignores_provider_ref_by_default(self):
+        configuration = get_instance_configuration(
+            project_name="project1", instance_name="my-instance"
+        )
+        configuration.provider_ref = "abc123def456"
+        name = generate_unique_instance_name(configuration, 60)
+        assert re.match(r"^dstack-project1-my-instance-[a-z0-9]{8}$", name)
+
+    def test_falls_back_to_random_suffix_without_provider_ref(self):
+        configuration = get_instance_configuration(
+            project_name="project1", instance_name="my-instance"
+        )
+        name = generate_unique_instance_name(configuration, 60, with_provider_ref=True)
         assert re.match(r"^dstack-project1-my-instance-[a-z0-9]{8}$", name)
 
 
@@ -121,9 +147,45 @@ class TestGenerateUniqueBackendName:
         name = generate_unique_backend_name("a" * 100, "project", 30)
         assert re.match(r"^dstack-project-aaaaaa-[a-z0-9]{8}$", name)
 
+    def test_strips_trailing_hyphens_of_truncated_prefix(self):
+        name = generate_unique_backend_name("batch-inference", "acme-corp-production-us-east", 40)
+        assert re.match(r"^dstack-acme-corp-production-us-[a-z0-9]{8}$", name)
+
     def test_validates_project_name(self):
         name = generate_unique_backend_name("instance", "invalid_project!@", 60)
         assert re.match(r"^dstack-instance-[a-z0-9]{8}$", name)
+
+    def test_generates_name_with_provider_ref(self):
+        name = generate_unique_backend_name("instance", "project", 60, "abc123def456")
+        assert re.match(r"^dstack-project-instance-abc123def456[a-z0-9]{4}$", name)
+
+    def test_truncates_prefix_but_keeps_provider_ref(self):
+        name = generate_unique_backend_name("a" * 100, "project", 40, "abc123def456")
+        assert len(name) == 40
+        assert re.match(r"^dstack-project-aaaaaaaa-abc123def456[a-z0-9]{4}$", name)
+
+
+class TestParseProviderRefFromName:
+    @pytest.mark.parametrize(
+        ("project_name", "max_length"),
+        [("project", 60), (None, 60), ("project", 24)],
+    )
+    def test_parses_generated_name(self, project_name: Optional[str], max_length: int):
+        name = generate_unique_backend_name("instance", project_name, max_length, "abc123def456")
+        assert parse_provider_ref_from_name(name) == "abc123def456"
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "dstack-project-instance-1a2b3c4d",  # name without provider_ref
+            "dstack-project-instance-abc123def456",  # no random suffix
+            "dstack-project-instance-ABC123DEF456abcd",  # uppercase
+            "other-project-instance-abc123def456abcd",  # not a dstack name
+            "dstack-project-instance-abc123def456abcd-data",  # unstripped internal suffix
+        ],
+    )
+    def test_returns_none_for_names_without_provider_ref(self, name: str):
+        assert parse_provider_ref_from_name(name) is None
 
 
 class TestNormalizeArch:

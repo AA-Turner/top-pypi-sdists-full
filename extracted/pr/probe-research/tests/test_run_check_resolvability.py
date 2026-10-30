@@ -214,6 +214,28 @@ def test_commit_on_remote_rejects_empty_inputs():
     assert commit_on_remote("https://example.com/r.git", "") is False
 
 
+def test_commit_on_remote_never_hands_git_an_option(monkeypatch):
+    """The remote and commit are a run's recorded metadata, which any writer in
+    the team sets: one that reads as a git option is never asked about, and
+    `--` ends git's options before the two."""
+    ran: list[list[str]] = []
+    real = subprocess.run
+
+    def run(argv, *a, **k):
+        if argv[:2] == ["git", "fetch"]:
+            ran.append(list(argv))
+            return subprocess.CompletedProcess(argv, 1, "", "")
+        return real(argv, *a, **k)
+
+    monkeypatch.setattr(subprocess, "run", run)
+    commit_on_remote.cache_clear()
+    assert commit_on_remote("--upload-pack=touch /tmp/x", "a" * 40) is False
+    assert commit_on_remote("https://example.com/r.git", "--help") is False
+    assert ran == []
+    assert commit_on_remote("https://example.com/r.git", "abc1234") is False
+    assert ran == [["git", "fetch", "--depth", "1", "--quiet", "--", "https://example.com/r.git", "abc1234"]]
+
+
 def test_commit_on_remote_is_memoized_so_audits_do_not_scale_with_runs(tmp_path):
     """Runs from one machine share a base commit; 200 runs must not be 200 fetches."""
     remote = tmp_path / "r.git"

@@ -6,7 +6,6 @@ from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from mistralai.client import Mistral
 from opentelemetry import trace
 from opentelemetry.sdk._logs.export import LogRecordExportResult
 from opentelemetry.sdk.metrics.export import MetricExportResult, MetricsData
@@ -68,8 +67,7 @@ def _type_spans(spans: list, task_type: str) -> list:
 
 @pytest.mark.asyncio
 async def test_task_span_lifecycle(temporal_env: WorkflowEnvironment) -> None:
-    mock_client = AsyncMock(spec=Mistral)
-    mock_client.send_event = AsyncMock()
+    mock_client = AsyncMock()
 
     async with EventContext(mock_client):
         async with create_test_worker_with_events(
@@ -130,8 +128,7 @@ async def test_workflow_spans_nest_under_materialized_workflow_root(temporal_env
         get_trace_context_interceptors,
     )
 
-    mock_client = AsyncMock(spec=Mistral)
-    mock_client.send_event = AsyncMock()
+    mock_client = AsyncMock()
 
     async with EventContext(mock_client):
         async with create_test_worker(
@@ -180,8 +177,7 @@ async def test_workflow_spans_nest_under_materialized_workflow_root(temporal_env
 
 @pytest.mark.asyncio
 async def test_stateful_task_state_updates(temporal_env: WorkflowEnvironment) -> None:
-    mock_client = AsyncMock(spec=Mistral)
-    mock_client.send_event = AsyncMock()
+    mock_client = AsyncMock()
 
     async with EventContext(mock_client):
         async with create_test_worker_with_events(
@@ -233,8 +229,7 @@ async def test_stateful_task_state_updates(temporal_env: WorkflowEnvironment) ->
 
 @pytest.mark.asyncio
 async def test_failed_task_records_error(temporal_env: WorkflowEnvironment) -> None:
-    mock_client = AsyncMock(spec=Mistral)
-    mock_client.send_event = AsyncMock()
+    mock_client = AsyncMock()
 
     async with EventContext(mock_client):
         async with create_test_worker_with_events(
@@ -275,8 +270,7 @@ async def test_failed_task_records_error(temporal_env: WorkflowEnvironment) -> N
 
 @pytest.mark.asyncio
 async def test_nested_tasks_create_parent_child_spans(temporal_env: WorkflowEnvironment) -> None:
-    mock_client = AsyncMock(spec=Mistral)
-    mock_client.send_event = AsyncMock()
+    mock_client = AsyncMock()
 
     async with EventContext(mock_client):
         async with create_test_worker_with_events(

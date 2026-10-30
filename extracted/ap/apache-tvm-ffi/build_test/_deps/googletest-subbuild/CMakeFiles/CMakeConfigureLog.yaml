@@ -21,7 +21,7 @@ events:
       - "uname"
     candidate_directories:
       - "/home/runner/work/_temp/uv-python-dir/"
-      - "/opt/hostedtoolcache/uv/0.13.5/x86_64/"
+      - "/opt/hostedtoolcache/uv/0.13.6/x86_64/"
       - "/home/runner/.local/bin/"
       - "/snap/bin/"
       - "/opt/pipx_bin/"
@@ -39,7 +39,7 @@ events:
       - "/usr/local/games/"
     searched_directories:
       - "/home/runner/work/_temp/uv-python-dir/uname"
-      - "/opt/hostedtoolcache/uv/0.13.5/x86_64/uname"
+      - "/opt/hostedtoolcache/uv/0.13.6/x86_64/uname"
       - "/home/runner/.local/bin/uname"
       - "/snap/bin/uname"
       - "/opt/pipx_bin/uname"
@@ -54,7 +54,7 @@ events:
     search_context:
       ENV{PATH}:
         - "/home/runner/work/_temp/uv-python-dir"
-        - "/opt/hostedtoolcache/uv/0.13.5/x86_64"
+        - "/opt/hostedtoolcache/uv/0.13.6/x86_64"
         - "/home/runner/.local/bin"
         - "/snap/bin"
         - "/home/runner/.local/bin"

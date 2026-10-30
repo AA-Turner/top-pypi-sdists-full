@@ -58,13 +58,13 @@ class ClientWindowInfo(Record):
 
     active: bool = field(metadata=meta("active", required=True, primitive="bool"))
     client_window: str = field(metadata=meta("clientWindow", required=True, primitive="str"))
-    height: int = field(metadata=meta("height", required=True, primitive="int"))
+    height: int = field(metadata=meta("height", required=True, primitive="int", min=0, max=9007199254740991))
     state: ClientWindowInfoState = field(
         metadata=meta("state", required=True, enum="browser.ClientWindowInfoState"),
     )
-    width: int = field(metadata=meta("width", required=True, primitive="int"))
-    x: int = field(metadata=meta("x", required=True, primitive="int"))
-    y: int = field(metadata=meta("y", required=True, primitive="int"))
+    width: int = field(metadata=meta("width", required=True, primitive="int", min=0, max=9007199254740991))
+    x: int = field(metadata=meta("x", required=True, primitive="int", min=-9007199254740991, max=9007199254740991))
+    y: int = field(metadata=meta("y", required=True, primitive="int", min=-9007199254740991, max=9007199254740991))
 
 
 @register("browser.UserContextInfo")
@@ -168,10 +168,22 @@ class SetClientWindowStateParametersClientWindowNamedState(Record):
 class SetClientWindowStateParametersClientWindowRectState(Record):
     client_window: str = field(metadata=meta("clientWindow", required=True, primitive="str"))
     state: str = field(default="normal", init=False, metadata=meta("state", required=True, fixed="normal"))
-    width: int | UnsetType = field(default=UNSET, metadata=meta("width", primitive="int"))
-    height: int | UnsetType = field(default=UNSET, metadata=meta("height", primitive="int"))
-    x: int | UnsetType = field(default=UNSET, metadata=meta("x", primitive="int"))
-    y: int | UnsetType = field(default=UNSET, metadata=meta("y", primitive="int"))
+    width: int | UnsetType = field(
+        default=UNSET,
+        metadata=meta("width", primitive="int", min=0, max=9007199254740991),
+    )
+    height: int | UnsetType = field(
+        default=UNSET,
+        metadata=meta("height", primitive="int", min=0, max=9007199254740991),
+    )
+    x: int | UnsetType = field(
+        default=UNSET,
+        metadata=meta("x", primitive="int", min=-9007199254740991, max=9007199254740991),
+    )
+    y: int | UnsetType = field(
+        default=UNSET,
+        metadata=meta("y", primitive="int", min=-9007199254740991, max=9007199254740991),
+    )
 
 
 @register("browser.DownloadBehavior_Allowed")

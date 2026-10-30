@@ -23,6 +23,7 @@ from sagemaker_studio.utils.sqlutils_async import (
     _rebuffer_to_pages,
     build_result_prefix,
     extract_execution_id,
+    extract_redshift_query_id,
     manifest_key,
     materialize_async,
     materialize_async_multi,
@@ -49,6 +50,22 @@ class ExtractExecutionIdTest(unittest.TestCase):
     def test_none_and_empty(self):
         self.assertIsNone(extract_execution_id(None))
         self.assertIsNone(extract_execution_id({}))
+
+
+class ExtractRedshiftQueryIdTest(unittest.TestCase):
+    def test_positive_id(self):
+        self.assertEqual(
+            extract_redshift_query_id({"statement_id": "rs-1", "redshift_query_id": 123456}), 123456
+        )
+
+    def test_not_assigned_or_other_engine(self):
+        self.assertIsNone(extract_redshift_query_id({"statement_id": "rs-1"}))
+        self.assertIsNone(extract_redshift_query_id({"redshift_query_id": -1}))
+        self.assertIsNone(extract_redshift_query_id({"redshift_query_id": 0}))
+        self.assertIsNone(extract_redshift_query_id({"redshift_query_id": "123"}))
+        self.assertIsNone(extract_redshift_query_id({"query_execution_id": "athena-1"}))
+        self.assertIsNone(extract_redshift_query_id(None))
+        self.assertIsNone(extract_redshift_query_id({}))
 
 
 class PrefixAndKeyTest(unittest.TestCase):
@@ -495,6 +512,15 @@ class SpecFromResultTest(unittest.TestCase):
     def test_result_statement(self):
         s = spec_from_result(self._R(2, AsyncResultMarker(execution_id="e9")))
         self.assertEqual((s.index, s.kind, s.execution_id), (2, "result", "e9"))
+        self.assertIsNone(s.redshift_query_id)
+
+    def test_result_statement_carries_redshift_query_id(self):
+        s = spec_from_result(
+            self._R(1, AsyncResultMarker(execution_id="rs-1", redshift_query_id=42))
+        )
+        self.assertEqual(
+            (s.index, s.kind, s.execution_id, s.redshift_query_id), (1, "result", "rs-1", 42)
+        )
 
     def test_dml_statement(self):
         s = spec_from_result(self._R(0, 7))
@@ -1416,7 +1442,59 @@ class AsyncSqlResultTest(unittest.TestCase):
         self.assertEqual(payload["s3_path"], "s3://bkt/proj/results/exec-9/")
         self.assertEqual(payload["total_rows"], 42)
         self.assertEqual(payload["data"], "<b64>")  # base64 snappy-parquet of the first page
+        self.assertNotIn("redshift_query_id", payload)
         self.assertIn("text/plain", bundle)
+
+    def test_repr_mimebundle_carries_redshift_query_id_when_set(self):
+        from unittest.mock import patch
+
+        from sagemaker_studio.utils.sqlutils_async import ASYNC_SQL_MIMETYPE
+
+        result = AsyncSqlResult(
+            execution_id="rs-9",
+            s3_path="s3://bkt/proj/results/rs-9/",
+            columns=["a"],
+            first_page_rows=[[1]],
+            total_rows=1,
+            redshift_query_id=123456,
+        )
+        with patch.object(AsyncSqlResult, "_first_page_parquet_b64", return_value="<b64>"):
+            payload = result._repr_mimebundle_()[ASYNC_SQL_MIMETYPE]
+        self.assertEqual(payload["execution_id"], "rs-9")
+        self.assertEqual(payload["redshift_query_id"], 123456)
+
+
+class RedshiftQueryIdThreadingTest(unittest.TestCase):
+    """The spec's redshift_query_id reaches the displayed first-page card; absent otherwise."""
+
+    def _displayed_card(self, spec):
+        seams = _Seams()
+        materialize_async_multi(
+            base_name="df",
+            specs=[spec],
+            project_s3_root="s3://bkt/p",
+            reader_factory=lambda eid: (["a"], [[1]], iter([]), 1),
+            display_fn=seams.display,
+            assign_namespace_fn=seams.assign,
+            write_page_fn=seams.write_page,
+            write_manifest_fn=seams.write_manifest,
+            emit_ready_fn=seams.emit_ready,
+            registry=_MaterializationRegistry(),
+            rows_per_page=10000,
+        )
+        return seams.first_page
+
+    def test_redshift_id_reaches_the_card(self):
+        card = self._displayed_card(
+            StatementSpec(index=0, kind="result", execution_id="rs-1", redshift_query_id=777)
+        )
+        self.assertIsInstance(card, AsyncSqlResult)
+        self.assertEqual(card.redshift_query_id, 777)
+
+    def test_card_has_no_id_for_athena(self):
+        card = self._displayed_card(StatementSpec(index=0, kind="result", execution_id="athena-1"))
+        self.assertIsInstance(card, AsyncSqlResult)
+        self.assertIsNone(card.redshift_query_id)
 
 
 class TotalRowsThreadingTest(unittest.TestCase):
@@ -1948,6 +2026,15 @@ class AthenaCoerceParityTest(unittest.TestCase):
         named = reader_mod._athena_coerce("2024-01-15 10:30:00.000 UTC", "timestamp with time zone")
         self.assertIsInstance(named, dt.datetime)
         self.assertIsNotNone(named.tzinfo)
+        qualified = reader_mod._athena_coerce(
+            "2024-01-15 10:30:00.000 UTC", "timestamp(3) with time zone"
+        )
+        self.assertIsInstance(qualified, dt.datetime)
+        self.assertIsNotNone(qualified.tzinfo)
+
+    def test_precision_qualified_time_with_tz_matches_sync_string_fallback(self):
+        value = "10:30:00.000 +00:00"
+        self.assertEqual(reader_mod._athena_coerce(value, "time(3) with time zone"), value)
 
     def test_time_with_tz_matches_sync_string_fallback(self):
         # PyAthena has NO converter for "time with time zone" -> its default converter
@@ -1961,6 +2048,21 @@ class AthenaCoerceParityTest(unittest.TestCase):
     def test_unparseable_new_types_fall_back(self):
         self.assertEqual(reader_mod._athena_coerce("nope", "time"), "nope")
         self.assertEqual(reader_mod._athena_coerce("xyz", "varbinary"), "xyz")
+
+    def test_invalid_decimal_falls_back_to_raw_string(self):
+        self.assertEqual(reader_mod._athena_coerce("amount", "decimal"), "amount")
+
+    def test_json_and_complex_types(self):
+        self.assertEqual(reader_mod._athena_coerce('{"a": 1}', "json"), {"a": 1})
+        self.assertEqual(reader_mod._athena_coerce("[1, 2, true]", "array"), [1, 2, True])
+        self.assertEqual(reader_mod._athena_coerce("{a=1, b=true}", "map"), {"a": 1, "b": True})
+        self.assertEqual(reader_mod._athena_coerce("{a=1, b=false}", "row"), {"a": 1, "b": False})
+
+    def test_empty_and_native_complex_values_match_pyathena(self):
+        self.assertIsNone(reader_mod._athena_coerce("", "boolean"))
+        self.assertIsNone(reader_mod._athena_coerce("", "decimal"))
+        self.assertEqual(reader_mod._athena_coerce("[1e3, TRUE]", "array"), ["1e3", True])
+        self.assertIsNone(reader_mod._athena_coerce("[[1], [x]]", "array"))
 
     def test_read_athena_result_rows_are_typed(self):
         import datetime as dt
@@ -3898,6 +4000,120 @@ class MaterializeAsyncMultiDefaultMakePendingTest(unittest.TestCase):
             time.sleep(0.02)
         self.assertIn("df_0", seams.namespace)
         self.assertIn("df_1", seams.namespace)
+
+
+class AthenaV4AsyncPathTest(unittest.TestCase):
+    """Athena engine version 4 on the async path: statements run through the Athena API
+    executor (no PyAthena engine) and results are read with its read_chunks."""
+
+    def _run(self, statement_results, chunks=None):
+        from sagemaker_studio.utils import sqlutils
+
+        if chunks is None:
+            chunks = (["a"], iter([[[1], [2]]]), 2)
+
+        athena_v4 = mock.Mock()
+        athena_v4.read_chunks.return_value = chunks
+        conn = mock.Mock(type="ATHENA")
+        project = SimpleNamespace(s3=SimpleNamespace(root="s3://bucket/proj"))
+        patches = dict(
+            _is_spark_connection=mock.Mock(return_value=False),
+            _resolve_connection=mock.Mock(return_value=conn),
+            _apply_athena_context=mock.Mock(),
+            _athena_api=mock.Mock(return_value=athena_v4),
+            _get_or_create_connection=mock.Mock(side_effect=AssertionError("no PyAthena engine")),
+            _ensure_project=mock.Mock(return_value=project),
+        )
+        with contextlib.ExitStack() as stack:
+            for name, m in patches.items():
+                stack.enter_context(mock.patch.object(sqlutils, name, m))
+            stack.enter_context(
+                mock.patch.object(sqlutils, "_stream_and_capture_metadata", lambda s, **k: s)
+            )
+            execute = stack.enter_context(
+                mock.patch(
+                    "sagemaker_studio.sql_engine.sql_executor.SqlExecutor.execute_statements",
+                    return_value=iter(statement_results),
+                )
+            )
+            mat = stack.enter_context(mock.patch.object(async_mod, "materialize_async_multi"))
+            bind = stack.enter_context(mock.patch.object(sqlutils, "_bind_succeeded_partials"))
+            try:
+                handled = sqlutils._stream_with_async_materialization("SELECT 1", "df")
+            except Exception as e:
+                handled = e
+        return handled, athena_v4, execute, mat, bind
+
+    def test_statements_run_through_the_athena_api_executor(self):
+        from sagemaker_studio.sql_engine.sql_executor import ExecutionStatus
+
+        ok = SimpleNamespace(
+            status=ExecutionStatus.SUCCESS.value,
+            statement_index=0,
+            result=async_mod.AsyncResultMarker(execution_id="e0"),
+        )
+        handled, athena_v4, execute, mat, _bind = self._run([ok])
+        self.assertIs(handled, True)
+        self.assertTrue(callable(execute.call_args.args[1]))
+        reader_factory = mat.call_args.kwargs["reader_factory"]
+        columns, first_page, remaining, total, stats_fn = reader_factory("e0")
+        athena_v4.read_chunks.assert_called_once_with("e0")
+        self.assertEqual((columns, total, stats_fn), (["a"], 2, None))
+        self.assertEqual(first_page, [[1], [2]])
+
+    def test_statement_error_binds_partials_with_read_chunks(self):
+        from sagemaker_studio.sql_engine.sql_executor import ExecutionStatus
+
+        ok = SimpleNamespace(
+            status=ExecutionStatus.SUCCESS.value,
+            statement_index=0,
+            result=async_mod.AsyncResultMarker(execution_id="e0"),
+        )
+        bad = SimpleNamespace(status="FAILED", statement_index=1, error="TABLE_NOT_FOUND")
+        handled, athena_v4, _execute, _mat, bind = self._run([ok, bad])
+        self.assertIsInstance(handled, Exception)
+        self.assertIn("TABLE_NOT_FOUND", str(handled))
+        self.assertIs(bind.call_args.kwargs["read_chunks"], athena_v4.read_chunks)
+
+
+class CoverlayPatchCoverageTest(unittest.TestCase):
+    """Exercise native Athena callbacks that Coverlay identified as the final patch gaps."""
+
+    def test_partial_bind_uses_native_read_chunks(self):
+        from sagemaker_studio.utils import sqlutils
+
+        fake_ip = mock.MagicMock()
+        fake_ip.user_ns = {}
+        read_chunks = mock.Mock(return_value=(["a"], iter([[[3], [4]]]), None))
+        specs = [async_mod.StatementSpec(index=0, kind="result", execution_id="e0")]
+        with mock.patch.dict(sys.modules, {"IPython": mock.MagicMock()}), mock.patch(
+            "IPython.get_ipython", return_value=fake_ip
+        ):
+            sqlutils._bind_succeeded_partials(
+                specs, "df", object(), "ATHENA", read_chunks=read_chunks
+            )
+        read_chunks.assert_called_once_with("e0")
+        self.assertEqual(fake_ip.user_ns["df_0"]["a"].tolist(), [3, 4])
+
+    def test_native_reader_stats_fallback_uses_executor_client(self):
+        from sagemaker_studio.sql_engine.sql_executor import ExecutionStatus
+
+        ok = SimpleNamespace(
+            status=ExecutionStatus.SUCCESS.value,
+            statement_index=0,
+            result=async_mod.AsyncResultMarker(execution_id="e0"),
+        )
+        with mock.patch.object(reader_mod, "read_athena_output_rows", return_value=9) as read_stats:
+            handled, athena_v4, _execute, mat, _bind = AthenaV4AsyncPathTest()._run(
+                [ok], chunks=(["a"], iter([]), None)
+            )
+            self.assertIs(handled, True)
+            _columns, _first_page, _remaining, total, stats_fn = mat.call_args.kwargs[
+                "reader_factory"
+            ]("e0")
+            self.assertIsNone(total)
+            self.assertEqual(stats_fn(), 9)
+        read_stats.assert_called_once_with(athena_v4.client, "e0")
 
 
 if __name__ == "__main__":

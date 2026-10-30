@@ -6,8 +6,9 @@ Usage documentation at: <https://py-pdf.github.io/fpdf2/Patterns.html>
 
 import math
 import struct
+import zlib
 from abc import ABC
-from typing import TYPE_CHECKING, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Optional, Sequence
 
 from .drawing_primitives import (
     Color,
@@ -19,12 +20,13 @@ from .drawing_primitives import (
     Transform,
     convert_to_device_color,
 )
-from .enums import GradientSpreadMethod
+from .enums import GradientSpreadMethod, PDFResourceType
 from .syntax import Name, PDFArray, PDFContentStream, PDFObject
 from .util import FloatTolerance, NumberClass, format_number
 
 if TYPE_CHECKING:
     from .drawing import BoundingBox
+    from .encryption import StandardSecurityHandler
 
 
 def lerp(a: float, b: float, t: float) -> float:
@@ -57,7 +59,7 @@ def pick_colorspace_and_promote(colors: list[Color]) -> tuple[str, list[Color]]:
 
 
 def normalize_stops(
-    stops: Sequence[tuple[float, Union[Color, str]]],
+    stops: Sequence[tuple[float, Color | str]],
     coerce_to_device: bool = True,
     *,
     return_raw: bool = False,
@@ -194,9 +196,9 @@ def normalize_stops(
 
 
 def merge_near_duplicates(
-    pairs: Sequence[tuple[float, Union[Color, str]]],
-) -> Sequence[tuple[float, Union[Color, str]]]:
-    out: list[tuple[float, Union[Color, str]]] = []
+    pairs: Sequence[tuple[float, Color | str]],
+) -> Sequence[tuple[float, Color | str]]:
+    out: list[tuple[float, Color | str]] = []
     for u, col in pairs:
         if out and FloatTolerance.equal(out[-1][0], u):
             prev_u, prev_col = out[-1]
@@ -258,27 +260,78 @@ def extract_alpha_stops(
 
 
 class Pattern(PDFObject):
-    """
-    Represents a PDF Pattern object.
+    """A PDF shading pattern or tiling pattern.
 
-    Currently, this class supports only "shading patterns" (pattern_type 2),
-    using either a linear or radial gradient. Tiling patterns (pattern_type 1)
-    are not yet implemented.
+    Shading patterns are dictionaries without a content stream. Tiling patterns
+    carry a cell content stream and a resource dictionary. Use ``from_tile`` to
+    construct a tile; the existing ``Pattern(shading)`` constructor is preserved.
     """
 
-    def __init__(self, shading: Union["Gradient", "Shading", "MeshShading"]):
+    # Only tiling instances populate these fields. Class annotations make the
+    # variant fields visible to type checkers without serializing them on shades.
+    paint_type: int
+    tiling_type: int
+    b_box: PDFArray
+    x_step: float
+    y_step: float
+    _resources_used: set[tuple[PDFResourceType, str]]
+    resources: Optional[str]
+
+    def __init__(self, shading: "Gradient | Shading | MeshShading"):
         super().__init__()
+        self._contents: Optional[bytes] = None
+        self.filter: Optional[Name] = None
         self.type = Name("Pattern")
-        # 1 for a tiling pattern or type 2 for a shading pattern:
         self.pattern_type = 2
-        self._shading = shading
+        self._shading: Optional["Gradient | Shading | MeshShading"] = shading
         self._matrix = Transform.identity()
-        # If True (default), OutputProducer will bake the page CTM into this pattern.
-        # For patterns used inside Form XObjects (e.g., soft masks), set to False.
+        self.length: Optional[int] = None
+        # OutputProducer converts document coordinates into page coordinates.
+        # Patterns inside Form XObjects and tile streams disable this conversion.
         self._apply_page_ctm = True
 
+    @classmethod
+    def from_shading(cls, shading: "Gradient | Shading | MeshShading") -> "Pattern":
+        """Construct a shading pattern without a content stream."""
+        return cls(shading)
+
+    @classmethod
+    def from_tile(
+        cls,
+        contents: bytes,
+        width: float,
+        height: float,
+        x_step: float,
+        y_step: float,
+        matrix: Transform,
+        resources: set[tuple[PDFResourceType, str]],
+        *,
+        colored: bool = True,
+    ) -> "Pattern":
+        """Construct a tile whose placement matrix is already resolved."""
+        pattern = cls.__new__(cls)
+        PDFObject.__init__(pattern)
+        pattern._contents = zlib.compress(contents)
+        pattern.filter = Name("FlateDecode")
+        pattern.length = len(pattern._contents)
+        pattern.type = Name("Pattern")
+        pattern.pattern_type = 1
+        pattern.paint_type = 1 if colored else 2
+        pattern.tiling_type = 1
+        pattern.b_box = PDFArray([0, 0, width, height])
+        pattern.x_step = x_step
+        pattern.y_step = y_step
+        pattern._shading = None
+        pattern._matrix = matrix
+        pattern._apply_page_ctm = False
+        pattern._resources_used = resources
+        pattern.resources = None
+        return pattern
+
     @property
-    def shading(self) -> str:
+    def shading(self) -> Optional[str]:
+        if self._shading is None:
+            return None
         return f"{self._shading.get_shading_object().id} 0 R"
 
     @property
@@ -288,6 +341,20 @@ class Pattern(PDFObject):
             f"{format_number(self._matrix.c)} {format_number(self._matrix.d)} "
             f"{format_number(self._matrix.e)} {format_number(self._matrix.f)}]"
         )
+
+    def content_stream(self) -> Optional[bytes]:
+        return self._contents
+
+    def serialize(
+        self,
+        obj_dict: Optional[dict[str, object]] = None,
+        _security_handler: Optional["StandardSecurityHandler"] = None,
+    ) -> str:
+        if _security_handler and self._contents is not None:
+            assert not obj_dict
+            self._contents = _security_handler.encrypt_stream(self._contents, self.id)
+            self.length = len(self._contents)
+        return super().serialize(obj_dict, _security_handler)
 
     def set_matrix(self, matrix: Transform) -> "Pattern":
         self._matrix = matrix
@@ -344,7 +411,7 @@ class Type3Function(PDFObject):
 
     def __init__(
         self,
-        functions: Sequence[Union[Type2Function, Type2FunctionGray, "Type3Function"]],
+        functions: "Sequence[Type2Function | Type2FunctionGray | Type3Function]",
         bounds: Sequence[float],
     ):
         super().__init__()
@@ -840,8 +907,8 @@ class SweepGradient(PDFObject):
         cy: float,
         start_angle: float,
         end_angle: float,
-        stops: Sequence[tuple[float, Union[Color, str]]],
-        spread_method: Union["GradientSpreadMethod", str] = GradientSpreadMethod.PAD,
+        stops: Sequence[tuple[float, Color | str]],
+        spread_method: "GradientSpreadMethod | str" = GradientSpreadMethod.PAD,
         segments: Optional[int] = None,
         inner_radius_factor: float = 0.002,
     ):
@@ -962,7 +1029,7 @@ def shape_sweep_gradient_as_mesh(
     cy: float,
     start_angle: float,
     end_angle: float,
-    stops: Sequence[tuple[float, Union[Color, str]]],
+    stops: Sequence[tuple[float, Color | str]],
     spread_method: GradientSpreadMethod,
     bbox: "BoundingBox",
     segments: Optional[int] = None,
@@ -1253,8 +1320,8 @@ def shape_linear_gradient(
     y1: float,
     x2: float,
     y2: float,
-    stops: Sequence[tuple[float, Union[Color, str]]],
-    spread_method: Union[GradientSpreadMethod, str] = GradientSpreadMethod.PAD,
+    stops: Sequence[tuple[float, Color | str]],
+    spread_method: GradientSpreadMethod | str = GradientSpreadMethod.PAD,
     bbox: Optional["BoundingBox"] = None,
 ) -> LinearGradient:
     """
@@ -1322,7 +1389,7 @@ def shape_linear_gradient(
     start_tile = math.floor((tmin_norm - base_start) / base_span) - 1
     end_tile = math.ceil((tmax_norm - base_start) / base_span) + 1
 
-    expanded: list[tuple[float, Union[Color, str]]] = []
+    expanded: list[tuple[float, Color | str]] = []
     for k in range(start_tile, end_tile + 1):
         shift = k * base_span
         if spread_method == GradientSpreadMethod.REPEAT or (k & 1) == 0:
@@ -1383,11 +1450,11 @@ def shape_radial_gradient(
     cx: float,
     cy: float,
     r: float,
-    stops: Sequence[tuple[float, Union[Color, str]]],
+    stops: Sequence[tuple[float, Color | str]],
     fx: Optional[float] = None,
     fy: Optional[float] = None,
     fr: float = 0.0,
-    spread_method: Union[GradientSpreadMethod, str] = GradientSpreadMethod.PAD,
+    spread_method: GradientSpreadMethod | str = GradientSpreadMethod.PAD,
     bbox: Optional["BoundingBox"] = None,
 ) -> RadialGradient:
     """

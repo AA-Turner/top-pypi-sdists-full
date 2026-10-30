@@ -4,9 +4,9 @@ use std::path::{Path, PathBuf};
 use _pipdeptree::Execution;
 use pyo3::ffi::c_str;
 use pyo3::types::{PyAnyMethods as _, PyDict, PyDictMethods as _};
-use rstest::rstest;
+use rstest::{fixture, rstest};
 use serde_json::{Value, json};
-use tempfile::tempdir;
+use tempfile::{TempDir, tempdir};
 
 use super::common::{
     execute, execute_with_python, execute_with_runner, install_resolver, stdout, with_python,
@@ -206,6 +206,65 @@ fn leaves_unrecorded_edges_without_a_required_version() {
             "package_name": "external",
             "candidate_version": "?",
         })
+    );
+}
+
+#[rstest]
+#[case::suppress("suppress", concat!(
+    "Warning: the resolver reported:\n",
+    "Skipping logs==2: d[x\u{fffd}]0;t\u{fffd}]\n",
+    "    ~~^\n",
+    "------------------------------------------------------------------------\n",
+    "Warning: dependency problems found:\n",
+    "* parent==1\n",
+    "  - external [required: Any, installed: ?]\n",
+    "------------------------------------------------------------------------\n\n",
+))]
+#[case::silence("silence", "")]
+fn reports_resolver_logs_as_warnings(#[case] warn: &str, #[case] expected: &str) {
+    let output = resolved_output(&["--warn", warn, "-o", "freeze", "from-index", "logs"]);
+
+    assert_eq!(
+        (output.code, stdout(&output), output.stderr.as_str()),
+        (0, "parent==1\n  child==2\n  external\n", expected)
+    );
+}
+
+#[rstest]
+#[case::suppress("suppress", concat!(
+    "Warning: the resolver reported:\n",
+    "Skipping logs==2: d[x\u{fffd}]0;t\u{fffd}]\n",
+    "    ~~^\n",
+    "------------------------------------------------------------------------\n",
+    "ValueError: no version of \u{fffd}[2Jraises\n",
+))]
+#[case::silence("silence", "ValueError: no version of \u{fffd}[2Jraises\n")]
+fn reports_resolver_logs_before_a_resolver_error(#[case] warn: &str, #[case] expected: &str) {
+    let output = resolved_output(&["--warn", warn, "from-index", "logs", "raises"]);
+
+    assert_eq!(
+        (
+            output.code,
+            output.stdout.is_empty(),
+            output.stderr.as_str()
+        ),
+        (1, true, expected)
+    );
+}
+
+#[rstest]
+#[case::name("long-name", "package 'name' is longer than 255 bytes\n")]
+#[case::version("long-version", "package 'version' is longer than 255 bytes\n")]
+fn rejects_pins_longer_than_the_identity_limit(#[case] requirement: &str, #[case] expected: &str) {
+    let output = resolved_output(&["from-index", requirement]);
+
+    assert_eq!(
+        (
+            output.code,
+            output.stdout.is_empty(),
+            output.stderr.as_str()
+        ),
+        (1, true, expected)
     );
 }
 
@@ -449,6 +508,118 @@ fn parses_pip_requirement_file_syntax() {
     );
 }
 
+#[rstest]
+#[case::short("-i https://private.example/simple", "-i", "--index-url")]
+#[case::short_attached("-ihttps://private.example/simple", "-i", "--index-url")]
+#[case::long(
+    "--index-url https://private.example/simple",
+    "--index-url",
+    "--index-url"
+)]
+#[case::long_equals(
+    "--index-url=https://private.example/simple",
+    "--index-url",
+    "--index-url"
+)]
+#[case::extra(
+    "--extra-index-url https://private.example/simple",
+    "--extra-index-url",
+    "--extra-index-url"
+)]
+fn warns_about_an_index_option_in_a_requirements_file(
+    #[case] line: &str,
+    #[case] option: &str,
+    #[case] flag: &str,
+) {
+    let directory = tempdir().unwrap();
+    let requirements = directory.path().join("requirements.txt");
+    fs::write(&requirements, format!("parent\n{line}\n")).unwrap();
+
+    let output = resolved_output(&[
+        "from-index",
+        "--requirements",
+        requirements.to_str().unwrap(),
+    ]);
+
+    assert_eq!(
+        (output.code, output.stderr.lines().next().unwrap()),
+        (
+            0,
+            format!(
+                "Warning: {}:2: from-index ignores {option} in requirements files; pass {flag} on the command line",
+                requirements.canonicalize().unwrap().display()
+            )
+            .as_str()
+        )
+    );
+}
+
+#[test]
+fn warns_about_an_index_option_before_a_failed_resolve() {
+    let directory = tempdir().unwrap();
+    let requirements = directory.path().join("requirements.txt");
+    fs::write(&requirements, "-i https://private.example/simple\nparent\n").unwrap();
+
+    let output = with_python(|python| {
+        temp_env::with_var("NAB_CACHE_DIR", Some(""), || {
+            execute_with_python(
+                python,
+                &[
+                    "from-index",
+                    "--requirements",
+                    requirements.to_str().unwrap(),
+                ],
+            )
+        })
+    });
+
+    assert_eq!(
+        (output.code, output.stderr),
+        (
+            1,
+            format!(
+                "Warning: {}:1: from-index ignores -i in requirements files; pass --index-url on the command line\n\
+                 ValueError: NAB_CACHE_DIR must be a non-empty path\n",
+                requirements.canonicalize().unwrap().display()
+            )
+        )
+    );
+}
+
+#[test]
+fn reports_index_option_warnings_before_resolver_logs() {
+    let directory = tempdir().unwrap();
+    let requirements = directory.path().join("requirements.txt");
+    fs::write(&requirements, "-i https://private.example/simple\nlogs\n").unwrap();
+
+    let output = resolved_output(&[
+        "-o",
+        "freeze",
+        "from-index",
+        "--requirements",
+        requirements.to_str().unwrap(),
+    ]);
+
+    assert_eq!(
+        (output.code, stdout(&output), output.stderr.as_str()),
+        (
+            0,
+            "parent==1\n  child==2\n  external\n",
+            format!(
+                "Warning: {}:1: from-index ignores -i in requirements files; pass --index-url on the command line\n\
+                 Warning: the resolver reported:\n\
+                 Skipping logs==2: d[x\u{fffd}]0;t\u{fffd}]\n    ~~^\n\
+                 ------------------------------------------------------------------------\n\
+                 Warning: dependency problems found:\n\
+                 * parent==1\n  - external [required: Any, installed: ?]\n\
+                 ------------------------------------------------------------------------\n\n",
+                requirements.canonicalize().unwrap().display()
+            )
+            .as_str()
+        )
+    );
+}
+
 #[test]
 fn inherits_constraint_flag_for_nested_requirement_files() {
     let directory = tempdir().unwrap();
@@ -484,6 +655,51 @@ fn inherits_constraint_flag_for_nested_requirement_files() {
             pyproject.contains("constraints = [\"pinned<3\"]"),
         ),
         (0, "", true, true)
+    );
+}
+
+#[rstest]
+#[case::same_role(
+    "-r nested.txt\n-r nested.txt\n",
+    "dependencies = [\"nested-package\"]"
+)]
+#[case::requirement_and_constraint(
+    "-r nested.txt\n-c nested.txt\n",
+    "dependencies = [\"nested-package\"]\n\n[tool.nab]\nconstraints = [\"nested-package\"]"
+)]
+fn parses_a_repeated_include_once_per_role(#[case] requirements: &str, #[case] expected: &str) {
+    let directory = tempdir().unwrap();
+    fs::write(directory.path().join("nested.txt"), "nested-package\n").unwrap();
+    fs::write(directory.path().join("requirements.txt"), requirements).unwrap();
+    let capture = directory.path().join("capture.txt");
+
+    let output = with_python(|python| {
+        install_resolver(python, &capture).unwrap();
+        execute_with_python(
+            python,
+            &[
+                "--warn",
+                "silence",
+                "from-index",
+                "--requirements",
+                directory.path().join("requirements.txt").to_str().unwrap(),
+            ],
+        )
+    });
+    let pyproject = fs::read_to_string(capture).unwrap();
+
+    assert_eq!(
+        (
+            output.code,
+            output.stderr.as_str(),
+            pyproject.split_once("\n\n--- indexes ---").unwrap().0,
+        ),
+        (
+            0,
+            "",
+            format!("[project]\nname = \"pipdeptree-from-index\"\nversion = \"0\"\n{expected}")
+                .as_str()
+        )
     );
 }
 
@@ -729,6 +945,14 @@ fn resolves_pyproject_indexes(
     &[("UV_EXTRA_INDEX_URL", Some("https://uv.example/simple"))],
     "[('pypi', 'https://pypi.org/simple'), ('extra-1', 'https://uv.example/simple')]"
 )]
+#[case::empty_pip_extras_fall_back(
+    &[],
+    &[
+        ("PIP_EXTRA_INDEX_URL", Some("")),
+        ("UV_EXTRA_INDEX_URL", Some("https://uv.example/simple")),
+    ],
+    "[('pypi', 'https://pypi.org/simple'), ('extra-1', 'https://uv.example/simple')]"
+)]
 #[case::pip_credentials(
     &[],
     &[("PIP_INDEX_URL", Some("https://user:secret@pip.example/simple"))],
@@ -864,6 +1088,11 @@ fn reports_missing_resolver_module() {
     &["from-index", "demo @ file://example.com/demo"],
     "invalid local file URL"
 )]
+#[case::invalid_bare_file_url(
+    &["from-index", "file://example.com/demo"],
+    "invalid local file URL: file://example.com/demo"
+)]
+#[case::undecodable_bare_file_url(&["from-index", "file:%FF"], "invalid local file URL: file:%FF")]
 #[case::malformed_named_source(
     &["from-index", "demo @ file://[invalid"],
     "invalid IPv6"
@@ -891,8 +1120,16 @@ fn rejects_invalid_index_arguments(#[case] args: &[&str], #[case] expected: &str
     InvalidSource::ConstraintPath,
     "source requirements cannot be constraints"
 )]
+#[case::constraint_editable(
+    InvalidSource::ConstraintEditable,
+    "source requirements cannot be constraints"
+)]
+#[case::constraint_editable_vcs(
+    InvalidSource::ConstraintEditableVcs,
+    "source requirements cannot be constraints"
+)]
 #[case::constraint_extras(InvalidSource::ConstraintExtras, "cannot constrain extras")]
-#[case::missing_local(InvalidSource::MissingLocal, "No such file or directory")]
+#[case::missing_local(InvalidSource::MissingLocal, "/./missing: No such file or directory")]
 #[case::local_without_pyproject(
     InvalidSource::LocalWithoutPyproject,
     "must be a directory with a pyproject.toml"
@@ -912,6 +1149,24 @@ fn rejects_invalid_requirement_files(#[case] source: InvalidSource, #[case] expe
         }
         InvalidSource::ConstraintPath => {
             fs::write(&constraints, "./missing").unwrap();
+            "-c constraints.txt"
+        }
+        InvalidSource::ConstraintEditable => {
+            fs::create_dir(&local).unwrap();
+            fs::write(
+                local.join("pyproject.toml"),
+                "[project]\nname = \"local\"\n",
+            )
+            .unwrap();
+            fs::write(&constraints, "-e ./local").unwrap();
+            "-c constraints.txt"
+        }
+        InvalidSource::ConstraintEditableVcs => {
+            fs::write(
+                &constraints,
+                "-e git+https://example.com/demo.git@0123456789abcdef0123456789abcdef01234567#egg=demo",
+            )
+            .unwrap();
             "-c constraints.txt"
         }
         InvalidSource::ConstraintExtras => {
@@ -952,25 +1207,235 @@ fn rejects_invalid_requirement_files(#[case] source: InvalidSource, #[case] expe
     );
 }
 
-#[test]
-fn rejects_invalid_trailing_logical_requirement() {
-    let directory = tempdir().unwrap();
-    let requirements = directory.path().join("requirements.txt");
-    fs::write(&requirements, "not a valid requirement !!! \\").unwrap();
+#[rstest]
+#[case::relative("file:pkg")]
+#[case::dot_relative("file:./pkg")]
+#[case::percent_encoded("file:p%6Bg")]
+#[case::fragment("file:pkg#egg=local")]
+#[case::named_relative("local @ file:pkg")]
+#[case::named_dot_relative("local @ file:./pkg")]
+#[case::single_slash("file:{abs}")]
+#[case::absolute("file://{abs}")]
+#[case::localhost("file://localhost{abs}")]
+#[case::named_single_slash("local @ file:{abs}")]
+#[case::named_absolute("local @ file://{abs}")]
+#[case::named_localhost("local @ file://localhost{abs}")]
+fn resolves_a_file_url_argument_like_pip(
+    file_url_projects: FileUrlProjects,
+    #[case] template: &str,
+) {
+    let source = file_url_projects.source(template);
 
-    let output = execute(&[
-        "from-index",
-        "--requirements",
-        requirements.to_str().unwrap(),
-    ]);
+    let output = file_url_projects.resolve(&source);
+
+    assert_eq!(
+        file_url_projects.resolved(&output, false),
+        (0, "", true, false)
+    );
+}
+
+#[rstest]
+#[case::relative("file:pkg", false)]
+#[case::dot_relative("file:./pkg", false)]
+#[case::editable_relative("-e file:pkg", true)]
+#[case::editable_dot_relative("-e file:./pkg", true)]
+#[case::named_relative("local @ file:pkg", false)]
+#[case::named_dot_relative("local @ file:./pkg", false)]
+#[case::single_slash("file:{abs}", false)]
+#[case::absolute("file://{abs}", false)]
+#[case::localhost("file://localhost{abs}", false)]
+#[case::editable_single_slash("-e file:{abs}", true)]
+#[case::editable_absolute("-e file://{abs}", true)]
+#[case::editable_localhost("-e file://localhost{abs}", true)]
+#[case::named_single_slash("local @ file:{abs}", false)]
+#[case::named_absolute("local @ file://{abs}", false)]
+#[case::named_localhost("local @ file://localhost{abs}", false)]
+fn resolves_a_file_url_requirement_like_pip(
+    file_url_projects: FileUrlProjects,
+    #[case] template: &str,
+    #[case] editable: bool,
+) {
+    let requirements = file_url_projects.write_requirements(template);
+    let output = file_url_projects.resolve(&requirements);
+
+    assert_eq!(
+        file_url_projects.resolved(&output, editable),
+        (0, "", true, false)
+    );
+}
+
+#[rstest]
+#[case::bare("file://example.com{abs}")]
+#[case::editable("-e file://example.com{abs}")]
+#[case::named("local @ file://example.com{abs}")]
+fn rejects_a_non_local_file_url_requirement(
+    file_url_projects: FileUrlProjects,
+    #[case] template: &str,
+) {
+    let requirements = file_url_projects.write_requirements(template);
+    let output = file_url_projects.resolve(&requirements);
 
     assert_eq!(
         (
             output.code,
-            output.stdout.is_empty(),
-            output.stderr.contains("Expected"),
+            output.stderr.contains(&format!(
+                "invalid local file URL: {}",
+                file_url_projects.source("file://example.com{abs}")
+            )),
         ),
-        (1, true, true)
+        (1, true)
+    );
+}
+
+// pip resolves a relative file: URL against the working directory, never the requirements file's
+// directory, so the decoy project next to the requirements file must not be picked up.
+#[fixture]
+fn file_url_projects() -> FileUrlProjects {
+    let projects = FileUrlProjects {
+        working: tempdir().unwrap(),
+        elsewhere: tempdir().unwrap(),
+    };
+    write_named_project(projects.working.path(), "local");
+    write_named_project(projects.elsewhere.path(), "decoy");
+    projects
+}
+
+fn write_named_project(directory: &Path, name: &str) {
+    let project = directory.join("pkg");
+    fs::create_dir(&project).unwrap();
+    fs::write(
+        project.join("pyproject.toml"),
+        format!("[project]\nname = \"{name}\"\n"),
+    )
+    .unwrap();
+}
+
+struct FileUrlProjects {
+    working: TempDir,
+    elsewhere: TempDir,
+}
+
+impl FileUrlProjects {
+    fn source(&self, template: &str) -> String {
+        let local = self.working.path().join("pkg");
+        template.replace("{abs}", url::Url::from_file_path(local).unwrap().path())
+    }
+
+    fn resolve(&self, argument: &str) -> Execution {
+        with_python(|python| {
+            install_resolver(python, &self.capture()).unwrap();
+            let current = std::env::current_dir().unwrap();
+            std::env::set_current_dir(self.working.path()).unwrap();
+            let output =
+                execute_with_python(python, &["--warn", "silence", "from-index", argument]);
+            std::env::set_current_dir(current).unwrap();
+            output
+        })
+    }
+
+    fn capture(&self) -> PathBuf {
+        self.elsewhere.path().join("capture.txt")
+    }
+
+    fn resolved<'output>(
+        &self,
+        output: &'output Execution,
+        editable: bool,
+    ) -> (i32, &'output str, bool, bool) {
+        let project = fs::read_to_string(self.capture()).unwrap();
+        let local = self.working.path().join("pkg").canonicalize().unwrap();
+        (
+            output.code,
+            output.stderr.as_str(),
+            project.contains(&format!(
+                "[[tool.nab.local-sources]]\nname = \"local\"\npath = \"{}\"\neditable = {editable}\n",
+                local.display()
+            )),
+            project.contains("decoy"),
+        )
+    }
+
+    fn write_requirements(&self, template: &str) -> String {
+        let requirements = self.elsewhere.path().join("requirements.txt");
+        fs::write(&requirements, format!("{}\n", self.source(template))).unwrap();
+        format!("--requirements={}", requirements.display())
+    }
+}
+
+#[test]
+fn rejects_requirements_includes_nested_past_the_limit() {
+    let directory = tempdir().unwrap();
+    for level in 0..=100 {
+        fs::write(
+            directory.path().join(format!("r{level}.txt")),
+            format!("-r r{}.txt\n", level + 1),
+        )
+        .unwrap();
+    }
+    fs::write(directory.path().join("r101.txt"), "demo\n").unwrap();
+
+    let output = resolved_output(&[
+        "from-index",
+        "--requirements",
+        directory.path().join("r0.txt").to_str().unwrap(),
+    ]);
+
+    assert_eq!(
+        (output.code, output.stdout.is_empty(), output.stderr),
+        (
+            1,
+            true,
+            format!(
+                "requirements include nested deeper than 100 levels: {}\n",
+                directory
+                    .path()
+                    .canonicalize()
+                    .unwrap()
+                    .join("r100.txt")
+                    .display()
+            )
+        )
+    );
+}
+
+#[rstest]
+#[case::included("-r netrc\n", "netrc", 2)]
+#[case::continued("parent>=1\nnot a valid \\\n  requirement\n", "requirements.txt", 2)]
+#[case::trailing("not a valid requirement !!! \\", "requirements.txt", 1)]
+fn locates_an_invalid_requirement_without_quoting_it(
+    #[case] requirements: &str,
+    #[case] invalid_file: &str,
+    #[case] line: usize,
+) {
+    let directory = tempdir().unwrap();
+    fs::write(
+        directory.path().join("netrc"),
+        "# credentials\nmachine pypi.corp.example login ci password s3cr3t\n",
+    )
+    .unwrap();
+    fs::write(directory.path().join("requirements.txt"), requirements).unwrap();
+
+    let output = resolved_output(&[
+        "from-index",
+        "--requirements",
+        directory.path().join("requirements.txt").to_str().unwrap(),
+    ]);
+
+    assert_eq!(
+        (output.code, output.stdout.is_empty(), output.stderr),
+        (
+            1,
+            true,
+            format!(
+                "{}:{line}: invalid requirement\n",
+                directory
+                    .path()
+                    .canonicalize()
+                    .unwrap()
+                    .join(invalid_file)
+                    .display()
+            )
+        )
     );
 }
 
@@ -979,6 +1444,8 @@ enum InvalidSource {
     Recursive,
     ConstraintSource,
     ConstraintPath,
+    ConstraintEditable,
+    ConstraintEditableVcs,
     ConstraintExtras,
     MissingLocal,
     LocalWithoutPyproject,

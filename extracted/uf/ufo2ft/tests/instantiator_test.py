@@ -535,6 +535,9 @@ def test_axis_mapping(ufo_module, data_dir):
 
 
 def test_axis_mapping_manual_os2_classes(ufo_module, data_dir):
+    # The classes follow the instance location, not the masters' (interpolated)
+    # values: the instance sits at weight 400 and, as the instance location leaves
+    # out the width axis, at the default width 100.
     designspace = designspaceLib.DesignSpaceDocument.fromfile(
         data_dir / "DesignspaceTest" / "DesignspaceTest-wght-wdth.designspace"
     )
@@ -548,8 +551,8 @@ def test_axis_mapping_manual_os2_classes(ufo_module, data_dir):
     )
 
     instance_font = generator.generate_instance(designspace.instances[0])
-    assert instance_font.info.openTypeOS2WeightClass == 850
-    assert instance_font.info.openTypeOS2WidthClass == 8
+    assert instance_font.info.openTypeOS2WeightClass == 400
+    assert instance_font.info.openTypeOS2WidthClass == 5
     assert instance_font.info.italicAngle is None
     assert instance_font.lib["designspace.location"] == [
         ("weight", 100.0),
@@ -558,6 +561,9 @@ def test_axis_mapping_manual_os2_classes(ufo_module, data_dir):
 
 
 def test_axis_mapping_no_os2_width_class_inference(ufo_module, data_dir):
+    # Without a wdth axis the width class is not derived from the location, so
+    # whatever the masters say (here interpolated) is kept. The weight class
+    # still follows the location.
     designspace = designspaceLib.DesignSpaceDocument.fromfile(
         data_dir / "DesignspaceTest" / "DesignspaceTest-bare.designspace"
     )
@@ -569,10 +575,103 @@ def test_axis_mapping_no_os2_width_class_inference(ufo_module, data_dir):
     )
 
     instance_font = generator.generate_instance(designspace.instances[0])
-    assert instance_font.info.openTypeOS2WeightClass == 850
+    assert instance_font.info.openTypeOS2WeightClass == 400
     assert instance_font.info.openTypeOS2WidthClass is None
     assert instance_font.info.italicAngle is None
     assert instance_font.lib["designspace.location"] == [("weight", 100.0)]
+
+    designspace.sources[0].font.info.openTypeOS2WidthClass = 3
+    designspace.sources[1].font.info.openTypeOS2WidthClass = 5
+    generator = ufo2ft.instantiator.Instantiator.from_designspace(
+        designspace, round_geometry=True
+    )
+    instance_font = generator.generate_instance(designspace.instances[0])
+    assert instance_font.info.openTypeOS2WeightClass == 400
+    assert instance_font.info.openTypeOS2WidthClass == 4
+
+
+def test_os2_classes_from_location_in_static_source(ufo_module):
+    # A designspace with a single source, the instance at its location: the
+    # instance inherits the whole fontinfo from the source, but the weight and
+    # width class still come from the (here wdth 1) instance location.
+    d = designspaceLib.DesignSpaceDocument()
+    d.addAxisDescriptor(name="Width", tag="wdth", minimum=1, default=1, maximum=200)
+    d.addSourceDescriptor(location={"Width": 1}, font=ufo_module.Font())
+    d.addInstanceDescriptor(styleName="Regular", location={"Width": 1})
+    d.sources[0].font.info.openTypeOS2WeightClass = 400
+    d.sources[0].font.info.openTypeOS2WidthClass = 5
+    d.sources[0].font.info.openTypeOS2Type = []
+
+    generator = ufo2ft.instantiator.Instantiator.from_designspace(d)
+
+    instance_font = generator.generate_instance(d.instances[0])
+    assert instance_font.info.openTypeOS2Type == []  # inherited from the source
+    assert instance_font.info.openTypeOS2WeightClass == 400  # no wght axis: kept
+    assert instance_font.info.openTypeOS2WidthClass == 1
+
+
+@pytest.mark.parametrize(
+    "axis_tag, axis_minimum, axis_maximum, user_value, expected",
+    [
+        ("wght", 0, 1200, 0, 1),
+        ("wght", 0, 1200, 400.4, 400),
+        ("wght", 0, 1200, 700.7, 701),
+        ("wght", 0, 1200, 1200, 1000),
+        ("wdth", 25, 300, 25, 1),
+        ("wdth", 25, 300, 87.5, 4),
+        ("wdth", 25, 300, 100, 5),
+        ("wdth", 25, 300, 105, 5),
+        ("wdth", 25, 300, 110, 6),
+        ("wdth", 25, 300, 175, 9),
+        ("wdth", 25, 300, 300, 9),
+    ],
+)
+def test_os2_classes_from_location_rounded_and_clamped(
+    ufo_module, axis_tag, axis_minimum, axis_maximum, user_value, expected
+):
+    d = designspaceLib.DesignSpaceDocument()
+    d.addAxisDescriptor(
+        name="Axis",
+        tag=axis_tag,
+        minimum=axis_minimum,
+        default=axis_minimum,
+        maximum=axis_maximum,
+    )
+    d.addSourceDescriptor(location={"Axis": axis_minimum}, font=ufo_module.Font())
+    d.addSourceDescriptor(location={"Axis": axis_maximum}, font=ufo_module.Font())
+    d.addInstanceDescriptor(styleName="Instance", location={"Axis": user_value})
+    for source in d.sources:
+        # Set on both masters, so any interpolation of them would give 123 and 7.
+        source.font.info.openTypeOS2WeightClass = 123
+        source.font.info.openTypeOS2WidthClass = 7
+
+    generator = ufo2ft.instantiator.Instantiator.from_designspace(d)
+
+    info = generator.generate_instance(d.instances[0]).info
+    if axis_tag == "wght":
+        assert info.openTypeOS2WeightClass == expected
+        assert info.openTypeOS2WidthClass == 7
+    else:
+        assert info.openTypeOS2WeightClass == 123
+        assert info.openTypeOS2WidthClass == expected
+
+
+def test_os2_classes_instance_lib_public_fontinfo_wins(ufo_module, data_dir):
+    designspace = designspaceLib.DesignSpaceDocument.fromfile(
+        data_dir / "DesignspaceTest" / "DesignspaceTest-wght-wdth.designspace"
+    )
+    designspace.loadSourceFonts(openFontFactory(ufo_module=ufo_module))
+    designspace.instances[0].lib["public.fontInfo"] = {
+        "openTypeOS2WeightClass": 333,
+        "openTypeOS2WidthClass": 2,
+    }
+    generator = ufo2ft.instantiator.Instantiator.from_designspace(
+        designspace, round_geometry=True
+    )
+
+    instance_font = generator.generate_instance(designspace.instances[0])
+    assert instance_font.info.openTypeOS2WeightClass == 333
+    assert instance_font.info.openTypeOS2WidthClass == 2
 
 
 def test_axis_mapping_no_os2_class_inference(ufo_module, data_dir):
@@ -1375,6 +1474,92 @@ def test_opentype_os2_panose_no_mutation_of_default(ufo_module):
     assert d.default.font.info.openTypeOS2Panose == original_panose
 
 
+def test_opentype_os2_panose_instance_on_source(ufo_module):
+    """Test that an instance sitting on a source takes that source's panose.
+
+    Instances elsewhere get the panose values shared by all sources, and an
+    instance's public.fontInfo still overrides the source's panose.
+    """
+    d = designspaceLib.DesignSpaceDocument()
+    d.addAxisDescriptor(
+        name="Weight", tag="wght", minimum=300, default=300, maximum=900
+    )
+
+    panoses = {
+        300: [2, 11, 3, 3, 2, 2, 2, 2, 2, 4],  # default source
+        600: [2, 11, 5, 3, 2, 2, 2, 2, 2, 4],
+        900: [2, 11, 8, 4, 2, 2, 2, 2, 2, 4],
+    }
+    for weight, panose in panoses.items():
+        font = ufo_module.Font()
+        font.info.openTypeOS2Panose = panose
+        d.addSourceDescriptor(location={"Weight": weight}, font=font)
+    for weight in (300, 450, 600, 900):
+        d.addInstanceDescriptor(styleName=f"W{weight}", location={"Weight": weight})
+    override = [2, 11, 9, 4, 2, 2, 2, 2, 2, 4]
+    d.addInstanceDescriptor(
+        styleName="Override",
+        location={"Weight": 900},
+        lib={"public.fontInfo": {"openTypeOS2Panose": override}},
+    )
+
+    generator = ufo2ft.instantiator.Instantiator.from_designspace(d)
+    panose = {
+        instance.styleName: generator.generate_instance(instance).info.openTypeOS2Panose
+        for instance in d.instances
+    }
+
+    assert panose == {
+        "W300": panoses[300],
+        "W450": [2, 11, 0, 0, 2, 2, 2, 2, 2, 4],
+        "W600": panoses[600],
+        "W900": panoses[900],
+        "Override": override,
+    }
+    # The sources should remain unchanged
+    for source in d.sources:
+        assert source.font.info.openTypeOS2Panose == panoses[source.location["Weight"]]
+
+
+def test_opentype_os2_panose_instance_on_source_without_panose(ufo_module):
+    """Test that an instance on a source layer, or on a source with no panose of
+    its own, gets the panose values shared by all sources."""
+    d = designspaceLib.DesignSpaceDocument()
+    d.addAxisDescriptor(
+        name="Weight", tag="wght", minimum=300, default=300, maximum=900
+    )
+
+    default = ufo_module.Font()
+    default.info.openTypeOS2Panose = [2, 11, 3, 3, 2, 2, 2, 2, 2, 4]
+    bold = ufo_module.Font()
+    bold.info.openTypeOS2Panose = [2, 11, 8, 4, 2, 2, 2, 2, 2, 4]
+    bold.newLayer("support")
+    no_panose = ufo_module.Font()
+
+    d.addSourceDescriptor(location={"Weight": 300}, font=default)
+    d.addSourceDescriptor(location={"Weight": 900}, font=bold)
+    d.addSourceDescriptor(location={"Weight": 600}, font=bold, layerName="support")
+    d.addSourceDescriptor(location={"Weight": 750}, font=no_panose)
+    d.addInstanceDescriptor(styleName="Layer", location={"Weight": 600})
+    d.addInstanceDescriptor(styleName="NoPanose", location={"Weight": 750})
+
+    generator = ufo2ft.instantiator.Instantiator.from_designspace(d)
+
+    for instance in d.instances:
+        assert generator.generate_instance(instance).info.openTypeOS2Panose == [
+            2,
+            11,
+            0,
+            0,
+            2,
+            2,
+            2,
+            2,
+            2,
+            4,
+        ]
+
+
 @pytest.mark.parametrize(
     "panose_data,expected",
     [
@@ -1441,3 +1626,38 @@ def test_strict_math_glyph(ufo_module, data_dir):
     glyph = fonts[0]["test"]
     assert len(glyph.contours) == 1
     assert len(glyph.contours[0].points) == 16
+
+
+def test_opentype_categories_from_source_at_instance_location(ufo_module):
+    d = designspaceLib.DesignSpaceDocument()
+    d.addAxisDescriptor(
+        name="Weight", tag="wght", minimum=300, default=300, maximum=900
+    )
+    for weight, categories in [
+        (300, {"a": "base"}),
+        (600, None),
+        (900, {"a": "base", "b": "base"}),
+    ]:
+        font = ufo_module.Font()
+        font.newGlyph("a")
+        font.newGlyph("b")
+        if categories is not None:
+            font.lib["public.openTypeCategories"] = categories
+        d.addSourceDescriptor(location={"Weight": weight}, font=font)
+    for weight in (300, 450, 600, 900):
+        d.addInstanceDescriptor(styleName=str(weight), location={"Weight": weight})
+
+    generator = ufo2ft.instantiator.Instantiator.from_designspace(d)
+    categories = [
+        generator.generate_instance(instance).lib["public.openTypeCategories"]
+        for instance in d.instances
+    ]
+
+    # Only an instance on a source that defines categories takes them, the
+    # others get the default source's.
+    assert categories == [
+        {"a": "base"},
+        {"a": "base"},
+        {"a": "base"},
+        {"a": "base", "b": "base"},
+    ]

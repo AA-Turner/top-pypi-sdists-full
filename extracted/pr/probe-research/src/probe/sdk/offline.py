@@ -1031,10 +1031,14 @@ def _home_path(client: Client, create: dict, key: str) -> str:
             # `workspace=` (kept as given) files a NEW project; without it, the
             # syncing computer's workspace (`Client.create_project`).
             workspace = create.get("workspace")
+            # An id-shaped project is resolved, never created (`Client._project_named`).
+            by_id, slug = client._project_named(project)
             project_id = (
-                client.ensure_project(project, **({"workspace_id": workspace} if workspace else {}))["id"]
+                by_id["id"]
+                if by_id is not None
+                else client.ensure_project(slug, **({"workspace_id": workspace} if workspace else {}))["id"]
                 if question is not None
-                else client.resolve_or_raise("project", project)["id"]
+                else client.resolve_or_raise("project", slug)["id"]
             )
         if experiment:
             if question is not None:

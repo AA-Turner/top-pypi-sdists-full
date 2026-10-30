@@ -12,7 +12,7 @@ Kept in step with the JS suite (`sdk-js/src/core/tests/template/imageConfig.test
 """
 
 import base64
-import json
+import os
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -40,7 +40,12 @@ def _isolate():
 
 
 class _Recorder:
-    """Routes stubbed replies by URL fragment and records what was asked."""
+    """Routes stubbed replies by URL fragment and records what was asked.
+
+    A route can gate itself on the request's ``Authorization`` header, which is what
+    pins the challenge flows: the unauthenticated attempt is the one that sees the
+    401, and the retry carrying the token is the one that sees the image.
+    """
 
     def __init__(self, routes: List[Dict[str, Any]]):
         self.routes = routes
@@ -49,12 +54,23 @@ class _Recorder:
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         url = str(request.url)
+        authorization = request.headers.get("authorization")
         self.urls.append(url)
-        self.auth.append(request.headers.get("authorization"))
+        self.auth.append(authorization)
+
         for route in self.routes:
-            if route["match"] in url:
-                body = route.get("json", {})
-                return httpx.Response(route.get("status", 200), json=body)
+            if route["match"] not in url:
+                continue
+            if route.get("without_auth") and authorization is not None:
+                continue
+            if "requires_auth" in route and authorization != route["requires_auth"]:
+                continue
+            return httpx.Response(
+                route.get("status", 200),
+                json=route.get("json", {}),
+                headers=route.get("headers"),
+            )
+
         return httpx.Response(404, json={"errors": [{"code": "NOT_FOUND"}]})
 
 
@@ -88,6 +104,47 @@ def _single_platform(declared: Dict[str, Any]) -> List[Dict[str, Any]]:
     ]
 
 
+def _challenge_routes(
+    declared: Dict[str, Any],
+    challenge: str,
+    *,
+    token: str = "stub-token",
+    token_json: Optional[Dict[str, Any]] = None,
+    token_match: str = "/token?",
+    sends_credentials: bool = False,
+) -> List[Dict[str, Any]]:
+    """A registry that serves the image only to the token its challenge names.
+
+    The order matters and is the reason this is a helper: the authenticated route
+    has to come first whenever the read already carries ``Basic``, because the
+    registry that answers a challenge to a credentialed request is a different
+    registry from one that answers 401 to an anonymous one.
+    """
+    bearer = f"Bearer {token}"
+    challenged = {
+        "match": "/manifests/",
+        "status": 401,
+        "headers": {"www-authenticate": challenge},
+    }
+    served = {
+        "match": "/manifests/",
+        "requires_auth": bearer,
+        "json": {"config": {"digest": "sha256:cfg"}},
+    }
+    blob = {
+        "match": "/blobs/sha256:cfg",
+        "requires_auth": bearer,
+        "json": {"config": declared},
+    }
+    token_route = {"match": token_match, "json": token_json or {"token": token}}
+
+    if sends_credentials:
+        return [token_route, served, blob, challenged]
+
+    challenged["without_auth"] = True
+    return [challenged, token_route, served, blob]
+
+
 class TestParseImageRef:
     @pytest.mark.parametrize(
         "image,expected",
@@ -119,6 +176,69 @@ class TestParseImageRef:
     def test_prefers_a_digest_over_a_tag(self):
         # '@' can only introduce a digest.
         assert parse_image_ref("org/app:1.2@sha256:abc")[2] == "sha256:abc"
+
+
+class TestParseChallenges:
+    """The header a registry answers a 401 with, as measured on each of them."""
+
+    @pytest.mark.parametrize(
+        "header,expected",
+        [
+            (
+                'Bearer realm="https://auth.docker.io/token",service="registry.docker.io"',
+                [("Bearer", {"realm": "https://auth.docker.io/token", "service": "registry.docker.io"})],
+            ),
+            (
+                'Bearer realm="https://quay.io/v2/auth",service="quay.io"',
+                [("Bearer", {"realm": "https://quay.io/v2/auth", "service": "quay.io"})],
+            ),
+            (
+                'Bearer realm="https://public.ecr.aws/token/",service="public.ecr.aws",scope="aws"',
+                [
+                    (
+                        "Bearer",
+                        {
+                            "realm": "https://public.ecr.aws/token/",
+                            "service": "public.ecr.aws",
+                            "scope": "aws",
+                        },
+                    )
+                ],
+            ),
+            # Harbor answers this one to a request that already carries credentials.
+            ('Basic realm="harbor"', [("Basic", {"realm": "harbor"})]),
+            # A comma inside a quoted value is legal, and splitting on it invents
+            # parameters that were never sent.
+            (
+                'Bearer realm="https://x/auth",service="a,b"',
+                [("Bearer", {"realm": "https://x/auth", "service": "a,b"})],
+            ),
+            # One header may carry several challenges.
+            (
+                'Bearer realm="https://x/t",service="s", Basic realm="harbor"',
+                [
+                    ("Bearer", {"realm": "https://x/t", "service": "s"}),
+                    ("Basic", {"realm": "harbor"}),
+                ],
+            ),
+            ("BEARER REALM=\"https://x/t\"", [("BEARER", {"realm": "https://x/t"})]),
+            ('Bearer realm=""', [("Bearer", {"realm": ""})]),
+            ("Bearer", [("Bearer", {})]),
+            ("", []),
+            (None, []),
+        ],
+    )
+    def test_splits_schemes_from_parameters(self, header, expected):
+        from novita_sandbox.core.template.image_config import parse_challenges
+
+        assert parse_challenges(header) == expected
+
+    def test_stops_rather_than_raising_on_a_truncated_header(self):
+        from novita_sandbox.core.template.image_config import parse_challenges
+
+        assert parse_challenges('Bearer realm="https://x/t') == [
+            ("Bearer", {"realm": "https://x/t"})
+        ]
 
 
 class TestFetchImageConfig:
@@ -375,11 +495,11 @@ class TestFailuresACallerCanActOn:
 
 
 class TestTheReadCache:
-    def test_reads_a_reference_once_per_process(self, monkeypatch):
+    def test_reads_a_digest_once_per_process(self, monkeypatch):
         recorder = _install(monkeypatch, _single_platform({"Env": ["A=1"]}))
 
-        fetch_image_config("redis:7")
-        fetch_image_config("redis:7")
+        fetch_image_config("redis@sha256:fixed")
+        fetch_image_config("redis@sha256:fixed")
 
         assert len([u for u in recorder.urls if "/blobs/" in u]) == 1
 
@@ -388,18 +508,18 @@ class TestTheReadCache:
         # may reach the stored copy -- copying on store alone would miss the second.
         _install(monkeypatch, _single_platform({"Env": ["A=1"]}))
 
-        first = fetch_image_config("redis:7")
+        first = fetch_image_config("redis@sha256:fixed")
         first.env["A"] = "mutated-by-first"
         first.entrypoint.append("injected-by-first")
 
-        second = fetch_image_config("redis:7")
+        second = fetch_image_config("redis@sha256:fixed")
         assert second.env == {"A": "1"}
         assert second.entrypoint == []
 
         second.env["A"] = "mutated-by-second"
         second.entrypoint.append("injected-by-second")
 
-        third = fetch_image_config("redis:7")
+        third = fetch_image_config("redis@sha256:fixed")
         assert third.env == {"A": "1"}
         assert third.entrypoint == []
 
@@ -430,6 +550,27 @@ class TestTheReadCache:
 
         authed = fetch_image_config("ghcr.io/org/p:1", username="u", password="p")
         assert authed.env == {"SECRET": "1"}
+
+    def test_keys_on_the_tls_options(self, monkeypatch):
+        # A read that failed verification is a different answer from one that
+        # succeeded, and the failure is the one that must not be handed to a caller
+        # who supplied the CA bundle that would have worked.
+        state = {"failing": True}
+
+        def handler(request):
+            if state["failing"]:
+                raise httpx.ConnectError("[SSL: CERTIFICATE_VERIFY_FAILED]")
+            if "/manifests/" in str(request.url):
+                return httpx.Response(200, json={"config": {"digest": "sha256:cfg"}})
+            return httpx.Response(200, json={"config": {"Env": ["A=1"]}})
+
+        _serve(monkeypatch, handler)
+
+        failed = fetch_image_config("harbor.internal/app:1", insecure=True)
+        assert failed.error is not None
+
+        state["failing"] = False
+        assert fetch_image_config("harbor.internal/app:1").env == {"A": "1"}
 
     def test_is_cleared_on_request(self, monkeypatch):
         recorder = _install(monkeypatch, _single_platform({"Env": ["A=1"]}))
@@ -500,6 +641,241 @@ class TestAuthentication:
         )
 
         assert fetch_image_config("nginx").env == {"A": "1"}
+
+
+class TestFollowingTheChallenge:
+    """Registries other than Docker Hub and GHCR.
+
+    Each challenge below is the one that registry actually answers with. Before the
+    read followed the header it knew only those two, so every other registry ended
+    as ``HTTP 401 Unauthorized`` -- and the template was then built without the
+    image's ENV, WORKDIR and start command, which is the failure that reaches a
+    user as "the image's environment is missing in my sandbox".
+    """
+
+    ALIYUN = 'Bearer realm="https://dockerauth.example/auth",service="registry.example:cn:1"'
+
+    def test_reads_a_registry_that_answers_with_a_bearer_challenge(self, monkeypatch):
+        recorder = _install(
+            monkeypatch,
+            _challenge_routes(
+                {"Env": ["PATH=/app/.venv/bin"]}, self.ALIYUN, token_match="/auth?"
+            ),
+        )
+
+        config = fetch_image_config("registry.example/org/app:1")
+
+        assert config.error is None
+        assert config.env == {"PATH": "/app/.venv/bin"}
+        assert recorder.auth[-1] == "Bearer stub-token"
+
+    def test_names_the_realm_the_challenge_gave_and_the_repository_scope(
+        self, monkeypatch
+    ):
+        recorder = _install(monkeypatch, _challenge_routes({}, self.ALIYUN, token_match="/auth?"))
+
+        fetch_image_config("registry.example/org/app:1")
+
+        token = next(u for u in recorder.urls if "/auth?" in u)
+        assert "service=registry.example%3Acn%3A1" in token
+        assert "scope=repository%3Aorg%2Fapp%3Apull" in token
+
+    def test_asks_anonymously_when_no_credentials_were_given(self, monkeypatch):
+        # Public ACR, Quay and ECR repositories hand out a token to anyone; asking
+        # with credentials that were never supplied is what would stop that working.
+        recorder = _install(monkeypatch, _challenge_routes({}, self.ALIYUN, token_match="/auth?"))
+
+        fetch_image_config("registry.example/org/app:1")
+
+        token_attempt = next(
+            auth for url, auth in zip(recorder.urls, recorder.auth) if "/auth?" in url
+        )
+        assert token_attempt is None
+
+    def test_offers_the_credentials_to_the_token_service(self, monkeypatch):
+        recorder = _install(
+            monkeypatch,
+            _challenge_routes(
+                {"Env": ["A=1"]}, self.ALIYUN, token_match="/auth?", sends_credentials=True
+            ),
+        )
+
+        config = fetch_image_config(
+            "registry.example/org/app:1", username="robot$x", password="p"
+        )
+
+        expected = "Basic " + base64.b64encode(b"robot$x:p").decode("ascii")
+        token_attempt = next(
+            auth for url, auth in zip(recorder.urls, recorder.auth) if "/auth?" in url
+        )
+        assert token_attempt == expected
+        assert config.env == {"A": "1"}
+
+    def test_reads_a_registry_that_answers_a_basic_challenge(self, monkeypatch):
+        # Measured on Harbor: with credentials in hand it answers "Basic realm=harbor"
+        # and takes them on the registry endpoint, with no token service involved.
+        basic = "Basic " + base64.b64encode(b"robot$x:p").decode("ascii")
+        recorder = _install(
+            monkeypatch,
+            [
+                {
+                    "match": "/manifests/",
+                    "requires_auth": basic,
+                    "json": {"config": {"digest": "sha256:cfg"}},
+                },
+                {
+                    "match": "/blobs/sha256:cfg",
+                    "requires_auth": basic,
+                    "json": {"config": {"Env": ["HARBOR=1"]}},
+                },
+            ],
+        )
+
+        config = fetch_image_config(
+            "harbor.internal/app:1", username="robot$x", password="p"
+        )
+
+        assert config.env == {"HARBOR": "1"}
+        assert not [u for u in recorder.urls if "/token" in u]
+
+    def test_says_credentials_are_wanted_when_the_challenge_is_basic_and_none_were_given(
+        self, monkeypatch
+    ):
+        _install(
+            monkeypatch,
+            [
+                {
+                    "match": "/manifests/",
+                    "status": 401,
+                    "headers": {"www-authenticate": 'Basic realm="harbor"'},
+                }
+            ],
+        )
+
+        config = fetch_image_config("harbor.internal/app:1")
+
+        assert "credentials" in config.error
+        assert config.unusable is None
+
+    def test_uses_the_scope_the_challenge_names(self, monkeypatch):
+        # public.ecr.aws sends scope="aws" and refuses a repository-scoped request.
+        challenge = (
+            'Bearer realm="https://public.ecr.aws/token/",'
+            'service="public.ecr.aws",scope="aws"'
+        )
+        recorder = _install(
+            monkeypatch,
+            _challenge_routes(
+                {"Env": ["ECR=1"]}, challenge, token_match="/token/"
+            ),
+        )
+
+        assert fetch_image_config("public.ecr.aws/docker/library/busybox:1").env == {
+            "ECR": "1"
+        }
+        token = next(u for u in recorder.urls if "/token/" in u)
+        assert "scope=aws" in token
+
+    def test_accepts_access_token_as_well_as_token(self, monkeypatch):
+        recorder = _install(
+            monkeypatch,
+            _challenge_routes(
+                {"Env": ["A=1"]},
+                self.ALIYUN,
+                token="stub-access",
+                token_json={"access_token": "stub-access"},
+                token_match="/auth?",
+            ),
+        )
+
+        assert fetch_image_config("registry.example/org/app:1").env == {"A": "1"}
+        assert recorder.auth[-1] == "Bearer stub-access"
+
+    def test_reuses_one_token_for_the_index_manifest_and_the_blob(self, monkeypatch):
+        challenge = self.ALIYUN
+        recorder = _install(
+            monkeypatch,
+            [
+                {
+                    "match": "/manifests/",
+                    "without_auth": True,
+                    "status": 401,
+                    "headers": {"www-authenticate": challenge},
+                },
+                {"match": "/auth?", "json": {"token": "stub-token"}},
+                {
+                    "match": "/manifests/sha256:amd64",
+                    "json": {"config": {"digest": "sha256:cfg"}},
+                },
+                {
+                    "match": "/manifests/",
+                    "json": {
+                        "manifests": [
+                            {
+                                "platform": {"os": "linux", "architecture": "amd64"},
+                                "digest": "sha256:amd64",
+                            }
+                        ]
+                    },
+                },
+                {
+                    "match": "/blobs/sha256:cfg",
+                    "json": {"config": {"Env": ["A=1"]}},
+                },
+            ],
+        )
+
+        config = fetch_image_config("registry.example/org/app:1")
+
+        assert config.env == {"A": "1"}
+        assert len([u for u in recorder.urls if "/auth?" in u]) == 1
+
+    def test_reports_rejected_credentials_apart_from_missing_ones(self, monkeypatch):
+        # The token service is the only party that can tell the two apart, and it
+        # says so with its own 401 -- which is the one worth reporting.
+        _install(
+            monkeypatch,
+            [
+                {"match": "/auth?", "status": 401},
+                {
+                    "match": "/manifests/",
+                    "status": 401,
+                    "headers": {"www-authenticate": self.ALIYUN},
+                },
+            ],
+        )
+
+        config = fetch_image_config(
+            "registry.example/org/app:1", username="u", password="wrong"
+        )
+
+        assert "rejected the credentials" in config.error
+
+    def test_keeps_the_registry_error_when_there_is_nowhere_to_get_a_token(
+        self, monkeypatch
+    ):
+        _install(monkeypatch, [{"match": "/manifests/", "status": 401}])
+
+        config = fetch_image_config("registry.example/org/app:1")
+
+        assert "HTTP 401" in config.error
+        assert config.env == {}
+
+    def test_ignores_a_realm_that_is_not_a_url(self, monkeypatch):
+        _install(
+            monkeypatch,
+            [
+                {
+                    "match": "/manifests/",
+                    "status": 401,
+                    "headers": {"www-authenticate": 'Bearer realm="not-a-url"'},
+                }
+            ],
+        )
+
+        config = fetch_image_config("registry.example/org/app:1")
+
+        assert "HTTP 401" in config.error
 
 
 class TestEffectiveStartCmd:
@@ -573,6 +949,85 @@ class TestAnUnusableProxy:
         config = fetch_image_config("redis:7")
 
         assert "socksio" in config.error
+
+    def test_repairs_a_no_proxy_entry_httpx_cannot_parse(self, monkeypatch):
+        # Measured on this machine: "NO_PROXY=...,[::1]" makes httpx raise
+        # InvalidURL before any request exists -- surfacing as "Invalid port:
+        # ':1]'", an error naming neither the registry nor the proxy -- and the
+        # image's ENV was dropped on a machine whose network was fine. The entry is
+        # what gets dropped, not the proxy: dropping the proxy instead sends the
+        # read direct, and Docker Hub then answers "Connection reset by peer".
+        monkeypatch.setenv("NO_PROXY", "localhost,[::1]")
+        monkeypatch.setenv("HTTPS_PROXY", "http://127.0.0.1:7890")
+
+        seen: List[Dict[str, Any]] = []
+        real_init = httpx.Client.__init__
+
+        def patched_init(self, *args, **kwargs):
+            seen.append(
+                {
+                    "trust_env": kwargs.get("trust_env", True),
+                    "no_proxy": os.environ.get("NO_PROXY"),
+                }
+            )
+            if "[" in (os.environ.get("NO_PROXY") or ""):
+                raise httpx.InvalidURL("Invalid port: ':1]'")
+            kwargs["transport"] = httpx.MockTransport(
+                _Recorder(_single_platform({"Env": ["A=1"]}))
+            )
+            real_init(self, *args, **kwargs)
+
+        monkeypatch.setattr(httpx.Client, "__init__", patched_init)
+
+        config = fetch_image_config("redis:7")
+
+        assert config.env == {"A": "1"}
+        # Both attempts kept the environment; only the unparsable entry went away.
+        assert [attempt["trust_env"] for attempt in seen] == [True, True]
+        assert seen[-1]["no_proxy"] == "localhost"
+        # And the environment is handed back exactly as it was found.
+        assert os.environ["NO_PROXY"] == "localhost,[::1]"
+
+    def test_takes_the_direct_route_when_there_is_no_no_proxy_to_repair(
+        self, monkeypatch
+    ):
+        for name in ("NO_PROXY", "no_proxy"):
+            monkeypatch.delenv(name, raising=False)
+
+        attempts: List[Any] = []
+        real_init = httpx.Client.__init__
+
+        def patched_init(self, *args, **kwargs):
+            attempts.append(kwargs.get("trust_env", True))
+            if kwargs.get("trust_env") is not False:
+                raise httpx.InvalidURL("Invalid port: ':1]'")
+            kwargs["transport"] = httpx.MockTransport(
+                _Recorder(_single_platform({"Env": ["A=1"]}))
+            )
+            real_init(self, *args, **kwargs)
+
+        monkeypatch.setattr(httpx.Client, "__init__", patched_init)
+
+        assert fetch_image_config("redis:7").env == {"A": "1"}
+        assert attempts == [True, False]
+
+
+class TestSanitizingNoProxy:
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            ("localhost,127.0.0.1,[::1]", "localhost,127.0.0.1"),
+            ("[::1]", ""),
+            ("*.internal,localhost", "localhost"),
+            (".corp.example:8080,10.0.0.0", ".corp.example:8080,10.0.0.0"),
+            ("  spaced  , localhost ", "spaced,localhost"),
+            ("", ""),
+        ],
+    )
+    def test_drops_only_the_entries_httpx_cannot_read(self, value, expected):
+        from novita_sandbox.core.template.image_config import _sanitize_no_proxy
+
+        assert _sanitize_no_proxy(value) == expected
 
 
 class TestUnsupportedBase:

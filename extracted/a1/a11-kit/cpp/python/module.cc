@@ -57,14 +57,13 @@ void InstallFailureSignalHandler() {
 // See thread/executor.h's SchedulerParkGuard.
 void InstallSchedulerParkGuard() {
   thread::SetSchedulerParkGuard(thread::SchedulerParkGuard{
-      .release =
-          []() -> void* {
-            // Save only an active interpreter thread state.
-            if (PyGILState_Check() == 0 || a11::python::InterpreterIsGoingAway()) {
-              return nullptr;
-            }
-            return PyEval_SaveThread();
-          },
+      .release = []() -> void* {
+        // Save only an active interpreter thread state.
+        if (PyGILState_Check() == 0 || a11::python::InterpreterIsGoingAway()) {
+          return nullptr;
+        }
+        return PyEval_SaveThread();
+      },
       .acquire =
           [](void* held) {
             if (held != nullptr && !a11::python::InterpreterIsGoingAway()) {
@@ -121,6 +120,7 @@ PYBIND11_MODULE(_native, module) {
 
   // Value types must be registered before any API uses them in a signature.
   a11::python::BindCore(module);
+  a11::python::BindLlmContext(module);
   a11::python::BindData(module);
 #ifdef A11_BUILD_REDIS
   a11::python::BindRedis(module);
@@ -132,8 +132,6 @@ PYBIND11_MODULE(_native, module) {
   // Net is registered first because store writers and later runtime classes
   // accept WireStream base pointers in their signatures.
   a11::python::BindNet(module);
-  // The Flow language.
-  a11::python::BindFlow(module);
   a11::python::BindHttp(module);
   a11::python::BindWebRtc(module);
   a11::python::BindStores(module);
@@ -144,4 +142,6 @@ PYBIND11_MODULE(_native, module) {
   a11::python::BindService(module);
   a11::python::BindActions(module);
   a11::python::BindObs(module);
+  // Flow signatures refer to the registered action, node, and transport types.
+  a11::python::BindFlow(module);
 }

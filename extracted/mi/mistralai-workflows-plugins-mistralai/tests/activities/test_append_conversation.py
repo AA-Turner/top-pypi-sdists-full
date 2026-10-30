@@ -1,9 +1,9 @@
 from unittest.mock import AsyncMock, patch
 
-import httpx
 import pytest
 from temporalio.exceptions import ApplicationError
 
+from mistralai.workflows._mistral_http import MISTRAL_HTTP
 from mistralai.workflows.plugins.mistralai.activities import (
     mistralai_append_conversation,
     mistralai_append_conversation_stream,
@@ -24,7 +24,7 @@ class TestMistralaiAppendConversationTimeout:
         params = make_params()
         with patch("mistralai.workflows.plugins.mistralai.utils._get_mistral_client") as mistral_cls:
             mock_client = AsyncMock()
-            mock_client.beta.conversations.append_async.side_effect = httpx.ReadTimeout("read timeout")
+            mock_client.beta.conversations.append_async.side_effect = MISTRAL_HTTP.ReadTimeout("read timeout")
             mock_client.__aenter__.return_value = mock_client
             mistral_cls.return_value = mock_client
 
@@ -44,11 +44,11 @@ class TestMistralaiAppendConversationTimeout:
         params = make_params()
         with patch("mistralai.workflows.plugins.mistralai.utils._get_mistral_client") as mistral_cls:
             mock_client = AsyncMock()
-            mock_client.beta.conversations.append_async.side_effect = httpx.ConnectTimeout("connect timeout")
+            mock_client.beta.conversations.append_async.side_effect = MISTRAL_HTTP.ConnectTimeout("connect timeout")
             mock_client.__aenter__.return_value = mock_client
             mistral_cls.return_value = mock_client
 
-            with pytest.raises(httpx.ConnectTimeout):
+            with pytest.raises(MISTRAL_HTTP.ConnectTimeout):
                 await mistralai_append_conversation(params)
 
 
@@ -58,7 +58,7 @@ class TestMistralaiAppendConversationStreamTimeout:
         params = make_params()
         with patch("mistralai.workflows.plugins.mistralai.utils._get_mistral_client") as mistral_cls:
             mock_client = AsyncMock()
-            mock_client.beta.conversations.append_stream_async.side_effect = httpx.ReadTimeout("read timeout")
+            mock_client.beta.conversations.append_stream_async.side_effect = MISTRAL_HTTP.ReadTimeout("read timeout")
             mock_client.__aenter__.return_value = mock_client
             mistral_cls.return_value = mock_client
 
@@ -77,7 +77,7 @@ class TestMistralaiAppendConversationStreamTimeout:
 
             with patch(
                 "mistralai.workflows.plugins.mistralai.activities.handle_conversation_stream",
-                side_effect=httpx.ReadTimeout("read timeout during stream"),
+                side_effect=MISTRAL_HTTP.ReadTimeout("read timeout during stream"),
             ):
                 mock_client.__aenter__.return_value = mock_client
                 mistral_cls.return_value = mock_client
@@ -93,9 +93,11 @@ class TestMistralaiAppendConversationStreamTimeout:
         params = make_params()
         with patch("mistralai.workflows.plugins.mistralai.utils._get_mistral_client") as mistral_cls:
             mock_client = AsyncMock()
-            mock_client.beta.conversations.append_stream_async.side_effect = httpx.ConnectTimeout("connect timeout")
+            mock_client.beta.conversations.append_stream_async.side_effect = MISTRAL_HTTP.ConnectTimeout(
+                "connect timeout"
+            )
             mock_client.__aenter__.return_value = mock_client
             mistral_cls.return_value = mock_client
 
-            with pytest.raises(httpx.ConnectTimeout):
+            with pytest.raises(MISTRAL_HTTP.ConnectTimeout):
                 await mistralai_append_conversation_stream(params)

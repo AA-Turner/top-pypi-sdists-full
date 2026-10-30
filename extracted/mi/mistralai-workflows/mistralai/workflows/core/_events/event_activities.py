@@ -1,13 +1,21 @@
-import asyncio
-from typing import Any
+from datetime import timedelta
+from typing import Any, Awaitable, Callable
 
-import structlog
+import temporalio.common
+import temporalio.workflow
 from pydantic import BaseModel
+from temporalio.exceptions import ActivityError, ApplicationError
 
-from mistralai.workflows.core._events.event_context import EventContext
-from mistralai.workflows.core._events.event_utils import create_base_event_fields
+from mistralai.workflows.core._events.event_context import (
+    EVENT_PUBLISH_FAILED_ERROR_TYPE,
+    EventContext,
+    is_permanent_event_publish_failure,
+)
+from mistralai.workflows.core._events.event_utils import EMITTER_ACTIVITY_NAMES, create_emitter_event_fields
+from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.activity import activity
 from mistralai.workflows.core.config.config import INTERNAL_ACTIVITY_PREFIX
+from mistralai.workflows.core.logging import extract_error_context
 from mistralai.workflows.protocol.v1.events import (
     CustomTaskCompleted,
     CustomTaskCompletedAttributes,
@@ -19,6 +27,7 @@ from mistralai.workflows.protocol.v1.events import (
     CustomTaskStartedAttributes,
     Failure,
     JSONPayload,
+    WorkflowEvent,
     WorkflowExecutionCanceled,
     WorkflowExecutionCanceledAttributes,
     WorkflowExecutionCompleted,
@@ -29,14 +38,55 @@ from mistralai.workflows.protocol.v1.events import (
     WorkflowExecutionStartedAttributes,
 )
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
+
+_EMITTER_START_TO_CLOSE_TIMEOUT = timedelta(seconds=10)
+# A backoff past the threshold reschedules the local activity under a new seq, which would change its event ids.
+_EMITTER_LOCAL_RETRY_THRESHOLD = timedelta(seconds=60)
+_EMITTER_RETRY_POLICY = temporalio.common.RetryPolicy(maximum_interval=_EMITTER_LOCAL_RETRY_THRESHOLD / 2)
+
+
+def emitter_activity[T: Callable[..., Any]](name: str, **kwargs: Any) -> Callable[[T], T]:
+    EMITTER_ACTIVITY_NAMES.add(name)
+    return activity(name=name, **kwargs)
+
+
+async def publish_emitter_event(build_event: Callable[[], WorkflowEvent]) -> None:
+    context = EventContext.get_singleton()
+    if context:
+        await context.publish_event_or_raise(build_event())
+
+
+async def execute_emitter(emitter: Callable[..., Awaitable[Any]], *args: Any) -> None:
+    try:
+        await temporalio.workflow.execute_local_activity(
+            emitter,
+            args=list(args),
+            start_to_close_timeout=_EMITTER_START_TO_CLOSE_TIMEOUT,
+            retry_policy=_EMITTER_RETRY_POLICY,
+            local_retry_threshold=_EMITTER_LOCAL_RETRY_THRESHOLD,
+        )
+    except ActivityError as e:
+        if not is_permanent_event_publish_failure(e.cause):
+            raise
+        raise ApplicationError(e.cause.message, type=EVENT_PUBLISH_FAILED_ERROR_TYPE, non_retryable=True) from e
+
+
+async def execute_emitter_preserving_error(emitter: Callable[..., Awaitable[Any]], *args: Any) -> None:
+    """For an event reporting an error the caller is about to raise, which a publish failure must not hide."""
+    try:
+        await execute_emitter(emitter, *args)
+    except ApplicationError as e:
+        if not is_permanent_event_publish_failure(e):
+            raise
+        logger.error("Failed to publish workflow event reporting an error", **extract_error_context(e))
 
 
 class WaitForInputResult(BaseModel):
     task_id: str
 
 
-@activity(name=f"{INTERNAL_ACTIVITY_PREFIX}emit_workflow_started", _allow_reserved_name=True)
+@emitter_activity(name=f"{INTERNAL_ACTIVITY_PREFIX}emit_workflow_started", _allow_reserved_name=True)
 async def _emit_workflow_started(
     task_id: str,
     workflow_name: str,
@@ -44,149 +94,112 @@ async def _emit_workflow_started(
     display_name: str | None = None,
     attempt: int = 1,
 ) -> None:
-    context = EventContext.get_singleton()
-    if context:
-        try:
-            await context.publish_event(
-                WorkflowExecutionStarted(
-                    **create_base_event_fields(),
-                    attributes=WorkflowExecutionStartedAttributes(
-                        task_id=task_id,
-                        workflow_name=workflow_name,
-                        display_name=display_name,
-                        input=JSONPayload(value=input_args),
-                        attempt=attempt,
-                    ),
-                )
-            )
-        except (Exception, asyncio.CancelledError) as e:
-            logger.warning("Failed to emit workflow started event", error=str(e))
+    await publish_emitter_event(
+        lambda: WorkflowExecutionStarted(
+            **create_emitter_event_fields("payload"),
+            attributes=WorkflowExecutionStartedAttributes(
+                task_id=task_id,
+                workflow_name=workflow_name,
+                display_name=display_name,
+                input=JSONPayload(value=input_args),
+                attempt=attempt,
+            ),
+        )
+    )
 
 
-@activity(name=f"{INTERNAL_ACTIVITY_PREFIX}emit_workflow_completed", _allow_reserved_name=True)
+@emitter_activity(name=f"{INTERNAL_ACTIVITY_PREFIX}emit_workflow_completed", _allow_reserved_name=True)
 async def _emit_workflow_completed(task_id: str, result: Any, attempt: int = 1) -> None:
-    context = EventContext.get_singleton()
-    if context:
-        try:
-            await context.publish_event(
-                WorkflowExecutionCompleted(
-                    **create_base_event_fields(),
-                    attributes=WorkflowExecutionCompletedAttributes(
-                        task_id=task_id,
-                        result=JSONPayload(value=result),
-                        attempt=attempt,
-                    ),
-                )
-            )
-        except (Exception, asyncio.CancelledError) as e:
-            logger.warning("Failed to emit workflow completed event", error=str(e))
+    await publish_emitter_event(
+        lambda: WorkflowExecutionCompleted(
+            **create_emitter_event_fields("payload"),
+            attributes=WorkflowExecutionCompletedAttributes(
+                task_id=task_id,
+                result=JSONPayload(value=result),
+                attempt=attempt,
+            ),
+        )
+    )
 
 
-@activity(name=f"{INTERNAL_ACTIVITY_PREFIX}emit_workflow_canceled", _allow_reserved_name=True)
+@emitter_activity(name=f"{INTERNAL_ACTIVITY_PREFIX}emit_workflow_canceled", _allow_reserved_name=True)
 async def _emit_workflow_canceled(task_id: str, reason: str | None, attempt: int = 1) -> None:
-    context = EventContext.get_singleton()
-    if context:
-        try:
-            await context.publish_event(
-                WorkflowExecutionCanceled(
-                    **create_base_event_fields(),
-                    attributes=WorkflowExecutionCanceledAttributes(
-                        task_id=task_id,
-                        reason=reason,
-                        attempt=attempt,
-                    ),
-                )
-            )
-        except (Exception, asyncio.CancelledError) as e:
-            logger.warning("Failed to emit workflow canceled event", error=str(e))
+    await publish_emitter_event(
+        lambda: WorkflowExecutionCanceled(
+            **create_emitter_event_fields("payload"),
+            attributes=WorkflowExecutionCanceledAttributes(
+                task_id=task_id,
+                reason=reason,
+                attempt=attempt,
+            ),
+        )
+    )
 
 
-@activity(name=f"{INTERNAL_ACTIVITY_PREFIX}emit_workflow_failed", _allow_reserved_name=True)
+@emitter_activity(name=f"{INTERNAL_ACTIVITY_PREFIX}emit_workflow_failed", _allow_reserved_name=True)
 async def _emit_workflow_failed(task_id: str, error_message: str, attempt: int = 1) -> None:
-    context = EventContext.get_singleton()
-    if context:
-        try:
-            await context.publish_event(
-                WorkflowExecutionFailed(
-                    **create_base_event_fields(),
-                    attributes=WorkflowExecutionFailedAttributes(
-                        task_id=task_id,
-                        failure=Failure(message=error_message),
-                        attempt=attempt,
-                    ),
-                )
-            )
-        except (Exception, asyncio.CancelledError) as e:
-            logger.warning("Failed to emit workflow failed event", error=str(e))
+    await publish_emitter_event(
+        lambda: WorkflowExecutionFailed(
+            **create_emitter_event_fields("payload"),
+            attributes=WorkflowExecutionFailedAttributes(
+                task_id=task_id,
+                failure=Failure(message=error_message),
+                attempt=attempt,
+            ),
+        )
+    )
 
 
-@activity(name="__emit_waiting_for_input_started")
+@emitter_activity(name="__emit_waiting_for_input_started")
 async def _emit_waiting_for_input_started(
     task_id: str,
     input_schema: dict,
     label: str | None,
 ) -> WaitForInputResult:
-    context = EventContext.get_singleton()
-    if context:
-        try:
-            await context.publish_event(
-                CustomTaskStarted(
-                    **create_base_event_fields(),
-                    attributes=CustomTaskStartedAttributes(
-                        custom_task_id=task_id,
-                        custom_task_type="wait_for_input",
-                        payload=JSONPayload(value={"input_schema": input_schema, "label": label}),
-                    ),
-                )
-            )
-        except (Exception, asyncio.CancelledError) as e:
-            logger.warning("Failed to emit wait_for_input started event", error=str(e))
+    await publish_emitter_event(
+        lambda: CustomTaskStarted(
+            **create_emitter_event_fields("payload"),
+            attributes=CustomTaskStartedAttributes(
+                custom_task_id=task_id,
+                custom_task_type="wait_for_input",
+                payload=JSONPayload(value={"input_schema": input_schema, "label": label}),
+            ),
+        )
+    )
     return WaitForInputResult(task_id=task_id)
 
 
-@activity(name="__emit_waiting_for_input_completed")
+@emitter_activity(name="__emit_waiting_for_input_completed")
 async def _emit_waiting_for_input_completed(
     task_id: str, input_schema: dict, label: str | None, input_values: dict | None
 ) -> WaitForInputResult:
-    context = EventContext.get_singleton()
-    if context:
-        try:
-            await context.publish_event(
-                CustomTaskCompleted(
-                    **create_base_event_fields(),
-                    attributes=CustomTaskCompletedAttributes(
-                        custom_task_id=task_id,
-                        custom_task_type="wait_for_input",
-                        payload=JSONPayload(
-                            value={"input_schema": input_schema, "label": label, "input": input_values}
-                        ),
-                    ),
-                )
-            )
-        except (Exception, asyncio.CancelledError) as e:
-            logger.warning("Failed to emit wait_for_input completed event", error=str(e))
+    await publish_emitter_event(
+        lambda: CustomTaskCompleted(
+            **create_emitter_event_fields("payload"),
+            attributes=CustomTaskCompletedAttributes(
+                custom_task_id=task_id,
+                custom_task_type="wait_for_input",
+                payload=JSONPayload(value={"input_schema": input_schema, "label": label, "input": input_values}),
+            ),
+        )
+    )
     return WaitForInputResult(task_id=task_id)
 
 
-@activity(name="__emit_waiting_for_input_failed")
+@emitter_activity(name="__emit_waiting_for_input_failed")
 async def _emit_waiting_for_input_failed(
     task_id: str, input_schema: dict, label: str | None, error: str
 ) -> WaitForInputResult:
-    context = EventContext.get_singleton()
-    if context:
-        try:
-            await context.publish_event(
-                CustomTaskFailed(
-                    **create_base_event_fields(),
-                    attributes=CustomTaskFailedAttributes(
-                        custom_task_id=task_id,
-                        custom_task_type="wait_for_input",
-                        failure=Failure(message=error),
-                    ),
-                )
-            )
-        except (Exception, asyncio.CancelledError) as e:
-            logger.warning("Failed to emit wait_for_input failed event", error=str(e))
+    await publish_emitter_event(
+        lambda: CustomTaskFailed(
+            **create_emitter_event_fields("payload"),
+            attributes=CustomTaskFailedAttributes(
+                custom_task_id=task_id,
+                custom_task_type="wait_for_input",
+                failure=Failure(message=error),
+            ),
+        )
+    )
     return WaitForInputResult(task_id=task_id)
 
 
@@ -196,26 +209,21 @@ async def _persist_task_span_context(trace_id: int, span_id: int, trace_flags: i
     return [trace_id, span_id, trace_flags]
 
 
-@activity(name=f"{INTERNAL_ACTIVITY_PREFIX}emit_task_started", _allow_reserved_name=True)
+@emitter_activity(name=f"{INTERNAL_ACTIVITY_PREFIX}emit_task_started", _allow_reserved_name=True)
 async def _emit_task_started(task_id: str, task_type: str, state: Any) -> None:
-    context = EventContext.get_singleton()
-    if context:
-        try:
-            await context.publish_event(
-                CustomTaskStarted(
-                    **create_base_event_fields(),
-                    attributes=CustomTaskStartedAttributes(
-                        custom_task_id=task_id,
-                        custom_task_type=task_type,
-                        payload=JSONPayload(value=state),
-                    ),
-                )
-            )
-        except (Exception, asyncio.CancelledError) as e:
-            logger.warning("Failed to emit task started event", error=str(e))
+    await publish_emitter_event(
+        lambda: CustomTaskStarted(
+            **create_emitter_event_fields("payload"),
+            attributes=CustomTaskStartedAttributes(
+                custom_task_id=task_id,
+                custom_task_type=task_type,
+                payload=JSONPayload(value=state),
+            ),
+        )
+    )
 
 
-@activity(name=f"{INTERNAL_ACTIVITY_PREFIX}emit_task_in_progress", _allow_reserved_name=True)
+@emitter_activity(name=f"{INTERNAL_ACTIVITY_PREFIX}emit_task_in_progress", _allow_reserved_name=True)
 async def _emit_task_in_progress(
     task_id: str, task_type: str, patches: list[dict[str, Any]], encrypted_paths: list[str]
 ) -> None:
@@ -229,56 +237,41 @@ async def _emit_task_in_progress(
     payload = JSONPatchPayload(value=json_patches)
     payload._encrypted_paths = set(encrypted_paths)
 
-    context = EventContext.get_singleton()
-    if context:
-        try:
-            await context.publish_event(
-                CustomTaskInProgress(
-                    **create_base_event_fields(),
-                    attributes=CustomTaskInProgressAttributes(
-                        custom_task_id=task_id,
-                        custom_task_type=task_type,
-                        payload=payload,
-                    ),
-                )
-            )
-        except (Exception, asyncio.CancelledError) as e:
-            logger.warning("Failed to emit task in progress event", error=str(e))
+    await publish_emitter_event(
+        lambda: CustomTaskInProgress(
+            **create_emitter_event_fields("payload"),
+            attributes=CustomTaskInProgressAttributes(
+                custom_task_id=task_id,
+                custom_task_type=task_type,
+                payload=payload,
+            ),
+        )
+    )
 
 
-@activity(name=f"{INTERNAL_ACTIVITY_PREFIX}emit_task_completed", _allow_reserved_name=True)
+@emitter_activity(name=f"{INTERNAL_ACTIVITY_PREFIX}emit_task_completed", _allow_reserved_name=True)
 async def _emit_task_completed(task_id: str, task_type: str, state: Any) -> None:
-    context = EventContext.get_singleton()
-    if context:
-        try:
-            await context.publish_event(
-                CustomTaskCompleted(
-                    **create_base_event_fields(),
-                    attributes=CustomTaskCompletedAttributes(
-                        custom_task_id=task_id,
-                        custom_task_type=task_type,
-                        payload=JSONPayload(value=state),
-                    ),
-                )
-            )
-        except (Exception, asyncio.CancelledError) as e:
-            logger.warning("Failed to emit task completed event", error=str(e))
+    await publish_emitter_event(
+        lambda: CustomTaskCompleted(
+            **create_emitter_event_fields("payload"),
+            attributes=CustomTaskCompletedAttributes(
+                custom_task_id=task_id,
+                custom_task_type=task_type,
+                payload=JSONPayload(value=state),
+            ),
+        )
+    )
 
 
-@activity(name=f"{INTERNAL_ACTIVITY_PREFIX}emit_task_failed", _allow_reserved_name=True)
+@emitter_activity(name=f"{INTERNAL_ACTIVITY_PREFIX}emit_task_failed", _allow_reserved_name=True)
 async def _emit_task_failed(task_id: str, task_type: str, error: str) -> None:
-    context = EventContext.get_singleton()
-    if context:
-        try:
-            await context.publish_event(
-                CustomTaskFailed(
-                    **create_base_event_fields(),
-                    attributes=CustomTaskFailedAttributes(
-                        custom_task_id=task_id,
-                        custom_task_type=task_type,
-                        failure=Failure(message=error),
-                    ),
-                )
-            )
-        except (Exception, asyncio.CancelledError) as e:
-            logger.warning("Failed to emit task failed event", error=str(e))
+    await publish_emitter_event(
+        lambda: CustomTaskFailed(
+            **create_emitter_event_fields("payload"),
+            attributes=CustomTaskFailedAttributes(
+                custom_task_id=task_id,
+                custom_task_type=task_type,
+                failure=Failure(message=error),
+            ),
+        )
+    )

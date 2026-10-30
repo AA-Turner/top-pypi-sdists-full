@@ -26,7 +26,7 @@ DuckDB caveat: DuckDB's ``python_scan_all_frames`` replacement scan inspects nam
 objects **by type in the C++ engine**, bypassing ``__getattr__``, so it never triggers the
 proxy's blocking. The DuckDB entry point therefore pre-resolves referenced proxies (via
 ``con.get_table_names`` + ``isinstance`` + ``_resolve``) before handing the statement to
-DuckDB. See ``sqlutils._resolve_pending_for_duckdb``.
+DuckDB. See ``sql_engine.duckdb_engine.engine._resolve_pending_for_duckdb``.
 """
 
 import logging

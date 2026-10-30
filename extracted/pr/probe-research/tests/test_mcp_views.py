@@ -1401,8 +1401,10 @@ def test_a_file_lineage_view_carries_its_origin(client, app):
 
 def test_a_project_and_an_experiment_show_their_own_links_and_children(client, app):
     """L12: an experiment that builds on another is linked experiment -> experiment,
-    and the lineage view of either end shows the link; each child carries an
-    origin, so the graph is connected up to the root project."""
+    and the lineage view of either end shows the link -- under `built_on` from
+    the one that builds, `used_by` from the one built on, the far end NAMED
+    (swarm friction P6); each child carries an origin, so the graph is
+    connected up to the root project."""
     rid, first, group_id, _ = _populated(client, app)
     project_id = app.experiments[first]["project_id"]
     followup = client.create_experiment(
@@ -1419,18 +1421,29 @@ def test_a_project_and_an_experiment_show_their_own_links_and_children(client, a
     assert later["data"]["origin"] == {
         "type": "experiment", "id": first, "via": "lineage", "relation": "derived_from"
     }
-    assert [e["id"] for e in later["data"]["edges"]] == [link["id"]]
+    [built_on] = later["data"]["built_on"]["links"]
+    assert later["data"]["built_on"]["total"] == 1 and "read_more" not in later["data"]["built_on"]
+    assert {k: v for k, v in built_on.items() if k != "at"} == {
+        "ref": "experiment:dockq-path", "name": "dockq-path", "relation": "derived_from",
+        "reason": "the follow-up question on its result", "edge_id": link["id"],
+    }
+    assert "used_by" not in later["data"] and "edges" not in later["data"]
     assert later["data"]["nodes"] == []
 
     earlier = service.get_entity(f"experiment:{first}", view="lineage")["data"]
     assert earlier["origin"] == {"type": "project", "id": project_id, "via": "container", "relation": None}
-    assert [e["id"] for e in earlier["edges"]] == [link["id"]]  # the link IN, too
+    # The link IN, named from this end.
+    [used_by] = earlier["used_by"]["links"]
+    assert (used_by["ref"], used_by["name"], used_by["edge_id"]) == (
+        "experiment:dockq-followup", "dockq-followup", link["id"]
+    )
     by_id = {n["id"]: n for n in earlier["nodes"]}
     assert by_id[rid]["type"] == "run" and by_id[rid]["origin"]["via"] == "container"
     assert by_id[group_id]["origin"] == {"type": "experiment", "id": first, "via": "container", "relation": None}
     # The graph AMONG its runs and files, which this view always returned: the
     # seeded run -> loss.png `produces`, beside (never mixed into) its own links.
-    assert [(e["source_id"], e["relation"]) for e in earlier["run_edges"]] == [(rid, "produces")]
+    assert earlier["run_edges"]["total"] == 1
+    assert [(e["from"], e["relation"]) for e in earlier["run_edges"]["links"]] == [(f"run:{rid}", "produces")]
     flags = {"edges_truncated", "derived_truncated", "nodes_truncated", "run_edges_truncated"}
     assert not flags & set(earlier)
 
@@ -1441,19 +1454,149 @@ def test_a_project_and_an_experiment_show_their_own_links_and_children(client, a
     assert {n["id"]: n["type"] for n in root["data"]["nodes"]} == {first: "experiment", followup: "experiment"}
 
 
+# -- the lineage view fits, names and pages its links (swarm friction P6) -----
+
+#: The swarm's reason text: what the daemon wrote on each intervention's link.
+_SWARM_REASON = (
+    "Intervention chain {i} starts from the decay-fraction sweep's best checkpoint and "
+    "re-runs its schedule with the fraction pinned, to test whether grokking survives it."
+)
+
+
+def _server_edge(i: int, source: str, target: str, **kw) -> dict:
+    """A STORED link as `GET /v1/projects/{id}/lineage` serves it in full
+    (`LineageEdgeOut`): ~700 characters, most of them ids an agent never reads."""
+    return {
+        "id": str(uuid.UUID(int=10_000 + i)), "customer_id": "probe",
+        "source_type": "project", "source_id": source, "relation": "derived_from",
+        "target_type": "project", "target_id": target,
+        "meta": {"via": "daemon", "by": "user:3da147f4-4262-4c9b-ba26-e2fd56e5887b",
+                 "evidence": {"session_id": str(uuid.UUID(int=20_000 + i)),
+                              "event_ids": [str(uuid.UUID(int=30_000 + i * 3 + k)) for k in range(3)]}},
+        "provenance": "inferred", "reason": _SWARM_REASON.format(i=i),
+        "created_at": f"2026-10-28T21:{i % 60:02d}:13.123456Z", "derived": False, **kw,
+    }
+
+
+def _swarm_lineage(sweep: str, users: int, *, nodes: int = 12) -> dict:
+    """The decay-fraction sweep's own lineage read: `users` experiments built on
+    it (each named in `ends`), one it built on, and its runs as children."""
+    user_ids = [str(uuid.UUID(int=1_000 + i)) for i in range(users)]
+    base = str(uuid.UUID(int=999))
+    edges = [_server_edge(i, uid, sweep) for i, uid in enumerate(user_ids)]
+    edges.append(_server_edge(500, sweep, base))
+    ends = {uid: {"type": "experiment", "slug": f"intervention-{i}", "name": f"intervention {i}"}
+            for i, uid in enumerate(user_ids)}
+    ends[base] = {"type": "experiment", "slug": "decay-baseline", "name": "decay baseline"}
+    return {
+        "project_id": sweep, "kind": "experiment", "origin": None, "edges": edges, "ends": ends,
+        "edges_truncated": False, "derived_truncated": False, "truncated": False,
+        "nodes": [{"type": "run", "id": str(uuid.UUID(int=40_000 + i)), "name": f"fraction {i / 10:.1f}",
+                   "origin": {"type": "experiment", "id": sweep, "via": "container", "relation": None}}
+                  for i in range(nodes)],
+    }
+
+
+def _wire_pages(service, args: dict, limit: int, *, at_most: int = 40) -> list[dict]:
+    """Every page of one `entity` read through the real MCP boundary, each
+    asserted whole JSON within `limit` tokens (never a text fragment)."""
+    from test_mcp_delivery import _bounded, _wire
+
+    pages, cursor = [], None
+    while True:
+        page = _bounded(_wire(service, "entity", {**args, **({"cursor": cursor} if cursor else {})}), limit)
+        assert "format" not in page["data"], f"a text fragment, not JSON: {page['data'].get('format')}"
+        pages.append(page)
+        cursor = page.get("next_cursor")
+        if cursor is None or len(pages) >= at_most:
+            return pages
+
+
+def _swarm_service(client, app, monkeypatch, users: int):
+    _, experiment_id, _, _ = _populated(client, app)
+    body = _swarm_lineage(experiment_id, users)
+    among = [{"id": f"among-{i}", "source_type": "run", "source_id": str(uuid.UUID(int=40_000 + i)),
+              "relation": "produces", "target_type": "artifact", "target_id": str(uuid.UUID(int=50_000 + i))}
+             for i in range(30)]
+    monkeypatch.setattr(service_module.ResearchOSSource, "experiment_lineage",
+                        lambda self, eid, *, project_id=None: body)
+    monkeypatch.setattr(service_module.ResearchOSSource, "experiment_edges",
+                        lambda self, eid, limit, *, project_id=None: among[:limit])
+    return _service(client), experiment_id
+
+
+def test_a_sweep_with_thirty_users_reads_as_whole_json_at_the_default_budget(client, app, monkeypatch):
+    """Q4 of the swarm, at the size it failed: 34 links IN, each ~700 characters
+    as the server serves them. Before P6, 20 of them plus 20 run edges were the
+    fixed part, so the first page went out as a `json_fragment`. Now the glance
+    fits, says the totals, and names every end."""
+    service, experiment_id = _swarm_service(client, app, monkeypatch, users=34)
+    for budget in (2_000, 8_000):
+        [first, *rest] = _wire_pages(
+            service, {"refs": [f"experiment:{experiment_id}"], "view": "lineage", "token_budget": budget}, budget
+        )
+        data = first["data"]
+        print(f"swarm lineage at {budget}: first page {len(json.dumps(first))} chars, "
+              f"{len(data['used_by']['links'])} of 34 used_by shown, {len(rest) + 1} pages")
+        assert data["used_by"]["total"] == 34
+        assert 0 < len(data["used_by"]["links"]) <= 10
+        # A whole call: the page's cursor walks the children and is bound to its options.
+        assert data["used_by"]["read_more"] == (
+            f'entity(refs=["experiment:{experiment_id}"], view="lineage", '
+            'view_options={"links": "used_by"}) without cursor'
+        )
+        assert data["built_on"]["total"] == 1
+        assert data["built_on"]["links"][0]["ref"] == "experiment:decay-baseline"
+        assert data["run_edges"] == {**data["run_edges"], "more": True}
+        assert "links_beyond_page" in first["completeness"]["missing"]
+        assert "lineage_beyond_window" not in first["completeness"]["missing"]
+        for link in data["used_by"]["links"]:
+            assert link["ref"].startswith("experiment:intervention-") and link["name"].startswith("intervention ")
+            assert set(link) <= {"ref", "name", "relation", "provenance", "reason", "at", "edge_id"}
+            assert len(link["reason"]) <= 200
+        seen = [n["id"] for page in [first, *rest] for n in page["data"].get("nodes", [])]
+        assert seen == [str(uuid.UUID(int=40_000 + i)) for i in range(12)]
+        assert all("used_by" not in page["data"] for page in rest)
+
+
+@pytest.mark.parametrize("budget", [512, 2_000])
+def test_what_used_x_is_a_complete_paged_list_with_names(client, app, monkeypatch, budget):
+    """Test plan: an agent asks "what used X" and gets every `used_by` link, named,
+    paged by cursor -- links past the first 20 used to be unreachable."""
+    service, experiment_id = _swarm_service(client, app, monkeypatch, users=34)
+    args = {"refs": [f"experiment:{experiment_id}"], "view": "lineage", "token_budget": budget,
+            "view_options": {"links": "used_by"}}
+    pages = _wire_pages(service, args, budget)
+    assert pages[0]["data"]["links"] == "used_by" and pages[0]["data"]["total"] == 34
+    links = [link for page in pages for link in page["data"]["used_by"]]
+    assert [link["name"] for link in links] == [f"intervention {i}" for i in range(34)]
+    assert len({link["edge_id"] for link in links}) == 34
+    if budget == 512:
+        assert len(pages) > 1, "the budget did not page the links; the walk proves nothing"
+    assert "completeness" not in pages[-1]
+
+    among = _wire_pages(service, {**args, "view_options": {"links": "run_edges"}}, budget)
+    assert [e["from"] for page in among for e in page["data"]["run_edges"]] == [
+        f"run:{uuid.UUID(int=40_000 + i)}" for i in range(30)
+    ]
+
+
 def test_a_cut_lineage_window_is_partial_and_its_links_ride_the_first_page_only(client, app, monkeypatch):
-    """Every window the read stopped at is flagged and the view is `partial`,
-    never `complete`: children past the route's limit, links past the view's
-    cap, "built on" derived over only the newest runs, links among its runs
-    past their cap. The links are the fixed part, so they come once, on the
-    first page; the budget pages the children, and the walk ends."""
+    """Every window the SERVER stopped at is flagged and the view is `partial`,
+    never `complete`: children past the route's limit, "built on" derived over
+    only the newest runs. The links are the fixed part: a glance of each list
+    on the first page only (cut to its share of the budget, totals kept); the
+    budget pages the children whole, and the walk ends."""
     _, experiment_id, _, _ = _populated(client, app)
 
     def edge(i: int, **kw) -> dict:
-        return {"id": f"edge-{i}", "source_type": "project", "source_id": experiment_id,
-                "relation": "derived_from", "target_type": "project", "target_id": f"p-{i}", **kw}
+        return {"id": f"edge-{i}", "source_type": "project", "source_id": f"p-{i}",
+                "relation": "derived_from", "target_type": "project", "target_id": experiment_id, **kw}
 
-    own = [edge(i) for i in range(25)] + [edge(99, id=None, derived=True, meta={"basis": "runs_read"})]
+    own = [edge(i) for i in range(25)] + [
+        edge(99, id=None, derived=True, meta={"basis": "runs_read", "runs": 3, "files": 2},
+             source_id=experiment_id, target_id="p-99", provenance="observed_call")
+    ]
     among = [{"id": f"among-{i}", "source_type": "run", "source_id": f"run-{i}", "relation": "produces",
               "target_type": "artifact", "target_id": f"file-{i}"} for i in range(30)]
     nodes = [{"type": "run", "id": f"run-{i}", "name": f"sweep point {i}",
@@ -1476,16 +1619,21 @@ def test_a_cut_lineage_window_is_partial_and_its_links_ride_the_first_page_only(
     monkeypatch.setattr(service_module.ResearchOSSource, "experiment_edges", experiment_edges)
     service = _service(client)
 
-    first = service.get_entity(f"experiment:{experiment_id}", view="lineage", token_budget=100_000)
+    first = service.get_entity(f"experiment:{experiment_id}", view="lineage", token_budget=8_000)
     data = first["data"]
     assert first["completeness"]["state"] == "partial"
-    assert "lineage_beyond_window" in first["completeness"]["missing"]
-    assert [e["id"] for e in data["edges"]] == [f"edge-{i}" for i in range(20)]
-    assert [e["id"] for e in data["run_edges"]] == [f"among-{i}" for i in range(20)]
-    assert data["edges_truncated"] and data["derived_truncated"] and data["nodes_truncated"]
-    assert data["run_edges_truncated"]
-    assert "next_cursor" not in first  # the whole window fitted: nothing past it to page
-    assert among_calls == [21]  # one past the cap, so a full window says so
+    assert set(first["completeness"]["missing"]) == {"lineage_beyond_window", "links_beyond_page"}
+    # An older server sends no `ends`: the far end is its typed id, unnamed.
+    assert [link["ref"] for link in data["used_by"]["links"]] == [f"project:p-{i}" for i in range(10)]
+    assert data["used_by"]["total"] == 25
+    assert data["built_on"] == {"total": 1, "links": [{
+        "ref": "project:p-99", "relation": "derived_from", "provenance": "observed_call", "derived": True,
+        "runs": 3, "files": 2,
+    }]}
+    assert len(data["run_edges"]["links"]) == 10 and data["run_edges"]["more"]
+    assert data["derived_truncated"] and data["nodes_truncated"]
+    assert "edges_truncated" not in data and "run_edges_truncated" not in data
+    assert among_calls == [11]  # one past the glance, so a full glance says so
 
     seen: list[str] = []
     cursor, pages = None, 0
@@ -1494,9 +1642,10 @@ def test_a_cut_lineage_window_is_partial_and_its_links_ride_the_first_page_only(
         data = result["data"]
         assert result["completeness"]["state"] == "partial" and data["nodes_truncated"]
         if pages == 0:
-            assert len(data["edges"]) == 20 and len(data["run_edges"]) == 20
+            # The glance gives up links to its share of the budget, totals kept.
+            assert data["used_by"]["total"] == 25 and len(data["used_by"]["links"]) < 10
         else:
-            assert "edges" not in data and "run_edges" not in data and data["links_on_first_page"]
+            assert not {"used_by", "built_on", "run_edges"} & set(data) and data["links_on_first_page"]
         seen.extend(n["id"] for n in data["nodes"])
         cursor, pages = result.get("next_cursor"), pages + 1
         if cursor is None or pages > 60:
@@ -1504,4 +1653,257 @@ def test_a_cut_lineage_window_is_partial_and_its_links_ride_the_first_page_only(
     assert pages > 1, "the budget did not page the children; the walk proves nothing"
     assert cursor is None, "the walk never ended: a cursor past the route's window"
     assert seen == [f"run-{i}" for i in range(40)]
-    assert among_calls == [21, 21], "later pages must not re-read the links"
+    assert among_calls == [11, 11], "later pages must not re-read the links"
+
+
+def test_the_links_option_names_the_lists_this_view_has(client, app):
+    """`run_edges` is an experiment's; anything else is refused with the valid set."""
+    _, experiment_id, _, _ = _populated(client, app)
+    project_id = app.experiments[experiment_id]["project_id"]
+    service = _service(client)
+    with pytest.raises(errors.ValidationError, match="built_on.*used_by"):
+        service.get_entity(f"project:{project_id}", view="lineage", filters={"links": "run_edges"})
+    with pytest.raises(errors.ValidationError, match="run_edges"):
+        service.get_entity(f"experiment:{experiment_id}", view="lineage", filters={"links": "parents"})
+    page = service.get_entity(f"experiment:{experiment_id}", view="lineage", filters={"links": "built_on"})
+    assert page["data"]["links"] == "built_on" and page["data"]["total"] == 0
+    assert page["data"]["built_on"] == []
+
+
+def test_a_link_to_the_readers_own_session_work_is_hidden_and_not_counted(client, app, monkeypatch):
+    """The daemon reader (`X-Probe-Hide-Session-Work`) never sees what its own
+    session made: a link whose far end is that work leaves the list AND its total."""
+    from probe.mcp import accounting
+
+    service, experiment_id = _swarm_service(client, app, monkeypatch, users=3)
+    mine = str(uuid.UUID(int=1_001))  # intervention 1
+    monkeypatch.setattr(accounting, "session_work_to_hide", lambda: "11111111-2222-3333-4444-555555555555")
+    monkeypatch.setattr(service_module.ResearchOSSource, "session_created",
+                        lambda self, sid: {"project_ids": [mine], "run_ids": []})
+    data = service.get_entity(f"experiment:{experiment_id}", view="lineage")["data"]
+    assert data["used_by"]["total"] == 2
+    assert [link["name"] for link in data["used_by"]["links"]] == ["intervention 0", "intervention 2"]
+    paged = service.get_entity(f"experiment:{experiment_id}", view="lineage", filters={"links": "used_by"})["data"]
+    assert paged["total"] == 2 and mine not in json.dumps(paged)
+
+
+# -- picks: the best pick's history (#3624) -----------------------------------
+
+
+def _pick_event(n: int, experiment: dict | None, *, event: str = "set", source: str = "agent",
+                reason: str | None = None, gone: bool = False) -> dict:
+    return {"id": n, "event": event, "experiment": experiment, "gone": gone, "reason": reason,
+            "source": source, "by": "user:3da147f4-4262-4c9b-ba26-e2fd56e5887b",
+            "at": f"2026-10-28T{n % 24:02d}:07:13.5Z"}
+
+
+def test_a_projects_picks_view_is_its_pick_history_newest_first(client, app):
+    """#3624: every pick and clear, newest first, who and why; a gone pick says so."""
+    _, experiment_id, _, _ = _populated(client, app)
+    project_id = app.experiments[experiment_id]["project_id"]
+    picked = {"id": experiment_id, "slug": "dockq-path", "name": "dockq-path", "project_id": project_id}
+    events = [
+        _pick_event(3, picked, reason="relative paths win on every complex"),
+        _pick_event(2, None, event="clear", source="human"),
+        # Gone (trashed, or left the tree): the server names no experiment.
+        _pick_event(1, None, gone=True, reason="first try"),
+    ]
+    app.best_picks = {project_id: (events[0], events)}
+    service = _service(client)
+    assert "picks" in service.get_entity(f"project:{project_id}")["data"]["available_views"]
+
+    result = service.get_entity(f"project:{project_id}", view="picks")
+    assert "completeness" not in result
+    data = result["data"]
+    assert data["pick"]["experiment"] == "experiment:dockq-path"
+    assert [(row["event"], row.get("experiment"), row.get("gone")) for row in data["picks"]] == [
+        ("set", "experiment:dockq-path", None),
+        ("clear", None, None),
+        ("set", None, True),
+    ]
+    assert data["picks"][0] == {
+        "id": 3, "event": "set", "experiment": "experiment:dockq-path", "name": "dockq-path",
+        "reason": "relative paths win on every complex", "source": "agent",
+        "by": "user:3da147f4-4262-4c9b-ba26-e2fd56e5887b", "at": "2026-10-28T03:07Z",
+    }
+    with pytest.raises(errors.ValidationError):
+        service.get_entity(f"experiment:{experiment_id}", view="picks")
+
+
+def test_a_full_pick_history_says_older_events_are_out_of_reach(client, app):
+    """The route reads at most 50 and takes no offset: a full 50 is flagged."""
+    _, experiment_id, _, _ = _populated(client, app)
+    project_id = app.experiments[experiment_id]["project_id"]
+    picked = {"id": experiment_id, "slug": "dockq-path", "name": "dockq-path", "project_id": project_id}
+    events = [_pick_event(n, picked, reason=f"pick {n}") for n in range(60, 0, -1)]
+    app.best_picks = {project_id: (events[0], events)}
+    pages = _wire_pages(_service(client), {"refs": [f"project:{project_id}"], "view": "picks"}, 2_000)
+    rows = [row for page in pages for row in page["data"]["picks"]]
+    assert [row["reason"] for row in rows] == [f"pick {n}" for n in range(60, 10, -1)]
+    assert "picks_beyond_server_limit" in pages[-1]["completeness"]["missing"]
+
+
+# -- review fixes (PR #3662): hiding, windows, ends that entity cannot read -----
+
+
+def _hide(monkeypatch, *, projects=(), runs=(), calls: list | None = None):
+    """Turn on `X-Probe-Hide-Session-Work` with this created set."""
+    from probe.mcp import accounting
+
+    monkeypatch.setattr(accounting, "session_work_to_hide", lambda: "11111111-2222-3333-4444-555555555555")
+
+    def created(self, sid):
+        if calls is not None:
+            calls.append("created")
+        return {"project_ids": list(projects), "run_ids": list(runs)}
+
+    monkeypatch.setattr(service_module.ResearchOSSource, "session_created", created)
+
+
+def test_a_run_edge_naming_session_work_is_hidden_in_the_glance_and_the_paged_list(client, app, monkeypatch):
+    service, experiment_id = _swarm_service(client, app, monkeypatch, users=1)
+    mine = str(uuid.UUID(int=40_003))
+    _hide(monkeypatch, runs=[mine])
+    data = service.get_entity(f"experiment:{experiment_id}", view="lineage")["data"]
+    assert f"run:{mine}" not in [e["from"] for e in data["run_edges"]["links"]]
+    paged = service.get_entity(f"experiment:{experiment_id}", view="lineage", filters={"links": "run_edges"})["data"]
+    assert paged["total"] == 29 and mine not in json.dumps(paged)
+
+
+def test_a_glance_whose_run_edges_were_all_the_sessions_still_says_there_are_more(client, app, monkeypatch):
+    """Codex P2: the session's own work filling the whole window the glance read
+    must not read as "no links among its runs" -- 30 exist, 19 visible."""
+    service, experiment_id = _swarm_service(client, app, monkeypatch, users=1)
+    _hide(monkeypatch, runs=[str(uuid.UUID(int=40_000 + i)) for i in range(11)])
+    result = service.get_entity(f"experiment:{experiment_id}", view="lineage")
+    block = result["data"]["run_edges"]
+    assert block["links"] == [] and block["more"] and "run_edges" in block["read_more"]
+    assert "links_beyond_page" in result["completeness"]["missing"]
+
+
+def test_the_created_set_is_read_after_the_views_own_reads(client, app, monkeypatch):
+    """Work the session creates while the view reads is in the set, never shown:
+    the set is read after the data, not before."""
+    service, experiment_id = _swarm_service(client, app, monkeypatch, users=1)
+    order: list[str] = []
+    real = service_module.ResearchOSSource.experiment_lineage
+    monkeypatch.setattr(service_module.ResearchOSSource, "experiment_lineage",
+                        lambda self, *a, **k: order.append("lineage") or real(self, *a, **k))
+    _hide(monkeypatch, calls=order)
+    service.get_entity(f"experiment:{experiment_id}", view="lineage")
+    service.get_entity(f"experiment:{experiment_id}", view="card")
+    assert order == ["lineage", "created", "created"]
+
+
+def test_a_server_window_is_flagged_on_the_glance_and_on_the_paged_links(client, app, monkeypatch):
+    """`edges_truncated` (stored links past the server's 500) is no page of
+    this view: it is `lineage_beyond_window`, on both shapes."""
+    _, experiment_id, _, _ = _populated(client, app)
+    body = _swarm_lineage(experiment_id, 3)
+    body["edges_truncated"] = True
+    monkeypatch.setattr(service_module.ResearchOSSource, "experiment_lineage",
+                        lambda self, eid, *, project_id=None: body)
+    monkeypatch.setattr(service_module.ResearchOSSource, "experiment_edges",
+                        lambda self, eid, limit, *, project_id=None: [])
+    service = _service(client)
+    for options in (None, {"links": "used_by"}):
+        result = service.get_entity(f"experiment:{experiment_id}", view="lineage", filters=options)
+        assert result["data"]["edges_truncated"] is True
+        assert "lineage_beyond_window" in result["completeness"]["missing"]
+
+
+def test_paging_the_runs_links_makes_no_lineage_read(client, app, monkeypatch):
+    """`links=run_edges` reads only the edges route: the lineage read (its
+    derived roll-up) would be thrown away on every page."""
+    service, experiment_id = _swarm_service(client, app, monkeypatch, users=1)
+    monkeypatch.setattr(service_module.ResearchOSSource, "experiment_lineage",
+                        lambda self, *a, **k: pytest.fail("the lineage was read for run_edges"))
+    data = service.get_entity(f"experiment:{experiment_id}", view="lineage", filters={"links": "run_edges"})["data"]
+    assert data["total"] == 30
+
+
+def test_a_run_edge_keeps_its_id_and_a_paper_end_is_never_an_entity_ref(client, app, monkeypatch):
+    """`probe edge remove ID` takes its id from this view; a paper is no
+    `entity` kind, so its end is a `paper_id`, not a ref `entity` refuses."""
+    _, experiment_id, _, _ = _populated(client, app)
+    paper = str(uuid.UUID(int=77))
+    body = {**_swarm_lineage(experiment_id, 0),
+            "edges": [{**_server_edge(1, experiment_id, paper), "relation": "informed_by",
+                       "target_type": "paper", "reason": "x" * 400}],
+            "ends": {paper: {"type": "paper", "slug": None, "name": "Attention Is All You Need"}}}
+    among = [{"id": "edge-among", "source_type": "run", "source_id": "r1", "relation": "retried_from",
+              "target_type": "run", "target_id": "r0"}]
+    monkeypatch.setattr(service_module.ResearchOSSource, "experiment_lineage",
+                        lambda self, eid, *, project_id=None: body)
+    monkeypatch.setattr(service_module.ResearchOSSource, "experiment_edges",
+                        lambda self, eid, limit, *, project_id=None: among)
+    service = _service(client)
+    data = service.get_entity(f"experiment:{experiment_id}", view="lineage")["data"]
+    assert data["run_edges"]["links"][0]["edge_id"] == "edge-among"
+    [link] = data["built_on"]["links"]
+    assert "ref" not in link and link["paper_id"] == paper and link["name"] == "Attention Is All You Need"
+    assert len(link["reason"]) == 200 and link["reason_truncated"]
+    # Paged, the reason is whole (the server keeps at most 500 characters).
+    [paged] = service.get_entity(f"experiment:{experiment_id}", view="lineage",
+                                 filters={"links": "built_on"})["data"]["built_on"]
+    assert paged["reason"] == "x" * 400 and "reason_truncated" not in paged
+    # Why: `entity` refuses a paper ref (source.get has no paper kind).
+    with pytest.raises(errors.ValidationError, match="unknown ref kind 'paper'"):
+        service.get_entity(f"paper:{paper}")
+
+
+def test_two_lineage_refs_in_one_batch_page_as_whole_json(client, app, monkeypatch):
+    """Red team: the exact fit measured a single-ref page, so a full page
+    overflowed a batch's row wrapper and went out as a text fragment."""
+    from test_mcp_delivery import _bounded, _wire
+
+    service, experiment_id = _swarm_service(client, app, monkeypatch, users=34)
+    project_id = app.experiments[experiment_id]["project_id"]
+    args = {"refs": [f"experiment:{experiment_id}", f"project:{project_id}"], "view": "lineage",
+            "token_budget": 1000}
+    cursor, pages = None, 0
+    while True:
+        page = _bounded(_wire(service, "entity", {**args, **({"cursor": cursor} if cursor else {})}), 1000)
+        for row in page.get("rows", []):
+            assert "format" not in (row.get("data") or {}), "a batch row went out as a text fragment"
+        cursor, pages = page.get("next_cursor"), pages + 1
+        if cursor is None or pages > 40:
+            break
+    assert cursor is None and pages > 1
+
+
+def test_the_sessions_own_picks_are_left_out_and_others_kept(client, app):
+    _, experiment_id, _, _ = _populated(client, app)
+    project_id = app.experiments[experiment_id]["project_id"]
+    mine = {"id": str(uuid.UUID(int=91)), "slug": "mine", "name": "mine", "project_id": project_id}
+    theirs = {"id": experiment_id, "slug": "dockq-path", "name": "dockq-path", "project_id": project_id}
+    events = [_pick_event(2, mine, reason="my agent's pick"), _pick_event(1, theirs, reason="theirs")]
+    app.best_picks = {project_id: (events[0], events)}
+    with pytest.MonkeyPatch.context() as patch:
+        _hide(patch, projects=[mine["id"]])
+        result = _service(client).get_entity(f"project:{project_id}", view="picks")
+    assert result["data"]["pick"] is None
+    assert [row["reason"] for row in result["data"]["picks"]] == ["theirs"]
+    assert "completeness" not in result
+
+
+def test_a_pick_made_mid_walk_repeats_no_event(client, app):
+    """Rows resume after the last event id sent: a pick landing between pages
+    would shift an offset and repeat a row, inflating the churn counted."""
+    _, experiment_id, _, _ = _populated(client, app)
+    project_id = app.experiments[experiment_id]["project_id"]
+    picked = {"id": experiment_id, "slug": "dockq-path", "name": "dockq-path", "project_id": project_id}
+    events = [_pick_event(n, picked, reason=f"pick {n} " + "because " * 20) for n in range(20, 0, -1)]
+    app.best_picks = {project_id: (events[0], events)}
+    service = _service(client)
+    first = service.get_entity(f"project:{project_id}", view="picks", token_budget=512)
+    sent = [row["id"] for row in first["data"]["picks"]]
+    assert first["next_cursor"] and len(sent) < 20
+    newer = [_pick_event(21, picked, reason="a pick made mid-walk")]
+    app.best_picks = {project_id: (newer[0], newer + events)}
+    cursor = first["next_cursor"]
+    while cursor:
+        page = service.get_entity(f"project:{project_id}", view="picks", token_budget=512, cursor=cursor)
+        sent += [row["id"] for row in page["data"]["picks"]]
+        cursor = page.get("next_cursor")
+    assert sent == list(range(20, 0, -1))

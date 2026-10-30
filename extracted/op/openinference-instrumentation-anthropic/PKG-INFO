@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: openinference-instrumentation-anthropic
-Version: 3.1.0
+Version: 3.2.0
 Summary: OpenInference Anthropic Instrumentation
 Project-URL: Homepage, https://github.com/Arize-ai/openinference/tree/main/python/instrumentation/openinference-instrumentation-anthropic
 Author-email: OpenInference Authors <oss@arize.com>
@@ -16,9 +16,10 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: <3.15,>=3.10
+Classifier: Programming Language :: Python :: 3.15
+Requires-Python: <3.16,>=3.10
 Requires-Dist: openinference-instrumentation>=0.1.71
-Requires-Dist: openinference-semantic-conventions>=0.1.41
+Requires-Dist: openinference-semantic-conventions>=0.1.42
 Requires-Dist: opentelemetry-api
 Requires-Dist: opentelemetry-instrumentation
 Requires-Dist: opentelemetry-semantic-conventions
@@ -46,7 +47,8 @@ These traces are fully OpenTelemetry compatible and can be sent to an OpenTeleme
 
 | `openinference-instrumentation-anthropic`  | `anthropic`       | Python          |
 | ------------------------------------------ | ----------------- | --------------- |
-| `>=3.0.0`                                  | `>=1.8.0`         | `>=3.10, <3.15` |
+| `>=3.2.0`                                  | `>=1.8.0`         | `>=3.10, <3.16` |
+| `>=3.0.0, <3.2.0`                          | `>=1.8.0`         | `>=3.10, <3.15` |
 | `>=2.1.6, <3.0.0`                         | `>=1.0.0`         | `>=3.10, <3.15` |
 | `2.1.5`                                    | `>=1.0.0, <1.8`   | `>=3.10, <3.15` |
 | `>=2.0, <2.1.5`                            | `>=1.0.0, <1.5`   | `>=3.10, <3.15` |
@@ -57,6 +59,16 @@ Anthropic 1.0 removed the legacy Text Completions API. Instrumentor 2.0 therefor
 requires `anthropic>=1.0.0` and instruments the Messages and Beta Messages APIs.
 See Anthropic's [v1 migration guide](https://github.com/anthropics/anthropic-sdk-python/blob/main/MIGRATION.md)
 for the upstream breaking changes.
+
+### Spans of the Anthropic SDK
+
+`anthropic>=1.14.0` creates an OpenTelemetry span of its own for each API call
+(`anthropic.messages.create` and so on), unless it is turned off with
+`open_telemetry=False` or `ANTHROPIC_OPEN_TELEMETRY=false`. For a call that this
+instrumentor traces, the SDK's span is replaced by the OpenInference LLM span: the SDK
+records no span, its request carries the LLM span's trace context, and HTTP spans are
+children of the LLM span. Calls that this instrumentor does not trace, such as
+`models.list()`, keep the SDK's span.
 
 ## Installation
 

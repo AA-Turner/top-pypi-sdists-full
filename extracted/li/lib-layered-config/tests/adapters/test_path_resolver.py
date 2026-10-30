@@ -10,6 +10,8 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+import pytest
+
 from lib_layered_config.adapters.path_resolvers import (
     DefaultPathResolver,
     LinuxStrategy,
@@ -270,7 +272,29 @@ def test_windows_resolver_user_paths_cover_roaming_appdata(tmp_path: Path) -> No
 @os_agnostic
 def test_platform_paths_returns_empty_for_unknown_platform(tmp_path: Path) -> None:
     resolver = DefaultPathResolver(vendor="Acme", app="Demo", slug="demo", cwd=tmp_path, platform="plan9")
-    assert resolver._iter_layer("app") == []
+    assert resolver.strategy is None
+    assert (list(resolver.app()), list(resolver.host()), list(resolver.user())) == ([], [], [])
+
+
+@os_agnostic
+@pytest.mark.parametrize(
+    ("platform", "expected"),
+    [
+        ("linux", LinuxStrategy),
+        ("linux2", LinuxStrategy),
+        ("darwin", MacOSStrategy),
+        ("win32", WindowsStrategy),
+        ("win64", WindowsStrategy),
+        ("cygwin", None),
+        ("freebsd14", None),
+    ],
+)
+def test_resolver_selects_the_strategy_of_the_platform_family(
+    tmp_path: Path, platform: str, expected: type[object] | None
+) -> None:
+    resolver = DefaultPathResolver(vendor="Acme", app="Demo", slug="demo", cwd=tmp_path, platform=platform)
+    selected = None if resolver.strategy is None else type(resolver.strategy)
+    assert selected is expected
 
 
 @os_agnostic
@@ -294,13 +318,6 @@ def test_windows_user_paths_fall_back_to_localappdata(tmp_path: Path) -> None:
     strategy = WindowsStrategy(ctx)
     user_paths = list(strategy.user_paths())
     assert str(target) in user_paths
-
-
-@os_agnostic
-def test_mac_paths_fall_silent_for_unknown_layer(tmp_path: Path) -> None:
-    resolver, _ = _make_resolver(tmp_path, platform="darwin")
-    # Test that unknown layers return empty via the resolver's internal dispatch
-    assert resolver._iter_layer("shadow") == []
 
 
 @os_agnostic
@@ -331,13 +348,6 @@ def test_mac_user_paths_collect_config_directory(tmp_path: Path) -> None:
     strategy = MacOSStrategy(ctx)
     user_paths = list(strategy.user_paths())
     assert user_paths == [str(config)]
-
-
-@os_agnostic
-def test_windows_paths_fall_silent_for_unknown_layer(tmp_path: Path) -> None:
-    resolver, _ = _make_resolver(tmp_path, platform="win32")
-    # Test that unknown layers return empty via the resolver's internal dispatch
-    assert resolver._iter_layer("shadow") == []
 
 
 @os_agnostic
@@ -574,8 +584,9 @@ def test_windows_unc_app_paths_resolve_from_network_share(tmp_path: Path) -> Non
     program_data = strategy._program_data_root()
     assert program_data == Path(unc_root)
     assert program_data.as_posix().startswith("//server/share")
-    # Verify app_paths() can be called without error (paths may not exist)
-    list(strategy.app_paths())
+    # No app_paths() call: on Windows it stats //server/share, a live SMB lookup of a host that does
+    # not exist. The runner usually answers "bad network path" (read as absent) but has answered
+    # winerror 64, which the probe refuses by design, so the outcome tracked the runner's network.
 
 
 @os_agnostic

@@ -128,7 +128,7 @@ AggregateFunctionNameType = Literal["AVG", "COUNT", "COUNT_DISTINCT", "SUM", "SU
 AggregationThresholdTypeType = Literal["COUNT_DISTINCT"]
 AggregationTypeType = Literal["COUNT_DISTINCT"]
 AllowedAggregateExpressionTypeType = Literal["ANY_EXPRESSION", "COLUMNS_ONLY"]
-AnalysisFormatType = Literal["PYSPARK_1_0", "SQL"]
+AnalysisFormatType = Literal["PYSPARK_1_0", "PYSPARK_2_0", "SQL"]
 AnalysisLogExportStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCESS"]
 AnalysisMethodType = Literal["DIRECT_JOB", "DIRECT_QUERY", "MULTIPLE"]
 AnalysisRuleTypeType = Literal["AGGREGATION", "CUSTOM", "ID_MAPPING_TABLE", "LIST"]
@@ -515,6 +515,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "continuum",
     "controlcatalog",
     "controltower",
     "cost-optimization-hub",
@@ -566,8 +567,6 @@ ServiceName = Literal[
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -821,7 +820,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

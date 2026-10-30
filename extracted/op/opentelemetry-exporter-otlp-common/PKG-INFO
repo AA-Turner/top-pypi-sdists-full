@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: opentelemetry-exporter-otlp-common
-Version: 0.66b1
+Version: 0.66b2
 Summary: OpenTelemetry OTLP HTTP export utilities
 Project-URL: Homepage, https://github.com/open-telemetry/opentelemetry-python/tree/main/exporter/opentelemetry-exporter-otlp-common
 Project-URL: Repository, https://github.com/open-telemetry/opentelemetry-python
@@ -19,9 +19,9 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
-Requires-Dist: opentelemetry-sdk~=1.45.1
+Requires-Dist: opentelemetry-sdk~=1.45.2
 Provides-Extra: http
-Requires-Dist: opentelemetry-exporter-http-transport==0.66b1; extra == 'http'
+Requires-Dist: opentelemetry-exporter-http-transport==0.66b2; extra == 'http'
 Description-Content-Type: text/x-rst
 
 OpenTelemetry OTLP Utilities

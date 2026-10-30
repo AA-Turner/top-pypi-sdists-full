@@ -1,6 +1,6 @@
 [project]
 name = "uniplot"
-version = "0.23.2"
+version = "0.24.0"
 description = "Lightweight plotting to the terminal. 4x resolution via Unicode."
 authors = [{name = "Olav Stetter", email = "olav.stetter@googlemail.com"}]
 license = { file = "LICENSE" }
@@ -71,7 +71,7 @@ dev = [
     "mypy ==2.1.0",
     "pandas >=2.0.3",
     "polars >=0.20.5",
-    "ruff >=0.9.0",
+    "ruff~=0.16.0",
     "pyinstrument >=5.0.3",
     "rich >=14.3.4",
     "psutil >=5.9.0",

@@ -1,14 +1,20 @@
-import argparse
-import keyword
+from __future__ import annotations
+
+__lazy_modules__ = ["argparse"]  # py3,15
+
 import os
-import pathlib
 import re
-from typing import Any
+from keyword import iskeyword
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, TextIO
 
 from django.core.management.base import BaseCommand
 
 from esi import __build_date__, __title__, __url__, __version__, stubs
 from esi.openapi_clients import ESIClientProvider
+
+if TYPE_CHECKING:  # py3.14
+    from argparse import ArgumentParser
 
 
 def sanitize_class_name(name: str) -> str:
@@ -67,14 +73,14 @@ class ModelGenerator:
         self._models[name] = [f"{name} = {rhs}"]
         self._aliases[name] = rhs
 
-    def _properties_dict(self, schema) -> dict:
+    def _properties_dict(self, schema: Any) -> dict:
         """.properties or ._properties"""
         props = getattr(schema, "properties", None)
         if props is None:
             props = getattr(schema, "_properties", None)
         return props or {}
 
-    def _required_list(self, schema) -> list[str]:
+    def _required_list(self, schema: Any) -> list[str]:
         """.required or ._required"""
         req = getattr(schema, "required", None)
         if req is None:
@@ -83,24 +89,24 @@ class ModelGenerator:
             return list(req)
         return []
 
-    def _additional_properties(self, schema) -> Any | None:
+    def _additional_properties(self, schema: Any) -> Any | None:
         return getattr(schema, "additionalProperties", None)
 
-    def _enum_values(self, schema) -> list[str] | None:
+    def _enum_values(self, schema: Any) -> list[str] | None:
         """.enum or ._enum"""
         values = getattr(schema, "enum", None)
         if values is None:
             values = getattr(schema, "_enum", None)
         return list(values) if isinstance(values, (list, tuple, set)) else None
 
-    def _format(self, schema) -> str | None:
+    def _format(self, schema: Any) -> str | None:
         """.format or ._format"""
         fmt = getattr(schema, "format", None)
         if fmt is None:
             fmt = getattr(schema, "_format", None)
         return fmt
 
-    def _ref_string(self, schema) -> str | None:
+    def _ref_string(self, schema: Any) -> str | None:
         ref = getattr(schema, "ref", None)
         if isinstance(ref, str):
             return ref
@@ -382,7 +388,7 @@ class ModelGenerator:
 
         return _wrap_nullable("Any")  # Fallback
 
-    def write_models(self, f) -> None:
+    def write_models(self, f: TextIO) -> None:
         """Write all collected models to file-like f in declaration order."""
         if not self._models:
             return
@@ -412,7 +418,7 @@ class ModelGenerator:
                 if not (py_name[0].isalpha() or py_name[0] == "_"):
                     py_name = f"_{py_name}"
                 # Avoid keywords and invalid identifiers
-                if keyword.iskeyword(py_name) or not py_name.isidentifier():
+                if iskeyword(py_name) or not py_name.isidentifier():
                     py_name = f"{py_name}_"
                 sub_hint = f"{class_name}_{py_name[0].upper() + py_name[1:]}"
                 typ = self.schema_to_type(prop_schema, sub_hint)
@@ -432,7 +438,7 @@ class ModelGenerator:
 class Command(BaseCommand):
     help = "Generate ESI Stubs from the current ESI spec with correct type hints."
 
-    def add_arguments(self, parser: argparse.ArgumentParser) -> None:
+    def add_arguments(self, parser: ArgumentParser) -> None:
         parser.add_argument(
             "--output",
             default=None,
@@ -446,7 +452,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--spec_file",
             required=False,
-            type=pathlib.Path,
+            type=Path,
             default=None,
             help="Path to a OpenApi 3.1 spec file to load."
         )

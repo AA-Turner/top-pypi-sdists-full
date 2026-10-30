@@ -2286,9 +2286,15 @@ def _process_module_builtin_defaults():
     )
 
     _process_module_definition(
+        "agent_framework._agents", "newrelic.hooks.mlmodel_agentframework", "instrument_agent_framework__agents"
+    )
+    _process_module_definition(
+        "agent_framework._tools", "newrelic.hooks.mlmodel_agentframework", "instrument_agent_framework__tools"
+    )
+    _process_module_definition(
         "agent_framework_bedrock",
         "newrelic.hooks.mlmodel_agentframework",
-        "instrument_agent_framwork_bedrock__chat_client",
+        "instrument_agent_framework_bedrock__chat_client",
     )
 
     _process_module_definition(
@@ -3210,6 +3216,15 @@ def _process_module_builtin_defaults():
         "newrelic.hooks.mlmodel_autogen",
         "instrument_autogen_agentchat_agents__assistant_agent",
     )
+    _process_module_definition(
+        "crewai.tools.tool_usage", "newrelic.hooks.mlmodel_crewai", "instrument_crewai_tools_tool_usage"
+    )
+    _process_module_definition(
+        "crewai.agents.agent_executor", "newrelic.hooks.mlmodel_crewai", "instrument_crewai_agents_agent_executor"
+    )
+    _process_module_definition("crewai.flow.flow", "newrelic.hooks.mlmodel_crewai", "instrument_crewai_flow_flow")
+    _process_module_definition("crewai.agent.core", "newrelic.hooks.mlmodel_crewai", "instrument_crewai_agent_core")
+    _process_module_definition("crewai.crew", "newrelic.hooks.mlmodel_crewai", "instrument_crewai_crew")
     _process_module_definition(
         "google.adk.agents.llm_agent", "newrelic.hooks.mlmodel_googleadk", "instrument_googleadk_agents_llm_agent"
     )

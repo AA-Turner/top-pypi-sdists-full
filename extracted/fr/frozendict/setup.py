@@ -17,7 +17,7 @@ main_url = "https://github.com/Marco-Sulla/python-frozendict"
 bug_url = "https://github.com/Marco-Sulla/python-frozendict/issues"
 author = "Marco Sulla"
 author_email = "marcosullaroma@gmail.com"
-mylicense = "LGPL v3"
+mylicense = "LGPL-3.0-only"
 license_files = "LICENSE.txt"
 description = "A simple immutable dictionary"
 
@@ -31,10 +31,6 @@ python_requires = ">=3.6"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
-    (
-        "License :: OSI Approved :: GNU Lesser General Public " +
-        "License v3 (LGPLv3)"
-    ),
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.6", 
     "Natural Language :: English", 
@@ -88,8 +84,6 @@ cpython_objects_dir_name = "Objects"
 cpython_stringlib_name = "stringlib"
 cpython_objects_clinic_name = "clinic"
 
-extra_compile_args = ["-DPY_SSIZE_T_CLEAN", ]
-
 pyversion = sys.version_info
 
 cpython_version = f"{pyversion[0]}_{pyversion[1]}"
@@ -136,8 +130,7 @@ if argv_1_exists and argv[1] == "c_debug":
 def get_ext_module(
     fullname, 
     sources, 
-    include_dirs, 
-    extra_compile_args,
+    include_dirs,
     undef_macros,
     optional
 ):
@@ -145,9 +138,9 @@ def get_ext_module(
         fullname,
         sources = sources,
         include_dirs = include_dirs,
-        extra_compile_args = extra_compile_args,
         undef_macros = undef_macros, 
-        optional = optional, 
+        optional = optional,
+        define_macros=[("PY_SSIZE_T_CLEAN", None)],
     )
     
     return ext_module
@@ -159,7 +152,6 @@ def get_ext_module_1(optional):
         fullname = ext1_fullname,
         sources = cpython_sources,
         include_dirs = cpython_include_dirs,
-        extra_compile_args = extra_compile_args,
         undef_macros = undef_macros, 
         optional = optional, 
     )
@@ -174,7 +166,7 @@ common_setup_args = dict(
     author_email = author_email,
     version = version,
     python_requires = python_requires,
-    license = mylicense,
+    license_expression = mylicense,
     license_files = (license_files, ),
     url = main_url,
     
@@ -221,7 +213,7 @@ mix_c_py_error = ValueError(
 )
 
 if custom_arg is None:
-    if impl == "PyPy":
+    if impl == "PyPy" or not c_src_path.exists():
         custom_arg = "py"
     else:
         custom_arg = "py" if pure_py else "c"

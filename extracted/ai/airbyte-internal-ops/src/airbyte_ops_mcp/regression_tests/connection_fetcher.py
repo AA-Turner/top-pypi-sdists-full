@@ -20,6 +20,8 @@ from airbyte import constants
 from airbyte.cloud import CloudWorkspace
 from airbyte.exceptions import PyAirbyteInputError
 
+from airbyte_ops_mcp.regression_tests.masking import MaskPolicy, mask_input_state
+
 logger = logging.getLogger(__name__)
 
 
@@ -247,29 +249,56 @@ def _build_configured_catalog(
 def save_connection_data_to_files(
     connection_data: ConnectionData,
     output_dir: Path,
+    config_dir: Path | None = None,
+    mask_policy: MaskPolicy | None = None,
 ) -> tuple[Path, Path, Path | None]:
     """Save connection config, catalog, and optionally state to JSON files.
 
     Args:
         connection_data: The connection data to save.
-        output_dir: Directory to save files to.
+        output_dir: Directory to save the catalog and state to.
+        config_dir: Where the config goes instead of `output_dir`. The config
+            is the object that carries the secrets, so a caller whose
+            `output_dir` is uploaded as an artifact passes a directory outside
+            it; that directory is made private (0700) and the file 0600.
+        mask_policy: When given, the state the connector reads goes beside the
+            config in `config_dir` (required then), since a cursor is a
+            customer value too, and `output_dir/state.json` holds a copy
+            masked under the policy (`mask_input_state`) for the artifact.
 
     Returns:
         Tuple of (config_path, catalog_path, state_path). `state_path` is
-        `None` when no state is available on the connection.
+        `None` when no state is available on the connection, and is the raw
+        file the connector reads when `mask_policy` is given.
     """
+    if mask_policy is not None and config_dir is None:
+        raise ValueError("A masked state needs a private directory for its raw copy")
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    config_path = output_dir / "config.json"
+    if config_dir is None:
+        config_path = output_dir / "config.json"
+        config_path.write_text(json.dumps(connection_data.config, indent=2))
+    else:
+        config_dir.mkdir(parents=True, exist_ok=True)
+        config_dir.chmod(0o700)
+        config_path = config_dir / "config.json"
+        config_path.write_text(json.dumps(connection_data.config, indent=2))
+        config_path.chmod(0o600)
     catalog_path = output_dir / "catalog.json"
-
-    config_path.write_text(json.dumps(connection_data.config, indent=2))
     catalog_path.write_text(json.dumps(connection_data.catalog, indent=2))
 
     state_path: Path | None = None
     if connection_data.state:
-        state_path = output_dir / "state.json"
-        state_path.write_text(json.dumps(connection_data.state, indent=2))
+        state_text = json.dumps(connection_data.state, indent=2)
+        if mask_policy is None or config_dir is None:
+            state_path = output_dir / "state.json"
+            state_path.write_text(state_text)
+        else:
+            state_path = config_dir / "state.json"
+            state_path.write_text(state_text)
+            state_path.chmod(0o600)
+            masked_state = mask_input_state(connection_data.state, mask_policy)
+            (output_dir / "state.json").write_text(json.dumps(masked_state, indent=2))
 
     return config_path, catalog_path, state_path
 

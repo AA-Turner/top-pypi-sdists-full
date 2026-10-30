@@ -58,7 +58,7 @@ pub(crate) fn offset(
     position: gen_lsp_types::Position,
 ) -> Option<InFile<TextSize>> {
     let line_index = line_index(db, file);
-    let offset = text_size(&line_index, position)?;
+    let offset = text_size(line_index, position)?;
     Some(InFile::new(file, offset))
 }
 
@@ -83,7 +83,7 @@ pub(crate) fn code_action(
                     .into_iter()
                     .map(|edit| gen_lsp_types::TextEdit {
                         range: range(line_index, edit.text_range),
-                        new_text: edit.text.unwrap_or_default(),
+                        new_text: edit.text.unwrap_or_default().into_owned(),
                     })
                     .collect();
                 changes.insert(uri, edits);
@@ -240,14 +240,14 @@ pub(crate) fn apply_incremental_changes(
 
 pub(crate) fn to_location(
     snapshot: &Snapshot,
-    loc: squawk_ide::location::Location,
+    loc: squawk_ide::file::InFile<rowan::TextRange>,
 ) -> Option<Location> {
     let db = snapshot.db();
-    let file = loc.file.original_file(db);
+    let file = loc.file_id.original_file(db);
     let uri = snapshot.uri(file)?;
 
     let line_index = line_index(db, file);
-    let range = range(&line_index, loc.range);
+    let range = range(line_index, loc.value);
     Some(Location { uri, range })
 }
 
@@ -330,7 +330,7 @@ fn to_token_type(ty: SemanticTokenType) -> gen_lsp_types::SemanticTokenTypes {
         SemanticTokenType::Number => gen_lsp_types::SemanticTokenTypes::Number,
         SemanticTokenType::Function => gen_lsp_types::SemanticTokenTypes::Function,
         SemanticTokenType::Operator => gen_lsp_types::SemanticTokenTypes::Operator,
-        SemanticTokenType::Punctuation => gen_lsp_types::SemanticTokenTypes::Operator,
+        SemanticTokenType::Punctuation => semantic_tokens::PUNCTUATION,
         SemanticTokenType::Name => gen_lsp_types::SemanticTokenTypes::Variable,
         SemanticTokenType::NameRef => gen_lsp_types::SemanticTokenTypes::Variable,
         SemanticTokenType::Comment => gen_lsp_types::SemanticTokenTypes::Comment,
@@ -338,7 +338,37 @@ fn to_token_type(ty: SemanticTokenType) -> gen_lsp_types::SemanticTokenTypes {
         SemanticTokenType::PositionalParam | SemanticTokenType::Parameter => {
             gen_lsp_types::SemanticTokenTypes::Parameter
         }
-        SemanticTokenType::Column => gen_lsp_types::SemanticTokenTypes::Variable,
+        SemanticTokenType::Column
+        | SemanticTokenType::Window
+        | SemanticTokenType::JsonPath
+        | SemanticTokenType::Index
+        | SemanticTokenType::Constraint
+        | SemanticTokenType::Trigger
+        | SemanticTokenType::Rule
+        | SemanticTokenType::Role
+        | SemanticTokenType::Policy
+        | SemanticTokenType::AccessMethod
+        | SemanticTokenType::EventTrigger
+        | SemanticTokenType::Language
+        | SemanticTokenType::ForeignDataWrapper
+        | SemanticTokenType::Server
+        | SemanticTokenType::Conversion
+        | SemanticTokenType::OperatorFamily
+        | SemanticTokenType::OperatorClass
+        | SemanticTokenType::Statistics
+        | SemanticTokenType::TextSearch
+        | SemanticTokenType::Publication
+        | SemanticTokenType::Subscription
+        | SemanticTokenType::Collation
+        | SemanticTokenType::Tablespace
+        | SemanticTokenType::Database
+        | SemanticTokenType::Extension
+        | SemanticTokenType::Savepoint
+        | SemanticTokenType::Cursor
+        | SemanticTokenType::PreparedTransaction
+        | SemanticTokenType::PreparedStatement
+        | SemanticTokenType::Channel
+        | SemanticTokenType::EnumMember => gen_lsp_types::SemanticTokenTypes::Variable,
         SemanticTokenType::PropertyGraph | SemanticTokenType::Table => {
             gen_lsp_types::SemanticTokenTypes::Struct
         }

@@ -24,6 +24,7 @@ from io import BytesIO
 from typing import Dict  # pylint: disable=unused-import
 
 import dns.e164
+import dns.exception
 import dns.name
 import dns.reversename
 
@@ -744,6 +745,20 @@ class NameTestCase(unittest.TestCase):
 
         self.assertRaises(dns.name.BadPointer, bad)
 
+    def testFromWirePointerToLabelsAfterIt(self):
+        # The pointer at offset 21 targets the label at offset 20, which runs
+        # over the pointer and the bytes after it.  The pointer still only
+        # uses two bytes (RFC 1035 section 4.1.4).
+        w = b"\x00" * 20 + b"\x01" + b"\xc0\x14" + b"X" * 20 + b"\x00"
+        with self.assertRaises(dns.exception.FormError):
+            dns.name.from_wire(w, 21)
+
+    def testFromWirePointerOverlapsPrefix(self):
+        # Don't allow the compression target to overlap the prefix either.
+        w = b"\x07abc" + b"\x04www\x00" + b"\xc0\x00"
+        with self.assertRaises(dns.exception.FormError):
+            dns.name.from_wire(w, 4)
+
     def testBadFromWire3(self):
         def bad():
             w = b"\xbffoo"
@@ -948,6 +963,38 @@ class NameTestCase(unittest.TestCase):
         # groß.com. in IDNA2008 form, pre-encoded.
         n = dns.name.from_text("xn--gro-7ka.com")
         self.assertEqual(n.to_unicode(True, dns.name.IDNA_2008), "groß.com")
+
+    def testToUnicodeEscapesAlternateDots(self):
+        # One label which punycode-decodes to "a。b．c｡d".  The
+        # Unicode full stops must be escaped, as from_unicode() would otherwise
+        # read them as label separators.
+        n = dns.name.from_text("xn--abcd-qw3ct543jwqa.example.")
+        s = n.to_unicode(idna_codec=dns.name.IDNA_2003_Practical)
+        self.assertEqual(s, "a\\。b\\．c\\｡d.example.")
+        u = dns.name.from_unicode(s, idna_codec=dns.name.IDNA_2003_Practical)
+        self.assertEqual(len(u), 3)
+
+    def testToUnicodeRejectsASCIIOnlyACELabel(self):
+        # "xn--www-" punycode-decodes to "www", which would make the name
+        # display as www.example., a different name.  "xn--" decodes to "".
+        for label in ("xn--www-", "XN--www-", "xn--"):
+            n = dns.name.from_text(f"{label}.example.")
+            for codec in (dns.name.IDNA_2003_Practical, dns.name.IDNA_2008_Practical):
+                with self.assertRaises(dns.name.IDNAException):
+                    n.to_unicode(idna_codec=codec)
+
+    def testToUnicodeEscapesControlCharacters(self):
+        # One label which punycode-decodes to "evil\x85com", i.e. with a C1
+        # NEL in it.  Control characters must be escaped, as they are in
+        # to_text(), so a name from the wire cannot add a line break or a
+        # terminal control sequence to the output.
+        n = dns.name.from_text("xn--evilcom-jba.example.")
+        for codec in (dns.name.IDNA_2003_Practical, dns.name.IDNA_2008_Practical):
+            s = n.to_unicode(idna_codec=codec)
+            self.assertEqual(s, "evil\\133com.example.")
+        self.assertEqual(
+            dns.name._escapify("a\x7fb\x85c\x9bd\xa0e"), "a\\127b\\133c\\155d\xa0e"
+        )
 
     def testIDNA2003Misc(self):
         self.assertEqual(dns.name.IDNA_2003.encode(""), b"")

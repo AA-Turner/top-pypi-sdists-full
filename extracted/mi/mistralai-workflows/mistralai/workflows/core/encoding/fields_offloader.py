@@ -5,15 +5,15 @@ import uuid
 from typing import Any, Generic, Type, TypeVar, cast, get_args, get_origin
 
 import orjson
-import structlog
 import temporalio.workflow
 from mistralai.extra.workflows.encoding.storage.blob_storage import get_blob_storage
 from pydantic import BaseModel, TypeAdapter
 from pydantic.fields import FieldInfo
 
+from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.config.config import PayloadOffloadingConfig
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 OffloadableSingleType = BaseModel | int | str | bytes
 OffloadableCompositeType = OffloadableSingleType | list[OffloadableSingleType] | dict[str, OffloadableSingleType]
 OffloadableType = TypeVar("OffloadableType", bound=OffloadableCompositeType)

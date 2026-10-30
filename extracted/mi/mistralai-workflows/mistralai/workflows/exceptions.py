@@ -18,7 +18,16 @@ from temporalio.exceptions import (
 )
 from temporalio.service import RPCError, RPCStatusCode
 
+from mistralai.workflows._mistral_http import MISTRAL_HTTP
 from mistralai.workflows.worker_client.errors import SDKError
+
+_HTTP_STATUS_ERRORS = (httpx.HTTPStatusError, MISTRAL_HTTP.HTTPStatusError)
+_HTTP_CONNECTION_ERRORS = (
+    httpx.ConnectError,
+    httpx.TimeoutException,
+    MISTRAL_HTTP.ConnectError,
+    MISTRAL_HTTP.TimeoutException,
+)
 
 _TERMINAL_CODES: dict[str, str] = {
     # WF_1104 = WorkflowsErrorCode.WORKFLOW_REGISTRATION_FAILED (abraxas). It covers several refusals,
@@ -253,12 +262,12 @@ class WorkflowsException(Exception):
                 logging_message=logging_message,
                 logging_properties=logging_properties,
             )
-        if isinstance(exc, httpx.HTTPStatusError):
+        if isinstance(exc, _HTTP_STATUS_ERRORS):
             try:
                 status = HTTPStatus(exc.response.status_code)
             except ValueError:
                 pass
-        if isinstance(exc, httpx.ConnectError | httpx.TimeoutException):
+        if isinstance(exc, _HTTP_CONNECTION_ERRORS):
             status = HTTPStatus.BAD_GATEWAY
         return cls(
             message=f"{message}: {exc}",

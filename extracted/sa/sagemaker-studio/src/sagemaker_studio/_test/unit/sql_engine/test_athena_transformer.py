@@ -125,33 +125,30 @@ class TestAthenaTransformerToSqlalchemyConfig(unittest.TestCase):
         self.assertNotIn("botocore_session", connect_args)
         self.assertNotIn("credential_provider", connect_args)
 
-    def test_credential_provider_converted_to_botocore_session(self):
-        """credential_provider must become a botocore_session (PyAthena allowlists that,
-        but drops credential_provider) so cross-account creds are actually applied."""
-        expiry = datetime(2099, 1, 1, tzinfo=timezone.utc).isoformat()
-        calls = []
+    def test_required_fields_include_region(self):
+        self.assertEqual(AthenaTransformer.get_required_fields(), ["work_group", "region"])
 
-        def credential_provider():
-            calls.append(1)
-            return {
-                "access_key_id": "AKIA_XACCT",
-                "secret_access_key": "xacct-secret",
-                "session_token": "xacct-token",
-                "expiration": expiry,
-            }
+    def test_missing_region_fails_before_building_connection_string(self):
+        with self.assertRaisesRegex(ValueError, "region is required for connection"):
+            AthenaTransformer.to_sqlalchemy_config({"work_group": "primary"})
 
-        data = {**self._base_data(), "credential_provider": credential_provider}
+    def test_credential_provider_is_passed_to_the_sdk_owned_dialect(self):
+        provider = MagicMock()
+        data = {**self._base_data(), "credential_provider": provider}
+
         config = AthenaTransformer.to_sqlalchemy_config(data)
 
-        connect_args = config["connect_args"]
-        # credential_provider stripped so PyAthena never silently discards it
-        self.assertNotIn("credential_provider", connect_args)
-        session = connect_args["botocore_session"]
-        creds = session.get_credentials()
-        self.assertEqual(creds.access_key, "AKIA_XACCT")
-        self.assertEqual(creds.secret_key, "xacct-secret")
-        self.assertEqual(creds.token, "xacct-token")
-        self.assertTrue(calls)  # provider was actually invoked
+        self.assertIs(config["connect_args"]["credential_provider"], provider)
+        provider.assert_not_called()
+
+    def test_native_cursor_metadata_is_used_directly(self):
+        cursor = MagicMock()
+        cursor.get_execution_metadata.return_value = {"query_execution_id": "q-native"}
+
+        self.assertEqual(
+            AthenaTransformer.get_execution_metadata(cursor),
+            {"query_execution_id": "q-native"},
+        )
 
     def test_input_dict_not_mutated(self):
         """to_sqlalchemy_config must not mutate its input (callers may retain the dict)."""
@@ -171,15 +168,6 @@ class TestAthenaTransformerToSqlalchemyConfig(unittest.TestCase):
         self.assertEqual(data, original)
         self.assertIn("credential_provider", data)
         self.assertNotIn("botocore_session", data)
-
-    def test_credential_provider_missing_keys_raises(self):
-        def bad_provider():
-            return {"access_key_id": "AKIA"}  # missing secret_access_key + expiration
-
-        data = {**self._base_data(), "credential_provider": bad_provider}
-        with self.assertRaises(ValueError) as ctx:
-            AthenaTransformer.to_sqlalchemy_config(data)
-        self.assertIn("credential_provider must return a dict with keys", str(ctx.exception))
 
 
 if __name__ == "__main__":

@@ -231,7 +231,7 @@ class RunBundler:
 
             Msg('close_run', None, exit_status=None, reason=None)
 
-        if *exit_stats* and *reason* are not provided, use the values
+        if *exit_status* and *reason* are not provided, use the values
         stashed on the RE.
         """
         if not self.run_is_open:
@@ -274,6 +274,7 @@ class RunBundler:
         data_keys = {}
         config = {}
         object_keys = {}
+        object_classes = {}
         hints: dict[str, Any] = {}
 
         for obj, dks in objs_dks.items():
@@ -282,6 +283,11 @@ class RunBundler:
             object_keys[obj.name] = list(dks)
             for key in dks.keys():
                 dks[key]["object_name"] = obj.name
+            if isinstance(obj, type):
+                obj_t = obj  # To handle static readables
+            else:
+                obj_t = type(obj)  # type: ignore
+            object_classes[obj.name] = f"{obj_t.__module__}.{obj_t.__qualname__}"
             data_keys.update(dks)
             config[obj.name] = {
                 "data": self._current_stream_cache.config_values_cache[obj],
@@ -295,6 +301,7 @@ class RunBundler:
             configuration=config,
             hints=hints,
             object_keys=object_keys,
+            object_classes=object_classes,
         )
         await self.emit(DocumentNames.descriptor, self._descriptors[desc_key].descriptor_doc)
         doc_logger.debug(
@@ -401,50 +408,59 @@ class RunBundler:
 
         self._set_current_stream_cache(self._bundle_name)
 
-    async def read(self, msg, reading):
+    async def _bundle_single_read(self, msg, obj, reading):
         """
         Add a reading to the open event bundle.
 
-        Expected message object is::
-
-            Msg('read', obj)
+        This should be used in a read message.
         """
-        if self.bundling:
-            obj = msg.obj
-            # if the object is not in the _describe_cache, cache it
-            # Note: there is a race condition between the code here
-            # and in monitor() and collect(), so if you do them concurrently
-            # on the same device you make obj.describe() calls multiple times.
-            # As this is harmless and not an expected use case, we don't guard
-            # against it. Reading multiple devices concurrently works fine.
-            await self._current_stream_cache.ensure_cached(obj)
 
-            # check that current read collides with nothing else in
-            # current event
-            cur_keys = set(self._current_stream_cache.describe_cache[obj].keys())
-            for read_obj in self._objs_read:
-                # that is, field names
-                known_keys = self._current_stream_cache.describe_cache[read_obj].keys()
-                if set(known_keys) & cur_keys:
-                    raise ValueError(
-                        f"Data keys (field names) from {obj!r} "
-                        f"collide with those from {read_obj!r}. "
-                        f"The colliding keys are {set(known_keys) & cur_keys}"
-                    )
+        # if the object is not in the _describe_cache, cache it
+        # Note: there is a race condition between the code here
+        # and in monitor() and collect(), so if you do them concurrently
+        # on the same device you make obj.describe() calls multiple times.
+        # As this is harmless and not an expected use case, we don't guard
+        # against it. Reading multiple devices concurrently works fine.
+        await self._current_stream_cache.ensure_cached(obj)
 
-            # add this object to the cache of things we have read
-            self._objs_read.append(obj)
+        # check that current read collides with nothing else in
+        # current event
+        cur_keys = set(self._current_stream_cache.describe_cache[obj].keys())
+        for read_obj in self._objs_read:
+            # that is, field names
+            known_keys = self._current_stream_cache.describe_cache[read_obj].keys()
+            if set(known_keys) & cur_keys:
+                raise ValueError(
+                    f"Data keys (field names) from {obj!r} "
+                    f"collide with those from {read_obj!r}. "
+                    f"The colliding keys are {set(known_keys) & cur_keys}"
+                )
 
-            # Stash the results, which will be emitted the next time _save is
-            # called --- or never emitted if _drop is called instead.
-            self._current_stream_cache.read_cache.append(reading)
-            # Ask the object for any resource or datum documents is has cached
-            # and cache them as well. Likewise, these will be emitted if and
-            # when _save is called.
-            asset_docs_collected = [x async for x in maybe_collect_asset_docs(msg, obj, *msg.args, **msg.kwargs)]
-            self._asset_docs_cache.extend(asset_docs_collected)
+        # add this object to the cache of things we have read
+        self._objs_read.append(obj)
+
+        # Stash the results, which will be emitted the next time _save is
+        # called --- or never emitted if _drop is called instead.
+        self._current_stream_cache.read_cache.append(reading)
+        # Ask the object for any resource or datum documents is has cached
+        # and cache them as well. Likewise, these will be emitted if and
+        # when _save is called.
+        asset_docs_collected = [x async for x in maybe_collect_asset_docs(msg, obj)]
+        self._asset_docs_cache.extend(asset_docs_collected)
 
         return reading
+
+    async def read(self, msg, objs_with_reading: list[tuple[object, dict]]):
+        """Add a reading to the open event bundle.
+
+        Expected message object is::
+
+            Msg('read', obj1, obj2, obj3, ...)
+        """
+        if self.bundling:
+            await asyncio.gather(
+                *[self._bundle_single_read(msg, obj, reading) for obj, reading in objs_with_reading]
+            )
 
     async def monitor(self, msg):
         """
@@ -462,7 +478,7 @@ class RunBundler:
 
         where kwargs are passed through to ``obj.subscribe()``
         """
-        obj = check_supports(msg.obj, Subscribable)
+        obj = msg.obj
         if msg.args:
             raise ValueError("The 'monitor' Msg does not accept positional arguments.")
         kwargs = dict(msg.kwargs)
@@ -475,21 +491,7 @@ class RunBundler:
         stream_bundle = await self._prepare_stream(name, {obj: self._current_stream_cache.describe_cache[obj]})
         compose_event = stream_bundle[1]
 
-        def emit_event(readings: dict[str, Reading] | None = None, *args, **kwargs):
-            if readings is not None:
-                # We were passed something we can use, but check no args or kwargs
-                assert not args and not kwargs, (
-                    "If subscribe callback called with readings, args and kwargs are not supported."
-                )
-            else:
-                # Ignore the inputs. Use this call as a signal to call read on the
-                # object, a crude way to be sure we get all the info we need.
-                readable_obj = check_supports(obj, Readable)  # type: ignore
-                readings = readable_obj.read()  # type: ignore
-                assert not inspect.isawaitable(readings), (
-                    f"{readable_obj} has async read() method and the callback "
-                    "passed to subscribe() was not called with Dict[str, Reading]"
-                )
+        def emit_event_from_readings(readings: dict[str, Reading]):
             data, timestamps = _rearrange_into_parallel_dicts(readings)
             doc = compose_event(
                 data=data,
@@ -497,9 +499,29 @@ class RunBundler:
             )
             self.emit_sync(DocumentNames.event, doc)
 
-        self._monitor_params[obj] = emit_event, kwargs
-        # TODO: deprecate **kwargs when Ophyd.v2 is available
-        obj.subscribe(emit_event, **kwargs)
+        def emit_event_for_subscribe(*args, **kwargs):
+            # Ignore the inputs. Use this call as a signal to call read on the
+            # object, a crude way to be sure we get all the info we need.
+            readable_obj = check_supports(obj, Readable)
+            readings = readable_obj.read()
+            if inspect.isawaitable(readings):
+                raise RuntimeError(
+                    f"{readable_obj} has a subscribe() method rather than a "
+                    "subscribe_readings() method and an async read() method. "
+                    "If using ophyd-async, make sure you are using at least v0.13.5."
+                )
+            emit_event_from_readings(readings)
+
+        if isinstance(obj, Subscribable):
+            self._monitor_params[obj] = emit_event_from_readings, kwargs
+            obj.subscribe_reading(emit_event_from_readings)
+        elif callable(getattr(obj, "subscribe", None)):
+            self._monitor_params[obj] = emit_event_for_subscribe, kwargs
+            obj.subscribe(emit_event_for_subscribe, **kwargs)
+        else:
+            raise RuntimeError(
+                "%s does not implement Subscribable protocol or adhere to ophyd subscription pattern." % obj
+            )
 
     def record_interruption(self, content):
         """
@@ -540,7 +562,11 @@ class RunBundler:
 
             Msg('unmonitor', obj)
         """
-        obj = check_supports(msg.obj, Subscribable)
+        obj = msg.obj
+        if not callable(getattr(obj, "clear_sub", None)):
+            raise RuntimeError(
+                "%s does not implement Subscribable protocol or adhere to ophyd subscription pattern." % obj
+            )
         if obj not in self._monitor_params:
             raise IllegalMessageSequence(f"Cannot 'unmonitor' {obj}; it is not being monitored.")
         cb, kwargs = self._monitor_params[obj]
@@ -786,7 +812,10 @@ class RunBundler:
             return isinstance(obj, dict) and {"dtype", "shape", "source"}.issubset(frozenset(obj.keys()))
 
         assert all(not is_data_key(value) for value in describe_collect.values()), (
-            "Single nested data keys should be pre-declared"
+            "Single nested data keys should be pre-declared: describe_collect() of "
+            f"{collect_object.name!r} returns the data keys of one stream, so declare that "
+            "stream before collecting, with declare_stream(..., name=..., collect=True) "
+            "or the stream_name and collect=True arguments of fly"
         )
 
         # Make sure you can't use identical data keys in multiple streams
@@ -1082,7 +1111,7 @@ class RunBundler:
         # Warn for page collectable support
         for obj in collect_objects:
             if isinstance(obj, EventCollectable) and isinstance(obj, EventPageCollectable):
-                doc_logger.warn(
+                doc_logger.warning(
                     "collect() was called for a device %r which is both EventCollectable "
                     "and EventPageCollectable. Using device.collect_pages().",
                     obj.name,
@@ -1109,9 +1138,7 @@ class RunBundler:
         # If there is not a stream then we should be using an old-style doubly nested
         # and we need to describe_collect and prepare the nested streams.
         if not stream_name:
-            if frozenset(collect_objects) not in self._local_descriptors or (
-                collect_objects[0] not in self._local_descriptors
-            ):
+            if collect_objects[0] not in self._local_descriptors:
                 if len(collect_objects) > 1:
                     raise IllegalMessageSequence(
                         "If collecting multiple objects you must predeclare a stream for all "
@@ -1217,11 +1244,13 @@ class RunBundler:
                 await self._prepare_stream(name, obj_set)
                 continue
 
-    async def _cache_describe_collect(self, obj):
+    async def _cache_describe_collect(self, obj: Flyable):
         "Read the object's describe_collect and cache it."
         if obj not in self._describe_collect_cache:
-            obj = check_supports(obj, Collectable)
-            c: dict[str, DataKey] | dict[str, dict[str, DataKey]] = await maybe_await(obj.describe_collect())
+            collectable_obj = cast(Collectable, check_supports(obj, Collectable))
+            c: dict[str, DataKey] | dict[str, dict[str, DataKey]] = await maybe_await(
+                collectable_obj.describe_collect()
+            )
             self._describe_collect_cache[obj] = c
 
     async def _ensure_cached(self, obj, collect: bool = False):

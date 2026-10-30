@@ -75,8 +75,8 @@ class ChannelProperties:
 
 
 @dataclass
-class EvaluateResultSuccess:
-    """EvaluateResultSuccess."""
+class EvaluationResultSuccess:
+    """EvaluationResultSuccess."""
 
     type: str = field(default="success", init=False)
     result: Any | None = None
@@ -84,8 +84,8 @@ class EvaluateResultSuccess:
 
 
 @dataclass
-class EvaluateResultException:
-    """EvaluateResultException."""
+class EvaluationResultException:
+    """EvaluationResultException."""
 
     type: str = field(default="exception", init=False)
     exception_details: Any | None = None

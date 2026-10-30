@@ -10,6 +10,7 @@ summary reads is Codex's, not ours.
 from __future__ import annotations
 
 import copy
+import importlib
 import json
 import os
 import time
@@ -547,8 +548,11 @@ def test_the_wizards_approval_never_fails_the_install(monkeypatch, outcome, expe
     ],
 )
 def test_an_update_approves_and_says_how_many(monkeypatch, outcome, said):
+    monkeypatch.setattr(codex_hooks, "installed_copies", lambda: ("research-os-agent/probe-research-tap/0.10.27",))
     monkeypatch.setattr(codex_hooks, "approve", lambda *a, **k: outcome)
-    assert updater._approve_codex_hooks() == said
+    assert updater.approve_codex_hooks_note() == said
+    monkeypatch.setattr(codex_hooks, "installed_copies", lambda: ())
+    assert updater.approve_codex_hooks_note() == "", "no copy of Probe's plugins in Codex: Codex is not asked"
 
 
 def test_a_re_list_that_drops_a_key_does_not_count_it_approved(codex, monkeypatch):
@@ -652,3 +656,71 @@ def test_without_process_groups_closing_never_raises_and_still_ends_codex(codex,
         pid = int(pidfile.read_text())
         with pytest.raises(ProcessLookupError):
             os.kill(pid, 0)
+
+
+# -- `probe doctor --fix` (#3617) ------------------------------------------------
+
+
+def test_status_and_doctor_name_the_fix():
+    """A person (or an agent) told hooks are off is told the one command that
+    approves them, beside Codex's own `/hooks`."""
+    line = codex_hooks.status_line({"state": codex_hooks.HooksState.NEEDS_APPROVAL, "untrusted": ["k"]})
+    assert "`probe doctor --fix`" in line and "type /hooks and approve the Probe Research hooks" in line
+    rows = "\n".join(codex_hooks.rows(codex_hooks.HookStatus(total=7, untrusted=("a@m:x",)), doctor._row))
+    assert "1 of 7 switched off until approved" in rows and "`probe doctor --fix`" in rows
+
+
+@pytest.mark.parametrize(
+    ("outcome", "lines"),
+    [
+        (codex_hooks.Approval(approved=("a", "b"), done=True), ["Approved Probe's 2 hooks in Codex."]),
+        (codex_hooks.Approval(done=True), ["None of Probe's hooks waited for approval."]),
+        (None, ["Probe's hooks in Codex still need approval (Codex could not be asked): "
+                f"{setup.CODEX_HOOKS_INSTRUCTION}"]),
+        (codex_hooks.Approval(error="Codex refused it: managed"),
+         ["Probe's hooks in Codex still need approval (Codex refused it: managed): "
+          f"{setup.CODEX_HOOKS_INSTRUCTION}"]),
+    ],
+)
+def test_doctor_fix_approves_probes_hooks_and_says_what_it_did(monkeypatch, outcome, lines):
+    main = importlib.import_module("probe.cli.main")
+    monkeypatch.setattr(codex_hooks, "installed_copies", lambda: ("research-os-agent/probe-research-tap/0.10.27",))
+    monkeypatch.setattr(codex_hooks, "approve", lambda *_a, **_k: outcome)
+    assert main._doctor_fix_codex_hooks() == lines
+
+
+def test_doctor_fix_asks_nothing_where_codex_holds_no_probe_plugin(monkeypatch):
+    main = importlib.import_module("probe.cli.main")
+    asked: list = []
+    monkeypatch.setattr(codex_hooks, "installed_copies", lambda: ())
+    monkeypatch.setattr(codex_hooks, "approve", lambda *_a, **_k: asked.append(1))
+    assert main._doctor_fix_codex_hooks() == [] and asked == []
+
+
+def test_probe_doctor_fix_approves_before_the_report_reads_codex(monkeypatch):
+    """The report's "Codex hooks" rows say what the fix left, not what it found."""
+    from typer.testing import CliRunner
+
+    from probe.cli import capabilities, probe_config_cli, service_calls
+    from probe.service import keeper
+
+    main = importlib.import_module("probe.cli.main")
+    order: list[str] = []
+    monkeypatch.setattr(capabilities, "refresh_mcp_token_verdict", lambda: None)
+    monkeypatch.setattr(doctor, "collect", lambda: order.append("collect") or SimpleNamespace(outbox_status=None))
+    monkeypatch.setattr(doctor, "rescue_outbox", lambda: None)
+    monkeypatch.setattr(doctor, "render", lambda *args, **kwargs: "rendered")
+    monkeypatch.setattr(doctor, "codex_hook_rows", lambda caps: order.append("rows") or [])
+    monkeypatch.setattr(service_calls, "view", lambda: {})
+    monkeypatch.setattr(probe_config_cli, "doctor_rows", lambda fix: [])
+    monkeypatch.setattr(keeper, "refresh_lifeboat", lambda: "current")
+    monkeypatch.setattr(codex_hooks, "installed_copies", lambda: ("research-os-agent/probe-research-daemon/1.0.0",))
+    monkeypatch.setattr(codex_hooks, "approve",
+                        lambda *_a, **_k: order.append("approve") or codex_hooks.Approval(approved=("k",), done=True))
+    result = CliRunner().invoke(main.app, ["doctor", "--fix"])
+    assert result.exit_code == 0, result.output
+    assert order == ["approve", "collect", "rows"]
+    assert "Codex hooks (--fix)\n  Approved Probe's 1 hook in Codex." in result.output
+    order.clear()
+    assert CliRunner().invoke(main.app, ["doctor"]).exit_code == 0
+    assert "approve" not in order, "plain `probe doctor` stays read-only"

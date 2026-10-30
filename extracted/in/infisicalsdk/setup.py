@@ -15,7 +15,7 @@ from setuptools import setup, find_packages  # noqa: H301
 # prerequisite: setuptools
 # http://pypi.python.org/pypi/setuptools
 NAME = "infisicalsdk"
-VERSION = "1.0.18"
+VERSION = "1.1.0"
 PYTHON_REQUIRES = ">=3.8"
 REQUIRES = [
     "python-dateutil",

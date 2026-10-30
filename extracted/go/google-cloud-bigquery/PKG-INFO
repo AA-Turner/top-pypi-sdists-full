@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-bigquery
-Version: 3.46.2
+Version: 3.47.0
 Summary: Google BigQuery API client library
 Author-email: Google LLC <googleapis-packages@google.com>
 License: Apache 2.0
@@ -28,7 +28,7 @@ Requires-Dist: packaging>=24.2.0
 Requires-Dist: python-dateutil<3.0.0,>=2.8.2
 Requires-Dist: requests<3.0.0,>=2.21.0
 Provides-Extra: bqstorage
-Requires-Dist: google-cloud-bigquery-storage<3.0.0,>=2.29.0; extra == "bqstorage"
+Requires-Dist: google-cloud-bigquery-storage<3.0.0,>=2.43.0; extra == "bqstorage"
 Requires-Dist: grpcio<2.0.0,>=1.59.0; extra == "bqstorage"
 Requires-Dist: grpcio<2.0.0,>=1.75.1; python_version >= "3.14" and extra == "bqstorage"
 Requires-Dist: pyarrow>=4.0.0; extra == "bqstorage"

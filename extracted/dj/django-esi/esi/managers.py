@@ -1,4 +1,4 @@
-__lazy_modules__ = ["esi.models"]  # py3,15
+__lazy_modules__ = ["django.contrib.auth.base_user", "django.http", "esi.models"]  # py3,15
 
 import logging
 from datetime import timedelta
@@ -16,10 +16,13 @@ from esi.errors import IncompleteResponseError, SSOUnavailableError, TokenError
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:  # py3.14
-    from esi.models import Token
+    from django.contrib.auth.base_user import AbstractBaseUser
+    from django.http import HttpRequest
+
+    from esi.models import Scope, Token
 
 
-def _process_scopes(scopes) -> set[str]:
+def _process_scopes(scopes: "str | list[str] | models.QuerySet[Scope] | None") -> set[str]:
     if scopes is None:
         # support filtering by no scopes with None passed
         scopes = []
@@ -57,7 +60,7 @@ class TokenQueryset(models.QuerySet["Token"]):
         for i, model in enumerate(tokens):
             try:
                 model.refresh()
-                logging.debug("Successfully refreshed %r", model)
+                logger.debug("Successfully refreshed %r", model)
             except TokenError:
                 logger.info("Refresh failed for %r. Deleting.", model)
                 model.delete()
@@ -130,7 +133,7 @@ class TokenQueryset(models.QuerySet["Token"]):
         pks = [v['pk'] for v in scopes_qs]
         return self.filter(pk__in=pks)
 
-    def equivalent_to(self, token) -> "TokenQueryset":
+    def equivalent_to(self, token: "Token") -> "TokenQueryset":
         """Fetch all tokens which match the character and scopes of given reference token
 
         Args:
@@ -232,7 +235,7 @@ class TokenManager(models.Manager["Token"]):
             logger.warning("The JWT signature was invalid: %s", e)
             return None
 
-    def create_from_code(self, code, user=None) -> "Token":
+    def create_from_code(self, code: str, user: "AbstractBaseUser | None" = None) -> "Token":
         """
         Perform OAuth code exchange to retrieve a token.
         :param code: OAuth grant code.
@@ -306,7 +309,7 @@ class TokenManager(models.Manager["Token"]):
         logger.debug("Successfully created %r for user %s", model, user)
         return model
 
-    def create_from_request(self, request) -> "Token":
+    def create_from_request(self, request: "HttpRequest") -> "Token":
         """
         Generate a token from the OAuth callback request. Must contain 'code' in GET.
         :param request: OAuth callback request.

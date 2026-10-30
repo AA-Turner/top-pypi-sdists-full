@@ -123,6 +123,12 @@ def _mcp_main() -> None:
         description="Instant local code search for agents.",
     )
     _add_content_args(parser)
+    parser.add_argument(
+        "--http",
+        action="store_true",
+        help="Serve over streamable HTTP on localhost instead of stdio, so several agents can share one server.",
+    )
+    parser.add_argument("--port", type=int, default=8000, help="Port for --http (default: 8000).")
     args = parser.parse_args()
     if any(find_spec(dep) is None for dep in get_package_extras("semble", "mcp")):
         print("MCP dependencies are not installed. Run: pip install 'semble[mcp]'", file=sys.stderr)
@@ -130,7 +136,7 @@ def _mcp_main() -> None:
     from semble.mcp import serve
 
     content = _resolve_content(args.content, args.include_text_files)
-    asyncio.new_event_loop().run_until_complete(serve(content))
+    asyncio.new_event_loop().run_until_complete(serve(content, port=args.port if args.http else None))
     # Skip asyncio.run's shutdown, which waits for threads still loading the model or building an index.
     os._exit(0)
 
@@ -332,7 +338,7 @@ def _cli_main() -> None:
             nargs="+",
             choices=[*(t.value for t in IntegrationType), "all"],
             metavar="TYPE",
-            help="Integrations to include (mcp, instructions, subagent, or all). Default: all. Requires --agent.",
+            help="Integrations to include (mcp, instructions, subagent, skill, or all). Default: all but skill. Requires --agent.",
         )
         p.add_argument(
             "-y",
@@ -351,7 +357,13 @@ def _cli_main() -> None:
 
         from semble.installer import run
 
-        integration_ids = None if not args.type or "all" in args.type else [IntegrationType(t) for t in args.type]
+        integration_ids = (
+            None
+            if not args.type
+            else list(IntegrationType)
+            if "all" in args.type
+            else [IntegrationType(t) for t in args.type]
+        )
         run(args.command, agent_ids=args.agent, integration_ids=integration_ids, yes=args.yes)
     elif args.command == "clear":
         _run_clear(args.type)

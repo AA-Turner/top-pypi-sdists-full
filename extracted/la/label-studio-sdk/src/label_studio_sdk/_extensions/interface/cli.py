@@ -209,16 +209,50 @@ def _resolve_local_paths(data: Any, base_dirs: list[Path]) -> Any:
     return data
 
 
+def _task_base_dirs(task_path: Path | None) -> list[Path]:
+    base_dirs = [Path.cwd()]
+    if task_path is not None:
+        base_dirs.insert(0, task_path.parent)
+    return base_dirs
+
+
+def _local_path_candidates(data: Any, base_dirs: list[Path]) -> set[Path]:
+    """Every file a task string could embed via `_resolve_local_paths`, whether or not it exists yet."""
+    if isinstance(data, dict):
+        return set().union(*(_local_path_candidates(v, base_dirs) for v in data.values()))
+    if isinstance(data, list):
+        return set().union(*(_local_path_candidates(x, base_dirs) for x in data))
+    if not isinstance(data, str) or not data or "\x00" in data or "\n" in data:
+        return set()
+    if data.startswith(("http://", "https://", "data:")):
+        return set()
+    try:
+        p = Path(data)
+        if not p.suffix:
+            return set()
+        return {(p if p.is_absolute() else base_dir / p).resolve() for base_dir in base_dirs}
+    except (OSError, ValueError, RuntimeError):
+        return set()
+
+
+def _task_local_file_refs(task_path: Path | None) -> set[Path]:
+    """Local media a task references, so preview re-embeds it when the file appears or changes (FIT-2986)."""
+    if task_path is None:
+        return set()
+    try:
+        raw = json.loads(task_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return set()
+    return _local_path_candidates(raw, _task_base_dirs(task_path))
+
+
 def _load_task(task_path: Path | None) -> dict[str, Any] | None:
     task = _load_json_file(task_path, label="task file")
     if task is not None and not isinstance(task, dict):
         typer.echo("error: --task must decode to a JSON object", err=True)
         raise typer.Exit(code=2)
     if task is not None:
-        base_dirs = [Path.cwd()]
-        if task_path is not None:
-            base_dirs.insert(0, task_path.parent)
-        task = _resolve_local_paths(task, base_dirs)
+        task = _resolve_local_paths(task, _task_base_dirs(task_path))
         _warn_unresolved_local_media_in_task(task)
     return task
 
@@ -384,6 +418,31 @@ def _print_static_report(file: Path, report: dict[str, Any], *, overall_ok: bool
         typer.echo(f"  specVersion: {metadata['specVersion']}")
 
 
+_STEP_MARKERS = {
+    "passed": ("ok  ", typer.colors.GREEN),
+    "failed": ("FAIL", typer.colors.RED),
+    "skipped": ("skip", typer.colors.YELLOW),
+    "not-reached": ("--  ", typer.colors.BRIGHT_BLACK),
+}
+
+
+def _print_scenario_steps(scenario: dict[str, Any]) -> None:
+    """Prints the step trail with each failure at the boundary it happened on."""
+    steps = scenario.get("steps") or []
+    if not steps:
+        return
+    errors = [error for error in scenario.get("errors") or [] if isinstance(error, dict)]
+    for index, step in enumerate(steps, start=1):
+        for error in errors:
+            if error.get("stepKey") != step.get("key"):
+                continue
+            line = f"        error [{error.get('stage', 'scenario')}]: {error.get('message', '')}"
+            typer.echo(typer.style(line, fg=typer.colors.RED), err=True)
+        marker, color = _STEP_MARKERS.get(step.get("status", "not-reached"), ("?   ", typer.colors.WHITE))
+        label = step.get("label") or step.get("template") or step.get("key", "")
+        typer.echo(typer.style(f"      {marker} {index}. {label}", fg=color))
+
+
 def _print_scenario_report(report: dict[str, Any]) -> None:
     scenario_count = len(report.get("scenarios") or [])
     if scenario_count:
@@ -394,10 +453,18 @@ def _print_scenario_report(report: dict[str, Any]) -> None:
     for scenario in report.get("scenarios") or []:
         name = scenario.get("name") or "<unnamed>"
         color = typer.colors.GREEN if scenario.get("ok") else typer.colors.RED
-        typer.echo(typer.style(f"    {'OK' if scenario.get('ok') else 'FAIL'} {name}", fg=color))
+        steps = scenario.get("steps") or []
+        failed_at = next((index for index, step in enumerate(steps, start=1) if step.get("status") == "failed"), None)
+        summary = f" (failed at step {failed_at} of {len(steps)})" if failed_at else ""
+        typer.echo(typer.style(f"    {'OK' if scenario.get('ok') else 'FAIL'} {name}{summary}", fg=color))
+        _print_scenario_steps(scenario)
+        step_keys = {step.get("key") for step in steps}
         for error in scenario.get("errors") or []:
             stage = error.get("stage", "scenario") if isinstance(error, dict) else "scenario"
             message = error.get("message", "") if isinstance(error, dict) else str(error)
+            # Errors tied to a step were already printed next to it.
+            if isinstance(error, dict) and error.get("stepKey") in step_keys:
+                continue
             typer.echo(typer.style(f"      error [{stage}]: {message}", fg=typer.colors.RED), err=True)
         for warning in scenario.get("warnings") or []:
             stage = warning.get("stage", "scenario") if isinstance(warning, dict) else "scenario"
@@ -919,6 +986,7 @@ def preview(
             auth_headers=headers,
             bound_interface_id=interface_id,
             on_interface_bound=lambda payload: _persist_preview_binding(file, base, payload),
+            fetch_components=not offline,
         ) as server:
             playground_url = server.url
             typer.echo(f"playground: {playground_url}")
@@ -941,6 +1009,7 @@ def preview(
 
             try:
                 current_task_data = task_data
+                task_media_refs = _task_local_file_refs(task)
                 watch_dir = file.parent
                 for changes in watch(watch_dir, step=200, recursive=False):
                     changed_paths = {Path(path).resolve() for _, path in changes}
@@ -952,7 +1021,8 @@ def preview(
                             task = resolved_task.resolve()
                             task_changed = True
                     else:
-                        task_changed = task in changed_paths
+                        # Media copied in after task.json (or replaced) must re-embed, not wait for a task save.
+                        task_changed = task in changed_paths or not changed_paths.isdisjoint(task_media_refs)
 
                     if not file_changed and not task_changed:
                         continue
@@ -966,6 +1036,7 @@ def preview(
                         continue
                     if task_changed and task is not None:
                         current_task_data = _load_task(task)
+                        task_media_refs = _task_local_file_refs(task)
                     # Sidecar may be written by sync/Save after preview started; refresh each publish.
                     interface_id = _sidecar_interface_id_for_origin(file, base)
                     workspace_id = _sidecar_workspace_for_origin(file, base)
@@ -1318,52 +1389,75 @@ def start(
 
 
 SCREEN_TEMPLATE = """const labels = ["Positive", "Negative"];
+const REGION_ID = "sentiment-choice";
 
-function Screen({ task, regions, setRegions }) {
-  const text = task.data?.text ?? "Add text in task.json";
+function Screen({ task, regions, params, readOnly, addRegion, updateRegion }) {
+  const text = getField(task.data, params?.textField ?? "text") ?? "Add text in task.json";
+  const current = (regions || []).find((r) => r.id === REGION_ID);
+  const selected = current?.labels?.[0];
 
+  // Every change goes through addRegion/updateRegion so the shell records undo/redo history.
   const choose = (label) => {
-    const region = {
-      id: globalThis.crypto?.randomUUID?.() ?? `region-${Date.now()}`,
-      type: "choices",
-      from_name: "sentiment",
-      to_name: "text",
-      value: { choices: [label] },
-    };
-    setRegions([region]);
+    if (readOnly) return;
+    if (current) updateRegion(REGION_ID, { labels: [label] });
+    else addRegion({ id: REGION_ID, type: "choices", labels: [label] });
   };
 
   return (
-    <div style={{ padding: 24, fontFamily: "Arial, sans-serif" }}>
-      <p>{text}</p>
+    <div className="p-6 bg-neutral-background text-neutral-content">
+      <p>{String(text)}</p>
       <div style={{ display: "flex", gap: 8 }}>
         {labels.map((label) => (
-          <button key={label} type="button" onClick={() => choose(label)}>
+          <button
+            key={label}
+            type="button"
+            aria-pressed={selected === label}
+            className={selected === label ? "bg-primary-surface border-primary-border" : "bg-neutral-surface border-neutral-border"}
+            style={{ borderWidth: 1, borderRadius: 6, padding: "6px 12px" }}
+            onClick={() => choose(label)}
+          >
             {label}
           </button>
         ))}
       </div>
-      <pre>{JSON.stringify(regions, null, 2)}</pre>
     </div>
   );
 }
 
 function getResults(regions) {
-  return regions;
+  return (regions || [])
+    .filter((r) => r.type === "choices" && r.labels?.length)
+    .map((r) => ({
+      id: r.id,
+      from_name: "sentiment",
+      to_name: "text",
+      type: "choices",
+      value: { choices: r.labels },
+      origin: "manual",
+    }));
 }
 
 function parseResults(results) {
-  return { regions: results };
+  const regions = (results || [])
+    .filter((r) => r.type === "choices" && r.from_name === "sentiment")
+    .map((r) => ({ id: REGION_ID, type: "choices", labels: r.value?.choices || [] }));
+  return { regions, relations: [] };
 }
 
 ({
   default: Screen,
   getResults,
   parseResults,
+  paramsSchema: {
+    type: "object",
+    properties: {
+      textField: { type: "string", title: "Text field", default: "text" },
+    },
+  },
   inputSchema: {
     type: "object",
     properties: {
-      text: { type: "dataField", default: "text" },
+      text: { type: "dataField", dataType: "string", default: "text" },
     },
   },
   outputSchema: {
@@ -1372,7 +1466,7 @@ function parseResults(results) {
       sentiment: { type: "string", enum: labels },
     },
   },
-});
+})
 """
 
 TASK_TEMPLATE = """{
@@ -1388,7 +1482,13 @@ SCENARIO_TEMPLATE = """export default [
         text: "The interface CLI is ready to use."
       }
     },
-    async run({ page }) {
+    // Declaration order is execution order. Each step must run exactly once and
+    // unconditionally, so the whole plan is known before the scenario runs.
+    steps: {
+      pick: (label) => `select the ${label} sentiment`
+    },
+    async run({ page, step }) {
+      step.pick("Positive");
       await page.getByRole("button", { name: "Positive" }).click();
     },
     expect: {

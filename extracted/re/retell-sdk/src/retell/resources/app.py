@@ -13,6 +13,7 @@ from ..types import (
     app_delete_params,
     app_update_params,
     app_list_usages_params,
+    app_list_templates_params,
     app_get_tool_schema_params,
 )
 from .._types import Body, Omit, Query, Headers, NoneType, NotGiven, omit, not_given
@@ -30,6 +31,7 @@ from ..types.app_response import AppResponse
 from ..types.app_list_response import AppListResponse
 from ..types.app_test_auth_response import AppTestAuthResponse
 from ..types.app_list_usages_response import AppListUsagesResponse
+from ..types.app_list_templates_response import AppListTemplatesResponse
 from ..types.app_get_tool_schema_response import AppGetToolSchemaResponse
 
 __all__ = ["AppResource", "AsyncAppResource"]
@@ -76,10 +78,11 @@ class AppResource(SyncAPIResource):
         """
         Create an App: the connection to one external system (a CRM, calendar, support
         desk, and so on), holding its credentials and settings. Providers with
-        caller-managed credentials accept auth_config. Providers using the OAuth
-        callback must omit auth_config and be authorized through connect-app.
-        Credentials are stored encrypted and never returned. Up to 20 apps per provider
-        by default, unless a custom limit is configured for the organization.
+        caller-managed credentials accept auth_config. Providers using OAuth must omit
+        auth_config and be authorized through connect-app. Providers supporting both
+        methods, such as Cal.com, also accept caller-managed API keys. Credentials are
+        stored encrypted and never returned. Up to 20 apps per provider by default,
+        unless a custom limit is configured for the organization.
 
         Args:
           provider: Provider name. Must be valid for the App's type; the supported providers per
@@ -149,9 +152,10 @@ class AppResource(SyncAPIResource):
         """Partially update an App.
 
         Omitted fields remain unchanged. Updating auth_config
-        or tenant metadata invalidates the cached provider token immediately. Providers
-        using the OAuth callback reject auth_config and must be reauthorized through
-        connect-app.
+        or tenant metadata invalidates the cached provider token immediately. OAuth-only
+        providers reject auth_config and must be reauthorized through connect-app.
+        Providers supporting caller-managed credentials as well, such as Cal.com,
+        continue to accept those credentials.
 
         Args:
           auth_config: Caller-managed credentials. Providers using the OAuth callback reject
@@ -395,6 +399,60 @@ class AppResource(SyncAPIResource):
             cast_to=AppGetToolSchemaResponse,
         )
 
+    def list_templates(
+        self,
+        *,
+        limit: int | Omit = omit,
+        pagination_key: str | Omit = omit,
+        privacy_scope: Literal["standard", "pci"] | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        max_retries: int | NotGiven = not_given,
+    ) -> AppListTemplatesResponse:
+        """
+        List the static catalog of available integration apps — provider, display name,
+        description, and the tools each exposes. Not the organization's connected Apps.
+
+        Args:
+          limit: Maximum number of items to return.
+
+          pagination_key: Pagination key for fetching the next page.
+
+          privacy_scope: Only include functions with this scope and apps providing them. Omit to include
+              all scopes.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self._get(
+            "/list-app-templates",
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                max_retries=max_retries,
+                query=maybe_transform(
+                    {
+                        "limit": limit,
+                        "pagination_key": pagination_key,
+                        "privacy_scope": privacy_scope,
+                    },
+                    app_list_templates_params.AppListTemplatesParams,
+                ),
+            ),
+            cast_to=AppListTemplatesResponse,
+        )
+
     def list_usages(
         self,
         app_id: str,
@@ -533,10 +591,11 @@ class AsyncAppResource(AsyncAPIResource):
         """
         Create an App: the connection to one external system (a CRM, calendar, support
         desk, and so on), holding its credentials and settings. Providers with
-        caller-managed credentials accept auth_config. Providers using the OAuth
-        callback must omit auth_config and be authorized through connect-app.
-        Credentials are stored encrypted and never returned. Up to 20 apps per provider
-        by default, unless a custom limit is configured for the organization.
+        caller-managed credentials accept auth_config. Providers using OAuth must omit
+        auth_config and be authorized through connect-app. Providers supporting both
+        methods, such as Cal.com, also accept caller-managed API keys. Credentials are
+        stored encrypted and never returned. Up to 20 apps per provider by default,
+        unless a custom limit is configured for the organization.
 
         Args:
           provider: Provider name. Must be valid for the App's type; the supported providers per
@@ -606,9 +665,10 @@ class AsyncAppResource(AsyncAPIResource):
         """Partially update an App.
 
         Omitted fields remain unchanged. Updating auth_config
-        or tenant metadata invalidates the cached provider token immediately. Providers
-        using the OAuth callback reject auth_config and must be reauthorized through
-        connect-app.
+        or tenant metadata invalidates the cached provider token immediately. OAuth-only
+        providers reject auth_config and must be reauthorized through connect-app.
+        Providers supporting caller-managed credentials as well, such as Cal.com,
+        continue to accept those credentials.
 
         Args:
           auth_config: Caller-managed credentials. Providers using the OAuth callback reject
@@ -852,6 +912,60 @@ class AsyncAppResource(AsyncAPIResource):
             cast_to=AppGetToolSchemaResponse,
         )
 
+    async def list_templates(
+        self,
+        *,
+        limit: int | Omit = omit,
+        pagination_key: str | Omit = omit,
+        privacy_scope: Literal["standard", "pci"] | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        max_retries: int | NotGiven = not_given,
+    ) -> AppListTemplatesResponse:
+        """
+        List the static catalog of available integration apps — provider, display name,
+        description, and the tools each exposes. Not the organization's connected Apps.
+
+        Args:
+          limit: Maximum number of items to return.
+
+          pagination_key: Pagination key for fetching the next page.
+
+          privacy_scope: Only include functions with this scope and apps providing them. Omit to include
+              all scopes.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return await self._get(
+            "/list-app-templates",
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                max_retries=max_retries,
+                query=await async_maybe_transform(
+                    {
+                        "limit": limit,
+                        "pagination_key": pagination_key,
+                        "privacy_scope": privacy_scope,
+                    },
+                    app_list_templates_params.AppListTemplatesParams,
+                ),
+            ),
+            cast_to=AppListTemplatesResponse,
+        )
+
     async def list_usages(
         self,
         app_id: str,
@@ -971,6 +1085,9 @@ class AppResourceWithRawResponse:
         self.get_tool_schema = to_raw_response_wrapper(
             app.get_tool_schema,
         )
+        self.list_templates = to_raw_response_wrapper(
+            app.list_templates,
+        )
         self.list_usages = to_raw_response_wrapper(
             app.list_usages,
         )
@@ -1000,6 +1117,9 @@ class AsyncAppResourceWithRawResponse:
         )
         self.get_tool_schema = async_to_raw_response_wrapper(
             app.get_tool_schema,
+        )
+        self.list_templates = async_to_raw_response_wrapper(
+            app.list_templates,
         )
         self.list_usages = async_to_raw_response_wrapper(
             app.list_usages,
@@ -1031,6 +1151,9 @@ class AppResourceWithStreamingResponse:
         self.get_tool_schema = to_streamed_response_wrapper(
             app.get_tool_schema,
         )
+        self.list_templates = to_streamed_response_wrapper(
+            app.list_templates,
+        )
         self.list_usages = to_streamed_response_wrapper(
             app.list_usages,
         )
@@ -1060,6 +1183,9 @@ class AsyncAppResourceWithStreamingResponse:
         )
         self.get_tool_schema = async_to_streamed_response_wrapper(
             app.get_tool_schema,
+        )
+        self.list_templates = async_to_streamed_response_wrapper(
+            app.list_templates,
         )
         self.list_usages = async_to_streamed_response_wrapper(
             app.list_usages,

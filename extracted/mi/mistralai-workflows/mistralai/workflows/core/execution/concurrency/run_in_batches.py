@@ -3,10 +3,11 @@ import itertools
 import math
 from typing import Awaitable, Callable, Coroutine, cast
 
-import structlog
 from pydantic import BaseModel
 
-logger = structlog.get_logger(__name__)
+from mistralai.workflows.core._logger import get_logger
+
+logger = get_logger(__name__)
 
 TWO_MB = 2 * 1024 * 1024
 

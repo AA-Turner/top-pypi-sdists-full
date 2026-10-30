@@ -1,17 +1,17 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: pytest-deadfixtures
-Version: 3.1.0
+Version: 4.0.0
 Summary: A simple plugin to list unused fixtures in pytest
-Home-page: https://github.com/jllorencetti/pytest-deadfixtures
-Author: João Luiz Lorencetti
-Author-email: me@dirtycoder.net
-Maintainer: João Luiz Lorencetti
-Maintainer-email: me@dirtycoder.net
-License: MIT
+Project-URL: Issues, https://github.com/jllorencetti/pytest-deadfixtures/issues
+Project-URL: Source, https://github.com/jllorencetti/pytest-deadfixtures
+Author-email: João Luiz Lorencetti <me@dirtycoder.net>
+Maintainer-email: João Luiz Lorencetti <me@dirtycoder.net>, Christian Hartung <6785871+hartungstenio@users.noreply.github.com>
+License-Expression: MIT
+License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Pytest
 Classifier: Intended Audience :: Developers
-Classifier: Topic :: Software Development :: Testing
+Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
@@ -19,171 +19,141 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Classifier: Operating System :: OS Independent
-License-File: LICENSE
-License-File: AUTHORS.rst
-Requires-Dist: pytest>=7.0.0
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
-Dynamic: license
-Dynamic: license-file
-Dynamic: maintainer
-Dynamic: maintainer-email
-Dynamic: requires-dist
-Dynamic: summary
+Classifier: Topic :: Software Development :: Testing
+Requires-Python: >=3.10
+Requires-Dist: pytest>=9.0
+Description-Content-Type: text/markdown
 
-===================
-pytest-deadfixtures
-===================
+# pytest-deadfixtures
 
-.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
-    :target: https://github.com/python/black
-    :alt: Black
-
-.. image:: https://travis-ci.org/jllorencetti/pytest-deadfixtures.svg?branch=main
-    :target: https://travis-ci.org/jllorencetti/pytest-deadfixtures
-    :alt: See Build Status on Travis CI
-
-A simple plugin to list unused or duplicated fixtures in a pytest suite.
+[![PyPI - Version](https://img.shields.io/pypi/v/pytest-deadfixtures.svg)](https://pypi.org/project/pytest-deadfixtures)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pytest-deadfixtures.svg)](https://pypi.org/project/pytest-deadfixtures)
+[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/jllorencetti/pytest-deadfixtures/main.svg)](https://results.pre-commit.ci/latest/github/jllorencetti/pytest-deadfixtures/main)
 
 ----
 
-Features
---------
+A simple plugin to list unused or duplicated fixtures in a pytest suite.
 
-* List unused fixtures in your tests
-* List duplicated fixtures
-* Ignore specific fixtures from analysis with @deadfixtures_ignore
+## Features
 
+- List unused fixtures in your tests
+- List duplicated fixtures
+- Ignore specific fixtures from analysis with `@deadfixtures_ignore`
 
-Installation
-------------
+## Installation
 
-You can install "pytest-deadfixtures" via `pip`_ from `PyPI`_::
+Install `pytest-deadfixtures` from [PyPI](https://pypi.org/project/pytest-deadfixtures/):
 
-    $ pip install pytest-deadfixtures
+```console
+pip install pytest-deadfixtures
+```
 
-Usage
------
+## Usage
 
-Important
-*********
+### Important
 
-The `--dead-fixtures` option will not run your tests and it's also sensible for errors in the pytest collection step.
-If you are using as part of you CI process the recommended way is to run it after the default test run. For example::
+The `--dead-fixtures` option does not run your tests and can also be sensitive to
+errors during the pytest collection step. If using it in CI, run it after the
+normal test run:
 
-    script:
-      - pytest
-      - pytest --dead-fixtures
+```yaml
+script:
+  - pytest
+  - pytest --dead-fixtures
+```
 
+### Listing unused fixtures
 
-Listing unused fixtures
-***********************
+Run pytest with the `--dead-fixtures` option:
 
-Just run 'pytest' with an extra option '--dead-fixtures'::
+```console
+pytest --dead-fixtures
+```
 
-    $ pytest --dead-fixtures
-    ============================= test session starts ==============================
-    (hidden for brevity)
+```text
+Hey there, I believe the following fixture(s) are not being used:
+Fixture name: some_fixture, location: test_write_docs_when_verbose.py:5
 
-    Hey there, I believe the following fixture(s) are not being used:
-    Fixture name: some_fixture, location: test_write_docs_when_verbose.py:5
+no tests ran
+```
 
-    ========================= no tests ran in 0.00 seconds =========================
+Use verbosity to include fixture docstrings in the report:
 
-Using some level of verbosity will also print the docstring of each fixture::
+```console
+pytest --dead-fixtures -v
+```
 
-    $ pytest --dead-fixtures -v
-    ============================= test session starts ==============================
-    (hidden for brevity)
+### Listing repeated fixtures
 
-    Hey there, I believe the following fixture(s) are not being used:
-    Fixture name: some_fixture, location: test_write_docs_when_verbose.py:5
-        Blabla fixture docs
+The `--dup-fixtures` option compares fixture return values to find possible
+duplicates. Fixtures without a truthy return value are skipped. Treat the report
+as a hint and verify that the fixtures provide the same functionality before
+removing one.
 
-    ========================= no tests ran in 0.00 seconds =========================
+Unlike `--dead-fixtures`, this option runs the tests:
 
-Listing repeated fixtures
-*************************
+```console
+pytest --dup-fixtures
+```
 
-Now that you removed every unused fixture of your test suite, what if you want to go an extra mile?
+```text
+tests/test_deadfixtures.py ........
 
-An important note about this is that it uses the fixture return value to verify if two or more fixtures are equal.
+You may have some duplicate fixtures:
+Fixture name: someclass_fixture, location: test_repeated_fixtures.py:12
+Fixture name: someclass_samefixture, location: test_repeated_fixtures.py:17
+```
 
-This means **fixtures without a truthy return value will be skipped**.
+### Ignoring specific fixtures
 
-You should use this as a hint only, verify that the functionality provided by both fixtures are really repeated before deleting one of them.
+Use the `@deadfixtures_ignore` decorator to exclude a fixture from the analysis:
 
-Just run 'pytest' with an extra option '--dup-fixtures', unlike the '--dead-fixtures' option, it'll normally run you tests::
+```python
+import pytest
 
-    $ pytest --dup-fixtures
-    ======================================================================================================================== test session starts ========================================================================================================================
-    (hidden for brevity)
-
-    tests/test_deadfixtures.py ........
-
-    You may have some duplicate fixtures:
-    Fixture name: someclass_fixture, location: test_repeated_fixtures.py:12
-    Fixture name: someclass_samefixture, location: test_repeated_fixtures.py:17
-
-
-Ignoring specific fixtures
-**************************
-
-You can use the `@deadfixtures_ignore` decorator to exclude specific fixtures from the analysis::
-
-    from pytest_deadfixtures import deadfixtures_ignore
-
-    @pytest.fixture
-    @deadfixtures_ignore
-    def intentionally_unused_fixture():
-        """This fixture won't be reported as unused."""
-        return "something"
-
-To see which fixtures are being ignored, use the `--show-ignored-fixtures` option::
-
-    $ pytest --dead-fixtures --show-ignored-fixtures
-    ============================= test session starts ==============================
-    (hidden for brevity)
-
-    No unused fixtures found. Great job!
-
-    Ignored fixtures (1):
-    Fixture name: intentionally_unused_fixture, location: conftest.py:10
-
-    ========================= no tests ran in 0.00 seconds =========================
-
-Projects using it
------------------
-
-- `wemake-django-template`_
-
-Contributing
-------------
-Contributions are very welcome. Tests can be run with `tox`_, please ensure
-the coverage at least stays the same before you submit a pull request.
-
-License
--------
-
-Distributed under the terms of the `MIT`_ license, 'pytest-deadfixtures' is free and open source software
+from pytest_deadfixtures import deadfixtures_ignore
 
 
-Issues
-------
+@pytest.fixture
+@deadfixtures_ignore
+def intentionally_unused_fixture():
+    """This fixture won't be reported as unused."""
+    return "something"
+```
 
-If you encounter any problems, please `file an issue`_ along with a detailed description.
+To see which fixtures are ignored, use `--show-ignored-fixtures`:
 
-.. _`@jllorencetti`: https://github.com/jllorencetti
-.. _`MIT`: http://opensource.org/licenses/MIT
-.. _`file an issue`: https://github.com/jllorencetti/pytest-deadfixtures/issues
-.. _`pytest`: https://github.com/pytest-dev/pytest
-.. _`tox`: https://tox.readthedocs.io/en/latest/
-.. _`pip`: https://pypi.python.org/pypi/pip/
-.. _`PyPI`: https://pypi.python.org/pypi
-.. _`wemake-django-template`: https://github.com/wemake-services/wemake-django-template
+```console
+pytest --dead-fixtures --show-ignored-fixtures
+```
+
+```text
+No unused fixtures found. Great job!
+
+Ignored fixture(s) 1:
+Fixture name: intentionally_unused_fixture, location: conftest.py:10
+```
+
+## Projects using it
+
+- [wemake-django-template](https://github.com/wemake-services/wemake-django-template)
+- [fands.dev django template](https://github.com/fandsdev/django)
+
+## Contributing
+
+Contributions are welcome. Run the tests with [`hatch test`](https://hatch.pypa.io/latest/cli/reference/#hatch-test)
+and check the code with [`hatch check code`](https://hatch.pypa.io/latest/cli/reference/#hatch-check)
+before submitting a pull request.
+
+## License
+
+Distributed under the terms of the [MIT License](http://opensource.org/licenses/MIT).
+`pytest-deadfixtures` is free and open source software.
+
+## Issues
+
+If you encounter any problems, [file an issue](https://github.com/jllorencetti/pytest-deadfixtures/issues)
+with a detailed description.

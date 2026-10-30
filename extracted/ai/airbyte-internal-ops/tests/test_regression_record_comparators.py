@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import re
+import tracemalloc
 from pathlib import Path
 from typing import Any
 
@@ -590,6 +591,51 @@ def test_run_record_comparisons_from_files_passes_on_shared_duplicates(
     assert summary.target_pk_uniqueness.message == (
         "Pre-existing duplicate primary keys in target (not a regression)"
     )
+
+
+@pytest.mark.unit
+def test_target_only_stream_with_duplicate_pk_fails(tmp_path: Path) -> None:
+    target = _records("audit_logs", {"id": 1}, {"id": 1})
+
+    summary = run_record_comparisons_from_files(
+        {}, _write_record_files(tmp_path / "target", target), {"audit_logs": [["id"]]}
+    )
+
+    assert not summary.passed
+    assert (
+        summary.target_pk_uniqueness.stream_results["audit_logs"].duplicate_pk_count
+        == 1
+    )
+    assert summary.errors == [
+        "Stream audit_logs has 1 new duplicate primary key value(s) in target "
+        "(stream not read by control)"
+    ]
+
+
+@pytest.mark.unit
+def test_target_only_stream_with_null_pk_fails(tmp_path: Path) -> None:
+    target = _records("audit_logs", {"id": None})
+
+    summary = run_record_comparisons_from_files(
+        {}, _write_record_files(tmp_path / "target", target), {"audit_logs": [["id"]]}
+    )
+
+    assert not summary.passed
+    assert (
+        summary.target_pk_uniqueness.stream_results["audit_logs"].records_missing_pk
+        == 1
+    )
+
+
+@pytest.mark.unit
+def test_clean_target_only_stream_passes(tmp_path: Path) -> None:
+    target = _records("audit_logs", {"id": 1}, {"id": 2})
+
+    summary = run_record_comparisons_from_files(
+        {}, _write_record_files(tmp_path / "target", target), {"audit_logs": [["id"]]}
+    )
+
+    assert summary.passed
 
 
 # ---------------------------------------------------------------------------
@@ -1347,6 +1393,514 @@ def test_run_record_comparisons_from_files_empty_runs(tmp_path: Path) -> None:
 
     assert summary.passed
     assert summary.to_dict()["checks"]["record_counts"]["passed"]
+
+
+# ---------------------------------------------------------------------------
+# file-based comparison: records stay on disk, compared by fingerprint
+# ---------------------------------------------------------------------------
+
+
+def _records_emitted_at(
+    stream: str, emitted_at: int, *datas: dict[str, Any]
+) -> dict[str, list[AirbyteMessage]]:
+    return {
+        stream: [
+            AirbyteMessage(
+                type=AirbyteMessageType.RECORD,
+                record=AirbyteRecordMessage(
+                    stream=stream, data=data, emitted_at=emitted_at
+                ),
+            )
+            for data in datas
+        ]
+    }
+
+
+def _user(user_id: Any, **fields: Any) -> dict[str, Any]:
+    return {"id": user_id, **fields}
+
+
+# (control, target, primary keys, partial, passed, value diffs per stream)
+_FILE_COMPARISON_CASES = [
+    pytest.param(
+        _records("users", *[_user(i, tags=[i, i + 1], at={"x": i}) for i in range(8)]),
+        _records_emitted_at(
+            "users", 2, *[_user(i, tags=[i, i + 1], at={"x": i}) for i in range(8)]
+        ),
+        USERS_PKS,
+        False,
+        True,
+        {"users": 0},
+        id="full-pass",
+    ),
+    pytest.param(
+        _records("users", *[_user(i, name="a", __v=1, at={"x": 1}) for i in range(9)]),
+        _records(
+            "users",
+            _user(0, name="b", __v=1, at={"x": 1}),
+            _user(1, name="a", __v=2, at={"x": 1}),
+            _user(2, name="a", __v=1, at={"x": 2}),
+            _user(3, name="a", __v=1, at={"x": 1}, added=True),
+            _user(4, name="a", at={"x": 1}),
+            _user(5, name=None, __v=1, at={"x": 1}),
+            _user(6, name="a", __v="1", at={"x": 1}),
+            _user(7, name="a", __v=1, at={"x": 1}),
+            _user(8, name="a", __v=1, at={"x": 1}),
+        ),
+        USERS_PKS,
+        False,
+        False,
+        {"users": 7},
+        id="value-diffs-past-the-example-cap",
+    ),
+    pytest.param(
+        _records(
+            "users",
+            *[_user(1, n="a"), _user(1, n="b")],
+            *[_user(2, n="a"), _user(2, n="b")],
+            *[_user(3, n="a"), _user(3, n="b")],
+            _user(4, n="a"),
+            *[_user(5, n="a"), _user(5, n="b")],
+            *[_user(6, n="a"), _user(6, n="b")],
+            *[_user(7, n="a"), _user(7, n="a")],
+        ),
+        _records_emitted_at(
+            "users",
+            9,
+            *[_user(1, n="a"), _user(1, n="b")],
+            *[_user(2, n="b"), _user(2, n="a")],
+            *[_user(3, n="a"), _user(3, n="c")],
+            *[_user(4, n="a"), _user(4, n="a2")],
+            _user(5, n="a"),
+            *[_user(6, n="x"), _user(6, n="y"), _user(6, n="z")],
+            *[_user(7, n="a"), _user(7, n="a")],
+        ),
+        USERS_PKS,
+        False,
+        False,
+        # 3 changed a record, 5 lost one, 6 changed all of them.
+        {"users": 3},
+        id="duplicate-groups-pre-existing-new-fixed-and-resized",
+    ),
+    pytest.param(
+        _records(
+            "users",
+            *[_user(1, n="a"), _user(1, n="a")],
+            *[_user(2, n="a"), _user(2, n="a"), _user(2, n="b")],
+            *[_user(3, n="a"), _user(3, n="b")],
+        ),
+        _records_emitted_at(
+            "users",
+            9,
+            *[_user(1, n="a") for _ in range(4)],
+            *[_user(2, n="a"), _user(2, n="b"), _user(2, n="b")],
+            *[_user(3, n="b"), _user(3, n="a")],
+        ),
+        USERS_PKS,
+        False,
+        True,
+        # 1 gains two identical copies, 2 repeats a row that moved.
+        {"users": 0},
+        id="duplicate-groups-added-copies",
+    ),
+    pytest.param(
+        _records(
+            "users",
+            *[_user(1, n="hold"), _user(1, n="release")],
+            *[_user(2, n="a"), _user(2, n="b"), _user(2, n="c")],
+            *[_user(3, n="a"), _user(3, n="a")],
+            _user(4, n="a"),
+        ),
+        _records_emitted_at(
+            "users",
+            9,
+            *[_user(1, n="sale"), _user(1, n="release")],
+            _user(2, n="b"),
+            *[_user(3, n="a") for _ in range(4)],
+            _user(4, n="MUTATED"),
+        ),
+        USERS_PKS,
+        True,
+        False,
+        # Only 4, emitted once on each side, is strict; 1 and 2 are reported.
+        {"users": 1},
+        id="stopped-early-duplicate-groups",
+    ),
+    pytest.param(
+        _records(
+            "users",
+            _user(1, tags=[1, 2, 3]),
+            _user(2, rows=[{"k": 1}, {"k": 2}]),
+            *[_user(3, tags=[1, 2]), _user(3, tags=[3, 4])],
+            _user(4, tags=[1, 2]),
+        ),
+        _records(
+            "users",
+            _user(1, tags=[3, 2, 1]),
+            _user(2, rows=[{"k": 2}, {"k": 1}]),
+            *[_user(3, tags=[4, 3]), _user(3, tags=[2, 1])],
+            _user(4, tags=[1, 2, 3]),
+        ),
+        USERS_PKS,
+        False,
+        False,
+        {"users": 1},
+        id="list-order-only",
+    ),
+    pytest.param(
+        _records(
+            "users",
+            _user(1, amount=1),
+            _user(2, amount=0.0),
+            _user(3),
+            _user(4, v="a"),
+            _user(5, flag=True),
+        ),
+        _records(
+            "users",
+            _user(1, amount=1.0),
+            _user(2, amount=-0.0),
+            _user(3.0),
+            _user(4.0, v="b"),
+            _user(5, flag=1),
+        ),
+        USERS_PKS,
+        False,
+        False,
+        {"users": 1},
+        id="int-and-float-spellings",
+    ),
+    pytest.param(
+        _records("users", _user("10"), _user(11), _user(12)),
+        _records("users", _user(10), _user(11), _user(12, n=1)),
+        USERS_PKS,
+        False,
+        False,
+        {"users": 1},
+        id="type-sensitive-pk",
+    ),
+    pytest.param(
+        _records("users", _user(1), _user(None, n=1), {"n": 2}, _user(2, n="a")),
+        _records("users", _user(1), _user(None, n=3), _user(2, n="a")),
+        USERS_PKS,
+        False,
+        False,
+        {"users": 0},
+        id="missing-pk",
+    ),
+    pytest.param(
+        _records("users", *[_user(i) for i in range(1, 15)]),
+        _records("users", *[_user(i) for i in range(8, 23)]),
+        USERS_PKS,
+        False,
+        False,
+        {"users": 0},
+        id="records-on-one-side-past-the-example-cap",
+    ),
+    pytest.param(
+        {
+            **_records("users", _user(1), _user(2)),
+            **_records("events", {"type": "x"}, {"type": "y"}, {"type": "z"}),
+            **_records("logs", {"line": 1}),
+        },
+        {
+            **_records("users", _user(1), _user(2)),
+            **_records("events", {"type": "x"}, {"type": "CHANGED"}),
+            **_records("logs", {"line": 1}),
+        },
+        {"users": [["id"]], "events": None, "logs": []},
+        False,
+        False,
+        {"users": 0},
+        id="streams-without-a-pk-count-only",
+    ),
+    pytest.param(
+        {
+            **_records("users", _user(1)),
+            **_records("orders", {"order_id": 7}),
+        },
+        {
+            **_records("users", _user(1)),
+            **_records("invoices", {"invoice_id": 1}, {"invoice_id": 2}),
+        },
+        {"users": [["id"]], "orders": [["order_id"]], "invoices": [["invoice_id"]]},
+        False,
+        False,
+        {"users": 0, "invoices": 0},
+        id="a-stream-on-one-side",
+    ),
+    pytest.param(
+        _records("users", *[_user(i, n="a") for i in range(1, 7)]),
+        _records(
+            "users", _user(1, n="a"), _user(2, n="B"), _user(3, n="a"), _user(3, n="a")
+        ),
+        USERS_PKS,
+        True,
+        False,
+        {"users": 1},
+        id="stopped-early",
+    ),
+    pytest.param(
+        _records(
+            "readings",
+            {"location": {"id": 1, "zone": "a"}, "date": "d1", "v": 1},
+            {"location": {"id": 2, "zone": "a"}, "date": "d1", "v": 1},
+        ),
+        _records(
+            "readings",
+            {"location": {"zone": "a", "id": 1}, "date": "d1", "v": 1},
+            {"location": {"id": 2, "zone": "a"}, "date": "d1", "v": 2},
+        ),
+        {"readings": [["location"], ["date"]]},
+        False,
+        False,
+        {"readings": 1},
+        id="composite-pk-with-an-object-component",
+    ),
+]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "control,target,pks,partial,passed,value_diffs", _FILE_COMPARISON_CASES
+)
+def test_the_file_based_comparison_matches_holding_the_records(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    control: dict[str, list[AirbyteMessage]],
+    target: dict[str, list[AirbyteMessage]],
+    pks: dict[str, Any],
+    partial: bool,
+    passed: bool,
+    value_diffs: dict[str, int],
+) -> None:
+    """The fingerprint comparison reports exactly what the full diff does.
+
+    The reference is the same files read into lists, which sends every stream
+    through the in-memory comparison: the summaries must be equal as objects
+    (what the HTML report renders) and as JSON (the `regression_report`).
+    """
+    control_files = _write_record_files(tmp_path / "control", control)
+    target_files = _write_record_files(tmp_path / "target", target)
+
+    def grouped_in_memory(*_args: Any) -> None:
+        raise AssertionError("a stream read from disk was held in memory")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(comparators, "_group_records_by_pk", grouped_in_memory)
+        from_disk = run_record_comparisons_from_files(
+            control_files, target_files, pks, partial=partial
+        )
+
+    read_lazily = comparators._read_records_file
+    monkeypatch.setattr(
+        comparators, "_read_records_file", lambda path: list(read_lazily(path))
+    )
+    held = run_record_comparisons_from_files(
+        control_files, target_files, pks, partial=partial
+    )
+
+    assert from_disk == held
+    assert json.dumps(from_disk.to_dict()) == json.dumps(held.to_dict())
+    assert (
+        from_disk.to_dict()["checks"]
+        == run_record_comparisons(control, target, pks, partial=partial).to_dict()[
+            "checks"
+        ]
+    )
+    assert from_disk.passed is passed
+    assert from_disk.field_comparison is not None
+    for stream, count in value_diffs.items():
+        record_diff = from_disk.field_comparison.stream_results[stream].record_diff
+        assert record_diff is not None
+        assert record_diff.records_with_value_diff_count == count
+
+
+@pytest.mark.unit
+def test_the_file_based_comparison_counts_added_copies(tmp_path: Path) -> None:
+    """Added copies are counted on the fingerprint path as in memory.
+
+    A PK whose fingerprints match has no records left on either side, so no
+    copies either; every other duplicated PK is loaded and goes through the
+    same `_record_group_diff`.
+    """
+    control = _records(
+        "users",
+        *[_user(1, n="a"), _user(1, n="a")],
+        *[_user(2, n="a"), _user(2, n="a"), _user(2, n="b")],
+        *[_user(3, n="a"), _user(3, n="a")],
+    )
+    target = _records(
+        "users",
+        *[_user(1, n="a") for _ in range(4)],
+        *[_user(2, n="a"), _user(2, n="b"), _user(2, n="b")],
+        *[_user(3, n="a"), _user(3, n="a")],
+    )
+
+    summary = run_record_comparisons_from_files(
+        _write_record_files(tmp_path / "control", control),
+        _write_record_files(tmp_path / "target", target),
+        USERS_PKS,
+    )
+
+    assert summary.passed is True
+    assert summary.field_comparison is not None
+    users = summary.field_comparison.stream_results["users"]
+    assert users.record_diff is not None
+    assert users.record_diff.added_copy_count == 3
+    assert users.record_diff.added_copy_pk_count == 2
+    assert users.record_diff.added_copy_pks == {(1,): 2, (2,): 1}
+    assert (
+        summary.to_dict()
+        == run_record_comparisons(control, target, USERS_PKS).to_dict()
+    )
+
+
+@pytest.mark.unit
+def test_the_file_based_comparison_reads_lines_as_the_list_reader_did(
+    tmp_path: Path,
+) -> None:
+    """Blank lines, other message types and protocol-invalid records are
+    skipped, and positions still land on the right record."""
+    noise = [
+        "",
+        "not json",
+        json.dumps({"type": "RECORD", "record": {"stream": "users"}}),
+        json.dumps({"type": "LOG", "log": {"level": "INFO", "message": "hi"}}),
+        "   ",
+    ]
+    paths = {}
+    for side, name in (("control", "a"), ("target", "b")):
+        path = tmp_path / side / "users.jsonl"
+        path.parent.mkdir()
+        lines = []
+        for user_id in range(4):
+            lines.extend(noise)
+            lines.append(_record("users", _user(user_id, n=name)).model_dump_json())
+        path.write_text("\n".join(lines) + "\n" + "\n".join(noise))
+        paths[side] = {"users": path}
+
+    records = comparators._read_records_file(paths["target"]["users"])
+    assert len(records) == 4
+    assert [message.record.data["id"] for message in records] == [0, 1, 2, 3]
+    assert records[2].record.data == {"id": 2, "n": "b"}
+
+    summary = run_record_comparisons_from_files(
+        paths["control"], paths["target"], USERS_PKS
+    )
+    record_diff = summary.field_comparison.stream_results["users"].record_diff
+    assert record_diff.records_with_value_diff_count == 4
+    assert [
+        example["target"]["data"] for example in record_diff.records_with_value_diff
+    ] == [{"id": user_id, "n": "b"} for user_id in range(4)]
+
+
+@pytest.mark.unit
+def test_a_record_without_a_fingerprint_is_compared_in_full() -> None:
+    """NaN has one JSON spelling but never equals itself, so equal canonical
+    JSON would not mean equal records: such a record gets no fingerprint."""
+    record = {"stream": "users", "data": {"id": 1, "score": float("nan")}}
+
+    assert comparators._record_fingerprint(record, ["emitted_at"]) is None
+    assert not comparators._fingerprints_match([(0, None)], [(0, None)])
+    assert comparators._record_fingerprint({"data": {"id": 1}}, []) is not None
+    # The normalized key leaves NaN and infinity as floats, at any depth, so
+    # they still have no fingerprint.
+    for value in (float("inf"), [1.0, float("nan")], {"x": [float("-inf")]}):
+        assert comparators._record_fingerprint({"data": {"v": value}}, []) is None
+
+
+@pytest.mark.unit
+def test_a_pair_the_fingerprint_skips_is_no_diff_in_memory_either(
+    tmp_path: Path,
+) -> None:
+    """`1`, `1.0` and `True`, and list order, give the same fingerprint.
+
+    DeepDiff alone calls a bool beside an int in a reordered list a type
+    change; the single-pair comparison judges by the same key the fingerprint
+    is a digest of, so both paths call the pair equal.
+    """
+    control = _records("users", {"id": 1, "flags": [1, 2.0], "n": 1})
+    target = _records("users", {"id": 1, "flags": [2, True], "n": 1.0})
+    [control_record] = [_message_dict(message) for message in control["users"]]
+    [target_record] = [_message_dict(message) for message in target["users"]]
+
+    assert comparators._record_fingerprint(
+        control_record, ["emitted_at"]
+    ) == comparators._record_fingerprint(target_record, ["emitted_at"])
+    assert (
+        comparators._single_record_diff(control_record, target_record, ["emitted_at"])
+        is None
+    )
+    in_memory = run_record_comparisons(control, target, USERS_PKS)
+    from_files = run_record_comparisons_from_files(
+        _write_record_files(tmp_path / "control", control),
+        _write_record_files(tmp_path / "target", target),
+        USERS_PKS,
+    )
+    assert in_memory.passed is True
+    assert from_files.to_dict() == in_memory.to_dict()
+
+
+def _message_dict(message: AirbyteMessage) -> dict[str, Any]:
+    return json.loads(message.record.model_dump_json())
+
+
+def _write_large_records_file(
+    path: Path, records: int, emitted_at: int, mutated: frozenset[int] = frozenset()
+) -> None:
+    """One stream of `records` records of about 6 KB each."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    body = "x" * 6000
+    with path.open("w") as out:
+        for index in range(records):
+            data = {"id": index, "body": "changed" if index in mutated else body}
+            message = {
+                "type": "RECORD",
+                "record": {"stream": "users", "data": data, "emitted_at": emitted_at},
+            }
+            out.write(json.dumps(message) + "\n")
+
+
+@pytest.mark.unit
+def test_the_file_based_comparison_does_not_hold_the_stream_in_memory(
+    tmp_path: Path,
+) -> None:
+    """Peak memory must stay well under the size of the stream compared.
+
+    Each side used to be held as parsed messages and again as dicts grouped by
+    PK -- measured at about 22 times one side's bytes -- and an uncapped
+    PayPal read was killed by its runner inside the comparison. The bound is a
+    quarter of one side's file, which the old path exceeded on its first copy.
+    """
+    control = tmp_path / "control" / "users.jsonl"
+    target = tmp_path / "target" / "users.jsonl"
+    _write_large_records_file(control, 7_500, emitted_at=1)
+    _write_large_records_file(
+        target, 7_500, emitted_at=2, mutated=frozenset({7, 70, 700})
+    )
+    size = control.stat().st_size
+    assert size > 40 * 1024 * 1024
+
+    tracemalloc.start()
+    try:
+        summary = run_record_comparisons_from_files(
+            {"users": control}, {"users": target}, USERS_PKS
+        )
+        _current, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+
+    assert peak < size // 4
+    assert peak < 32 * 1024 * 1024
+    assert summary.count_comparison.stream_results["users"].control_count == 7_500
+    record_diff = summary.field_comparison.stream_results["users"].record_diff
+    assert record_diff.records_with_value_diff_count == 3
+    assert [example["pk"] for example in record_diff.records_with_value_diff] == [
+        (7,),
+        (70,),
+        (700,),
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -3121,3 +3675,513 @@ def test_an_added_dunder_field_is_counted() -> None:
     # rather than in the one-sided lists. Asserted so the failure has to come
     # from the added `__typename` and not from the records failing to match up.
     assert result.stream_results["users"].record_diff.records_with_value_diff
+
+
+# ---------------------------------------------------------------------------
+# Partial reads: a side was stopped early, so the outputs end at different points
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_a_partial_read_reports_counts_and_presence_without_folding_them() -> None:
+    """The target stopped two records short of the control: not a regression."""
+    control = _records("users", {"id": 1, "n": "a"}, {"id": 2, "n": "b"}, {"id": 3})
+    target = _records("users", {"id": 1, "n": "a"}, {"id": 2, "n": "b"})
+
+    summary = run_record_comparisons(control, target, USERS_PKS, partial=True)
+
+    assert summary.partial is True
+    assert summary.passed is True
+    assert summary.count_comparison.passed is False
+    assert summary.pk_presence is not None and summary.pk_presence.passed is False
+    assert summary.field_comparison is not None and summary.field_comparison.passed
+    assert summary.errors == []
+    assert any("fewer records" in warning for warning in summary.warnings)
+    assert summary.to_dict()["partial"] is True
+    # The same output on a complete read is the regression it looks like.
+    assert run_record_comparisons(control, target, USERS_PKS).passed is False
+
+
+@pytest.mark.unit
+def test_a_partial_read_still_fails_on_a_value_diff_on_a_shared_pk() -> None:
+    control = _records("users", {"id": 1, "n": "a"}, {"id": 2, "n": "b"})
+    target = _records("users", {"id": 1, "n": "MUTATED"})
+
+    summary = run_record_comparisons(control, target, USERS_PKS, partial=True)
+
+    assert summary.passed is False
+    assert summary.field_comparison is not None
+    users = summary.field_comparison.stream_results["users"]
+    assert users.passed is False
+    assert users.record_diff is not None
+    assert users.record_diff.records_with_value_diff_count == 1
+    # Still reported, so the reader can tell the two apart; only the value
+    # difference decided the verdict.
+    assert users.record_diff.records_only_in_control_count == 1
+    assert "Stream users has record differences" in summary.errors
+
+
+_STOPPED_SIDE = {
+    "success": True,
+    "exit_code": 0,
+    "stopped_early": {"reason": "cap", "records_seen": 3, "elapsed_s": 2.0},
+}
+
+
+def _stopped_read_report(tmp_path: Path, summary: Any) -> str:
+    report_path = generate_action_test_comparison_report(
+        target_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="read",
+        target_result=_STOPPED_SIDE,
+        control_result=_STOPPED_SIDE,
+        output_dir=tmp_path,
+        record_comparison=summary.to_dict(),
+    )
+    return report_path.read_text()
+
+
+@pytest.mark.unit
+def test_a_partial_read_only_warns_on_a_duplicate_pk_new_in_the_target(
+    tmp_path: Path,
+) -> None:
+    """A cap can stop the control before a duplicate's second record.
+
+    Two capped sides of a concurrent read are cut mid-page at different
+    points, so a group the control would have duplicated too can be whole on
+    the target and half-read on the control. The duplicate is reported, not
+    failed, and the cell and the Result line agree on it.
+    """
+    control = _records("users", {"id": 1}, {"id": 2})
+    target = _records("users", {"id": 1}, {"id": 1}, {"id": 2})
+
+    summary = run_record_comparisons(control, target, USERS_PKS, partial=True)
+
+    assert summary.passed is True
+    assert summary.target_pk_uniqueness is not None
+    assert summary.target_pk_uniqueness.passed is True
+    assert _split_of(summary, "target_pk_uniqueness") == (0, 1, 0)
+    assert summary.errors == []
+    assert any(
+        "1 new duplicate primary key value(s) in target" in warning
+        and "inconclusive on a stopped-early read" in warning
+        for warning in summary.warnings
+    )
+    assert summary.target_pk_uniqueness.message == (
+        "New duplicate primary keys in target (inconclusive on a stopped-early read)"
+    )
+
+    content = _stopped_read_report(tmp_path, summary)
+    assert "**Result:** INCOMPLETE — stopped early (cap)" in content
+    assert "REGRESSION DETECTED" not in content
+    assert "**Status:** ✅ PASSED" in content
+    assert "| users | 2 → 3 ⚠️ | 0 ⚠️ | 0 ✅ | 1 new ⚠️ | 0 ✅ | ⚠️ |" in content
+    assert "#### Comparison Errors" not in content
+
+
+@pytest.mark.unit
+def test_the_file_based_comparison_only_warns_on_a_new_duplicate_when_partial(
+    tmp_path: Path,
+) -> None:
+    control = _records("users", {"id": 1})
+    target = _records("users", {"id": 1}, {"id": 1})
+
+    summary = run_record_comparisons_from_files(
+        _write_record_files(tmp_path / "control", control),
+        _write_record_files(tmp_path / "target", target),
+        USERS_PKS,
+        partial=True,
+    )
+
+    assert summary.passed is True
+    assert summary.target_pk_uniqueness is not None
+    assert summary.target_pk_uniqueness.passed is True
+    assert summary.target_pk_uniqueness.message == (
+        "New duplicate primary keys in target (inconclusive on a stopped-early read)"
+    )
+    # The control carries the same split but did not duplicate anything.
+    assert summary.control_pk_uniqueness is not None
+    assert summary.control_pk_uniqueness.message == (
+        "All primary keys unique and present in control"
+    )
+
+
+@pytest.mark.unit
+def test_a_partial_read_still_fails_on_a_record_missing_its_pk(tmp_path: Path) -> None:
+    """A record without its declared PK value is wrong at any stopping point."""
+    control = _records("users", {"id": 1}, {"id": 2})
+    target = _records("users", {"id": 1}, {"id": 1}, {"id": None, "name": "x"})
+
+    summary = run_record_comparisons(control, target, USERS_PKS, partial=True)
+
+    assert summary.passed is False
+    assert summary.target_pk_uniqueness is not None
+    assert summary.target_pk_uniqueness.passed is False
+    users = summary.target_pk_uniqueness.stream_results["users"]
+    assert users.passed is False
+    assert users.records_missing_pk == 1
+    assert any("missing or null primary key" in error for error in summary.errors)
+    # The new duplicate beside it still only warns.
+    assert not any("new duplicate" in error for error in summary.errors)
+
+    content = _stopped_read_report(tmp_path, summary)
+    assert "**Status:** ❌ FAILED" in content
+    assert "— **REGRESSION DETECTED**" in content
+    assert "| 1 new, 1 missing PK ❌ |" in content
+
+
+@pytest.mark.unit
+def test_a_complete_read_still_fails_on_a_duplicate_pk_new_in_the_target() -> None:
+    """The partial-read softening does not reach a read that ran to completion."""
+    control = _records("users", {"id": 1}, {"id": 2})
+    target = _records("users", {"id": 1}, {"id": 1}, {"id": 2})
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    assert summary.passed is False
+    assert summary.target_pk_uniqueness is not None
+    assert summary.target_pk_uniqueness.passed is False
+    assert (
+        "Stream users has 1 new duplicate primary key value(s) in target "
+        "(not duplicated in control)"
+    ) in summary.errors
+
+
+@pytest.mark.unit
+def test_a_partial_read_still_only_warns_on_a_pre_existing_duplicate_pk() -> None:
+    control = _records("users", {"id": 1}, {"id": 1})
+    target = _records("users", {"id": 1}, {"id": 1})
+
+    summary = run_record_comparisons(control, target, USERS_PKS, partial=True)
+
+    assert summary.passed is True
+    assert summary.target_pk_uniqueness is not None
+    assert summary.target_pk_uniqueness.passed is True
+    assert (
+        summary.target_pk_uniqueness.stream_results[
+            "users"
+        ].pre_existing_duplicate_pk_count
+        == 1
+    )
+
+
+@pytest.mark.unit
+def test_a_partial_read_tolerates_a_stream_the_target_never_reached() -> None:
+    control = {**_records("users", {"id": 1}), **_records("orders", {"order_id": 7})}
+    target = _records("users", {"id": 1})
+    pks = {"users": [["id"]], "orders": [["order_id"]]}
+
+    summary = run_record_comparisons(control, target, pks, partial=True)
+
+    assert summary.passed is True
+    assert summary.field_comparison is not None
+    assert summary.field_comparison.stream_results["orders"].passed is True
+    assert summary.count_comparison.stream_results["orders"].passed is False
+
+
+@pytest.mark.unit
+def test_the_file_based_comparison_carries_the_partial_flag(tmp_path: Path) -> None:
+    control = _records("users", {"id": 1}, {"id": 2})
+    target = _records("users", {"id": 1})
+
+    summary = run_record_comparisons_from_files(
+        _write_record_files(tmp_path / "control", control),
+        _write_record_files(tmp_path / "target", target),
+        USERS_PKS,
+        partial=True,
+    )
+
+    assert summary.partial is True
+    assert summary.passed is True
+    assert run_record_comparisons_from_files({}, {}, USERS_PKS, partial=True).partial
+
+
+@pytest.mark.unit
+def test_compare_read_records_treats_a_stopped_side_as_partial(tmp_path: Path) -> None:
+    control = _write_stdout_file(
+        tmp_path / "control" / "stdout.txt", _records("users", {"id": 1}, {"id": 2})
+    )
+    target = _write_stdout_file(
+        tmp_path / "target" / "stdout.txt", _records("users", {"id": 1})
+    )
+
+    summary, skip_reason = _compare_read_records(
+        target_result={
+            "stdout_file": str(target),
+            "stopped_early": {"reason": "cap", "records_seen": 1, "elapsed_s": 2.0},
+        },
+        control_result={"stdout_file": str(control), "stopped_early": None},
+        catalog_file=_users_catalog_file(tmp_path),
+    )
+
+    assert skip_reason is None
+    assert summary is not None
+    assert summary.partial is True
+    assert summary.passed is True
+
+
+@pytest.mark.unit
+def test_a_partial_read_judges_duplicate_pk_groups_on_their_common_part() -> None:
+    """A cap can cut a duplicated PK's group on one side.
+
+    The records both sides hold are matched as on a complete read. What is
+    left unmatched in a group -- a record only one side reached, or a
+    different record on each side -- may only say where each side stopped,
+    so on a partial read it is reported apart and does not fail. A complete
+    read fails both.
+    """
+    control = _records("users", {"id": 1, "n": "hold"}, {"id": 1, "n": "release"})
+    cut = _records("users", {"id": 1, "n": "release"})
+    mutated = _records("users", {"id": 1, "n": "release"}, {"id": 1, "n": "MUTATED"})
+
+    assert run_record_comparisons(control, cut, USERS_PKS, partial=True).passed is True
+
+    summary = run_record_comparisons(control, mutated, USERS_PKS, partial=True)
+
+    assert summary.passed is True
+    assert summary.errors == []
+    assert summary.field_comparison is not None
+    users = summary.field_comparison.stream_results["users"]
+    assert users.record_diff is not None
+    assert users.record_diff.records_with_value_diff_count == 0
+    assert users.record_diff.partial_group_diff_count == 1
+    assert [example["pk"] for example in users.record_diff.partial_group_diffs] == [
+        (1,)
+    ]
+    # The duplicate itself is pre-existing on both sides and only warns.
+    assert summary.target_pk_uniqueness is not None
+    assert summary.target_pk_uniqueness.passed is True
+    # On a complete read both are the regressions they look like.
+    assert run_record_comparisons(control, cut, USERS_PKS).passed is False
+    assert run_record_comparisons(control, mutated, USERS_PKS).passed is False
+
+
+def _transaction(transaction_id: str, event: str) -> dict[str, Any]:
+    return {"transaction_id": transaction_id, "event": event, "amount": 10}
+
+
+_TRANSACTION_PKS = {"transactions": [["transaction_id"]]}
+
+
+@pytest.mark.unit
+def test_a_partial_read_reports_a_hold_release_pair_the_cut_split(
+    tmp_path: Path,
+) -> None:
+    """PayPal-style ledger rows: one transaction ID, one row per event.
+
+    Both versions emit the same rows, but each side stopped at a different
+    point. `T7`: the control reached the hold, the target the release.
+    `T8`: the target stopped before the release. `T9`: the control stopped
+    before it. None of it is a strict failure on a partial read; the same
+    output on a complete read is three regressions.
+    """
+    control = _records(
+        "transactions",
+        _transaction("T7", "sale"),
+        _transaction("T7", "hold"),
+        _transaction("T8", "sale"),
+        _transaction("T8", "hold"),
+        _transaction("T8", "release"),
+        _transaction("T9", "sale"),
+    )
+    target = _records(
+        "transactions",
+        _transaction("T7", "sale"),
+        _transaction("T7", "release"),
+        _transaction("T8", "sale"),
+        _transaction("T8", "hold"),
+        _transaction("T9", "sale"),
+        _transaction("T9", "release"),
+    )
+
+    summary = run_record_comparisons(control, target, _TRANSACTION_PKS, partial=True)
+
+    assert summary.passed is True
+    assert summary.errors == []
+    assert summary.field_comparison is not None
+    transactions = summary.field_comparison.stream_results["transactions"]
+    assert transactions.passed is True
+    assert transactions.record_diff is not None
+    assert transactions.record_diff.records_with_value_diff_count == 0
+    assert transactions.record_diff.partial_group_diff_count == 2
+    assert summary.field_comparison.message == (
+        "All records match, apart from duplicated PK values that are "
+        "inconclusive on a stopped-early read"
+    )
+    assert any(
+        "2 duplicated PK value(s) whose records differ, inconclusive on a "
+        "stopped-early read" in warning
+        for warning in summary.warnings
+    )
+    from_files = run_record_comparisons_from_files(
+        _write_record_files(tmp_path / "control", control),
+        _write_record_files(tmp_path / "target", target),
+        _TRANSACTION_PKS,
+        partial=True,
+    )
+    assert from_files.to_dict() == summary.to_dict()
+    payload = summary.to_dict()["checks"]["field_values"]["streams"]["transactions"]
+    assert payload["records_with_value_diff"] == 0
+    assert payload["partial_group_diff_count"] == 2
+    assert [example["pk"] for example in payload["partial_group_diff_examples"]] == [
+        ["T7"],
+        ["T8"],
+    ]
+
+    content = _stopped_read_report(tmp_path, summary)
+    assert "REGRESSION DETECTED" not in content
+    assert "0, 2 duplicated PK(s) inconclusive ⚠️" in content
+
+    complete = run_record_comparisons(control, target, _TRANSACTION_PKS)
+    assert complete.passed is False
+    assert complete.field_comparison is not None
+    complete_diff = complete.field_comparison.stream_results["transactions"].record_diff
+    assert complete_diff is not None
+    assert complete_diff.records_with_value_diff_count == 2
+    assert complete_diff.partial_group_diff_count == 0
+    assert complete.target_pk_uniqueness is not None
+    assert complete.target_pk_uniqueness.passed is False
+
+
+@pytest.mark.unit
+def test_a_partial_read_still_fails_a_single_record_value_change() -> None:
+    """A PK value both sides emitted once is judged strictly at any stop.
+
+    Beside it, a duplicated PK the cut split is only reported, and the two
+    are counted apart.
+    """
+    control = _records(
+        "users",
+        {"id": 1, "n": "a"},
+        {"id": 2, "n": "hold"},
+        {"id": 2, "n": "release"},
+    )
+    target = _records(
+        "users",
+        {"id": 1, "n": "MUTATED"},
+        {"id": 2, "n": "hold"},
+    )
+
+    summary = run_record_comparisons(control, target, USERS_PKS, partial=True)
+
+    assert summary.passed is False
+    assert "Stream users has record differences" in summary.errors
+    assert summary.field_comparison is not None
+    users = summary.field_comparison.stream_results["users"]
+    assert users.passed is False
+    assert users.record_diff is not None
+    assert users.record_diff.records_with_value_diff_count == 1
+    assert [example["pk"] for example in users.record_diff.records_with_value_diff] == [
+        (1,)
+    ]
+    assert users.record_diff.partial_group_diff_count == 1
+    assert [example["pk"] for example in users.record_diff.partial_group_diffs] == [
+        (2,)
+    ]
+    assert summary.field_comparison.message == "Record differences found"
+
+
+@pytest.mark.unit
+def test_a_partial_read_leaves_the_duplicate_extras_at_zero() -> None:
+    """Fixed, lost, added copies and the count allowance need whole groups.
+
+    A cut can make any of them look true, so on a partial read their counts
+    are 0 in the objects and the JSON, a control-only duplicate is named
+    neutrally, and the count stays the inconclusive finding it is. The same
+    output on a complete read classifies all of them.
+    """
+    control = _records(
+        "users",
+        *[{"id": 1, "n": "a"}, {"id": 1, "n": "a"}],
+        *[{"id": 2, "n": "a"}, {"id": 2, "n": "b"}],
+        *[{"id": 3, "n": "a"}, {"id": 3, "n": "a"}],
+    )
+    target = _records(
+        "users",
+        {"id": 1, "n": "a"},
+        {"id": 2, "n": "a"},
+        *[{"id": 3, "n": "a"} for _ in range(3)],
+    )
+
+    complete = run_record_comparisons(control, target, USERS_PKS)
+    assert complete.control_pk_uniqueness is not None
+    complete_control = complete.control_pk_uniqueness.stream_results["users"]
+    assert (
+        complete_control.fixed_duplicate_pk_count,
+        complete_control.lost_duplicate_pk_count,
+    ) == (1, 1)
+    assert complete.field_comparison is not None
+    complete_diff = complete.field_comparison.stream_results["users"].record_diff
+    assert complete_diff is not None
+    assert complete_diff.added_copy_count == 1
+    assert complete.count_comparison.stream_results["users"].passed is True
+
+    summary = run_record_comparisons(control, target, USERS_PKS, partial=True)
+
+    assert summary.passed is True
+    assert summary.control_pk_uniqueness is not None
+    control_users = summary.control_pk_uniqueness.stream_results["users"]
+    assert control_users.duplicate_pk_count == 3
+    assert control_users.pre_existing_duplicate_pk_count == 1
+    assert control_users.fixed_duplicate_pk_count == 0
+    assert control_users.lost_duplicate_pk_count == 0
+    assert control_users.lost_duplicate_pks == []
+    assert "fixed in target" not in control_users.message
+    assert "dropped or changed" not in control_users.message
+    assert (
+        "2 duplicate primary key value(s) in control not duplicated in target "
+        "(partial read)"
+    ) in control_users.message
+    assert summary.control_pk_uniqueness.message == (
+        "Pre-existing duplicate primary keys in control (not a regression); "
+        "others not duplicated in target (partial read)"
+    )
+    assert summary.field_comparison is not None
+    users_diff = summary.field_comparison.stream_results["users"].record_diff
+    assert users_diff is not None
+    assert (users_diff.added_copy_count, users_diff.added_copy_pk_count) == (0, 0)
+    assert users_diff.added_copy_pks == {}
+    assert users_diff.partial_group_diff_count == 1
+    counts = summary.count_comparison.stream_results["users"]
+    assert (counts.control_count, counts.target_count, counts.passed) == (6, 5, False)
+    assert summary.count_comparison.message == "Record count mismatch"
+    assert not any("duplicate rows" in warning for warning in summary.warnings)
+
+    checks = summary.to_dict()["checks"]
+    control_json = checks["pk_uniqueness_control"]["streams"]["users"]
+    assert control_json["fixed_duplicate_pk_count"] == 0
+    assert control_json["lost_duplicate_pk_count"] == 0
+    field_json = checks["field_values"]["streams"]["users"]
+    assert field_json["added_copy_count"] == 0
+    assert field_json["added_copy_pk_count"] == 0
+    assert checks["record_counts"]["streams"]["users"]["passed"] is False
+
+
+@pytest.mark.unit
+def test_a_partial_read_names_control_only_duplicates_neutrally_in_the_report(
+    tmp_path: Path,
+) -> None:
+    control = _records("users", {"id": 1}, {"id": 1}, {"id": 2}, {"id": 2})
+    target = _records("users", {"id": 1}, {"id": 2}, {"id": 2})
+
+    summary = run_record_comparisons(control, target, USERS_PKS, partial=True)
+
+    content = _stopped_read_report(tmp_path, summary)
+    assert (
+        "| 2 (1 pre-existing, 1 not duplicated in target (partial read)) ⚠️ "
+        "| 1 (pre-existing) ⚠️ |"
+    ) in content
+    assert "fixed in target" not in content
+
+
+@pytest.mark.unit
+def test_a_records_file_that_changed_under_the_comparison_raises_index_error(
+    tmp_path: Path,
+) -> None:
+    """A position noted for a record that is no longer there is out of range."""
+    files = _write_record_files(tmp_path, _records("users", {"id": 1}, {"id": 2}))
+    records = comparators._read_records_file(files["users"])
+    files["users"].write_text("\n")
+
+    with pytest.raises(IndexError, match="changed while it was being compared"):
+        records[1]

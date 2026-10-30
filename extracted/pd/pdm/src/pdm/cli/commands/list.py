@@ -21,6 +21,7 @@ from pdm.cli.utils import (
     show_dependency_graph,
 )
 from pdm.exceptions import PdmUsageError
+from pdm.models.project_info import normalize_project_url_label
 from pdm.models.requirements import Requirement
 from pdm.project import Project
 
@@ -253,7 +254,7 @@ class Command(BaseCommand):
         keys = parse_comma_separated_string(options.sort) if options.sort else ["name"]
         if not all(key in Listable.KEYS for key in keys):
             raise PdmUsageError(f"--sort key must be one of: {','.join(Listable.KEYS)}")
-        records.sort(key=lambda d: tuple(d[key].casefold() for key in keys))
+        records.sort(key=lambda d: tuple((d[key] or "").casefold() for key in keys))
 
         # Write CSV
         if options.csv:
@@ -327,8 +328,18 @@ class Listable:
         self.version = dist.metadata.get("Version")
         self.version = None if self.version == "UNKNOWN" else self.version
 
-        self.homepage = dist.metadata.get("Home-Page")
-        self.homepage = None if self.homepage == "UNKNOWN" else self.homepage
+        # Home-page is deprecated, PEP 621 projects only set a "Homepage" Project-URL
+        homepage = dist.metadata.get("Home-page") or dist.metadata.get("Home-Page")
+        if not homepage or homepage == "UNKNOWN":
+            project_urls = {
+                k.strip(): v.strip()
+                for k, v in (row.split(",", 1) for row in (dist.metadata.get_all("Project-URL") or []) if "," in row)
+            }
+            homepage = next(
+                (url for label, url in project_urls.items() if normalize_project_url_label(label) == "homepage"),
+                None,
+            )
+        self.homepage = None if homepage == "UNKNOWN" else homepage
 
         # Prefer the SPDX License-Expression (core metadata 2.4, PEP 639).
         # If the License metadata field is empty or UNKNOWN then try to

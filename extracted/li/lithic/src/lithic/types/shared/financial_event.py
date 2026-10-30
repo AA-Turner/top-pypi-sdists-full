@@ -109,6 +109,9 @@ class FinancialEvent(BaseModel):
             "INTEREST",
             "INTEREST_REVERSAL",
             "INTERNAL_ADJUSTMENT",
+            "INTRA_BANK_CANCELED",
+            "INTRA_BANK_INITIATED",
+            "INTRA_BANK_SETTLED",
             "LATE_PAYMENT",
             "LATE_PAYMENT_REVERSAL",
             "LOSS_WRITE_OFF",
@@ -137,5 +140,6 @@ class FinancialEvent(BaseModel):
             "STABLECOIN_SENT",
             "STABLECOIN_SETTLED",
             "STABLECOIN_REJECTED",
+            "INSTANCE_TO_INSTANCE",
         ]
     ] = None

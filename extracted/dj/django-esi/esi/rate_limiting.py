@@ -1,5 +1,6 @@
 import logging
 import time
+from typing import Any
 
 from redis.exceptions import LockNotOwnedError
 
@@ -12,14 +13,14 @@ logger = logging.getLogger(__name__)
 seconds_per_unit = {"s": 1, "m": 60, "h": 3600, "d": 86400}
 
 
-def interval_to_seconds(s) -> int:
+def interval_to_seconds(s: str) -> int:
     if len(s) == 1:
         return seconds_per_unit[s[-1]]
     else:
         return int(s[:-1]) * seconds_per_unit[s[-1]]
 
 
-def force_string(kwargs):
+def force_string(kwargs: Any) -> Any:
     if isinstance(kwargs, dict):
         return {
             force_string(key): force_string(value) for key, value in kwargs.items()
@@ -29,17 +30,17 @@ def force_string(kwargs):
     return kwargs
 
 
-def kwargs_to_list(kwargs):
+def kwargs_to_list(kwargs: dict[Any, Any]) -> list[str]:
     """
     Turns {'a': 1, 'b': 2} into ["a-1", "b-2"]
     """
-    kwargs_list = []
+    kwargs_list: list[str] = []
     for k, v in sorted(kwargs.items(), key=lambda kv: str(kv[0])):
         kwargs_list.append(str(k) + '-' + str(force_string(v)))
     return kwargs_list
 
 
-def task_bucket_slug_key(task, kwargs, restrict_to=None):
+def task_bucket_slug_key(task: Any, kwargs: dict[str, Any], restrict_to: list[str] | None = None) -> str:
     """
     Turns a list the name of the task, the kwargs and allowed keys
     into a redis key.
@@ -52,7 +53,7 @@ def task_bucket_slug_key(task, kwargs, restrict_to=None):
     return key
 
 
-def limit_to_rate(rate_limit):
+def limit_to_rate(rate_limit: str) -> float:
     """convert things like 100/15m or 10/s to a delay in seconds"""
     lim = rate_limit.split("/")
     secs = interval_to_seconds(lim[1])
@@ -63,16 +64,16 @@ class ESIRateLimitBucket:
     MARKET_DATA_HISTORY = ("market_data_history", 300, 60)
     CHARACTER_CORPORATION_HISTORY = ("character_corporation_history", 300, 60)
 
-    def __init__(self, slug, limit, window):
+    def __init__(self, slug: str, limit: int, window: int) -> None:
         self.slug = slug
         self.limit = limit
         self.window = window
 
     @classmethod
-    def choices(cls):
+    def choices(cls) -> list[tuple[str, str]]:
         return [(bucket.slug, bucket.slug.replace("_", " ").title()) for bucket in cls]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Rate Limit: {self.slug} - {self.limit} in {self.window}Seconds"
 
 
@@ -80,7 +81,7 @@ class ESIRateLimiter:
     def __init__(self) -> None:
         pass
 
-    def _slug_to_key(self, slug) -> str:
+    def _slug_to_key(self, slug: str) -> str:
         return f"esi:bucket:{slug}"
 
     def init_bucket(self, bucket: ESIRateLimitBucket) -> None:
@@ -152,27 +153,27 @@ class ESIRateLimiter:
 
 
 class TaskRateLimitBucket:
-    def __init__(self, slug, limit, window):
+    def __init__(self, slug: str, limit: int, window: int) -> None:
         self.slug = slug
         self.limit = limit
         self.window = window
         self.ttl = window / limit
 
     @classmethod
-    def from_rate(cls, slug, rate_string):
+    def from_rate(cls, slug: str, rate_string: str) -> "TaskRateLimitBucket":
         limit, window = rate_string.split("/")
         window_seconds = interval_to_seconds(window)
         return cls(slug, int(limit), window_seconds)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Rate Limit: {self.slug} - {self.limit} in {self.window}Seconds"
 
 
 class TaskRateLimiter:
-    def _slug_to_key(self, slug) -> str:
+    def _slug_to_key(self, slug: str) -> str:
         return f"task:bucket:{slug}"
 
-    def _slug_to_lock(self, slug) -> str:
+    def _slug_to_lock(self, slug: str) -> str:
         return f"lock:bucket:{slug}"
 
     def get_bucket(self, bucket: TaskRateLimitBucket) -> int:

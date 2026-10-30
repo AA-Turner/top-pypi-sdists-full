@@ -151,6 +151,17 @@ class TestXMLParsers:
         results = DAVResponse.from_bytes(b"", status_code=404).parse_propfind()
         assert results == []
 
+    @pytest.mark.parametrize(
+        "method", ["parse_propfind", "parse_calendar_query", "parse_sync_collection"]
+    )
+    def test_parse_failure_keeps_status(self, method):
+        """A failing reply raises a ResponseError carrying the HTTP status."""
+        from caldav.lib import error
+
+        with pytest.raises(error.ResponseError) as excinfo:
+            getattr(DAVResponse.from_bytes(b"", status_code=507), method)()
+        assert excinfo.value.status == 507
+
     def test_parse_calendar_query_response(self):
         """Parse calendar-query response with calendar data."""
         xml = b"""<?xml version="1.0"?>
@@ -279,8 +290,9 @@ END:VCALENDAR</C:calendar-data>
                 <D:status>HTTP/1.1 507 Insufficient Storage</D:status>
             </D:response>
         </D:multistatus>"""
-        with pytest.raises(error.ResponseError):
+        with pytest.raises(error.ResponseError) as excinfo:
             DAVResponse.from_bytes(xml).expand_simple_props([dav.GetEtag()])
+        assert excinfo.value.status == 507
 
     def test_parse_sync_collection_generic_responsedescription(self):
         """A 404 <response> may carry an arbitrary <responsedescription>.
@@ -328,6 +340,36 @@ END:VCALENDAR</C:calendar-data>
 
         assert result.deleted == ["/cal/gone.ics"]
         assert result.changed == []
+
+    ## Infomaniak (SabreDAV) answers a removed member with an empty propstat
+    ## carrying 418 next to the 404 of the response itself
+    removed_with_teapot_xml = b"""<?xml version="1.0"?>
+        <D:multistatus xmlns:D="DAV:">
+            <D:response>
+                <D:href>/cal/gone.ics</D:href>
+                <D:propstat>
+                    <D:prop/>
+                    <D:status>HTTP/1.1 418 I'm a teapot</D:status>
+                </D:propstat>
+                <D:status>HTTP/1.1 404 Not Found</D:status>
+            </D:response>
+            <D:sync-token>tok</D:sync-token>
+        </D:multistatus>"""
+
+    def test_parse_propfind_ignores_propstats_of_a_404(self):
+        results = DAVResponse.from_bytes(self.removed_with_teapot_xml).parse_propfind()
+
+        assert [(r.href, r.properties, r.status) for r in results] == [("/cal/gone.ics", {}, 404)]
+
+    def test_expand_simple_props_ignores_propstats_of_a_404(self):
+        """The legacy parser used by Calendar.get_objects_by_sync_token."""
+        from caldav.elements import dav
+
+        response = DAVResponse.from_bytes(self.removed_with_teapot_xml)
+        props = response.expand_simple_props([dav.GetEtag()])
+
+        assert props == {"/cal/gone.ics": {dav.GetEtag.tag: None}}
+        assert response.statuses == {"/cal/gone.ics": "HTTP/1.1 404 Not Found"}
 
     def test_parse_nested_properties(self):
         """Issue https://github.com/python-caldav/caldav/issues/795: properties

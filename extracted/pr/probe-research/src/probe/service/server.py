@@ -30,11 +30,14 @@
             hooks          ──statusline.refresh─> statusline.py (one fetch child per plugin folder)
                            ──notes.sync─────────> notesync.py (the team note's sync, debounced)
             (schedule, check_now) ──────────────> updater.py: CLI + plugins, app, self
+            (each minute, Codex's cache) ───────> codextrust.py: Probe's hooks approved again
+                                                  once Codex rewrote its copies of them, in a child (#3617)
 
 Nothing here runs on a timer while idle: owners are watched by the kernel
 (pidfd on Linux, kqueue on macOS; a 2 s poll only where neither works), and the
 only timers are the discovery end, the grace, a heartbeat-only owner's TTL,
-the 6-hourly update check, and two that run only while they have work (plan
+the 6-hourly update check, the state post's and the Codex healer's minute (a
+digest, a stat walk), and two that run only while they have work (plan
 Q2): the mailbox watch's look every 0.25 s while a subscriber waits on a
 session, and the run-alert round every 30 s while a daemon session is live
 (one GET per session whose worker asked, on a kept connection). No model calls
@@ -73,6 +76,7 @@ from .caller import Bound, same_process
 from . import updater as updater_mod
 from .actions import ActionManager
 from .alertpoll import AlertPoller
+from .codextrust import CodexTrust
 from .background import FLUSH_S as BACKGROUND_FLUSH_S
 from .background import BackgroundHost, other_network
 from .hints import HintLane
@@ -742,7 +746,7 @@ class Service:
             held=lambda: self.updater.applying,
         )
         self._import_count = 0
-        #: An update installed a new CLI while an action ran: stop once it ends.
+        #: An update installed a new CLI while an action ran or waited: stop once they end.
         self._restart_pending = False
         self.actions = ActionManager(
             emit=self._emit, changed=self._changed, holder=self.mutating_holder, finished=self._action_finished
@@ -785,6 +789,18 @@ class Service:
         #: The team's nearest records for each session recorded here, looked up
         #: once for the machine and posted to its mailbox (Probe hints T3).
         self.hints = HintLane(sessions=self._hint_sessions, log=log, version=self.version, posted=self._hint_posted)
+        #: Probe's hooks in Codex, approved again whenever Codex rewrites its
+        #: copies of Probe's plugins (#3617), while automatic updates are on.
+        #: Never beside an update cycle, an action, a desktop change or a setup
+        #: run from a terminal: they write Codex's config too.
+        self.codex_trust = CodexTrust(
+            log=log,
+            changed=self.reevaluate,
+            held=lambda: (self.updater.in_progress() or self.actions.running is not None
+                          or self.management.running > 0
+                          or updater_mod.setup_running(self.registry.state_dirs())),
+            enabled=lambda: updater_mod.auto_update_enabled(self.registry.state_dirs()),
+        )
 
     # -- lifecycle -----------------------------------------------------------
 
@@ -840,6 +856,7 @@ class Service:
         # What fails from here on is watched (crash-report plan B2).
         self.watch.start()
         self.statepost.start()
+        self.codex_trust.start()
         # The sessions the last service recorded, from their saved progress
         # (after `on_ready`: the tap's import is no part of the start path).
         self._loop.call_soon(self._resume_recorders)
@@ -878,8 +895,9 @@ class Service:
         flight (at most its child's timeout), queued hook events not yet run
         (each bounded by its lane's budget), a desktop request being answered
         (at most its deadline), a status-line read or a team-note sync waiting
-        or in flight (a session's last sync must not be lost), or an import
-        worker it watches. A run hold does not: with no service there is no
+        or in flight (a session's last sync must not be lost), an import
+        worker it watches, or an approval of Probe's hooks in Codex in flight
+        (`codextrust`). A run hold does not: with no service there is no
         updater to keep off the run."""
         if self.registry.alive_count() > 0 or self.recorders.alive() or self.manifest.in_flight():
             return True
@@ -891,7 +909,9 @@ class Service:
             return True  # a desktop request being answered, or a change's child still running
         if self.notes.in_flight() or self.statusline.in_flight() or self.imports.live():
             return True
-        if self.actions.running is not None or self.updater.holding():
+        if self.codex_trust.asking():
+            return True  # Probe's hooks in Codex being approved (at most codextrust.TIMEOUT_S)
+        if self.actions.pending() or self.updater.holding():
             return True
         return any(conn.keepalive for conn in self.connections)
 
@@ -907,7 +927,7 @@ class Service:
         """An action started or ended: what holds the service, and what
         `probe status` would say, may have changed."""
         self.status_cache.invalidate()
-        if self._restart_pending and self.actions.running is None:
+        if self._restart_pending and not self.actions.pending():
             self.stop(StopReason.UPDATE)
             return
         self.reevaluate()
@@ -916,12 +936,15 @@ class Service:
         """A desktop change's child exited: what holds the service (and the
         mutating slot) may have changed."""
         self.status_cache.invalidate()
+        self.actions.drain()
         self.reevaluate()
 
     def _cycle_changed(self) -> None:
-        """An update cycle started or ended: what holds the service may have
-        changed, and so may every version `probe status` reports."""
+        """An update cycle started, let go of the mutating slot or ended: what
+        holds the service may have changed (the actions queued behind it run
+        now), and so may every version `probe status` reports."""
         self.status_cache.invalidate()
+        self.actions.drain()
         self._note_update_cycles()
         self.reevaluate()
 
@@ -1213,10 +1236,12 @@ class Service:
         """An update cycle installed a new CLI: this service is old code. Not
         under a running action, though, whose child would lose the rest of its
         events and read as stopped with the service: the action holds the one
-        mutating slot meanwhile, and the stop follows the moment it ends."""
-        if self.actions.running is not None:
+        mutating slot meanwhile, and the stop follows the moment it ends. Nor
+        before the actions queued behind the update have run (on the new CLI:
+        their child is `runtime.json`'s interpreter)."""
+        if self.actions.pending():
             if not self._restart_pending:
-                log("a new CLI is installed: restarting once the running action ends")
+                log("a new CLI is installed: restarting once the running and queued actions end")
             self._restart_pending = True
             return
         self.stop(reason)
@@ -1250,6 +1275,9 @@ class Service:
         if self.stop_reason is not None or self._done is None:
             return
         self.stop_reason = reason
+        # No queued action starts under a stopping service (the cycle's
+        # cancellation below says the slot is free): the next one reads it as stopped.
+        self.actions.stop_starting()
         with contextlib.suppress(OSError):
             (paths.service_dir() / STOPPING_NAME).touch()
         log(f"stopping ({reason})")
@@ -1400,6 +1428,7 @@ class Service:
                 self._host_pool.shutdown(wait=False, cancel_futures=True)  # a proxy's wait never holds the exit
         self.watch.close()
         self.statepost.close()
+        self.codex_trust.close()
         # Every recorder pauses (after the connections closed: a recorder's link
         # cannot end its session in the registry saved below).
         with contextlib.suppress(Exception):
@@ -1745,7 +1774,11 @@ class Service:
             "sessions": self.registry.alive_count(),
             "app_clients": len(self._app_connections()),
             "update": self.updater.public(),
-            "actions": {"running": self.actions.busy_holder()},
+            "actions": {
+                "running": self.actions.busy_holder(),
+                # Waiting for an update to let go of the slot, oldest first.
+                "queued": self.actions.queued_ids(),
+            },
             "discovering_until": until,
             "hook_hosts": self.hookhosts.public(),
             "hook_queue": self.hook_queue.public(),
@@ -1762,14 +1795,16 @@ class Service:
             "notes": self.notes.public(),
             # What fails here and what was reported (crash-report plan B2).
             "watch": self.watch.public(),
+            # Probe's hooks in Codex, kept approved (#3617).
+            "codex_trust": self.codex_trust.public(),
         }
 
     def _stop(self, conn: Connection, params: dict) -> dict:
         if self.updater.in_progress():
             raise RpcError(ErrorCode.REFUSED, "refused: an update is running", {"reason": RefusedReason.UPDATING})
-        if self.actions.running is not None:
+        if self.actions.pending():
             raise RpcError(
-                ErrorCode.REFUSED, "refused: an action is running", {"reason": RefusedReason.ACTION_RUNNING}
+                ErrorCode.REFUSED, "refused: an action is running or waiting", {"reason": RefusedReason.ACTION_RUNNING}
             )
         conn.after_reply = lambda: self.stop(StopReason.STOP)
         return {"stopping": True}

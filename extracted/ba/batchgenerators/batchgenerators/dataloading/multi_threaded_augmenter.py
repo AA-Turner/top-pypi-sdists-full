@@ -25,22 +25,32 @@ from multiprocessing import Event
 from time import sleep, time
 from threadpoolctl import threadpool_limits
 
-from batchgenerators.dataloading.nondet_multi_threaded_augmenter import pin_memory_of_all_eligible_items_in_dict
+from batchgenerators.dataloading.nondet_multi_threaded_augmenter import pin_memory_of_all_eligible_items_in_dict, \
+    init_worker, ParentWatch
 
 try:
     import torch
 except ImportError:
     torch = None
 
+logger = logging.getLogger(__name__)
+
 
 def producer(queue, data_loader, transform, thread_id, seed, abort_event,
              pause_event=None, wait_time: float = 0.02):
-    np.random.seed(seed)
+    init_worker(seed)
     data_loader.set_thread_id(thread_id)
     item = None
+    parent = ParentWatch()
 
     try:
         while not abort_event.is_set():
+            # Nobody reads the queue once the parent is gone, so don't let the exit wait for the queue's feeder thread
+            # either.
+            if parent.parent_died():
+                queue.cancel_join_thread()
+                return
+
             # When paused, hold any in-flight item and stop interacting with the
             # queue. This guarantees no new bytes hit the pipe after pause is
             # observed, which is what _finish() relies on for safe shutdown.
@@ -106,6 +116,13 @@ def results_loop(in_queues: List[Queue], out_queue: thrQueue, abort_event: Event
                     item = current_queue.get(timeout=wait_time)
                 except Empty:
                     continue  # retry the same queue; abort_event re-checked at top of loop
+                except Exception:
+                    # A worker can still put a batch during shutdown and exit right after. Torch tensors are unpickled
+                    # by fetching their file descriptor from the sending process, so that batch may fail to load. It
+                    # would be discarded anyway.
+                    if abort_event.is_set():
+                        return
+                    raise
                 # if we do pin memory, do it now, otherwise skip this. The isinstance(dict) guard keeps the 'end'
                 # string sentinel from reaching the pinning logic.
                 if do_pin_memory:
@@ -128,6 +145,10 @@ def results_loop(in_queues: List[Queue], out_queue: thrQueue, abort_event: Event
         except KeyboardInterrupt:
             abort_event.set()
             raise KeyboardInterrupt
+        except Exception:
+            # the main thread only watches abort_event, without it next() would wait for batches forever
+            abort_event.set()
+            raise
 
 
 class MultiThreadedAugmenter(object):
@@ -143,7 +164,7 @@ class MultiThreadedAugmenter(object):
         num_cached_per_queue (int): number of batches cached per process (each process has its own
         multiprocessing.Queue). We found 2 to be ideal.
         seeds (list of int): one seed for each worker. Must have len(num_processes).
-        If None then seeds = range(num_processes)
+        If None, every worker seeds itself from the OS and runs are not reproducible
         pin_memory (bool): set to True if all torch tensors in data_dict are to be pinned. Pytorch only.
         timeout (int): How long do we wait for the background workers to do stuff? If timeout seconds have passed and
         self.__get_next_item still has not gotten an item from the workers we will perform a check whether all
@@ -186,8 +207,8 @@ class MultiThreadedAugmenter(object):
         while True:
             if self.abort_event.is_set():
                 self._finish()
-                raise RuntimeError("One or more background workers are no longer alive. Exiting. Please check the "
-                                   "print statements above for the actual error message")
+                raise RuntimeError("A background worker or the thread collecting their batches failed. Exiting. Please "
+                                   "check the output above for the actual error message")
 
             try:
                 return self.pin_memory_queue.get(timeout=self.wait_time)
@@ -206,7 +227,7 @@ class MultiThreadedAugmenter(object):
                 if self._end_ctr == self.num_processes:
                     self._end_ctr = 0
                     self._queue_ctr = 0
-                    logging.debug("MultiThreadedGenerator: finished data generation")
+                    logger.debug("MultiThreadedGenerator: finished data generation")
                     raise StopIteration
 
                 item = self.__get_next_item()
@@ -214,7 +235,7 @@ class MultiThreadedAugmenter(object):
             return item
 
         except KeyboardInterrupt:
-            logging.error("MultiThreadedGenerator: caught exception: {}".format(sys.exc_info()))
+            logger.error("MultiThreadedGenerator: caught exception: {}".format(sys.exc_info()))
             self.abort_event.set()
             self._finish()
             raise KeyboardInterrupt
@@ -225,7 +246,7 @@ class MultiThreadedAugmenter(object):
             self.abort_event.clear()
             self.pause_event.clear()
 
-            logging.debug("starting workers")
+            logger.debug("starting workers")
             self._queue_ctr = 0
             self._end_ctr = 0
 
@@ -258,8 +279,8 @@ class MultiThreadedAugmenter(object):
 
             self.was_initialized = True
         else:
-            logging.debug("MultiThreadedGenerator Warning: start() has been called but it has already been "
-                          "initialized previously")
+            logger.debug("MultiThreadedGenerator Warning: start() has been called but it has already been "
+                         "initialized previously")
 
     def _finish(self, timeout=10, force=False):
         """Shut down workers and the pin-memory thread.
@@ -303,7 +324,7 @@ class MultiThreadedAugmenter(object):
         #    feeder threads need pipe space to flush before the worker
         #    process can fully exit; draining concurrently unblocks them.
         if len(self._processes) > 0:
-            logging.debug("MultiThreadedGenerator: shutting down workers...")
+            logger.debug("MultiThreadedGenerator: shutting down workers...")
             deadline = time() + timeout
             drain_tick = max(self.wait_time, 0.01)
             while time() < deadline and any(p.is_alive() for p in self._processes):
@@ -348,7 +369,7 @@ class MultiThreadedAugmenter(object):
         self._start()
 
     def __del__(self):
-        logging.debug("MultiThreadedGenerator: destructor was called")
+        logger.debug("MultiThreadedGenerator: destructor was called")
         # Interpreter shutdown may have already torn down parts of
         # multiprocessing; take the fast path with a short timeout.
         self._finish(timeout=2, force=True)

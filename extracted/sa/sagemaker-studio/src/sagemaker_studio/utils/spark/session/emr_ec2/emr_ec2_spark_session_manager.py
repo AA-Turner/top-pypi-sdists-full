@@ -236,15 +236,50 @@ class EmrEc2SparkSessionManager(SparkSessionManager):
     def get_session_id(self):
         return self.emr_session_id
 
+    def _is_fgac_enabled(self) -> bool:
+        """Whether the connection requests native Lake Formation FGAC.
+
+        Reads spark.emr-ec2.lakeformation.enabled from the connection's spark-defaults
+        (the EMR-EC2 connection FGAC signal). FGAC only when explicitly "true";
+        absent/"false" means FTA/compatibility mode.
+        """
+        value = (self.connection_spark_configs or {}).get(
+            "spark.emr-ec2.lakeformation.enabled", "false"
+        )
+        return str(value).lower() == "true"
+
     def _get_service_specific_configs(self) -> dict:
         """Build EMR on EC2-specific spark configs (Layer 2).
 
-        Includes OpenLineage configs for data lineage tracking (same as Glue,
-        minus Glue-specific spark.glue.* keys).
+        Applies FTA/compatibility-mode configs unless the connection requests native
+        FGAC (spark.emr-ec2.lakeformation.enabled=true), in which case the compat
+        configs are skipped and the cluster's Lake Formation security configuration
+        drives enforcement. Includes OpenLineage configs for data lineage tracking
+        (same as Glue, minus Glue-specific spark.glue.* keys).
         """
-        configs = apply_compatibility_mode_configs({})
+        if self._is_fgac_enabled():
+            # FGAC is NOT release-gated on the client for EMR-on-EC2: as with
+            # OpenLineage below, the DataZone-vended connection carries no release
+            # label and the session role lacks elasticmapreduce:DescribeCluster, so
+            # the client cannot determine the release to gate on. The cluster's Lake
+            # Formation security configuration is the enforcement point; a release too
+            # old to support FGAC is rejected there.
+            logger.info("Native FGAC active — compatibility mode configs not applied")
+            configs = {}
+        else:
+            configs = apply_compatibility_mode_configs({})
 
-        # OpenLineage configs for data lineage (mirrors Glue session manager)
+        # OpenLineage configs for data lineage (mirrors Glue session manager).
+        #
+        # Unlike Glue/EMR-Serverless, EMR-on-EC2 OpenLineage is NOT gated on the
+        # release label: the EC2 cluster is external (referenced only by its
+        # computeArn), the DataZone-vended connection carries no release label,
+        # and the Spark Connect session role grants only the EMR session APIs
+        # (StartSession/GetSession/GetSessionEndpoint/TerminateSession/
+        # ListSessions) -- not elasticmapreduce:DescribeCluster -- so the client
+        # cannot determine the release to gate on. OpenLineage is passed
+        # unconditionally here; on EMR 8.2+ the server-side injection takes
+        # precedence over any duplicate client config.
         try:
             configs.update(
                 {

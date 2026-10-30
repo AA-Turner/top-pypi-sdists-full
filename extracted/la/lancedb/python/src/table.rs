@@ -1,0 +1,2448 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright The LanceDB Authors
+use lancedb::table::computed_columns::ComputedColumnOptions;
+use std::{
+    collections::HashMap,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+};
+
+use crate::runtime::{block_on, future_into_py, spawn_background};
+use crate::{
+    connection::Connection,
+    error::PythonErrorExt,
+    expr::PyExpr,
+    index::{IndexConfig, extract_index_params},
+    query::{Query, TakeQuery},
+    table::scannable::PyScannable,
+};
+use arrow::{
+    array::{Array, LargeBinaryArray},
+    datatypes::{DataType, Schema},
+    ffi_stream::ArrowArrayStreamReader,
+    pyarrow::{FromPyArrow, PyArrowType, ToPyArrow},
+};
+use lancedb::blob::{BlobDescriptor, BlobFile, BlobRangeRequest};
+use lancedb::connection::LanceFileVersion;
+use lancedb::index::scalar::FtsIndexBuilder;
+use lancedb::table::{
+    AddDataMode, ColumnAlteration, CompactionMode, CompactionOptions, Duration,
+    FieldMetadataUpdate, FtsToken as LanceDbFtsToken, IndexRemapMode, NewColumnTransform,
+    OptimizeAction, OptimizeOptions, Ref, Table as LanceDbTable,
+};
+use lancedb::tokenize as lancedb_tokenize;
+use pyo3::{
+    Bound, FromPyObject, Py, PyAny, PyRef, PyResult, Python,
+    exceptions::{PyRuntimeError, PyValueError},
+    pyclass, pyfunction, pymethods,
+    types::{IntoPyDict, PyAnyMethods, PyBytes, PyDict, PyDictMethods, PyList, PyListMethods},
+};
+
+mod scannable;
+
+/// Convert `RTEStats` to a Python dict, preserving the per-table-shard list.
+///
+/// Deliberately not flattened to a table-level summary: a table is N
+/// table shards on one node, and the per-shard detail is the reason the
+/// endpoint exists — flattening hides the single hot table shard someone opened
+/// it to find.
+fn rte_stats_to_py(py: Python<'_>, stats: &lancedb::table::RTEStats) -> PyResult<Py<PyDict>> {
+    let out = PyDict::new(py);
+    let table_shards = PyList::empty(py);
+    for b in &stats.table_shards {
+        let e = PyDict::new(py);
+        e.set_item("shard_id", &b.shard_id)?;
+        e.set_item("status", &b.status)?;
+        e.set_item("writer_epoch", b.writer_epoch)?;
+        e.set_item("manifest_version", b.manifest_version)?;
+        e.set_item("current_generation", b.current_generation)?;
+        e.set_item(
+            "replay_after_wal_entry_position",
+            b.replay_after_wal_entry_position,
+        )?;
+        e.set_item(
+            "wal_entry_position_last_seen",
+            b.wal_entry_position_last_seen,
+        )?;
+
+        let sstables = PyList::empty(py);
+        for g in &b.sstables {
+            let ge = PyDict::new(py);
+            ge.set_item("generation", g.generation)?;
+            ge.set_item("bytes", g.bytes)?;
+            ge.set_item("rows", g.rows)?;
+            sstables.append(ge)?;
+        }
+        e.set_item("sstables", sstables)?;
+        e.set_item("compacting", b.compacting)?;
+
+        e.set_item(
+            "memtables",
+            b.memtables
+                .as_ref()
+                .map(|ms| {
+                    let l = PyList::empty(py);
+                    for m in ms {
+                        let d = PyDict::new(py);
+                        d.set_item("generation", m.generation)?;
+                        d.set_item("rows", m.rows)?;
+                        d.set_item("bytes", m.bytes)?;
+                        d.set_item("batches", m.batches)?;
+                        d.set_item("indexes", m.indexes.clone())?;
+                        l.append(d)?;
+                    }
+                    PyResult::Ok(l.unbind())
+                })
+                .transpose()?,
+        )?;
+        table_shards.append(e)?;
+    }
+    out.set_item("table_shards", table_shards)?;
+    Ok(out.unbind())
+}
+
+#[derive(FromPyObject)]
+enum PredicateArg {
+    Expr(PyExpr),
+    Sql(String),
+}
+
+fn validate_positive_u32(value: u64, name: &str) -> PyResult<usize> {
+    if !(1..=u32::MAX as u64).contains(&value) {
+        return Err(PyValueError::new_err(format!(
+            "{name} must be between 1 and {}",
+            u32::MAX
+        )));
+    }
+    Ok(value as usize)
+}
+
+fn positive_u32(value: &Bound<'_, PyAny>, name: &str) -> PyResult<usize> {
+    validate_positive_u32(value.extract()?, name)
+}
+
+fn optional_positive_u32(value: &Bound<'_, PyAny>, name: &str) -> PyResult<Option<usize>> {
+    value
+        .extract::<Option<u64>>()?
+        .map(|value| validate_positive_u32(value, name))
+        .transpose()
+}
+
+fn optional_positive_usize(value: &Bound<'_, PyAny>, name: &str) -> PyResult<Option<usize>> {
+    let value: Option<usize> = value.extract()?;
+    if value == Some(0) {
+        return Err(PyValueError::new_err(format!(
+            "{name} must be greater than 0"
+        )));
+    }
+    Ok(value)
+}
+
+fn optional_positive_u64(value: &Bound<'_, PyAny>, name: &str) -> PyResult<Option<u64>> {
+    let value: Option<u64> = value.extract()?;
+    if value == Some(0) {
+        return Err(PyValueError::new_err(format!(
+            "{name} must be greater than 0"
+        )));
+    }
+    Ok(value)
+}
+
+fn u32_list(value: &Bound<'_, PyAny>, name: &str) -> PyResult<Vec<u32>> {
+    value
+        .extract::<Vec<i64>>()?
+        .into_iter()
+        .map(|value| {
+            u32::try_from(value).map_err(|_| {
+                PyValueError::new_err(format!(
+                    "{name} must contain values between 0 and {}",
+                    u32::MAX
+                ))
+            })
+        })
+        .collect()
+}
+
+fn optional_i64_bounded_u64(value: &Bound<'_, PyAny>, name: &str) -> PyResult<Option<u64>> {
+    let value: Option<u64> = value.extract()?;
+    if value.is_some_and(|value| value > i64::MAX as u64) {
+        return Err(PyValueError::new_err(format!(
+            "{name} must be at most {}",
+            i64::MAX
+        )));
+    }
+    Ok(value)
+}
+
+fn parse_compaction_options(options: Option<&Bound<'_, PyDict>>) -> PyResult<CompactionOptions> {
+    let mut parsed = CompactionOptions::default();
+    let Some(options) = options else {
+        return Ok(parsed);
+    };
+
+    for (key, value) in options.iter() {
+        let key: String = key.extract()?;
+        match key.as_str() {
+            "target_rows_per_fragment" => {
+                parsed.target_rows_per_fragment = positive_u32(&value, &key)?
+            }
+            "max_rows_per_group" => parsed.max_rows_per_group = positive_u32(&value, &key)?,
+            "max_bytes_per_file" => parsed.max_bytes_per_file = value.extract()?,
+            "materialize_deletions" => parsed.materialize_deletions = value.extract()?,
+            "materialize_deletions_threshold" => {
+                parsed.materialize_deletions_threshold = value.extract()?
+            }
+            "num_threads" => parsed.num_threads = optional_positive_usize(&value, &key)?,
+            "batch_size" => parsed.batch_size = optional_positive_u32(&value, &key)?,
+            "io_buffer_size" => parsed.io_buffer_size = optional_i64_bounded_u64(&value, &key)?,
+            "defer_index_remap" => parsed.defer_index_remap = value.extract()?,
+            "index_remap_mode" => {
+                let mode: String = value.extract()?;
+                parsed.index_remap_mode = IndexRemapMode::try_from(mode.as_str())
+                    .map_err(|err| PyValueError::new_err(err.to_string()))?;
+            }
+            "compaction_mode" => {
+                let mode: Option<String> = value.extract()?;
+                parsed.compaction_mode = mode
+                    .map(|mode| {
+                        CompactionMode::try_from(mode.as_str())
+                            .map_err(|err| PyValueError::new_err(err.to_string()))
+                    })
+                    .transpose()?;
+            }
+            "binary_copy_read_batch_bytes" => {
+                parsed.binary_copy_read_batch_bytes = value.extract()?
+            }
+            "max_source_fragments" => parsed.max_source_fragments = value.extract()?,
+            "max_source_rows" => parsed.max_source_rows = optional_positive_usize(&value, &key)?,
+            "max_source_bytes" => parsed.max_source_bytes = optional_positive_u64(&value, &key)?,
+            "excluded_fragment_ids" => parsed.excluded_fragment_ids = u32_list(&value, &key)?,
+            "max_overlays_per_fragment" => parsed.max_overlays_per_fragment = value.extract()?,
+            "data_storage_version" => {
+                let version: String = value.extract()?;
+                parsed.data_storage_version = Some(
+                    version
+                        .parse::<LanceFileVersion>()
+                        .map_err(|err| PyValueError::new_err(err.to_string()))?,
+                );
+            }
+            _ => {
+                return Err(PyValueError::new_err(format!(
+                    "Invalid compaction option: {key}"
+                )));
+            }
+        }
+    }
+
+    Ok(parsed)
+}
+
+/// Statistics about a compaction operation.
+#[pyclass(get_all, from_py_object)]
+#[derive(Clone, Debug)]
+pub struct CompactionStats {
+    /// The number of fragments removed
+    pub fragments_removed: u64,
+    /// The number of new, compacted fragments added
+    pub fragments_added: u64,
+    /// The number of data files removed
+    pub files_removed: u64,
+    /// The number of new, compacted data files added
+    pub files_added: u64,
+}
+
+/// Statistics about a cleanup operation
+#[pyclass(get_all, from_py_object)]
+#[derive(Clone, Debug)]
+pub struct RemovalStats {
+    /// The number of bytes removed
+    pub bytes_removed: u64,
+    /// The number of old versions removed
+    pub old_versions_removed: u64,
+}
+
+/// Statistics about an optimize operation
+#[pyclass(get_all, from_py_object)]
+#[derive(Clone, Debug)]
+pub struct OptimizeStats {
+    /// Statistics about the compaction operation
+    pub compaction: CompactionStats,
+    /// Statistics about the removal operation
+    pub prune: RemovalStats,
+}
+
+#[pyclass(get_all, from_py_object)]
+#[derive(Clone, Debug)]
+pub struct UpdateResult {
+    pub rows_updated: u64,
+    pub version: u64,
+}
+
+#[pymethods]
+impl UpdateResult {
+    pub fn __repr__(&self) -> String {
+        format!(
+            "UpdateResult(rows_updated={}, version={})",
+            self.rows_updated, self.version
+        )
+    }
+}
+
+impl From<lancedb::table::UpdateResult> for UpdateResult {
+    fn from(result: lancedb::table::UpdateResult) -> Self {
+        Self {
+            rows_updated: result.rows_updated,
+            version: result.version,
+        }
+    }
+}
+
+#[pyclass(get_all, from_py_object)]
+#[derive(Clone, Debug)]
+pub struct AddResult {
+    pub version: u64,
+}
+
+#[pymethods]
+impl AddResult {
+    pub fn __repr__(&self) -> String {
+        format!("AddResult(version={})", self.version)
+    }
+}
+
+impl From<lancedb::table::AddResult> for AddResult {
+    fn from(result: lancedb::table::AddResult) -> Self {
+        Self {
+            version: result.version,
+        }
+    }
+}
+
+#[pyclass(get_all, from_py_object)]
+#[derive(Clone, Debug)]
+pub struct DeleteResult {
+    pub num_deleted_rows: u64,
+    pub version: u64,
+}
+
+#[pymethods]
+impl DeleteResult {
+    pub fn __repr__(&self) -> String {
+        format!(
+            "DeleteResult(num_deleted_rows={}, version={})",
+            self.num_deleted_rows, self.version
+        )
+    }
+}
+
+impl From<lancedb::table::DeleteResult> for DeleteResult {
+    fn from(result: lancedb::table::DeleteResult) -> Self {
+        Self {
+            num_deleted_rows: result.num_deleted_rows,
+            version: result.version,
+        }
+    }
+}
+
+#[pyclass(get_all, from_py_object)]
+#[derive(Clone, Debug)]
+pub struct MergeResult {
+    pub version: u64,
+    pub num_updated_rows: u64,
+    pub num_inserted_rows: u64,
+    pub num_deleted_rows: u64,
+    pub num_attempts: u32,
+    pub num_rows: u64,
+}
+
+#[pymethods]
+impl MergeResult {
+    pub fn __repr__(&self) -> String {
+        format!(
+            "MergeResult(version={}, num_updated_rows={}, num_inserted_rows={}, num_deleted_rows={}, num_attempts={}, num_rows={})",
+            self.version,
+            self.num_updated_rows,
+            self.num_inserted_rows,
+            self.num_deleted_rows,
+            self.num_attempts,
+            self.num_rows
+        )
+    }
+}
+
+impl From<lancedb::table::MergeResult> for MergeResult {
+    fn from(result: lancedb::table::MergeResult) -> Self {
+        Self {
+            version: result.version,
+            num_updated_rows: result.num_updated_rows,
+            num_inserted_rows: result.num_inserted_rows,
+            num_deleted_rows: result.num_deleted_rows,
+            num_attempts: result.num_attempts,
+            num_rows: result.num_rows,
+        }
+    }
+}
+
+/// Render for `__repr__`, so the default reads as Python's `None` rather than
+/// Rust's `Some([..])`.
+fn fmt_maintained(maintained: &Option<Vec<String>>) -> String {
+    match maintained {
+        Some(names) => format!("{:?}", names),
+        None => "None".to_string(),
+    }
+}
+
+/// Specification enabling the realtime engine (RTE), which routes
+/// `merge_insert` through Lance's MemWAL LSM-style write path.
+///
+/// Constructed via the `bucket(...)`, `identity(...)`, or `unsharded()`
+/// classmethods, then optionally chain `with_maintained_indexes(...)` and
+/// `with_writer_config_defaults(...)`. A fresh spec maintains every index the
+/// table has, including ones created later.
+#[pyclass(module = "lancedb._lancedb", from_py_object)]
+#[derive(Clone, Debug)]
+pub struct RTEWriteSpec {
+    inner: lancedb::table::RTEWriteSpec,
+}
+
+#[pymethods]
+impl RTEWriteSpec {
+    /// Hash-bucket sharding by the unenforced primary key column.
+    #[staticmethod]
+    pub fn bucket(column: String, num_buckets: u32) -> Self {
+        Self {
+            inner: lancedb::table::RTEWriteSpec::bucket(column, num_buckets),
+        }
+    }
+
+    /// Identity sharding — shard by the raw value of `column`.
+    ///
+    /// `column` must be a deterministic function of the unenforced primary
+    /// key: every row with a given primary key must always produce the same
+    /// `column` value, or upserts of that key can land in different shards
+    /// and a stale version can win. Typically `column` is the primary key
+    /// itself or a stable attribute of it.
+    #[staticmethod]
+    pub fn identity(column: String) -> Self {
+        Self {
+            inner: lancedb::table::RTEWriteSpec::identity(column),
+        }
+    }
+
+    /// No sharding — every `merge_insert` call writes to a single
+    /// RTE shard.
+    #[staticmethod]
+    pub fn unsharded() -> Self {
+        Self {
+            inner: lancedb::table::RTEWriteSpec::unsharded(),
+        }
+    }
+
+    /// Set which indexes the RTE maintains. `None` (the default) is
+    /// every index the table has, including ones created later; a list is
+    /// verbatim, and an empty list maintains nothing.
+    #[pyo3(signature = (indexes))]
+    pub fn with_maintained_indexes(&self, indexes: Option<Vec<String>>) -> Self {
+        Self {
+            inner: self.inner.clone().with_maintained_indexes(indexes),
+        }
+    }
+
+    /// Replace the default `ShardWriter` configuration recorded in the
+    /// MemWAL index, so every writer starts from the same defaults.
+    pub fn with_writer_config_defaults(&self, defaults: HashMap<String, String>) -> Self {
+        Self {
+            inner: self.inner.clone().with_writer_config_defaults(defaults),
+        }
+    }
+
+    pub fn __repr__(&self) -> String {
+        match &self.inner {
+            lancedb::table::RTEWriteSpec::Bucket {
+                column,
+                num_buckets,
+                maintained_indexes,
+                writer_config_defaults,
+            } => format!(
+                "RTEWriteSpec.bucket(column={:?}, num_buckets={}, maintained_indexes={}, writer_config_defaults={:?})",
+                column,
+                num_buckets,
+                fmt_maintained(maintained_indexes),
+                writer_config_defaults,
+            ),
+            lancedb::table::RTEWriteSpec::Identity {
+                column,
+                maintained_indexes,
+                writer_config_defaults,
+            } => format!(
+                "RTEWriteSpec.identity(column={:?}, maintained_indexes={}, writer_config_defaults={:?})",
+                column,
+                fmt_maintained(maintained_indexes),
+                writer_config_defaults,
+            ),
+            lancedb::table::RTEWriteSpec::Unsharded {
+                maintained_indexes,
+                writer_config_defaults,
+            } => format!(
+                "RTEWriteSpec.unsharded(maintained_indexes={}, writer_config_defaults={:?})",
+                fmt_maintained(maintained_indexes),
+                writer_config_defaults,
+            ),
+        }
+    }
+
+    /// Discriminator string identifying the variant ("bucket", "identity",
+    /// or "unsharded").
+    #[getter]
+    pub fn spec_type(&self) -> &'static str {
+        match &self.inner {
+            lancedb::table::RTEWriteSpec::Bucket { .. } => "bucket",
+            lancedb::table::RTEWriteSpec::Identity { .. } => "identity",
+            lancedb::table::RTEWriteSpec::Unsharded { .. } => "unsharded",
+        }
+    }
+
+    /// Bucket and identity variants: the sharding column. `None` for unsharded.
+    #[getter]
+    pub fn column(&self) -> Option<String> {
+        match &self.inner {
+            lancedb::table::RTEWriteSpec::Bucket { column, .. }
+            | lancedb::table::RTEWriteSpec::Identity { column, .. } => Some(column.clone()),
+            lancedb::table::RTEWriteSpec::Unsharded { .. } => None,
+        }
+    }
+
+    /// Bucket variant only: the number of buckets.
+    #[getter]
+    pub fn num_buckets(&self) -> Option<u32> {
+        match &self.inner {
+            lancedb::table::RTEWriteSpec::Bucket { num_buckets, .. } => Some(*num_buckets),
+            _ => None,
+        }
+    }
+
+    /// Indexes the RTE keeps up to date, or `None` for every supported one.
+    #[getter]
+    pub fn maintained_indexes(&self) -> Option<Vec<String>> {
+        self.inner.maintained_indexes().map(<[String]>::to_vec)
+    }
+
+    /// Default `ShardWriter` configuration recorded by this spec.
+    #[getter]
+    pub fn writer_config_defaults(&self) -> HashMap<String, String> {
+        self.inner.writer_config_defaults().clone()
+    }
+}
+
+impl From<RTEWriteSpec> for lancedb::table::RTEWriteSpec {
+    fn from(spec: RTEWriteSpec) -> Self {
+        spec.inner
+    }
+}
+
+impl From<lancedb::table::RTEWriteSpec> for RTEWriteSpec {
+    fn from(inner: lancedb::table::RTEWriteSpec) -> Self {
+        Self { inner }
+    }
+}
+
+#[pyclass(get_all, from_py_object)]
+#[derive(Clone, Debug)]
+pub struct AddColumnsResult {
+    pub version: u64,
+}
+
+#[pyclass(get_all, from_py_object)]
+#[derive(Clone, Debug)]
+pub struct RefreshColumnResult {
+    pub rows_filled: u64,
+    pub version: u64,
+}
+
+#[pymethods]
+impl RefreshColumnResult {
+    pub fn __repr__(&self) -> String {
+        format!(
+            "RefreshColumnResult(rows_filled={}, version={})",
+            self.rows_filled, self.version
+        )
+    }
+}
+
+impl From<lancedb::table::RefreshColumnResult> for RefreshColumnResult {
+    fn from(result: lancedb::table::RefreshColumnResult) -> Self {
+        Self {
+            rows_filled: result.rows_filled,
+            version: result.version,
+        }
+    }
+}
+
+/// One row a Function refresh skipped, as the server recorded it.
+#[pyclass(module = "lancedb._lancedb", get_all, from_py_object)]
+#[derive(Clone, Debug)]
+pub struct FunctionErrorRecord {
+    pub job_id: String,
+    pub fragment_id: u64,
+    pub row_offset: Option<u32>,
+    pub column: String,
+    pub function: String,
+    pub function_version: String,
+    pub table_version: u64,
+    pub error_type: String,
+    pub error_message: String,
+    pub created_at_millis: i64,
+}
+
+#[pymethods]
+impl FunctionErrorRecord {
+    pub fn __repr__(&self) -> String {
+        format!(
+            "FunctionErrorRecord(job_id={:?}, fragment_id={}, row_offset={:?}, column={:?}, \
+             error_type={:?}, error_message={:?})",
+            self.job_id,
+            self.fragment_id,
+            self.row_offset,
+            self.column,
+            self.error_type,
+            self.error_message
+        )
+    }
+}
+
+impl From<lancedb::function::FunctionErrorRecord> for FunctionErrorRecord {
+    fn from(record: lancedb::function::FunctionErrorRecord) -> Self {
+        Self {
+            job_id: record.job_id,
+            fragment_id: record.fragment_id,
+            row_offset: record.row_offset,
+            column: record.column,
+            function: record.function,
+            function_version: record.function_version,
+            table_version: record.table_version,
+            error_type: record.error_type,
+            error_message: record.error_message,
+            created_at_millis: record.created_at_millis,
+        }
+    }
+}
+
+/// A fragment whose per-row error detail was capped.
+#[pyclass(module = "lancedb._lancedb", get_all, from_py_object)]
+#[derive(Clone, Debug)]
+pub struct FunctionErrorFragment {
+    pub job_id: String,
+    pub fragment_id: u64,
+    pub rows_skipped: u64,
+    pub rows_recorded: u64,
+}
+
+#[pymethods]
+impl FunctionErrorFragment {
+    pub fn __repr__(&self) -> String {
+        format!(
+            "FunctionErrorFragment(job_id={:?}, fragment_id={}, rows_skipped={}, rows_recorded={})",
+            self.job_id, self.fragment_id, self.rows_skipped, self.rows_recorded
+        )
+    }
+}
+
+impl From<lancedb::function::FunctionErrorFragment> for FunctionErrorFragment {
+    fn from(fragment: lancedb::function::FunctionErrorFragment) -> Self {
+        Self {
+            job_id: fragment.job_id,
+            fragment_id: fragment.fragment_id,
+            rows_skipped: fragment.rows_skipped,
+            rows_recorded: fragment.rows_recorded,
+        }
+    }
+}
+
+/// A table's per-row Function errors.
+#[pyclass(module = "lancedb._lancedb", get_all, from_py_object)]
+#[derive(Clone, Debug)]
+pub struct FunctionErrors {
+    pub records: Vec<FunctionErrorRecord>,
+    pub fragments: Vec<FunctionErrorFragment>,
+    pub truncated: bool,
+}
+
+#[pymethods]
+impl FunctionErrors {
+    pub fn __repr__(&self) -> String {
+        format!(
+            "FunctionErrors(records={}, fragments={}, truncated={})",
+            self.records.len(),
+            self.fragments.len(),
+            self.truncated
+        )
+    }
+}
+
+impl From<lancedb::function::FunctionErrors> for FunctionErrors {
+    fn from(errors: lancedb::function::FunctionErrors) -> Self {
+        Self {
+            records: errors.records.into_iter().map(Into::into).collect(),
+            fragments: errors.fragments.into_iter().map(Into::into).collect(),
+            truncated: errors.truncated,
+        }
+    }
+}
+
+#[pyclass(get_all, from_py_object)]
+#[derive(Clone, Debug)]
+pub struct RefreshMaterializedViewResult {
+    pub mode: Option<String>,
+    pub rows_written: Option<u64>,
+    pub source_version: Option<u64>,
+    pub version: u64,
+}
+
+#[pymethods]
+impl RefreshMaterializedViewResult {
+    #[staticmethod]
+    pub fn from_json(value: &str) -> PyResult<Self> {
+        let result: lancedb::RefreshMaterializedViewResult =
+            serde_json::from_str(value).map_err(|err| {
+                PyValueError::new_err(format!(
+                    "failed to decode materialized-view refresh result: {err}"
+                ))
+            })?;
+        Ok(Self::from(result))
+    }
+
+    pub fn __repr__(&self) -> String {
+        format!(
+            "RefreshMaterializedViewResult(mode={}, rows_written={}, source_version={}, version={})",
+            self.mode.as_deref().unwrap_or("None"),
+            self.rows_written
+                .map_or_else(|| "None".into(), |value| value.to_string()),
+            self.source_version
+                .map_or_else(|| "None".into(), |value| value.to_string()),
+            self.version
+        )
+    }
+}
+
+impl From<lancedb::RefreshMaterializedViewResult> for RefreshMaterializedViewResult {
+    fn from(result: lancedb::RefreshMaterializedViewResult) -> Self {
+        let mode = result.mode.map(|mode| match mode {
+            lancedb::RefreshMode::Rebuild => "rebuild",
+        });
+        Self {
+            mode: mode.map(str::to_string),
+            rows_written: result.rows_written,
+            source_version: result.source_version,
+            version: result.version,
+        }
+    }
+}
+
+#[pymethods]
+impl AddColumnsResult {
+    pub fn __repr__(&self) -> String {
+        format!("AddColumnsResult(version={})", self.version)
+    }
+}
+
+impl From<lancedb::table::AddColumnsResult> for AddColumnsResult {
+    fn from(result: lancedb::table::AddColumnsResult) -> Self {
+        Self {
+            version: result.version,
+        }
+    }
+}
+
+#[pyclass(get_all, from_py_object)]
+#[derive(Clone, Debug)]
+pub struct AlterColumnsResult {
+    pub version: u64,
+}
+
+#[pymethods]
+impl AlterColumnsResult {
+    pub fn __repr__(&self) -> String {
+        format!("AlterColumnsResult(version={})", self.version)
+    }
+}
+
+impl From<lancedb::table::AlterColumnsResult> for AlterColumnsResult {
+    fn from(result: lancedb::table::AlterColumnsResult) -> Self {
+        Self {
+            version: result.version,
+        }
+    }
+}
+
+#[pyclass(get_all, from_py_object)]
+#[derive(Clone, Debug)]
+pub struct UpdateFieldMetadataResult {
+    pub version: u64,
+}
+
+#[pymethods]
+impl UpdateFieldMetadataResult {
+    pub fn __repr__(&self) -> String {
+        format!("UpdateFieldMetadataResult(version={})", self.version)
+    }
+}
+
+impl From<lancedb::table::UpdateFieldMetadataResult> for UpdateFieldMetadataResult {
+    fn from(result: lancedb::table::UpdateFieldMetadataResult) -> Self {
+        Self {
+            version: result.version,
+        }
+    }
+}
+
+#[pyclass(get_all, from_py_object)]
+#[derive(Clone, Debug)]
+pub struct DropColumnsResult {
+    pub version: u64,
+}
+
+#[pymethods]
+impl DropColumnsResult {
+    pub fn __repr__(&self) -> String {
+        format!("DropColumnsResult(version={})", self.version)
+    }
+}
+
+impl From<lancedb::table::DropColumnsResult> for DropColumnsResult {
+    fn from(result: lancedb::table::DropColumnsResult) -> Self {
+        Self {
+            version: result.version,
+        }
+    }
+}
+
+/// Lazy blob handle from ``Table.fetch_blob_files``.
+#[pyclass(name = "BlobFile")]
+pub struct PyBlobFile {
+    inner: Arc<BlobFile>,
+    closed: AtomicBool,
+}
+
+impl PyBlobFile {
+    fn ensure_open(&self) -> PyResult<()> {
+        if self.closed.load(Ordering::Acquire) {
+            Err(PyRuntimeError::new_err("blob file is already closed"))
+        } else {
+            Ok(())
+        }
+    }
+}
+
+fn blob_file_error(operation: &str, error: lance_core::Error) -> pyo3::PyErr {
+    let message = format!("blob {operation} failed: {error}");
+    match error {
+        lance_core::Error::InvalidInput { .. } => PyValueError::new_err(message),
+        _ => PyRuntimeError::new_err(message),
+    }
+}
+
+#[pymethods]
+impl PyBlobFile {
+    fn read_bytes(self_: PyRef<'_, Self>) -> PyResult<Py<PyBytes>> {
+        self_.ensure_open()?;
+        let inner = self_.inner.clone();
+        let py = self_.py();
+        let bytes = py
+            .detach(move || block_on(async move { inner.read().await }))
+            .map_err(|e| blob_file_error("read", e))?;
+        Ok(PyBytes::new(py, bytes.as_ref()).unbind())
+    }
+
+    pub fn read(self_: PyRef<'_, Self>) -> PyResult<Bound<'_, PyAny>> {
+        self_.ensure_open()?;
+        let inner = self_.inner.clone();
+        future_into_py(self_.py(), async move {
+            let bytes = inner.read().await.map_err(|e| blob_file_error("read", e))?;
+            Python::attach(|py| Ok(PyBytes::new(py, bytes.as_ref()).unbind()))
+        })
+    }
+
+    fn close(self_: PyRef<'_, Self>) -> PyResult<()> {
+        if self_.closed.swap(true, Ordering::AcqRel) {
+            return Ok(());
+        }
+        let inner = self_.inner.clone();
+        if tokio::runtime::Handle::try_current().is_ok() {
+            // IOBase.__del__ can call close while cyclic GC runs on a worker.
+            // The status changes immediately; release Lance's async state there.
+            spawn_background(async move {
+                if let Err(error) = inner.close().await {
+                    log::warn!("blob close failed: {error}");
+                }
+            });
+            return Ok(());
+        }
+        self_
+            .py()
+            .detach(move || block_on(async move { inner.close().await }))
+            .map_err(|e| blob_file_error("close", e))
+    }
+
+    fn is_closed(self_: PyRef<'_, Self>) -> bool {
+        self_.closed.load(Ordering::Acquire)
+    }
+
+    fn seek(self_: PyRef<'_, Self>, position: u64) -> PyResult<()> {
+        self_.ensure_open()?;
+        let inner = self_.inner.clone();
+        self_
+            .py()
+            .detach(move || block_on(async move { inner.seek(position).await }))
+            .map_err(|e| blob_file_error("seek", e))
+    }
+
+    fn tell(self_: PyRef<'_, Self>) -> PyResult<u64> {
+        self_.ensure_open()?;
+        let inner = self_.inner.clone();
+        self_
+            .py()
+            .detach(move || block_on(async move { inner.tell().await }))
+            .map_err(|e| blob_file_error("tell", e))
+    }
+
+    fn size(self_: PyRef<'_, Self>) -> u64 {
+        self_.inner.size()
+    }
+
+    /// Read a blob-local byte range without moving the cursor.
+    fn read_range(self_: PyRef<'_, Self>, offset: u64, length: usize) -> PyResult<Py<PyBytes>> {
+        self_.ensure_open()?;
+        let end = offset
+            .checked_add(length as u64)
+            .ok_or_else(|| PyValueError::new_err("offset + length overflowed"))?;
+        let inner = self_.inner.clone();
+        let py = self_.py();
+        let bytes = py
+            .detach(move || block_on(async move { inner.read_range(offset..end).await }))
+            .map_err(|e| blob_file_error("read_range", e))?;
+        Ok(PyBytes::new(py, bytes.as_ref()).unbind())
+    }
+
+    /// Read blob-local byte ranges without moving the cursor.
+    fn read_ranges(self_: PyRef<'_, Self>, ranges: Vec<(u64, u64)>) -> PyResult<Vec<Py<PyBytes>>> {
+        let ranges = ranges
+            .into_iter()
+            .map(|(offset, length)| {
+                offset
+                    .checked_add(length)
+                    .map(|end| offset..end)
+                    .ok_or_else(|| PyValueError::new_err("offset + length overflowed"))
+            })
+            .collect::<PyResult<Vec<_>>>()?;
+        let inner = self_.inner.clone();
+        let py = self_.py();
+        let bytes = py
+            .detach(move || block_on(async move { inner.read_ranges(&ranges).await }))
+            .map_err(|e| blob_file_error("read_ranges", e))?;
+        Ok(bytes
+            .iter()
+            .map(|bytes| PyBytes::new(py, bytes.as_ref()).unbind())
+            .collect())
+    }
+
+    fn read_up_to(self_: PyRef<'_, Self>, length: usize) -> PyResult<Py<PyBytes>> {
+        self_.ensure_open()?;
+        let inner = self_.inner.clone();
+        let py = self_.py();
+        let bytes = py
+            .detach(move || block_on(async move { inner.read_up_to(length).await }))
+            .map_err(|e| blob_file_error("read_up_to", e))?;
+        Ok(PyBytes::new(py, bytes.as_ref()).unbind())
+    }
+}
+
+#[pyclass(module = "lancedb._lancedb", get_all, from_py_object)]
+#[derive(Clone, Debug)]
+pub struct FtsToken {
+    pub text: String,
+    pub position: u32,
+}
+
+#[pymethods]
+impl FtsToken {
+    pub fn __repr__(&self) -> String {
+        format!("FtsToken(text={:?}, position={})", self.text, self.position)
+    }
+}
+
+impl From<LanceDbFtsToken> for FtsToken {
+    fn from(token: LanceDbFtsToken) -> Self {
+        Self {
+            text: token.text,
+            position: token.position,
+        }
+    }
+}
+
+#[pyfunction(signature = (
+    query,
+    *,
+    base_tokenizer = "simple".to_string(),
+    language = "English".to_string(),
+    max_token_length = Some(40),
+    lower_case = true,
+    stem = None,
+    remove_stop_words = None,
+    custom_stop_words = None,
+    ascii_folding = true,
+    ngram_min_length = 3,
+    ngram_max_length = 3,
+    prefix_only = false
+))]
+#[allow(clippy::too_many_arguments)]
+pub fn tokenize(
+    query: String,
+    base_tokenizer: String,
+    language: String,
+    max_token_length: Option<u32>,
+    lower_case: bool,
+    stem: Option<bool>,
+    remove_stop_words: Option<bool>,
+    custom_stop_words: Option<Vec<String>>,
+    ascii_folding: bool,
+    ngram_min_length: u32,
+    ngram_max_length: u32,
+    prefix_only: bool,
+) -> PyResult<Vec<FtsToken>> {
+    let mut params = FtsIndexBuilder::default()
+        .base_tokenizer(base_tokenizer)
+        .language(&language)
+        .map_err(|_| {
+            PyValueError::new_err(format!(
+                "LanceDB does not support the requested language: '{}'",
+                language
+            ))
+        })?
+        .max_token_length(max_token_length.map(|value| value as usize))
+        .lower_case(lower_case)
+        .ascii_folding(ascii_folding)
+        .ngram_min_length(ngram_min_length)
+        .ngram_max_length(ngram_max_length)
+        .ngram_prefix_only(prefix_only)
+        .custom_stop_words(custom_stop_words);
+    if let Some(stem) = stem {
+        params = params.stem(stem);
+    }
+    if let Some(remove_stop_words) = remove_stop_words {
+        params = params.remove_stop_words(remove_stop_words);
+    }
+    let tokens = lancedb_tokenize(&query, &params).infer_error()?;
+    Ok(tokens.into_iter().map(FtsToken::from).collect())
+}
+
+#[pyclass]
+pub struct Table {
+    // We keep a copy of the name to use if the inner table is dropped
+    name: String,
+    inner: Option<LanceDbTable>,
+}
+
+#[pymethods]
+impl OptimizeStats {
+    pub fn __repr__(&self) -> String {
+        format!(
+            "OptimizeStats(compaction={:?}, prune={:?})",
+            self.compaction, self.prune
+        )
+    }
+}
+
+impl Table {
+    pub(crate) fn new(inner: LanceDbTable) -> Self {
+        Self {
+            name: inner.name().to_string(),
+            inner: Some(inner),
+        }
+    }
+}
+
+impl Table {
+    pub(crate) fn inner_ref(&self) -> PyResult<&LanceDbTable> {
+        self.inner
+            .as_ref()
+            .ok_or_else(|| PyRuntimeError::new_err(format!("Table {} is closed", self.name)))
+    }
+}
+
+#[pymethods]
+impl Table {
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+
+    /// Returns True if the table is open, False if it is closed.
+    pub fn is_open(&self) -> bool {
+        self.inner.is_some()
+    }
+
+    /// Whether this table has a local Lance dataset that the client may open.
+    pub fn _is_native(&self) -> PyResult<bool> {
+        Ok(self.inner_ref()?.as_native().is_some())
+    }
+
+    /// Closes the table, releasing any resources associated with it.
+    pub fn close(&mut self) {
+        self.inner.take();
+    }
+
+    pub fn database(&self) -> PyResult<Connection> {
+        let inner = self.inner_ref()?.clone();
+        let inner_connection =
+            lancedb::Connection::new(inner.database().clone(), inner.embedding_registry().clone());
+        Ok(Connection::new(inner_connection))
+    }
+
+    pub fn schema(self_: PyRef<'_, Self>) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            let schema = inner.schema().await.infer_error()?;
+            Python::attach(|py| schema.to_pyarrow(py).map(|obj| obj.unbind()))
+        })
+    }
+
+    #[pyo3(signature = (data, mode, progress=None, write_parallelism=None, allow_external_blob_outside_bases=false))]
+    pub fn add<'a>(
+        self_: PyRef<'a, Self>,
+        data: PyScannable,
+        mode: String,
+        progress: Option<Py<PyAny>>,
+        write_parallelism: Option<usize>,
+        allow_external_blob_outside_bases: bool,
+    ) -> PyResult<Bound<'a, PyAny>> {
+        let mut op = self_
+            .inner_ref()?
+            .add(data)
+            .allow_external_blob_outside_bases(allow_external_blob_outside_bases);
+        if mode == "append" {
+            op = op.mode(AddDataMode::Append);
+        } else if mode == "overwrite" {
+            op = op.mode(AddDataMode::Overwrite);
+        } else {
+            return Err(PyValueError::new_err(format!("Invalid mode: {}", mode)));
+        }
+        if let Some(write_parallelism) = write_parallelism {
+            op = op.write_parallelism(write_parallelism);
+        }
+        if let Some(progress_obj) = progress {
+            let is_callable = Python::attach(|py| progress_obj.bind(py).is_callable());
+            if is_callable {
+                // Callback: call with a dict of progress info.
+                op = op.progress(move |p| {
+                    Python::attach(|py| {
+                        let dict = PyDict::new(py);
+                        if let Err(e) = dict
+                            .set_item("output_rows", p.output_rows())
+                            .and_then(|_| dict.set_item("output_bytes", p.output_bytes()))
+                            .and_then(|_| dict.set_item("total_rows", p.total_rows()))
+                            .and_then(|_| {
+                                dict.set_item("elapsed_seconds", p.elapsed().as_secs_f64())
+                            })
+                            .and_then(|_| dict.set_item("active_tasks", p.active_tasks()))
+                            .and_then(|_| dict.set_item("total_tasks", p.total_tasks()))
+                            .and_then(|_| dict.set_item("done", p.done()))
+                        {
+                            log::warn!("progress dict error: {e}");
+                            return;
+                        }
+                        if let Err(e) = progress_obj.call1(py, (dict,)) {
+                            log::warn!("progress callback error: {e}");
+                        }
+                    });
+                });
+            } else {
+                // tqdm-like: has update() method.
+                let mut last_rows: usize = 0;
+                let mut total_set = false;
+                op = op.progress(move |p| {
+                    let current = p.output_rows();
+                    let prev = last_rows;
+                    last_rows = current;
+                    Python::attach(|py| {
+                        if let Some(total) = p.total_rows()
+                            && !total_set
+                        {
+                            if let Err(e) = progress_obj.setattr(py, "total", total) {
+                                log::warn!("progress setattr error: {e}");
+                            }
+                            total_set = true;
+                        }
+                        let delta = current.saturating_sub(prev);
+                        if delta > 0 {
+                            if let Err(e) = progress_obj.call_method1(py, "update", (delta,)) {
+                                log::warn!("progress update error: {e}");
+                            }
+                            // Show throughput and active workers in tqdm postfix.
+                            let elapsed = p.elapsed().as_secs_f64();
+                            if elapsed > 0.0 {
+                                let mb_per_sec = p.output_bytes() as f64 / elapsed / 1_000_000.0;
+                                let postfix = format!(
+                                    "{:.1} MB/s | {}/{} workers",
+                                    mb_per_sec,
+                                    p.active_tasks(),
+                                    p.total_tasks()
+                                );
+                                if let Err(e) =
+                                    progress_obj.call_method1(py, "set_postfix_str", (postfix,))
+                                {
+                                    log::warn!("progress set_postfix_str error: {e}");
+                                }
+                            }
+                        }
+                        if p.done() {
+                            // Force a final refresh so the bar shows completion.
+                            if let Err(e) = progress_obj.call_method0(py, "refresh") {
+                                log::warn!("progress refresh error: {e}");
+                            }
+                        }
+                    });
+                });
+            }
+        }
+
+        future_into_py(self_.py(), async move {
+            let result = op.execute().await.infer_error()?;
+            Ok(AddResult::from(result))
+        })
+    }
+
+    #[allow(private_interfaces)]
+    pub fn delete(self_: PyRef<'_, Self>, condition: PredicateArg) -> PyResult<Bound<'_, PyAny>> {
+        // Do not hold the Python borrow across the await.  The cloned Rust table
+        // handle is thread-safe and allows deletes on the same Python table to
+        // run concurrently without PyO3 reporting "Already borrowed".
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            let result = match &condition {
+                PredicateArg::Expr(e) => inner.delete(&e.0).await,
+                PredicateArg::Sql(s) => inner.delete(s.as_str()).await,
+            }
+            .infer_error()?;
+            Ok(DeleteResult::from(result))
+        })
+    }
+
+    #[pyo3(signature = (updates, r#where=None))]
+    pub fn update<'a>(
+        self_: PyRef<'a, Self>,
+        updates: &Bound<'_, PyDict>,
+        r#where: Option<String>,
+    ) -> PyResult<Bound<'a, PyAny>> {
+        let mut op = self_.inner_ref()?.update();
+        if let Some(only_if) = r#where {
+            op = op.only_if(only_if);
+        }
+        for (column_name, value) in updates.into_iter() {
+            let column_name: String = column_name.extract()?;
+            let value: String = value.extract()?;
+            op = op.column(column_name, value);
+        }
+        future_into_py(self_.py(), async move {
+            let result = op.execute().await.infer_error()?;
+            Ok(UpdateResult::from(result))
+        })
+    }
+
+    #[pyo3(signature = (filter=None))]
+    pub fn count_rows(
+        self_: PyRef<'_, Self>,
+        filter: Option<String>,
+    ) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            inner.count_rows(filter).await.infer_error()
+        })
+    }
+
+    #[pyo3(signature = (column, index=None, replace=None, wait_timeout=None, *, name=None, train=None))]
+    pub fn create_index<'a>(
+        self_: PyRef<'a, Self>,
+        column: String,
+        index: Option<Bound<'_, PyAny>>,
+        replace: Option<bool>,
+        wait_timeout: Option<Bound<'_, PyAny>>,
+        name: Option<String>,
+        train: Option<bool>,
+    ) -> PyResult<Bound<'a, PyAny>> {
+        let index = extract_index_params(&index)?;
+        let timeout = wait_timeout
+            .map(|t| t.extract::<std::time::Duration>())
+            .transpose()?;
+        let mut op = self_
+            .inner_ref()?
+            .create_index_with_timeout(&[column], index, timeout);
+        if let Some(replace) = replace {
+            op = op.replace(replace);
+        }
+        if let Some(name) = name {
+            op = op.name(name);
+        }
+        if let Some(train) = train {
+            op = op.train(train);
+        }
+
+        future_into_py(self_.py(), async move {
+            op.execute().await.infer_error()?;
+            Ok(())
+        })
+    }
+
+    #[pyo3(signature = (column, index=None, replace=None, wait_timeout=None, *, name=None, train=None))]
+    pub fn create_index_async<'a>(
+        self_: PyRef<'a, Self>,
+        column: String,
+        index: Option<Bound<'_, PyAny>>,
+        replace: Option<bool>,
+        wait_timeout: Option<Bound<'_, PyAny>>,
+        name: Option<String>,
+        train: Option<bool>,
+    ) -> PyResult<Bound<'a, PyAny>> {
+        let index = extract_index_params(&index)?;
+        let timeout = wait_timeout
+            .map(|t| t.extract::<std::time::Duration>())
+            .transpose()?;
+        let mut op = self_
+            .inner_ref()?
+            .create_index_with_timeout(&[column], index, timeout);
+        if let Some(replace) = replace {
+            op = op.replace(replace);
+        }
+        if let Some(name) = name {
+            op = op.name(name);
+        }
+        if let Some(train) = train {
+            op = op.train(train);
+        }
+
+        future_into_py(self_.py(), async move {
+            let job = op.execute_async().await.infer_error()?;
+            Ok(crate::job::Job::new(job))
+        })
+    }
+
+    pub fn drop_index(self_: PyRef<'_, Self>, index_name: String) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            inner.drop_index(&index_name).await.infer_error()?;
+            Ok(())
+        })
+    }
+
+    pub fn wait_for_index<'a>(
+        self_: PyRef<'a, Self>,
+        index_names: Vec<String>,
+        timeout: Bound<'_, PyAny>,
+    ) -> PyResult<Bound<'a, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        let timeout = timeout.extract::<std::time::Duration>()?;
+        future_into_py(self_.py(), async move {
+            let index_refs = index_names
+                .iter()
+                .map(String::as_str)
+                .collect::<Vec<&str>>();
+            inner
+                .wait_for_index(&index_refs, timeout)
+                .await
+                .infer_error()?;
+            Ok(())
+        })
+    }
+
+    pub fn prewarm_index(self_: PyRef<'_, Self>, index_name: String) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            inner.prewarm_index(&index_name).await.infer_error()?;
+            Ok(())
+        })
+    }
+
+    pub fn prewarm_data(
+        self_: PyRef<'_, Self>,
+        columns: Option<Vec<String>>,
+    ) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            inner.prewarm_data(columns).await.infer_error()?;
+            Ok(())
+        })
+    }
+
+    pub fn list_indices(self_: PyRef<'_, Self>) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            let indices = inner.list_indices().await.infer_error()?;
+            Python::attach(|py| {
+                Ok(indices
+                    .into_iter()
+                    .map(|idx| IndexConfig::from_lancedb(py, idx))
+                    .collect::<Vec<_>>())
+            })
+        })
+    }
+
+    #[pyo3(signature = (query, *, column=None, index_name=None))]
+    pub fn tokenize(
+        self_: PyRef<'_, Self>,
+        query: String,
+        column: Option<String>,
+        index_name: Option<String>,
+    ) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            let tokens = match (column.as_deref(), index_name.as_deref()) {
+                (Some(_), Some(_)) | (None, None) => {
+                    return Err(PyValueError::new_err(
+                        "Specify exactly one of 'column' or 'index_name'",
+                    ));
+                }
+                (Some(column), None) => inner.tokenize_with_column(&query, column).await,
+                (None, Some(index_name)) => inner.tokenize(&query, index_name).await,
+            }
+            .infer_error()?;
+            Ok(tokens.into_iter().map(FtsToken::from).collect::<Vec<_>>())
+        })
+    }
+
+    pub fn index_stats(self_: PyRef<'_, Self>, index_name: String) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            let stats = inner.index_stats(&index_name).await.infer_error()?;
+            if let Some(stats) = stats {
+                Python::attach(|py| {
+                    let dict = PyDict::new(py);
+                    dict.set_item("num_indexed_rows", stats.num_indexed_rows)?;
+                    dict.set_item("num_unindexed_rows", stats.num_unindexed_rows)?;
+                    dict.set_item("index_type", stats.index_type.to_string())?;
+
+                    if let Some(distance_type) = stats.distance_type {
+                        dict.set_item("distance_type", distance_type.to_string())?;
+                    }
+
+                    if let Some(num_indices) = stats.num_indices {
+                        dict.set_item("num_indices", num_indices)?;
+                    }
+
+                    Ok(Some(dict.unbind()))
+                })
+            } else {
+                Ok(None)
+            }
+        })
+    }
+
+    pub fn stats(self_: PyRef<'_, Self>) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            let stats = inner.stats().await.infer_error()?;
+            Python::attach(|py| {
+                let dict = PyDict::new(py);
+                dict.set_item("total_bytes", stats.total_bytes)?;
+                dict.set_item("num_rows", stats.num_rows)?;
+                dict.set_item("num_deleted_rows", stats.num_deleted_rows)?;
+                dict.set_item("num_indices", stats.num_indices)?;
+
+                let fragment_stats = PyDict::new(py);
+                fragment_stats.set_item("num_fragments", stats.fragment_stats.num_fragments)?;
+                fragment_stats.set_item(
+                    "num_small_fragments",
+                    stats.fragment_stats.num_small_fragments,
+                )?;
+
+                let fragment_lengths = PyDict::new(py);
+                fragment_lengths.set_item("min", stats.fragment_stats.lengths.min)?;
+                fragment_lengths.set_item("max", stats.fragment_stats.lengths.max)?;
+                fragment_lengths.set_item("mean", stats.fragment_stats.lengths.mean)?;
+                fragment_lengths.set_item("p25", stats.fragment_stats.lengths.p25)?;
+                fragment_lengths.set_item("p50", stats.fragment_stats.lengths.p50)?;
+                fragment_lengths.set_item("p75", stats.fragment_stats.lengths.p75)?;
+                fragment_lengths.set_item("p99", stats.fragment_stats.lengths.p99)?;
+
+                fragment_stats.set_item("lengths", fragment_lengths)?;
+                dict.set_item("fragment_stats", fragment_stats)?;
+
+                Ok(Some(dict.unbind()))
+            })
+        })
+    }
+
+    pub fn uri(self_: PyRef<'_, Self>) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move { inner.uri().await.infer_error() })
+    }
+
+    pub fn initial_storage_options(self_: PyRef<'_, Self>) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            Ok(inner.initial_storage_options().await)
+        })
+    }
+
+    pub fn latest_storage_options(self_: PyRef<'_, Self>) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            inner.latest_storage_options().await.infer_error()
+        })
+    }
+
+    pub fn __repr__(&self) -> String {
+        match &self.inner {
+            None => format!("ClosedTable({})", self.name),
+            Some(inner) => inner.to_string(),
+        }
+    }
+
+    pub fn version(self_: PyRef<'_, Self>) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(
+            self_.py(),
+            async move { inner.version().await.infer_error() },
+        )
+    }
+
+    pub fn list_versions(self_: PyRef<'_, Self>) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            let versions = inner.list_versions().await.infer_error()?;
+            Python::attach(|py| {
+                versions
+                    .iter()
+                    .map(|v| {
+                        let dict = PyDict::new(py);
+                        dict.set_item("version", v.version).unwrap();
+                        dict.set_item(
+                            "timestamp",
+                            v.timestamp.timestamp_nanos_opt().unwrap_or_default(),
+                        )
+                        .unwrap();
+
+                        let tup: Vec<(&String, &String)> = v.metadata.iter().collect();
+                        dict.set_item("metadata", tup.into_py_dict(py)?).unwrap();
+                        Ok(dict.unbind())
+                    })
+                    .collect::<PyResult<Vec<_>>>()
+            })
+        })
+    }
+
+    pub fn checkout(self_: PyRef<'_, Self>, version: LanceVersion) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        let py = self_.py();
+        future_into_py(py, async move {
+            match version {
+                LanceVersion::Version(version_num) => {
+                    inner.checkout(version_num).await.infer_error()
+                }
+                LanceVersion::Tag(tag) => inner.checkout_tag(&tag).await.infer_error(),
+            }
+        })
+    }
+
+    pub fn checkout_latest(self_: PyRef<'_, Self>) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            inner.checkout_latest().await.infer_error()
+        })
+    }
+
+    #[pyo3(signature = (version=None))]
+    pub fn restore(
+        self_: PyRef<'_, Self>,
+        version: Option<LanceVersion>,
+    ) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        let py = self_.py();
+
+        future_into_py(py, async move {
+            if let Some(version) = version {
+                match version {
+                    LanceVersion::Version(num) => inner.checkout(num).await.infer_error()?,
+                    LanceVersion::Tag(tag) => inner.checkout_tag(&tag).await.infer_error()?,
+                }
+            }
+            inner.restore().await.infer_error()
+        })
+    }
+
+    pub fn query(&self) -> PyResult<Query> {
+        Ok(Query::new(self.inner_ref()?.query()))
+    }
+
+    #[getter]
+    pub fn tags(&self) -> PyResult<Tags> {
+        Ok(Tags::new(self.inner_ref()?.clone()))
+    }
+
+    pub fn current_branch(&self) -> PyResult<Option<String>> {
+        Ok(self.inner_ref()?.current_branch())
+    }
+
+    #[getter]
+    pub fn branches(&self) -> PyResult<Branches> {
+        Ok(Branches::new(self.inner_ref()?.clone()))
+    }
+
+    #[pyo3(signature = (offsets))]
+    pub fn take_offsets(self_: PyRef<'_, Self>, offsets: Vec<u64>) -> PyResult<TakeQuery> {
+        Ok(TakeQuery::new(
+            self_.inner_ref()?.clone().take_offsets(offsets),
+        ))
+    }
+
+    #[pyo3(signature = (row_ids))]
+    pub fn take_row_ids(self_: PyRef<'_, Self>, row_ids: Vec<u64>) -> PyResult<TakeQuery> {
+        Ok(TakeQuery::new(
+            self_.inner_ref()?.clone().take_row_ids(row_ids),
+        ))
+    }
+
+    /// Names of the blob v2 columns declared on this table, in declaration order.
+    pub fn blob_columns(self_: PyRef<'_, Self>) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            inner.blob_columns().await.infer_error()
+        })
+    }
+
+    /// Read blob bytes for `row_ids` from blob v2 column `column`.
+    #[pyo3(signature = (column, row_ids))]
+    pub fn fetch_blobs(
+        self_: PyRef<'_, Self>,
+        column: String,
+        row_ids: Vec<u64>,
+    ) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            let blobs: LargeBinaryArray = inner
+                .fetch_blobs(column.as_str(), &row_ids)
+                .await
+                .infer_error()?;
+            Python::attach(|py| blobs.to_data().to_pyarrow(py).map(|obj| obj.unbind()))
+        })
+    }
+
+    /// Read row-specific blob-local byte ranges in one planned operation.
+    #[pyo3(signature = (column, requests))]
+    pub fn fetch_blob_ranges(
+        self_: PyRef<'_, Self>,
+        column: String,
+        requests: Vec<Vec<i128>>,
+    ) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        let requests = requests
+            .into_iter()
+            .map(|values| {
+                let [row_id, offset, length] = <[i128; 3]>::try_from(values).map_err(|_| {
+                    PyValueError::new_err("each blob range request must have three values")
+                })?;
+                let to_u64 = |value, name| {
+                    u64::try_from(value).map_err(|_| {
+                        PyValueError::new_err(format!(
+                            "blob range {name} must be a non-negative 64-bit integer"
+                        ))
+                    })
+                };
+                Ok(BlobRangeRequest::new(
+                    to_u64(row_id, "row id")?,
+                    to_u64(offset, "offset")?,
+                    to_u64(length, "length")?,
+                ))
+            })
+            .collect::<PyResult<Vec<_>>>()?;
+        future_into_py(self_.py(), async move {
+            let blobs: LargeBinaryArray = inner
+                .fetch_blob_ranges(column, requests)
+                .await
+                .infer_error()?;
+            Python::attach(|py| blobs.to_data().to_pyarrow(py).map(|obj| obj.unbind()))
+        })
+    }
+
+    /// Open lazy blob handles for `row_ids` from blob v2 column `column`.
+    #[pyo3(signature = (column, row_ids))]
+    pub fn fetch_blob_files(
+        self_: PyRef<'_, Self>,
+        column: String,
+        row_ids: Vec<u64>,
+    ) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            let handles = inner
+                .fetch_blob_files(column.as_str(), &row_ids)
+                .await
+                .infer_error()?;
+            Ok(handles
+                .into_iter()
+                .map(|handle| {
+                    handle.map(|file| PyBlobFile {
+                        inner: Arc::new(file),
+                        closed: AtomicBool::new(false),
+                    })
+                })
+                .collect::<Vec<_>>())
+        })
+    }
+
+    #[pyo3(signature = (descriptor))]
+    pub fn open_blob_file<'py>(
+        self_: PyRef<'py, Self>,
+        descriptor: &str,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let descriptor: BlobDescriptor = serde_json::from_str(descriptor)
+            .map_err(|error| PyValueError::new_err(format!("invalid blob descriptor: {error}")))?;
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            let file = inner.open_blob_file(&descriptor).await.infer_error()?;
+            Ok(PyBlobFile {
+                inner: Arc::new(file),
+                closed: AtomicBool::new(false),
+            })
+        })
+    }
+
+    /// Optimize the on-disk data by compacting and pruning old data, for better performance.
+    #[pyo3(signature = (cleanup_since_ms=None, delete_unverified=None, compaction_options=None))]
+    pub fn optimize<'py>(
+        self_: PyRef<'py, Self>,
+        cleanup_since_ms: Option<u64>,
+        delete_unverified: Option<bool>,
+        compaction_options: Option<&Bound<'py, PyDict>>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        let compaction_options = parse_compaction_options(compaction_options)?;
+        let older_than = if let Some(ms) = cleanup_since_ms {
+            if ms > i64::MAX as u64 {
+                return Err(PyValueError::new_err(format!(
+                    "cleanup_since_ms must be between {} and -{}",
+                    i32::MAX,
+                    i32::MAX
+                )));
+            }
+            Duration::try_milliseconds(ms as i64)
+        } else {
+            None
+        };
+        future_into_py(self_.py(), async move {
+            let compaction_stats = inner
+                .optimize(OptimizeAction::Compact {
+                    options: compaction_options,
+                    remap_options: None,
+                })
+                .await
+                .infer_error()?
+                .compaction
+                .unwrap();
+            let prune_stats = inner
+                .optimize(OptimizeAction::Prune {
+                    older_than,
+                    delete_unverified,
+                    error_if_tagged_old_versions: None,
+                })
+                .await
+                .infer_error()?
+                .prune
+                .unwrap();
+            inner
+                .optimize(lancedb::table::OptimizeAction::Index(
+                    OptimizeOptions::default(),
+                ))
+                .await
+                .infer_error()?;
+            Ok(OptimizeStats {
+                compaction: CompactionStats {
+                    files_added: compaction_stats.files_added as u64,
+                    files_removed: compaction_stats.files_removed as u64,
+                    fragments_added: compaction_stats.fragments_added as u64,
+                    fragments_removed: compaction_stats.fragments_removed as u64,
+                },
+                prune: RemovalStats {
+                    bytes_removed: prune_stats.bytes_removed,
+                    old_versions_removed: prune_stats.old_versions,
+                },
+            })
+        })
+    }
+
+    pub fn execute_merge_insert<'a>(
+        self_: PyRef<'a, Self>,
+        data: Bound<'a, PyAny>,
+        parameters: MergeInsertParams,
+    ) -> PyResult<Bound<'a, PyAny>> {
+        let batches: ArrowArrayStreamReader = ArrowArrayStreamReader::from_pyarrow_bound(&data)?;
+        let on = parameters.on.iter().map(|s| s.as_str()).collect::<Vec<_>>();
+        let mut builder = self_.inner_ref()?.merge_insert(&on);
+        if parameters.when_matched_update_all {
+            builder.when_matched_update_all(parameters.when_matched_update_all_condition);
+        }
+        if parameters.when_not_matched_insert_all {
+            builder.when_not_matched_insert_all();
+        }
+        if parameters.when_not_matched_by_source_delete {
+            if let Some(e) = parameters.when_not_matched_by_source_condition_expr {
+                builder.when_not_matched_by_source_delete_expr(e.0);
+            } else {
+                builder.when_not_matched_by_source_delete(
+                    parameters.when_not_matched_by_source_condition,
+                );
+            }
+        }
+        if let Some(timeout) = parameters.timeout {
+            builder.timeout(timeout);
+        }
+        if let Some(use_index) = parameters.use_index {
+            builder.use_index(use_index);
+        }
+        if let Some(use_rte) = parameters.use_rte {
+            builder.use_rte(use_rte);
+        }
+        if let Some(validate_single_shard) = parameters.validate_single_shard {
+            builder.validate_single_shard(validate_single_shard);
+        }
+
+        future_into_py(self_.py(), async move {
+            let res = builder.execute(Box::new(batches)).await.infer_error()?;
+            Ok(MergeResult::from(res))
+        })
+    }
+
+    pub fn set_unenforced_primary_key<'a>(
+        self_: PyRef<'a, Self>,
+        columns: Vec<String>,
+    ) -> PyResult<Bound<'a, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            inner
+                .set_unenforced_primary_key(columns)
+                .await
+                .infer_error()
+        })
+    }
+
+    pub fn enable_rte<'a>(
+        self_: PyRef<'a, Self>,
+        spec: RTEWriteSpec,
+    ) -> PyResult<Bound<'a, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        let native_spec = lancedb::table::RTEWriteSpec::from(spec);
+        future_into_py(self_.py(), async move {
+            inner.enable_rte(native_spec).await.infer_error()
+        })
+    }
+
+    pub fn disable_rte(self_: PyRef<'_, Self>) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            inner.disable_rte().await.infer_error()
+        })
+    }
+
+    pub fn get_rte_spec(self_: PyRef<'_, Self>) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            let spec = inner.get_rte_spec().await.infer_error()?;
+            Ok(spec.map(RTEWriteSpec::from))
+        })
+    }
+
+    /// Whether a hybrid query on this table has already been refused `_rowid`.
+    /// Learned from a previous refusal, never probed, so this is free.
+    ///
+    /// WAL-PK-FUSION: delete this and `note_hybrid_pk_fusion`.
+    pub fn hybrid_pk_fusion_learned(self_: PyRef<'_, Self>) -> PyResult<bool> {
+        Ok(self_.inner_ref()?.base_table().hybrid_pk_fusion_learned())
+    }
+
+    /// Remember that this table refused `_rowid`, so later hybrid queries skip
+    /// straight to the primary-key fusion.
+    pub fn note_hybrid_pk_fusion(self_: PyRef<'_, Self>) -> PyResult<()> {
+        self_.inner_ref()?.base_table().note_hybrid_pk_fusion();
+        Ok(())
+    }
+
+    /// Converge the table's RTE write path into its base table.
+    ///
+    /// Best-effort: with writes flowing, new rows may land after the last
+    /// pass. Errors if the table stops making progress.
+    pub fn checkpoint_rte(self_: PyRef<'_, Self>) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            inner.checkpoint_rte().await.infer_error()
+        })
+    }
+
+    /// Freeze every table shard's active memtable into an SSTable.
+    pub fn flush_rte(self_: PyRef<'_, Self>) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(
+            self_.py(),
+            async move { inner.flush_rte().await.infer_error() },
+        )
+    }
+
+    /// Trigger a background SSTable compaction pass per table shard. Returns once the
+    /// passes are dispatched, not once they finish — watch `get_rte_stats`.
+    pub fn compact_rte(self_: PyRef<'_, Self>) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            inner.compact_rte().await.infer_error()
+        })
+    }
+
+    /// Live RTE state, or `None` when the RTE write path is not enabled.
+    #[pyo3(signature = (include_sstable_rows=false))]
+    pub fn get_rte_stats(
+        self_: PyRef<'_, Self>,
+        include_sstable_rows: bool,
+    ) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            let stats = inner
+                .get_rte_stats(include_sstable_rows)
+                .await
+                .infer_error()?;
+            Python::attach(|py| stats.map(|s| rte_stats_to_py(py, &s)).transpose())
+        })
+    }
+
+    pub fn close_rte_writers(self_: PyRef<'_, Self>) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            inner.close_rte_writers().await.infer_error()
+        })
+    }
+
+    pub fn uses_v2_manifest_paths(self_: PyRef<'_, Self>) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            inner
+                .as_native()
+                .ok_or_else(|| lancedb::Error::NotSupported {
+                    message: "uses_v2_manifest_paths is not supported for remote tables.".into(),
+                })
+                .infer_error()?
+                .uses_v2_manifest_paths()
+                .await
+                .infer_error()
+        })
+    }
+
+    pub fn migrate_manifest_paths_v2(self_: PyRef<'_, Self>) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            inner
+                .as_native()
+                .ok_or_else(|| lancedb::Error::NotSupported {
+                    message: "migrate_manifest_paths_v2 is not supported for remote tables.".into(),
+                })
+                .infer_error()?
+                .migrate_manifest_paths_v2()
+                .await
+                .infer_error()
+        })
+    }
+
+    pub fn add_columns(
+        self_: PyRef<'_, Self>,
+        definitions: Vec<(String, String)>,
+    ) -> PyResult<Bound<'_, PyAny>> {
+        let definitions = NewColumnTransform::SqlExpressions(definitions);
+
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            let result = inner
+                .add_columns()
+                .transform(definitions)
+                .execute()
+                .await
+                .infer_error()?;
+            Ok(AddColumnsResult::from(result))
+        })
+    }
+
+    #[pyo3(signature = (columns, auto_refresh_enabled=None, auto_refresh_interval_seconds=None))]
+    pub fn add_computed_columns(
+        self_: PyRef<'_, Self>,
+        columns: Vec<(String, String)>,
+        auto_refresh_enabled: Option<bool>,
+        auto_refresh_interval_seconds: Option<u64>,
+    ) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        let options = ComputedColumnOptions {
+            auto_refresh_enabled: auto_refresh_enabled.unwrap_or(true),
+            auto_refresh_interval_seconds,
+        };
+        options.validate().infer_error()?;
+        future_into_py(self_.py(), async move {
+            let mut builder = inner.add_columns();
+            for (name, expression) in columns {
+                builder = builder.computed(name, expression);
+            }
+            let result = builder
+                .computed_options(options)
+                .execute()
+                .await
+                .infer_error()?;
+            Ok(AddColumnsResult::from(result))
+        })
+    }
+
+    #[pyo3(signature = (application_json, output_name, auto_refresh_enabled=None, auto_refresh_interval_seconds=None))]
+    pub fn add_function_columns(
+        self_: PyRef<'_, Self>,
+        application_json: String,
+        output_name: Option<String>,
+        auto_refresh_enabled: Option<bool>,
+        auto_refresh_interval_seconds: Option<u64>,
+    ) -> PyResult<Bound<'_, PyAny>> {
+        let application =
+            lancedb::function::FunctionApplication::from_json(&application_json).infer_error()?;
+        let inner = self_.inner_ref()?.clone();
+        let options = ComputedColumnOptions {
+            auto_refresh_enabled: auto_refresh_enabled.unwrap_or(true),
+            auto_refresh_interval_seconds,
+        };
+        options.validate().infer_error()?;
+        future_into_py(self_.py(), async move {
+            let builder = match output_name {
+                Some(name) => inner.add_columns().function_as(name, application),
+                None => inner.add_columns().function(application),
+            };
+            let result = builder
+                .computed_options(options)
+                .execute()
+                .await
+                .infer_error()?;
+            Ok(AddColumnsResult::from(result))
+        })
+    }
+
+    pub fn refresh_column(self_: PyRef<'_, Self>, column: String) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            let result = inner.refresh_column(column).await.infer_error()?;
+            Ok(RefreshColumnResult::from(result))
+        })
+    }
+
+    pub fn refresh_column_async(
+        self_: PyRef<'_, Self>,
+        column: String,
+    ) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            let job = inner.refresh_column_async(column).await.infer_error()?;
+            Ok(crate::job::Job::new_typed(job))
+        })
+    }
+
+    #[pyo3(signature = (job_id=None, column=None, limit=None))]
+    pub fn function_errors(
+        self_: PyRef<'_, Self>,
+        job_id: Option<String>,
+        column: Option<String>,
+        limit: Option<usize>,
+    ) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        let request = lancedb::function::FunctionErrorsRequest {
+            job_id,
+            column,
+            limit,
+        };
+        future_into_py(self_.py(), async move {
+            let errors = inner.function_errors(request).await.infer_error()?;
+            Ok(FunctionErrors::from(errors))
+        })
+    }
+
+    #[pyo3(signature = (source_version=None, *, full=false))]
+    pub fn refresh_materialized_view(
+        self_: PyRef<'_, Self>,
+        source_version: Option<u64>,
+        full: bool,
+    ) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            let view = lancedb::MaterializedView::from_table(inner)
+                .await
+                .infer_error()?;
+            let mut builder = view.refresh().full(full);
+            if let Some(version) = source_version {
+                builder = builder.source_version(version);
+            }
+            let result = builder.execute().await.infer_error()?;
+            Ok(RefreshMaterializedViewResult::from(result))
+        })
+    }
+
+    #[pyo3(signature = (source_version=None, *, full=false))]
+    pub fn refresh_materialized_view_async(
+        self_: PyRef<'_, Self>,
+        source_version: Option<u64>,
+        full: bool,
+    ) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            let view = lancedb::MaterializedView::from_table(inner)
+                .await
+                .infer_error()?;
+            let mut builder = view.refresh().full(full);
+            if let Some(version) = source_version {
+                builder = builder.source_version(version);
+            }
+            let job = builder.execute_async().await.infer_error()?;
+            Ok(crate::job::Job::new_typed(job))
+        })
+    }
+
+    pub fn materialized_view_definition(self_: PyRef<'_, Self>) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            let view = lancedb::MaterializedView::from_table(inner)
+                .await
+                .infer_error()?;
+            Ok(lancedb::materialized_view::definition_metadata_from_sql(
+                view.definition_sql(),
+            ))
+        })
+    }
+
+    pub fn add_columns_with_schema(
+        self_: PyRef<'_, Self>,
+        schema: PyArrowType<Schema>,
+    ) -> PyResult<Bound<'_, PyAny>> {
+        let arrow_schema = &schema.0;
+        let transform = NewColumnTransform::AllNulls(Arc::new(arrow_schema.clone()));
+
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            let result = inner
+                .add_columns()
+                .transform(transform)
+                .execute()
+                .await
+                .infer_error()?;
+            Ok(AddColumnsResult::from(result))
+        })
+    }
+
+    pub fn alter_columns<'a>(
+        self_: PyRef<'a, Self>,
+        alterations: Vec<Bound<PyDict>>,
+    ) -> PyResult<Bound<'a, PyAny>> {
+        let alterations = alterations
+            .iter()
+            .map(|alteration| {
+                for key in alteration.keys().iter() {
+                    let key = key.extract::<String>()?;
+                    if !matches!(
+                        key.as_str(),
+                        "path" | "rename" | "name" | "nullable" | "data_type"
+                    ) {
+                        return Err(PyValueError::new_err(format!(
+                            "Unknown column alteration key '{key}'"
+                        )));
+                    }
+                }
+                let path = alteration
+                    .get_item("path")?
+                    .ok_or_else(|| PyValueError::new_err("Missing path"))?
+                    .extract()?;
+                let rename = {
+                    // We prefer rename, but support name for backwards compatibility
+                    let rename = if let Ok(Some(rename)) = alteration.get_item("rename") {
+                        Some(rename)
+                    } else {
+                        alteration.get_item("name")?
+                    };
+                    rename.map(|name| name.extract()).transpose()?
+                };
+                let nullable = alteration
+                    .get_item("nullable")?
+                    .map(|val| val.extract())
+                    .transpose()?;
+                let data_type = alteration
+                    .get_item("data_type")?
+                    .map(|val| DataType::from_pyarrow_bound(&val))
+                    .transpose()?;
+                Ok(ColumnAlteration {
+                    path,
+                    rename,
+                    nullable,
+                    data_type,
+                })
+            })
+            .collect::<PyResult<Vec<_>>>()?;
+
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            let result = inner.alter_columns(&alterations).await.infer_error()?;
+            Ok(AlterColumnsResult::from(result))
+        })
+    }
+
+    pub fn drop_columns(self_: PyRef<Self>, columns: Vec<String>) -> PyResult<Bound<PyAny>> {
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            let column_refs = columns.iter().map(String::as_str).collect::<Vec<&str>>();
+            let result = inner.drop_columns(&column_refs).await.infer_error()?;
+            Ok(DropColumnsResult::from(result))
+        })
+    }
+
+    pub fn replace_field_metadata<'a>(
+        self_: PyRef<'a, Self>,
+        field_name: String,
+        metadata: &Bound<'_, PyDict>,
+    ) -> PyResult<Bound<'a, PyAny>> {
+        // Deprecated: forwards to the update_field_metadata path (replace mode).
+        let mut update = FieldMetadataUpdate::new(field_name).replace();
+        for (key, value) in metadata.into_iter() {
+            update = update.set(key.extract::<String>()?, value.extract::<String>()?);
+        }
+
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            inner.update_field_metadata(&[update]).await.infer_error()?;
+            Ok(())
+        })
+    }
+
+    pub fn update_field_metadata<'a>(
+        self_: PyRef<'a, Self>,
+        updates: Vec<Bound<PyDict>>,
+    ) -> PyResult<Bound<'a, PyAny>> {
+        let updates = updates
+            .iter()
+            .map(|update| {
+                let path: String = update
+                    .get_item("path")?
+                    .ok_or_else(|| PyValueError::new_err("Missing path"))?
+                    .extract()?;
+                let mut field_update = FieldMetadataUpdate::new(path);
+                if let Some(metadata) = update.get_item("metadata")? {
+                    let metadata_dict = metadata.cast::<PyDict>()?;
+                    for (key, value) in metadata_dict.iter() {
+                        let key: String = key.extract()?;
+                        if value.is_none() {
+                            field_update = field_update.remove(key);
+                        } else {
+                            field_update = field_update.set(key, value.extract::<String>()?);
+                        }
+                    }
+                }
+                if let Some(replace) = update.get_item("replace")?
+                    && replace.extract::<bool>()?
+                {
+                    field_update = field_update.replace();
+                }
+                Ok(field_update)
+            })
+            .collect::<PyResult<Vec<_>>>()?;
+
+        let inner = self_.inner_ref()?.clone();
+        future_into_py(self_.py(), async move {
+            let result = inner.update_field_metadata(&updates).await.infer_error()?;
+            Ok(UpdateFieldMetadataResult::from(result))
+        })
+    }
+}
+
+#[derive(FromPyObject)]
+pub enum LanceVersion {
+    Version(u64),
+    Tag(String),
+}
+
+#[derive(FromPyObject)]
+#[pyo3(from_item_all)]
+pub struct MergeInsertParams {
+    on: Vec<String>,
+    when_matched_update_all: bool,
+    when_matched_update_all_condition: Option<String>,
+    when_not_matched_insert_all: bool,
+    when_not_matched_by_source_delete: bool,
+    when_not_matched_by_source_condition: Option<String>,
+    when_not_matched_by_source_condition_expr: Option<PyExpr>,
+    timeout: Option<std::time::Duration>,
+    use_index: Option<bool>,
+    use_rte: Option<bool>,
+    validate_single_shard: Option<bool>,
+}
+
+#[pyclass]
+pub struct Tags {
+    inner: LanceDbTable,
+}
+
+impl Tags {
+    pub fn new(table: LanceDbTable) -> Self {
+        Self { inner: table }
+    }
+}
+
+#[pymethods]
+impl Tags {
+    pub fn list(self_: PyRef<'_, Self>) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner.clone();
+        future_into_py(self_.py(), async move {
+            let tags = inner.tags().await.infer_error()?;
+            let res = tags.list().await.infer_error()?;
+
+            Python::attach(|py| {
+                let py_dict = PyDict::new(py);
+                for (key, contents) in res {
+                    let value_dict = PyDict::new(py);
+                    value_dict.set_item("version", contents.version)?;
+                    value_dict.set_item("manifest_size", contents.manifest_size)?;
+                    py_dict.set_item(key, value_dict)?;
+                }
+                Ok(py_dict.unbind())
+            })
+        })
+    }
+
+    pub fn get_version(self_: PyRef<'_, Self>, tag: String) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner.clone();
+        future_into_py(self_.py(), async move {
+            let tags = inner.tags().await.infer_error()?;
+            let res = tags.get_version(tag.as_str()).await.infer_error()?;
+            Ok(res)
+        })
+    }
+
+    pub fn create(self_: PyRef<Self>, tag: String, version: u64) -> PyResult<Bound<PyAny>> {
+        let inner = self_.inner.clone();
+        future_into_py(self_.py(), async move {
+            let mut tags = inner.tags().await.infer_error()?;
+            tags.create(tag.as_str(), version).await.infer_error()?;
+            Ok(())
+        })
+    }
+
+    pub fn delete(self_: PyRef<Self>, tag: String) -> PyResult<Bound<PyAny>> {
+        let inner = self_.inner.clone();
+        future_into_py(self_.py(), async move {
+            let mut tags = inner.tags().await.infer_error()?;
+            tags.delete(tag.as_str()).await.infer_error()?;
+            Ok(())
+        })
+    }
+
+    pub fn update(self_: PyRef<Self>, tag: String, version: u64) -> PyResult<Bound<PyAny>> {
+        let inner = self_.inner.clone();
+        future_into_py(self_.py(), async move {
+            let mut tags = inner.tags().await.infer_error()?;
+            tags.update(tag.as_str(), version).await.infer_error()?;
+            Ok(())
+        })
+    }
+}
+
+#[pyclass]
+pub struct Branches {
+    inner: LanceDbTable,
+}
+
+impl Branches {
+    pub fn new(table: LanceDbTable) -> Self {
+        Self { inner: table }
+    }
+}
+
+#[pymethods]
+impl Branches {
+    pub fn list(self_: PyRef<'_, Self>) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner.clone();
+        future_into_py(self_.py(), async move {
+            let res = inner.list_branches().await.infer_error()?;
+            Python::attach(|py| {
+                let py_dict = PyDict::new(py);
+                for (name, contents) in res {
+                    let value = PyDict::new(py);
+                    value.set_item("parent_branch", contents.parent_branch)?;
+                    value.set_item("parent_version", contents.parent_version)?;
+                    value.set_item("manifest_size", contents.manifest_size)?;
+                    py_dict.set_item(name, value)?;
+                }
+                Ok(py_dict.unbind())
+            })
+        })
+    }
+
+    #[pyo3(signature = (name, from_ref=None, from_version=None))]
+    pub fn create(
+        self_: PyRef<'_, Self>,
+        name: String,
+        from_ref: Option<String>,
+        from_version: Option<u64>,
+    ) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner.clone();
+        future_into_py(self_.py(), async move {
+            let from = Ref::Version(from_ref, from_version);
+            let table = inner.create_branch(&name, from).await.infer_error()?;
+            Ok(Table::new(table))
+        })
+    }
+
+    #[pyo3(signature = (name, version=None))]
+    pub fn checkout(
+        self_: PyRef<'_, Self>,
+        name: String,
+        version: Option<u64>,
+    ) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner.clone();
+        future_into_py(self_.py(), async move {
+            let table = inner.checkout_branch(&name, version).await.infer_error()?;
+            Ok(Table::new(table))
+        })
+    }
+
+    pub fn delete(self_: PyRef<'_, Self>, name: String) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner.clone();
+        future_into_py(self_.py(), async move {
+            inner.delete_branch(&name).await.infer_error()?;
+            Ok(())
+        })
+    }
+
+    pub fn diff(self_: PyRef<'_, Self>, from_branch: String) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner.clone();
+        future_into_py(self_.py(), async move {
+            let diff = inner.diff_branch(&from_branch).await.infer_error()?;
+            Python::attach(|py| struct_to_wire_py(py, &diff))
+        })
+    }
+
+    #[pyo3(signature = (from_branch, dry_run=false))]
+    pub fn cherry_pick(
+        self_: PyRef<'_, Self>,
+        from_branch: String,
+        dry_run: bool,
+    ) -> PyResult<Bound<'_, PyAny>> {
+        let inner = self_.inner.clone();
+        future_into_py(self_.py(), async move {
+            let result = inner
+                .cherry_pick(&from_branch, dry_run)
+                .await
+                .infer_error()?;
+            Python::attach(|py| struct_to_wire_py(py, &result))
+        })
+    }
+}
+
+/// Decode a serde value as the wire JSON object (camelCase keys).
+fn struct_to_wire_py(py: Python<'_>, value: &impl serde::Serialize) -> PyResult<Py<PyAny>> {
+    let json = py.import("json")?;
+    Ok(json
+        .call_method1(
+            "loads",
+            (serde_json::to_string(value)
+                .map_err(|e| PyRuntimeError::new_err(format!("failed to serialize json: {e}")))?,),
+        )?
+        .unbind())
+}

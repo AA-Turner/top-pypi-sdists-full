@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: streamlink
-Version: 8.6.2
+Version: 8.6.3
 Summary: Streamlink is a command-line utility that extracts streams from various services and pipes them into a video player of choice.
 Author: Streamlink
 Author-email: streamlink@protonmail.com
@@ -36,7 +36,7 @@ Requires-Dist: exceptiongroup; python_version < "3.11"
 Requires-Dist: isodate
 Requires-Dist: lxml<8,>=5.0.0
 Requires-Dist: pycountry
-Requires-Dist: pycryptodome<4,>=3.4.3
+Requires-Dist: pycryptodome<5,>=3.4.3
 Requires-Dist: PySocks!=1.5.7,>=1.5.6
 Requires-Dist: requests<3,>=2.30.0
 Requires-Dist: trio<1,>=0.25.0; python_version >= "3.13"

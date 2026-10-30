@@ -1,6 +1,7 @@
 use std::collections::HashMap;
-use std::fs;
 use std::path::{Path, PathBuf};
+
+use super::read_bounded;
 
 pub(super) fn file_url_to_path(value: &str) -> Option<PathBuf> {
     let url = url::Url::parse(value).ok()?;
@@ -17,7 +18,7 @@ impl EggLinks {
 
     pub(super) fn insert(&mut self, search: usize, path: &Path) {
         let Some((name, target)) = path.file_name().and_then(|name| {
-            fs::read_to_string(path)
+            read_bounded(path)
                 .ok()?
                 .lines()
                 .next()
@@ -28,15 +29,21 @@ impl EggLinks {
         self.0[search].insert(name.into_owned(), target);
     }
 
-    pub(super) fn find(&self, package: &str) -> Option<&PathBuf> {
-        for links in &self.0 {
-            for name in egg_link_names(package) {
-                if let Some(target) = links.get(&name) {
-                    return Some(target);
-                }
-            }
+    // `setup.py develop` writes the directory that holds the project's .egg-info directory; a link
+    // that names another directory, or a package installed another way, did not come from it.
+    pub(super) fn find(&self, package: &str, metadata_dir: &Path) -> Option<&PathBuf> {
+        if metadata_dir
+            .extension()
+            .is_none_or(|suffix| suffix != "egg-info")
+        {
+            return None;
         }
-        None
+        let location = metadata_dir.parent()?.canonicalize().ok()?;
+        let names = egg_link_names(package);
+        self.0
+            .iter()
+            .flat_map(|links| names.iter().filter_map(|name| links.get(name)))
+            .find(|target| target.canonicalize().is_ok_and(|target| target == location))
     }
 }
 

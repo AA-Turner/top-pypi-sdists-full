@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 import time
-from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -13,6 +12,7 @@ from typing import TYPE_CHECKING, Any, TypedDict, overload
 from eth_utils.address import to_checksum_address
 
 from mpp import Challenge, Credential
+from mpp._typing import is_list, is_mapping
 from mpp._units import parse_units
 from mpp.methods import CanOfferFn, PaymentSuccessHandler
 from mpp.methods.evm._eip3009 import (
@@ -25,6 +25,8 @@ from mpp.methods.evm.assets import EvmAsset
 from mpp.methods.evm.intents import CREDENTIAL_TYPE, SettleFn
 from mpp.methods.evm.intents import charge as definition
 from mpp.runtime import ClientMethod, CredentialParams
+from mpp.x402._client import is_x402_challenge
+from mpp.x402._exact import check_exact, create_payment_signature
 from mpp.x402._server import RouteBinding
 from mpp.x402.facilitator import Facilitator
 
@@ -44,7 +46,7 @@ class AuthorizationConfig(TypedDict):
 
 
 _OPTION_KEYS = frozenset(
-    {"amount", "currency", "recipient", "splits", "fee_payer", "chain_id", "extra"}
+    {"amount", "currency", "recipient", "splits", "fee_payer", "chain_id", "extra", "external_id"}
 )
 
 
@@ -77,7 +79,6 @@ class _Config:
             for key, value in (
                 ("chainId", options.get("chain_id")),
                 ("splits", options.get("splits")),
-                ("feePayer", options.get("fee_payer")),
             )
             if value is not None
         }
@@ -89,6 +90,10 @@ class _Config:
         }
         if options.get("extra") is not None:
             request["extra"] = options["extra"]
+        if options.get("external_id") is not None:
+            request["externalId"] = options["external_id"]
+        # fee_payer is a Tempo option: EIP-3009 payers pay no gas, so like mppx an
+        # EVM offer composed with sponsored Tempo offers ignores it.
         return self.wire_request(request)
 
     def wire_request(self, request: dict[str, Any]) -> dict[str, Any]:
@@ -99,14 +104,12 @@ class _Config:
         recipient = request.get("recipient")
         if not isinstance(recipient, str) or not _ADDRESS_RE.fullmatch(recipient):
             raise ValueError("EVM charge recipient must be an address")
-        raw_details = request.get("methodDetails") or {}
-        if not isinstance(raw_details, Mapping):
+        raw_details: object = request.get("methodDetails") or {}
+        if not is_mapping(raw_details):
             raise ValueError("methodDetails must be an object")
         details = dict(raw_details)
         if details.get("splits"):
             raise ValueError("EVM charges do not support splits")
-        if details.get("feePayer"):
-            raise ValueError("EVM charges do not support fee_payer")
         details.pop("feePayer", None)
         details.pop("splits", None)
         chain_id = details.get("chainId", self.chain_id)
@@ -127,7 +130,15 @@ class _Config:
     def can_handle_challenge(self, challenge: Challenge) -> bool:
         """Return whether this method can sign the challenge's charge."""
         try:
-            self._check_challenge(challenge)
+            if is_x402_challenge(challenge):
+                check_exact(
+                    challenge,
+                    chain_id=self.chain_id,
+                    currency=self.currency,
+                    max_amount=self.max_amount,
+                )
+            else:
+                self._check_challenge(challenge)
         except ValueError:
             return False
         return True
@@ -135,7 +146,7 @@ class _Config:
     def _check_challenge(self, challenge: Challenge) -> dict[str, Any]:
         request = challenge.request
         details = request.get("methodDetails")
-        if not isinstance(details, Mapping):
+        if not is_mapping(details):
             raise ValueError("EVM challenge is missing methodDetails")
         if details.get("chainId") != self.chain_id:
             raise ValueError(f"EVM chain ID is not allowed: {details.get('chainId')}")
@@ -143,7 +154,7 @@ class _Config:
         if not isinstance(currency, str) or currency.lower() != self.currency.lower():
             raise ValueError(f"EVM currency is not allowed: {currency}")
         credential_types = details.get("credentialTypes")
-        if not isinstance(credential_types, list) or CREDENTIAL_TYPE not in credential_types:
+        if not is_list(credential_types) or CREDENTIAL_TYPE not in credential_types:
             raise ValueError("EVM authorization is not accepted by this challenge")
         if details.get("splits"):
             raise ValueError("EVM authorization does not support payment splits")
@@ -273,6 +284,13 @@ def charge(
 ) -> ClientMethod:
     """Create a client ``evm/charge`` method that signs EIP-3009 authorizations.
 
+    It pays native ``evm/charge`` challenges and x402 v2 ``exact`` offers
+    (``PAYMENT-REQUIRED``) in its currency and chain, as mppx's client does:
+    when a server offers both, the native challenge is paid. x402 offers are
+    signed with the token name and version the server advertises in
+    ``extra``, and paid responses carry the settlement in
+    ``PAYMENT-RESPONSE`` (see :func:`mpp.x402.payment_response`).
+
     Example:
         from eth_account import Account
         from mpp.client import Mpp
@@ -305,6 +323,14 @@ def charge(
     )
 
     async def create_credential(params: CredentialParams) -> str:
+        if is_x402_challenge(params.challenge):
+            return create_payment_signature(
+                params.challenge,
+                account=config.account,
+                chain_id=config.chain_id,
+                currency=config.currency,
+                max_amount=config.max_amount,
+            )
         credential = await config.create_credential(params.challenge)
         return credential.to_authorization()
 

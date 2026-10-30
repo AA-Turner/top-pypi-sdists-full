@@ -62,10 +62,11 @@ class RawAssetsClient:
         filters: typing.Optional[str] = None,
         sort: typing.Optional[str] = None,
         workspace_id: typing.Optional[str] = None,
+        parent_folder_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[PaginatedAssetsOut]:
         """
-        Retrieve a paginated list of assets with optional filtering and sorting. Assets include documents, presentations, spreadsheets, images, videos, and other file types managed by Athena Intelligence.
+        Retrieve a paginated list of assets with optional filtering and sorting. Assets include documents, presentations, spreadsheets, images, videos, and other file types managed by Athena Intelligence. Pass parent_folder_id to list one folder's direct children (not its whole subtree), or filters.parent_folder_id = null to list assets in no folder.
 
         Parameters
         ----------
@@ -76,13 +77,16 @@ class RawAssetsClient:
             Number of assets to skip for pagination
 
         filters : typing.Optional[str]
-            JSON string of filter criteria. Supports: created_by_id, created_by_email, tags, created_after/before, updated_after/before, title_substring, is_archived, is_hidden, athena_metadata, media_type, athena_converted_type, athena_original_type, summary_ready, summary_status, workspace_id
+            JSON string of filter criteria. Supports: created_by_id, created_by_email, tags, created_after/before, updated_after/before, title_substring, is_archived, is_hidden, athena_metadata, media_type, athena_converted_type, athena_original_type, summary_ready, summary_status, workspace_id, parent_folder_id (a folder id lists its direct children; null lists assets in no folder)
 
         sort : typing.Optional[str]
             JSON string of sort criteria: [{"field": "updated_at", "direction": "desc"}]. Supported fields: created_by_id, created_by_email, created_at, updated_at, is_archived, is_hidden, summary_ready, summary_status
 
         workspace_id : typing.Optional[str]
             Workspace to list assets from. Caller must be a member.
+
+        parent_folder_id : typing.Optional[str]
+            Only list the direct children of this folder (not its whole subtree). Only assets you can access are returned. To list assets in no folder, pass filters.parent_folder_id = null instead.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -101,6 +105,7 @@ class RawAssetsClient:
                 "filters": filters,
                 "sort": sort,
                 "workspace_id": workspace_id,
+                "parent_folder_id": parent_folder_id,
             },
             request_options=request_options,
         )
@@ -285,7 +290,7 @@ class RawAssetsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[CreateAssetResponseOut]:
         """
-        Create a new asset such as a spreadsheet, document, folder, database, computer, user interface, skill, collab agent, or generic doc (admin-only) in your workspace with your current permissions. Computer assets return 202 after durable submission, which commits the asset and initialization delivery intent together. Runtime provisioning continues asynchronously. Inspect the returned asset ID for progress instead of repeating creation. Computers accept the same configuration as the Athena UI's creation dialog: template, provider, cpu, memory (GiB), disk (GiB) and env_vars. Sizes must be offered by the environment's computer resource policy, and only admins may pick a size other than the template default (403 otherwise). In capability enforce mode, computer creation requires computer.create and returns 403 when denied. Databases accept suspend_timeout_seconds, the auto-suspend window from the database's Settings in Athena: 0 keeps the database running (it never suspends, and keeps using capacity), otherwise 60 to 86400 seconds. A database is provisioned in the background: poll GET /api/v0/databases/{asset_id}/compute-status until it reports running or suspended.
+        Create a new asset such as a spreadsheet, document, folder, database, computer, user interface, skill, collab agent, or generic doc (admin-only) in your workspace with your current permissions. Computer assets return 202 after durable submission, which commits the asset and initialization delivery intent together. Runtime provisioning continues asynchronously. Inspect the returned asset ID for progress instead of repeating creation. Computers accept the same configuration as the Athena UI's creation dialog: template, provider, cpu, memory (GiB), disk (GiB) and env_vars. Sizes must be offered by the environment's computer resource policy, and only admins may pick a size other than the template default (403 otherwise). In capability enforce mode, computer creation requires computer.create and returns 403 when denied. Databases accept suspend_timeout_seconds, the auto-suspend window from the database's Settings in Athena: 0 keeps the database running (it never suspends, and keeps using capacity), otherwise 60 to 86400 seconds. A database is provisioned in the background: poll GET /api/v0/databases/{asset_id}/compute-status until it reports running or suspended. Without workspace_id the asset is created in the workspace of parent_folder_id when one is given, otherwise in your current workspace; you must be a member of that workspace.
 
         Parameters
         ----------
@@ -329,7 +334,7 @@ class RawAssetsClient:
             Title for the new asset
 
         workspace_id : typing.Optional[str]
-            ID of the workspace to create the asset in. If not provided, the asset is created in the user's current workspace. The user must be a member of the specified workspace.
+            ID of the workspace to create the asset in. If not provided, the asset is created in the workspace of parent_folder_id when one is given, otherwise in the user's current workspace. The user must be a member of that workspace.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1959,19 +1964,19 @@ class RawAssetsClient:
         self,
         asset_id: str,
         *,
-        workspace_access: WorkspaceShareAccess,
+        workspace_access: typing.Optional[WorkspaceShareAccess] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[WorkspaceAccessResponseOut]:
         """
-        Update the workspace-level access on an asset. Only users who have edit access to the asset and permission to share with the workspace can use this endpoint. Set 'view' or 'edit' to grant workspace-wide access.
+        Update the workspace-level access on an asset. Needs edit access to the asset. Set 'view' or 'edit' to grant workspace-wide access, which also needs permission to share with the workspace. Set 'none' (or null) to remove the workspace-wide share, as DELETE does; removing a folder's share also removes it from the assets inside the folder. People and groups the asset is shared with directly keep their access.
 
         Parameters
         ----------
         asset_id : str
             Unique identifier of the asset
 
-        workspace_access : WorkspaceShareAccess
-            Permission level to grant to the entire workspace. Set to 'view' or 'edit'.
+        workspace_access : typing.Optional[WorkspaceShareAccess]
+            Permission level to grant to the entire workspace: 'view' or 'edit'. Set 'none' (or null) to remove the workspace-wide share; people the asset is shared with directly keep their access.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -2052,6 +2057,78 @@ class RawAssetsClient:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    def remove_workspace_access(
+        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[WorkspaceAccessResponseOut]:
+        """
+        Remove the workspace-wide share from an asset, so members of the workspace no longer get access through it. Needs edit access to the asset. Removing a folder's share also removes it from the assets inside the folder. People and groups the asset is shared with directly keep their access. Calling it on an asset with no workspace share, or on one in the trash, succeeds with the same answer.
+
+        Parameters
+        ----------
+        asset_id : str
+            Unique identifier of the asset
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[WorkspaceAccessResponseOut]
+            Workspace share removed
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v0/assets/{jsonable_encoder(asset_id)}/workspace-access",
+            method="DELETE",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    WorkspaceAccessResponseOut,
+                    parse_obj_as(
+                        type_=WorkspaceAccessResponseOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
 
 class AsyncRawAssetsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -2065,10 +2142,11 @@ class AsyncRawAssetsClient:
         filters: typing.Optional[str] = None,
         sort: typing.Optional[str] = None,
         workspace_id: typing.Optional[str] = None,
+        parent_folder_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[PaginatedAssetsOut]:
         """
-        Retrieve a paginated list of assets with optional filtering and sorting. Assets include documents, presentations, spreadsheets, images, videos, and other file types managed by Athena Intelligence.
+        Retrieve a paginated list of assets with optional filtering and sorting. Assets include documents, presentations, spreadsheets, images, videos, and other file types managed by Athena Intelligence. Pass parent_folder_id to list one folder's direct children (not its whole subtree), or filters.parent_folder_id = null to list assets in no folder.
 
         Parameters
         ----------
@@ -2079,13 +2157,16 @@ class AsyncRawAssetsClient:
             Number of assets to skip for pagination
 
         filters : typing.Optional[str]
-            JSON string of filter criteria. Supports: created_by_id, created_by_email, tags, created_after/before, updated_after/before, title_substring, is_archived, is_hidden, athena_metadata, media_type, athena_converted_type, athena_original_type, summary_ready, summary_status, workspace_id
+            JSON string of filter criteria. Supports: created_by_id, created_by_email, tags, created_after/before, updated_after/before, title_substring, is_archived, is_hidden, athena_metadata, media_type, athena_converted_type, athena_original_type, summary_ready, summary_status, workspace_id, parent_folder_id (a folder id lists its direct children; null lists assets in no folder)
 
         sort : typing.Optional[str]
             JSON string of sort criteria: [{"field": "updated_at", "direction": "desc"}]. Supported fields: created_by_id, created_by_email, created_at, updated_at, is_archived, is_hidden, summary_ready, summary_status
 
         workspace_id : typing.Optional[str]
             Workspace to list assets from. Caller must be a member.
+
+        parent_folder_id : typing.Optional[str]
+            Only list the direct children of this folder (not its whole subtree). Only assets you can access are returned. To list assets in no folder, pass filters.parent_folder_id = null instead.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -2104,6 +2185,7 @@ class AsyncRawAssetsClient:
                 "filters": filters,
                 "sort": sort,
                 "workspace_id": workspace_id,
+                "parent_folder_id": parent_folder_id,
             },
             request_options=request_options,
         )
@@ -2288,7 +2370,7 @@ class AsyncRawAssetsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[CreateAssetResponseOut]:
         """
-        Create a new asset such as a spreadsheet, document, folder, database, computer, user interface, skill, collab agent, or generic doc (admin-only) in your workspace with your current permissions. Computer assets return 202 after durable submission, which commits the asset and initialization delivery intent together. Runtime provisioning continues asynchronously. Inspect the returned asset ID for progress instead of repeating creation. Computers accept the same configuration as the Athena UI's creation dialog: template, provider, cpu, memory (GiB), disk (GiB) and env_vars. Sizes must be offered by the environment's computer resource policy, and only admins may pick a size other than the template default (403 otherwise). In capability enforce mode, computer creation requires computer.create and returns 403 when denied. Databases accept suspend_timeout_seconds, the auto-suspend window from the database's Settings in Athena: 0 keeps the database running (it never suspends, and keeps using capacity), otherwise 60 to 86400 seconds. A database is provisioned in the background: poll GET /api/v0/databases/{asset_id}/compute-status until it reports running or suspended.
+        Create a new asset such as a spreadsheet, document, folder, database, computer, user interface, skill, collab agent, or generic doc (admin-only) in your workspace with your current permissions. Computer assets return 202 after durable submission, which commits the asset and initialization delivery intent together. Runtime provisioning continues asynchronously. Inspect the returned asset ID for progress instead of repeating creation. Computers accept the same configuration as the Athena UI's creation dialog: template, provider, cpu, memory (GiB), disk (GiB) and env_vars. Sizes must be offered by the environment's computer resource policy, and only admins may pick a size other than the template default (403 otherwise). In capability enforce mode, computer creation requires computer.create and returns 403 when denied. Databases accept suspend_timeout_seconds, the auto-suspend window from the database's Settings in Athena: 0 keeps the database running (it never suspends, and keeps using capacity), otherwise 60 to 86400 seconds. A database is provisioned in the background: poll GET /api/v0/databases/{asset_id}/compute-status until it reports running or suspended. Without workspace_id the asset is created in the workspace of parent_folder_id when one is given, otherwise in your current workspace; you must be a member of that workspace.
 
         Parameters
         ----------
@@ -2332,7 +2414,7 @@ class AsyncRawAssetsClient:
             Title for the new asset
 
         workspace_id : typing.Optional[str]
-            ID of the workspace to create the asset in. If not provided, the asset is created in the user's current workspace. The user must be a member of the specified workspace.
+            ID of the workspace to create the asset in. If not provided, the asset is created in the workspace of parent_folder_id when one is given, otherwise in the user's current workspace. The user must be a member of that workspace.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -3963,19 +4045,19 @@ class AsyncRawAssetsClient:
         self,
         asset_id: str,
         *,
-        workspace_access: WorkspaceShareAccess,
+        workspace_access: typing.Optional[WorkspaceShareAccess] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[WorkspaceAccessResponseOut]:
         """
-        Update the workspace-level access on an asset. Only users who have edit access to the asset and permission to share with the workspace can use this endpoint. Set 'view' or 'edit' to grant workspace-wide access.
+        Update the workspace-level access on an asset. Needs edit access to the asset. Set 'view' or 'edit' to grant workspace-wide access, which also needs permission to share with the workspace. Set 'none' (or null) to remove the workspace-wide share, as DELETE does; removing a folder's share also removes it from the assets inside the folder. People and groups the asset is shared with directly keep their access.
 
         Parameters
         ----------
         asset_id : str
             Unique identifier of the asset
 
-        workspace_access : WorkspaceShareAccess
-            Permission level to grant to the entire workspace. Set to 'view' or 'edit'.
+        workspace_access : typing.Optional[WorkspaceShareAccess]
+            Permission level to grant to the entire workspace: 'view' or 'edit'. Set 'none' (or null) to remove the workspace-wide share; people the asset is shared with directly keep their access.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -4031,6 +4113,78 @@ class AsyncRawAssetsClient:
                 )
             if _response.status_code == 409:
                 raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def remove_workspace_access(
+        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[WorkspaceAccessResponseOut]:
+        """
+        Remove the workspace-wide share from an asset, so members of the workspace no longer get access through it. Needs edit access to the asset. Removing a folder's share also removes it from the assets inside the folder. People and groups the asset is shared with directly keep their access. Calling it on an asset with no workspace share, or on one in the trash, succeeds with the same answer.
+
+        Parameters
+        ----------
+        asset_id : str
+            Unique identifier of the asset
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[WorkspaceAccessResponseOut]
+            Workspace share removed
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v0/assets/{jsonable_encoder(asset_id)}/workspace-access",
+            method="DELETE",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    WorkspaceAccessResponseOut,
+                    parse_obj_as(
+                        type_=WorkspaceAccessResponseOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Optional[typing.Any],

@@ -770,6 +770,31 @@ def test_an_update_required_beside_the_running_version_goes_past_a_live_run(monk
     assert asked == ["99.0.0"] and "in flight" in " ".join(outcome.lines)
 
 
+def test_a_deferred_update_still_approves_probes_codex_hooks(monkeypatch):
+    """Codex rewrites its copies of Probe's plugins by itself, and every rewrite
+    switches their hooks off (#3617): a live run holding the update off must not
+    hold that approval off too. Only where Codex holds a copy of Probe's plugins."""
+    from probe.cli import codex_hooks, run_lock, upgrading
+
+    asked: list[int] = []
+    monkeypatch.setattr(run_lock, "any_live", lambda: True)
+    monkeypatch.setattr(upgrading.autoupdate, "defer_for_run", lambda **_: True)
+    monkeypatch.setattr(upgrading.autoupdate, "record_attempt", lambda attempt, **_: None)
+    monkeypatch.setattr(upgrading.update_report, "flush", lambda base: None)
+    monkeypatch.setattr(updater, "upgrade_cli", lambda *a: pytest.fail("a deferred update upgrades nothing"))
+    monkeypatch.setattr(codex_hooks, "approve",
+                        lambda *_a, **_k: asked.append(1) or codex_hooks.Approval(approved=("k", "j"), done=True))
+    monkeypatch.setattr(codex_hooks, "installed_copies", lambda: ("research-os-agent/probe-research-daemon/1.0.0",))
+    outcome = upgrading.perform_update(base_url="https://x", include_plugin=True)
+    assert outcome.deferred and asked == [1]
+    assert outcome.lines[0].startswith("a run is in flight on this machine; upgrade deferred")
+    assert outcome.lines[0].endswith("; approved 2 Probe hooks in Codex")
+    monkeypatch.setattr(codex_hooks, "installed_copies", lambda: ())
+    outcome = upgrading.perform_update(base_url="https://x", include_plugin=True)
+    assert outcome.deferred and asked == [1], "no Probe plugin in Codex: Codex is not asked"
+    assert outcome.lines[0].endswith("(`probe doctor` shows what is holding it)")
+
+
 # -- installer fallbacks (plan A4) ------------------------------------------
 @pytest.fixture
 def side_by_side(monkeypatch, tmp_path):
@@ -931,6 +956,7 @@ def test_a_confirmed_codex_update_approves_probes_hooks(monkeypatch):
         return codex_hooks.Approval(approved=("k",), done=True)
 
     monkeypatch.setattr(codex_hooks, "approve", approve)
+    monkeypatch.setattr(codex_hooks, "installed_copies", lambda: ("research-os-agent/probe-research-tap/0.10.24",))
     res = updater.update_codex_plugins()
     assert res.confirmed and asked == [1]
     assert res.message.endswith("; approved 1 Probe hook in Codex")

@@ -26,7 +26,7 @@ pub use vcs::reset_caches as reset_vcs_caches;
 const MAX_LICENSE_NAME: usize = 64;
 // An installed name and version form the .dist-info directory name, which common file systems cap
 // at 255 bytes, so a package installed on one of them stays within this limit.
-pub const MAX_IDENTITY_LENGTH: usize = 255;
+const MAX_IDENTITY_LENGTH: usize = 255;
 const ARCHIVE_SUFFIXES: [&str; 5] = ["egg", "pyz", "pyzw", "whl", "zip"];
 
 #[derive(Debug)]
@@ -95,11 +95,15 @@ struct Headers(Vec<Header>);
 
 impl Package {
     // A package resolved from a lock file or index has no on-disk dist-info: metadata() and
-    // license() therefore report N/A, and size is seeded to 0 (rather than left lazy) because
-    // compute_size has no metadata_dir to read and callers never ask a resolved package for it.
-    pub fn synthetic(name: &str, version: &str, requires: &[String]) -> Self {
+    // license() therefore report N/A.
+    pub fn synthetic(name: &str, version: &str, requires: &[String]) -> Result<Self, Error> {
+        if let Some(field) = oversized_identity(name, version) {
+            return Err(Error::message(format!(
+                "package '{field}' is longer than {MAX_IDENTITY_LENGTH} bytes"
+            )));
+        }
         let name = printable(name);
-        Self {
+        Ok(Self {
             key: canonicalize_name(&name),
             name,
             version: printable(version),
@@ -110,10 +114,10 @@ impl Package {
             metadata: Headers::default(),
             metadata_dir: None,
             legacy_editable: None,
-            size: OnceLock::from(0),
+            size: OnceLock::new(),
             frozen: OnceLock::new(),
             license: OnceLock::new(),
-        }
+        })
     }
 
     pub fn metadata(&self, field: &str) -> Vec<String> {
@@ -192,7 +196,7 @@ impl Package {
         let Some(metadata_dir) = &self.metadata_dir else {
             return self.regular_specifier();
         };
-        if let Ok(content) = fs::read_to_string(metadata_dir.join("direct_url.json"))
+        if let Ok(content) = read_bounded(&metadata_dir.join("direct_url.json"))
             && let Ok(direct) = DirectUrl::parse(&content)
         {
             if direct.editable() {
@@ -220,32 +224,36 @@ impl Package {
     }
 
     fn direct_specifier(&self, direct: &DirectUrl) -> String {
-        let mut result = format!("{} @ ", requirement_text(&self.name));
+        let mut url = String::new();
         match &direct.info {
             DirectInfo::Vcs(info) => {
-                result.push_str(&info.vcs);
-                result.push('+');
-                result.push_str(&direct.redacted_url());
+                url.push_str(&info.vcs);
+                url.push('+');
+                url.push_str(&direct.redacted_url());
                 if let Some(commit) = info.reference() {
-                    result.push('@');
-                    result.push_str(commit);
+                    url.push('@');
+                    url.push_str(commit);
                 }
             }
             DirectInfo::Archive(info) => {
-                result.push_str(&direct.redacted_url());
+                url.push_str(&direct.redacted_url());
                 if let Some(hash) = info.hash_fragment() {
-                    result.push('#');
-                    result.push_str(&hash);
+                    url.push('#');
+                    url.push_str(&hash);
                 }
             }
-            DirectInfo::Directory { .. } => result.push_str(&direct.redacted_url()),
+            DirectInfo::Directory { .. } => url.push_str(&direct.redacted_url()),
         }
         if let Some(subdirectory) = &direct.subdirectory {
-            result.push(if result.contains('#') { '&' } else { '#' });
-            result.push_str("subdirectory=");
-            result.push_str(subdirectory);
+            url.push(if url.contains('#') { '&' } else { '#' });
+            url.push_str("subdirectory=");
+            url.push_str(subdirectory);
         }
-        result
+        format!(
+            "{} @ {}",
+            requirement_text(&self.name),
+            requirement_url(&url)
+        )
     }
 
     fn regular_specifier(&self) -> String {
@@ -259,7 +267,7 @@ impl Package {
     }
 
     fn from_metadata(
-        metadata_dir: PathBuf,
+        metadata_dir: Option<PathBuf>,
         metadata_file: &Path,
         retained_fields: Option<&HashSet<String>>,
     ) -> Result<Option<Self>, Error> {
@@ -283,7 +291,7 @@ impl Package {
             version,
             requires,
             metadata,
-            metadata_dir: Some(metadata_dir),
+            metadata_dir,
             legacy_editable: None,
             size: OnceLock::new(),
             frozen: OnceLock::new(),
@@ -292,12 +300,11 @@ impl Package {
     }
 
     fn compute_size(&self) -> u64 {
-        let metadata_dir = self
-            .metadata_dir
-            .as_ref()
-            .expect("resolved package sizes are initialized at construction");
+        let Some(metadata_dir) = &self.metadata_dir else {
+            return 0;
+        };
         let site = metadata_dir.parent().unwrap_or(metadata_dir);
-        let Ok(file) = fs::File::open(metadata_dir.join("RECORD")) else {
+        let Ok(record) = read_bounded(&metadata_dir.join("RECORD")) else {
             return 0;
         };
         // RECORD rows come from whoever built the distribution, so a row counts only when it
@@ -322,7 +329,7 @@ impl Package {
         let mut directories = HashMap::<PathBuf, Option<PathBuf>>::new();
         csv::ReaderBuilder::new()
             .has_headers(false)
-            .from_reader(file)
+            .from_reader(record.as_bytes())
             .records()
             .filter_map(Result::ok)
             .filter_map(|row| {
@@ -530,7 +537,11 @@ fn discover_with_fields(
         }
     }
     for package in &mut packages {
-        package.legacy_editable = legacy_editables.find(&package.name).cloned();
+        package.legacy_editable = package
+            .metadata_dir
+            .as_deref()
+            .and_then(|metadata_dir| legacy_editables.find(&package.name, metadata_dir))
+            .cloned();
     }
     Ok(Discovered {
         packages,
@@ -572,11 +583,13 @@ fn classify(
         return (!entry.is_symlink()).then(|| Found::EggLink(search, entry.to_path_buf()));
     }
     let (metadata_file, package_metadata_dir) = if kind.is_dir() && name.ends_with(".dist-info") {
-        (entry.join("METADATA"), entry.to_path_buf())
+        (entry.join("METADATA"), Some(entry.to_path_buf()))
     } else if kind.is_dir() && name.ends_with(".egg-info") {
-        (entry.join("PKG-INFO"), entry.to_path_buf())
+        (entry.join("PKG-INFO"), Some(entry.to_path_buf()))
     } else if kind.is_file() && name.ends_with(".egg-info") {
-        (entry.to_path_buf(), path.to_path_buf())
+        // A single-file record has no directory of its own; the one holding it is shared by every
+        // package there.
+        (entry.to_path_buf(), None)
     } else {
         return None;
     };
@@ -646,16 +659,47 @@ fn path_warnings(
     warnings
 }
 
+fn read_bounded(path: &Path) -> io::Result<String> {
+    let mut reader = open_bounded(path)?;
+    let mut content = String::new();
+    io::Read::read_to_string(&mut reader, &mut content)?;
+    if reader.limit() == 0 {
+        return Err(io::Error::new(
+            io::ErrorKind::FileTooLarge,
+            "file too large",
+        ));
+    }
+    Ok(content)
+}
+
+// Files under site-packages and in a checkout come from whoever built or unpacked them. Opening a
+// FIFO blocks until another process opens it for writing, so check before opening. The cap stops a
+// file with no end, such as a link to /dev/zero, or a huge one from being read whole; older
+// PKG-INFO files fold the whole description into a header, so it leaves room for a long one.
+fn open_bounded(path: &Path) -> io::Result<io::Take<fs::File>> {
+    const MAX_FILE_BYTES: u64 = 16 * 1024 * 1024;
+    if !fs::metadata(path)?.is_file() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "not a regular file",
+        ));
+    }
+    Ok(io::Read::take(fs::File::open(path)?, MAX_FILE_BYTES + 1))
+}
+
 fn read_headers(path: &Path) -> Result<String, Error> {
     // METADATA bodies embed whole package descriptions; the headers end at the first blank
     // line, so stop reading there instead of loading the full file.
-    let mut reader = io::BufReader::new(fs::File::open(path)?);
+    let mut reader = io::BufReader::new(open_bounded(path)?);
     let mut headers = String::new();
     loop {
         let start = headers.len();
         if io::BufRead::read_line(&mut reader, &mut headers)? == 0
             || matches!(&headers[start..], "\n" | "\r\n")
         {
+            if reader.get_ref().limit() == 0 {
+                return Err(io::Error::new(io::ErrorKind::FileTooLarge, "headers too long").into());
+            }
             headers.truncate(start);
             return Ok(headers);
         }
@@ -668,7 +712,7 @@ fn read_headers(path: &Path) -> Result<String, Error> {
 
 // Warnings and reverse renderers copy a package's name and version once per requirement or edge,
 // so an unbounded one makes the output grow with the product of its length and the edge count.
-pub const fn oversized_identity(name: &str, version: &str) -> Option<&'static str> {
+const fn oversized_identity(name: &str, version: &str) -> Option<&'static str> {
     if name.len() > MAX_IDENTITY_LENGTH {
         Some("name")
     } else if version.len() > MAX_IDENTITY_LENGTH {
@@ -676,6 +720,20 @@ pub const fn oversized_identity(name: &str, version: &str) -> Option<&'static st
     } else {
         None
     }
+}
+
+// pep508_rs parses a marker into a decision diagram whose size can double with each `extra`
+// comparison, so a marker over either limit is rejected before parsing.
+pub const MAX_MARKER_LENGTH: usize = 1024;
+pub const MAX_MARKER_EXTRAS: usize = 16;
+
+pub fn oversized_marker(marker: &str) -> bool {
+    marker.len() > MAX_MARKER_LENGTH
+        || marker
+            .split(|character: char| !(character.is_ascii_alphanumeric() || character == '_'))
+            .filter(|word| *word == "extra")
+            .count()
+            > MAX_MARKER_EXTRAS
 }
 
 // Package strings reach terminals, which act on ESC, BEL, CR and C1 sequences, and `dot`, which
@@ -692,6 +750,15 @@ pub fn printable(value: &str) -> String {
             }
         })
         .collect()
+}
+
+// Multi-line text, such as a resolver message, keeps its line breaks.
+pub fn printable_lines(value: &str) -> String {
+    value
+        .split('\n')
+        .map(printable)
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 // Freeze output is a pip requirements file, read line by line: a line break starts a new line, a
@@ -712,6 +779,24 @@ fn requirement_text(value: &str) -> String {
             }
         })
         .collect()
+}
+
+// pip splits a requirements file with str.splitlines, which also breaks lines at U+001C to U+001E,
+// U+0085, U+2028 and U+2029, and splits a line at spaces into the requirement and its options. A
+// valid URL holds no raw whitespace or control characters, so percent-encoding them keeps the URL
+// in one argument of one line and keeps escape sequences away from the terminal.
+fn requirement_url(value: &str) -> String {
+    let mut result = String::with_capacity(value.len());
+    for character in value.chars() {
+        if character.is_control() || character.is_whitespace() {
+            for byte in character.encode_utf8(&mut [0; 4]).bytes() {
+                write!(result, "%{byte:02X}").expect("writing to a string cannot fail");
+            }
+        } else {
+            result.push(character);
+        }
+    }
+    result
 }
 
 // PEP 503: collapse each separator run to '-' and lowercase, keeping boundary separators.

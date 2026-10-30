@@ -34,7 +34,7 @@ class IJsonSerializable(Protocol):
 
 SR_indexOutOfBounds: str = "The index was outside the range of elements in the collection."
 
-SR_inputWasEmpty: str = "Collection was empty."
+SR_inputWasEmpty: str = "The input list was empty."
 
 SR_inputMustBeNonNegative: str = "The input must be non-negative."
 

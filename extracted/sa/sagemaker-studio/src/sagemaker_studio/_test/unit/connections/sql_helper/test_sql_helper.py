@@ -366,3 +366,65 @@ def test_to_redshift_helper_sql_config_without_credential_provider():
     assert result["aws_secret_access_key"] == "dummy_secret_access_key"
     assert result["aws_session_token"] == "dummy_session_token"
     assert "credential_provider" not in result
+
+
+# --- AWS Notebook LAKEHOUSE catalog connections: the workgroup lives in ``configurations`` ----
+
+lakehouse_connection = make_dataclass(
+    "Connection", ["name", "secret", "connection_creds", "data", "athena_workgroup"]
+)(
+    "sales_lake",
+    {},
+    make_dataclass(
+        "ConnectionCredentials", ["access_key_id", "secret_access_key", "session_token"]
+    )(
+        access_key_id="dummy_access_key_id",
+        secret_access_key="dummy_secret_access_key",
+        session_token="dummy_session_token",
+    ),
+    make_dataclass(
+        "ConnectionData", ["physical_endpoints", "configurations", "catalog", "connection_creds"]
+    )(
+        physical_endpoints=[
+            make_dataclass("PhysicalEndpoint", ["awsLocation"])(
+                awsLocation={"awsRegion": "us-east-2", "awsAccountId": "111122223333"}
+            )
+        ],
+        configurations=[{"classification": "athena", "properties": {"workgroupName": "primary"}}],
+        catalog="s3tablescatalog",
+        connection_creds={},
+    ),
+    "primary",
+)
+
+
+def test_to_athena_helper_sql_config_for_a_lakehouse_catalog_connection():
+    result = AthenaSqlHelper.to_sql_config(lakehouse_connection)
+    assert result == {
+        "region": "us-east-2",
+        "work_group": "primary",
+        "aws_access_key_id": "dummy_access_key_id",
+        "aws_secret_access_key": "dummy_secret_access_key",
+        "aws_session_token": "dummy_session_token",
+        "catalog_name": "s3tablescatalog",
+    }
+
+
+def test_to_athena_helper_sql_config_query_catalog_wins_over_the_connections():
+    result = AthenaSqlHelper.to_sql_config(lakehouse_connection, catalog_name="q", schema_name="s")
+    assert (result["catalog_name"], result["schema_name"]) == ("q", "s")
+
+
+def test_to_athena_helper_sql_config_without_a_workgroup_raises():
+    import pytest
+
+    no_workgroup = make_dataclass("Connection", ["name", "secret", "connection_creds", "data"])(
+        "nowg",
+        {},
+        lakehouse_connection.connection_creds,
+        make_dataclass("ConnectionData", ["physical_endpoints", "connection_creds"])(
+            physical_endpoints=[], connection_creds={}
+        ),
+    )
+    with pytest.raises(RuntimeError, match="names no Athena workgroup"):
+        AthenaSqlHelper.to_sql_config(no_workgroup)

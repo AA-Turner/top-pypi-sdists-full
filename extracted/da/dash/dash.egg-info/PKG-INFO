@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dash
-Version: 4.4.1
+Version: 4.5.0
 Summary: A Python framework for building reactive web-apps. Developed by Plotly.
 Home-page: https://plotly.com/dash
 Author: Chris Parmer
@@ -50,13 +50,16 @@ Provides-Extra: async
 Requires-Dist: flask[async]; extra == "async"
 Provides-Extra: ci
 Requires-Dist: black==22.3.0; extra == "ci"
-Requires-Dist: flake8==7.0.0; extra == "ci"
+Requires-Dist: flake8==7.3.0; extra == "ci"
 Requires-Dist: flaky==3.8.1; extra == "ci"
-Requires-Dist: flask-talisman==1.0.0; extra == "ci"
+Requires-Dist: flask-talisman==1.1.0; extra == "ci"
+Requires-Dist: httpx; extra == "ci"
 Requires-Dist: ipython<9.0.0; extra == "ci"
-Requires-Dist: mimesis<=11.1.0; extra == "ci"
-Requires-Dist: mock==4.0.3; extra == "ci"
-Requires-Dist: numpy<=1.26.3; extra == "ci"
+Requires-Dist: mimesis<=11.1.0; python_version < "3.10" and extra == "ci"
+Requires-Dist: mimesis<=22.2.0; python_version >= "3.10" and extra == "ci"
+Requires-Dist: mock==5.2.0; extra == "ci"
+Requires-Dist: msgspec; extra == "ci"
+Requires-Dist: numpy<=2.5.4; extra == "ci"
 Requires-Dist: orjson>=3.10.11; extra == "ci"
 Requires-Dist: openpyxl; extra == "ci"
 Requires-Dist: pandas>=1.4.0; extra == "ci"
@@ -68,8 +71,9 @@ Requires-Dist: pytest-sugar==1.1.1; extra == "ci"
 Requires-Dist: pyzmq>=26.0.0; extra == "ci"
 Requires-Dist: xlrd>=2.0.1; extra == "ci"
 Requires-Dist: pytest-rerunfailures; extra == "ci"
+Requires-Dist: pytest-timeout; extra == "ci"
 Requires-Dist: jupyterlab<4.0.0; extra == "ci"
-Requires-Dist: pyright==1.1.398; python_version >= "3.7" and extra == "ci"
+Requires-Dist: pyright==1.1.414; python_version >= "3.7" and extra == "ci"
 Requires-Dist: mypy==1.15.0; python_version >= "3.12" and extra == "ci"
 Provides-Extra: dev
 Requires-Dist: coloredlogs>=15.0.1; extra == "dev"
@@ -82,19 +86,23 @@ Requires-Dist: lxml>=4.6.2; extra == "testing"
 Requires-Dist: percy-python-selenium>=1.0.0; extra == "testing"
 Requires-Dist: pytest>=6.0.2; extra == "testing"
 Requires-Dist: requests[security]>=2.21.0; extra == "testing"
-Requires-Dist: selenium<=4.2.0,>=3.141.0; extra == "testing"
+Requires-Dist: selenium<=4.51.0,>=4.11.0; extra == "testing"
 Requires-Dist: waitress>=1.4.4; extra == "testing"
 Requires-Dist: multiprocess>=0.70.12; extra == "testing"
 Requires-Dist: psutil>=5.8.0; extra == "testing"
 Requires-Dist: dash_testing_stub>=0.0.2; extra == "testing"
 Provides-Extra: celery
-Requires-Dist: redis<=5.0.4,>=3.5.3; extra == "celery"
-Requires-Dist: kombu<5.4.0; extra == "celery"
-Requires-Dist: celery[redis]<5.4.0,>=5.1.2; extra == "celery"
+Requires-Dist: redis<=8.1.0,>=3.5.3; extra == "celery"
+Requires-Dist: kombu<5.7.0; extra == "celery"
+Requires-Dist: celery[redis]<5.7.0,>=5.1.2; extra == "celery"
 Provides-Extra: diskcache
 Requires-Dist: diskcache>=5.2.1; extra == "diskcache"
 Requires-Dist: multiprocess>=0.70.12; extra == "diskcache"
 Requires-Dist: psutil>=5.8.0; extra == "diskcache"
+Requires-Dist: msgspec; extra == "diskcache"
+Provides-Extra: redis
+Requires-Dist: redis<=8.1.0,>=3.5.3; extra == "redis"
+Requires-Dist: msgspec; extra == "redis"
 Provides-Extra: compress
 Requires-Dist: flask-compress; extra == "compress"
 Provides-Extra: fastapi
@@ -106,6 +114,8 @@ Provides-Extra: cloud
 Requires-Dist: plotly-cloud; extra == "cloud"
 Provides-Extra: ag-grid
 Requires-Dist: dash-ag-grid; extra == "ag-grid"
+Provides-Extra: shared-storage
+Requires-Dist: msgspec; extra == "shared-storage"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

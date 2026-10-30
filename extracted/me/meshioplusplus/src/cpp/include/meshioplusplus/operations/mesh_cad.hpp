@@ -210,7 +210,7 @@ struct MeshCadSurfaceOptions {
     std::int32_t mPoleRings = 0;
     /// Mesh a face whose metric's condition number over its coarse mesh
     /// exceeds this in a flattening of that mesh instead of its parameters
-    /// (6.4.4; 0 is off, otherwise above 1; order 1 only).
+    /// (6.4.4; 0 is off, otherwise above 1; at every order).
     double mReparamConditionNumber = 0.0;
     /// 1: linear triangles; 2 and 3: curved `triangle6` and `triangle10`
     /// (and `line3`, `line4`), their nodes on the surface and edges (6.6).
@@ -320,7 +320,8 @@ struct MeshCadSizeSources {
     std::vector<std::pair<std::int64_t, double>> mEdgeSizes;
     /// A background mesh (surface cells; a volume mesh is skinned) whose
     /// one-component point_data `mBackgroundArray` is the size at its
-    /// points, read at the nearest point of the background. Borrowed.
+    /// points, interpolated linearly at the nearest point of the
+    /// background's surface. Borrowed.
     const Mesh* pBackground = nullptr;
     std::string mBackgroundArray = "size";
     /// Virtual edges (roadmap 6.5.2): suppress a corner between a sliver of
@@ -328,6 +329,19 @@ struct MeshCadSizeSources {
     /// cell goes through it, and report the chains (doc/mesh_cad.md, item
     /// 17). Order 1 only.
     bool mVirtualEdges = false;
+    /// An anisotropic metric from a field's Hessian (roadmap 6.10.2; A.
+    /// Loseille and F. Alauzet, "Continuous mesh framework part I", 2011):
+    /// a background mesh (as `pBackground`) whose 9-component point_data
+    /// `mMetricArray` is a Hessian (`hessian` writes `<array>:hessian`),
+    /// with the target interpolation error `mMetricError` (positive). Its
+    /// metric `R |Λ| R^T / (8 ε)`, its sizes clamped to the size field's
+    /// floor and the local size, is pulled back onto each face (`J^T M J`)
+    /// for Lawson's flips and encroachment, as `MeshCadMetric::Varying`
+    /// does, and refinement judges triangles by their lengths and angles in
+    /// it. Borrowed; null for none.
+    const Mesh* pMetricBackground = nullptr;
+    std::string mMetricArray;
+    double mMetricError = 0.0;
 };
 
 /// What the sources decided, filled when passed (roadmap 6.3.8, 6.5.2).
@@ -343,16 +357,37 @@ struct MeshCadSizeReport {
 
 /**
  * @brief `mesh_cad_surface` with sizes given per face, per edge or by a
- * background mesh (roadmap 6.3.1). Empty sources reproduce the two-argument
- * overload byte for byte.
+ * background mesh (roadmap 6.3.1), or a metric (6.10.2). Empty sources
+ * reproduce the two-argument overload byte for byte.
  * @throws std::invalid_argument as that overload, and for a face or edge
- *         index out of range, a size that is not finite and positive, or a
- *         background without a one-component `mBackgroundArray`.
+ *         index out of range, a size that is not finite and positive, a
+ *         background without a one-component `mBackgroundArray`, a metric
+ *         background without a 9-component `mMetricArray`, a metric error
+ *         that is not finite and positive, or a metric with `mOrder` > 1.
  */
 MESHIOPLUSPLUS_API MeshCadSurfaceResult mesh_cad_surface(const BrepInfo& rBrep,
                                                          const MeshCadSurfaceOptions& rOptions,
                                                          const MeshCadSizeSources& rSources,
                                                          MeshCadSizeReport* pReport = nullptr);
+
+/// Quadrilaterals (roadmap 6.8): none, quad-dominant (pairs of triangles
+/// recombined where they make a good quad, the rest kept), or all-quad (a
+/// quad-dominant mesh at twice the size, each quad split into four and each
+/// triangle into three).
+enum class MeshCadQuads : std::int32_t {
+    None = 0,
+    Dominant = 1,
+    All = 2,
+};
+
+/// How triangles are paired into quads (roadmap 6.8.1): a maximum-
+/// cardinality matching of greatest total quality (Blossom-quad, Remacle et
+/// al. 2012, on the core's own matching; exact in patches of 3,000 triangles
+/// and a band about the triangles left), or best pair first.
+enum class MeshCadQuadPairs : std::int32_t {
+    Matching = 0,
+    Greedy = 1,
+};
 
 /// Inputs beside the options and the sources (v17.20.0), whose layouts have
 /// no room left: each off by default, and with all off the mesh is the
@@ -362,11 +397,15 @@ struct MeshCadSurfaceExtras {
     /// `"tolerance"` and its ends' `"end_tolerances"` in its `mExtra` JSON
     /// (a STEP or IGES read writes OpenCASCADE's) widen, for that edge and
     /// its corners, where uses are taken to start at one point and how far
-    /// apart they may lie.
+    /// apart they may lie; a `BrepVertex`'s `"tolerance"` widens its corner,
+    /// and the file's `tolerances.model_tolerance` (Kratos CAD JSON, kept in
+    /// `BrepInfo::mExtra`) is the floor of them all and pairs the trims no
+    /// edge names (`mMatchUnreferencedTrims`). Degeneracy stays on the global
+    /// tolerance: a declared one never makes an edge a pole.
     bool mModelTolerances = false;
     /// Merge a sliver face, narrower than `h` and with no interior point, into
     /// the neighbour it meets tangentially along the most edge, through their
-    /// common discrete parameterisation (roadmap 6.5.2). Order 1 only.
+    /// common discrete parameterisation (roadmap 6.5.2), at every order.
     bool mVirtualFaces = false;
     /// Corner lopping (roadmap 6.2.3; S. E. Pav and N. J. Walkington,
     /// "Delaunay refinement by corner lopping", IMR 2005) in place of
@@ -376,6 +415,21 @@ struct MeshCadSurfaceExtras {
     /// inside, and refinement leaves the triangles whose point falls in it.
     /// Only with refinement (`mMinAngleDeg` or a size field).
     bool mLopCorners = false;
+    /// Untangle curved elements (roadmap 6.6.3; T. Toulorge, C. Geuzaine,
+    /// J.-F. Remacle and J. Lambrechts, "Robust untangling of curvilinear
+    /// meshes", J. Comput. Phys. 254, 2013): before an element whose
+    /// Jacobian is not positive everywhere is made straight-sided, its face's
+    /// own high-order nodes move on the surface to raise the worst scaled
+    /// Jacobian around them, then the nodes on the model's edges beside an
+    /// element still invalid slide along their edge; only the elements still
+    /// invalid are straightened. Order 2 or 3.
+    bool mUntangle = false;
+    /// Quadrilaterals (roadmap 6.8, `MeshCadQuads`): recombination
+    /// (Borouchaki and Frey 1998), all-quad by splitting. `Dominant` is order
+    /// 1 only; `All` writes `quad9` with order 2 (roadmap 6.8.3).
+    MeshCadQuads mQuads = MeshCadQuads::None;
+    /// How the triangles are paired (roadmap 6.8.1, `MeshCadQuadPairs`).
+    MeshCadQuadPairs mQuadPairs = MeshCadQuadPairs::Matching;
 };
 
 /// A face whose metric's condition number passed
@@ -389,7 +443,8 @@ struct MeshCadReparamFace {
     double mConditionNumberDisc = 0.0;
     /// Meshed in the flattening; otherwise `mReason` says why not.
     bool mTaken = false;
-    /// 1 least-squares conformal, 2 mean-value on a circle, 0 none.
+    /// 1 least-squares conformal, 2 mean-value on a circle, 3 mean-value
+    /// between two concentric circles (a band: an annulus), 0 none.
     std::int32_t mMethod = 0;
     std::string mReason;
 };
@@ -409,10 +464,11 @@ struct MeshCadMergedFace {
 /// A place a model's own tolerance accepted what the global one refused
 /// (roadmap 6.5.1).
 struct MeshCadToleranceUse {
-    std::int64_t mEdge = -1;  ///< `BrepEdge` index
-    double mDeclared = 0.0;   ///< the tolerance the model declares there
-    double mGap = 0.0;        ///< the gap it accepted
-    /// `"closed_start"`, `"corner"` or `"projection"`.
+    /// `BrepEdge` index; -1 for a pair of trims no edge names.
+    std::int64_t mEdge = -1;
+    double mDeclared = 0.0;  ///< the tolerance the model declares there
+    double mGap = 0.0;       ///< the gap it accepted
+    /// `"closed_start"`, `"corner"`, `"projection"` or `"pairing"`.
     std::string mWhere;
 };
 
@@ -450,14 +506,26 @@ struct MeshCadSurfaceExtrasReport {
     std::vector<MeshCadMergedFace> mMergedFaces;
     std::vector<MeshCadToleranceUse> mToleranceUses;
     std::vector<MeshCadLoppedCorner> mLoppedCorners;
+    /// Curved elements made valid by untangling (6.6.3), which would
+    /// otherwise have been straightened.
+    std::int64_t mNumUntangled = 0;
+    /// Quadrilaterals (6.8): how many, the triangles left beside them, and
+    /// the least scaled Jacobian of a quad (its corners' against the quad's
+    /// mean normal; 0 when there is none).
+    std::int64_t mNumQuads = 0;
+    std::int64_t mNumLeftoverTriangles = 0;
+    double mMinQuadScaledJacobian = 0.0;
+    /// With a metric source (6.10.2): the least corner angle of a cell in
+    /// the metric at its centroid, in degrees, the measure refinement
+    /// judges by (the result's own angles are the surface's); 0 without.
+    double mMinMetricAngleDeg = 0.0;
 };
 
 /**
  * @brief `mesh_cad_surface` with the extras of v17.20.0 (roadmap 6.5.1,
  * 6.5.2, 6.2.3) beside the sizes, and the reparametrised faces (6.4.4) in its
  * report.
- * @throws std::invalid_argument as the four-argument overload, and for
- *         `mVirtualFaces` with `mOrder` > 1.
+ * @throws std::invalid_argument as the four-argument overload.
  */
 MESHIOPLUSPLUS_API MeshCadSurfaceResult mesh_cad_surface(
     const BrepInfo& rBrep, const MeshCadSurfaceOptions& rOptions,

@@ -1,9 +1,11 @@
 import abc
 import asyncio
 import collections.abc
+import dataclasses
 import datetime
 import inspect
 import itertools
+import math
 import operator
 import os
 import signal
@@ -19,12 +21,13 @@ from collections.abc import AsyncIterable, AsyncIterator, Awaitable, Callable, G
 from collections.abc import Iterable as TypingIterable
 from enum import Enum
 from functools import partial, reduce, wraps
-from inspect import Parameter, Signature
 from typing import (
     Any,
+    ParamSpec,
     TypeAlias,
     TypedDict,
     TypeVar,
+    overload,
 )
 from weakref import WeakKeyDictionary, ref
 
@@ -38,6 +41,7 @@ from tqdm.utils import _screen_shape_wrapper, _term_move_up, _unicode
 from typing_extensions import TypeIs
 
 from bluesky._vendor.super_state_machine.errors import TransitionError
+from bluesky.env_vars import BLUESKY_HISTORY_PATH
 from bluesky.protocols import (
     Asset,
     HasHints,
@@ -82,14 +86,72 @@ class Msg(namedtuple("Msg_base", ["command", "obj", "args", "kwargs", "run"])):
         return f"Msg({self.command!r}, obj={self.obj!r}, args={self.args}, kwargs={self.kwargs}, run={self.run!r})"
 
 
+def _to_json_safe(value: Any) -> list | dict | str | float | int | bool | None:
+    """Recursively convert a value into a json-safe structure."""
+
+    match value:
+        case Enum():
+            return _to_json_safe(value.value)
+        case None | bool() | int() | str():
+            return value
+        case float():
+            if math.isnan(value):
+                return None
+            if math.isinf(value):
+                return "Infinity" if value > 0 else "-Infinity"
+            return float(value)
+        case np.generic():
+            return _to_json_safe(value.item())
+        case np.ndarray():
+            return _to_json_safe(value.tolist())
+        case list() | tuple() | set():
+            return [_to_json_safe(v) for v in value]
+        case dict():
+            return {str(k): _to_json_safe(v) for k, v in value.items()}
+        case _ if dataclasses.is_dataclass(value) and not isinstance(value, type):
+            return _to_json_safe(dataclasses.asdict(value))
+        case _:
+            try:
+                return str(value)
+            except Exception:
+                return None
+
+
+def msg_to_json_safe_dict(msg: Msg) -> dict[str, Any]:
+    """Return a JSON-safe dictionary representation of this message.
+
+    Devices, enums, numpy scalars and other values in ``obj``/``args``/``kwargs``/
+    ``run`` that are not natively JSON-serializable are coerced to JSON-safe forms.
+
+    Parameters
+    ----------
+    msg : Msg
+        The message to be converted to a JSON-safe dictionary.
+
+    Returns
+    -------
+    dict[str, Any]
+        A JSON-safe dictionary representation of the message.
+    """
+
+    return {
+        "command": msg.command,
+        "obj": _to_json_safe(msg.obj),
+        "args": [_to_json_safe(a) for a in msg.args],
+        "kwargs": {str(k): _to_json_safe(v) for k, v in msg.kwargs.items()},
+        "run": _to_json_safe(msg.run),
+    }
+
+
 #: Return type of a plan, usually None. Always optional for dry-runs.
 P = TypeVar("P")
+PlanArgs = ParamSpec("PlanArgs")
 
 #: Object usually returned from plan functions that is fed to the RunEngine
 MsgGenerator = Generator[Msg, Any, P]
 
 #: Metadata passed from a plan to the RunEngine for embedding in a start document
-CustomPlanMetadata = dict[str, Any]
+CustomPlanMetadata = collections.abc.MutableMapping[str, Any]
 
 #: Scalar or iterable of values, one to be applied to each point in a scan
 ScalarOrIterableFloat: TypeAlias = float | TypingIterable[float]
@@ -160,15 +222,7 @@ class PlanHalt(GeneratorExit):
 class RampFail(RuntimeError): ...
 
 
-PLAN_TYPES: tuple[type, ...] = (types.GeneratorType,)
-try:
-    from types import CoroutineType
-except ImportError:
-    # < py35
-    pass
-else:
-    PLAN_TYPES = PLAN_TYPES + (CoroutineType,)
-    del CoroutineType
+PLAN_TYPES: tuple[type, ...] = (types.GeneratorType, types.CoroutineType)
 
 
 def ensure_generator(plan):
@@ -313,6 +367,24 @@ class SigintHandler:
         self._released = True
         self._request_event = threading.Event()
 
+    def _restore_and_reraise(self, signum, frame) -> None:
+        """Hand SIGINT back to the disposition installed before ``__enter__``.
+
+        Re-install ``self._original_handler`` and re-deliver the signal so
+        that disposition handles it. This works uniformly whether
+        ``_original_handler`` is a callable, ``signal.SIG_DFL``,
+        ``signal.SIG_IGN``, or ``None`` (a handler installed from C that is
+        not representable in Python), avoiding the ``TypeError`` that calling
+        a non-callable disposition directly would raise.
+
+        Swap is performed *before* the re-raise so the re-delivered signal is
+        dispatched to the original disposition rather than back into this
+        closure. Re-installing the same handler is idempotent, so a later
+        ``signal.signal`` in ``__exit__`` is harmless.
+        """
+        signal.signal(signal.SIGINT, self._original_handler)
+        signal.raise_signal(signal.SIGINT)
+
     def _watch_request(self) -> None:
         while not self._released:
             if self._request == PauseRequest.SOFT:
@@ -359,7 +431,8 @@ class SigintHandler:
             acceptable.
             """
             if self._released:
-                self._original_handler(signum, frame)
+                self._restore_and_reraise(signum, frame)
+                return
             now = time.monotonic()
             time_diff = now - self._last_sigint_time
 
@@ -379,7 +452,7 @@ class SigintHandler:
                 else:
                     self._released = True
                     self._request_event.set()
-                    self._original_handler(signum, frame)
+                    self._restore_and_reraise(signum, frame)
 
         # Install handler callback
         signal.signal(signal.SIGINT, handler)
@@ -387,9 +460,8 @@ class SigintHandler:
 
     def __exit__(self, type, value, tb) -> None:
         signal.signal(signal.SIGINT, self._original_handler)
-        if not self._released:
-            self._released = True
-            self._request_event.set()
+        self._released = True
+        self._request_event.set()
 
 
 class CallbackRegistry:
@@ -536,25 +608,35 @@ class _BoundMethodProxy:
     def __init__(self, cb):
         self._hash = hash(cb)
         self._destroy_callbacks = []
-        try:
-            # This branch is successful if 'cb' bound method and class method,
-            #   but destroy_callback mechanism works only for bound methods,
-            #   since cb.__self__ points to class instance only for
-            #   bound methods, not for class methods. Therefore destroy_callback
-            #   will not be called for class methods.
-            try:
-                self.inst = ref(cb.__self__, self._destroy)
-            except TypeError:
-                self.inst = None
-            self.func = cb.__func__
-            self.klass = cb.__self__.__class__
+        cb_self = getattr(cb, "__self__", None)
 
-        except AttributeError:
+        if cb_self is None:
             # 'cb' is a function, callable object or static method.
             # No weak reference is created, strong reference is stored instead.
             self.inst = None
             self.func = cb
             self.klass = None
+        elif isinstance(cb_self, type):
+            # 'cb' is a class method, so __self__ is the class rather than an
+            # instance of it. A class is weakly referenceable, so the branch below
+            # would succeed and then silently unsubscribe the callback when the
+            # class was collected -- and there is no instance whose death was
+            # supposed to mean anything. Hold it strongly, as for a plain function.
+            self.inst = None
+            self.func = cb
+            self.klass = cb_self
+        else:
+            try:
+                self.inst = ref(cb_self, self._destroy)
+            except TypeError:
+                # 'obj' cannot be weakly referenced, e.g. it uses __slots__ without
+                # __weakref__. Hold the bound method strongly rather than an unbound
+                # function that we would later call without its instance.
+                self.inst = None
+                self.func = cb
+            else:
+                self.func = cb.__func__
+            self.klass = cb_self.__class__
 
     def add_destroy_callback(self, callback):
         self._destroy_callbacks.append(_BoundMethodProxy(callback))
@@ -625,43 +707,6 @@ class _BoundMethodProxy:
         return self._hash
 
 
-# The following two code blocks are adapted from David Beazley's
-# 'Python 3 Metaprogramming' https://www.youtube.com/watch?v=sPiWg5jSoZI
-
-
-class StructMeta(type):
-    def __new__(cls, name, bases, clsdict):
-        clsobj = super().__new__(cls, name, bases, clsdict)
-        args_params = [Parameter(name, Parameter.POSITIONAL_OR_KEYWORD) for name in clsobj._fields]
-        kwargs_params = [Parameter(name, Parameter.KEYWORD_ONLY, default=None) for name in ["md"]]
-        sig = Signature(args_params + kwargs_params)
-        clsobj.__signature__ = sig
-        return clsobj
-
-
-class Struct(metaclass=StructMeta):
-    "The _fields of any subclass become its attritubes and __init__ args."
-
-    _fields: list[str] = []
-
-    def __init__(self, *args, **kwargs):
-        # Now bind default values of optional arguments.
-        # If it seems like there should be a cleaner way to do this, see
-        # http://bugs.python.org/msg221104
-        bound = self.__signature__.bind(*args, **kwargs)
-        for name, param in self.__signature__.parameters.items():
-            if name not in bound.arguments and param.default is not inspect._empty:
-                bound.arguments[name] = param.default
-        for name, val in bound.arguments.items():
-            setattr(self, name, val)
-        self.flyers = []
-
-    def set(self, **kwargs):
-        "Update attributes as keyword arguments."
-        for attr, val in kwargs.items():
-            setattr(self, attr, val)
-
-
 SUBS_NAMES = ["all", "start", "stop", "event", "descriptor"]
 
 
@@ -675,7 +720,7 @@ def normalize_subs_input(subs):
     elif hasattr(subs, "items"):
         for key, funcs in list(subs.items()):
             if key not in SUBS_NAMES:
-                raise KeyError(f"Keys must be one of {SUBS_NAMES!r:0}")
+                raise KeyError(f"Keys must be one of {SUBS_NAMES!r}")
             if callable(funcs):
                 normalized[key].append(funcs)
             else:
@@ -987,9 +1032,8 @@ class PersistentDict(collections.abc.MutableMapping):
 
 
 SEARCH_PATH = []
-ENV_VAR = "BLUESKY_HISTORY_PATH"
-if ENV_VAR in os.environ:
-    SEARCH_PATH.append(os.environ[ENV_VAR])
+if BLUESKY_HISTORY_PATH:
+    SEARCH_PATH.append(BLUESKY_HISTORY_PATH)
 SEARCH_PATH.extend(
     [
         os.path.expanduser("~/.config/bluesky/bluesky_history.db"),
@@ -1040,8 +1084,8 @@ def get_history():
             return historydict.HistoryDict(":memory:")
 
 
-_QT_KICKER_INSTALLED = {}
-_NB_KICKER_INSTALLED = {}
+_QT_KICKER_INSTALLED: Any = {}
+_NB_KICKER_INSTALLED: Any = {}
 
 
 def install_kicker(loop=None, update_rate=0.03):
@@ -1979,7 +2023,7 @@ already_warned: dict[Any, bool] = {}
 
 
 def warn_if_msg_args_or_kwargs(msg, meth, args, kwargs):
-    if args or kwargs and not already_warned.get(msg.command):
+    if (args or kwargs) and not already_warned.get(msg.command):
         already_warned[msg.command] = True
         error_msg = f"""\
 About to call {meth.__name__}() with args {args} and kwargs {kwargs}.
@@ -1987,7 +2031,7 @@ In the future the passing of Msg.args and Msg.kwargs down to hardware from
 Msg("{msg.command}") may be deprecated. If you have a use case for these,
 we would like to know about it, so please open an issue at
 https://github.com/bluesky/bluesky/issues"""
-        warnings.warn(error_msg)  # noqa: B028
+        warnings.warn(error_msg, stacklevel=4)
 
 
 def maybe_update_hints(hints: dict[str, Hints], obj):
@@ -1995,12 +2039,16 @@ def maybe_update_hints(hints: dict[str, Hints], obj):
         hints[obj.name] = obj.hints
 
 
+def _isasyncgen(iterator: SyncOrAsyncIterator[T]) -> TypeIs[AsyncIterator[T]]:
+    return inspect.isasyncgen(iterator)
+
+
 async def iterate_maybe_async(iterator: SyncOrAsyncIterator[T]) -> AsyncIterator[T]:
-    if inspect.isasyncgen(iterator):
+    if _isasyncgen(iterator):
         async for v in iterator:
             yield v
     else:
-        for v in iterator:  # type: ignore
+        for v in iterator:
             yield v
 
 
@@ -2031,44 +2079,51 @@ async def maybe_await(ret: SyncOrAsync[T]) -> T:
         return ret
 
 
-class Plan:
+class Plan(MsgGenerator[P]):
     __slots__ = ("_iter", "_stack")
 
-    def __init__(self, f, *args, **kwargs) -> None:
+    def __init__(
+        self, f: Callable[PlanArgs, MsgGenerator[P]], *args: PlanArgs.args, **kwargs: PlanArgs.kwargs
+    ) -> None:
         self._iter = f(*args, **kwargs)
-        self._stack = traceback.format_stack()
-        self._stack = self._stack[:-2]
+        self._stack: list[str] | None = traceback.format_stack()[:-2]
         self._stack += [
             f"RuntimeWarning: plan `{f.__name__}` was never iterated, did you mean to use `yield from`?"
         ]
 
-    def __iter__(self):
+    def __iter__(self) -> MsgGenerator[P]:
         self._stack = None
         return (yield from self._iter)
 
-    def __next__(self):
+    def __next__(self) -> Msg:
         self._stack = None
         return next(self._iter)
 
-    def __del__(self):
+    def __del__(self) -> None:
         if self._stack:
             warning_message = "\n" + "".join(self._stack)
             warnings.warn(warning_message, RuntimeWarning, stacklevel=1)
 
-    def send(self, value):
+    def send(self, value: Any) -> Msg:
         self._stack = None
         return self._iter.send(value)
 
+    @overload
+    def throw(
+        self, typ: type[BaseException], val: object = None, tb: types.TracebackType | None = None, /
+    ) -> Msg: ...
+    @overload
+    def throw(self, typ: BaseException, val: None = None, tb: types.TracebackType | None = None, /) -> Msg: ...
     def throw(self, typ, val=None, tb=None):
         self._stack = None
         return self._iter.throw(typ, val, tb)
 
-    def close(self):
+    def close(self) -> None:
         self._stack = None
-        return self._iter.close()
+        self._iter.close()
 
 
-def plan(bs_plan):
+def plan(bs_plan: Callable[PlanArgs, MsgGenerator[P]]) -> Callable[PlanArgs, MsgGenerator[P]]:
     """Decorator that warns user if a `yield from` is not called
 
     Parameters
@@ -2083,10 +2138,10 @@ def plan(bs_plan):
     """
 
     @wraps(bs_plan)
-    def wrapper(*args, **kwargs) -> Plan:
+    def wrapper(*args: PlanArgs.args, **kwargs: PlanArgs.kwargs) -> Plan[P]:
         return Plan(bs_plan, *args, **kwargs)
 
-    wrapper._is_plan_ = True
+    wrapper._is_plan_ = True  # type: ignore[attr-defined]
 
     return wrapper
 
@@ -2106,22 +2161,3 @@ def is_plan(bs_plan):
     """
 
     return inspect.isgeneratorfunction(bs_plan) or getattr(bs_plan, "_is_plan_", False)
-
-
-def truncate_json_overflow(data):
-    """Truncate large numerical values to avoid overflow issues when serializing as JSON.
-
-    This preemptively truncates large integers and floats with zero fractional part to fit within
-    the JSON limits for integers, i.e. (-2^53, 2^53 - 1], in case the values are implicitly
-    converted during serialization.
-    """
-    if isinstance(data, collections.abc.Mapping):
-        return {k: truncate_json_overflow(v) for k, v in data.items()}
-    elif isinstance(data, collections.abc.Iterable) and not isinstance(data, str):
-        # Handle lists, tuples, arrays, etc., but not strings
-        return [truncate_json_overflow(item) for item in data]
-    elif isinstance(data, (int, float)) and not (data % 1) and not (1 - 2**53 <= data <= 2**53 - 1):
-        return min(max(data, 1 - 2**53), 2**53 - 1)  # Truncate integers to fit in JSON (53 bits max)
-    elif isinstance(data, float) and (data < -1.7976e308 or data > 1.7976e308):
-        return min(max(data, -1.7976e308), 1.7976e308)  # (Approx.) truncate floats to fit in JSON to avoid inf
-    return data

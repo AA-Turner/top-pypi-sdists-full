@@ -130,6 +130,7 @@ class AuraApi:
                     total=total_retries,
                     status_forcelist=[
                         HTTPStatus.TOO_MANY_REQUESTS.value,
+                        HTTPStatus.REQUEST_TIMEOUT.value,
                         HTTPStatus.INTERNAL_SERVER_ERROR.value,
                         HTTPStatus.BAD_GATEWAY.value,
                         HTTPStatus.SERVICE_UNAVAILABLE.value,
@@ -181,6 +182,7 @@ class AuraApi:
         database_id: str | None = None,
         ttl: timedelta | None = None,
         cloud_location: CloudLocation | None = None,
+        instance_type: str | None = None,
     ) -> SessionDetails:
         json = {"name": name, "memory": memory.value, "project_id": self._project_id}
 
@@ -196,6 +198,9 @@ class AuraApi:
         if cloud_location:
             json["cloud_provider"] = cloud_location.provider
             json["region"] = cloud_location.region
+
+        if instance_type:
+            json["instance_type"] = instance_type
 
         response = self._request_session.post(
             f"{self._base_uri}/{AuraApi.API_VERSION}/graph-analytics/sessions", json=json

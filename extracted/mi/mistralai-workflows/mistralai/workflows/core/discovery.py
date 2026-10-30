@@ -3,11 +3,10 @@ import inspect
 import pkgutil
 from typing import Type
 
-import structlog
-
+from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.definition.workflow_definition import get_workflow_definition
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 
 def is_workflow_class(obj: object) -> bool:

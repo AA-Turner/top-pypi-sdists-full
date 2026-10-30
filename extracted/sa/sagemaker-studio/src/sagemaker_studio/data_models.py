@@ -14,7 +14,20 @@ class BaseClientConfig:
 
 @dataclass
 class ClientConfig(BaseClientConfig):
+    """
+    Configuration for the SageMaker Unified Studio client.
+
+    Attributes:
+        overrides: Per-service client overrides (region, endpoint_url, session ...).
+        connection_provider: Optional
+            :class:`~sagemaker_studio.connections.providers.ConnectionProvider`. On an AWS
+            Notebook local kernel the app's API provider is used unless one is injected here;
+            anywhere else, injecting one replaces the DataZone lookups, which is how tests run
+            the SDK without a control plane.
+    """
+
     overrides: Dict[str, Any] = field(default_factory=dict)
+    connection_provider: Optional[Any] = field(default=None, repr=False)
 
     def __post_init__(self):
         self.overrides = {

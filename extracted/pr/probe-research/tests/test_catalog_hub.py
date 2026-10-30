@@ -64,6 +64,14 @@ def test_a_hub_dataset_from_its_download_urls_with_the_revision():
     assert _hub.hub_dataset(ds).revision == "abc123"
 
 
+def test_a_hub_dataset_reads_a_slashed_revision_whole_and_decoded():
+    # As the server keys the same uri (`app/catalog/sources.py` `_hf`), not `refs`.
+    ds = _dataset(download_checksums={"hf://datasets/o/n@refs/convert/parquet/default/train/0.parquet": {}})
+    assert _hub.hub_dataset(ds).revision == "refs/convert/parquet"
+    ds = _dataset(download_checksums={"https://huggingface.co/datasets/o/n/resolve/refs%2Fpr%2F3/x.json": {}})
+    assert _hub.hub_dataset(ds).revision == "refs/pr/3"
+
+
 def test_a_hub_dataset_from_its_cache_folder_takes_the_fingerprint():
     ds = _dataset(cache_files=[{"filename": "/root/.cache/huggingface/datasets/allenai___c4/en/0.0.0/x/c4-train.arrow"}],
                   _fingerprint="9f86d081")

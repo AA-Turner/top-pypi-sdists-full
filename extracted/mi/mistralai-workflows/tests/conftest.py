@@ -2,7 +2,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from mistralai.workflows.core.config.config import config
+from mistralai.workflows.core.config.config import config, setup_default_logging
 from mistralai.workflows.testing.fixtures import (
     clear_dependency_cache,  # noqa: F401
     disable_otel_export,  # noqa: F401
@@ -12,6 +12,12 @@ from mistralai.workflows.testing.fixtures import (
     temporal_env,  # noqa: F401
     temporal_env_with_converter,  # noqa: F401
 )
+
+# Importing the SDK no longer sets up logging; run_worker does. The unit tests assert on log
+# output as a worker emits it, so set it up once here. Without it, a test that uses
+# structlog.testing.capture_logs leaves structlog "configured" with its print defaults, and
+# later caplog assertions in the same xdist worker see nothing.
+setup_default_logging()
 
 # A throwaway self-signed CA for the Temporal TLS tests. The resolver parses the certificate, so
 # the PEM envelope alone is not enough -- the DER inside it has to decode.

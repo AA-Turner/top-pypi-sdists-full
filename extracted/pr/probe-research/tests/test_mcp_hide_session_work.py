@@ -346,7 +346,10 @@ def test_an_entity_view_drops_the_sessions_own_children(client) -> None:
     data = envelope["data"]
     names = {node.get("name") for node in data["nodes"]}
     assert names == {"theirs", "their run", "the entity itself"}
-    assert [e["source_id"] for e in data["edges"]] == [THEIR_RUN]
+    # Its links IN, named from this end (swarm friction P6): theirs only, and
+    # the total counts what is shown.
+    assert [link["ref"] for link in data["used_by"]["links"]] == [f"run:{THEIR_RUN}"]
+    assert data["used_by"]["total"] == 1
     assert data["origin"] is None
     assert MissingMarker.SESSION_WORK_EXCLUSION_UNSUPPORTED not in envelope.get("completeness", {}).get("missing", [])
 
@@ -357,12 +360,12 @@ def test_the_sessions_own_work_opened_by_address_is_shown_whole(client) -> None:
     would empty it with nothing saying so."""
     created = {"project_ids": [PRIOR, MY_EXPERIMENT], "run_ids": [MY_RUN], "truncated": False}
     envelope, _ = _lineage(client, hide=True, created=created)
-    assert len(envelope["data"]["nodes"]) == 5 and len(envelope["data"]["edges"]) == 2
+    assert len(envelope["data"]["nodes"]) == 5 and envelope["data"]["used_by"]["total"] == 2
 
 
 def test_an_entity_view_without_the_opt_in_is_untouched(client) -> None:
     envelope, source = _lineage(client, hide=False, created=None)
-    assert len(envelope["data"]["nodes"]) == 5 and len(envelope["data"]["edges"]) == 2
+    assert len(envelope["data"]["nodes"]) == 5 and envelope["data"]["used_by"]["total"] == 2
     assert source.created_calls == 0
 
 

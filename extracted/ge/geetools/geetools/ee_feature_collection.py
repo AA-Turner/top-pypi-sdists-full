@@ -1,13 +1,14 @@
 """Toolbox for the :py:class:`ee.FeatureCollection` class."""
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Optional, Protocol
 
 import ee
 import geopandas as gpd
 import shapely
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
+from pyproj import CRS, Transformer
 
 from .accessors import register_class_accessor
 from .utils import plot_data
@@ -29,6 +30,68 @@ class FeatureCollectionAccessor:
     def __init__(self, obj: ee.FeatureCollection):
         """Initialize the :py:class:`ee.FeatureCollection` class."""
         self._obj = obj
+
+    @classmethod
+    def grid(cls, size: int | float | ee.Number, crs: str | ee.String = "EPSG:4326") -> ee.FeatureCollection:
+        """Create a global feature grid with square cells in the requested CRS.
+
+        Warning:
+            Generating this grid is a very costly operation. It is strongly recommended to export the
+            resulting feature collection to an Earth Engine asset before using it in other computations.
+
+        Args:
+            size: The cell side length in the units of the CRS.
+            crs: The CRS of the grid. Defaults to ``"EPSG:4326"``.
+
+        Returns:
+            A feature collection whose cells have an ``id`` property.
+        """
+        size, crs = ee.Number(size), ee.String(crs)
+        crs_value = crs.getInfo()
+        # Earth Engine cannot currently compute projection bounds server-side; pyproj supplies the area of use.
+        # https://gis.stackexchange.com/questions/471100/how-to-get-the-bounds-of-a-projection-in-gee
+        # https://issuetracker.google.com/issues/313937471
+        geographic_bounds = CRS(crs_value).area_of_use.bounds
+        transformer = Transformer.from_crs(4326, crs_value, always_xy=True)
+        x_min, y_min, x_max, y_max = transformer.transform_bounds(*geographic_bounds, densify_pts=100)
+
+        distance_transformer = Transformer.from_crs(crs_value, 3857, always_xy=True)
+        x1 = distance_transformer.transform(x_min, 0)[0]
+        x2 = distance_transformer.transform(x_min + size.getInfo(), 0)[0]
+        equator_cell_size = int(abs(x2 - x1)) or None
+
+        x_min, y_min = ee.Number(x_min).toDouble(), ee.Number(y_min).toDouble()
+        x_max, y_max = ee.Number(x_max).toDouble(), ee.Number(y_max).toDouble()
+        longitudes = ee.List.sequence(x_min, x_max, size).add(x_max).distinct()
+        latitudes = ee.List.sequence(y_min, y_max, size).add(y_max).distinct()
+        longitude_indexes = ee.List.sequence(0, longitudes.size().subtract(2))
+        latitude_indexes = ee.List.sequence(0, latitudes.size().subtract(2))
+
+        def rectangle(i: ee.Number, j: ee.Number) -> ee.Feature:
+            i, j = ee.Number(i).toInt(), ee.Number(j).toInt()
+            coordinates = [
+                longitudes.get(i),
+                latitudes.get(j),
+                longitudes.get(i.add(1)),
+                latitudes.get(j.add(1)),
+            ]
+            cell_id = ee.String("{proj}_{size}_E{ix}-S{iy}").geetools.format(
+                {
+                    "proj": ee.Projection(crs).crs(),
+                    "size": size.format(),
+                    "ix": i.format("%02d"),
+                    "iy": j.format("%02d"),
+                }
+            )
+            return ee.Feature(
+                ee.Geometry.Rectangle(coordinates, crs, geodesic=False, evenOdd=True),
+                {"id": cell_id, "equator_cell_size_m": equator_cell_size},
+            )
+
+        def column(i: ee.Number) -> ee.List:
+            return latitude_indexes.map(lambda j: rectangle(i, j))
+
+        return ee.FeatureCollection(ee.List(ee.List(longitude_indexes).map(column)).flatten())
 
     def toImage(
         self,
@@ -424,6 +487,78 @@ class FeatureCollectionAccessor:
         features = features.map(lambda i: ee.Algorithms.If(isString(i), i, ee.Number(i).format()))
 
         return ee.Dictionary.fromLists(features, values)
+
+    def reduceColumnsGroup(
+        self, reducer: ee.Reducer, groupBy: str = "system:index", selectors: Optional[list] = None
+    ) -> ee.Dictionary:
+        """Reduce a FeatureColletion column/s grouped by a key column.
+
+        Parameters:
+            reducer: The reducer.
+            groupBy: The column that will be used to group the output.
+            selectors: An optional list of columns to reduce. If None it will use all columns.
+
+        Returns:
+            a ee.Dictionary with the following structure:
+
+            {
+              'group1': {
+                'selector1': {
+                  'reducer1_output': value1,
+                  'reducer2_output': value2,
+                },
+                'selector2': {
+                  'reducer1_output': value1,
+                  'reducer2_output': value2,
+                },
+              },
+              'group2': {
+                'selector1': {
+                  'reducer1_output': value1,
+                  'reducer2_output': value2,
+                },
+                'selector2': {
+                  'reducer1_output': value1,
+                  'reducer2_output': value2,
+                },
+              },
+            }
+
+        Examples:
+            .. jupyter-execute::
+
+                import ee, geetools
+                from geetools.utils import initialize_documentation
+
+                initialize_documentation()
+
+                fc = ee.FeatureCollection([
+                    ee.Feature(None, {"region": "north", "area": 2}),
+                    ee.Feature(None, {"region": "north", "area": 4}),
+                    ee.Feature(None, {"region": "south", "area": 6}),
+                ])
+                grouped = fc.geetools.reduceColumnsGroup(
+                    reducer=ee.Reducer.mean(), groupBy="region", selectors=["area"]
+                )
+                grouped.getInfo()
+
+        """
+        if selectors is None:
+            selectors = self._obj.first().propertyNames()
+        selectors = ee.List(selectors)
+        keys = self._obj.aggregate_array(groupBy).distinct()
+
+        def reduce_key(key):
+            filtered = self._obj.filter(ee.Filter.eq(groupBy, key))
+
+            def reduce_selector(sel):
+                return filtered.reduceColumns(reducer, [sel])
+
+            outputs = selectors.map(reduce_selector)
+            return ee.Dictionary.fromLists(selectors, outputs)
+
+        values = keys.map(reduce_key)
+        return ee.Dictionary.fromLists(keys, values)
 
     def plot_by_features(
         self,
@@ -866,3 +1001,48 @@ class FeatureCollectionAccessor:
         list = self._obj.toList(self._obj.size()).map(split).flatten()
 
         return ee.FeatureCollection(list)
+
+    def split(self, parts: int | ee.Number = 1) -> ee.List:
+        """Split a feature collection in multiple parts.
+
+        Args:
+            parts: The number of parts to split the collection in
+
+        Returns:
+            A list of ee.FeatureCollection
+
+        Examples:
+            .. jupyter-execute::
+
+                import ee, geetools
+                from geetools.utils import initialize_documentation
+
+                initialize_documentation()
+
+                fc = ee.FeatureCollection("FAO/GAUL/2015/level0")
+                ee.FeatureCollection(fc.geetools.split(2).get(1)).size().getInfo()
+        """
+        # if parts == 1, then we simply return the initial collection in a list (for consistency)
+        # in order to avoid extra computation from GEE side
+        if parts == 1:
+            return ee.List([self._obj])
+
+        # extract the properties of the ee.FeatureCollection object before building
+        # the random column
+        properties = self._obj.first().propertyNames()
+
+        # build the sequence of steps to split the collection
+        parts = ee.Number(parts)
+        steps = ee.List.sequence(0, 1, count=parts.add(1).toInt())
+        stepsIndex = ee.List.sequence(0, steps.size().subtract(2))
+
+        # split the collection and drop the random temp column
+        prop = ee.String("__geetools_split_prop__")
+        fc = self._obj.randomColumn(prop)
+
+        def split(i):
+            i, j = ee.Number(i), ee.Number(i).add(1)
+            col = fc.filter(ee.Filter.rangeContains(prop, steps.get(i), steps.get(j)))
+            return ee.FeatureCollection(col).select(properties)
+
+        return ee.List(stepsIndex.map(split))

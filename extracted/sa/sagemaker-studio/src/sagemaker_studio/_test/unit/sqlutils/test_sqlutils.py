@@ -1,12 +1,19 @@
+import os
+import sys
+import tempfile
+import threading
 import unittest
 from datetime import datetime
-from unittest.mock import Mock, PropertyMock, patch
+from pathlib import Path
+from unittest.mock import Mock, PropertyMock, call, patch
 
 from dateutil.tz import tzlocal
 from pandas import DataFrame
 
 from sagemaker_studio import Connection, sqlutils
 from sagemaker_studio.project import Project
+from sagemaker_studio.sql_engine.duckdb_engine import engine as duckdb_engine
+from sagemaker_studio.sql_engine.duckdb_engine import extensions as duckdb_extensions
 from sagemaker_studio.sql_engine.sql_executor import SqlExecutor
 from sagemaker_studio.utils._sql_cache import ConnectionCache, ManagedConnection
 
@@ -56,7 +63,7 @@ class TestSqlutils(unittest.TestCase):
             project_config=Mock(),
         )
 
-    @patch("sagemaker_studio.sqlutils._ensure_duckdb")
+    @patch("sagemaker_studio.sql_engine.duckdb_engine.engine._ensure_duckdb")
     def test_sql_without_connection(self, mock_ensure_duckdb):
         """Test SQL execution without any connection specified"""
         mock_result = Mock()
@@ -74,77 +81,26 @@ class TestSqlutils(unittest.TestCase):
         self.assertIsInstance(result, DataFrame)
         self.assertEqual(list(result["col1"]), [1, 2, 3])
 
-    @patch("sagemaker_studio.sqlutils.HelperFactory")
     @patch("sagemaker_studio.sqlutils._ensure_project")
-    @patch("sagemaker_studio.sqlutils._ensure_sql_executor")
-    def test_sql_with_athena_connection(
-        self, mock_ensure_sql_executor, mock_ensure_project, mock_helper_factory
-    ):
-        """Test SQL execution with Athena connection"""
-        # Setup mock project to return our Connection instance
+    def test_sql_with_athena_connection(self, mock_ensure_project):
+        """Athena SQL executes through the SDK-owned API executor."""
+        from sagemaker_studio.sql_engine.sql_executor import SingleStatementResult
+
         mock_project = Mock()
-        # Allow connection to be called multiple times (for _is_spark_connection check and get_engine)
         mock_project.connection = Mock(return_value=self.mock_connection)
         mock_ensure_project.return_value = mock_project
-
-        # Setup mock SQL helper
-        mock_sql_helper = Mock()
-        mock_sql_helper.to_sql_config.return_value = {
-            "region_name": "us-east-1",
-            "aws_access_key_id": "mock_access_key",
-            "aws_secret_access_key": "mock_secret_key",
-            "aws_session_token": "mock_session_token",
-            "workgroup": "workgroup-projectid12345-environmentid1",
-            "database": "default",
-            "catalog": "AwsDataCatalog",
-        }
-        mock_helper_factory.get_sql_helper.return_value = mock_sql_helper
-
-        mock_sql_executor = Mock()
-        mock_ensure_sql_executor.return_value = mock_sql_executor
-        mock_engine = Mock()
-        mock_sql_executor.create_engine.return_value = mock_engine
-        mock_sql_executor.get_supported_connection_types.return_value = ["ATHENA"]
-
-        # Mock execute to return ExecutionResult generator
-        from sagemaker_studio.sql_engine.sql_executor import ExecutionResult
-
-        execution_result = ExecutionResult(
-            statement_index=0,
-            statement="SELECT * FROM test_table",
-            statement_type="SELECT",
+        native = Mock()
+        native.execute.return_value = SingleStatementResult(
             result=DataFrame({"col1": [1, 2, 3]}),
-            status="success",
+            execution_metadata={"query_execution_id": "q"},
         )
-        mock_sql_executor.execute.return_value = iter([execution_result])
 
         query = "SELECT * FROM test_table"
-        result = sqlutils.sql(query, connection_name="project.athena")
+        with patch.object(sqlutils, "_athena_api", return_value=native):
+            result = sqlutils.sql(query, connection_name="project.athena")
 
-        # Verify the interaction with helper factory
-        # Connection is called only once due to refactored _resolve_connection
-        assert mock_project.connection.call_count == 1
-        mock_project.connection.assert_called_with("project.athena")
-        mock_helper_factory.get_sql_helper.assert_called_once_with("ATHENA")
-
-        # Verify sql helper was called
-        self.assertEqual(mock_sql_helper.to_sql_config.call_count, 1)
-        call_args = mock_sql_helper.to_sql_config.call_args
-        self.assertEqual(call_args[0][0], self.mock_connection)
-
-        # Verify engine creation with correct config
-        mock_sql_executor.create_engine.assert_called_once()
-
-        # Verify query execution - with persist_session=True, conn is created
-        mock_sql_executor.execute.assert_called_once()
-        call_args = mock_sql_executor.execute.call_args
-        self.assertEqual(call_args[0][0], mock_engine)  # engine (positional)
-        self.assertEqual(call_args[0][1], query)  # query (positional)
-        self.assertIsNotNone(call_args[1]["connection"])  # connection (keyword)
-        self.assertEqual(call_args[1].get("parameters"), None)  # parameters (keyword)
-
-        # Verify result
-        self.assertIsInstance(result, DataFrame)
+        mock_project.connection.assert_called_once_with("project.athena")
+        native.execute.assert_called_once_with(query)
         self.assertEqual(list(result["col1"]), [1, 2, 3])
 
     @patch("sagemaker_studio.sqlutils.HelperFactory")
@@ -248,7 +204,7 @@ class TestSqlutils(unittest.TestCase):
         self.assertIsNotNone(call_args[1]["connection"])  # connection (keyword)
         self.assertEqual(call_args[1].get("parameters"), None)  # parameters (keyword)
 
-    @patch("sagemaker_studio.sqlutils._ensure_duckdb")
+    @patch("sagemaker_studio.sql_engine.duckdb_engine.engine._ensure_duckdb")
     def test_sql_stream_without_connection(self, mock_ensure_duckdb):
         """Test sql_stream execution without any connection specified"""
         mock_result1 = Mock()
@@ -267,40 +223,29 @@ class TestSqlutils(unittest.TestCase):
         self.assertEqual(results[0].status, "success")
         self.assertEqual(results[1].status, "success")
 
-    @patch("sagemaker_studio.sqlutils.HelperFactory")
     @patch("sagemaker_studio.sqlutils._ensure_project")
-    @patch("sagemaker_studio.sqlutils._sql_executor")
-    def test_sql_stream_with_connection(
-        self, mock_sql_executor, mock_ensure_project, mock_helper_factory
-    ):
-        """Test sql_stream execution with connection"""
+    def test_sql_stream_with_connection(self, mock_ensure_project):
+        """Athena streaming executes through the SDK-owned API executor."""
+        from sagemaker_studio.sql_engine.sql_executor import SingleStatementResult
+
         mock_project = Mock()
         mock_project.connection.return_value = self.mock_connection
         mock_ensure_project.return_value = mock_project
+        native = Mock()
+        native.execute.side_effect = lambda statement: SingleStatementResult(
+            result=DataFrame({"statement": [statement]}),
+            execution_metadata={"query_execution_id": statement},
+        )
 
-        mock_sql_helper = Mock()
-        mock_sql_helper.to_sql_config.return_value = {"region_name": "us-east-1"}
-        mock_helper_factory.get_sql_helper.return_value = mock_sql_helper
+        with patch.object(sqlutils, "_athena_api", return_value=native):
+            results = list(
+                sqlutils.sql_stream("SELECT 1; SELECT 2", connection_name="project.athena")
+            )
 
-        mock_engine = Mock()
-        mock_sql_executor.create_engine.return_value = mock_engine
-        mock_sql_executor.get_supported_connection_types.return_value = ["ATHENA"]
+        self.assertEqual(len(results), 2)
+        self.assertEqual(native.execute.call_count, 2)
 
-        from sagemaker_studio.sql_engine.sql_executor import ExecutionResult
-
-        results = [
-            ExecutionResult(0, "SELECT 1", "SELECT", DataFrame({"col1": [1]}), status="success"),
-            ExecutionResult(1, "SELECT 2", "SELECT", DataFrame({"col1": [2]}), status="success"),
-        ]
-        mock_sql_executor.execute.return_value = iter(results)
-
-        query = "SELECT 1; SELECT 2"
-        stream_results = list(sqlutils.sql_stream(query, connection_name="project.athena"))
-
-        self.assertEqual(len(stream_results), 2)
-        mock_sql_executor.execute.assert_called_once()
-
-    @patch("sagemaker_studio.sqlutils._ensure_duckdb")
+    @patch("sagemaker_studio.sql_engine.duckdb_engine.engine._ensure_duckdb")
     def test_sql_with_parameters_no_connection(self, mock_ensure_duckdb):
         """Test sql with parameters and no connection"""
         mock_result = Mock()
@@ -317,42 +262,25 @@ class TestSqlutils(unittest.TestCase):
         mock_duckdb.sql.assert_called_once_with(query)
         self.assertIsInstance(result, DataFrame)
 
-    @patch("sagemaker_studio.sqlutils.HelperFactory")
     @patch("sagemaker_studio.sqlutils._ensure_project")
-    @patch("sagemaker_studio.sqlutils._sql_executor")
-    def test_sql_with_connection_id(
-        self, mock_sql_executor, mock_ensure_project, mock_helper_factory
-    ):
-        """Test SQL execution with connection_id instead of connection_name"""
+    def test_sql_with_connection_id(self, mock_ensure_project):
+        """Native Athena execution resolves a connection by ID once."""
+        from sagemaker_studio.sql_engine.sql_executor import SingleStatementResult
+
         mock_project = Mock()
-        # Allow connection to be called multiple times (for _is_spark_connection check and get_engine)
         mock_project.connection = Mock(return_value=self.mock_connection)
         mock_ensure_project.return_value = mock_project
-
-        mock_sql_helper = Mock()
-        mock_sql_helper.to_sql_config.return_value = {"region_name": "us-east-1"}
-        mock_helper_factory.get_sql_helper.return_value = mock_sql_helper
-
-        mock_engine = Mock()
-        mock_sql_executor.create_engine.return_value = mock_engine
-        mock_sql_executor.get_supported_connection_types.return_value = ["ATHENA"]
-
-        from sagemaker_studio.sql_engine.sql_executor import ExecutionResult
-
-        execution_result = ExecutionResult(
-            statement_index=0,
-            statement="SELECT 1",
-            statement_type="SELECT",
+        native = Mock()
+        native.execute.return_value = SingleStatementResult(
             result=DataFrame({"col1": [1]}),
-            status="success",
+            execution_metadata={"query_execution_id": "q"},
         )
-        mock_sql_executor.execute.return_value = iter([execution_result])
 
-        result = sqlutils.sql("SELECT 1", connection_id="conn123")
+        with patch.object(sqlutils, "_athena_api", return_value=native):
+            result = sqlutils.sql("SELECT 1", connection_id="conn123")
 
-        # Connection is called only once due to refactored _resolve_connection
-        assert mock_project.connection.call_count == 1
-        mock_project.connection.assert_called_with(id="conn123")
+        mock_project.connection.assert_called_once_with(id="conn123")
+        native.execute.assert_called_once_with("SELECT 1")
         self.assertIsInstance(result, DataFrame)
 
     @patch("sagemaker_studio.sqlutils._ensure_project")
@@ -441,50 +369,50 @@ class TestSqlutils(unittest.TestCase):
     # --- Athena context injection ---
 
     @patch("sagemaker_studio.utils.sql_handler.get_execution_context")
-    @patch("sagemaker_studio.sqlutils._ensure_sql_executor")
-    @patch("sagemaker_studio.sqlutils._get_or_create_connection")
+    @patch("sagemaker_studio.sqlutils._athena_api")
     @patch("sagemaker_studio.sqlutils._resolve_connection")
-    def test_sql_athena_injects_catalog_and_schema(
-        self, mock_resolve, mock_get_or_create, mock_executor, mock_ctx
-    ):
-        """When Athena query has catalog+database, they are passed as kwargs"""
-        mock_conn = Mock()
-        mock_conn.type = "ATHENA"
-        mock_resolve.return_value = mock_conn
-        mock_managed = Mock()
-        mock_managed.engine = Mock()
-        mock_managed.engine.get_execution_options.return_value = {"connection_type": "ATHENA"}
-        mock_managed.connection = None
-        mock_get_or_create.return_value = mock_managed
+    def test_sql_athena_injects_catalog_and_schema(self, mock_resolve, mock_athena, mock_ctx):
+        """When Athena query has catalog+database, they are passed as kwargs."""
+        from sagemaker_studio.sql_engine.sql_executor import SingleStatementResult
+
+        mock_resolve.return_value = Mock(type="ATHENA")
+        native = Mock()
+        native.execute.return_value = SingleStatementResult(result="df")
+        mock_athena.return_value = native
         mock_ctx.return_value = {"catalog": "my_cat", "database": "my_db"}
-        mock_exec_result = Mock()
-        mock_exec_result.result = "df"
-        mock_executor.return_value.execute.return_value = iter([mock_exec_result])
 
         sqlutils.sql("SELECT 1", connection_id="c1")
         mock_ctx.assert_called_once()
+        mock_athena.assert_called_once_with(
+            mock_resolve.return_value,
+            {"catalog_name": "my_cat", "schema_name": "my_db"},
+            None,
+            required=True,
+        )
 
     @patch("sagemaker_studio.utils.sql_handler.get_execution_context")
-    @patch("sagemaker_studio.sqlutils._ensure_sql_executor")
-    @patch("sagemaker_studio.sqlutils._get_or_create_connection")
+    @patch("sagemaker_studio.sqlutils._athena_api")
     @patch("sagemaker_studio.sqlutils._resolve_connection")
     def test_sql_stream_athena_injects_catalog_and_schema(
-        self, mock_resolve, mock_get_or_create, mock_executor, mock_ctx
+        self, mock_resolve, mock_athena, mock_ctx
     ):
-        """sql_stream with Athena also calls _apply_athena_context"""
-        mock_conn = Mock()
-        mock_conn.type = "ATHENA"
-        mock_resolve.return_value = mock_conn
-        mock_managed = Mock()
-        mock_managed.engine = Mock()
-        mock_managed.engine.get_execution_options.return_value = {"connection_type": "ATHENA"}
-        mock_managed.connection = None
-        mock_get_or_create.return_value = mock_managed
+        """sql_stream with Athena also calls _apply_athena_context."""
+        from sagemaker_studio.sql_engine.sql_executor import SingleStatementResult
+
+        mock_resolve.return_value = Mock(type="ATHENA")
+        native = Mock()
+        native.execute.return_value = SingleStatementResult(result="df")
+        mock_athena.return_value = native
         mock_ctx.return_value = {"catalog": "cat1", "database": "db1"}
-        mock_executor.return_value.execute.return_value = iter([])
 
         list(sqlutils.sql_stream("SELECT 1", connection_id="c1"))
         mock_ctx.assert_called_once()
+        mock_athena.assert_called_once_with(
+            mock_resolve.return_value,
+            {"catalog_name": "cat1", "schema_name": "db1"},
+            None,
+            required=True,
+        )
 
     # --- _ensure_spark ---
 
@@ -660,7 +588,7 @@ class TestSqlutils(unittest.TestCase):
 
         self.assertNotIn("df_0", mock_ip.user_ns)
         self.assertIs(mock_ip.user_ns["df"], df0)
-        mock_display.assert_called_once_with(df0)
+        mock_display.assert_called_once_with(df0, metadata={})
 
     @patch("sagemaker_studio.sqlutils._ensure_spark")
     def test_sql_stream_with_display_raises_on_error(self, mock_ensure_spark):
@@ -746,7 +674,54 @@ class TestSqlutils(unittest.TestCase):
         self.assertNotIn("df_0", mock_ip.user_ns)
         # Main var is the single result directly
         self.assertIs(mock_ip.user_ns["df"], df0)
-        mock_display.assert_called_once_with(df0)
+        mock_display.assert_called_once_with(df0, metadata={})
+
+    def test_materialise_stream_attaches_redshift_query_id_as_display_metadata(self):
+        from sagemaker_studio.sql_engine.sql_executor import ExecutionResult
+
+        mock_ip, mock_display, modules = self._mock_ipython_modules()
+
+        df0 = DataFrame({"a": [1]})
+        df1 = DataFrame({"b": [2]})
+        df2 = DataFrame({"c": [3]})
+        stream = [
+            ExecutionResult(
+                0,
+                "SELECT 1",
+                "SELECT",
+                result=df0,
+                status="success",
+                execution_metadata={"statement_id": "rs-1", "redshift_query_id": 123456},
+            ),
+            ExecutionResult(
+                1,
+                "SELECT 'x'",
+                "SELECT",
+                result=df1,
+                status="success",
+                execution_metadata={"statement_id": "rs-2"},
+            ),
+            ExecutionResult(
+                2,
+                "SELECT 2",
+                "SELECT",
+                result=df2,
+                status="success",
+                execution_metadata={"query_execution_id": "athena-1"},
+            ),
+        ]
+
+        with patch.dict("sys.modules", modules):
+            sqlutils._materialise_stream(iter(stream), "df")
+
+        self.assertEqual(
+            mock_display.call_args_list,
+            [
+                call(df0, metadata={"redshift_query_id": 123456}),
+                call(df1, metadata={}),
+                call(df2, metadata={}),
+            ],
+        )
 
     def test_materialise_stream_error_with_partial_results(self):
         """Error after some successes: partial indexed vars saved, then raises"""
@@ -1065,7 +1040,7 @@ class TestSessionPersistence(unittest.TestCase):
         """Test persist_session=True caches connection"""
         mock_project = Mock()
         mock_connection = Mock()
-        mock_connection.type = "ATHENA"
+        mock_connection.type = "REDSHIFT"
         mock_connection.id = "conn_123"
         mock_project.connection.return_value = mock_connection
         mock_ensure_project.return_value = mock_project
@@ -1081,7 +1056,7 @@ class TestSessionPersistence(unittest.TestCase):
         mock_engine.connect.return_value.__enter__ = Mock(return_value=mock_db_connection)
         mock_engine.connect.return_value.__exit__ = Mock(return_value=None)
         mock_sql_executor.create_engine.return_value = mock_engine
-        mock_sql_executor.get_supported_connection_types.return_value = ["ATHENA"]
+        mock_sql_executor.get_supported_connection_types.return_value = ["REDSHIFT"]
 
         from sagemaker_studio.sql_engine.sql_executor import ExecutionResult
 
@@ -1113,7 +1088,7 @@ class TestSessionPersistence(unittest.TestCase):
 
         mock_project = Mock()
         mock_connection = Mock()
-        mock_connection.type = "ATHENA"
+        mock_connection.type = "REDSHIFT"
         mock_connection.id = "conn_123"
         mock_project.connection.return_value = mock_connection
         mock_ensure_project.return_value = mock_project
@@ -1128,7 +1103,7 @@ class TestSessionPersistence(unittest.TestCase):
         mock_db_connection = Mock()
         mock_db_connection.closed = False
         mock_sql_executor.create_engine.return_value = mock_engine
-        mock_sql_executor.get_supported_connection_types.return_value = ["ATHENA"]
+        mock_sql_executor.get_supported_connection_types.return_value = ["REDSHIFT"]
 
         from sagemaker_studio.sql_engine.sql_executor import ExecutionResult
 
@@ -1162,7 +1137,7 @@ class TestSessionPersistence(unittest.TestCase):
             call_args[1]["connection"], mock_db_connection
         )  # connection is keyword arg
 
-    @patch("sagemaker_studio.sqlutils._ensure_duckdb")
+    @patch("sagemaker_studio.sql_engine.duckdb_engine.engine._ensure_duckdb")
     def test_sql_stream_with_duckdb(self, mock_ensure_duckdb):
         """Test sql_stream without connection uses DuckDB"""
         mock_result1 = Mock()
@@ -1189,7 +1164,7 @@ class TestSessionPersistence(unittest.TestCase):
         """Test sql_stream with connection_id instead of connection_name"""
         mock_project = Mock()
         mock_connection = Mock()
-        mock_connection.type = "ATHENA"
+        mock_connection.type = "REDSHIFT"
         mock_connection.id = "conn_123"
         mock_project.connection.return_value = mock_connection
         mock_ensure_project.return_value = mock_project
@@ -1202,7 +1177,7 @@ class TestSessionPersistence(unittest.TestCase):
         mock_ensure_sql_executor.return_value = mock_sql_executor
         mock_engine = Mock()
         mock_sql_executor.create_engine.return_value = mock_engine
-        mock_sql_executor.get_supported_connection_types.return_value = ["ATHENA"]
+        mock_sql_executor.get_supported_connection_types.return_value = ["REDSHIFT"]
 
         from sagemaker_studio.sql_engine.sql_executor import ExecutionResult
 
@@ -1232,7 +1207,7 @@ class TestSessionPersistence(unittest.TestCase):
 
         mock_project = Mock()
         mock_connection = Mock()
-        mock_connection.type = "ATHENA"
+        mock_connection.type = "REDSHIFT"
         mock_connection.id = "conn_123"
         mock_project.connection.return_value = mock_connection
         mock_ensure_project.return_value = mock_project
@@ -1247,7 +1222,7 @@ class TestSessionPersistence(unittest.TestCase):
         mock_cached_connection = Mock()
         mock_cached_connection.closed = False
         mock_sql_executor.create_engine.return_value = mock_engine
-        mock_sql_executor.get_supported_connection_types.return_value = ["ATHENA"]
+        mock_sql_executor.get_supported_connection_types.return_value = ["REDSHIFT"]
 
         from sagemaker_studio.sql_engine.sql_executor import ExecutionResult
 
@@ -1294,7 +1269,7 @@ class TestSessionPersistence(unittest.TestCase):
         """Test persist_session=False does not cache connection"""
         mock_project = Mock()
         mock_connection = Mock()
-        mock_connection.type = "ATHENA"
+        mock_connection.type = "REDSHIFT"
         mock_connection.id = "conn_123"
         mock_project.connection.return_value = mock_connection
         mock_ensure_project.return_value = mock_project
@@ -1310,7 +1285,7 @@ class TestSessionPersistence(unittest.TestCase):
         mock_engine.connect.return_value.__enter__ = Mock(return_value=mock_db_connection)
         mock_engine.connect.return_value.__exit__ = Mock(return_value=None)
         mock_sql_executor.create_engine.return_value = mock_engine
-        mock_sql_executor.get_supported_connection_types.return_value = ["ATHENA"]
+        mock_sql_executor.get_supported_connection_types.return_value = ["REDSHIFT"]
 
         from sagemaker_studio.sql_engine.sql_executor import ExecutionResult
 
@@ -1491,7 +1466,7 @@ class TestCacheKeyIntegration(unittest.TestCase):
         """Test that different kwargs create separate cache entries"""
         mock_project = Mock()
         mock_connection = Mock()
-        mock_connection.type = "ATHENA"
+        mock_connection.type = "REDSHIFT"
         mock_connection.id = "conn_123"
         mock_project.connection.return_value = mock_connection
         mock_ensure_project.return_value = mock_project
@@ -1505,7 +1480,7 @@ class TestCacheKeyIntegration(unittest.TestCase):
         mock_engine1 = Mock()
         mock_engine2 = Mock()
         mock_sql_executor.create_engine.side_effect = [mock_engine1, mock_engine2]
-        mock_sql_executor.get_supported_connection_types.return_value = ["ATHENA"]
+        mock_sql_executor.get_supported_connection_types.return_value = ["REDSHIFT"]
 
         from sagemaker_studio.sql_engine.sql_executor import ExecutionResult
 
@@ -1551,7 +1526,7 @@ class TestCacheKeyIntegration(unittest.TestCase):
 
         mock_project = Mock()
         mock_connection = Mock()
-        mock_connection.type = "ATHENA"
+        mock_connection.type = "REDSHIFT"
         mock_connection.id = "conn_123"
         mock_project.connection.return_value = mock_connection
         mock_ensure_project.return_value = mock_project
@@ -1566,7 +1541,7 @@ class TestCacheKeyIntegration(unittest.TestCase):
         mock_db_connection = Mock()
         mock_db_connection.closed = False
         mock_sql_executor.create_engine.return_value = mock_engine
-        mock_sql_executor.get_supported_connection_types.return_value = ["ATHENA"]
+        mock_sql_executor.get_supported_connection_types.return_value = ["REDSHIFT"]
 
         from sagemaker_studio.sql_engine.sql_executor import ExecutionResult
 
@@ -1616,7 +1591,7 @@ class TestCacheKeyIntegration(unittest.TestCase):
         """Test that connection without kwargs and with kwargs have separate cache entries"""
         mock_project = Mock()
         mock_connection = Mock()
-        mock_connection.type = "ATHENA"
+        mock_connection.type = "REDSHIFT"
         mock_connection.id = "conn_123"
         mock_project.connection.return_value = mock_connection
         mock_ensure_project.return_value = mock_project
@@ -1630,7 +1605,7 @@ class TestCacheKeyIntegration(unittest.TestCase):
         mock_engine1 = Mock()
         mock_engine2 = Mock()
         mock_sql_executor.create_engine.side_effect = [mock_engine1, mock_engine2]
-        mock_sql_executor.get_supported_connection_types.return_value = ["ATHENA"]
+        mock_sql_executor.get_supported_connection_types.return_value = ["REDSHIFT"]
 
         from sagemaker_studio.sql_engine.sql_executor import ExecutionResult
 
@@ -2312,39 +2287,32 @@ class TestCredentialRefresh(unittest.TestCase):
         self.assertEqual(creds_2["access_key_id"], "cached_key")
 
     @patch("sagemaker_studio.sqlutils.HelperFactory")
-    @patch("sagemaker_studio.sqlutils._ensure_project")
     @patch("sagemaker_studio.sqlutils._ensure_sql_executor")
-    def test_get_engine_delegates_to_get_engine_from_connection(
-        self, mock_ensure_sql_executor, mock_ensure_project, mock_helper_factory
+    @patch("sagemaker_studio.sqlutils._ensure_project")
+    def test_get_engine_returns_sqlalchemy_engine(
+        self, mock_ensure_project, mock_ensure_sql_executor, mock_helper_factory
     ):
-        """Test get_engine properly delegates to _get_engine_from_connection with identifiers"""
         mock_project = Mock()
-        mock_conn = Mock()
-        mock_conn.type = "ATHENA"
+        mock_conn = Mock(type="ATHENA")
+        mock_conn.connection_creds.expiration = None
         mock_project.connection.return_value = mock_conn
         mock_ensure_project.return_value = mock_project
-
-        mock_sql_helper = Mock()
-        mock_sql_helper.to_sql_config.return_value = {"region_name": "us-east-1"}
-        mock_helper_factory.get_sql_helper.return_value = mock_sql_helper
-
-        mock_sql_executor = Mock()
-        mock_ensure_sql_executor.return_value = mock_sql_executor
-        mock_engine = Mock()
-        mock_sql_executor.create_engine.return_value = mock_engine
-        mock_sql_executor.get_supported_connection_types.return_value = ["ATHENA"]
+        mock_ensure_sql_executor.return_value.get_supported_connection_types.return_value = [
+            "ATHENA"
+        ]
+        mock_ensure_sql_executor.return_value.create_engine.return_value = "sqlalchemy-engine"
+        mock_helper_factory.get_sql_helper.return_value.to_sql_config.return_value = {
+            "work_group": "wg",
+            "region": "us-west-2",
+        }
 
         result = sqlutils.get_engine(connection_name="test_conn")
 
-        # Verify connection was resolved
+        self.assertEqual(result, "sqlalchemy-engine")
         mock_project.connection.assert_called_with("test_conn")
-
-        # Verify engine was created
-        self.assertEqual(result, mock_engine)
-
-        # Verify credential_provider was passed
-        call_args = mock_sql_helper.to_sql_config.call_args
-        self.assertIn("credential_provider", call_args[1])
+        mock_ensure_sql_executor.return_value.create_engine.assert_called_once_with(
+            "ATHENA", {"work_group": "wg", "region": "us-west-2"}
+        )
 
 
 class TestStreamAndCaptureMetadata(unittest.TestCase):
@@ -2528,7 +2496,7 @@ class TestDuckDbPendingResolve(unittest.TestCase):
     """
 
     def setUp(self):
-        sqlutils._duckdb = None  # force a fresh duckdb connection per test
+        duckdb_engine._duckdb = None  # force a fresh duckdb connection per test
 
     def _ipython_modules(self, ns):
         """Return a sys.modules dict whose IPython.get_ipython() yields an ip with ns."""
@@ -2551,10 +2519,10 @@ class TestDuckDbPendingResolve(unittest.TestCase):
 
     def test_ensure_duckdb_return_object_exposes_get_table_names(self):
         # Test-seam guard: production _resolve_pending_for_duckdb calls get_table_names on
-        # the object _ensure_duckdb() RETURNS -- the duckdb MODULE, not a connection. Other
-        # tests patch _ensure_duckdb to return a connection, so they would not catch the
-        # module-level get_table_names export going away (production would then fall into
-        # the except and silently no-op behind logger.debug).
+        # the object _ensure_duckdb() RETURNS and the cell hands down -- the duckdb MODULE, not a
+        # connection. Other tests hand it a connection, so they would not catch the module-level
+        # get_table_names export going away (production would then fall into the except and
+        # silently no-op behind logger.debug).
         #
         # Assert the EXPORT on the bare `import duckdb` module: no S3 extension / secret
         # needed, so this ALWAYS runs in CI (it is NOT skippable). This is the regression
@@ -2568,13 +2536,44 @@ class TestDuckDbPendingResolve(unittest.TestCase):
             "if this fails, DuckDB pending pre-resolve silently no-ops in production",
         )
 
+    def test_a_cell_asks_for_the_engine_once_and_pre_resolves_and_runs_on_it(self):
+        # sql() with a pending frame referenced: one _ensure_duckdb() for the cell; the
+        # pre-resolve's get_table_names and the statement both run on what it returned, and a
+        # stream of three statements asks once as well.
+        from sagemaker_studio.utils.pending_dataframe import PendingDataFrame
+        from sagemaker_studio.utils.sqlutils_async import _MaterializationRegistry
+
+        reg = _MaterializationRegistry()
+        gen, _ = reg.start("df")
+        reg.settle("df", gen, result=DataFrame({"a": [1]}))
+        proxy = PendingDataFrame("df", gen, reg, timeout=2)
+        engine_ = Mock()
+        engine_.get_table_names.return_value = {"df"}
+        engine_.sql.return_value.df.return_value = DataFrame({"a": [1]})
+
+        with patch.dict("sys.modules", self._ipython_modules({"df": proxy})):
+            with patch.object(duckdb_engine, "_ensure_duckdb", return_value=engine_) as ensure:
+                sqlutils.sql("SELECT * FROM df")
+        ensure.assert_called_once_with()
+        engine_.get_table_names.assert_called_once_with("SELECT * FROM df")
+        engine_.sql.assert_called_once_with("SELECT * FROM df")
+        self.assertTrue(proxy.is_resolved)
+
+        engine_.reset_mock()
+        with patch.dict("sys.modules", self._ipython_modules({"df": proxy})):
+            with patch.object(duckdb_engine, "_ensure_duckdb", return_value=engine_) as ensure:
+                results = list(sqlutils.sql_stream("SELECT 1; SELECT 2; SELECT 3"))
+        self.assertEqual([r.status for r in results], ["success"] * 3)
+        ensure.assert_called_once_with()
+        self.assertEqual(engine_.sql.call_count, 3)
+
     def test_ensure_duckdb_get_table_names_parses_referenced_name(self):
         # Functional companion to the module-level guard above: prove get_table_names on the
         # object _ensure_duckdb() actually returns parses a referenced name out of the SQL.
         # Needs the live duckdb the setup builds (S3 extension), so it is environment-gated;
         # the always-running guard above covers the export-removal regression regardless.
         try:
-            duck = sqlutils._ensure_duckdb()
+            duck = duckdb_engine._ensure_duckdb()
         except Exception as e:  # pragma: no cover - environment without the s3 extension
             self.skipTest(f"_ensure_duckdb unavailable for the functional check: {e}")
 
@@ -2611,8 +2610,7 @@ class TestDuckDbPendingResolve(unittest.TestCase):
         ns = {"df": proxy}
 
         with patch.dict("sys.modules", self._ipython_modules(ns)):
-            with patch.object(sqlutils, "_ensure_duckdb", return_value=self._bare_duckdb()):
-                sqlutils._resolve_pending_for_duckdb("SELECT * FROM df")
+            duckdb_engine._resolve_pending_for_duckdb(self._bare_duckdb(), "SELECT * FROM df")
 
         self.assertTrue(proxy.is_resolved)
 
@@ -2630,9 +2628,8 @@ class TestDuckDbPendingResolve(unittest.TestCase):
         ns = {"df_a": proxy_a, "df_b": proxy_b}
 
         with patch.dict("sys.modules", self._ipython_modules(ns)):
-            with patch.object(sqlutils, "_ensure_duckdb", return_value=self._bare_duckdb()):
-                # Query references only df_a; df_b must be left untouched (referenced-only).
-                sqlutils._resolve_pending_for_duckdb("SELECT * FROM df_a")
+            # Query references only df_a; df_b must be left untouched (referenced-only).
+            duckdb_engine._resolve_pending_for_duckdb(self._bare_duckdb(), "SELECT * FROM df_a")
 
         self.assertTrue(proxy_a.is_resolved)
         self.assertFalse(proxy_b.is_resolved)
@@ -2641,9 +2638,9 @@ class TestDuckDbPendingResolve(unittest.TestCase):
         # No PendingDataFrame in the namespace -> fast path returns without calling duckdb.
         ns = {"df": DataFrame({"a": [1]})}
         with patch.dict("sys.modules", self._ipython_modules(ns)):
-            with patch.object(sqlutils, "_ensure_duckdb") as mock_duck:
-                sqlutils._resolve_pending_for_duckdb("SELECT * FROM df")
-                mock_duck.assert_not_called()
+            engine_ = Mock()
+            duckdb_engine._resolve_pending_for_duckdb(engine_, "SELECT * FROM df")
+            engine_.get_table_names.assert_not_called()
 
     def test_resolve_pending_swallows_get_table_names_error(self):
         from sagemaker_studio.utils.pending_dataframe import PendingDataFrame
@@ -2657,9 +2654,8 @@ class TestDuckDbPendingResolve(unittest.TestCase):
         bad_con.get_table_names.side_effect = RuntimeError("parse boom")
 
         with patch.dict("sys.modules", self._ipython_modules(ns)):
-            with patch.object(sqlutils, "_ensure_duckdb", return_value=bad_con):
-                # Must not raise -- falls through to today's behavior.
-                sqlutils._resolve_pending_for_duckdb("SELECT * FROM df")
+            # Must not raise -- falls through to today's behavior.
+            duckdb_engine._resolve_pending_for_duckdb(bad_con, "SELECT * FROM df")
         # Proxy left unresolved (DuckDB then errors/handles as today), but no exception here.
         self.assertFalse(proxy.is_resolved)
 
@@ -2669,7 +2665,7 @@ class TestDuckDbPreResolveEdgePaths(unittest.TestCase):
     failure, no IPython shell, and the namespace-snapshot RuntimeError retry exhausting."""
 
     def setUp(self):
-        sqlutils._duckdb = None
+        duckdb_engine._duckdb = None
 
     def _ipython_modules(self, ns):
         mock_ip = Mock()
@@ -2698,18 +2694,18 @@ class TestDuckDbPreResolveEdgePaths(unittest.TestCase):
             return real_import(name, *args, **kwargs)
 
         with patch.object(builtins, "__import__", side_effect=fake_import):
-            with patch.object(sqlutils, "_ensure_duckdb") as mock_duck:
-                sqlutils._resolve_pending_for_duckdb("SELECT * FROM df")  # must not raise
-                mock_duck.assert_not_called()
+            engine_ = Mock()
+            duckdb_engine._resolve_pending_for_duckdb(engine_, "SELECT * FROM df")  # must not raise
+            engine_.get_table_names.assert_not_called()
 
     def test_no_op_when_no_ipython_shell(self):
         # get_ipython() returns None (no interactive shell) -> return before duckdb.
         mock_mod = Mock()
         mock_mod.get_ipython = Mock(return_value=None)
         with patch.dict("sys.modules", {"IPython": mock_mod}):
-            with patch.object(sqlutils, "_ensure_duckdb") as mock_duck:
-                sqlutils._resolve_pending_for_duckdb("SELECT * FROM df")
-                mock_duck.assert_not_called()
+            engine_ = Mock()
+            duckdb_engine._resolve_pending_for_duckdb(engine_, "SELECT * FROM df")
+            engine_.get_table_names.assert_not_called()
 
     def test_snapshot_retry_exhausts_returns_without_duckdb(self):
         # Every namespace-snapshot attempt raises RuntimeError -> after the retry budget the
@@ -2723,9 +2719,9 @@ class TestDuckDbPreResolveEdgePaths(unittest.TestCase):
         mock_mod = Mock()
         mock_mod.get_ipython = Mock(return_value=mock_ip)
         with patch.dict("sys.modules", {"IPython": mock_mod}):
-            with patch.object(sqlutils, "_ensure_duckdb") as mock_duck:
-                sqlutils._resolve_pending_for_duckdb("SELECT * FROM df")  # must not raise
-                mock_duck.assert_not_called()
+            engine_ = Mock()
+            duckdb_engine._resolve_pending_for_duckdb(engine_, "SELECT * FROM df")  # must not raise
+            engine_.get_table_names.assert_not_called()
 
     def test_referenced_non_proxy_name_is_skipped(self):
         # A referenced name bound to a non-proxy (plain DataFrame) is skipped by the resolve
@@ -2742,14 +2738,604 @@ class TestDuckDbPreResolveEdgePaths(unittest.TestCase):
 
         con = self._bare_duckdb()
         with patch.dict("sys.modules", self._ipython_modules(ns)):
-            with patch.object(sqlutils, "_ensure_duckdb", return_value=con):
-                # References both: `plain` (skipped) and `df` (resolved).
-                sqlutils._resolve_pending_for_duckdb(
-                    "SELECT * FROM df JOIN plain ON df.a = plain.b"
-                )
+            # References both: `plain` (skipped) and `df` (resolved).
+            duckdb_engine._resolve_pending_for_duckdb(
+                con, "SELECT * FROM df JOIN plain ON df.a = plain.b"
+            )
 
         self.assertTrue(proxy.is_resolved)
         self.assertIs(ns["plain"], plain)  # non-proxy left untouched
+
+
+class TestEnsureDuckdb(unittest.TestCase):
+    """Managed DuckDB extension baseline: _duckdb_bundle_directory and _ensure_duckdb (doc section 3.1)."""
+
+    def setUp(self):
+        duckdb_engine._duckdb = None
+
+    def tearDown(self):
+        duckdb_engine._duckdb = None
+        duckdb_engine._ambient_s3_secret = False
+        duckdb_engine._ambient_s3_secret_unavailable = False
+        duckdb_engine._default_aws_credentials_disabled = False
+
+    # --- _duckdb_bundle_directory ---
+
+    @staticmethod
+    def _duckdb_module_in(venv_dir):
+        """A fake duckdb module whose __file__ sits inside venv_dir."""
+        module = Mock()
+        module.__file__ = os.path.join(
+            venv_dir, "lib", "python3.11", "site-packages", "duckdb", "__init__.py"
+        )
+        return module
+
+    def test_bundle_directory_returns_sibling_of_pyvenv(self):
+        with tempfile.TemporaryDirectory() as root:
+            venv = os.path.join(root, ".venv")
+            os.makedirs(os.path.join(venv, "lib", "python3.11", "site-packages", "duckdb"))
+            Path(venv, "pyvenv.cfg").write_text("")
+            bundle = os.path.join(
+                root, duckdb_extensions._DUCKDB_BUNDLE_DIRECTORY_NAME
+            )  # sibling of the venv
+            os.makedirs(bundle)
+            result = duckdb_extensions._duckdb_bundle_directory(self._duckdb_module_in(venv))
+            # Production code resolves symlinks (e.g. macOS /var -> /private/var), so resolve here too.
+            self.assertEqual(result, str(Path(bundle).resolve()))
+
+    def test_bundle_directory_none_when_sibling_missing(self):
+        with tempfile.TemporaryDirectory() as root:
+            venv = os.path.join(root, ".venv")
+            os.makedirs(os.path.join(venv, "lib", "python3.11", "site-packages", "duckdb"))
+            Path(venv, "pyvenv.cfg").write_text("")
+            # No duckdb_extensions sibling created.
+            self.assertIsNone(
+                duckdb_extensions._duckdb_bundle_directory(self._duckdb_module_in(venv))
+            )
+
+    def test_bundle_directory_none_when_not_in_venv(self):
+        with tempfile.TemporaryDirectory() as root:
+            # No pyvenv.cfg anywhere above duckdb.__file__, and not under the base interpreter.
+            pkg = os.path.join(root, "site-packages", "duckdb")
+            os.makedirs(pkg)
+            module = Mock()
+            module.__file__ = os.path.join(pkg, "__init__.py")
+            self.assertIsNone(duckdb_extensions._duckdb_bundle_directory(module))
+
+    def test_bundle_directory_is_beside_the_base_runtime_without_a_venv(self):
+        # An AWS Notebook local kernel: duckdb in the bundled runtime (no pyvenv.cfg), the
+        # pre-installed extensions beside it: <app>/dist/python -> <app>/dist/duckdb_extensions.
+        with tempfile.TemporaryDirectory() as root:
+            runtime = os.path.join(root, "dist", "python")
+            os.makedirs(os.path.join(runtime, "lib", "python3.11", "site-packages", "duckdb"))
+            bundle = os.path.join(root, "dist", duckdb_extensions._DUCKDB_BUNDLE_DIRECTORY_NAME)
+            os.makedirs(bundle)
+            with patch.object(sys, "base_prefix", runtime):
+                result = duckdb_extensions._duckdb_bundle_directory(self._duckdb_module_in(runtime))
+            self.assertEqual(result, str(Path(bundle).resolve()))
+
+    def test_bundle_directory_none_for_a_duckdb_in_the_users_own_packages(self):
+        # The user's venv sits beside their own duckdb_extensions folder: never a bundle.
+        with tempfile.TemporaryDirectory() as root:
+            venv = os.path.join(root, ".awsnotebook", ".venv")
+            os.makedirs(os.path.join(venv, "lib", "python3.11", "site-packages", "duckdb"))
+            Path(venv, "pyvenv.cfg").write_text("")
+            os.makedirs(
+                os.path.join(root, ".awsnotebook", duckdb_extensions._DUCKDB_BUNDLE_DIRECTORY_NAME)
+            )
+            with patch.dict(os.environ, {"UV_PROJECT_ENVIRONMENT": venv}):
+                self.assertIsNone(
+                    duckdb_extensions._duckdb_bundle_directory(self._duckdb_module_in(venv))
+                )
+
+    # --- _ensure_duckdb ---
+
+    @staticmethod
+    def _make_duckdb_mock(fail_on=None, installed=("httpfs", "aws")):
+        """Mock duckdb module; .sql raises when a statement contains the fail_on substring, and
+        duckdb_extensions() reports ``installed`` as installed."""
+        calls = []
+        duckdb = Mock()
+
+        def _sql(stmt):
+            calls.append(stmt)
+            if fail_on and fail_on in stmt:
+                raise RuntimeError(f"boom: {stmt}")
+            if "duckdb_extensions()" in stmt:
+                return Mock(fetchall=Mock(return_value=[(name, []) for name in installed]))
+            return Mock()
+
+        def _execute(stmt, params=None):
+            calls.append(stmt)
+            return Mock()
+
+        duckdb.sql.side_effect = _sql
+        duckdb.execute.side_effect = _execute
+        duckdb._calls = calls
+        return duckdb
+
+    @staticmethod
+    def _run_ensure(duckdb_mock, bundle_dir):
+        with patch.dict(sys.modules, {"duckdb": duckdb_mock}), patch(
+            "sagemaker_studio.sql_engine.duckdb_engine.extensions._duckdb_bundle_directory",
+            return_value=bundle_dir,
+        ):
+            return duckdb_engine._ensure_duckdb()
+
+    def test_bundle_loads_all_required_extensions(self):
+        duckdb = self._make_duckdb_mock()
+        result = self._run_ensure(duckdb, "/bundle")
+        self.assertIs(result, duckdb)
+        self.assertIn("LOAD httpfs;", duckdb._calls)
+        self.assertIn("LOAD aws;", duckdb._calls)
+        self.assertIn("SET lock_configuration = true;", duckdb._calls)
+
+    def test_neither_mode_replaces_duckdbs_default_connection(self):
+        # No connection of the SDK's own: a cell's own duckdb.sql() and the SDK's statements share
+        # DuckDB's default session in both modes.
+        for local in (True, False):
+            duckdb = self._make_duckdb_mock()
+            duckdb_engine._duckdb = None
+            with patch("sagemaker_studio.sql_engine.duckdb_engine.engine.local_kernel") as lk:
+                lk.is_local_kernel.return_value = local
+                self._run_ensure(duckdb, "/bundle" if local else None)
+            duckdb.connect.assert_not_called()
+            duckdb.set_default_connection.assert_not_called()
+
+    def test_both_modes_keep_state_made_with_duckdb_sql_before_the_first_sql_cell(self):
+        import duckdb as real_duckdb
+
+        for local in (False, True):
+            duckdb_engine._duckdb = None
+            saved = real_duckdb.default_connection()
+            real_duckdb.set_default_connection(real_duckdb.connect(":memory:"))
+            try:
+                real_duckdb.sql("CREATE TEMP TABLE made_by_the_user AS SELECT 42 AS answer")
+                with patch(
+                    "sagemaker_studio.sql_engine.duckdb_engine.engine.local_kernel"
+                ) as lk, patch(
+                    "sagemaker_studio.sql_engine.duckdb_engine.extensions._duckdb_bundle_directory",
+                    return_value=None,
+                ), patch.object(
+                    duckdb_engine, "_sync_ambient_s3_secret"
+                ):  # its S3 secret would download the aws extension, and builds have no network
+                    lk.is_local_kernel.return_value = local
+                    duck = duckdb_engine._ensure_duckdb()
+                    self.assertEqual(
+                        duck.sql("SELECT answer FROM made_by_the_user").fetchall(), [(42,)], local
+                    )
+            finally:
+                real_duckdb.set_default_connection(saved)
+
+    def test_no_bundle_runs_todays_behavior(self):
+        duckdb = self._make_duckdb_mock()
+        result = self._run_ensure(duckdb, None)
+        self.assertIs(result, duckdb)
+        joined = " ".join(duckdb._calls)
+        self.assertNotIn("extension_directories", joined)
+        self.assertNotIn("lock_configuration", joined)
+        self.assertNotIn("autoinstall_known_extensions", joined)
+        self.assertIn("SET python_scan_all_frames = true;", duckdb._calls)
+
+    def test_local_kernel_takes_the_bundle_path_like_smus(self):
+        duckdb = self._make_duckdb_mock()
+        with patch(
+            "sagemaker_studio.sql_engine.duckdb_engine.engine.local_kernel"
+        ) as mock_local_kernel, patch.dict(os.environ, {"UV_PROJECT": "/ws/.awsnotebook"}):
+            mock_local_kernel.is_local_kernel.return_value = True
+            result = self._run_ensure(duckdb, "/app/dist/duckdb_extensions")
+        self.assertIs(result, duckdb)
+        ext_call = next(
+            c for c in duckdb.execute.call_args_list if "extension_directories" in c.args[0]
+        )
+        self.assertEqual(
+            ext_call.args[1][0],
+            ["/ws/.awsnotebook/duckdb_extensions", "/app/dist/duckdb_extensions"],
+        )
+        self.assertIn("SET autoinstall_known_extensions = false;", duckdb._calls)
+        self.assertIn("LOAD httpfs;", duckdb._calls)
+        self.assertIn("LOAD aws;", duckdb._calls)
+        self.assertIn("SET lock_configuration = true;", duckdb._calls)
+        self.assertLess(
+            duckdb._calls.index("SET allowed_configs = ?"),
+            duckdb._calls.index("SET lock_configuration = true;"),
+        )
+        # A local kernel gets the credential-chain secret too: the chain resolves the container
+        # credentials the kernel server serves from the app's signed-in session.
+        self.assertIn(duckdb_engine._AMBIENT_S3_SECRET_STATEMENT, duckdb._calls)
+
+    def test_bundle_present_issues_statements_in_order(self):
+        duckdb = self._make_duckdb_mock()
+        with patch.dict(os.environ, {"UV_PROJECT": "/user/proj"}):
+            result = self._run_ensure(duckdb, "/bundle")
+        self.assertIs(result, duckdb)
+        calls = duckdb._calls
+        self.assertEqual(
+            calls,
+            [
+                "SET extension_directories = ?",
+                "SET autoinstall_known_extensions = false;",
+                "LOAD httpfs;",
+                "LOAD aws;",
+                "SET python_scan_all_frames = true;",
+                "CREATE SECRET (TYPE s3, PROVIDER credential_chain, REFRESH auto);",
+                "SET GLOBAL aws_default_credentials = false;",
+                "SET allowed_configs = ?",
+                "SET lock_configuration = true;",
+            ],
+        )
+        self.assertEqual(
+            duckdb.execute.call_args_list,
+            [
+                call(
+                    "SET extension_directories = ?", [["/user/proj/duckdb_extensions", "/bundle"]]
+                ),
+                call("SET allowed_configs = ?", [list(duckdb_extensions._DUCKDB_USER_CONFIGS)]),
+            ],
+        )
+
+    def test_two_threads_asking_for_the_engine_at_once_set_it_up_once(self):
+        # The engine is set up under its lock: a second caller arriving while the first is still
+        # loading extensions waits for that engine instead of starting another on the same
+        # default connection.
+        duckdb = self._make_duckdb_mock()
+        original, paused = duckdb.sql.side_effect, []
+        inside, release = threading.Event(), threading.Event()
+
+        def pausing(stmt):
+            if stmt == "LOAD httpfs;" and not paused:
+                paused.append(stmt)
+                inside.set()
+                release.wait(5)
+            return original(stmt)
+
+        duckdb.sql.side_effect = pausing
+        results = []
+        with patch.dict(sys.modules, {"duckdb": duckdb}), patch(
+            "sagemaker_studio.sql_engine.duckdb_engine.extensions._duckdb_bundle_directory",
+            return_value="/bundle",
+        ):
+            first = threading.Thread(target=lambda: results.append(duckdb_engine._ensure_duckdb()))
+            first.start()
+            self.assertTrue(inside.wait(5))
+            second = threading.Thread(target=lambda: results.append(duckdb_engine._ensure_duckdb()))
+            second.start()
+            second.join(0.3)
+            self.assertTrue(second.is_alive())  # waiting for the set-up under way
+            release.set()
+            first.join(5)
+            second.join(5)
+        self.assertEqual(results, [duckdb, duckdb])
+        for statement in (
+            "LOAD httpfs;",
+            "CREATE SECRET (TYPE s3, PROVIDER credential_chain, REFRESH auto);",
+            "SET lock_configuration = true;",
+        ):
+            self.assertEqual(duckdb._calls.count(statement), 1, statement)
+
+    def test_the_aws_extensions_default_chain_fallback_is_switched_off_after_the_load_and_before_the_lock(
+        self,
+    ):
+        # DuckDB 2.0's aws extension signs an unmatched s3:// read with the identity the default
+        # chain found at the first such read, for the database's lifetime: off, so the SDK's
+        # secrets are the only credentials DuckDB ever signs with. The setting exists only once the
+        # extension is loaded, and the lock afterwards keeps user code from switching it back on.
+        duckdb = self._make_duckdb_mock()
+        self._run_ensure(duckdb, "/bundle")
+        calls = duckdb._calls
+        off = calls.index("SET GLOBAL aws_default_credentials = false;")
+        self.assertLess(calls.index("LOAD aws;"), off)
+        self.assertLess(off, calls.index("SET lock_configuration = true;"))
+        self.assertNotIn("aws_default_credentials", duckdb_extensions._DUCKDB_USER_CONFIGS)
+        # Without a bundle too: the secret's CREATE autoloads the extension, and there is no lock.
+        duckdb_engine._duckdb = None  # a new engine, as the test's setUp gives
+        duckdb = self._make_duckdb_mock()
+        self._run_ensure(duckdb, None)
+        self.assertIn("SET GLOBAL aws_default_credentials = false;", duckdb._calls)
+
+    def test_a_duckdb_without_the_aws_default_credentials_setting_still_comes_up(self):
+        # An older aws extension (DuckDB 1.x) has neither the fallback nor the setting: the refusal
+        # is noted at DEBUG and the setup goes on to the lock.
+        duckdb = self._make_duckdb_mock(fail_on="aws_default_credentials")
+        with self.assertLogs(
+            "sagemaker_studio.sql_engine.duckdb_engine.engine", level="DEBUG"
+        ) as logs:
+            result = self._run_ensure(duckdb, "/bundle")
+        self.assertIs(result, duckdb)
+        self.assertIs(duckdb_engine._duckdb, duckdb)
+        self.assertIn("SET lock_configuration = true;", duckdb._calls)
+        self.assertTrue(any("no aws_default_credentials setting" in line for line in logs.output))
+        self.assertFalse(any("WARNING" in line or "ERROR" in line for line in logs.output))
+        self.assertFalse(duckdb_engine._default_aws_credentials_disabled)
+
+    def test_the_fallback_is_switched_off_once_the_extension_loads_even_when_setup_could_not(self):
+        # No bundle and offline at setup: the chain secret's CREATE cannot download the aws
+        # extension, so the setting does not exist yet and the fallback stays on. The first attempt
+        # that loads the extension (a sign-in's attach_local_catalogs() resetting the ambient secret)
+        # switches it off, and once off it is not set again.
+        calls = []
+        offline = {"on": True}
+        duckdb = Mock()
+
+        def _sql(stmt):
+            calls.append(stmt)
+            if offline["on"] and ("CREATE SECRET" in stmt or "aws_default_credentials" in stmt):
+                raise RuntimeError(f"offline: {stmt}")
+            return Mock()
+
+        duckdb.sql.side_effect = _sql
+        duckdb.execute.side_effect = lambda stmt, params=None: calls.append(stmt)
+        switch = "SET GLOBAL aws_default_credentials = false;"
+        with patch("sagemaker_studio.sql_engine.duckdb_engine.engine.local_kernel") as lk:
+            lk.is_local_kernel.return_value = True
+            self.assertIs(self._run_ensure(duckdb, None), duckdb)
+        self.assertEqual(calls.count(switch), 1)  # tried right after the failed CREATE, refused
+        self.assertFalse(duckdb_engine._default_aws_credentials_disabled)
+        offline["on"] = (
+            False  # the user signs in: attach_local_catalogs() resets the ambient secret
+        )
+        duckdb_engine._reset_ambient_s3_secret(duckdb)
+        self.assertTrue(duckdb_engine._ambient_s3_secret)
+        self.assertTrue(duckdb_engine._default_aws_credentials_disabled)
+        self.assertEqual(calls.count(switch), 2)
+        self.assertEqual(
+            calls[-2:],
+            ["CREATE SECRET (TYPE s3, PROVIDER credential_chain, REFRESH auto);", switch],
+        )
+        duckdb_engine._reset_ambient_s3_secret(duckdb)  # off already: not set again
+        self.assertEqual(calls.count(switch), 2)
+
+    def test_bundle_present_uv_project_unset_falls_back(self):
+        duckdb = self._make_duckdb_mock()
+        with patch.dict(os.environ, {}, clear=True):
+            self._run_ensure(duckdb, "/bundle")
+            expected_user = os.path.join(os.path.expanduser("~"), ".duckdb", "extensions")
+        ext_call = next(
+            c for c in duckdb.execute.call_args_list if "extension_directories" in c.args[0]
+        )
+        self.assertEqual(ext_call.args[1][0], [expected_user, "/bundle"])
+
+    def test_setup_failure_leaves_duckdb_uncached(self):
+        duckdb = self._make_duckdb_mock(fail_on="SET python_scan_all_frames")
+        with self.assertRaises(RuntimeError):
+            self._run_ensure(duckdb, None)
+        self.assertIsNone(duckdb_engine._duckdb)  # next call retries the full setup
+
+    def test_no_bundle_create_secret_failure_is_nonfatal(self):
+        duckdb = self._make_duckdb_mock(fail_on="CREATE SECRET")
+        with self.assertLogs("sagemaker_studio.sql_engine.duckdb_engine.engine", level="WARNING"):
+            result = self._run_ensure(duckdb, None)
+        self.assertIs(result, duckdb)
+        self.assertIs(duckdb_engine._duckdb, duckdb)  # still cached
+
+    def test_bundle_present_create_secret_failure_raises(self):
+        duckdb = self._make_duckdb_mock(fail_on="CREATE SECRET")
+        with patch.dict(os.environ, {"UV_PROJECT": "/user/proj"}):
+            with self.assertRaises(RuntimeError):
+                self._run_ensure(duckdb, "/bundle")
+        self.assertIsNone(duckdb_engine._duckdb)
+        self.assertNotIn("SET lock_configuration = true;", duckdb._calls)  # nothing locked
+
+    def test_a_local_kernel_signed_out_still_gets_its_engine_without_the_secret(self):
+        # The chain has nothing to resolve while the app is signed out: a normal state on a local
+        # kernel, so the engine comes up (local files need no credentials) and only S3 reads are
+        # refused, when they run.
+        duckdb = self._make_duckdb_mock(fail_on="CREATE SECRET")
+        with patch(
+            "sagemaker_studio.sql_engine.duckdb_engine.engine.local_kernel"
+        ) as lk, patch.dict(os.environ, {"UV_PROJECT": "/user/proj"}):
+            lk.is_local_kernel.return_value = True
+            with self.assertLogs(
+                "sagemaker_studio.sql_engine.duckdb_engine.engine", level="INFO"
+            ) as logs:
+                result = self._run_ensure(duckdb, "/bundle")
+        self.assertIs(result, duckdb)
+        self.assertIs(duckdb_engine._duckdb, duckdb)
+        self.assertIn("SET lock_configuration = true;", duckdb._calls)
+        self.assertTrue(duckdb_engine._ambient_s3_secret_unavailable)
+        self.assertFalse(duckdb_engine._ambient_s3_secret)
+        self.assertTrue(any("signed out" in line for line in logs.output))
+        self.assertFalse(any("WARNING" in line for line in logs.output))
+
+    def test_bundle_present_incomplete_load_raises(self):
+        duckdb = self._make_duckdb_mock(fail_on="LOAD httpfs")
+        with patch.dict(os.environ, {"UV_PROJECT": "/user/proj"}):
+            with self.assertRaises(RuntimeError):
+                self._run_ensure(duckdb, "/bundle")
+        self.assertIsNone(duckdb_engine._duckdb)
+
+
+class TestAthenaV4SyncPath(unittest.TestCase):
+    """Athena engine version 4 on the sync path: the Athena API executor, no PyAthena engine."""
+
+    def _patches(self, athena_v4):
+        conn = Mock(type="ATHENA")
+        return [
+            patch("sagemaker_studio.utils.sqlutils._resolve_connection", return_value=conn),
+            patch("sagemaker_studio.utils.sqlutils._athena_api", return_value=athena_v4),
+            patch(
+                "sagemaker_studio.utils.sqlutils._get_or_create_connection",
+                side_effect=AssertionError("no PyAthena engine"),
+            ),
+        ]
+
+    def _executor(self):
+        from sagemaker_studio.sql_engine.sql_executor import SingleStatementResult
+
+        athena_v4 = Mock()
+        athena_v4.execute.side_effect = lambda stmt: SingleStatementResult(
+            result=DataFrame({"stmt": [stmt]}), execution_metadata={"query_execution_id": "q"}
+        )
+        return athena_v4
+
+    def test_sql_runs_through_the_athena_api_executor(self):
+        athena_v4 = self._executor()
+        patches = self._patches(athena_v4)
+        for p in patches:
+            p.start()
+        self.addCleanup(lambda: [p.stop() for p in patches])
+        result = sqlutils.sql("SELECT 1", connection_name="athena_conn")
+        self.assertEqual(result["stmt"].tolist(), ["SELECT 1"])
+        athena_v4.execute.assert_called_once_with("SELECT 1")
+
+    def test_sql_raises_native_athena_failure(self):
+        athena_v4 = Mock()
+        athena_v4.execute.side_effect = RuntimeError("Athena query q FAILED: bad data")
+        patches = self._patches(athena_v4)
+        for patcher in patches:
+            patcher.start()
+        self.addCleanup(lambda: [patcher.stop() for patcher in patches])
+
+        with self.assertRaisesRegex(RuntimeError, "Athena query q FAILED: bad data"):
+            sqlutils.sql("SELECT 1", connection_name="athena_conn")
+
+    def test_comment_only_query_returns_none(self):
+        athena_v4 = self._executor()
+        patches = self._patches(athena_v4)
+        for patcher in patches:
+            patcher.start()
+        self.addCleanup(lambda: [patcher.stop() for patcher in patches])
+
+        self.assertIsNone(sqlutils.sql("-- comment only", connection_name="athena_conn"))
+        athena_v4.execute.assert_not_called()
+
+    def test_sql_stream_runs_each_statement_and_records_metadata(self):
+        athena_v4 = self._executor()
+        patches = self._patches(athena_v4)
+        for p in patches:
+            p.start()
+        self.addCleanup(lambda: [p.stop() for p in patches])
+        results = list(sqlutils.sql_stream("SELECT 1; SELECT 2", connection_name="athena_conn"))
+        self.assertEqual([r.result["stmt"].tolist() for r in results], [["SELECT 1"], ["SELECT 2"]])
+        self.assertEqual(
+            [m["connection_type"] for m in sqlutils._last_sql_execution_metadata],
+            ["ATHENA", "ATHENA"],
+        )
+
+    def test_named_parameters_reach_native_athena_executor(self):
+        from sagemaker_studio.utils import athena_v4 as athena_module
+
+        conn = Mock(type="ATHENA")
+        with patch.object(athena_module, "athena_executor", return_value="native") as native:
+            result = sqlutils._athena_api(conn, {}, parameters={"a": 1})
+        self.assertEqual(result, "native")
+        native.assert_called_once_with(
+            conn,
+            catalog=None,
+            schema=None,
+            selected_engine_version=None,
+            parameters={"a": 1},
+        )
+
+    def test_non_athena_connection_has_no_native_executor(self):
+        from sagemaker_studio.utils import athena_v4 as athena_module
+
+        with patch.object(athena_module, "athena_executor", return_value=None):
+            self.assertIsNone(sqlutils._athena_api(Mock(type="REDSHIFT"), {}))
+
+    def test_malformed_athena_connection_never_falls_back_to_duckdb(self):
+        conn = Mock(type="ATHENA", id="conn-1", name="athena")
+        conn.data.workgroup_name = None
+        with patch.object(sqlutils, "_resolve_connection", return_value=conn), patch.object(
+            duckdb_engine, "_run_local_duckdb", side_effect=AssertionError("must not use DuckDB")
+        ):
+            with self.assertRaisesRegex(ValueError, "non-empty workgroup_name"):
+                sqlutils.sql("SELECT 1", connection_name="athena")
+
+    def test_catalog_schema_engine_and_parameters_reach_the_executor(self):
+        from sagemaker_studio.utils import athena_v4 as athena_module
+
+        conn = Mock(type="ATHENA")
+        with patch.object(athena_module, "athena_executor") as select:
+            sqlutils._athena_api(
+                conn,
+                {
+                    "catalog_name": "cat",
+                    "schema_name": "db",
+                    "selected_engine_version": "Athena engine version 4",
+                },
+                parameters=["value"],
+            )
+        select.assert_called_once_with(
+            conn,
+            catalog="cat",
+            schema="db",
+            selected_engine_version="Athena engine version 4",
+            parameters=["value"],
+        )
+
+    def test_close_all_connections_clears_the_engine_version_cache(self):
+        from sagemaker_studio.utils import athena_v4 as athena_v4_module
+
+        with patch("sagemaker_studio.utils.sqlutils._stop_glue_spark"), patch(
+            "sagemaker_studio.utils.sqlutils._connection_cache"
+        ), patch.object(athena_v4_module, "clear_cache") as clear:
+            sqlutils.close_all_connections()
+        clear.assert_called_once()
+
+
+class TestNativeAthenaCredentialProvider(unittest.TestCase):
+    class FakeConnection(Connection):
+        def __init__(self, connection_id=None, name=None):
+            self.type = "ATHENA"
+            self.id = connection_id
+            self.name = name
+            self._test_creds = Mock(
+                access_key_id="cached",
+                secret_access_key="secret",
+                session_token="token",
+                expiration=None,
+            )
+
+        @property
+        def sql_engine_type(self):
+            return "ATHENA"
+
+        @property
+        def connection_creds(self):
+            return self._test_creds
+
+    def _provider(self, conn):
+        from sagemaker_studio.utils import athena_v4 as athena_module
+
+        with patch.object(athena_module, "athena_executor", return_value="native") as native:
+            self.assertEqual(sqlutils._athena_api(conn, {}), "native")
+        return native.call_args.kwargs["credential_provider"]
+
+    def test_refresh_re_resolves_connection_by_id(self):
+        conn = self.FakeConnection(connection_id="id-1", name="name-1")
+        fresh = Mock(
+            connection_creds=Mock(
+                access_key_id="fresh-id",
+                secret_access_key="secret",
+                session_token="token",
+                expiration=None,
+            )
+        )
+        with patch.object(sqlutils, "_resolve_connection", return_value=fresh) as resolve:
+            credentials = self._provider(conn)()
+        self.assertEqual(credentials["access_key_id"], "fresh-id")
+        resolve.assert_called_once_with("id-1", None)
+
+    def test_refresh_re_resolves_connection_by_name(self):
+        conn = self.FakeConnection(name="name-1")
+        fresh = Mock(
+            connection_creds=Mock(
+                access_key_id="fresh-name",
+                secret_access_key="secret",
+                session_token="token",
+                expiration=None,
+            )
+        )
+        with patch.object(sqlutils, "_resolve_connection", return_value=fresh) as resolve:
+            credentials = self._provider(conn)()
+        self.assertEqual(credentials["access_key_id"], "fresh-name")
+        resolve.assert_called_once_with(None, "name-1")
+
+    def test_refresh_falls_back_to_the_connection_credentials(self):
+        conn = self.FakeConnection()
+        credentials = self._provider(conn)()
+        self.assertEqual(credentials["access_key_id"], "cached")
 
 
 if __name__ == "__main__":

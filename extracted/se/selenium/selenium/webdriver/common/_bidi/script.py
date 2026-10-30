@@ -115,12 +115,12 @@ class ChannelProperties(Record):
     )
 
 
-@register("script.EvaluateResultSuccess")
+@register("script.EvaluationResultSuccess")
 @dataclass(frozen=True)
-class EvaluateResultSuccess(Record):
-    """script.EvaluateResultSuccess.
+class EvaluationResultSuccess(Record):
+    """script.EvaluationResultSuccess.
 
-    See https://w3c.github.io/webdriver-bidi/#cddl-type-scriptevaluateresultsuccess
+    See https://w3c.github.io/webdriver-bidi/#cddl-type-scriptevaluationresultsuccess
     """
 
     result: RemoteValueValue = field(metadata=meta("result", required=True, ref="script.RemoteValue"))
@@ -128,12 +128,12 @@ class EvaluateResultSuccess(Record):
     type: str = field(default="success", init=False, metadata=meta("type", required=True, fixed="success"))
 
 
-@register("script.EvaluateResultException")
+@register("script.EvaluationResultException")
 @dataclass(frozen=True)
-class EvaluateResultException(Record):
-    """script.EvaluateResultException.
+class EvaluationResultException(Record):
+    """script.EvaluationResultException.
 
-    See https://w3c.github.io/webdriver-bidi/#cddl-type-scriptevaluateresultexception
+    See https://w3c.github.io/webdriver-bidi/#cddl-type-scriptevaluationresultexception
     """
 
     exception_details: ExceptionDetails = field(
@@ -151,9 +151,13 @@ class ExceptionDetails(Record):
     See https://w3c.github.io/webdriver-bidi/#type-script-ExceptionDetails
     """
 
-    column_number: int = field(metadata=meta("columnNumber", required=True, primitive="int"))
+    column_number: int = field(
+        metadata=meta("columnNumber", required=True, primitive="int", min=0, max=9007199254740991),
+    )
     exception: RemoteValueValue = field(metadata=meta("exception", required=True, ref="script.RemoteValue"))
-    line_number: int = field(metadata=meta("lineNumber", required=True, primitive="int"))
+    line_number: int = field(
+        metadata=meta("lineNumber", required=True, primitive="int", min=0, max=9007199254740991),
+    )
     stack_trace: StackTrace = field(metadata=meta("stackTrace", required=True, ref="script.StackTrace"))
     text: str = field(metadata=meta("text", required=True, primitive="str"))
 
@@ -775,8 +779,10 @@ class NodeProperties(Record):
     See https://w3c.github.io/webdriver-bidi/#cddl-type-scriptnodeproperties
     """
 
-    node_type: int = field(metadata=meta("nodeType", required=True, primitive="int"))
-    child_node_count: int = field(metadata=meta("childNodeCount", required=True, primitive="int"))
+    node_type: int = field(metadata=meta("nodeType", required=True, primitive="int", min=0, max=9007199254740991))
+    child_node_count: int = field(
+        metadata=meta("childNodeCount", required=True, primitive="int", min=0, max=9007199254740991),
+    )
     attributes: Any | UnsetType = field(default=UNSET, metadata=meta("attributes"))
     children: list[NodeRemoteValue] | UnsetType = field(
         default=UNSET,
@@ -830,11 +836,11 @@ class SerializationOptions(Record):
 
     max_dom_depth: int | None | UnsetType = field(
         default=UNSET,
-        metadata=meta("maxDomDepth", nullable=True, primitive="int"),
+        metadata=meta("maxDomDepth", nullable=True, primitive="int", min=0, max=9007199254740991),
     )
     max_object_depth: int | None | UnsetType = field(
         default=UNSET,
-        metadata=meta("maxObjectDepth", nullable=True, primitive="int"),
+        metadata=meta("maxObjectDepth", nullable=True, primitive="int", min=0, max=9007199254740991),
     )
     include_shadow_tree: SerializationOptionsIncludeShadowTree | UnsetType = field(
         default=UNSET,
@@ -850,9 +856,13 @@ class StackFrame(Record):
     See https://w3c.github.io/webdriver-bidi/#type-script-StackFrame
     """
 
-    column_number: int = field(metadata=meta("columnNumber", required=True, primitive="int"))
+    column_number: int = field(
+        metadata=meta("columnNumber", required=True, primitive="int", min=0, max=9007199254740991),
+    )
     function_name: str = field(metadata=meta("functionName", required=True, primitive="str"))
-    line_number: int = field(metadata=meta("lineNumber", required=True, primitive="int"))
+    line_number: int = field(
+        metadata=meta("lineNumber", required=True, primitive="int", min=0, max=9007199254740991),
+    )
     url: str = field(metadata=meta("url", required=True, primitive="str"))
 
 
@@ -1058,23 +1068,23 @@ class RealmDestroyedParameters(Record):
     realm: str = field(metadata=meta("realm", required=True, primitive="str"))
 
 
-@register("script.EvaluateResult")
-class EvaluateResult(Union):
-    """script.EvaluateResult.
+@register("script.EvaluationResult")
+class EvaluationResult(Union):
+    """script.EvaluationResult.
 
-    See https://w3c.github.io/webdriver-bidi/#type-script-EvaluateResult
+    See https://w3c.github.io/webdriver-bidi/#type-script-EvaluationResult
     """
 
     _DISCRIMINATOR = "type"
     _VARIANTS = {
-        "success": "script.EvaluateResultSuccess",
-        "exception": "script.EvaluateResultException",
+        "success": "script.EvaluationResultSuccess",
+        "exception": "script.EvaluationResultException",
     }
     _DISCRIMINATOR_VALUES = frozenset({"success", "exception"})
     _OBJECT_ONLY = True
 
 
-EvaluateResultValue: TypeAlias = "EvaluateResultSuccess | EvaluateResultException"
+EvaluationResultValue: TypeAlias = "EvaluationResultSuccess | EvaluationResultException"
 
 
 @register("script.LocalValue")
@@ -1347,7 +1357,7 @@ class Script(Domain):
         serialization_options: SerializationOptions | UnsetType = UNSET,
         this: LocalValueValue | UnsetType = UNSET,
         user_activation: bool | UnsetType = UNSET,
-    ) -> EvaluateResultValue:
+    ) -> EvaluationResultValue:
         """Execute script.callFunction (internal, unsupported).
 
         See https://w3c.github.io/webdriver-bidi/#command-script-callFunction
@@ -1362,7 +1372,7 @@ class Script(Domain):
             this=this,
             user_activation=user_activation,
         )
-        return self._execute("script.callFunction", params=params, result=EvaluateResult)
+        return self._execute("script.callFunction", params=params, result=EvaluationResult)
 
     def disown(self, handles: list[str], target: TargetValue) -> Any:
         """Execute script.disown (internal, unsupported).
@@ -1380,7 +1390,7 @@ class Script(Domain):
         result_ownership: ResultOwnership | UnsetType = UNSET,
         serialization_options: SerializationOptions | UnsetType = UNSET,
         user_activation: bool | UnsetType = UNSET,
-    ) -> EvaluateResultValue:
+    ) -> EvaluationResultValue:
         """Execute script.evaluate (internal, unsupported).
 
         See https://w3c.github.io/webdriver-bidi/#command-script-evaluate
@@ -1393,7 +1403,7 @@ class Script(Domain):
             serialization_options=serialization_options,
             user_activation=user_activation,
         )
-        return self._execute("script.evaluate", params=params, result=EvaluateResult)
+        return self._execute("script.evaluate", params=params, result=EvaluationResult)
 
     def get_realms(self, context: str | UnsetType = UNSET, type: RealmType | UnsetType = UNSET) -> GetRealmsResult:
         """Execute script.getRealms (internal, unsupported).

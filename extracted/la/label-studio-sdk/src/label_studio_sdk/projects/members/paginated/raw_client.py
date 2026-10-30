@@ -14,6 +14,7 @@ from ....core.request_options import RequestOptions
 from ....core.unchecked_base_model import construct_type
 from ....types.paginated_paginated_project_member_list import PaginatedPaginatedProjectMemberList
 from ....types.paginated_project_member import PaginatedProjectMember
+from .types.list_paginated_request_tags_operator import ListPaginatedRequestTagsOperator
 from pydantic import ValidationError
 
 
@@ -27,6 +28,7 @@ class RawPaginatedClient:
         *,
         ids: typing.Optional[str] = None,
         implicit: typing.Optional[bool] = None,
+        include_skills: typing.Optional[bool] = None,
         last_activity_gte: typing.Optional[dt.datetime] = None,
         last_activity_lte: typing.Optional[dt.datetime] = None,
         no_annotators: typing.Optional[bool] = None,
@@ -37,6 +39,7 @@ class RawPaginatedClient:
         role: typing.Optional[str] = None,
         search: typing.Optional[str] = None,
         tags: typing.Optional[str] = None,
+        tags_operator: typing.Optional[ListPaginatedRequestTagsOperator] = None,
         user_type: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         with_deleted: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
@@ -68,6 +71,9 @@ class RawPaginatedClient:
         implicit : typing.Optional[bool]
             Include/Exclude implicit project members in the results. If not provided, explicit + implicit members are returned.
 
+        include_skills : typing.Optional[bool]
+            Add `skills` to each row: the member's skills with their status, those the `filters` payload matched first. Owners, Administrators and Managers only; ignored for other roles.
+
         last_activity_gte : typing.Optional[dt.datetime]
             Filter by last activity time (ISO 8601 datetime). Returns users with last activity greater than or equal to this time.
 
@@ -123,6 +129,9 @@ class RawPaginatedClient:
         tags : typing.Optional[str]
             Filter members by tags. Use a comma-separated list of tag IDs.
 
+        tags_operator : typing.Optional[ListPaginatedRequestTagsOperator]
+            How the `tags` ids combine: `any` (at least one tag), `all` (every tag, the default), `none` (no selected tag).
+
         user_type : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Multiple values may be separated by commas.
 
@@ -145,6 +154,7 @@ class RawPaginatedClient:
             params={
                 "ids": ids,
                 "implicit": implicit,
+                "include_skills": include_skills,
                 "last_activity__gte": serialize_datetime(last_activity_gte) if last_activity_gte is not None else None,
                 "last_activity__lte": serialize_datetime(last_activity_lte) if last_activity_lte is not None else None,
                 "no_annotators": no_annotators,
@@ -155,6 +165,7 @@ class RawPaginatedClient:
                 "role": role,
                 "search": search,
                 "tags": tags,
+                "tags_operator": tags_operator,
                 "user_type": ",".join(map(str, user_type)) if isinstance(user_type, (list, tuple, set)) else user_type,
                 "with_deleted": with_deleted,
             },
@@ -175,6 +186,7 @@ class RawPaginatedClient:
                     id,
                     ids=ids,
                     implicit=implicit,
+                    include_skills=include_skills,
                     last_activity_gte=last_activity_gte,
                     last_activity_lte=last_activity_lte,
                     no_annotators=no_annotators,
@@ -185,6 +197,7 @@ class RawPaginatedClient:
                     role=role,
                     search=search,
                     tags=tags,
+                    tags_operator=tags_operator,
                     user_type=user_type,
                     with_deleted=with_deleted,
                     request_options=request_options,
@@ -210,6 +223,7 @@ class AsyncRawPaginatedClient:
         *,
         ids: typing.Optional[str] = None,
         implicit: typing.Optional[bool] = None,
+        include_skills: typing.Optional[bool] = None,
         last_activity_gte: typing.Optional[dt.datetime] = None,
         last_activity_lte: typing.Optional[dt.datetime] = None,
         no_annotators: typing.Optional[bool] = None,
@@ -220,6 +234,7 @@ class AsyncRawPaginatedClient:
         role: typing.Optional[str] = None,
         search: typing.Optional[str] = None,
         tags: typing.Optional[str] = None,
+        tags_operator: typing.Optional[ListPaginatedRequestTagsOperator] = None,
         user_type: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         with_deleted: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
@@ -251,6 +266,9 @@ class AsyncRawPaginatedClient:
         implicit : typing.Optional[bool]
             Include/Exclude implicit project members in the results. If not provided, explicit + implicit members are returned.
 
+        include_skills : typing.Optional[bool]
+            Add `skills` to each row: the member's skills with their status, those the `filters` payload matched first. Owners, Administrators and Managers only; ignored for other roles.
+
         last_activity_gte : typing.Optional[dt.datetime]
             Filter by last activity time (ISO 8601 datetime). Returns users with last activity greater than or equal to this time.
 
@@ -306,6 +324,9 @@ class AsyncRawPaginatedClient:
         tags : typing.Optional[str]
             Filter members by tags. Use a comma-separated list of tag IDs.
 
+        tags_operator : typing.Optional[ListPaginatedRequestTagsOperator]
+            How the `tags` ids combine: `any` (at least one tag), `all` (every tag, the default), `none` (no selected tag).
+
         user_type : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Multiple values may be separated by commas.
 
@@ -328,6 +349,7 @@ class AsyncRawPaginatedClient:
             params={
                 "ids": ids,
                 "implicit": implicit,
+                "include_skills": include_skills,
                 "last_activity__gte": serialize_datetime(last_activity_gte) if last_activity_gte is not None else None,
                 "last_activity__lte": serialize_datetime(last_activity_lte) if last_activity_lte is not None else None,
                 "no_annotators": no_annotators,
@@ -338,6 +360,7 @@ class AsyncRawPaginatedClient:
                 "role": role,
                 "search": search,
                 "tags": tags,
+                "tags_operator": tags_operator,
                 "user_type": ",".join(map(str, user_type)) if isinstance(user_type, (list, tuple, set)) else user_type,
                 "with_deleted": with_deleted,
             },
@@ -360,6 +383,7 @@ class AsyncRawPaginatedClient:
                         id,
                         ids=ids,
                         implicit=implicit,
+                        include_skills=include_skills,
                         last_activity_gte=last_activity_gte,
                         last_activity_lte=last_activity_lte,
                         no_annotators=no_annotators,
@@ -370,6 +394,7 @@ class AsyncRawPaginatedClient:
                         role=role,
                         search=search,
                         tags=tags,
+                        tags_operator=tags_operator,
                         user_type=user_type,
                         with_deleted=with_deleted,
                         request_options=request_options,

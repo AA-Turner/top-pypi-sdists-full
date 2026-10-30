@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: particle
-Version: 1.0.1
+Version: 1.1.0
 Summary: Extended PDG particle data and MC identification codes
 Project-URL: Homepage, https://github.com/scikit-hep/particle
 Author-email: Eduardo Rodrigues <eduardo.rodrigues@cern.ch>, Henry Schreiner <henryfs@princeton.edu>
@@ -20,6 +20,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Scientific/Engineering
 Requires-Python: >=3.10
 Requires-Dist: attrs>=22.2.0
@@ -30,19 +31,19 @@ Requires-Dist: pandas; extra == 'all'
 Requires-Dist: pre-commit; extra == 'all'
 Requires-Dist: pytest-benchmark; extra == 'all'
 Requires-Dist: pytest-cov; extra == 'all'
-Requires-Dist: pytest>=7; extra == 'all'
+Requires-Dist: pytest<9.2,>=7; extra == 'all'
 Requires-Dist: tabulate; extra == 'all'
 Provides-Extra: dev
 Requires-Dist: pandas; extra == 'dev'
 Requires-Dist: pre-commit; extra == 'dev'
 Requires-Dist: pytest-benchmark; extra == 'dev'
-Requires-Dist: pytest>=7; extra == 'dev'
+Requires-Dist: pytest<9.2,>=7; extra == 'dev'
 Requires-Dist: tabulate; extra == 'dev'
 Provides-Extra: test
 Requires-Dist: pandas; extra == 'test'
 Requires-Dist: pytest-benchmark; extra == 'test'
 Requires-Dist: pytest-cov; extra == 'test'
-Requires-Dist: pytest>=7; extra == 'test'
+Requires-Dist: pytest<9.2,>=7; extra == 'test'
 Requires-Dist: tabulate; extra == 'test'
 Description-Content-Type: text/markdown
 
@@ -303,8 +304,8 @@ If you want a non-default data file distributed with the package just proceed as
 
 ```python
 >>> from particle import data
->>> Particle.load_table(data.basepath / "particle2026.csv"))
->>> Particle.load_table(data.basepath / "nuclei2026.csv"), append=True)  # I still want nuclei info
+>>> Particle.load_table(data.basepath / "particle2026.csv")
+>>> Particle.load_table(data.basepath / "nuclei2026.csv", append=True)  # I still want nuclei info
 >>> Particle.table_names()  # list the loaded tables
 ```
 

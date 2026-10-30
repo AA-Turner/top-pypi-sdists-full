@@ -4,13 +4,16 @@ import json
 import logging
 import re
 from dataclasses import asdict, dataclass, field, make_dataclass
-from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
 import boto3
 from botocore.client import BaseClient
 from botocore.exceptions import ClientError
 
+from sagemaker_studio import local_kernel
+from sagemaker_studio.connections.providers import ConnectionProvider
+from sagemaker_studio.connections.providers.app_api import athena_workgroup
+from sagemaker_studio.connections.providers.datazone import DataZoneConnectionProvider
 from sagemaker_studio.data_models import ClientConfig
 from sagemaker_studio.exceptions import AWSClientException
 
@@ -186,10 +189,11 @@ class Connection:
         self,
         connection_data: Dict[str, Any],
         glue_api: BaseClient,
-        datazone_api: BaseClient,
+        datazone_api: Optional[BaseClient],
         secrets_manager_api: BaseClient,
         kms_api: BaseClient,
         project_config: ClientConfig,
+        provider: Optional[ConnectionProvider] = None,
     ):
         """
         Initializes a new instance of the Connection class.
@@ -197,7 +201,13 @@ class Connection:
         Args:
             connection_data (Dict[str, Any]): The raw connection data.
             glue_api (BaseClient): The Glue client.
-            datazone_api (BaseClient): The DataZone client.
+            datazone_api (BaseClient): The DataZone client, for environment queries. With no
+                ``provider`` it is also what the connection fetches itself again through.
+            provider: The :class:`~sagemaker_studio.connections.providers.ConnectionProvider`
+                this record came from. The connection asks it for the full record again
+                (``GetConnection`` ``withSecret``) when it needs credentials it does not have
+                and, for a provider that re-vends them, shortly before the ones it has expire.
+                Defaults to the DataZone provider over ``datazone_api``.
         """
         self._datazone_api = datazone_api
         self.__connection_data = connection_data
@@ -216,6 +226,9 @@ class Connection:
         self.project_id = self.__connection_data.get("projectId", None)
         self.iam_role = self.__connection_data.get("environmentUserRole", None)
         self._project_config = project_config
+        if provider is None and datazone_api is not None:
+            provider = DataZoneConnectionProvider(datazone_api, self.domain_id, self.project_id)
+        self._provider: Optional[ConnectionProvider] = provider
         if (
             self.type in ["LAKEHOUSE", "IAM"]
             or self.type in SUPPORTED_GLUE_CONNECTION_TYPES
@@ -262,9 +275,41 @@ class Connection:
 
     @property
     def connection_creds(self):
-        if self._connection_creds is None:
+        if self._connection_creds is None or self._credentials_need_refresh():
             self._invoke_get_connection_and_populate_fields()
         return self._connection_creds
+
+    def _credentials_need_refresh(self) -> bool:
+        """
+        Whether to ask the provider for credentials again before use: it re-vends them
+        (``refreshes_credentials``) and the ones held reach their ``expiration`` within
+        :data:`sagemaker_studio.local_kernel.REFRESH_WINDOW`.
+        """
+        if self._provider is None or self._connection_creds is None:
+            return False
+        if not self._provider.refreshes_credentials:
+            return False
+        return local_kernel.expires_soon(self._connection_creds.expiration)
+
+    @property
+    def athena_workgroup(self) -> Optional[str]:
+        """
+        The Athena workgroup this connection names: ``props.athenaProperties.workgroupName`` for
+        an ``ATHENA`` connection, the ``athena`` entry of ``configurations`` for a ``LAKEHOUSE``
+        catalog connection. ``None`` when the connection names none.
+        """
+        return athena_workgroup(self.__connection_data)
+
+    @property
+    def sql_engine_type(self) -> Optional[str]:
+        """
+        The engine ``sql()`` runs this connection's statements on. Usually the connection type;
+        ``ATHENA`` for a ``LAKEHOUSE`` catalog connection that names an Athena workgroup, which
+        is how the AWS Notebook app describes a data catalog to query through Athena.
+        """
+        if self.type == "LAKEHOUSE" and self.athena_workgroup:
+            return "ATHENA"
+        return self.type
 
     @property
     def data(self):
@@ -532,6 +577,15 @@ class Connection:
             self._secrets_manager_api,
         )
 
+    def _create_client_with_session(self, service_name: str, botocore_session: Any) -> BaseClient:
+        """Create a client signed by a prepared session for internal SDK use."""
+        return self._get_aws_client_with_connection_credentials(
+            service_name,
+            self._connection_creds,
+            self._secrets_manager_api,
+            botocore_session=botocore_session,
+        )
+
     def _is_iam_authenticated(self) -> bool:
         """
         Check if this connection uses IAM authentication.
@@ -569,11 +623,9 @@ class Connection:
             auth_config = getattr(endpoint.glue_connection, "authentication_configuration", None)
             if auth_config and isinstance(auth_config, dict):
                 secret_arn = auth_config.get("secretArn")
-        elif self.type == "REDSHIFT":
-            connection_without_secret = self._datazone_api.get_connection(  # type: ignore
-                domainIdentifier=self.domain_id,
-                identifier=self.id,
-                withSecret=False,
+        elif self.type == "REDSHIFT" and self._provider is not None:
+            connection_without_secret = self._provider.get_connection_by_id(
+                self.id, with_secret=False
             )
             secret_arn = (
                 connection_without_secret.get("props", {})
@@ -607,7 +659,12 @@ class Connection:
             return None
         snake_case_creds = {self._camel_to_snake(key): value for key, value in creds.items()}
         if "expiration" in snake_case_creds and isinstance(snake_case_creds["expiration"], str):
-            snake_case_creds["expiration"] = datetime.fromisoformat(snake_case_creds["expiration"])
+            # ISO 8601 text as the AWS Notebook app serialises it (trailing ``Z``), parsed by the
+            # one parser that also tolerates text it cannot read (logged, treated as no
+            # expiration) instead of failing the lookup; DataZone's expirations arrive as datetimes.
+            snake_case_creds["expiration"] = local_kernel.parse_iso_datetime(
+                snake_case_creds["expiration"]
+            )
         return ConnectionCredentials(**snake_case_creds)
 
     def _map_physical_endpoint_fields(self, endpoint: Dict[str, Any]) -> PhysicalEndpoint:
@@ -737,22 +794,41 @@ class Connection:
         service_name: str,
         connection_credentials: Optional[ConnectionCredentials],
         existing_client: BaseClient,
+        botocore_session: Optional[Any] = None,
     ) -> BaseClient:
-        if connection_credentials is None:
+        local_client = self._local_kernel_client(service_name, existing_client)
+        if local_client is not None:
+            return local_client
+        if botocore_session is None and connection_credentials is None:
             self._invoke_get_connection_and_populate_fields()
             connection_credentials = self._connection_creds
+
+        project_override_config = self._project_config.overrides.get(service_name, {})
+        endpoint_region_name = (
+            self.physical_endpoints[0].aws_region if self.physical_endpoints else None
+        )
+        region_name = (
+            project_override_config.get("region")
+            or endpoint_region_name
+            or existing_client.meta.region_name
+        )
+        override_endpoint_url = project_override_config.get("endpoint_url")
+
+        if botocore_session is not None:
+            session = boto3.Session(
+                botocore_session=botocore_session,
+                region_name=region_name,
+            )
+            return session.client(service_name, endpoint_url=override_endpoint_url)  # type: ignore
+
         if connection_credentials is not None:
+            # A session token is optional: DataZone-vended credentials always carry one, but a
+            # connection vended by another provider may hold static keys without one.
             if any(
                 getattr(connection_credentials, key) is None
-                for key in ["access_key_id", "secret_access_key", "session_token"]
+                for key in ["access_key_id", "secret_access_key"]
             ):
                 raise RuntimeError("Unable to find credentials for default IAM connection")
-            region_name = existing_client.meta.region_name
-            project_override_config = self._project_config.overrides.get(service_name, {})
-            override_region_name = project_override_config.get("region")
-            if not override_region_name and self.physical_endpoints:
-                region_name = self.physical_endpoints[0].aws_region or region_name
-            override_endpoint_url = project_override_config.get("endpoint_url")
             return boto3.client(  # type: ignore
                 service_name=service_name,
                 region_name=region_name,
@@ -762,6 +838,38 @@ class Connection:
                 aws_session_token=connection_credentials.session_token,
             )
         raise RuntimeError(f"Encountered an error getting AWS client for {service_name}.")
+
+    def _local_kernel_client(
+        self, service_name: str, existing_client: BaseClient
+    ) -> Optional[BaseClient]:
+        """
+        For a provider that re-vends credentials (the AWS Notebook app), a client whose
+        credentials are fetched again through it (``GetConnection`` ``withSecret``) shortly
+        before the ``expiration`` it reported, so a long-lived client follows the app's session
+        instead of signing with expired keys. ``None`` for any other provider, where the
+        connection's static credentials are used as before.
+
+        Fails fast, as a client built from static keys did: signed out, the typed error is raised
+        here rather than at the first request.
+        """
+        if self._provider is None or not self._provider.refreshes_credentials:
+            return None
+        credentials = local_kernel.refreshable_credentials(lambda: self.connection_creds)
+        project_override_config = self._project_config.overrides.get(service_name, {})
+        endpoint = self.physical_endpoints[0] if self.physical_endpoints else None
+        region_name = (
+            project_override_config.get("region")
+            or (endpoint.aws_region if endpoint else None)
+            or getattr(getattr(existing_client, "meta", None), "region_name", None)
+        )
+        import botocore.session
+
+        botocore_session = botocore.session.get_session()
+        botocore_session._credentials = credentials  # type: ignore[attr-defined]
+        session = boto3.Session(botocore_session=botocore_session, region_name=region_name)
+        return session.client(  # type: ignore
+            service_name, endpoint_url=project_override_config.get("endpoint_url")
+        )
 
     def _catalog_builder(self, get_catalog_response) -> Catalog:
         catalog_name = get_catalog_response.get("Name")
@@ -809,22 +917,34 @@ class Connection:
         return bool(re.match(pattern, id))
 
     def _invoke_get_connection_and_populate_fields(self):
-        try:
-            connection_response = self._datazone_api.get_connection(  # type: ignore
-                domainIdentifier=self.domain_id,
-                identifier=self.id,
-                withSecret=True,
+        """
+        Fetch this connection again through its provider (``GetConnection`` ``withSecret``) and
+        take the credentials, endpoints and data from the fresh record.
+
+        A ``ClientError`` from DataZone is logged and the connection keeps what it has, as it
+        always did. A provider's typed errors (signed out, the connection gone) happen before
+        any AWS call and reach the caller.
+        """
+        if self._provider is None:
+            logging.debug(
+                f"Connection {self.name} has no connection provider; skipping GetConnection refresh"
             )
-            connection_credentials = connection_response.get("connectionCredentials", None)
-            self._connection_creds = self._map_connection_credentials_field(connection_credentials)
-
-            self.physical_endpoints = [
-                self._map_physical_endpoint_fields(endpoint)
-                for endpoint in connection_response.get("physicalEndpoints", [])
-            ]
-
-            self.__connection_data = connection_response
+            return
+        try:
+            self._populate_fields(dict(self._provider.get_connection_by_id(self.id)))
         except ClientError as e:
             logging.warning(
                 f"Encountered an error getting connection details for connection {self.name}: {AWSClientException(e)}"
             )
+
+    def _populate_fields(self, connection_response: Dict[str, Any]) -> None:
+        """Take credentials, physical endpoints and data from a freshly fetched record."""
+        connection_credentials = connection_response.get("connectionCredentials", None)
+        self._connection_creds = self._map_connection_credentials_field(connection_credentials)
+
+        self.physical_endpoints = [
+            self._map_physical_endpoint_fields(endpoint)
+            for endpoint in connection_response.get("physicalEndpoints", [])
+        ]
+
+        self.__connection_data = connection_response

@@ -34,7 +34,7 @@ static char PyXmlSec_TemplateCreate__doc__[] = \
     ":return: the pointer to newly created :xml:`<dsig:Signature/>` node\n"
     ":rtype: :class:`lxml.etree._Element`";
 static PyObject* PyXmlSec_TemplateCreate(PyObject* self, PyObject *args, PyObject *kwargs) {
-    static char *kwlist[] = { "node", "c14n_method", "sign_method", "id", "ns", "name", NULL};
+    static char *kwlist[] = { "node", "c14n_method", "sign_method", "id", "ns", NULL};
 
     PyXmlSec_LxmlElementPtr node = NULL;
     PyXmlSec_Transform* c14n = NULL;
@@ -44,8 +44,8 @@ static PyObject* PyXmlSec_TemplateCreate(PyObject* self, PyObject *args, PyObjec
     xmlNodePtr res;
 
     PYXMLSEC_DEBUG("template create - start");
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O&O!O!|zzz:create", kwlist,
-        PyXmlSec_LxmlElementConverter, &node, PyXmlSec_TransformType, &c14n, PyXmlSec_TransformType, &sign, &id, &ns, &id))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O&O!O!|zz:create", kwlist,
+        PyXmlSec_LxmlElementConverter, &node, PyXmlSec_TransformType, &c14n, PyXmlSec_TransformType, &sign, &id, &ns))
     {
         goto ON_FAIL;
     }
@@ -605,7 +605,7 @@ ON_FAIL:
 
 static char PyXmlSec_TemplateCreateEncryptedData__doc__[] = \
     "encrypted_data_create(node, method, id = None, type = None, mime_type = None, encoding = None, ns = None) -> lxml.etree._Element\n"
-    "Creates new :xml:`<{ns}:EncryptedData />` node for encryption template.\n\n"
+    "Creates new ``<{ns}:EncryptedData />`` node for encryption template.\n\n"
     ":param node: the pointer to signature node\n"
     ":type node: :class:`lxml.etree._Element`\n"
     ":param method: the encryption method\n"
@@ -662,7 +662,7 @@ ON_FAIL:
 
 static char PyXmlSec_TemplateEncryptedDataEnsureKeyInfo__doc__[] = \
     "encrypted_data_ensure_key_info(node, id = None, ns = None) -> lxml.etree._Element\n"
-    "Adds :xml:`<{ns}:KeyInfo/>` to the :xml:`<enc:EncryptedData/>` node of ``node``.\n\n"
+    "Adds ``<{ns}:KeyInfo/>`` to the :xml:`<enc:EncryptedData/>` node of ``node``.\n\n"
     ":param node: the pointer to :xml:`<enc:EncryptedData/>` node\n"
     ":type node: :class:`lxml.etree._Element`\n"
     ":param id: the ``\"Id\"`` attribute (optional)\n"

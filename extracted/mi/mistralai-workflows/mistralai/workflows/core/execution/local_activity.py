@@ -2,11 +2,10 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Generator
 
-import structlog
-
+from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.utils.contextvars import reset_contextvar
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 _context_var_local_activity_enabled: ContextVar[bool] = ContextVar("local_activity_enabled", default=False)
 

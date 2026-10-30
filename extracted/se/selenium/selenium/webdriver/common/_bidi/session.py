@@ -84,6 +84,7 @@ class CapabilityRequest(Record):
         default=UNSET,
         metadata=meta("unhandledPromptBehavior", ref="session.UserPromptHandler"),
     )
+    moz_firefox_options: Any | UnsetType = field(default=UNSET, metadata=meta("moz:firefoxOptions"))
     extensions: dict[str, Any] | UnsetType = field(default=UNSET, metadata=meta("extensions"))
 
 
@@ -154,7 +155,7 @@ class ManualProxyConfiguration(Record):
 
     _EXTENSIBLE = True
     socks_proxy: str = field(metadata=meta("socksProxy", required=True, primitive="str"))
-    socks_version: int = field(metadata=meta("socksVersion", required=True, primitive="int"))
+    socks_version: int = field(metadata=meta("socksVersion", required=True, primitive="int", min=0, max=255))
     proxy_type: str = field(default="manual", init=False, metadata=meta("proxyType", required=True, fixed="manual"))
     http_proxy: str | UnsetType = field(default=UNSET, metadata=meta("httpProxy", primitive="str"))
     ssl_proxy: str | UnsetType = field(default=UNSET, metadata=meta("sslProxy", primitive="str"))
@@ -171,7 +172,7 @@ class SocksProxyConfiguration(Record):
     """
 
     socks_proxy: str = field(metadata=meta("socksProxy", required=True, primitive="str"))
-    socks_version: int = field(metadata=meta("socksVersion", required=True, primitive="int"))
+    socks_version: int = field(metadata=meta("socksVersion", required=True, primitive="int", min=0, max=255))
 
 
 @register("session.PacProxyConfiguration")

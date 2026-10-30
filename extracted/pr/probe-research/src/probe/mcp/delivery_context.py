@@ -26,6 +26,12 @@ class DeliveryContext:
     #: encodes the stand-in with this, so it carries the same arguments, and
     #: costs the same tokens, as the cursor delivery will put there.
     request: Any = None
+    #: Tokens delivery will wrap around this read's page beyond what the page
+    #: itself measures: a multi-ref `entity` batch's row wrapper (`{rows:
+    #: [{ref, ...}], missing}` and the item index in its cursor). A source that
+    #: fits its page EXACTLY keeps this many free, or a full page overflows the
+    #: wrapper and goes out as text fragments.
+    reserve: int = 0
 
 
 _current: ContextVar[DeliveryContext | None] = ContextVar("mcp_delivery", default=None)
@@ -41,7 +47,7 @@ def source_changed(reason: str = "requested content changed") -> errors.Validati
 
 @contextmanager
 def delivery_context(
-    snapshot: dict | None = None, request: Any = None
+    snapshot: dict | None = None, request: Any = None, reserve: int = 0
 ) -> Iterator[DeliveryContext]:
     """Pass a decoded hint in; carry the yielded ``snapshot`` into every cursor.
 
@@ -68,7 +74,7 @@ def delivery_context(
                 "Invalid document continuation; restart the read.", status=422
             )
         snapshot = dict(snapshot)
-    state = DeliveryContext(snapshot, request)
+    state = DeliveryContext(snapshot, request, reserve)
     token = _current.set(state)
     try:
         yield state

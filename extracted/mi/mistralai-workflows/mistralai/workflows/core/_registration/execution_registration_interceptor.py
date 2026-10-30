@@ -4,12 +4,12 @@ import hashlib
 from datetime import timedelta
 from typing import Any, Sequence
 
-import structlog
 import temporalio.client
 import temporalio.common
 import temporalio.worker
 from temporalio import workflow
 
+from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core._registration.registration_activity import (
     _register_execution,
 )
@@ -27,7 +27,7 @@ from mistralai.workflows.core.temporal.context_handler_interceptor import (
 )
 from mistralai.workflows.core.utils.contextvars import reset_contextvar, unwrap_contextual_result
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 
 def _hash_token(raw_token: str) -> str:

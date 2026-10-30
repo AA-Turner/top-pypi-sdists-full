@@ -24,6 +24,7 @@ static PyObject *IMPORT_HARD_OS_PATH(PyThreadState *tstate);
 
 #if _NUITKA_MODULE_MODE
 static char const *module_root_prefix = NULL;
+static char const *module_root_leaf = NULL;
 #endif
 
 #ifdef _WIN32
@@ -1003,13 +1004,13 @@ static entrypoint_t _loadExtensionModuleInitAddress(PyThreadState *tstate, char 
     return entrypoint;
 }
 
-#if PYTHON_VERSION >= 0x300
+#if PYTHON_VERSION >= 0x350
 // Python 3.15 comes with PyImport_CreateModuleFromInitfunc, which saves us
 // from a lot of the hacks that we're doing in other versions. Most importantly,
 // we don't need access to the package context (which isn't exported anywhere
 // starting in 3.15).
-static int _finalizeExtensionModule(PyThreadState *tstate, PyObject *module, PyObject *spec_value, PyObject *origin,
-                                    const filename_char_t *filename, PyObject *full_name_obj, bool is_package) {
+static int _setExtensionModuleAttributes(PyThreadState *tstate, PyObject *module, PyObject *spec_value,
+                                         PyObject *origin, const filename_char_t *filename, bool is_package) {
     SET_ATTRIBUTE(tstate, module, const_str_plain___spec__, spec_value);
     setModuleFileValue(tstate, module, filename);
 
@@ -1022,9 +1023,20 @@ static int _finalizeExtensionModule(PyThreadState *tstate, PyObject *module, PyO
         }
     }
 
+    return 0;
+}
+
+#if PYTHON_VERSION < 0x3f0
+static int _finalizeExtensionModule(PyThreadState *tstate, PyObject *module, PyObject *spec_value, PyObject *origin,
+                                    const filename_char_t *filename, PyObject *full_name_obj, bool is_package) {
+    if (_setExtensionModuleAttributes(tstate, module, spec_value, origin, filename, is_package) != 0) {
+        return -1;
+    }
+
     Nuitka_SetModule(full_name_obj, module);
     return 0;
 }
+#endif
 #endif
 
 static PyObject *callIntoExtensionModule(PyThreadState *tstate, char const *full_name, const filename_char_t *filename,
@@ -1095,15 +1107,19 @@ static PyObject *callIntoExtensionModule(PyThreadState *tstate, char const *full
         goto error;
     }
 
+    // The import machinery sets attributes like "__spec__" and "__file__" on
+    // the module before executing it.
+    if (_setExtensionModuleAttributes(tstate, module, spec_value, origin, filename, is_package) != 0) {
+        Py_DECREF(module);
+        goto error;
+    }
+
     if (unlikely(PyModule_Exec(module) != 0)) {
         Py_DECREF(module);
         goto error;
     }
 
-    if (_finalizeExtensionModule(tstate, module, spec_value, origin, filename, full_name_obj, is_package) != 0) {
-        Py_DECREF(module);
-        goto error;
-    }
+    Nuitka_SetModule(full_name_obj, module);
 
     Py_DECREF(spec_value);
     Py_DECREF(full_name_obj);
@@ -3089,6 +3105,8 @@ static PyObject *_nuitka_loader_find_distributions(PyObject *self, PyObject *arg
     return result;
 }
 
+#if !_NUITKA_FLAG_ISOLATED
+
 static char const *_kw_list_sys_path_hook[] = {"path", NULL};
 
 static PyObject *_nuitka_loader_sys_path_hook(PyObject *self, PyObject *args, PyObject *kwds) {
@@ -3101,11 +3119,6 @@ static PyObject *_nuitka_loader_sys_path_hook(PyObject *self, PyObject *args, Py
     }
 
     PyThreadState *tstate = PyThreadState_GET();
-
-#if defined(_NUITKA_FLAG_ISOLATED)
-    SET_CURRENT_EXCEPTION_TYPE0(tstate, PyExc_ImportError);
-    return NULL;
-#else
 
 #if 0
     PRINT_STRING("CONSIDER PATH:");
@@ -3158,8 +3171,9 @@ static PyObject *_nuitka_loader_sys_path_hook(PyObject *self, PyObject *args, Py
 
     SET_CURRENT_EXCEPTION_TYPE0(tstate, PyExc_ImportError);
     return NULL;
-#endif
 }
+
+#endif
 
 static PyMethodDef Nuitka_Loader_methods[] = {
 #ifndef _NUITKA_DISABLE_ITER_MODULES
@@ -3185,7 +3199,9 @@ static PyMethodDef Nuitka_Loader_methods[] = {
     {"find_distributions", CAST_METHOD_KW(_nuitka_loader_find_distributions),
      METH_STATIC | METH_VARARGS | METH_KEYWORDS, NULL},
 
+#if !_NUITKA_FLAG_ISOLATED
     {"sys_path_hook", CAST_METHOD_KW(_nuitka_loader_sys_path_hook), METH_STATIC | METH_VARARGS | METH_KEYWORDS, NULL},
+#endif
 
     {NULL, NULL} // terminator
 };
@@ -3301,11 +3317,19 @@ char const *getMetaPathBasedLoaderModuleRoot(void) { return module_root_prefix; 
 
 void getModuleNameWithPackageLoadedPrefix(char *buffer, size_t buffer_size, char const *name) {
     if (module_root_prefix != NULL) {
-        copyStringSafe(buffer, module_root_prefix, buffer_size);
-        appendStringSafe(buffer, name, buffer_size);
-    } else {
-        copyStringSafe(buffer, name, buffer_size);
+        // The compiled unit may itself have been compiled under a dotted name,
+        // in which case its entry names already include the package prefix.
+        size_t leaf_len = strlen(module_root_leaf);
+
+        if (strncmp(name, module_root_leaf, leaf_len) == 0 && (name[leaf_len] == '.' || name[leaf_len] == 0)) {
+            copyStringSafe(buffer, module_root_prefix, buffer_size);
+            appendStringSafe(buffer, name, buffer_size);
+
+            return;
+        }
     }
+
+    copyStringSafe(buffer, name, buffer_size);
 }
 
 void updateMetaPathBasedLoaderModuleRoot(char const *module_root_name) {
@@ -3324,6 +3348,7 @@ void updateMetaPathBasedLoaderModuleRoot(char const *module_root_name) {
             free(new_prefix);
         } else {
             module_root_prefix = new_prefix;
+            module_root_leaf = duplicateStringPointer(last_dot + 1);
         }
     }
 }
@@ -3386,6 +3411,7 @@ void registerMetaPathBasedLoader(struct Nuitka_MetaPathBasedLoaderEntry **_loade
 
                       global_loader);
 
+#if !_NUITKA_FLAG_ISOLATED
     // Our "sys.path_hooks" entry uses "os.path" to compare filenames, so we need
     // to load it without.
     PyThreadState *tstate = PyThreadState_GET();
@@ -3399,6 +3425,7 @@ void registerMetaPathBasedLoader(struct Nuitka_MetaPathBasedLoaderEntry **_loade
     // to handle "site-packages" on its own yet, and therefore we
     // cannot have it take precedence.
     LIST_APPEND1(Nuitka_SysGetObject("path_hooks"), PyObject_GetAttrString(global_loader, "sys_path_hook"));
+#endif
 #endif
 }
 
