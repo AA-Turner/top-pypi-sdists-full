@@ -66,6 +66,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+from matrx_utils.text_case import humanize_identifier
+
 from matrx_ai.graph_nodes.shared import RUN_ENVELOPE_FIELDS
 from matrx_ai.kinds import TEXT_SHAPED_KINDS
 
@@ -238,6 +240,15 @@ def _join_reads(parts: list[Any]) -> list[str]:
     return [str(p["target"]) for p in parts if isinstance(p, dict) and p.get("mapType", "offered_value") == "offered_value" and p.get("target")]
 
 
+def join_step_label(variable: str) -> str:
+    """What a person reads on the canvas for the step that writes one variable for the AI.
+
+    Never the raw variable name: a step label is interface text, so ``person_name`` reads
+    "Write person name for the AI", not "Build person_name"."""
+    words = " ".join(w if w.isupper() else w.lower() for w in humanize_identifier(variable).split())
+    return f"Write {words or 'the value'} for the AI"
+
+
 def _join_node_id(definition: dict[str, Any], node_id: str, variable: str) -> str:
     taken = {n.get("id") for n in definition.get("nodes") or []}
     base = f"{node_id}__build_{variable}"
@@ -262,7 +273,7 @@ def _join_steps(
         if static:
             join_input["values"] = static
         join = {"id": join_id, "type": JOIN_STEP,
-                "data": {"label": f"Build {variable}", "spec_type": JOIN_STEP, "input": join_input, "config": {}}}
+                "data": {"label": join_step_label(variable), "spec_type": JOIN_STEP, "input": join_input, "config": {}}}
         if isinstance(pos.get("x"), int | float) and isinstance(pos.get("y"), int | float):
             join["position"] = {"x": pos["x"] - 280, "y": pos["y"] + 120 * index}
         nodes.append(join)

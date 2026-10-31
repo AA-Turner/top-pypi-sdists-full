@@ -10,6 +10,7 @@
 # SPDX-FileCopyrightText: 2022 Yaman Qalieh
 # SPDX-FileCopyrightText: 2024 Rivos Inc.
 # SPDX-FileCopyrightText: © 2020 Liferay, Inc. <https://liferay.com>
+# SPDX-FileCopyrightText: 2026 Lily A.N. <minekpo1@murena.io>
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -22,7 +23,7 @@ from typing import IO, cast
 from jinja2 import Environment, FileSystemLoader, Template
 from jinja2.exceptions import TemplateNotFound
 
-from ._util import _determine_license_suffix_path
+from ._util import determine_license_suffix_path
 from .comment import (
     NAME_STYLE_MAP,
     CommentStyle,
@@ -79,6 +80,7 @@ def add_header_to_file(
     fallback_dot_license: bool = False,
     merge_copyrights: bool = False,
     replace: bool = True,
+    replace_license: bool = False,
     out: IO[str] = sys.stdout,
 ) -> int:
     """Helper function."""
@@ -101,7 +103,7 @@ def add_header_to_file(
                 ).format(path=path)
             )
             out.write("\n")
-            path = _determine_license_suffix_path(path)
+            path = determine_license_suffix_path(path)
             path.touch()
             comment_style = EmptyCommentStyle
 
@@ -129,6 +131,7 @@ def add_header_to_file(
                 style=comment_style,
                 force_multi=force_multi,
                 merge_copyrights=merge_copyrights,
+                replace_license=replace_license,
             )
         else:
             output = add_new_header(

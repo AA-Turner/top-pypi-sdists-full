@@ -62,11 +62,12 @@ class PresetDescriptor(Protocol):
 def _build_registry() -> Dict[str, PresetDescriptor]:
     from .legacy import legacy_preset  # noqa: WPS433 — intentional lazy import
     from .core import core_preset  # noqa: WPS433 — intentional lazy import
-    return {'legacy': legacy_preset, 'core': core_preset}
+    from .full import full_preset  # noqa: WPS433 — intentional lazy import
+    return {'legacy': legacy_preset, 'core': core_preset, 'full': full_preset}
 
 
 DEFAULT_PRESET: str = 'legacy'
-_BUILTIN_IDS = ('legacy', 'core')
+_BUILTIN_IDS = ('legacy', 'core', 'full')
 _PRESETS: Optional[Dict[str, PresetDescriptor]] = None
 
 

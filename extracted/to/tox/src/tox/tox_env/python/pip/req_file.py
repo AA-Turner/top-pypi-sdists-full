@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 import re
+import shlex
+import sys
 from argparse import Namespace
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Final, cast
 
 from packaging.requirements import Requirement
 
 from tox.util.typing_compat import override
 
-from .req.file import ParsedRequirement, ReqFileLines, RequirementsFile
+from .req.file import ParsedRequirement, ReqFileLines, RequirementsFile, unprotect_env_variables
 
 _UNESCAPED_SPACE_RE = re.compile(
     r"""
@@ -22,15 +24,31 @@ if TYPE_CHECKING:
     from argparse import ArgumentParser
     from collections.abc import Iterator
     from pathlib import Path
-    from typing import ClassVar, Final, Self
+    from typing import ClassVar, Self
+
+    from typing_extensions import TypeIs
+
+    from .req.file import EnvironmentProvider
 
 
 class _PythonRequirementsFile(RequirementsFile):
     _CONSTRAINT: ClassVar[bool]
     _FIELD: ClassVar[str]
 
-    def __init__(self, raw: str | list[str] | list[Requirement], root: Path) -> None:
-        super().__init__(root / "tox.ini", constraint=self._CONSTRAINT)
+    def __init__(
+        self,
+        raw: str | list[str] | list[Requirement],
+        root: Path,
+        environment_provider: EnvironmentProvider | None = None,
+    ) -> None:
+        super().__init__(root / "tox.ini", constraint=self._CONSTRAINT, environment_provider=environment_provider)
+        if isinstance(raw, list):
+            for item in raw:
+                if isinstance(item, Requirement):
+                    entry = str(item)
+                    if entry != "".join(entry.splitlines()) or any(line.endswith("\\") for line in entry.splitlines()):
+                        msg = "a requirement entry cannot contain a line break or end in a backslash"
+                        raise ValueError(msg)
         got = raw if isinstance(raw, str) else "\n".join(str(i) for i in raw)
         self._raw = self._normalize_raw(got)
         self._unroll: tuple[list[str], list[str]] | None = None
@@ -40,7 +58,9 @@ class _PythonRequirementsFile(RequirementsFile):
     @override
     def _req_parser(self) -> RequirementsFile:
         if self._req_parser_ is None:
-            self._req_parser_ = RequirementsFile(path=self._path, constraint=self._CONSTRAINT)
+            self._req_parser_ = RequirementsFile(
+                path=self._path, constraint=self._CONSTRAINT, environment_provider=self._environment_provider
+            )
         return self._req_parser_
 
     @override
@@ -56,7 +76,54 @@ class _PythonRequirementsFile(RequirementsFile):
                 found_line = line
             yield at, found_line
 
-    def lines(self) -> list[str]:
+    @override
+    def _expand_env_variables(self, lines_enum: ReqFileLines) -> ReqFileLines:
+        for line_number, line in lines_enum:
+            yield line_number, self._expand_env_line(line_number, line)
+
+    def _expand_env_line(self, line_number: int, line: str) -> str:
+        expanded: Final[str] = next(super()._expand_env_variables(iter(((line_number, line),))))[1]
+        env_var_pattern: Final[re.Pattern[str]] = re.compile(r"\$\{[A-Z0-9_]+\}")
+        if not env_var_pattern.fullmatch(line):
+            marked: Final[str] = unprotect_env_variables(
+                env_var_pattern.sub(lambda match: f"\x00{match.start()}\x00", line)
+            )
+            self.validate_requirement_options(marked, expanded, preprocessed=True)
+        return expanded
+
+    @classmethod
+    def validate_requirement_options(cls, source: str, expanded: str, *, preprocessed: bool = False) -> None:
+        error_message: Final[str] = "a requirement substitution cannot change pip options"
+        source_lines: Final[list[list[str]]] = cls._requirement_tokens(source, preprocessed=preprocessed)
+        expanded_lines: Final[list[list[str]]] = cls._requirement_tokens(expanded, preprocessed=preprocessed)
+        if len(source_lines) != len(expanded_lines):
+            raise ValueError(error_message)
+        for source_tokens, expanded_tokens in zip(source_lines, expanded_lines, strict=True):
+            if len(source_tokens) != len(expanded_tokens) or any(
+                not cls._same_requirement_token(before, after)
+                for before, after in zip(source_tokens, expanded_tokens, strict=True)
+            ):
+                raise ValueError(error_message)
+
+    @classmethod
+    def _requirement_tokens(cls, raw: str, *, preprocessed: bool) -> list[list[str]]:
+        lines: ReqFileLines = enumerate(raw.splitlines(), start=1)
+        if not preprocessed:
+            lines = cls._ignore_comments(cls._join_lines(enumerate(cls._normalize_raw(raw).splitlines(), start=1)))
+        result: Final[list[list[str]]] = []
+        for _, line in lines:
+            args, options = cls._break_args_options(line)
+            result.append([args, *shlex.split(options, posix=sys.platform != "win32")])
+        return result
+
+    @staticmethod
+    def _same_requirement_token(source: str, expanded: str) -> bool:
+        parts: Final[list[str]] = re.split(r"\x00\d+\x00", source)
+        if len(parts) == 1:
+            return source == expanded
+        return re.fullmatch(".*?".join(re.escape(part) for part in parts), expanded, flags=re.DOTALL) is not None
+
+    def lines(self, *, preserve_host_values: bool = False) -> list[str]:
         # as_root_args raises what tox run would raise, and when pip gets no arguments there is nothing to show
         if not self.as_root_args:
             return []
@@ -64,15 +131,20 @@ class _PythonRequirementsFile(RequirementsFile):
         # renderer, at the first option line, while requirements, comments and -r/-c/-e lines stay as written.
         lines: list[str] = []
         merged, at = Namespace(), None
-        for line in self._raw.splitlines():
+        for line in (self._raw if preserve_host_values else unprotect_env_variables(self._raw)).splitlines():
             if (opts := self._global_options(line)) is None:
                 lines.append(line)
             else:
                 at = len(lines) if at is None else at
                 self._merge_option_line(merged, opts, str(self._path))
         if at is not None:
-            lines[at:at] = [" ".join(group) for group in self._option_groups(merged)]
+            lines[at:at] = [" ".join(self._escape(arg) for arg in group) for group in self._option_groups(merged)]
         return lines
+
+    @staticmethod
+    def _escape(arg: str) -> str:
+        # The rendered option must keep its argument boundary when parsed again.
+        return arg if sys.platform == "win32" else re.sub(r"""[\s\\'"]""", r"\\\g<0>", arg) or "''"
 
     def _global_options(self, line: str) -> Namespace | None:
         for _, content in self._ignore_comments(enumerate([line])):
@@ -135,20 +207,29 @@ class _PythonRequirementsFile(RequirementsFile):
             if not self.requirements and opts_dict:
                 msg = "no dependencies"
                 raise ValueError(msg)
-            self._unroll = _render_options(opts_dict), [str(req) for req in self.requirements]
+            self._unroll = (
+                [self.redact(opt) for opt in _render_options(opts_dict)],
+                [self.redact(str(req)) for req in self.requirements],
+            )
         return self._unroll
 
     @classmethod
-    def factory(cls, root: Path, raw: object) -> Self:
-        if not (
-            isinstance(raw, str)
-            or (
-                isinstance(raw, list)
-                and (all(isinstance(i, str) for i in raw) or all(isinstance(i, Requirement) for i in raw))
-            )
-        ):
+    def factory(
+        cls,
+        root: Path,
+        raw: object,
+        environment_provider: EnvironmentProvider | None = None,
+    ) -> Self:
+        if not cls._valid_raw(raw):
             raise TypeError(_factory_type_error(cls._FIELD, raw))
-        return cls(cast("str | list[str] | list[Requirement]", raw), root)
+        return cls(raw, root, environment_provider)
+
+    @staticmethod
+    def _valid_raw(raw: object) -> TypeIs[str | list[str] | list[Requirement]]:
+        return isinstance(raw, str) or (
+            isinstance(raw, list)
+            and (all(isinstance(item, str) for item in raw) or all(isinstance(item, Requirement) for item in raw))
+        )
 
 
 class PythonDeps(_PythonRequirementsFile):
@@ -183,7 +264,7 @@ class PythonDeps(_PythonRequirementsFile):
 
     def __add__(self, other: PythonDeps) -> Self:
         # a new instance, so nothing parsed from the earlier text outlives it
-        return type(self)(f"{self._raw}\n{other._raw}", self._path.parent)
+        return type(self)(f"{self._raw}\n{other._raw}", self._path.parent, self._environment_provider)
 
 
 class PythonConstraints(_PythonRequirementsFile):
@@ -199,9 +280,9 @@ class PythonConstraints(_PythonRequirementsFile):
         return [f"-c {line}" if any(cls._ignore_comments(enumerate([line]))) else line for line in lines]
 
     @override
-    def lines(self) -> list[str]:
+    def lines(self, *, preserve_host_values: bool = False) -> list[str]:
         # _adjust_lines prefixes each entry with -c for the parser, while the setting holds the bare file or URL
-        return [line.removeprefix("-c ") for line in super().lines()]
+        return [line.removeprefix("-c ") for line in super().lines(preserve_host_values=preserve_host_values)]
 
     @override
     def _validate_requirement(self, req: ParsedRequirement) -> None:
@@ -258,8 +339,8 @@ def _render_options(options: dict[str, object]) -> list[str]:
     ]
 
 
-__all__ = (
+__all__ = [
     "ONE_ARG",
     "PythonConstraints",
     "PythonDeps",
-)
+]

@@ -174,7 +174,7 @@ def test_valid_structured_output_still_succeeds() -> None:
 
 
 def test_any_caller_code_is_reclassified_by_the_one_classifier() -> None:
-    """``ai.extract`` and the kind-bound produce node route through the same
+    """``ai.llm.chat`` and the kind-bound produce node route through the same
     door — a truncated turn is never their own parse-failure code."""
     from matrx_ai.graph_nodes.shared import ai_output_failure
 

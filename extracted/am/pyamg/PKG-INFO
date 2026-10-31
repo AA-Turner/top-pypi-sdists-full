@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pyamg
-Version: 5.4.0
+Version: 5.4.1
 Summary: PyAMG: Algebraic Multigrid Solvers in Python
 Keywords: algebraic multigrid,AMG,sparse matrix,preconditioning
 Author: Nathan Bell, Jacob Schroder, Ben Southworth

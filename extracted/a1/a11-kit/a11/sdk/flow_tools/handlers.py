@@ -83,30 +83,6 @@ def _compile(source: str) -> Program:
         raise error.to_status().to_exception() from error
 
 
-def _called_actions(program: Program) -> list[str]:
-    """Every action any flow in ``program`` calls, in the order first seen.
-
-    Every flow, not only the one about to run: a composition is submitted as
-    one text and refused as one text, which is easier to explain than a rule
-    that depends on which declaration is reachable from which.
-    """
-    found: list[str] = []
-
-    def walk(steps: list[dict]) -> None:
-        for step in steps:
-            action = step.get("action")
-            if action is not None and action not in found:
-                found.append(action)
-            for key in ("body", "then", "else"):
-                nested = step.get(key)
-                if nested:
-                    walk(nested)
-
-    for plan in program:
-        walk(plan.describe()["steps"])
-    return found
-
-
 def verify_calls(program: Program, patterns: list[str]) -> None:
     """Check every call in ``program`` against what the caller may call.
 
@@ -114,12 +90,7 @@ def verify_calls(program: Program, patterns: list[str]) -> None:
         StatusException: ``PERMISSION_DENIED``, naming the first action the
             caller is not allowed to reach, before any of them is dispatched.
     """
-    declared = set(program.flows)
-    for name in _called_actions(program):
-        if name in declared:
-            # A flow calling another flow in the same source reaches nothing the
-            # caller did not itself submit.
-            continue
+    for name in program.external_actions():
         if name in FLOW_TOOL_NAMES:
             raise Status(
                 code=StatusCode.PERMISSION_DENIED,
@@ -140,7 +111,7 @@ def verify_calls(program: Program, patterns: list[str]) -> None:
 
 
 def describe_composable_actions(
-    registry: Any, patterns: list[str]
+    registry: Any, patterns: list[str], *, names: list[str] | None = None
 ) -> list[dict[str, Any]]:
     """The actions a flow may name, each with its ports and its verb.
 
@@ -160,28 +131,35 @@ def describe_composable_actions(
     Autofilled inputs are omitted because the runtime supplies them before the
     handler runs. Action logs use
     :meth:`a11.actions.action.Action.log` and are not schema ports.
+
+    ``names`` selects exact action names within the caller's permitted set.
     """
     document = describe.registry_to_json(
         registry, {"names": list(patterns)} if patterns else None
     )
     described: list[dict[str, Any]] = []
+    selected = None if names is None else set(names)
     for entry in describe.schemas_in_document(document):
         name = entry.get("name", "")
         # Exclude Flow tools to prevent recursive composition through
         # `flow_run`.
-        if name in FLOW_TOOL_NAMES:
+        if name in FLOW_TOOL_NAMES or (
+            selected is not None and name not in selected
+        ):
             continue
-        described.append({
-            "action": name,
-            "description": entry.get("description", ""),
-            "runnable": entry.get("runnable", False),
-            "inputs": [
-                _describe_port(port) for port in entry.get("inputs", ())
-            ],
-            "outputs": [
-                _describe_port(port) for port in entry.get("outputs", ())
-            ],
-        })
+        described.append(
+            {
+                "action": name,
+                "description": entry.get("description", ""),
+                "runnable": entry.get("runnable", False),
+                "inputs": [
+                    _describe_port(port) for port in entry.get("inputs", ())
+                ],
+                "outputs": [
+                    _describe_port(port) for port in entry.get("outputs", ())
+                ],
+            }
+        )
     return described
 
 
@@ -202,9 +180,29 @@ def _describe_port(port: dict[str, Any]) -> dict[str, Any]:
 
 async def flow_actions(action: a11.Action) -> None:
     """Report the actions this caller may compose, and their ports."""
+    names = await action["names"].consume(list, allow_none=True)
+    if names is not None and (
+        len(names) > 12
+        or any(not isinstance(name, str) for name in names)
+        or len(set(names)) != len(names)
+    ):
+        raise Status(
+            code=StatusCode.INVALID_ARGUMENT,
+            message="names must contain at most 12 unique action-name strings.",
+        ).to_exception()
     described = describe_composable_actions(
-        action.get_registry(), get_allowed_llm_action_patterns(action)
+        action.get_registry(),
+        get_allowed_llm_action_patterns(action),
+        names=names,
     )
+    if names is not None:
+        missing = set(names) - {entry["action"] for entry in described}
+        if missing:
+            raise Status(
+                code=StatusCode.NOT_FOUND,
+                message="Actions unavailable for composition: "
+                + ", ".join(sorted(missing)),
+            ).to_exception()
     await action["actions"].finalize(described)
     names = ", ".join(one["action"] for one in described) or "none"
     await action.log(

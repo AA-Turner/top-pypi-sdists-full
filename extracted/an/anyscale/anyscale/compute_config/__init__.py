@@ -31,6 +31,7 @@ from anyscale.compute_config.models import (
     ComputeConfigType,
     ComputeConfigVersion,
     HeadNodeConfig as HeadNodeConfig,
+    HeadNodeOptionConfig as HeadNodeOptionConfig,
     MultiResourceComputeConfig as MultiResourceComputeConfig,
     WorkerNodeGroupConfig as WorkerNodeGroupConfig,
 )
@@ -112,7 +113,6 @@ class ComputeConfigSDK:
     @sdk_docs(
         doc_py_example=_UNARCHIVE_EXAMPLE,
         arg_docstrings=_UNARCHIVE_ARG_DOCSTRINGS,
-        hidden=True,
     )
     def unarchive(  # noqa: F811
         self, name: str, *, cloud: Optional[str] = None, _id: Optional[str] = None

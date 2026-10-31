@@ -33,7 +33,12 @@ from langgraph_api import _checkpointer as api_checkpointer
 from langgraph_api import store as api_store
 from langgraph_api.asyncio import ValueEvent, wait_if_not_done
 from langgraph_api.command import map_cmd
-from langgraph_api.config import FF_ASYNC_PUBLISH_QUEUE, LSD_PUBLISH_QUEUE_SIZE
+from langgraph_api.config import (
+    FF_ASYNC_PUBLISH_QUEUE,
+    LSD_PUBLISH_QUEUE_SIZE,
+    RESUME_DRAINED_RUNS,
+)
+from langgraph_api.drain import mark_top_level
 from langgraph_api.feature_flags import (
     IS_POSTGRES_OR_GRPC_BACKEND,
     UPDATES_NEEDED_FOR_INTERRUPTS,
@@ -156,6 +161,8 @@ async def astream_state(
     *,
     on_checkpoint: Callable[[CheckpointPayload | None], None] = lambda _: None,
     on_task_result: Callable[[TaskResultPayload], None] = lambda _: None,
+    control: Any | None = None,
+    resume_from_checkpoint: bool = False,
 ) -> AnyStream:
     """Stream messages from the runnable."""
     run_id = str(run["run_id"])
@@ -216,6 +223,19 @@ async def astream_state(
     input = kwargs.pop("input")
     if cmd := kwargs.pop("command"):
         input = map_cmd(cmd)
+    is_remote_pregel = isinstance(graph, BaseRemotePregel)
+    # Drains aren't implemented for JS graphs yet: the server doesn't forward
+    # drain requests to the sidecar, so a JS graph's retries re-send the run's
+    # input or command.
+    if resume_from_checkpoint and not is_remote_pregel:
+        # Continue where the run stopped: without its input (a Command would
+        # apply twice) or its checkpoint pin (where it started).
+        input = None
+        # Copy: the config can be the stored run record's.
+        configurable = {**configurable}
+        config = {**config, "configurable": configurable}
+        configurable.pop("checkpoint_id", None)
+        configurable.pop("checkpoint_map", None)
     stream_mode: list[StreamMode] = kwargs.pop("stream_mode")
     # Go maps unrecognized ``StreamMode`` enum values to ``unknown``; the
     # round-trip converts those to ``None``.
@@ -236,7 +256,6 @@ async def astream_state(
     # would break the v2 consumer that is already parsing v2-shaped
     # events from the same stream.
     event_streaming_v2_run = bool(configurable.get("__event_streaming_v2"))
-    is_remote_pregel = isinstance(graph, BaseRemotePregel)
     if is_remote_pregel:
         # ``"tools"`` / ``"lifecycle"`` are public StreamMode literals
         # (``schema.py``) but the remote pregel runtime does not
@@ -271,6 +290,16 @@ async def astream_state(
     # attach run_id to config
     # for attempts beyond the first, use a fresh, unique run_id
     config = {**config, "run_id": run["run_id"]} if attempt == 1 else config
+    # The events path matches the attempt's root chunks by run id. On the
+    # first attempt that is the run's own id (set above); on later attempts
+    # LangGraph generates a fresh one, so capture it from the root chain's
+    # start event instead — writing it into the config would flow into
+    # checkpoint metadata (run id lookups and LangGraph's own same-run
+    # resume detection key on it) and break lookups by run. Only with
+    # drained-run handling on (see the capture below): with the flag off,
+    # later attempts' root_run_id stays None and root chunks are never
+    # matched, exactly as on main.
+    root_run_id: str | None = str(run["run_id"]) if attempt == 1 else None
     # set up state
     checkpoint: CheckpointPayload | None = None
     messages: dict[str, BaseMessageChunk] = {}
@@ -291,6 +320,13 @@ async def astream_state(
     use_stream_events_v3 = (
         event_streaming_v2_run and not use_astream_events and not is_remote_pregel
     )
+    # Hand the run's control to the graph so a drain request stops it at the
+    # next top-level step boundary (see ServerRunControl). Only native graphs
+    # accept a control (langgraph >= 1.2); remote graphs run in the JS sidecar,
+    # which the server cannot drain yet.
+    if control is not None and not is_remote_pregel:
+        mark_top_level(control)
+        kwargs["control"] = control
     # yield metadata chunk
     yield "metadata", {"run_id": run_id, "attempt": attempt}
 
@@ -363,8 +399,18 @@ async def astream_state(
                     if event["event"] == "on_chain_stream"
                     else None
                 )
+                if (
+                    root_run_id is None
+                    and RESUME_DRAINED_RUNS
+                    and not is_remote_pregel
+                    and event["event"] == "on_chain_start"
+                    and not event.get("parent_ids")
+                ):
+                    # Later attempts: the root chain's start event (no
+                    # parents) reveals this attempt's root run id.
+                    root_run_id = event["run_id"]
                 if event["event"] == "on_chain_stream" and (
-                    event["run_id"] == run_id
+                    event["run_id"] == root_run_id
                     or (
                         subgraphs
                         and is_remote_pregel
@@ -726,6 +772,7 @@ async def _consume_inline(
                         "error",
                         await run_in_executor(None, json_dumpb, e),
                         thread_id=thread_id,
+                        resumable=resumable,
                     )
                 await logger.aerror(
                     "Suppressing stream consume exception",

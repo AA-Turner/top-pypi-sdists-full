@@ -338,6 +338,35 @@ class IBrokerageModel(metaclass=abc.ABCMeta):
         """
         ...
 
+    def unsupported_contingent_orders_shape(self, reason: str) -> QuantConnect.Brokerages.BrokerageMessageEvent:
+        """Helper to create the message of a set of contingent orders with a shape not supported by the brokerage"""
+        ...
+
+    def validate_contingent_order(self, order: QuantConnect.Orders.Order, supported_contingency_types: System.Collections.Generic.IReadOnlySet[QuantConnect.Orders.ContingencyType], message: typing.Optional[QuantConnect.Brokerages.BrokerageMessageEvent], supports_combo_orders: bool = True, supports_multiple_symbols: bool = True, supports_nesting: bool = True, maximum_order_count: int = ...) -> typing.Tuple[bool, QuantConnect.Brokerages.BrokerageMessageEvent]:
+        """
+        Validates the contingencies of the given order are of a type supported by the brokerage
+        
+        :param order: The order to validate
+        :param supported_contingency_types: The contingency types supported by the brokerage
+        :param message: If this function returns false, a brokerage message detailing why the order may not be submitted
+        :param supports_combo_orders: True if combo orders can be part of a set of contingent orders
+        :param supports_multiple_symbols: True if the orders in the set can be for different symbols
+        :param supports_nesting: True if an order triggered by another can trigger others in turn
+        :param maximum_order_count: The maximum number of orders in the set
+        :returns: True if the order is not a contingent order or all its contingencies are supported.
+        """
+        ...
+
+    def validate_contingent_orders_not_supported(self, order: QuantConnect.Orders.Order, message: typing.Optional[QuantConnect.Brokerages.BrokerageMessageEvent]) -> typing.Tuple[bool, QuantConnect.Brokerages.BrokerageMessageEvent]:
+        """
+        Rejects contingent orders (OCO, OTO, OUO, brackets), for the brokerage models of brokerages which don't support them
+        
+        :param order: The order to validate
+        :param message: If this function returns false, a brokerage message detailing why the order may not be submitted
+        :returns: False if the order is a contingent order.
+        """
+        ...
+
 
 class NewBrokerageOrderNotificationEventArgs(System.Object):
     """Event arguments class for the IBrokerage.new_brokerage_order_notification event"""
@@ -3364,6 +3393,32 @@ class dYdXBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
         ...
 
 
+class QuantBridgeBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
+    """Provides Bloomberg EMSX (Quant Bridge) specific properties."""
+
+    def __init__(self, account_type: QuantConnect.AccountType = ...) -> None:
+        """
+        Initializes a new instance of the QuantBridgeBrokerageModel class.
+        
+        :param account_type: Cash or Margin
+        """
+        ...
+
+    def can_submit_order(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, message: typing.Optional[QuantConnect.Brokerages.BrokerageMessageEvent]) -> typing.Tuple[bool, QuantConnect.Brokerages.BrokerageMessageEvent]:
+        """
+        Returns true if the brokerage could accept this order.
+        
+        :param security: The security of the order
+        :param order: The order to be processed
+        :param message: If this function returns false, a brokerage message detailing why the order may not be submitted
+        """
+        ...
+
+    def can_update_order(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, request: QuantConnect.Orders.UpdateOrderRequest, message: typing.Optional[QuantConnect.Brokerages.BrokerageMessageEvent]) -> typing.Tuple[bool, QuantConnect.Brokerages.BrokerageMessageEvent]:
+        """Quant Bridge does not allow modifying live orders; the EMSX brokerage rejects updates."""
+        ...
+
+
 class BrokerageFactoryAttribute(System.Attribute):
     """Represents the brokerage factory type required to load a data queue handler"""
 
@@ -3697,22 +3752,28 @@ class BrokerageName(IntEnum):
     Alternate naming for default brokerage
     """
 
-    INTERACTIVE_BROKERS_BROKERAGE = 2
+    QUANTCONNECT_BROKERAGE = ...
+    """
+    Transaction and submit/execution rules will be the default as initialized
+    Alternate naming for default brokerage, QUANTCONNECT_BROKERAGE in Python
+    """
+
+    INTERACTIVE_BROKERS_BROKERAGE = 3
     """Transaction and submit/execution rules will use interactive brokers models"""
 
-    TRADIER_BROKERAGE = 3
+    TRADIER_BROKERAGE = 4
     """Transaction and submit/execution rules will use tradier models"""
 
-    OANDA_BROKERAGE = 4
+    OANDA_BROKERAGE = 5
     """Transaction and submit/execution rules will use oanda models"""
 
-    FXCM_BROKERAGE = 5
+    FXCM_BROKERAGE = 6
     """Transaction and submit/execution rules will use fxcm models"""
 
-    BITFINEX = 6
+    BITFINEX = 7
     """Transaction and submit/execution rules will use bitfinex models"""
 
-    BINANCE = 7
+    BINANCE = 8
     """Transaction and submit/execution rules will use binance models"""
 
     GDAX = 12
@@ -3723,95 +3784,103 @@ class BrokerageName(IntEnum):
     GDAX brokerage name is deprecated. Use Coinbase instead.
     """
 
-    ALPACA = 9
+    ALPACA = 10
     """Transaction and submit/execution rules will use alpaca models"""
 
-    ALPHA_STREAMS = 10
+    ALPHA_STREAMS = 11
     """Transaction and submit/execution rules will use AlphaStream models"""
 
-    ZERODHA = 11
+    ZERODHA = 12
     """Transaction and submit/execution rules will use Zerodha models"""
 
-    SAMCO = 12
+    SAMCO = 13
     """Transaction and submit/execution rules will use Samco models"""
 
-    ATREYU = 13
+    ATREYU = 14
     """Transaction and submit/execution rules will use atreyu models"""
 
-    TRADING_TECHNOLOGIES = 14
+    TRADING_TECHNOLOGIES = 15
     """Transaction and submit/execution rules will use TradingTechnologies models"""
 
-    KRAKEN = 15
+    KRAKEN = 16
     """Transaction and submit/execution rules will use Kraken models"""
 
-    FTX = 16
+    FTX = 17
     """Transaction and submit/execution rules will use ftx models"""
 
-    FTXUS = 17
+    FTXUS = 18
     """Transaction and submit/execution rules will use ftx us models"""
 
-    EXANTE = 18
+    EXANTE = 19
     """Transaction and submit/execution rules will use Exante models"""
 
-    BINANCE_US = 19
+    BINANCE_US = 20
     """Transaction and submit/execution rules will use Binance.US models"""
 
-    WOLVERINE = 20
+    WOLVERINE = 21
     """Transaction and submit/execution rules will use Wolverine models"""
 
-    TD_AMERITRADE = 21
+    TD_AMERITRADE = 22
     """Transaction and submit/execution rules will use TDameritrade models"""
 
-    BINANCE_FUTURES = 22
+    BINANCE_FUTURES = 23
     """Binance Futures USDⓈ-Margined contracts are settled and collateralized in their quote cryptocurrency, USDT or BUSD"""
 
-    BINANCE_COIN_FUTURES = 23
+    BINANCE_COIN_FUTURES = 24
     """Binance Futures COIN-Margined contracts are settled and collateralized in their based cryptocurrency."""
 
-    RBI = 24
+    RBI = 25
     """Transaction and submit/execution rules will use RBI models"""
 
-    BYBIT = 25
+    BYBIT = 26
     """Transaction and submit/execution rules will use Bybit models"""
 
-    EZE = 26
+    EZE = 27
     """Transaction and submit/execution rules will use Eze models"""
 
-    AXOS = 27
+    AXOS = 28
     """Transaction and submit/execution rules will use Axos models"""
 
-    COINBASE = 28
+    COINBASE = 29
     """Transaction and submit/execution rules will use Coinbase broker's model"""
 
-    TRADE_STATION = 29
+    TRADE_STATION = 30
     """Transaction and submit/execution rules will use TradeStation models"""
 
-    TERMINAL_LINK = 30
-    """Transaction and submit/execution rules will use Terminal link models"""
+    TERMINAL_LINK = 31
+    """
+    Transaction and submit/execution rules will use Terminal link models
+    
+    
+    TerminalLink brokerage name is deprecated. Use QuantBridge instead.
+    """
 
-    CHARLES_SCHWAB = 31
+    CHARLES_SCHWAB = 32
     """Transaction and submit/execution rules will use Charles Schwab models"""
 
-    TASTYTRADE = 32
+    TASTYTRADE = 33
     """Transaction and submit/execution rules will use Tastytrade models"""
 
-    INTERACTIVE_BROKERS_FIX = 33
+    INTERACTIVE_BROKERS_FIX = 34
     """Transaction and submit/execution rules will use interactive brokers Fix models"""
 
-    DYDX = 34
+    DYDX = 35
     """Transaction and submit/execution rules will use dYdX models"""
 
-    WEBULL = 35
+    WEBULL = 36
     """Transaction and submit/execution rules will use Webull models"""
 
-    PUBLIC = 36
+    PUBLIC = 37
     """Transaction and submit/execution rules will use Public.com models"""
 
-    BLOOMBERG_FIX = 37
+    BLOOMBERG_FIX = 38
     """Transaction and submit/execution rules will use bloomberg fix models"""
 
-    CLEAR_STREET = 38
+    CLEAR_STREET = 39
     """Transaction and submit/execution rules will use Clear Street models"""
+
+    QUANT_BRIDGE = 40
+    """Transaction and submit/execution rules will use Quant Bridge models"""
 
 
 class WolverineBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
@@ -3859,8 +3928,13 @@ class WolverineBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
         ...
 
 
-class TerminalLinkBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
-    """Provides Bloomberg EMSX (TerminalLink) specific properties."""
+class TerminalLinkBrokerageModel(QuantConnect.Brokerages.QuantBridgeBrokerageModel):
+    """
+    Provides Bloomberg EMSX (TerminalLink) specific properties.
+    
+    
+    TerminalLinkBrokerageModel is deprecated. Use QuantBridgeBrokerageModel instead.
+    """
 
     def __init__(self, account_type: QuantConnect.AccountType = ...) -> None:
         """
@@ -3868,20 +3942,6 @@ class TerminalLinkBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
         
         :param account_type: Cash or Margin
         """
-        ...
-
-    def can_submit_order(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, message: typing.Optional[QuantConnect.Brokerages.BrokerageMessageEvent]) -> typing.Tuple[bool, QuantConnect.Brokerages.BrokerageMessageEvent]:
-        """
-        Returns true if the brokerage could accept this order.
-        
-        :param security: The security of the order
-        :param order: The order to be processed
-        :param message: If this function returns false, a brokerage message detailing why the order may not be submitted
-        """
-        ...
-
-    def can_update_order(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, request: QuantConnect.Orders.UpdateOrderRequest, message: typing.Optional[QuantConnect.Brokerages.BrokerageMessageEvent]) -> typing.Tuple[bool, QuantConnect.Brokerages.BrokerageMessageEvent]:
-        """TerminalLink does not allow modifying live orders; the EMSX brokerage rejects updates."""
         ...
 
 

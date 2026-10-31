@@ -31,8 +31,9 @@ class SSOMode(object):
     OFF = "off"
     OPTIONAL = "optional"
     REQUIRED = "required"
+    REQUIRED_STRICT = "required_strict"
 
-    allowable_values = [OFF, OPTIONAL, REQUIRED]  # noqa: E501
+    allowable_values = [OFF, OPTIONAL, REQUIRED, REQUIRED_STRICT]  # noqa: E501
 
     """
     Attributes:

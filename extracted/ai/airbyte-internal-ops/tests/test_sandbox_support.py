@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pytest
 
+from airbyte_ops_mcp.cli.app import app
 from airbyte_ops_mcp.regression_tests import sandbox_support
 from airbyte_ops_mcp.regression_tests.sandbox_support import (
     SandboxDiscovery,
@@ -546,9 +547,24 @@ def test_a_definite_gap_wins_over_an_unreadable_page_size(discovery):
     assert report.result == "unsupported"
 
 
-def test_a_host_placeholder_resolves_from_the_spec_default(discovery):
+@pytest.mark.parametrize(
+    "url_base,result,provider",
+    [
+        (
+            "{{ config.get('api_url', 'https://api.github.com/') }}",
+            "supported",
+            "github",
+        ),
+        # The placeholder still resolves, but the streams call a host github
+        # does not serve.
+        ("https://slack.com/api/", "unsupported", None),
+    ],
+)
+def test_a_host_placeholder_resolves_from_the_spec_default(
+    discovery, url_base, result, provider
+):
     manifest = {
-        **_manifest(_stream("channels", "conversations.list")),
+        **_manifest(_stream("channels", "conversations.list", url_base=url_base)),
         "spec": {
             "connection_specification": {
                 "properties": {
@@ -565,7 +581,9 @@ def test_a_host_placeholder_resolves_from_the_spec_default(discovery):
         host_only=True,
     )
 
-    assert (report.result, report.provider) == ("supported", "github")
+    assert (report.result, report.provider) == (result, provider)
+    # Matched on the request host, not through a fallback.
+    assert report.warnings == []
 
 
 def _oauth(endpoint: str) -> dict:
@@ -1282,3 +1300,364 @@ def test_a_url_base_reading_the_whole_config_is_unknown(discovery, url_base, con
 
     assert report.result == "unknown"
     assert any("has no static host" in reason for reason in report.reasons)
+
+
+# --- Host-only: the oncall shadow gate's "has a twin" question -------------
+
+REPORT_KEYS = {"connector", "result", "provider", "operations", "reasons", "warnings"}
+# A youtube_analytics-like twin that also lists a shared token host, and a
+# later twin: the shape that made host-only claim every Google connector.
+SHARED_HOST_DISCOVERY = {
+    "providers": {
+        "providers": [
+            {"id": "reports", "hosts": ["reports.example.com", "oauth2.example.com"]},
+            {"id": "api", "hosts": ["api.example.com"]},
+            {"id": "zendesk", "hosts": ["example.zendesk.com"]},
+        ]
+    }
+}
+
+
+def _host_stream(name: str, url_base: str, **requester: object) -> dict:
+    return _stream(name, "items", url_base=url_base, **requester)
+
+
+def _hosts(*hosts: str) -> dict:
+    return {"data": {"allowedHosts": {"hosts": list(hosts)}, "connectorSubtype": "api"}}
+
+
+def _streams_manifest(*streams: dict) -> dict:
+    return {**_manifest(streams[0]), "streams": list(streams)}
+
+
+def _write_connector(
+    directory: Path, hosts: list[str], manifest: dict | None = None
+) -> Path:
+    directory.mkdir(parents=True)
+    metadata = {
+        "data": {
+            "dockerRepository": f"airbyte/{directory.name}",
+            "connectorSubtype": "api",
+            "allowedHosts": {"hosts": hosts},
+        }
+    }
+    (directory / "metadata.yaml").write_text(json.dumps(metadata))
+    if manifest is not None:
+        (directory / "manifest.yaml").write_text(json.dumps(manifest))
+    return directory
+
+
+def _run_cli(*tokens: str) -> int:
+    """Run the real `airbyte-ops` app; its exit code."""
+    try:
+        app(
+            tokens=["cloud", "connector", "sandbox-support", *tokens],
+            exit_on_error=False,
+        )
+    except SystemExit as exc:
+        return int(exc.code or 0)
+    return 0
+
+
+def _cli_report(capsys: pytest.CaptureFixture[str], *tokens: str) -> dict:
+    """The CLI's report, checked against the contract the oncall gate reads."""
+    assert _run_cli(*tokens) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert set(report) == REPORT_KEYS
+    assert report["operations"] == []
+    return report
+
+
+@pytest.mark.parametrize(
+    "hosts,manifest,result,provider",
+    [
+        (["slack.com"], None, "supported", "slack"),
+        (["files.example.com"], None, "unsupported", None),
+        # Only a placeholder with no value: never a match.
+        (["${api_url}"], None, "unknown", None),
+        (
+            ["${api_url}"],
+            {
+                **_manifest(_stream("channels", "conversations.list")),
+                "spec": _spec(api_url={"type": "string"}),
+            },
+            "unknown",
+            None,
+        ),
+        (["${domain}", "auth.example.com"], None, "unknown", None),
+        # `${label}` matches a twin host on its own, without a bare domain.
+        (["${subdomain}.zendesk.com"], None, "supported", "zendesk"),
+        (
+            ["${subdomain}.zendesk.com", "zendesk.com"],
+            _manifest(
+                _host_stream(
+                    "tickets", "https://{{ config['subdomain'] }}.zendesk.com/api/v2/"
+                )
+            ),
+            "supported",
+            "zendesk",
+        ),
+    ],
+)
+def test_the_host_only_cli_prints_the_gate_contract(
+    discovery, tmp_path, capsys, hosts, manifest, result, provider
+):
+    discovery(
+        {
+            "providers": {
+                "providers": [
+                    *DISCOVERY["providers"]["providers"],
+                    {"id": "zendesk", "hosts": ["example.zendesk.com"]},
+                ]
+            }
+        }
+    )
+    connector = _write_connector(tmp_path / "source-x", hosts, manifest)
+
+    report = _cli_report(
+        capsys,
+        "--connector-name",
+        "source-x",
+        "--connector-dir",
+        str(connector),
+        "--host-only",
+    )
+
+    assert (report["result"], report["provider"]) == (result, provider)
+    assert report["connector"] == "source-x"
+
+
+def test_a_placeholder_only_host_yields_no_pattern():
+    assert sandbox_support._host_pattern("${api_url}") is None
+
+
+@pytest.mark.parametrize(
+    "option", [["--streams", "x"], ["--streams", ""], ["--dataset-needs", "x"]]
+)
+def test_host_only_refuses_stream_and_dataset_options(capsys, option):
+    assert _run_cli("--connector-name", "source-x", "--host-only", *option) != 0
+    assert capsys.readouterr().out == ""
+
+
+def test_a_failed_host_only_lookup_is_a_report_the_gate_can_tell_apart(
+    monkeypatch, tmp_path, capsys
+):
+    monkeypatch.setenv("PATH", str(tmp_path))
+
+    report = _cli_report(
+        capsys,
+        "--connector-name",
+        "source-example",
+        "--connector-dir",
+        str(CONNECTOR_DIR),
+        "--host-only",
+    )
+
+    assert report["result"] == "unknown"
+    assert report["reasons"][0].startswith("check could not run: ")
+
+
+def _host_only(discovery, metadata: dict, manifest: dict | None, **kwargs):
+    return check_sandbox_support(
+        metadata, manifest, discovery(SHARED_HOST_DISCOVERY), host_only=True, **kwargs
+    )
+
+
+def test_a_twin_serving_only_the_token_endpoint_does_not_match(discovery):
+    stream = _host_stream(
+        "sheets",
+        "https://sheets.example.com/v4/",
+        authenticator=_oauth("https://oauth2.example.com/token"),
+    )
+
+    report = _host_only(
+        discovery,
+        _hosts("oauth2.example.com", "sheets.example.com"),
+        _manifest(stream),
+    )
+
+    assert (report.result, report.provider) == ("unsupported", None)
+    assert report.reasons == [
+        "allowedHosts match reports, but no stream requests a host they serve "
+        "(requests go to sheets.example.com)"
+    ]
+
+
+def test_a_wildcard_allowed_host_needs_a_served_request_host(discovery):
+    report = _host_only(
+        discovery,
+        _hosts("*.example.com"),
+        _manifest(_host_stream("sheets", "https://sheets.example.com/v4/")),
+    )
+
+    assert (report.result, report.provider) == ("unsupported", None)
+
+
+def test_a_later_provider_serving_the_request_host_wins(discovery):
+    report = _host_only(
+        discovery,
+        _hosts("oauth2.example.com", "api.example.com"),
+        _manifest(_host_stream("items", "https://api.example.com/v1/")),
+    )
+
+    assert (report.result, report.provider) == ("supported", "api")
+
+
+@pytest.mark.parametrize(
+    "stream",
+    [
+        _host_stream("jobs", "https://reports.example.com/v1/"),
+        # Its host comes from the parent's records; the parent's host decides.
+        _download_stream(
+            DOWNLOAD_URL, _host_stream("jobs", "https://reports.example.com/v1/")
+        ),
+    ],
+)
+def test_a_twin_serving_a_request_host_matches(discovery, stream):
+    report = _host_only(discovery, _hosts("*.example.com"), _manifest(stream))
+
+    assert (report.result, report.provider, report.warnings) == (
+        "supported",
+        "reports",
+        [],
+    )
+
+
+def test_a_stream_with_its_host_in_parent_records_is_not_unread(discovery):
+    manifest = _streams_manifest(
+        _host_stream("other", "https://other.example.com/v1/"),
+        _download_stream(
+            DOWNLOAD_URL, _host_stream("jobs", "https://files.example.com/v1/")
+        ),
+    )
+
+    report = _host_only(discovery, _hosts("oauth2.example.com"), manifest)
+
+    assert report.result == "unsupported"
+
+
+def test_a_state_delegating_streams_inner_hosts_count(discovery):
+    stream = {
+        "type": "StateDelegatingStream",
+        "name": "items",
+        "full_refresh_stream": _host_stream("items", "https://other.example.com/v1/"),
+        "incremental_stream": _host_stream("items", "https://api.example.com/v1/"),
+    }
+
+    report = _host_only(discovery, _hosts("api.example.com"), _manifest(stream))
+
+    assert (report.result, report.provider) == ("supported", "api")
+
+
+UNREAD = _host_stream("unread", "{{ config['api_url'] }}")
+
+
+def test_an_unread_host_beside_unserved_ones_is_unknown(discovery):
+    manifest = _streams_manifest(
+        _host_stream("other", "https://other.example.com/v1/"), UNREAD
+    )
+
+    report = _host_only(discovery, _hosts("api.example.com"), manifest)
+
+    assert (report.result, report.provider) == ("unknown", None)
+    assert report.reasons == [
+        "allowedHosts match api, but no stream requests a host they serve "
+        "(requests go to other.example.com); the host of 1 stream(s) could not "
+        "be read (unread)"
+    ]
+
+
+def test_a_served_host_wins_over_an_unread_one(discovery):
+    manifest = _streams_manifest(
+        UNREAD, _host_stream("items", "https://api.example.com/v1/")
+    )
+
+    report = _host_only(discovery, _hosts("api.example.com"), manifest)
+
+    assert (report.result, report.provider) == ("supported", "api")
+
+
+@pytest.mark.parametrize(
+    "manifest",
+    [
+        _manifest(UNREAD),
+        {"version": "6.60.5", "type": "DeclarativeSource", "streams": []},
+    ],
+)
+def test_without_a_readable_request_host_allowed_hosts_decide(discovery, manifest):
+    report = _host_only(discovery, _hosts("api.example.com"), manifest)
+
+    assert (report.result, report.provider) == ("supported", "api")
+    assert report.warnings == [
+        "no stream's request host could be read from the manifest, so the "
+        "provider was matched on allowedHosts only"
+    ]
+
+
+def test_without_a_manifest_allowed_hosts_decide_with_a_warning(discovery):
+    report = _host_only(discovery, _hosts("oauth2.example.com"), None)
+
+    assert (report.result, report.provider) == ("supported", "reports")
+    assert report.warnings == [
+        "the connector has no declarative manifest, so the provider was matched "
+        "on allowedHosts only"
+    ]
+
+
+def _dynamic_manifest(template: dict, resolver: dict) -> dict:
+    return {
+        "version": "6.60.5",
+        "type": "DeclarativeSource",
+        "dynamic_streams": [
+            {
+                "type": "DynamicDeclarativeStream",
+                "name": "sheets",
+                "stream_template": template,
+                "components_resolver": resolver,
+            }
+        ],
+    }
+
+
+def _http_resolver(url_base: str) -> dict:
+    return {
+        "type": "HttpComponentsResolver",
+        "retriever": _host_stream("ignored", url_base)["retriever"],
+        "components_mapping": [],
+    }
+
+
+CONFIG_RESOLVER = {"type": "ConfigComponentsResolver", "components_mapping": []}
+
+
+@pytest.mark.parametrize(
+    "template,resolver,result",
+    [
+        (UNREAD, _http_resolver("https://api.example.com/v1/"), "supported"),
+        (
+            _host_stream("tab", "https://api.example.com/v1/"),
+            CONFIG_RESOLVER,
+            "supported",
+        ),
+        (UNREAD, _http_resolver("https://other.example.com/v1/"), "unknown"),
+    ],
+)
+def test_dynamic_streams_request_hosts_count(discovery, template, resolver, result):
+    report = _host_only(
+        discovery, _hosts("api.example.com"), _dynamic_manifest(template, resolver)
+    )
+
+    assert report.result == result
+    if result == "unknown":
+        assert report.reasons[0].endswith("could not be read (unread)")
+
+
+def test_a_connector_without_allowed_hosts_stays_unknown(discovery):
+    manifest = _manifest(_host_stream("items", "https://api.example.com/v1/"))
+
+    report = _host_only(discovery, {"data": {}}, manifest)
+
+    assert (report.result, report.reasons) == (
+        "unknown",
+        ["metadata.yaml declares no allowedHosts"],
+    )

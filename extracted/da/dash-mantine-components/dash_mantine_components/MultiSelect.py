@@ -117,6 +117,10 @@ Keyword arguments:
 - clearSearchOnChange (boolean; optional):
     Clear search value when item is selected. Default True.
 
+- clearSectionMode (a value equal to: 'rightSection', 'both', 'clear'; optional):
+    Determines how the clear button and rightSection are rendered
+    default 'both'.
+
 - clearable (boolean; optional):
     Determines whether the clear button should be displayed in the
     right section when the component has value, `False` by default.
@@ -148,10 +152,6 @@ Keyword arguments:
 
     - offset (number; optional):
         Offset of the dropdown element, `8` by default.
-
-    - positionDependencies (list of boolean | number | string | dict | lists; optional):
-        `useEffect` dependencies to force update dropdown position,
-        `[]` by default.
 
     - keepMounted (boolean; optional):
         If set dropdown will not be unmounted from the DOM when it is
@@ -302,7 +302,7 @@ Keyword arguments:
     - arrowRadius (number; optional):
         Arrow `border-radius` in px, `0` by default.
 
-    - arrowPosition (a value equal to: 'center', 'side'; optional):
+    - arrowPosition (a value equal to: 'center', 'side', 'merge'; optional):
         Arrow position.
 
     - withinPortal (boolean; optional):
@@ -342,6 +342,23 @@ Keyword arguments:
     - withOverlay (boolean; optional):
         Determines whether the overlay should be displayed when the
         dropdown is opened, `False` by default.
+
+    - hideDetached (boolean; optional):
+        If set, the dropdown is hidden when the element is hidden with
+        styles or not visible on the screen default True.
+
+    - preventPositionChangeWhenVisible (boolean; optional):
+        If `True`, the dropdown picks its side on open (flip runs
+        once, preferring the `position` prop) and then never changes
+        side — scrolling, resizing, and content size changes will not
+        flip the dropdown. The side is recalculated fresh on the next
+        open. Does not affect the `shift` middleware. Set to `False`
+        to keep flip active and allow the dropdown to re-flip on every
+        change. default True.
+
+    - clickOutsideCapture (boolean; optional):
+        If set, outside click listeners are registered in the capture
+        phase default False.
 
     - classNames (dict; optional):
         Adds custom CSS class names to inner elements of a component.
@@ -410,6 +427,10 @@ Keyword arguments:
 
 - flex (string | number | dict; optional):
     Flex – Accepts CSS values or a dict for responsive styles.
+
+- floatingHeight (string; optional):
+    If set to `'viewport'`, the dropdown grows to fill the available
+    vertical space in the viewport. Disables the `flip` middleware.
 
 - fs (dict; optional):
     Font style – Accepts CSS values or a dict for responsive styles.
@@ -486,6 +507,13 @@ Keyword arguments:
     Maximum number of options displayed at a time, `Infinity` by
     default.
 
+- loading (boolean; optional):
+    Displays loading indicator in the left or right section default
+    False.
+
+- loadingPosition (a value equal to: 'left', 'right'; optional):
+    Position of the loading indicator default 'right'.
+
 - loading_state (dict; optional):
     Object that holds the loading state object coming from
     dash-renderer. For use with dash<3.
@@ -532,9 +560,15 @@ Keyword arguments:
     Margin inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- mie (number; optional):
+    MarginInlineEnd, theme key: theme.spacing.
+
 - mih (string | number | dict; optional):
     Minimum height – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
+
+- mis (number; optional):
+    MarginInlineStart, theme key: theme.spacing.
 
 - miw (string | number | dict; optional):
     Minimum width – Accepts theme spacing keys, CSS values, or a dict
@@ -623,6 +657,12 @@ Keyword arguments:
     kept after the browser quit. session: window.sessionStorage, data
     is cleared once the browser quit.
 
+- pie (number; optional):
+    PaddingInlineEnd, theme key: theme.spacing.
+
+- pis (number; optional):
+    PaddingInlineStart, theme key: theme.spacing.
+
 - pl (string | number | dict; optional):
     Padding left – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
@@ -668,6 +708,10 @@ Keyword arguments:
 - renderOption (boolean | number | string | dict | list; optional):
     A function to render content of the option, replaces the default
     content of the option.  See
+    https://www.dash-mantine-components.com/functions-as-props.
+
+- renderPill (boolean | number | string | dict | list; optional):
+    A function to render content of the pill.  See
     https://www.dash-mantine-components.com/functions-as-props.
 
 - required (boolean; optional):
@@ -724,6 +768,21 @@ Keyword arguments:
     - overscrollBehavior (optional):
         Defines `overscroll-behavior` of the viewport.
         https://developer.mozilla.org/en-US/docs/Web/CSS/overscroll-behavior.
+
+    - startScrollPosition (dict; optional):
+        Initial scroll position set on mount. Type: dictionary with
+        optional `x` and `y` number properties.
+
+        `startScrollPosition` is a dict with keys:
+
+        - x (number; optional)
+
+        - y (number; optional)
+
+    - verticalScrollbarPosition (a value equal to: 'left', 'right'; optional):
+        Pins the vertical scrollbar to a physical side (`left` or
+        `right`) regardless of direction. By default, the scrollbar
+        follows the inline-end edge (right in LTR, left in RTL).
 
     - hiddenFrom (string; optional):
         Breakpoint above which the component is hidden with `display:
@@ -948,6 +1007,18 @@ Keyword arguments:
         Determines whether component should be hidden in dark color
         scheme with `display: none`.
 
+    - mis (number; optional):
+        MarginInlineStart, theme key: theme.spacing.
+
+    - mie (number; optional):
+        MarginInlineEnd, theme key: theme.spacing.
+
+    - pis (number; optional):
+        PaddingInlineStart, theme key: theme.spacing.
+
+    - pie (number; optional):
+        PaddingInlineEnd, theme key: theme.spacing.
+
     - classNames (dict; optional):
         Adds custom CSS class names to inner elements of a component.
         See Styles API docs.
@@ -988,6 +1059,12 @@ Keyword arguments:
 - styles (boolean | number | string | dict | list; optional):
     Adds inline styles directly to inner elements of a component.  See
     Styles API docs.
+
+- success (a list of or a singular dash component, string or number; optional):
+    Determines whether the input should have success styles.
+
+- successProps (dict with strings as keys and values of type boolean | number | string | dict | list; optional):
+    Props passed down to the `Input.Success` component.
 
 - ta (dict; optional):
     Text align – Accepts CSS values or a dict for responsive styles.
@@ -1040,14 +1117,22 @@ Keyword arguments:
     Determines whether the input should have red border and red text
     color when the `error` prop is set, `True` by default.
 
+- withPillsReorder (boolean; optional):
+    If set, selected values can be reordered by dragging pills.
+    Disabled when `disabled` or `readOnly` is set. @,default,False.
+
 - withScrollArea (boolean; optional):
     Determines whether the options should be wrapped with
     `ScrollArea.AutoSize`, `True` by default.
 
+- withSuccessStyles (boolean; optional):
+    Determines whether the input should have green border when the
+    `success` prop is set @,default,True.
+
 - wrapperProps (dict with strings as keys and values of type boolean | number | string | dict | list; optional):
     Props passed down to the root element."""
-    _children_props: typing.List[str] = ['nothingFoundMessage', 'clearButtonProps.children', 'clearButtonProps.icon', 'label', 'description', 'error', 'leftSection', 'rightSection', 'comboboxProps.children', 'comboboxProps.middlewares.flip.boundary']
-    _base_nodes = ['nothingFoundMessage', 'label', 'description', 'error', 'leftSection', 'rightSection', 'children']
+    _children_props: typing.List[str] = ['nothingFoundMessage', 'clearButtonProps.children', 'clearButtonProps.icon', 'label', 'description', 'error', 'success', 'leftSection', 'rightSection', 'comboboxProps.children', 'comboboxProps.middlewares.flip.boundary']
+    _base_nodes = ['nothingFoundMessage', 'label', 'description', 'error', 'success', 'leftSection', 'rightSection', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'MultiSelect'
     ClearButtonProps = TypedDict(
@@ -1063,6 +1148,14 @@ Keyword arguments:
         }
     )
 
+    ScrollAreaPropsStartScrollPosition = TypedDict(
+        "ScrollAreaPropsStartScrollPosition",
+            {
+            "x": NotRequired[NumberType],
+            "y": NotRequired[NumberType]
+        }
+    )
+
     ScrollAreaProps = TypedDict(
         "ScrollAreaProps",
             {
@@ -1072,6 +1165,8 @@ Keyword arguments:
             "scrollbars": NotRequired[typing.Union[bool, Literal["x"], Literal["y"], Literal["xy"]]],
             "offsetScrollbars": NotRequired[typing.Union[bool, Literal["x"], Literal["y"], Literal["present"]]],
             "overscrollBehavior": NotRequired[typing.Union[Literal["auto"], Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["contain"], Literal["none"]]],
+            "startScrollPosition": NotRequired["ScrollAreaPropsStartScrollPosition"],
+            "verticalScrollbarPosition": NotRequired[Literal["left", "right"]],
             "hiddenFrom": NotRequired[str],
             "visibleFrom": NotRequired[str],
             "mod": NotRequired[typing.Union[str, dict, typing.Sequence[typing.Union[str, dict]]]],
@@ -1129,6 +1224,10 @@ Keyword arguments:
             "style": NotRequired[typing.Union[typing.Any]],
             "lightHidden": NotRequired[bool],
             "darkHidden": NotRequired[bool],
+            "mis": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
+            "mie": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
+            "pis": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
+            "pie": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
             "classNames": NotRequired[dict],
             "styles": NotRequired[typing.Any],
             "unstyled": NotRequired[bool],
@@ -1185,7 +1284,7 @@ Keyword arguments:
             "padding": NotRequired[typing.Union[NumberType, "ComboboxPropsMiddlewaresFlipPadding"]],
             "mainAxis": NotRequired[bool],
             "crossAxis": NotRequired[typing.Union[bool, Literal["alignment"]]],
-            "rootBoundary": NotRequired[typing.Union[Literal["viewport"], Literal["document"], "ComboboxPropsMiddlewaresFlipRootBoundary"]],
+            "rootBoundary": NotRequired[typing.Union[Literal["viewport"], Literal["layoutViewport"], Literal["document"], "ComboboxPropsMiddlewaresFlipRootBoundary"]],
             "elementContext": NotRequired[Literal["reference", "floating"]],
             "altBoundary": NotRequired[bool],
             "fallbackPlacements": NotRequired[typing.Sequence[Literal["top", "left", "bottom", "right", "top-end", "top-start", "left-end", "left-start", "bottom-end", "bottom-start", "right-end", "right-start"]]],
@@ -1216,7 +1315,6 @@ Keyword arguments:
             "readOnly": NotRequired[bool],
             "position": NotRequired[Literal["top", "left", "bottom", "right", "top-end", "top-start", "left-end", "left-start", "bottom-end", "bottom-start", "right-end", "right-start"]],
             "offset": NotRequired[typing.Union[NumberType]],
-            "positionDependencies": NotRequired[typing.Sequence[typing.Any]],
             "keepMounted": NotRequired[bool],
             "transitionProps": NotRequired["ComboboxPropsTransitionProps"],
             "width": NotRequired[typing.Union[str, NumberType]],
@@ -1225,7 +1323,7 @@ Keyword arguments:
             "arrowSize": NotRequired[NumberType],
             "arrowOffset": NotRequired[NumberType],
             "arrowRadius": NotRequired[NumberType],
-            "arrowPosition": NotRequired[Literal["center", "side"]],
+            "arrowPosition": NotRequired[Literal["center", "side", "merge"]],
             "withinPortal": NotRequired[bool],
             "portalProps": NotRequired[dict],
             "zIndex": NotRequired[typing.Union[str, NumberType]],
@@ -1236,6 +1334,9 @@ Keyword arguments:
             "floatingStrategy": NotRequired[Literal["fixed", "absolute"]],
             "overlayProps": NotRequired[dict],
             "withOverlay": NotRequired[bool],
+            "hideDetached": NotRequired[bool],
+            "preventPositionChangeWhenVisible": NotRequired[bool],
+            "clickOutsideCapture": NotRequired[bool],
             "classNames": NotRequired[dict],
             "styles": NotRequired[typing.Any],
             "unstyled": NotRequired[bool],
@@ -1272,6 +1373,9 @@ Keyword arguments:
         scrollAreaProps: typing.Optional["ScrollAreaProps"] = None,
         clearSearchOnChange: typing.Optional[bool] = None,
         openOnFocus: typing.Optional[bool] = None,
+        withPillsReorder: typing.Optional[bool] = None,
+        renderPill: typing.Optional[typing.Any] = None,
+        clearSectionMode: typing.Optional[Literal["rightSection", "both", "clear"]] = None,
         hiddenFrom: typing.Optional[str] = None,
         visibleFrom: typing.Optional[str] = None,
         mod: typing.Optional[typing.Union[str, dict, typing.Sequence[typing.Union[str, dict]]]] = None,
@@ -1329,16 +1433,22 @@ Keyword arguments:
         style: typing.Optional[typing.Any] = None,
         lightHidden: typing.Optional[bool] = None,
         darkHidden: typing.Optional[bool] = None,
+        mis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        mie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         wrapperProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
         readOnly: typing.Optional[bool] = None,
         label: typing.Optional[ComponentType] = None,
         description: typing.Optional[ComponentType] = None,
         error: typing.Optional[ComponentType] = None,
+        success: typing.Optional[ComponentType] = None,
         required: typing.Optional[bool] = None,
         withAsterisk: typing.Optional[bool] = None,
         labelProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
         descriptionProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
         errorProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
+        successProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
         inputWrapperOrder: typing.Optional[typing.Sequence[Literal["label", "description", "error", "input"]]] = None,
         leftSection: typing.Optional[ComponentType] = None,
         leftSectionWidth: typing.Optional[typing.Union[str, NumberType]] = None,
@@ -1353,10 +1463,13 @@ Keyword arguments:
         size: typing.Optional[typing.Optional[str]] = None,
         pointer: typing.Optional[bool] = None,
         withErrorStyles: typing.Optional[bool] = None,
+        withSuccessStyles: typing.Optional[bool] = None,
         placeholder: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
         inputProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
-        data: typing.Optional[typing.Sequence[typing.Union[str, typing.Dict[str, typing.Any]]]] = None,
+        loading: typing.Optional[bool] = None,
+        loadingPosition: typing.Optional[Literal["left", "right"]] = None,
+        data: typing.Optional[typing.Sequence[typing.Union[str, int, bool, typing.Dict[str, typing.Any]]]] = None,
         dropdownOpened: typing.Optional[bool] = None,
         selectFirstOptionOnChange: typing.Optional[bool] = None,
         selectFirstOptionOnDropdownOpen: typing.Optional[bool] = None,
@@ -1366,6 +1479,7 @@ Keyword arguments:
         maxDropdownHeight: typing.Optional[typing.Union[str, NumberType]] = None,
         renderOption: typing.Optional[typing.Any] = None,
         filter: typing.Optional[typing.Any] = None,
+        floatingHeight: typing.Optional[str] = None,
         classNames: typing.Optional[dict] = None,
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
@@ -1382,9 +1496,9 @@ Keyword arguments:
         persistence_type: typing.Optional[Literal["local", "session", "memory"]] = None,
         **kwargs
     ):
-        self._prop_names = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'checkIconPosition', 'className', 'classNames', 'clearButtonProps', 'clearSearchOnChange', 'clearable', 'comboboxProps', 'darkHidden', 'data', 'data-*', 'debounce', 'description', 'descriptionProps', 'disabled', 'display', 'dropdownOpened', 'error', 'errorProps', 'ff', 'filter', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'hiddenInputProps', 'hiddenInputValuesDivider', 'hidePickedOptions', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'limit', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxDropdownHeight', 'maxValues', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'n_blur', 'n_submit', 'name', 'nothingFoundMessage', 'opacity', 'openOnFocus', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'renderOption', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'scrollAreaProps', 'searchValue', 'searchable', 'selectFirstOptionOnChange', 'selectFirstOptionOnDropdownOpen', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withAlignedLabels', 'withAsterisk', 'withCheckIcon', 'withErrorStyles', 'withScrollArea', 'wrapperProps']
+        self._prop_names = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'checkIconPosition', 'className', 'classNames', 'clearButtonProps', 'clearSearchOnChange', 'clearSectionMode', 'clearable', 'comboboxProps', 'darkHidden', 'data', 'data-*', 'debounce', 'description', 'descriptionProps', 'disabled', 'display', 'dropdownOpened', 'error', 'errorProps', 'ff', 'filter', 'flex', 'floatingHeight', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'hiddenInputProps', 'hiddenInputValuesDivider', 'hidePickedOptions', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'limit', 'loading', 'loadingPosition', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxDropdownHeight', 'maxValues', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'n_blur', 'n_submit', 'name', 'nothingFoundMessage', 'opacity', 'openOnFocus', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pie', 'pis', 'pl', 'placeholder', 'pointer', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'renderOption', 'renderPill', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'scrollAreaProps', 'searchValue', 'searchable', 'selectFirstOptionOnChange', 'selectFirstOptionOnDropdownOpen', 'size', 'style', 'styles', 'success', 'successProps', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withAlignedLabels', 'withAsterisk', 'withCheckIcon', 'withErrorStyles', 'withPillsReorder', 'withScrollArea', 'withSuccessStyles', 'wrapperProps']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'checkIconPosition', 'className', 'classNames', 'clearButtonProps', 'clearSearchOnChange', 'clearable', 'comboboxProps', 'darkHidden', 'data', 'data-*', 'debounce', 'description', 'descriptionProps', 'disabled', 'display', 'dropdownOpened', 'error', 'errorProps', 'ff', 'filter', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'hiddenInputProps', 'hiddenInputValuesDivider', 'hidePickedOptions', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'limit', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxDropdownHeight', 'maxValues', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'n_blur', 'n_submit', 'name', 'nothingFoundMessage', 'opacity', 'openOnFocus', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'renderOption', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'scrollAreaProps', 'searchValue', 'searchable', 'selectFirstOptionOnChange', 'selectFirstOptionOnDropdownOpen', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withAlignedLabels', 'withAsterisk', 'withCheckIcon', 'withErrorStyles', 'withScrollArea', 'wrapperProps']
+        self.available_properties = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'checkIconPosition', 'className', 'classNames', 'clearButtonProps', 'clearSearchOnChange', 'clearSectionMode', 'clearable', 'comboboxProps', 'darkHidden', 'data', 'data-*', 'debounce', 'description', 'descriptionProps', 'disabled', 'display', 'dropdownOpened', 'error', 'errorProps', 'ff', 'filter', 'flex', 'floatingHeight', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'hiddenInputProps', 'hiddenInputValuesDivider', 'hidePickedOptions', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'limit', 'loading', 'loadingPosition', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxDropdownHeight', 'maxValues', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'n_blur', 'n_submit', 'name', 'nothingFoundMessage', 'opacity', 'openOnFocus', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pie', 'pis', 'pl', 'placeholder', 'pointer', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'renderOption', 'renderPill', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'scrollAreaProps', 'searchValue', 'searchable', 'selectFirstOptionOnChange', 'selectFirstOptionOnDropdownOpen', 'size', 'style', 'styles', 'success', 'successProps', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withAlignedLabels', 'withAsterisk', 'withCheckIcon', 'withErrorStyles', 'withPillsReorder', 'withScrollArea', 'withSuccessStyles', 'wrapperProps']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

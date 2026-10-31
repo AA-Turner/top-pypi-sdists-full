@@ -115,6 +115,7 @@ __all__ = (
     "ExporterConfigurationTypeDef",
     "GetDefaultScraperConfigurationResponseTypeDef",
     "IgnoreNearExpectedTypeDef",
+    "KafkaExporterConfigurationTypeDef",
     "LimitsPerLabelSetEntryTypeDef",
     "LimitsPerLabelSetOutputTypeDef",
     "LimitsPerLabelSetTypeDef",
@@ -390,6 +391,12 @@ class EksConfigurationTypeDef(TypedDict):
     clusterArn: str
     subnetIds: Sequence[str]
     securityGroupIds: NotRequired[Sequence[str]]
+
+
+class KafkaExporterConfigurationTypeDef(TypedDict):
+    clusterArn: str
+    topicFilter: NotRequired[str]
+    consumerGroupFilter: NotRequired[str]
 
 
 class OpenSearchExporterConfigurationTypeDef(TypedDict):
@@ -767,6 +774,7 @@ class UpdateScraperLoggingConfigurationResponseTypeDef(TypedDict):
 
 class ExporterConfigurationTypeDef(TypedDict):
     openSearchConfiguration: NotRequired[OpenSearchExporterConfigurationTypeDef]
+    kafkaConfiguration: NotRequired[KafkaExporterConfigurationTypeDef]
 
 
 class RandomCutForestConfigurationTypeDef(TypedDict):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apify
-Version: 4.1.0
+Version: 4.2.0
 Summary: Apify SDK for Python
 Keywords: apify,sdk,automation,chrome,crawlee,crawler,headless,scraper,scraping
 Author: Apify Technologies s.r.o.
@@ -15,16 +15,18 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Typing :: Typed
-Requires-Dist: apify-client[brotli]>=3.1.0,<4.0.0
-Requires-Dist: crawlee>=1.8.0,!=1.10.1,<2.0.0
+Requires-Dist: apify-client[brotli]>=3.3.0,<4.0.0
+Requires-Dist: crawlee>=1.9.1,!=1.10.1,<2.0.0
 Requires-Dist: cachetools>=5.5.0
 Requires-Dist: cryptography>=42.0.0
 Requires-Dist: impit>=0.8.0
 Requires-Dist: lazy-object-proxy>=1.11.0
 Requires-Dist: more-itertools>=10.2.0
 Requires-Dist: pydantic>=2.11.0
+Requires-Dist: pydantic-settings>=2.12.0
 Requires-Dist: typing-extensions>=4.4.0
 Requires-Dist: websockets>=14.0
 Requires-Dist: yarl>=1.18.0
@@ -270,12 +272,7 @@ The full SDK documentation lives at **[docs.apify.com/sdk/python](https://docs.a
 
 ## Contributing
 
-Bug reports, fixes, and improvements are welcome! See [CONTRIBUTING.md](./CONTRIBUTING.md) for the development setup, coding standards, testing, and release process. The project uses [uv](https://docs.astral.sh/uv/) for project management and [Poe the Poet](https://poethepoet.natn.io/) as a task runner; the typical loop is:
-
-```bash
-uv run poe install-dev   # install dev dependencies and git hooks
-uv run poe check-code    # lint, type-check, and unit tests
-```
+Bug reports, fixes, and improvements are welcome! See [CONTRIBUTING.md](./CONTRIBUTING.md) for the development setup, coding standards, testing, and release process.
 
 ## License
 

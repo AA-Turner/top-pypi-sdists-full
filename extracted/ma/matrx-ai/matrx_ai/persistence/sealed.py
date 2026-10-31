@@ -328,30 +328,55 @@ _INLINE_KEYS = ("base64_data", "base64")
 
 
 async def keep_inline_media_on_server(parts: list[dict[str, Any]] | None, ctx: Any = None) -> list[dict[str, Any]] | None:
-    """A confidential chat whose organization KEEPS content on our server (knob
-    ``chat.confidential.keep_content_on_server``): its inline attachments are stored like any
-    upload (the files service, ``save_media_envelope_async``) and the part keeps their file_id, so
-    they are allowed and kept, never refused. Every other run returns ``parts`` untouched (a
-    content-blanking confidential run stores nothing at all; a normal run uploads before sending).
+    """Every media part a run SENT as inline bytes is stored like any upload (the files service,
+    ``save_media_envelope_async``) and the saved part keeps its file_id and url. A stored media part
+    must name a url or file_id (``_StoredMediaPartBase``), and inline bytes are stripped on save, so
+    a part holding only bytes used to fail the whole message save AFTER the model answered (podcast
+    extraction from a file URL, 2026-10-30: ``DocumentMediaPart requires 'url' or 'file_id'``).
+    Internal callers build such parts (``_resolve_file_block``, face frames, any code that resolves
+    a reference to bytes itself); a client upload already carries its file_id and passes untouched.
+
+    A part that still names its source (url or file_id) is never uploaded again. A confidential
+    chat whose organization blanks content stores nothing at all, so its parts return untouched.
+    A failed upload raises: the message is not saved with a hole in it.
     """
     if ctx is None:
         from matrx_ai.context.app_context import try_get_app_context
 
         ctx = try_get_app_context()
-    if not parts or not sealed_context(ctx) or blanks_content(ctx):
+    if not parts or blanks_content(ctx):
+        return parts
+    pending = [p for p in parts if _inline_only_media(p)]
+    if not pending:
         return parts
     from matrx_ai.media.media_persistence import _ref_kind_and_feature, save_media_envelope_async
 
+    source = "confidential_inline_attachment" if sealed_context(ctx) else "inline_media_part"
     out: list[dict[str, Any]] = []
     for part in parts:
-        blob = next((part.get(k) for k in _INLINE_KEYS if isinstance(part, dict) and part.get(k)), None)
-        if not isinstance(part, dict) or part.get("type") != "media" or not isinstance(blob, str) or part.get("file_id") or part.get("url"):
+        if not _inline_only_media(part):
             out.append(part)
             continue
+        blob = next(part.get(k) for k in _INLINE_KEYS if part.get(k))
         mime = str(part.get("mime_type") or "application/octet-stream")
         _kind, feature = _ref_kind_and_feature(mime)
-        saved = await save_media_envelope_async(blob, mime, feature=feature, extra_metadata={"source": "confidential_inline_attachment"})
+        saved = await save_media_envelope_async(blob, mime, feature=feature, extra_metadata={"source": source})
         kept = {k: v for k, v in part.items() if k not in _INLINE_KEYS}
         kept.update({"origin": "matrx", "file_id": saved.file_id, "url": saved.url, "size_bytes": saved.size_bytes or part.get("size_bytes")})
         out.append(kept)
     return out
+
+
+def _inline_only_media(part: Any) -> bool:
+    """A media part carrying inline bytes and no url or file_id: the one shape persistence refuses."""
+    if not isinstance(part, dict) or part.get("type") != "media" or part.get("file_id") or part.get("url"):
+        return False
+    return any(isinstance(part.get(k), str) and part.get(k) for k in _INLINE_KEYS)
+
+
+async def stored_message_content(parts: list[Any] | None, ctx: Any = None) -> list[Any]:
+    """The one funnel from a message's storage dict to the content a row stores: inline-only media is
+    stored first (``keep_inline_media_on_server``), then every part is validated."""
+    from matrx_ai.db.message_parts import validate_message_content
+
+    return validate_message_content(await keep_inline_media_on_server(list(parts or []), ctx) or [])

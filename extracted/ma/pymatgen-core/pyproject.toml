@@ -90,10 +90,10 @@ Pypi = "https://pypi.org/project/pymatgen-core"
 abinit = ["netcdf4>=1.7.2"]
 ase = ["ase>=3.27.0"]
 matcalc = [
-    "matcalc>=0.4.0; python_version<'3.13'",
-    "matgl>=2.0.4; python_version<'3.13'",
+    "matcalc>=0.5.0; python_version<'3.13'",
+    "matgl>=3.0.0; python_version<'3.13'",
 ]
-mlp = ["matgl>=2.0.4 ; python_version<'3.13'"]
+mlp = ["matgl>=3.0.0 ; python_version<'3.13'"]
 numba = ["numba>=0.55"]
 optional = [
     "netcdf4>=1.7.2",
@@ -229,7 +229,7 @@ docstring-code-format = true
 "dev_scripts/*" = ["D"]
 
 [tool.pytest.ini_options]
-addopts = "-n auto --durations=30 --quiet -r xXs --color=yes --import-mode=importlib"
+addopts = "-n auto --dist worksteal --durations=30 --quiet -r xXs --color=yes --import-mode=importlib"
 filterwarnings = [
     # NOTE: the LAST matching option would be used
     "ignore::UserWarning",
@@ -289,14 +289,13 @@ default-groups = ["dev", "test", "lint"]
 [dependency-groups]
 dev = [
     "invoke>=2.2.0",
-    "openai>=2.2.0",
     "pre-commit>=4.2.0",
 ]
 test = [
     "pymongo>=4.10",
     "pytest>=8.3.5",
     "pytest-cov>=6.0.0",
-    "pytest-xdist>=3.0.0"
+    "pytest-xdist>=3.2.0"
 ]
 lint = [
     "mypy>=1.15.0",

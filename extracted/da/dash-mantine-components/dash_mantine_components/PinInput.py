@@ -133,6 +133,9 @@ Keyword arguments:
     Breakpoint above which the component is hidden with `display:
     none`.
 
+- hiddenInputProps (dict; optional):
+    Props passed down to the hidden input.
+
 - inputMode (a value equal to: 'none', 'text', 'tel', 'email', 'search', 'url', 'numeric', 'decimal'; optional):
     `inputmode` attribute, inferred from the `type` prop if not
     specified.
@@ -204,9 +207,15 @@ Keyword arguments:
     Margin inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- mie (number; optional):
+    MarginInlineEnd, theme key: theme.spacing.
+
 - mih (string | number | dict; optional):
     Minimum height – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
+
+- mis (number; optional):
+    MarginInlineStart, theme key: theme.spacing.
 
 - miw (string | number | dict; optional):
     Minimum width – Accepts theme spacing keys, CSS values, or a dict
@@ -283,6 +292,12 @@ Keyword arguments:
     kept after the browser quit. session: window.sessionStorage, data
     is cleared once the browser quit.
 
+- pie (number; optional):
+    PaddingInlineEnd, theme key: theme.spacing.
+
+- pis (number; optional):
+    PaddingInlineStart, theme key: theme.spacing.
+
 - pl (string | number | dict; optional):
     Padding left – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
@@ -330,6 +345,9 @@ Keyword arguments:
 - styles (boolean | number | string | dict | list; optional):
     Adds inline styles directly to inner elements of a component.  See
     Styles API docs.
+
+- success (boolean; optional):
+    Applies success styles to all inputs.
 
 - ta (dict; optional):
     Text align – Accepts CSS values or a dict for responsive styles.
@@ -396,6 +414,7 @@ Keyword arguments:
         oneTimeCode: typing.Optional[bool] = None,
         disabled: typing.Optional[bool] = None,
         error: typing.Optional[bool] = None,
+        success: typing.Optional[bool] = None,
         type: typing.Optional[Literal["number", "alphanumeric"]] = None,
         mask: typing.Optional[bool] = None,
         length: typing.Optional[NumberType] = None,
@@ -403,6 +422,7 @@ Keyword arguments:
         inputType: typing.Optional[typing.Union[Literal["number"], Literal["hidden"], Literal["text"], Literal["tel"], Literal["password"], Literal["button"], Literal["checkbox"], Literal["color"], Literal["date"], Literal["datetime-local"], Literal["email"], Literal["file"], Literal["image"], Literal["month"], Literal["radio"], Literal["range"], Literal["reset"], Literal["search"], Literal["submit"], Literal["time"], Literal["url"], Literal["week"]]] = None,
         inputMode: typing.Optional[Literal["none", "text", "tel", "email", "search", "url", "numeric", "decimal"]] = None,
         ariaLabel: typing.Optional[str] = None,
+        hiddenInputProps: typing.Optional[dict] = None,
         hiddenFrom: typing.Optional[str] = None,
         visibleFrom: typing.Optional[str] = None,
         mod: typing.Optional[typing.Union[str, dict, typing.Sequence[typing.Union[str, dict]]]] = None,
@@ -460,6 +480,10 @@ Keyword arguments:
         style: typing.Optional[typing.Any] = None,
         lightHidden: typing.Optional[bool] = None,
         darkHidden: typing.Optional[bool] = None,
+        mis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        mie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         classNames: typing.Optional[dict] = None,
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
@@ -473,9 +497,9 @@ Keyword arguments:
         persistence_type: typing.Optional[Literal["local", "session", "memory"]] = None,
         **kwargs
     ):
-        self._prop_names = ['id', 'aria-*', 'ariaLabel', 'attributes', 'autoFocus', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'disabled', 'display', 'error', 'ff', 'flex', 'form', 'fs', 'fw', 'fz', 'gap', 'h', 'hiddenFrom', 'inputMode', 'inputType', 'inset', 'left', 'length', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'manageFocus', 'mask', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'name', 'oneTimeCode', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'right', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'type', 'unstyled', 'value', 'variant', 'visibleFrom', 'w']
+        self._prop_names = ['id', 'aria-*', 'ariaLabel', 'attributes', 'autoFocus', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'disabled', 'display', 'error', 'ff', 'flex', 'form', 'fs', 'fw', 'fz', 'gap', 'h', 'hiddenFrom', 'hiddenInputProps', 'inputMode', 'inputType', 'inset', 'left', 'length', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'manageFocus', 'mask', 'maw', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'name', 'oneTimeCode', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pie', 'pis', 'pl', 'placeholder', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'right', 'size', 'style', 'styles', 'success', 'ta', 'tabIndex', 'td', 'top', 'tt', 'type', 'unstyled', 'value', 'variant', 'visibleFrom', 'w']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['id', 'aria-*', 'ariaLabel', 'attributes', 'autoFocus', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'disabled', 'display', 'error', 'ff', 'flex', 'form', 'fs', 'fw', 'fz', 'gap', 'h', 'hiddenFrom', 'inputMode', 'inputType', 'inset', 'left', 'length', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'manageFocus', 'mask', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'name', 'oneTimeCode', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'right', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'type', 'unstyled', 'value', 'variant', 'visibleFrom', 'w']
+        self.available_properties = ['id', 'aria-*', 'ariaLabel', 'attributes', 'autoFocus', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'disabled', 'display', 'error', 'ff', 'flex', 'form', 'fs', 'fw', 'fz', 'gap', 'h', 'hiddenFrom', 'hiddenInputProps', 'inputMode', 'inputType', 'inset', 'left', 'length', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'manageFocus', 'mask', 'maw', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'name', 'oneTimeCode', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pie', 'pis', 'pl', 'placeholder', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'right', 'size', 'style', 'styles', 'success', 'ta', 'tabIndex', 'td', 'top', 'tt', 'type', 'unstyled', 'value', 'variant', 'visibleFrom', 'w']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 import os
 import pathlib
 import re
-import shutil
+import tempfile
 from typing import Any, List, Optional, Tuple
 
 from anyscale.shared_anyscale_utils.util import execution_log_name
@@ -60,10 +60,28 @@ def configure_bash_preexec():
     Stores the bash-preexec support which will allow us to parse commands and submit them to anyscale backend.
     """
     dir = pathlib.Path(__file__).parent.resolve()  # noqa: A001
-    shutil.copyfile(os.path.join(dir, "bash-preexec.sh"), BASH_PREEXEC)
+    _replace_file(BASH_PREEXEC, (dir / "bash-preexec.sh").read_text())
+    _replace_file(BASH_PREEXEC_CONFIG, bashrc_preexec_content)
 
-    with open(BASH_PREEXEC_CONFIG, "w") as f:
-        f.write(bashrc_preexec_content)
+
+def _replace_file(path: str, content: str) -> None:
+    # Shells source these files while another process may be rewriting them (concurrent
+    # test processes share /tmp). Writing in place exposes an empty or partial file,
+    # and a shell that sources one loads no hooks; a rename swaps in the whole file.
+    target = pathlib.Path(path)
+    with tempfile.NamedTemporaryFile(
+        "w", dir=target.parent, prefix=f"{target.name}.", suffix=".tmp", delete=False
+    ) as f:
+        tmp_path = f.name
+        try:
+            f.write(content)
+            f.flush()
+            # tempfile creates 0600; shells running as other users must read the file.
+            os.chmod(tmp_path, 0o644)
+            os.replace(tmp_path, path)
+        except BaseException:
+            pathlib.Path(tmp_path).unlink(missing_ok=True)
+            raise
 
 
 class Command:

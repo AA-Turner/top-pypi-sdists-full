@@ -1,18 +1,19 @@
 Metadata-Version: 2.5
 Name: filelock
-Version: 4.2.4
+Version: 4.2.5
+Import-Name: filelock
 Summary: A platform independent file lock.
+Project-URL: Changelog, https://py-filelock.readthedocs.io/en/latest/changelog.html
 Project-URL: Documentation, https://py-filelock.readthedocs.io
-Project-URL: Homepage, https://github.com/tox-dev/py-filelock
-Project-URL: Source, https://github.com/tox-dev/py-filelock
-Project-URL: Tracker, https://github.com/tox-dev/py-filelock/issues
+Project-URL: Homepage, https://github.com/tox-dev/filelock
+Project-URL: Source, https://github.com/tox-dev/filelock
+Project-URL: Tracker, https://github.com/tox-dev/filelock/issues
 Maintainer-email: Bernát Gábor <gaborjbernat@gmail.com>
 License-Expression: MIT
 License-File: LICENSE
-Keywords: application,cache,directory,log,user
+Keywords: file,lock,synchronization
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
@@ -21,7 +22,6 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
-Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: System
 Requires-Python: >=3.11

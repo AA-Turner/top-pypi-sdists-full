@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: mail-parser
-Version: 4.9.0
+Version: 4.10.0
 Summary: A tool that parses emails by enhancing the Python standard library, extracting all details into a comprehensive object.
-Project-URL: Homepage, https://github.com/SpamScope/mail-parser
+Project-URL: Homepage, https://spamscope.ai/en/
 Project-URL: Source, https://github.com/SpamScope/mail-parser
 Project-URL: Issues, https://github.com/SpamScope/mail-parser/issues
 Project-URL: Changelog, https://github.com/SpamScope/mail-parser/releases
@@ -37,6 +37,8 @@ Description-Content-Type: text/markdown
 ![SpamScope](https://raw.githubusercontent.com/SpamScope/spamscope/develop/docs/logo/spamscope.png)
 
 # mail-parser
+
+**Project website:** [spamscope.ai/en/](https://spamscope.ai/en/)
 
 mail-parser is a **production-grade, RFC-compliant email parsing library** that goes far beyond a
 simple wrapper for Python's [email module](https://docs.python.org/2/library/email.message.html).

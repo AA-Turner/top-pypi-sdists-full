@@ -32,7 +32,7 @@ mod channel_close_semantics_tests;
 #[cfg(test)]
 mod channel_tests;
 #[cfg(test)]
-mod common_tests;
+pub(crate) mod common_tests;
 #[cfg(test)]
 mod concurrent_close_tests;
 #[cfg(test)]
@@ -49,6 +49,8 @@ mod nat_keepalive_tests;
 mod network_monitor_config_tests;
 #[cfg(all(test, feature = "python-support"))]
 mod operational_diagnostics_tests;
+#[cfg(test)]
+mod port_forward_server_tests;
 #[cfg(test)]
 mod protocol_tests;
 #[cfg(test)]

@@ -45,8 +45,8 @@ std::string_view StepKindName(StepKind kind) {
       return "skip";
     case StepKind::kWait:
       return "wait";
-    case StepKind::kDrain:
-      return "drain";
+    case StepKind::kClose:
+      return "close";
     case StepKind::kCancel:
       return "cancel";
     case StepKind::kAbort:
@@ -105,8 +105,17 @@ std::vector<RefId> FlowGraph::ValueRefs(RefId ref) const {
       Push(found, read);
     }
   }
+  if (one.kind == RefKind::kBound &&
+      (one.role == "scope-input" || one.role == "joined-value")) {
+    Push(found, one.source);
+  }
   if (one.kind == RefKind::kDerived && one.stage.expr != kNone) {
     for (const RefId read : exprs[one.stage.expr].refs) {
+      Push(found, read);
+    }
+  }
+  if (one.kind == RefKind::kDerived && one.stage.parallel_expression != kNone) {
+    for (const RefId read : exprs[one.stage.parallel_expression].refs) {
       Push(found, read);
     }
   }
@@ -132,6 +141,10 @@ std::vector<RefId> FlowGraph::Sources(StepId step) const {
   const Step& one = steps[step];
   switch (one.kind) {
     case StepKind::kPipe:
+      for (const auto ref : TransferSources(one)) {
+        Push(found, ref);
+      }
+      break;
     case StepKind::kCapture:
       Push(found, one.source);
       break;
@@ -139,7 +152,7 @@ std::vector<RefId> FlowGraph::Sources(StepId step) const {
       // Values are removed where the stream is produced, with no reader slot.
       break;
     case StepKind::kWait:
-    case StepKind::kDrain:
+    case StepKind::kClose:
       // A `wait first of` / `wait all of` reads one outcome per subject, and
       // each is a reader of whatever produces it: counted here, or the second
       // one is told the stream has more readers than the plan accounted for.
@@ -178,6 +191,7 @@ std::vector<RefId> FlowGraph::ValueSources(StepId step) const {
   add(one.code);
   add(one.message);
   add(one.condition);
+  add(one.parallel_expression);
   // What a `log`/`logf` prints. Not `message`: a log keeps its arguments in its
   // own tail, so a `logf info "took %s" started` read nothing as far as the
   // analysis could see and the stream it named got no reader slot.
@@ -191,7 +205,24 @@ std::vector<RefId> FlowGraph::Destinations(StepId step) const {
   std::vector<RefId> found;
   const Step& one = steps[step];
   if (one.kind == StepKind::kPipe) {
-    Push(found, one.destination);
+    const auto targets = TransferTargets(one);
+    std::vector<RefId> pending(targets.begin(), targets.end());
+    Push(pending, one.sink);
+    while (!pending.empty()) {
+      const auto ref = pending.back();
+      pending.pop_back();
+      if (ref == kNone ||
+          std::find(found.begin(), found.end(), ref) != found.end()) {
+        continue;
+      }
+      Push(found, ref);
+      if (refs[ref].kind == RefKind::kSink) {
+        Push(pending, refs[ref].subject);
+        for (const auto destination : refs[ref].sources) {
+          Push(pending, destination);
+        }
+      }
+    }
   }
   return found;
 }
@@ -225,7 +256,7 @@ std::vector<RefId> FlowGraph::Observed(StepId step) const {
   std::vector<RefId> found;
   const Step& one = steps[step];
   if (one.race ||
-      (one.kind != StepKind::kWait && one.kind != StepKind::kDrain)) {
+      (one.kind != StepKind::kWait && one.kind != StepKind::kClose)) {
     return found;
   }
   // A barrier on a node watches it without writing it: the node still has to be
@@ -392,6 +423,9 @@ Analysis Analyse(const FlowGraph& flow, BodyId body) {
       return;
     }
     own(ref);
+    if (flow.refs[ref].owner == body) {
+      ++analysis.value_consumers[ref];
+    }
     if (valued.insert(ref).second) {
       note(ref);
     }

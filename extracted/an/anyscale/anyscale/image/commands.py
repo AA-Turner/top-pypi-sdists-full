@@ -218,3 +218,35 @@ def archive(
     Archived images can still be viewed using `include_archived=True` in list().
     """
     return _private_sdk.archive(name=name, cloud_id=cloud_id)  # type: ignore
+
+
+_UNARCHIVE_EXAMPLE = """
+import anyscale
+
+anyscale.image.unarchive(name="my-old-image")
+"""
+
+_UNARCHIVE_ARG_DOCSTRINGS = {
+    "name": "Name of the image to unarchive. A version tag (e.g., 'name:version') is ignored, since every version is unarchived.",
+}
+
+
+@sdk_command(
+    _IMAGE_SDK_SINGLETON_KEY,
+    PrivateImageSDK,
+    doc_py_example=_UNARCHIVE_EXAMPLE,
+    arg_docstrings=_UNARCHIVE_ARG_DOCSTRINGS,
+    hidden=True,
+)
+def unarchive(
+    name: str,
+    *,
+    _private_sdk: Optional[PrivateImageSDK] = None,
+) -> None:
+    """Unarchive an image and all of its versions.
+
+    Once unarchived, the image name can be used again in the organization.
+    Job queues that were sealed when the image was archived stay sealed.
+    Not supported on Azure Control Plane.
+    """
+    return _private_sdk.unarchive(name=name)  # type: ignore

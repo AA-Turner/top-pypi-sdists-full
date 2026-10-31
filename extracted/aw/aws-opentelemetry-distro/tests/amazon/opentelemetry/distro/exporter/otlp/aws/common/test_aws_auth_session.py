@@ -1,13 +1,16 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
+import os
 from unittest import TestCase
 from unittest.mock import patch
 
 import requests
 from botocore.credentials import Credentials
+from botocore.session import Session
 
 from amazon.opentelemetry.distro._utils import get_aws_session
 from amazon.opentelemetry.distro.exporter.otlp.aws.common.aws_auth_session import AwsAuthSession
+from amazon.opentelemetry.distro.exporter.otlp.aws.environment_variables import AWS_EXPORTER_SERVICE
 
 AWS_OTLP_TRACES_ENDPOINT = "https://xray.us-east-1.amazonaws.com/v1/traces"
 AWS_OTLP_LOGS_ENDPOINT = "https://logs.us-east-1.amazonaws.com/v1/logs"
@@ -20,33 +23,62 @@ mock_credentials = Credentials(access_key="test_access_key", secret_key="test_se
 
 
 class TestAwsAuthSession(TestCase):
+    def setUp(self) -> None:
+        self.environment = patch.dict(
+            os.environ,
+            {
+                "AWS_ACCESS_KEY_ID": "test-access-key",
+                "AWS_SECRET_ACCESS_KEY": "test-secret-key",
+                "AWS_EC2_METADATA_DISABLED": "true",
+                "AWS_CONFIG_FILE": os.devnull,
+                "AWS_SHARED_CREDENTIALS_FILE": os.devnull,
+            },
+            clear=True,
+        )
+        self.environment.start()
+        self.addCleanup(self.environment.stop)
+
     @patch("requests.Session.request", return_value=requests.Response())
     @patch("botocore.session.Session.get_credentials", return_value=None)
-    def test_aws_auth_session_no_credentials(self, _, __):
+    def test_aws_auth_session_no_credentials(self, _, mock_request):
         """Tests that aws_auth_session will not inject SigV4 Headers if retrieving credentials returns None."""
 
         session = AwsAuthSession("us-east-1", "xray", get_aws_session())
-        actual_headers = {"test": "test"}
 
-        session.request("POST", AWS_OTLP_TRACES_ENDPOINT, data="", headers=actual_headers)
+        session.request("POST", AWS_OTLP_TRACES_ENDPOINT, data="", headers={"test": "test"})
 
+        actual_headers = mock_request.call_args.kwargs["headers"]
         self.assertNotIn(AUTHORIZATION_HEADER, actual_headers)
         self.assertNotIn(X_AMZ_DATE_HEADER, actual_headers)
         self.assertNotIn(X_AMZ_SECURITY_TOKEN_HEADER, actual_headers)
 
     @patch("requests.Session.request", return_value=requests.Response())
     @patch("botocore.session.Session.get_credentials", return_value=mock_credentials)
-    def test_aws_auth_session(self, _, __):
+    def test_aws_auth_session(self, _, mock_request):
         """Tests that aws_auth_session will inject SigV4 Headers if botocore is installed."""
 
         session = AwsAuthSession("us-east-1", "xray", get_aws_session())
-        actual_headers = {"test": "test"}
 
-        session.request("POST", AWS_OTLP_TRACES_ENDPOINT, data="", headers=actual_headers)
+        session.request("POST", AWS_OTLP_TRACES_ENDPOINT, data="", headers={"test": "test"})
 
+        actual_headers = mock_request.call_args.kwargs["headers"]
+        self.assertEqual(actual_headers["test"], "test")
         self.assertIn(AUTHORIZATION_HEADER, actual_headers)
         self.assertIn(X_AMZ_DATE_HEADER, actual_headers)
         self.assertIn(X_AMZ_SECURITY_TOKEN_HEADER, actual_headers)
+
+    @patch("requests.Session.request", return_value=requests.Response())
+    @patch("botocore.session.Session.get_credentials", return_value=mock_credentials)
+    def test_aws_auth_session_does_not_mutate_caller_headers(self, _, __):
+        """The upstream OTLP HTTP client reuses one headers dict across requests, so signing
+        headers must not be written back into it."""
+
+        session = AwsAuthSession("us-east-1", "xray", get_aws_session())
+        caller_headers = {"test": "test"}
+
+        session.request("POST", AWS_OTLP_TRACES_ENDPOINT, data="", headers=caller_headers)
+
+        self.assertEqual(caller_headers, {"test": "test"})
 
     @patch("requests.Session.request", return_value=requests.Response())
     @patch("botocore.session.Session.get_credentials", return_value=mock_credentials)
@@ -67,7 +99,7 @@ class TestAwsAuthSession(TestCase):
         self.assertEqual(mock_get_credentials.call_count, 1)
 
     @patch("requests.Session.request", return_value=requests.Response())
-    def test_credentials_retry_after_transient_failure(self, _):
+    def test_credentials_retry_after_transient_failure(self, mock_request):
         """A transient ``get_credentials()`` failure must NOT latch the resolved
         flag. The next ``request()`` call must retry resolution. This preserves
         self-healing behavior on transient errors (e.g., IMDS timeouts) and matches
@@ -82,19 +114,16 @@ class TestAwsAuthSession(TestCase):
             session = AwsAuthSession("us-east-1", "xray", get_aws_session())
 
             # 1st request: get_credentials raises, no auth headers added.
-            headers_first = {}
-            session.request("POST", AWS_OTLP_TRACES_ENDPOINT, data="", headers=headers_first)
-            self.assertNotIn(AUTHORIZATION_HEADER, headers_first)
+            session.request("POST", AWS_OTLP_TRACES_ENDPOINT, data="", headers={})
+            self.assertNotIn(AUTHORIZATION_HEADER, mock_request.call_args.kwargs["headers"])
 
             # 2nd request: get_credentials succeeds, auth headers must appear.
-            headers_second = {}
-            session.request("POST", AWS_OTLP_TRACES_ENDPOINT, data="", headers=headers_second)
-            self.assertIn(AUTHORIZATION_HEADER, headers_second)
+            session.request("POST", AWS_OTLP_TRACES_ENDPOINT, data="", headers={})
+            self.assertIn(AUTHORIZATION_HEADER, mock_request.call_args.kwargs["headers"])
 
             # 3rd request: cached credentials reused, no further get_credentials calls.
-            headers_third = {}
-            session.request("POST", AWS_OTLP_TRACES_ENDPOINT, data="", headers=headers_third)
-            self.assertIn(AUTHORIZATION_HEADER, headers_third)
+            session.request("POST", AWS_OTLP_TRACES_ENDPOINT, data="", headers={})
+            self.assertIn(AUTHORIZATION_HEADER, mock_request.call_args.kwargs["headers"])
 
             # Two resolution attempts: one failed, one succeeded; third request reuses cache.
             self.assertEqual(mock_get_credentials.call_count, 2)
@@ -135,6 +164,30 @@ class TestAwsAuthSession(TestCase):
         self.assertIn("Failed to load AWS Credentials", log_ctx.output[0])
 
     @patch("requests.Session.request", return_value=requests.Response())
+    def test_credentials_retry_after_none_result(self, mock_request):
+        """A ``None`` result from ``get_credentials()`` must NOT latch the resolved
+        flag either. botocore's IMDS provider returns ``None`` instead of raising when
+        the metadata service times out, so a single failed lookup would otherwise leave
+        every later export unsigned (HTTP 403) for the life of the process.
+        """
+        with patch(
+            "botocore.session.Session.get_credentials",
+            side_effect=[None, mock_credentials, mock_credentials],
+        ) as mock_get_credentials:
+            session = AwsAuthSession("us-east-1", "xray", get_aws_session())
+
+            session.request("POST", AWS_OTLP_TRACES_ENDPOINT, data="", headers={})
+            self.assertNotIn(AUTHORIZATION_HEADER, mock_request.call_args.kwargs["headers"])
+
+            session.request("POST", AWS_OTLP_TRACES_ENDPOINT, data="", headers={})
+            self.assertIn(AUTHORIZATION_HEADER, mock_request.call_args.kwargs["headers"])
+
+            # Once resolved, the cached credentials are reused.
+            session.request("POST", AWS_OTLP_TRACES_ENDPOINT, data="", headers={})
+            self.assertIn(AUTHORIZATION_HEADER, mock_request.call_args.kwargs["headers"])
+            self.assertEqual(mock_get_credentials.call_count, 2)
+
+    @patch("requests.Session.request", return_value=requests.Response())
     @patch("botocore.session.Session.get_credentials", return_value=mock_credentials)
     @patch(
         "amazon.opentelemetry.distro.exporter.otlp.aws.common.aws_auth_session"
@@ -161,32 +214,31 @@ class TestAwsAuthSession(TestCase):
         side_effect=RuntimeError("simulated patch failure"),
     )
     @patch("botocore.session.Session.get_credentials", return_value=mock_credentials)
-    def test_patch_failure_does_not_break_request(self, _, __, ___):
+    def test_patch_failure_does_not_break_request(self, _, __, mock_request):
         """If the SSL-context-rebind helper itself raises, the failure is logged
         but ``request()`` still proceeds and signs successfully. The patch is
         defensive infrastructure, not a hard precondition."""
         session = AwsAuthSession("us-east-1", "xray", get_aws_session())
-        actual_headers: dict = {}
 
-        session.request("POST", AWS_OTLP_TRACES_ENDPOINT, data="", headers=actual_headers)
+        session.request("POST", AWS_OTLP_TRACES_ENDPOINT, data="", headers={})
 
-        self.assertIn(AUTHORIZATION_HEADER, actual_headers)
+        self.assertIn(AUTHORIZATION_HEADER, mock_request.call_args.kwargs["headers"])
 
     @patch("requests.Session.request", return_value=requests.Response())
     @patch("botocore.session.Session.get_credentials", return_value=mock_credentials)
-    def test_signing_failure_does_not_break_request(self, _, __):
+    def test_signing_failure_does_not_break_request(self, _, mock_request):
         """If SigV4 signing itself raises, ``request()`` still issues the
         unauthenticated request rather than crashing the caller."""
         session = AwsAuthSession("us-east-1", "xray", get_aws_session())
 
         with patch("amazon.opentelemetry.distro.exporter.otlp.aws.common.aws_auth_session.SigV4Auth") as mock_sigv4:
             mock_sigv4.return_value.add_auth.side_effect = RuntimeError("signing boom")
-            actual_headers: dict = {}
             # Should not raise
-            session.request("POST", AWS_OTLP_TRACES_ENDPOINT, data="", headers=actual_headers)
+            session.request("POST", AWS_OTLP_TRACES_ENDPOINT, data="", headers={})
 
         # No auth header because signing raised before headers could be merged.
-        self.assertNotIn(AUTHORIZATION_HEADER, actual_headers)
+        mock_request.assert_called_once()
+        self.assertNotIn(AUTHORIZATION_HEADER, mock_request.call_args.kwargs["headers"])
 
     @patch("requests.Session.request", return_value=requests.Response())
     @patch("botocore.session.Session.get_credentials", return_value=mock_credentials)
@@ -203,9 +255,129 @@ class TestAwsAuthSession(TestCase):
             session.request("POST", AWS_OTLP_TRACES_ENDPOINT, data="", headers={})
 
         threads = [Thread(target=call) for _ in range(8)]
-        for t in threads:
-            t.start()
-        for t in threads:
-            t.join()
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
 
         self.assertEqual(mock_get_credentials.call_count, 1)
+
+    # pylint: disable=protected-access
+    def test_aws_auth_session_should_use_environment_when_region_and_session_are_omitted(self):
+        for region_env in ("AWS_REGION", "AWS_DEFAULT_REGION"):
+            with self.subTest(region_env=region_env), patch.dict(os.environ, {region_env: "us-east-2"}):
+                session = AwsAuthSession(service="xray")
+                self.addCleanup(session.close)
+                self.assertEqual(session._aws_region, "us-east-2")
+                credentials = session._session.get_credentials().get_frozen_credentials()
+                self.assertEqual(credentials.access_key, "test-access-key")
+                self.assertEqual(credentials.secret_key, "test-secret-key")
+
+    def test_aws_auth_session_should_resolve_region_from_endpoint(self):
+        session = AwsAuthSession(service="xray", endpoint="https://xray.us-west-2.amazonaws.com/v1/traces")
+        self.addCleanup(session.close)
+        self.assertEqual(session._aws_region, "us-west-2")
+        self.assertIsInstance(session._session, Session)
+
+    def test_should_detect_region_from_aws_endpoint(self):
+        partitions = (
+            ("us-east-1", "amazonaws.com"),
+            ("us-west-2", "amazonaws.com"),
+            ("us-gov-west-1", "amazonaws.com"),
+            ("cn-north-1", "amazonaws.com.cn"),
+            ("eusc-de-east-1", "amazonaws.eu"),
+            ("us-iso-east-1", "c2s.ic.gov"),
+            ("us-isob-east-1", "sc2s.sgov.gov"),
+            ("eu-isoe-west-1", "cloud.adc-e.uk"),
+            ("us-isof-south-1", "csp.hci.ic.gov"),
+        )
+        hostnames = (
+            "xray.{region}.{suffix}",
+            "logs.{region}.{suffix}",
+            "monitoring.{region}.{suffix}",
+            "my-pipeline-abc123.{region}.osis.{suffix}",
+            "us-east-1.{region}.osis.{suffix}",
+            "aps-workspaces.{region}.{suffix}",
+            "custom-service.{region}.{suffix}",
+            "custom-service-fips.{region}.{suffix}",
+            "bucket.s3.{region}.{suffix}",
+            "vpce-id.custom-service.{region}.vpce.{suffix}",
+        )
+        for region, suffix in partitions:
+            for hostname in hostnames:
+                endpoint = f"https://{hostname.format(region=region, suffix=suffix)}/v1/traces"
+                with self.subTest(endpoint=endpoint):
+                    session = AwsAuthSession(service="custom-signing-service", endpoint=endpoint)
+                    self.addCleanup(session.close)
+                    self.assertEqual(session._aws_region, region)
+                    self.assertEqual(session._service, "custom-signing-service")
+
+    def test_aws_auth_session_should_use_environment_signing_service_when_arguments_are_omitted(self):
+        with patch.dict(os.environ, {AWS_EXPORTER_SERVICE: "logs", "AWS_REGION": "us-east-1"}):
+            session = AwsAuthSession()
+            self.addCleanup(session.close)
+            self.assertEqual(session._service, "logs")
+            self.assertEqual(session._aws_region, "us-east-1")
+
+    def test_aws_auth_session_should_apply_region_precedence_with_explicit_session(self):
+        session = Session()
+        session.set_config_variable("region", "eu-west-1")
+        endpoint = "https://xray.us-west-2.amazonaws.com/v1/traces"
+        test_cases = (
+            {
+                "aws_region": "us-east-1",
+                "environment": {"AWS_REGION": "us-east-2", "AWS_DEFAULT_REGION": "us-east-3"},
+                "endpoint": endpoint,
+                "expected_region": "us-east-1",
+            },
+            {
+                "aws_region": None,
+                "environment": {"AWS_REGION": "us-east-2", "AWS_DEFAULT_REGION": "us-east-3"},
+                "endpoint": endpoint,
+                "expected_region": "us-east-2",
+            },
+            {
+                "aws_region": None,
+                "environment": {"AWS_DEFAULT_REGION": "us-east-3"},
+                "endpoint": endpoint,
+                "expected_region": "us-east-3",
+            },
+            {
+                "aws_region": None,
+                "environment": {},
+                "endpoint": endpoint,
+                "expected_region": "us-west-2",
+            },
+            {
+                "aws_region": None,
+                "environment": {},
+                "endpoint": "https://collector.example.com",
+                "expected_region": "eu-west-1",
+            },
+        )
+        for test_case in test_cases:
+            with self.subTest(**test_case), patch.dict(os.environ, test_case["environment"]):
+                auth_session = AwsAuthSession(
+                    aws_region=test_case["aws_region"],
+                    service="xray",
+                    session=session,
+                    endpoint=test_case["endpoint"],
+                )
+                self.addCleanup(auth_session.close)
+                self.assertEqual(auth_session._aws_region, test_case["expected_region"])
+                self.assertIs(auth_session._session, session)
+
+    def test_aws_auth_session_should_raise_value_error_when_configuration_is_invalid(self):
+        session = Session()
+        session.set_config_variable("region", None)
+        test_cases = (
+            {},
+            {"service": "xray"},
+            {"service": "xray", "session": session, "endpoint": "https://collector.example.com"},
+        )
+        with patch(
+            "amazon.opentelemetry.distro.exporter.otlp.aws.common.aws_auth_session.get_aws_session", return_value=None
+        ):
+            for arguments in test_cases:
+                with self.subTest(**arguments), self.assertRaises(ValueError):
+                    AwsAuthSession(**arguments)

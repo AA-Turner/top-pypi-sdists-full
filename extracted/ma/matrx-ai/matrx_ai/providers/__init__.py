@@ -15,6 +15,8 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "CohereReranker": (".cohere", "CohereReranker"),
     "ElevenLabsChat": (".eleven_labs.elevenlabs_api", "ElevenLabsChat"),
     "ElevenLabsMusic": (".eleven_labs.music_api", "ElevenLabsMusic"),
+    "ElevenLabsSoundEffects": (".eleven_labs.sound_effects_api", "ElevenLabsSoundEffects"),
+    "ElevenLabsVoiceChanger": (".eleven_labs.voice_changer_api", "ElevenLabsVoiceChanger"),
     "ExtractedSpan": (".fastino", "ExtractedSpan"),
     "FastinoExtraction": (".fastino", "FastinoExtraction"),
     "GenericOpenAIChat": (".generic_openai", "GenericOpenAIChat"),
@@ -35,6 +37,7 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "MoonshotChat": (".moonshot", "MoonshotChat"),
     "OpenAIChat": (".openai", "OpenAIChat"),
     "OpenAIImageGeneration": (".openai", "OpenAIImageGeneration"),
+    "OpenAIModeration": (".openai.moderation_api", "OpenAIModeration"),
     "OpenAITranslator": (".openai", "OpenAITranslator"),
     "OpenAIVideoGeneration": (".openai", "OpenAIVideoGeneration"),
     "ReplicateImageGeneration": (".replicate", "ReplicateImageGeneration"),
@@ -72,6 +75,12 @@ def _load_provider_module(module_name: str):
             return importlib.import_module(".eleven_labs.elevenlabs_api", __name__)
         case ".eleven_labs.music_api":
             return importlib.import_module(".eleven_labs.music_api", __name__)
+        case ".eleven_labs.sound_effects_api":
+            return importlib.import_module(".eleven_labs.sound_effects_api", __name__)
+        case ".eleven_labs.voice_changer_api":
+            return importlib.import_module(".eleven_labs.voice_changer_api", __name__)
+        case ".openai.moderation_api":
+            return importlib.import_module(".openai.moderation_api", __name__)
         case ".errors":
             return importlib.import_module(".errors", __name__)
         case ".fastino":

@@ -113,6 +113,8 @@ __all__ = (
     "AgenticRetrieveBedrockRerankingModelConfigurationTypeDef",
     "AgenticRetrieveCitationReferenceTypeDef",
     "AgenticRetrieveCitationTypeDef",
+    "AgenticRetrieveCodeExecutionDetailsTypeDef",
+    "AgenticRetrieveCodeExecutionDocumentTypeDef",
     "AgenticRetrieveConfigurationTypeDef",
     "AgenticRetrieveFailureTypeDef",
     "AgenticRetrieveFullDocExpansionDetailsTypeDef",
@@ -1250,6 +1252,10 @@ class AgenticRetrieveActionDetailsTypeDef(TypedDict):
     inputQuery: AgenticRetrieveMessageContentTypeDef
     sourceRetrievers: list[AgenticRetrieveSourceRetrieverTypeDef]
 
+class AgenticRetrieveCodeExecutionDocumentTypeDef(TypedDict):
+    documentId: NotRequired[str]
+    sourceRetriever: NotRequired[AgenticRetrieveSourceRetrieverTypeDef]
+
 class AgenticRetrieveFullDocExpansionDetailsTypeDef(TypedDict):
     documentId: NotRequired[str]
     sourceRetriever: NotRequired[AgenticRetrieveSourceRetrieverTypeDef]
@@ -1789,10 +1795,8 @@ class ActionGroupInvocationInputTypeDef(TypedDict):
     requestBody: NotRequired[RequestBodyTypeDef]
     verb: NotRequired[str]
 
-class AgenticRetrieveActionTypeDef(TypedDict):
-    fullDocumentExpansion: NotRequired[AgenticRetrieveFullDocExpansionDetailsTypeDef]
-    memoryRetrieve: NotRequired[AgenticRetrieveMemoryRetrieveDetailsTypeDef]
-    retrieve: NotRequired[AgenticRetrieveActionDetailsTypeDef]
+class AgenticRetrieveCodeExecutionDetailsTypeDef(TypedDict):
+    documents: NotRequired[list[AgenticRetrieveCodeExecutionDocumentTypeDef]]
 
 AgenticRetrieveRerankingConfigurationTypeDef = TypedDict(
     "AgenticRetrieveRerankingConfigurationTypeDef",
@@ -2073,16 +2077,11 @@ class ApiInvocationInputTypeDef(TypedDict):
     parameters: NotRequired[list[ApiParameterTypeDef]]
     requestBody: NotRequired[ApiRequestBodyTypeDef]
 
-class AgenticRetrieveTraceEventAttributesTypeDef(TypedDict):
-    message: str
-    status: AgenticRetrieveStatusType
-    step: AgenticRetrieveStepType
-    actions: NotRequired[list[AgenticRetrieveActionTypeDef]]
-    appliedInstruction: NotRequired[AgenticRetrieveAppliedInstructionTypeDef]
-    failures: NotRequired[list[AgenticRetrieveFailureTypeDef]]
-    retrievalMetadata: NotRequired[list[AgenticRetrieveSourceMetadataTypeDef]]
-    retrievalResponse: NotRequired[list[AgenticRetrieveTraceResultItemTypeDef]]
-    warnings: NotRequired[list[AgenticRetrieveWarningTypeDef]]
+class AgenticRetrieveActionTypeDef(TypedDict):
+    codeExecution: NotRequired[AgenticRetrieveCodeExecutionDetailsTypeDef]
+    fullDocumentExpansion: NotRequired[AgenticRetrieveFullDocExpansionDetailsTypeDef]
+    memoryRetrieve: NotRequired[AgenticRetrieveMemoryRetrieveDetailsTypeDef]
+    retrieve: NotRequired[AgenticRetrieveActionDetailsTypeDef]
 
 class AgenticRetrieveResultEventTypeDef(TypedDict):
     results: list[AgenticRetrieveResultItemTypeDef]
@@ -2240,14 +2239,16 @@ class InvocationInputMemberTypeDef(TypedDict):
     apiInvocationInput: NotRequired[ApiInvocationInputTypeDef]
     functionInvocationInput: NotRequired[FunctionInvocationInputTypeDef]
 
-AgenticRetrieveTraceEventTypeDef = TypedDict(
-    "AgenticRetrieveTraceEventTypeDef",
-    {
-        "attributes": AgenticRetrieveTraceEventAttributesTypeDef,
-        "id": str,
-        "timestamp": int,
-    },
-)
+class AgenticRetrieveTraceEventAttributesTypeDef(TypedDict):
+    message: str
+    status: AgenticRetrieveStatusType
+    step: AgenticRetrieveStepType
+    actions: NotRequired[list[AgenticRetrieveActionTypeDef]]
+    appliedInstruction: NotRequired[AgenticRetrieveAppliedInstructionTypeDef]
+    failures: NotRequired[list[AgenticRetrieveFailureTypeDef]]
+    retrievalMetadata: NotRequired[list[AgenticRetrieveSourceMetadataTypeDef]]
+    retrievalResponse: NotRequired[list[AgenticRetrieveTraceResultItemTypeDef]]
+    warnings: NotRequired[list[AgenticRetrieveWarningTypeDef]]
 
 class AgenticRetrieveMemoryRetrievalConfigTypeDef(TypedDict):
     metadataFilters: NotRequired[Sequence[AgenticRetrieveMemoryMetadataFilterTypeDef]]
@@ -2332,19 +2333,14 @@ class ReturnControlPayloadTypeDef(TypedDict):
     invocationId: NotRequired[str]
     invocationInputs: NotRequired[list[InvocationInputMemberTypeDef]]
 
-class AgenticRetrieveStreamResponseOutputTypeDef(TypedDict):
-    accessDeniedException: NotRequired[AccessDeniedExceptionTypeDef]
-    badGatewayException: NotRequired[BadGatewayExceptionTypeDef]
-    conflictException: NotRequired[ConflictExceptionTypeDef]
-    dependencyFailedException: NotRequired[DependencyFailedExceptionTypeDef]
-    internalServerException: NotRequired[InternalServerExceptionTypeDef]
-    resourceNotFoundException: NotRequired[ResourceNotFoundExceptionTypeDef]
-    responseEvent: NotRequired[AgenticRetrieveResponseEventTypeDef]
-    result: NotRequired[AgenticRetrieveResultEventTypeDef]
-    serviceQuotaExceededException: NotRequired[ServiceQuotaExceededExceptionTypeDef]
-    throttlingException: NotRequired[ThrottlingExceptionTypeDef]
-    traceEvent: NotRequired[AgenticRetrieveTraceEventTypeDef]
-    validationException: NotRequired[ValidationExceptionTypeDef]
+AgenticRetrieveTraceEventTypeDef = TypedDict(
+    "AgenticRetrieveTraceEventTypeDef",
+    {
+        "attributes": AgenticRetrieveTraceEventAttributesTypeDef,
+        "id": str,
+        "timestamp": int,
+    },
+)
 
 class AgenticRetrieveMemoryConfigurationTypeDef(TypedDict):
     memoryId: str
@@ -2451,9 +2447,19 @@ AgentCollaboratorOutputPayloadTypeDef = TypedDict(
     },
 )
 
-class AgenticRetrieveStreamResponseTypeDef(TypedDict):
-    stream: EventStream[AgenticRetrieveStreamResponseOutputTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
+class AgenticRetrieveStreamResponseOutputTypeDef(TypedDict):
+    accessDeniedException: NotRequired[AccessDeniedExceptionTypeDef]
+    badGatewayException: NotRequired[BadGatewayExceptionTypeDef]
+    conflictException: NotRequired[ConflictExceptionTypeDef]
+    dependencyFailedException: NotRequired[DependencyFailedExceptionTypeDef]
+    internalServerException: NotRequired[InternalServerExceptionTypeDef]
+    resourceNotFoundException: NotRequired[ResourceNotFoundExceptionTypeDef]
+    responseEvent: NotRequired[AgenticRetrieveResponseEventTypeDef]
+    result: NotRequired[AgenticRetrieveResultEventTypeDef]
+    serviceQuotaExceededException: NotRequired[ServiceQuotaExceededExceptionTypeDef]
+    throttlingException: NotRequired[ThrottlingExceptionTypeDef]
+    traceEvent: NotRequired[AgenticRetrieveTraceEventTypeDef]
+    validationException: NotRequired[ValidationExceptionTypeDef]
 
 ContentBodyUnionTypeDef = Union[ContentBodyTypeDef, ContentBodyOutputTypeDef]
 
@@ -2506,6 +2512,10 @@ class AgentCollaboratorInvocationOutputTypeDef(TypedDict):
     agentCollaboratorName: NotRequired[str]
     metadata: NotRequired[MetadataTypeDef]
     output: NotRequired[AgentCollaboratorOutputPayloadTypeDef]
+
+class AgenticRetrieveStreamResponseTypeDef(TypedDict):
+    stream: EventStream[AgenticRetrieveStreamResponseOutputTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class ApiResultTypeDef(TypedDict):
     actionGroup: str

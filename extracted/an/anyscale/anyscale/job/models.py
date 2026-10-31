@@ -115,7 +115,8 @@ job_queue_spec:
         default=None,
         metadata={
             "docstring": "The name of an existing compute config that will be used to create the job queue "
-            "cluster. If not specified, the compute config of the associated job will be used.",
+            "cluster, looked up in the job's cloud. If not specified, the compute config of the "
+            "associated job will be used.",
         },
     )
 

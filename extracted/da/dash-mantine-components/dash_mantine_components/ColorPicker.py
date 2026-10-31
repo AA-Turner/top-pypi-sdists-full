@@ -126,6 +126,9 @@ Keyword arguments:
     Breakpoint above which the component is hidden with `display:
     none`.
 
+- hiddenInputProps (dict with strings as keys and values of type boolean | number | string | dict | list; optional):
+    Props passed down to the hidden input component.
+
 - hueLabel (string; optional):
     Hue slider `aria-label` prop.
 
@@ -182,9 +185,15 @@ Keyword arguments:
     Margin inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- mie (number; optional):
+    MarginInlineEnd, theme key: theme.spacing.
+
 - mih (string | number | dict; optional):
     Minimum height – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
+
+- mis (number; optional):
+    MarginInlineStart, theme key: theme.spacing.
 
 - miw (string | number | dict; optional):
     Minimum width – Accepts theme spacing keys, CSS values, or a dict
@@ -218,6 +227,10 @@ Keyword arguments:
 - my (string | number | dict; optional):
     Margin block – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
+
+- name (string; optional):
+    Hidden input `name` attribute, if not set, the input will not be
+    rendered.
 
 - opacity (string | number | dict; optional):
     Opacity – Accepts CSS values or a dict for responsive styles.
@@ -253,6 +266,12 @@ Keyword arguments:
     memory, reset on page refresh. local: window.localStorage, data is
     kept after the browser quit. session: window.sessionStorage, data
     is cleared once the browser quit.
+
+- pie (number; optional):
+    PaddingInlineEnd, theme key: theme.spacing.
+
+- pis (number; optional):
+    PaddingInlineStart, theme key: theme.spacing.
 
 - pl (string | number | dict; optional):
     Padding left – Accepts theme spacing keys, CSS values, or a dict
@@ -355,11 +374,12 @@ Keyword arguments:
 
     def __init__(
         self,
-        fullWidth: typing.Optional[bool] = None,
         focusable: typing.Optional[bool] = None,
         saturationLabel: typing.Optional[str] = None,
         hueLabel: typing.Optional[str] = None,
         alphaLabel: typing.Optional[str] = None,
+        name: typing.Optional[str] = None,
+        hiddenInputProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
         hiddenFrom: typing.Optional[str] = None,
         visibleFrom: typing.Optional[str] = None,
         mod: typing.Optional[typing.Union[str, dict, typing.Sequence[typing.Union[str, dict]]]] = None,
@@ -417,12 +437,17 @@ Keyword arguments:
         style: typing.Optional[typing.Any] = None,
         lightHidden: typing.Optional[bool] = None,
         darkHidden: typing.Optional[bool] = None,
+        mis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        mie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         value: typing.Optional[str] = None,
         format: typing.Optional[Literal["hex", "hexa", "rgba", "rgb", "hsl", "hsla"]] = None,
         withPicker: typing.Optional[bool] = None,
         swatches: typing.Optional[typing.Sequence[str]] = None,
         swatchesPerRow: typing.Optional[NumberType] = None,
         size: typing.Optional[typing.Optional[str]] = None,
+        fullWidth: typing.Optional[bool] = None,
         classNames: typing.Optional[dict] = None,
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
@@ -436,9 +461,9 @@ Keyword arguments:
         loading_state: typing.Optional["LoadingState"] = None,
         **kwargs
     ):
-        self._prop_names = ['id', 'alphaLabel', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'focusable', 'format', 'fs', 'fullWidth', 'fw', 'fz', 'h', 'hiddenFrom', 'hueLabel', 'inset', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'saturationLabel', 'size', 'style', 'styles', 'swatches', 'swatchesPerRow', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withPicker']
+        self._prop_names = ['id', 'alphaLabel', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'focusable', 'format', 'fs', 'fullWidth', 'fw', 'fz', 'h', 'hiddenFrom', 'hiddenInputProps', 'hueLabel', 'inset', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'name', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pie', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'saturationLabel', 'size', 'style', 'styles', 'swatches', 'swatchesPerRow', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withPicker']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['id', 'alphaLabel', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'focusable', 'format', 'fs', 'fullWidth', 'fw', 'fz', 'h', 'hiddenFrom', 'hueLabel', 'inset', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'saturationLabel', 'size', 'style', 'styles', 'swatches', 'swatchesPerRow', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withPicker']
+        self.available_properties = ['id', 'alphaLabel', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'focusable', 'format', 'fs', 'fullWidth', 'fw', 'fz', 'h', 'hiddenFrom', 'hiddenInputProps', 'hueLabel', 'inset', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'name', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pie', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'saturationLabel', 'size', 'style', 'styles', 'swatches', 'swatchesPerRow', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withPicker']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

@@ -979,7 +979,7 @@ class ApplicationKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'applicationKey'
-    ASPECT_INFO = {'keyForEntity': 'application', 'entityCategory': 'core', 'entityAspects': ['applicationProperties', 'applicationLineage', 'ownership', 'glossaryTerms', 'globalTags', 'domains', 'institutionalMemory', 'status', 'structuredProperties', 'forms', 'testResults', 'subTypes']}
+    ASPECT_INFO = {'keyForEntity': 'application', 'entityCategory': 'core', 'entityAspects': ['applicationProperties', 'applicationLineage', 'ownership', 'glossaryTerms', 'globalTags', 'domains', 'institutionalMemory', 'status', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'dataProducts']}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.application.ApplicationKey")
 
     def __init__(self,
@@ -8071,7 +8071,7 @@ class SiblingsClass(_Aspect):
 
 
     ASPECT_NAME = 'siblings'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.common.Siblings")
 
     def __init__(self,
@@ -12318,7 +12318,7 @@ class DataProductPropertiesClass(_Aspect):
 
 
     ASPECT_NAME = 'dataProductProperties'
-    ASPECT_INFO = {'schemaVersion': 3}
+    ASPECT_INFO = {'schemaVersion': 4}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.dataproduct.DataProductProperties")
 
     def __init__(self,
@@ -18925,7 +18925,7 @@ class AIAgentKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'aiAgentKey'
-    ASPECT_INFO = {'keyForEntity': 'aiAgent', 'entityCategory': 'core', 'entityAspects': ['aiAgentInfo', 'aiAgentDependencies', 'dataPlatformInstance', 'displayProperties', 'ownership', 'status', 'structuredProperties', 'upstreamLineage', 'globalTags', 'glossaryTerms', 'semanticContent', 'institutionalMemory', 'domains', 'incidentsSummary', 'versionProperties'], 'entityDoc': 'An AI agent with custom instructions, tools, and scoping. Supports native (DataHub-managed), system (bootstrapped), and external (cataloged) agents.'}
+    ASPECT_INFO = {'keyForEntity': 'aiAgent', 'entityCategory': 'core', 'entityAspects': ['aiAgentInfo', 'aiAgentDependencies', 'dataPlatformInstance', 'displayProperties', 'ownership', 'status', 'structuredProperties', 'upstreamLineage', 'globalTags', 'glossaryTerms', 'semanticContent', 'institutionalMemory', 'domains', 'incidentsSummary', 'versionProperties', 'dataProducts'], 'entityDoc': 'An AI agent with custom instructions, tools, and scoping. Supports native (DataHub-managed), system (bootstrapped), and external (cataloged) agents.'}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.AIAgentKey")
 
     def __init__(self,
@@ -18955,7 +18955,7 @@ class AgentSkillKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'agentSkillKey'
-    ASPECT_INFO = {'keyForEntity': 'agentSkill', 'entityCategory': 'core', 'entityAspects': ['agentSkillInfo', 'dataPlatformInstance', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'semanticContent', 'institutionalMemory', 'domains', 'structuredProperties', 'versionProperties'], 'entityDoc': 'A high-level, reusable capability bundle (prompts + tools + domain expertise) that agents adopt. Defined in git and cataloged in DataHub.'}
+    ASPECT_INFO = {'keyForEntity': 'agentSkill', 'entityCategory': 'core', 'entityAspects': ['agentSkillInfo', 'dataPlatformInstance', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'semanticContent', 'institutionalMemory', 'domains', 'structuredProperties', 'versionProperties', 'dataProducts'], 'entityDoc': 'A high-level, reusable capability bundle (prompts + tools + domain expertise) that agents adopt. Defined in git and cataloged in DataHub.'}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.AgentSkillKey")
 
     def __init__(self,
@@ -18987,7 +18987,7 @@ class ApiKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'apiKey'
-    ASPECT_INFO = {'keyForEntity': 'api', 'entityCategory': 'core', 'entityAspects': ['apiProperties', 'apiSignature', 'restApiProperties', 'subTypes', 'dataPlatformInstance', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'semanticContent', 'institutionalMemory', 'domains', 'structuredProperties', 'versionProperties'], 'entityDoc': 'A named callable with a typed input and output schema (an MCP tool, REST endpoint, gRPC method, GraphQL operation, function, etc.). Cataloged as a first-class entity for discovery and caller-to-API dependency tracking (services that compose APIs, agents that invoke them).'}
+    ASPECT_INFO = {'keyForEntity': 'api', 'entityCategory': 'core', 'entityAspects': ['apiProperties', 'apiSignature', 'restApiProperties', 'subTypes', 'dataPlatformInstance', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'semanticContent', 'institutionalMemory', 'domains', 'structuredProperties', 'versionProperties', 'dataProducts'], 'entityDoc': 'A named callable with a typed input and output schema (an MCP tool, REST endpoint, gRPC method, GraphQL operation, function, etc.). Cataloged as a first-class entity for discovery and caller-to-API dependency tracking (services that compose APIs, agents that invoke them).'}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.ApiKey")
 
     def __init__(self,
@@ -27711,7 +27711,7 @@ class RepositoryKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'repositoryKey'
-    ASPECT_INFO = {'keyForEntity': 'repository', 'entityCategory': 'core', 'entityAspects': ['repositoryProperties', 'repositorySource', 'repositoryLineage', 'subTypes', 'dataPlatformInstance', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'semanticContent', 'domains', 'institutionalMemory', 'structuredProperties', 'browsePathsV2'], 'entityDoc': 'A source-code repository (GitHub, GitLab, internal SCM, etc.). The genesis node of the software-to-data lifecycle (repo -> service -> api -> app -> dataset); produces the services, APIs, and apps cataloged elsewhere. Not tabular (no columns/queries/stats).'}
+    ASPECT_INFO = {'keyForEntity': 'repository', 'entityCategory': 'core', 'entityAspects': ['repositoryProperties', 'repositorySource', 'repositoryLineage', 'subTypes', 'dataPlatformInstance', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'semanticContent', 'domains', 'institutionalMemory', 'structuredProperties', 'browsePathsV2', 'dataProducts'], 'entityDoc': 'A source-code repository (GitHub, GitLab, internal SCM, etc.). The genesis node of the software-to-data lifecycle (repo -> service -> api -> app -> dataset); produces the services, APIs, and apps cataloged elsewhere. Not tabular (no columns/queries/stats).'}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.repository.RepositoryKey")
 
     def __init__(self,
@@ -29967,6 +29967,500 @@ class HighlightFieldOverridesClass(DictWrapper):
         self._inner_dict['replace'] = value
     
     
+class RankingBooleanMatchClass(DictWrapper):
+    """When a boolean signal is true. Unset reads the stored boolean, the same as {@code OR} of
+    {@code TRUE}. Quote {@code TRUE} and {@code FALSE} in YAML."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.search.template.RankingBooleanMatch")
+    def __init__(self,
+        values: List[Union[str, "RankingBooleanValueClass"]],
+        operator: Union[None, Union[str, "RankingBooleanOperatorClass"]]=None,
+    ):
+        super().__init__()
+        
+        self.operator = operator
+        self.values = values
+    
+    def _restore_defaults(self) -> None:
+        self.operator = self.RECORD_SCHEMA.fields_dict["operator"].default
+        self.values = list()
+    
+    
+    @property
+    def operator(self) -> Union[None, Union[str, "RankingBooleanOperatorClass"]]:
+        """Unset is {@code OR}."""
+        return self._inner_dict.get('operator')  # type: ignore
+    
+    @operator.setter
+    def operator(self, value: Union[None, Union[str, "RankingBooleanOperatorClass"]]) -> None:
+        self._inner_dict['operator'] = value
+    
+    
+    @property
+    def values(self) -> List[Union[str, "RankingBooleanValueClass"]]:
+        """At least one of {@code TRUE}, {@code FALSE}, {@code EXISTS}, or {@code NOT_EXISTS}."""
+        return self._inner_dict.get('values')  # type: ignore
+    
+    @values.setter
+    def values(self, value: List[Union[str, "RankingBooleanValueClass"]]) -> None:
+        self._inner_dict['values'] = value
+    
+    
+class RankingBooleanOperatorClass(object):
+    """How the values in a {@code booleanMatch} combine. Unset is {@code OR}."""
+    
+    OR = "OR"
+    """The signal is true when any value matches. {@code NOT_EXISTS} with {@code FALSE} is true when
+    the field is missing or false."""
+    
+    AND = "AND"
+    """The signal is true when every value matches."""
+    
+    
+    
+class RankingBooleanValueClass(object):
+    """One way a stored boolean can match. A {@code booleanMatch} lists one or more of these."""
+    
+    TRUE = "TRUE"
+    """The stored value is true. A missing field does not match."""
+    
+    FALSE = "FALSE"
+    """The stored value is false. A missing field does not match."""
+    
+    EXISTS = "EXISTS"
+    """The stored field is present, including a stored false."""
+    
+    NOT_EXISTS = "NOT_EXISTS"
+    """The stored field is missing."""
+    
+    
+    
+class RankingKeywordMatchClass(DictWrapper):
+    """When a keyword signal is true. At least one of {@code values}, {@code excludedValues}, or
+    {@code presence} is set."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.search.template.RankingKeywordMatch")
+    def __init__(self,
+        operator: Union[None, Union[str, "RankingBooleanOperatorClass"]]=None,
+        values: Union[None, List[str]]=None,
+        excludedValues: Union[None, List[str]]=None,
+        presence: Union[None, Union[str, "RankingKeywordPresenceClass"]]=None,
+    ):
+        super().__init__()
+        
+        self.operator = operator
+        self.values = values
+        self.excludedValues = excludedValues
+        self.presence = presence
+    
+    def _restore_defaults(self) -> None:
+        self.operator = self.RECORD_SCHEMA.fields_dict["operator"].default
+        self.values = self.RECORD_SCHEMA.fields_dict["values"].default
+        self.excludedValues = self.RECORD_SCHEMA.fields_dict["excludedValues"].default
+        self.presence = self.RECORD_SCHEMA.fields_dict["presence"].default
+    
+    
+    @property
+    def operator(self) -> Union[None, Union[str, "RankingBooleanOperatorClass"]]:
+        """How {@code values} combine, and how that clause combines with {@code presence}. Unset is
+    {@code OR}."""
+        return self._inner_dict.get('operator')  # type: ignore
+    
+    @operator.setter
+    def operator(self, value: Union[None, Union[str, "RankingBooleanOperatorClass"]]) -> None:
+        self._inner_dict['operator'] = value
+    
+    
+    @property
+    def values(self) -> Union[None, List[str]]:
+        """Tokens that count. At least one when set. {@code OR} matches any token. {@code AND} matches
+    every token."""
+        return self._inner_dict.get('values')  # type: ignore
+    
+    @values.setter
+    def values(self, value: Union[None, List[str]]) -> None:
+        self._inner_dict['values'] = value
+    
+    
+    @property
+    def excludedValues(self) -> Union[None, List[str]]:
+        """Tokens that do not count. At least one when set. A stored token from this list fails the
+    value clause. A token also listed in {@code values} is rejected."""
+        return self._inner_dict.get('excludedValues')  # type: ignore
+    
+    @excludedValues.setter
+    def excludedValues(self, value: Union[None, List[str]]) -> None:
+        self._inner_dict['excludedValues'] = value
+    
+    
+    @property
+    def presence(self) -> Union[None, Union[str, "RankingKeywordPresenceClass"]]:
+        """Presence clause. {@code AND} of {@code NOT_EXISTS} with either token list is rejected."""
+        return self._inner_dict.get('presence')  # type: ignore
+    
+    @presence.setter
+    def presence(self, value: Union[None, Union[str, "RankingKeywordPresenceClass"]]) -> None:
+        self._inner_dict['presence'] = value
+    
+    
+class RankingKeywordPresenceClass(object):
+    """Whether a keyword field is present. A stored token is present. A missing field or an empty list
+    is not."""
+    
+    EXISTS = "EXISTS"
+    """The field has at least one token."""
+    
+    NOT_EXISTS = "NOT_EXISTS"
+    """The field has no token."""
+    
+    
+    
+class RankingNormalizationClass(DictWrapper):
+    """Bounds and shape for one ranking signal. Only the fields for {@code type} are read."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.search.template.RankingNormalization")
+    def __init__(self,
+        type: Union[str, "RankingNormalizationTypeClass"],
+        inputMin: Union[None, float]=None,
+        inputMax: Union[None, float]=None,
+        steepness: Union[None, float]=None,
+        scale: Union[None, float]=None,
+        outputMin: Union[None, float]=None,
+        outputMax: Union[None, float]=None,
+        trueValue: Union[None, float]=None,
+        falseValue: Union[None, float]=None,
+    ):
+        super().__init__()
+        
+        self.type = type
+        self.inputMin = inputMin
+        self.inputMax = inputMax
+        self.steepness = steepness
+        self.scale = scale
+        self.outputMin = outputMin
+        self.outputMax = outputMax
+        self.trueValue = trueValue
+        self.falseValue = falseValue
+    
+    def _restore_defaults(self) -> None:
+        self.type = RankingNormalizationTypeClass.SIGMOID
+        self.inputMin = self.RECORD_SCHEMA.fields_dict["inputMin"].default
+        self.inputMax = self.RECORD_SCHEMA.fields_dict["inputMax"].default
+        self.steepness = self.RECORD_SCHEMA.fields_dict["steepness"].default
+        self.scale = self.RECORD_SCHEMA.fields_dict["scale"].default
+        self.outputMin = self.RECORD_SCHEMA.fields_dict["outputMin"].default
+        self.outputMax = self.RECORD_SCHEMA.fields_dict["outputMax"].default
+        self.trueValue = self.RECORD_SCHEMA.fields_dict["trueValue"].default
+        self.falseValue = self.RECORD_SCHEMA.fields_dict["falseValue"].default
+    
+    
+    @property
+    def type(self) -> Union[str, "RankingNormalizationTypeClass"]:
+        # No docs available.
+        return self._inner_dict.get('type')  # type: ignore
+    
+    @type.setter
+    def type(self, value: Union[str, "RankingNormalizationTypeClass"]) -> None:
+        self._inner_dict['type'] = value
+    
+    
+    @property
+    def inputMin(self) -> Union[None, float]:
+        # No docs available.
+        return self._inner_dict.get('inputMin')  # type: ignore
+    
+    @inputMin.setter
+    def inputMin(self, value: Union[None, float]) -> None:
+        self._inner_dict['inputMin'] = value
+    
+    
+    @property
+    def inputMax(self) -> Union[None, float]:
+        # No docs available.
+        return self._inner_dict.get('inputMax')  # type: ignore
+    
+    @inputMax.setter
+    def inputMax(self, value: Union[None, float]) -> None:
+        self._inner_dict['inputMax'] = value
+    
+    
+    @property
+    def steepness(self) -> Union[None, float]:
+        # No docs available.
+        return self._inner_dict.get('steepness')  # type: ignore
+    
+    @steepness.setter
+    def steepness(self, value: Union[None, float]) -> None:
+        self._inner_dict['steepness'] = value
+    
+    
+    @property
+    def scale(self) -> Union[None, float]:
+        # No docs available.
+        return self._inner_dict.get('scale')  # type: ignore
+    
+    @scale.setter
+    def scale(self, value: Union[None, float]) -> None:
+        self._inner_dict['scale'] = value
+    
+    
+    @property
+    def outputMin(self) -> Union[None, float]:
+        # No docs available.
+        return self._inner_dict.get('outputMin')  # type: ignore
+    
+    @outputMin.setter
+    def outputMin(self, value: Union[None, float]) -> None:
+        self._inner_dict['outputMin'] = value
+    
+    
+    @property
+    def outputMax(self) -> Union[None, float]:
+        # No docs available.
+        return self._inner_dict.get('outputMax')  # type: ignore
+    
+    @outputMax.setter
+    def outputMax(self, value: Union[None, float]) -> None:
+        self._inner_dict['outputMax'] = value
+    
+    
+    @property
+    def trueValue(self) -> Union[None, float]:
+        # No docs available.
+        return self._inner_dict.get('trueValue')  # type: ignore
+    
+    @trueValue.setter
+    def trueValue(self, value: Union[None, float]) -> None:
+        self._inner_dict['trueValue'] = value
+    
+    
+    @property
+    def falseValue(self) -> Union[None, float]:
+        # No docs available.
+        return self._inner_dict.get('falseValue')  # type: ignore
+    
+    @falseValue.setter
+    def falseValue(self, value: Union[None, float]) -> None:
+        self._inner_dict['falseValue'] = value
+    
+    
+class RankingNormalizationTypeClass(object):
+    """How a raw signal value becomes the number that the boost exponent is applied to."""
+    
+    SIGMOID = "SIGMOID"
+    LOG_SIGMOID = "LOG_SIGMOID"
+    LINEAR = "LINEAR"
+    LINEAR_DECAY = "LINEAR_DECAY"
+    BOOLEAN = "BOOLEAN"
+    NONE = "NONE"
+    
+    
+class RankingSignalClass(DictWrapper):
+    """One Stage 2 signal. {@code name} is the formula variable. {@code field} and {@code propertyUrn}
+    are never both set. A structured-property signal names the property definition; the index field
+    is resolved when the signal is scored."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.search.template.RankingSignal")
+    def __init__(self,
+        name: str,
+        kind: Union[str, "RankingSignalKindClass"],
+        normalization: "RankingNormalizationClass",
+        boost: float,
+        field: Union[None, str]=None,
+        valueAggregation: Union[None, Union[str, "RankingValueAggregationClass"]]=None,
+        entityTypes: Union[None, List[str]]=None,
+        excludedEntityTypes: Union[None, List[str]]=None,
+        booleanMatch: Union[None, "RankingBooleanMatchClass"]=None,
+        keywordMatch: Union[None, "RankingKeywordMatchClass"]=None,
+        propertyUrn: Union[None, str]=None,
+        tagWeights: Union[None, Dict[str, float]]=None,
+    ):
+        super().__init__()
+        
+        self.name = name
+        self.kind = kind
+        self.field = field
+        self.valueAggregation = valueAggregation
+        self.entityTypes = entityTypes
+        self.excludedEntityTypes = excludedEntityTypes
+        self.booleanMatch = booleanMatch
+        self.keywordMatch = keywordMatch
+        self.propertyUrn = propertyUrn
+        self.normalization = normalization
+        self.boost = boost
+        self.tagWeights = tagWeights
+    
+    def _restore_defaults(self) -> None:
+        self.name = str()
+        self.kind = RankingSignalKindClass.SCORE
+        self.field = self.RECORD_SCHEMA.fields_dict["field"].default
+        self.valueAggregation = self.RECORD_SCHEMA.fields_dict["valueAggregation"].default
+        self.entityTypes = self.RECORD_SCHEMA.fields_dict["entityTypes"].default
+        self.excludedEntityTypes = self.RECORD_SCHEMA.fields_dict["excludedEntityTypes"].default
+        self.booleanMatch = self.RECORD_SCHEMA.fields_dict["booleanMatch"].default
+        self.keywordMatch = self.RECORD_SCHEMA.fields_dict["keywordMatch"].default
+        self.propertyUrn = self.RECORD_SCHEMA.fields_dict["propertyUrn"].default
+        self.normalization = RankingNormalizationClass._construct_with_defaults()
+        self.boost = float()
+        self.tagWeights = self.RECORD_SCHEMA.fields_dict["tagWeights"].default
+    
+    
+    @property
+    def name(self) -> str:
+        """Formula variable. Matches {@code [A-Za-z_][A-Za-z0-9_]*}."""
+        return self._inner_dict.get('name')  # type: ignore
+    
+    @name.setter
+    def name(self, value: str) -> None:
+        self._inner_dict['name'] = value
+    
+    
+    @property
+    def kind(self) -> Union[str, "RankingSignalKindClass"]:
+        # No docs available.
+        return self._inner_dict.get('kind')  # type: ignore
+    
+    @kind.setter
+    def kind(self, value: Union[str, "RankingSignalKindClass"]) -> None:
+        self._inner_dict['kind'] = value
+    
+    
+    @property
+    def field(self) -> Union[None, str]:
+        """Index field for a field kind. Unset for score, match, penalty, tag, and structured-property
+    signals."""
+        return self._inner_dict.get('field')  # type: ignore
+    
+    @field.setter
+    def field(self, value: Union[None, str]) -> None:
+        self._inner_dict['field'] = value
+    
+    
+    @property
+    def valueAggregation(self) -> Union[None, Union[str, "RankingValueAggregationClass"]]:
+        """How a numeric field, timestamp, or structured-property signal combines multiple values.
+    Unset uses {@code MAX}. A number or structured property may set {@code MIN}, {@code SUM},
+    or {@code AVERAGE}. An age may set {@code MIN}. {@code MAX} is the newest timestamp and
+    {@code MIN} is the oldest. {@code SUM} and {@code AVERAGE} are rejected on an age."""
+        return self._inner_dict.get('valueAggregation')  # type: ignore
+    
+    @valueAggregation.setter
+    def valueAggregation(self, value: Union[None, Union[str, "RankingValueAggregationClass"]]) -> None:
+        self._inner_dict['valueAggregation'] = value
+    
+    
+    @property
+    def entityTypes(self) -> Union[None, List[str]]:
+        """Registry entity names this signal applies to. At least one when set. A document of another
+    type contributes the neutral value. Unset does not restrict the type. A name also listed in
+    {@code excludedEntityTypes} is rejected."""
+        return self._inner_dict.get('entityTypes')  # type: ignore
+    
+    @entityTypes.setter
+    def entityTypes(self, value: Union[None, List[str]]) -> None:
+        self._inner_dict['entityTypes'] = value
+    
+    
+    @property
+    def excludedEntityTypes(self) -> Union[None, List[str]]:
+        """Registry entity names this signal skips. At least one when set. A document of a listed type
+    contributes the neutral value. Unset skips nothing."""
+        return self._inner_dict.get('excludedEntityTypes')  # type: ignore
+    
+    @excludedEntityTypes.setter
+    def excludedEntityTypes(self, value: Union[None, List[str]]) -> None:
+        self._inner_dict['excludedEntityTypes'] = value
+    
+    
+    @property
+    def booleanMatch(self) -> Union[None, "RankingBooleanMatchClass"]:
+        """When a boolean signal is true. Only a {@code FIELD_BOOLEAN} signal may set this. Unset reads
+    the stored boolean."""
+        return self._inner_dict.get('booleanMatch')  # type: ignore
+    
+    @booleanMatch.setter
+    def booleanMatch(self, value: Union[None, "RankingBooleanMatchClass"]) -> None:
+        self._inner_dict['booleanMatch'] = value
+    
+    
+    @property
+    def keywordMatch(self) -> Union[None, "RankingKeywordMatchClass"]:
+        """When a keyword signal is true. Only a {@code FIELD_KEYWORD} signal may set this, and that
+    kind requires it."""
+        return self._inner_dict.get('keywordMatch')  # type: ignore
+    
+    @keywordMatch.setter
+    def keywordMatch(self, value: Union[None, "RankingKeywordMatchClass"]) -> None:
+        self._inner_dict['keywordMatch'] = value
+    
+    
+    @property
+    def propertyUrn(self) -> Union[None, str]:
+        """Structured property definition. Set only for {@code STRUCTURED_PROPERTY}."""
+        return self._inner_dict.get('propertyUrn')  # type: ignore
+    
+    @propertyUrn.setter
+    def propertyUrn(self, value: Union[None, str]) -> None:
+        self._inner_dict['propertyUrn'] = value
+    
+    
+    @property
+    def normalization(self) -> "RankingNormalizationClass":
+        # No docs available.
+        return self._inner_dict.get('normalization')  # type: ignore
+    
+    @normalization.setter
+    def normalization(self, value: "RankingNormalizationClass") -> None:
+        self._inner_dict['normalization'] = value
+    
+    
+    @property
+    def boost(self) -> float:
+        """Exponent applied to the normalized value. The result is the signal contribution."""
+        return self._inner_dict.get('boost')  # type: ignore
+    
+    @boost.setter
+    def boost(self, value: float) -> None:
+        self._inner_dict['boost'] = value
+    
+    
+    @property
+    def tagWeights(self) -> Union[None, Dict[str, float]]:
+        """Tag URN to multiplier. Empty is neutral. Set only for {@code TAG_WEIGHTS}."""
+        return self._inner_dict.get('tagWeights')  # type: ignore
+    
+    @tagWeights.setter
+    def tagWeights(self, value: Union[None, Dict[str, float]]) -> None:
+        self._inner_dict['tagWeights'] = value
+    
+    
+class RankingSignalKindClass(object):
+    """How a ranking signal reads a candidate. The value is normalized, then raised to the signal boost."""
+    
+    SCORE = "SCORE"
+    FIELD_NUMBER = "FIELD_NUMBER"
+    FIELD_BOOLEAN = "FIELD_BOOLEAN"
+    FIELD_KEYWORD = "FIELD_KEYWORD"
+    FIELD_AGE_DAYS = "FIELD_AGE_DAYS"
+    NAME_MATCH = "NAME_MATCH"
+    QUALIFIED_NAME_MATCH = "QUALIFIED_NAME_MATCH"
+    ALL_TERMS_MATCH = "ALL_TERMS_MATCH"
+    NON_PRODUCTION_NAME = "NON_PRODUCTION_NAME"
+    BACKUP_NAME = "BACKUP_NAME"
+    SYSTEM_TAG = "SYSTEM_TAG"
+    TAG_WEIGHTS = "TAG_WEIGHTS"
+    STRUCTURED_PROPERTY = "STRUCTURED_PROPERTY"
+    
+    
+class RankingValueAggregationClass(object):
+    """How a numeric ranking signal combines multiple values from one candidate."""
+    
+    MAX = "MAX"
+    MIN = "MIN"
+    SUM = "SUM"
+    AVERAGE = "AVERAGE"
+    
+    
 class SearchFieldBoostClass(DictWrapper):
     """A queried field and its boost, used by a search template's field overrides."""
     
@@ -30582,8 +31076,13 @@ class SearchTemplatePropertiesClass(_Aspect):
     replaces only the normalization fields it sets. Each non-empty {@code queryFragments}
     value adds to the root-first comma join for that hole. An empty string drops inherited
     pieces for that hole.
-    {@code routes} is replaced as a whole list: unset keeps the parent list, an empty list
-    drops it, and a non-empty list replaces it. {@code defaultRoute} is inherited on its own.
+    {@code ranking.template} unset inherits, empty drops, and a URN replaces. On an inline
+    ranking, {@code signals} follows {@code fieldFactors}: unset inherits, an empty list drops,
+    and a non-empty list replaces. {@code formula} unset inherits, and an empty string drops it.
+    A reference and any inline ranking field together are invalid. An empty {@code ranking}
+    record drops the section. {@code routes} is replaced as a whole list: unset keeps the parent
+    list, an empty list drops it, and a non-empty list replaces it. {@code defaultRoute} is
+    inherited on its own.
     Unset keeps the parent default. A record with a template replaces it. A record with no
     template clears it.
     
@@ -30606,7 +31105,7 @@ class SearchTemplatePropertiesClass(_Aspect):
 
 
     ASPECT_NAME = 'searchTemplateProperties'
-    ASPECT_INFO = {'aspectJson': True, 'schemaVersion': 2}
+    ASPECT_INFO = {'aspectJson': True, 'schemaVersion': 3}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.search.template.SearchTemplateProperties")
 
     def __init__(self,
@@ -30905,8 +31404,12 @@ class SearchTemplatePropertiesClass(_Aspect):
     
     @property
     def ranking(self) -> Union[None, "SearchTemplateRankingClass"]:
-        """Service ranking. Unset keeps the parent section. An explicit empty value drops it. OSS
-    runs {@code preset none} and {@code windowSizer fixed} only."""
+        """Service ranking. Unset keeps the parent section. An explicit empty value drops it. A
+    reference ({@code template}) or an inline signal list, never both. {@code add} and
+    {@code remove} patch the inherited signals by name and may sit beside a reference. OSS runs
+    {@code preset none} and {@code windowSizer fixed} only, and does not ship ranking signals.
+    Capability {@code rankingSignals} is required when signals or {@code ranking.template} are
+    set. Capability {@code rankingFormula} is required when {@code formula} is set."""
         return self._inner_dict.get('ranking')  # type: ignore
     
     @ranking.setter
@@ -31112,8 +31615,15 @@ class SearchTemplatePropertiesClass(_Aspect):
     
 class SearchTemplateRankingClass(DictWrapper):
     """Service ranking applied to the keyword page. An explicitly present empty value drops an
-    inherited ranking section. {@code usage}, {@code usageAndMatchTier}, and {@code tokenCurve}
-    are stored here and executed only by a deployment that advertises them."""
+    inherited ranking section. A ranking is a reference or it is inline, never both.
+    {@code template} unset inherits, empty drops, and a URN replaces. On an inline ranking,
+    {@code signals} unset inherits, an empty list drops, and a non-empty list replaces.
+    {@code add} and {@code remove} patch the inherited list by signal name and may sit beside
+    {@code template}. A non-empty {@code signals} list discards those patches. {@code formula}
+    unset inherits, and an empty string drops it. {@code preset} is an inline field.
+    {@code usage}, {@code usageAndMatchTier}, and {@code tokenCurve} are stored here and
+    executed only by a deployment that advertises them. A non-empty {@code signals} list is the
+    Java rescore."""
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.search.template.SearchTemplateRanking")
     def __init__(self,
@@ -31121,6 +31631,11 @@ class SearchTemplateRankingClass(DictWrapper):
         window: Union[None, int]=None,
         windowSizer: Union[None, str]=None,
         parameters: Union[None, Dict[str, str]]=None,
+        template: Union[None, str]=None,
+        signals: Union[None, List["RankingSignalClass"]]=None,
+        add: Union[None, List["RankingSignalClass"]]=None,
+        remove: Union[None, List[str]]=None,
+        formula: Union[None, str]=None,
     ):
         super().__init__()
         
@@ -31128,17 +31643,28 @@ class SearchTemplateRankingClass(DictWrapper):
         self.window = window
         self.windowSizer = windowSizer
         self.parameters = parameters
+        self.template = template
+        self.signals = signals
+        self.add = add
+        self.remove = remove
+        self.formula = formula
     
     def _restore_defaults(self) -> None:
         self.preset = self.RECORD_SCHEMA.fields_dict["preset"].default
         self.window = self.RECORD_SCHEMA.fields_dict["window"].default
         self.windowSizer = self.RECORD_SCHEMA.fields_dict["windowSizer"].default
         self.parameters = self.RECORD_SCHEMA.fields_dict["parameters"].default
+        self.template = self.RECORD_SCHEMA.fields_dict["template"].default
+        self.signals = self.RECORD_SCHEMA.fields_dict["signals"].default
+        self.add = self.RECORD_SCHEMA.fields_dict["add"].default
+        self.remove = self.RECORD_SCHEMA.fields_dict["remove"].default
+        self.formula = self.RECORD_SCHEMA.fields_dict["formula"].default
     
     
     @property
     def preset(self) -> Union[None, str]:
-        """Ranking formula. {@code none}, {@code usage}, or {@code usageAndMatchTier}."""
+        """Ranking preset. {@code none}, {@code usage}, or {@code usageAndMatchTier}. Unset when
+    {@code signals} is set. {@code none} means no signals and no {@code template}."""
         return self._inner_dict.get('preset')  # type: ignore
     
     @preset.setter
@@ -31148,7 +31674,7 @@ class SearchTemplateRankingClass(DictWrapper):
     
     @property
     def window(self) -> Union[None, int]:
-        """How many hits the formula reranks."""
+        """How many hits the formula reranks. Passed to {@code windowSizer}."""
         return self._inner_dict.get('window')  # type: ignore
     
     @window.setter
@@ -31174,6 +31700,62 @@ class SearchTemplateRankingClass(DictWrapper):
     @parameters.setter
     def parameters(self, value: Union[None, Dict[str, str]]) -> None:
         self._inner_dict['parameters'] = value
+    
+    
+    @property
+    def template(self) -> Union[None, str]:
+        """Search-template URN whose inline ranking this query uses. One hop. The target is inline.
+    The target's query and functionScore are not used."""
+        return self._inner_dict.get('template')  # type: ignore
+    
+    @template.setter
+    def template(self, value: Union[None, str]) -> None:
+        self._inner_dict['template'] = value
+    
+    
+    @property
+    def signals(self) -> Union[None, List["RankingSignalClass"]]:
+        """Stage 2 signals. Unset when {@code template} is set. A non-empty list replaces the
+    inherited list. Cannot be combined with {@code add} or {@code remove}."""
+        return self._inner_dict.get('signals')  # type: ignore
+    
+    @signals.setter
+    def signals(self, value: Union[None, List["RankingSignalClass"]]) -> None:
+        self._inner_dict['signals'] = value
+    
+    
+    @property
+    def add(self) -> Union[None, List["RankingSignalClass"]]:
+        """Signals merged into the inherited list by {@code name}. A new name is appended. The same
+    name replaces that signal and keeps its position. A name listed in {@code remove} is put
+    back. Duplicate names in this list are rejected. May sit beside {@code template}."""
+        return self._inner_dict.get('add')  # type: ignore
+    
+    @add.setter
+    def add(self, value: Union[None, List["RankingSignalClass"]]) -> None:
+        self._inner_dict['add'] = value
+    
+    
+    @property
+    def remove(self) -> Union[None, List[str]]:
+        """Signal names dropped from the inherited list and from inherited {@code add}. May sit beside
+    {@code template}. A name that is not in the resolved list is rejected."""
+        return self._inner_dict.get('remove')  # type: ignore
+    
+    @remove.setter
+    def remove(self, value: Union[None, List[str]]) -> None:
+        self._inner_dict['remove'] = value
+    
+    
+    @property
+    def formula(self) -> Union[None, str]:
+        """Expression over signal contributions, each name meaning {@code pow(normalized, boost)}.
+    Unset means the product of every contribution."""
+        return self._inner_dict.get('formula')  # type: ignore
+    
+    @formula.setter
+    def formula(self, value: Union[None, str]) -> None:
+        self._inner_dict['formula'] = value
     
     
 class SearchTemplateRetrievalClass(DictWrapper):
@@ -32254,7 +32836,7 @@ class ServiceKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'serviceKey'
-    ASPECT_INFO = {'keyForEntity': 'service', 'entityCategory': 'core', 'entityAspects': ['serviceProperties', 'mcpServerProperties', 'serviceDefinition', 'incidentsSummary', 'subTypes', 'ownership', 'status', 'globalTags', 'semanticContent', 'dataPlatformInstance'], 'entityDoc': 'A Service represents an external service that can be integrated with DataHub, such as an MCP server.'}
+    ASPECT_INFO = {'keyForEntity': 'service', 'entityCategory': 'core', 'entityAspects': ['serviceProperties', 'mcpServerProperties', 'serviceDefinition', 'incidentsSummary', 'subTypes', 'ownership', 'status', 'globalTags', 'semanticContent', 'dataPlatformInstance', 'dataProducts'], 'entityDoc': 'A Service represents an external service that can be integrated with DataHub, such as an MCP server.'}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.service.ServiceKey")
 
     def __init__(self,
@@ -35768,6 +36350,16 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.search.template.FieldFactorModifier': FieldFactorModifierClass,
     'com.linkedin.pegasus2avro.search.template.FieldValueScore': FieldValueScoreClass,
     'com.linkedin.pegasus2avro.search.template.HighlightFieldOverrides': HighlightFieldOverridesClass,
+    'com.linkedin.pegasus2avro.search.template.RankingBooleanMatch': RankingBooleanMatchClass,
+    'com.linkedin.pegasus2avro.search.template.RankingBooleanOperator': RankingBooleanOperatorClass,
+    'com.linkedin.pegasus2avro.search.template.RankingBooleanValue': RankingBooleanValueClass,
+    'com.linkedin.pegasus2avro.search.template.RankingKeywordMatch': RankingKeywordMatchClass,
+    'com.linkedin.pegasus2avro.search.template.RankingKeywordPresence': RankingKeywordPresenceClass,
+    'com.linkedin.pegasus2avro.search.template.RankingNormalization': RankingNormalizationClass,
+    'com.linkedin.pegasus2avro.search.template.RankingNormalizationType': RankingNormalizationTypeClass,
+    'com.linkedin.pegasus2avro.search.template.RankingSignal': RankingSignalClass,
+    'com.linkedin.pegasus2avro.search.template.RankingSignalKind': RankingSignalKindClass,
+    'com.linkedin.pegasus2avro.search.template.RankingValueAggregation': RankingValueAggregationClass,
     'com.linkedin.pegasus2avro.search.template.SearchFieldBoost': SearchFieldBoostClass,
     'com.linkedin.pegasus2avro.search.template.SearchFieldOverrides': SearchFieldOverridesClass,
     'com.linkedin.pegasus2avro.search.template.SearchTemplateBoost': SearchTemplateBoostClass,
@@ -36408,6 +37000,16 @@ __SCHEMA_TYPES = {
     'FieldFactorModifier': FieldFactorModifierClass,
     'FieldValueScore': FieldValueScoreClass,
     'HighlightFieldOverrides': HighlightFieldOverridesClass,
+    'RankingBooleanMatch': RankingBooleanMatchClass,
+    'RankingBooleanOperator': RankingBooleanOperatorClass,
+    'RankingBooleanValue': RankingBooleanValueClass,
+    'RankingKeywordMatch': RankingKeywordMatchClass,
+    'RankingKeywordPresence': RankingKeywordPresenceClass,
+    'RankingNormalization': RankingNormalizationClass,
+    'RankingNormalizationType': RankingNormalizationTypeClass,
+    'RankingSignal': RankingSignalClass,
+    'RankingSignalKind': RankingSignalKindClass,
+    'RankingValueAggregation': RankingValueAggregationClass,
     'SearchFieldBoost': SearchFieldBoostClass,
     'SearchFieldOverrides': SearchFieldOverridesClass,
     'SearchTemplateBoost': SearchTemplateBoostClass,
@@ -37220,10 +37822,10 @@ ENTITY_TYPE_NAMES: List[str] = [
 # custom aspects not in this build) can instead fetch it at runtime via
 # DataHubGraph.get_entity_aspect_specs() rather than this codegen constant.
 ENTITY_TYPE_TO_ASPECT_NAMES: Dict[str, List[str]] = {
-    'application': ['applicationProperties', 'applicationLineage', 'ownership', 'glossaryTerms', 'globalTags', 'domains', 'institutionalMemory', 'status', 'structuredProperties', 'forms', 'testResults', 'subTypes'],
+    'application': ['applicationProperties', 'applicationLineage', 'ownership', 'glossaryTerms', 'globalTags', 'domains', 'institutionalMemory', 'status', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'dataProducts'],
     'dataProduct': ['ownership', 'glossaryTerms', 'globalTags', 'domains', 'applications', 'dataProductProperties', 'institutionalMemory', 'deprecation', 'status', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'assetSettings'],
-    'service': ['serviceProperties', 'mcpServerProperties', 'serviceDefinition', 'incidentsSummary', 'subTypes', 'ownership', 'status', 'globalTags', 'semanticContent', 'dataPlatformInstance'],
-    'repository': ['repositoryProperties', 'repositorySource', 'repositoryLineage', 'subTypes', 'dataPlatformInstance', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'semanticContent', 'domains', 'institutionalMemory', 'structuredProperties', 'browsePathsV2'],
+    'service': ['serviceProperties', 'mcpServerProperties', 'serviceDefinition', 'incidentsSummary', 'subTypes', 'ownership', 'status', 'globalTags', 'semanticContent', 'dataPlatformInstance', 'dataProducts'],
+    'repository': ['repositoryProperties', 'repositorySource', 'repositoryLineage', 'subTypes', 'dataPlatformInstance', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'semanticContent', 'domains', 'institutionalMemory', 'structuredProperties', 'browsePathsV2', 'dataProducts'],
     'structuredProperty': ['propertyDefinition', 'structuredPropertySettings', 'institutionalMemory', 'status'],
     'dataType': ['dataTypeInfo', 'institutionalMemory', 'status'],
     'dataHubAccessToken': ['dataHubAccessTokenInfo'],
@@ -37236,7 +37838,7 @@ ENTITY_TYPE_TO_ASPECT_NAMES: Dict[str, List[str]] = {
     'semanticModel': ['semanticModelInfo', 'upstreamLineage', 'ownership', 'domains', 'globalTags', 'glossaryTerms', 'institutionalMemory', 'structuredProperties', 'status', 'deprecation', 'dataPlatformInstance', 'subTypes', 'documentation', 'browsePathsV2', 'applications', 'aiContext'],
     'erModelRelationship': ['erModelRelationshipProperties', 'editableERModelRelationshipProperties', 'institutionalMemory', 'ownership', 'status', 'globalTags', 'glossaryTerms'],
     'dataHubAction': [],
-    'aiAgent': ['aiAgentInfo', 'aiAgentDependencies', 'dataPlatformInstance', 'displayProperties', 'ownership', 'status', 'structuredProperties', 'upstreamLineage', 'globalTags', 'glossaryTerms', 'semanticContent', 'institutionalMemory', 'domains', 'incidentsSummary', 'versionProperties'],
+    'aiAgent': ['aiAgentInfo', 'aiAgentDependencies', 'dataPlatformInstance', 'displayProperties', 'ownership', 'status', 'structuredProperties', 'upstreamLineage', 'globalTags', 'glossaryTerms', 'semanticContent', 'institutionalMemory', 'domains', 'incidentsSummary', 'versionProperties', 'dataProducts'],
     'dataHubPersona': ['dataHubPersonaInfo'],
     'glossaryNode': ['glossaryNodeInfo', 'institutionalMemory', 'ownership', 'status', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'displayProperties', 'assetSettings', 'domains', 'applications', 'globalTags'],
     'inviteToken': ['inviteToken'],
@@ -37250,7 +37852,7 @@ ENTITY_TYPE_TO_ASPECT_NAMES: Dict[str, List[str]] = {
     'telemetry': ['telemetryClientId'],
     'dataHubSecret': ['dataHubSecretValue'],
     'dataHubRetention': ['dataHubRetentionConfig'],
-    'api': ['apiProperties', 'apiSignature', 'restApiProperties', 'subTypes', 'dataPlatformInstance', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'semanticContent', 'institutionalMemory', 'domains', 'structuredProperties', 'versionProperties'],
+    'api': ['apiProperties', 'apiSignature', 'restApiProperties', 'subTypes', 'dataPlatformInstance', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'semanticContent', 'institutionalMemory', 'domains', 'structuredProperties', 'versionProperties', 'dataProducts'],
     'schemaField': ['schemafieldInfo', 'structuredProperties', 'forms', 'businessAttributes', 'status', 'schemaFieldAliases', 'documentation', 'testResults', 'incidentsSummary', 'deprecation', 'subTypes', 'logicalParent', 'globalTags', 'glossaryTerms', 'semanticFieldAnnotation', 'aiContext', 'ownership', 'domains'],
     'dataFlow': ['domains', 'dataProducts', 'applications', 'deprecation', 'versionInfo', 'dataFlowInfo', 'repositoryLineage', 'editableDataFlowProperties', 'ownership', 'status', 'globalTags', 'browsePaths', 'glossaryTerms', 'institutionalMemory', 'dataPlatformInstance', 'container', 'browsePathsV2', 'structuredProperties', 'incidentsSummary', 'forms', 'subTypes', 'testResults', 'documentation'],
     'chart': ['chartInfo', 'upstreamMetrics', 'editableChartProperties', 'chartQuery', 'inputFields', 'chartUsageStatistics', 'embed', 'browsePaths', 'domains', 'dataProducts', 'applications', 'container', 'deprecation', 'ownership', 'status', 'institutionalMemory', 'dataPlatformInstance', 'globalTags', 'glossaryTerms', 'browsePathsV2', 'subTypes', 'structuredProperties', 'incidentsSummary', 'forms', 'testResults', 'documentation'],
@@ -37280,7 +37882,7 @@ ENTITY_TYPE_TO_ASPECT_NAMES: Dict[str, List[str]] = {
     'tag': ['tagProperties', 'ownership', 'deprecation', 'status', 'testResults'],
     'dataProcessInstance': ['dataProcessInstanceInput', 'dataProcessInstanceOutput', 'dataProcessInstanceProperties', 'dataProcessInstanceRelationships', 'dataProcessInstanceRunEvent', 'status', 'testResults', 'dataPlatformInstance', 'subTypes', 'container', 'mlTrainingRunProperties'],
     'dashboard': ['domains', 'dataProducts', 'applications', 'container', 'deprecation', 'dashboardUsageStatistics', 'inputFields', 'subTypes', 'embed', 'dashboardInfo', 'upstreamMetrics', 'editableDashboardProperties', 'ownership', 'status', 'globalTags', 'browsePaths', 'glossaryTerms', 'institutionalMemory', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'incidentsSummary', 'forms', 'testResults', 'documentation', 'access'],
-    'agentSkill': ['agentSkillInfo', 'dataPlatformInstance', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'semanticContent', 'institutionalMemory', 'domains', 'structuredProperties', 'versionProperties'],
+    'agentSkill': ['agentSkillInfo', 'dataPlatformInstance', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'semanticContent', 'institutionalMemory', 'domains', 'structuredProperties', 'versionProperties', 'dataProducts'],
     'dataHubConnection': ['dataHubConnectionDetails', 'dataPlatformInstance'],
     'dataHubPolicy': ['dataHubPolicyInfo'],
     'corpuser': ['corpUserInfo', 'corpUserEditableInfo', 'corpUserStatus', 'groupMembership', 'globalTags', 'status', 'corpUserCredentials', 'nativeGroupMembership', 'corpUserSettings', 'origin', 'roleMembership', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'slackUserInfo'],

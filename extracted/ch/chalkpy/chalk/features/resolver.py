@@ -84,7 +84,7 @@ from chalk.features._encoding.protobuf import (
     serialize_message_file_descriptor,
 )
 from chalk.features._encoding.pyarrow import rich_to_pyarrow
-from chalk.features.dataframe import DataFrame, DataFrameMeta
+from chalk.features.dataframe import DataFrame, DataFrameMeta, ForRelationship
 from chalk.features.feature_field import Feature
 from chalk.features.feature_set import Features, is_feature_set_class
 from chalk.features.feature_wrapper import FeatureWrapper, unwrap_feature
@@ -1127,6 +1127,9 @@ def _explode_features(
             new_features.append(f)
 
     if is_dataframe:
+        relationship = cast(Type[DataFrame], ret_val.features[0]).__relationship__
+        if relationship is not None:
+            return Features[DataFrame[(ForRelationship(relationship), *new_features)]]
         return Features[DataFrame[new_features]]
 
     return Features[new_features]
@@ -1253,9 +1256,16 @@ def parse_function(
                 # function annotated like def get_account_id(user_id: User.id) -> Features[User.account_id]
                 # or def get_account_id(user_id: User.id) -> User:
                 ret_val = return_annotation
+                if (
+                    len(ret_val.features) == 1
+                    and isinstance(ret_val.features[0], type)
+                    and issubclass(ret_val.features[0], DataFrame)
+                ):
+                    _validate_output_relationship(cast(Type[DataFrame], ret_val.features[0]), error_builder)
             elif issubclass(return_annotation, DataFrame):
                 # function annotated like def get_transactions(account_id: Account.id) -> DataFrame[Transaction]
                 _validate_dataframe(return_annotation, error_builder)
+                _validate_output_relationship(return_annotation, error_builder)
                 ret_val = Features[return_annotation]
 
         if ret_val is None and not ignore_return:
@@ -1352,6 +1362,19 @@ def parse_function(
 
             if parameter.empty != parameter.default:
                 default_args[i] = ResolverArgErrorHandler(parameter.default)
+
+            if isinstance(arg, type) and issubclass(arg, DataFrame) and arg.__relationship__ is not None:
+                error_builder.add_diagnostic(
+                    message=(
+                        f"The input DataFrame of resolver '{short_name}' declares for_relationship"
+                        + f"({arg.__relationship__.root_fqn}). for_relationship(...) names the has-many that a "
+                        + "resolver's output rows belong to, so it can only appear in the output DataFrame."
+                    ),
+                    code="229",
+                    label="remove for_relationship",
+                    range=error_builder.function_arg_annotation_by_name(arg_name),
+                    raise_error=TypeError,
+                )
 
             if not isinstance(arg, Feature) and not (isinstance(arg, type) and issubclass(arg, DataFrame)):
                 if allow_custom_args:
@@ -2045,6 +2068,26 @@ def parse_extract_function_object_captured_globals(
         function_captured_globals = None
 
     return function_captured_globals
+
+
+def _validate_output_relationship(df: Type[DataFrame], error_builder: ResolverErrorBuilder):
+    """An output DataFrame's rows belong to its `for_relationship(...)`, so its columns must be the relationship's."""
+    relationship = df.__relationship__
+    if relationship is None:
+        return
+    joined_class = relationship.joined_class
+    if joined_class is None or joined_class.namespace != df.namespace:
+        error_builder.add_diagnostic(
+            message=(
+                f"The output DataFrame declares for_relationship({relationship.root_fqn}), whose rows are "
+                + f"'{joined_class.namespace if joined_class is not None else 'unknown'}' features, but its columns "
+                + f"are '{df.namespace}' features."
+            ),
+            code="230",
+            label="columns of another feature class",
+            range=error_builder.function_return_annotation(),
+            raise_error=TypeError,
+        )
 
 
 def _validate_dataframe(

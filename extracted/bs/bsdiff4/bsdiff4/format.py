@@ -8,20 +8,36 @@ import bsdiff4.core as core  # type: ignore
 MAGIC = b'BSDIFF40'
 
 
+def pack_header(control_len, diff_len, dst_len):
+    return (MAGIC +
+            core.encode_int64(control_len) +
+            core.encode_int64(diff_len) +
+            core.encode_int64(dst_len))
+
+
+def unpack_header(header):
+    if len(header) != 32:
+        raise ValueError("invalid header size")
+    if header[:7] != MAGIC[:7]:
+        raise ValueError("invalid magic bsdiff4 header")
+    return tuple(core.decode_int64(header[i:i + 8]) for i in range(8, 32, 8))
+
+
 def pack_control_block(*controls):
     "pack binary control block from control tuples"
-    return b''.join(core.encode_int64(x) for control in controls
-                    for x in control)
+    return b''.join(core.encode_int64(value)
+                    for x, y, z in controls
+                    for value in (x, y, z))
 
 
-def unpack_control_block(bcontrol):
+def unpack_control_block(control_block):
     "unpack the binary control block and generate control tuples"
-    if len(bcontrol) % 24:
+    if len(control_block) % 24:
         raise ValueError("invalid control block")
 
-    for i in range(0, len(bcontrol), 24):
-        bt = bcontrol[i:i + 24]
-        yield tuple(core.decode_int64(bt[j:j + 8]) for j in range(0, 24, 8))
+    for i in range(0, len(control_block), 24):
+        yield tuple(core.decode_int64(control_block[j:j + 8])
+                    for j in range(i, i + 24, 8))
 
 
 def check_size(size):
@@ -39,41 +55,28 @@ def read_exact(fi, size):
     return data
 
 
-def write_patch(fo, len_dst, bcontrol, bdiff, bextra):
-    "write a BSDIFF4-format patch to stream 'fo'"
-    fo.write(MAGIC)
-    # compress each block
-    bcontrol = bz2.compress(bcontrol)
-    bdiff = bz2.compress(bdiff)
-    bextra = bz2.compress(bextra)
-    for n in len(bcontrol), len(bdiff), len_dst:
-        fo.write(core.encode_int64(n))
-    fo.write(bcontrol)
-    fo.write(bdiff)
-    fo.write(bextra)
-
-
-def read_patch(fi, header_only=False):
+def read_patch(fi):
     "read a BSDIFF4-format patch from stream 'fi'"
-    magic = fi.read(8)
-    if magic[:7] != MAGIC[:7]:
-        raise ValueError("incorrect magic bsdiff4 header")
-    # length headers
-    len_control = core.decode_int64(fi.read(8))
-    len_diff = core.decode_int64(fi.read(8))
-    len_dst = core.decode_int64(fi.read(8))
-    for size in len_control, len_diff, len_dst:
+    sizes = unpack_header(read_exact(fi, 32))
+    for size in sizes:
         check_size(size)
-    # read the control header
-    bcontrol = bz2.decompress(read_exact(fi, len_control))
-    if len(bcontrol) % 24:
-        raise ValueError("invalid control block")
-    if header_only:
-        return len_control, len_diff, len_dst, bcontrol
-    # read the diff and extra blocks
-    bdiff = bz2.decompress(read_exact(fi, len_diff))
-    bextra = bz2.decompress(fi.read())
-    return len_dst, bcontrol, bdiff, bextra
+    control_len, diff_len, dst_len = sizes
+    control_block = bz2.decompress(read_exact(fi, control_len))
+    diff_block = bz2.decompress(read_exact(fi, diff_len))
+    extra_block = bz2.decompress(fi.read())
+    return dst_len, control_block, diff_block, extra_block
+
+
+def write_patch(fo, dst_len, control_block, diff_block, extra_block):
+    "write a BSDIFF4-format patch to stream 'fo'"
+    # compress each block
+    control_block = bz2.compress(control_block)
+    diff_block = bz2.compress(diff_block)
+    extra_block = bz2.compress(extra_block)
+    fo.write(pack_header(len(control_block), len(diff_block), dst_len))
+    fo.write(control_block)
+    fo.write(diff_block)
+    fo.write(extra_block)
 
 
 def read_data(path):

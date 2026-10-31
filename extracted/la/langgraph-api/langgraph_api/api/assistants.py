@@ -14,14 +14,6 @@ from starlette.routing import BaseRoute
 
 from langgraph_api import _checkpointer as api_checkpointer
 from langgraph_api import store as api_store
-from langgraph_api.encryption.middleware import (
-    decrypt_response,
-    decrypt_responses,
-    encrypt_request,
-)
-from langgraph_api.encryption.shared import (
-    using_custom_encryption,
-)
 from langgraph_api.feature_flags import (
     IS_POSTGRES_OR_GRPC_BACKEND,
     USE_RUNTIME_CONTEXT_API,
@@ -35,7 +27,7 @@ from langgraph_api.graph import (
 )
 from langgraph_api.js.base import BaseRemotePregel
 from langgraph_api.route import ApiRequest, ApiResponse, ApiRoute
-from langgraph_api.schema import ASSISTANT_ENCRYPTION_FIELDS, ASSISTANT_FIELDS
+from langgraph_api.schema import ASSISTANT_FIELDS
 from langgraph_api.serde import json_loads
 from langgraph_api.utils import (
     fetchone,
@@ -202,33 +194,20 @@ async def create_assistant(request: ApiRequest) -> ApiResponse:
 
     assert_graph_exists(payload["graph_id"])
 
-    effective_payload = await encrypt_request(
-        payload,
-        "assistant",
-        ASSISTANT_ENCRYPTION_FIELDS,
-        plaintext_for_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
-    )
-
     async with connect() as conn:
         assistant = await Assistants.put(
             conn,
             assistant_id or str(uuid4()),
-            config=effective_payload.get("config") or {},
-            context=effective_payload.get("context"),  # None if not provided
+            config=payload.get("config") or {},
+            context=payload.get("context"),  # None if not provided
             graph_id=payload["graph_id"],
-            metadata=effective_payload.get("metadata") or {},
+            metadata=payload.get("metadata") or {},
             if_exists=payload.get("if_exists") or "raise",
             name=payload.get("name") or "Untitled",
             description=payload.get("description"),
         )
 
     assistant_data = await fetchone(assistant, not_found_code=409)
-    assistant_data = await decrypt_response(
-        assistant_data,
-        "assistant",
-        ASSISTANT_ENCRYPTION_FIELDS,
-        plaintext_from_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
-    )
     return ApiResponse(assistant_data)
 
 
@@ -266,14 +245,7 @@ async def search_assistants(
         assistants_iter, next_offset, offset
     )
 
-    decrypted_assistants = await decrypt_responses(
-        assistants,
-        "assistant",
-        ASSISTANT_ENCRYPTION_FIELDS,
-        plaintext_from_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
-    )
-
-    return ApiResponse(decrypted_assistants, headers=response_headers)
+    return ApiResponse(assistants, headers=response_headers)
 
 
 @retry_db
@@ -313,12 +285,6 @@ async def get_assistant(
         raise HTTPException(
             status_code=404, detail=f"assistant {assistant_id} not found"
         )
-    assistant_data = await decrypt_response(
-        assistant_data,
-        "assistant",
-        ASSISTANT_ENCRYPTION_FIELDS,
-        plaintext_from_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
-    )
     return ApiResponse(assistant_data)
 
 
@@ -333,8 +299,13 @@ async def get_assistant_graph(
         assistant_ = await Assistants.get(conn, assistant_id)
         assistant = await fetchone(assistant_)
     config = json_loads(assistant["config"])
-    configurable = config.setdefault("configurable", {})
-    configurable.update(get_configurable_headers(request.headers))
+    config = {
+        **config,
+        "configurable": {
+            **config.get("configurable", {}),
+            **get_configurable_headers(request.headers),
+        },
+    }
 
     xray: bool | int = False
     xray_query = request.query_params.get("xray")
@@ -393,8 +364,13 @@ async def get_assistant_subgraphs(
         assistant = await fetchone(assistant_)
 
     config = json_loads(assistant["config"])
-    configurable = config.setdefault("configurable", {})
-    configurable.update(get_configurable_headers(request.headers))
+    config = {
+        **config,
+        "configurable": {
+            **config.get("configurable", {}),
+            **get_configurable_headers(request.headers),
+        },
+    }
     async with get_graph(
         assistant["graph_id"],
         config,
@@ -442,8 +418,13 @@ async def get_assistant_schemas(
         assistant = await fetchone(assistant_)
 
     config = json_loads(assistant["config"])
-    configurable = config.setdefault("configurable", {})
-    configurable.update(get_configurable_headers(request.headers))
+    config = {
+        **config,
+        "configurable": {
+            **config.get("configurable", {}),
+            **get_configurable_headers(request.headers),
+        },
+    }
     async with get_graph(
         assistant["graph_id"],
         config,
@@ -494,32 +475,19 @@ async def patch_assistant(
     if graph_id is not None:
         assert_graph_exists(graph_id)
 
-    effective_payload = await encrypt_request(
-        payload,
-        "assistant",
-        ASSISTANT_ENCRYPTION_FIELDS,
-        plaintext_for_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
-    )
-
     async with connect() as conn:
         assistant = await Assistants.patch(
             conn,
             assistant_id,
-            config=effective_payload.get("config"),
-            context=effective_payload.get("context"),
+            config=payload.get("config"),
+            context=payload.get("context"),
             graph_id=graph_id,
-            metadata=effective_payload.get("metadata"),
+            metadata=payload.get("metadata"),
             name=payload.get("name"),
             description=payload.get("description"),
         )
 
     assistant_data = await fetchone(assistant)
-    assistant_data = await decrypt_response(
-        assistant_data,
-        "assistant",
-        ASSISTANT_ENCRYPTION_FIELDS,
-        plaintext_from_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
-    )
     return ApiResponse(assistant_data)
 
 
@@ -568,14 +536,7 @@ async def get_assistant_versions(request: ApiRequest) -> ApiResponse:
             status_code=404, detail=f"Assistant {assistant_id} not found"
         )
 
-    decrypted_assistants = await decrypt_responses(
-        assistants,
-        "assistant",
-        ASSISTANT_ENCRYPTION_FIELDS,
-        plaintext_from_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
-    )
-
-    return ApiResponse(decrypted_assistants)
+    return ApiResponse(assistants)
 
 
 @retry_db
@@ -590,12 +551,6 @@ async def set_latest_assistant_version(request: ApiRequest) -> ApiResponse:
         )
 
     assistant_data = await fetchone(assistant, not_found_code=404)
-    assistant_data = await decrypt_response(
-        assistant_data,
-        "assistant",
-        ASSISTANT_ENCRYPTION_FIELDS,
-        plaintext_from_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
-    )
     return ApiResponse(assistant_data)
 
 

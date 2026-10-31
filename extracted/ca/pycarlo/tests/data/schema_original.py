@@ -297,172 +297,6 @@ class AgentGraphNodeKind(sgqlc.types.Enum):
     __choices__ = ("AGENT", "CHAIN", "LLM", "TASK", "TOOL", "UNKNOWN", "WORKFLOW")
 
 
-class AgentHealthCheckResolution(sgqlc.types.Enum):
-    """Verifier verdict on whether the underlying problem is already
-    fixed.
-
-    Enumeration Choices:
-
-    * `INCONCLUSIVE`None
-    * `OPEN`None
-    * `RESOLVED`None
-    """
-
-    __schema__ = schema
-    __choices__ = ("INCONCLUSIVE", "OPEN", "RESOLVED")
-
-
-class AgentHealthCheckType(sgqlc.types.Enum):
-    """Which verifier produced a check on an evidence row.  More values
-    may be added as new verifiers ship; treat unknown values as an
-    unspecified verifier rather than an error.
-
-    Enumeration Choices:
-
-    * `CODE_REF`None
-    * `CONFIG_CHANGE`None
-    * `COVERAGE`None
-    * `DEPLOY_RESOLUTION`None
-    * `PR`None
-    * `RECOVERY`None
-    """
-
-    __schema__ = schema
-    __choices__ = ("CODE_REF", "CONFIG_CHANGE", "COVERAGE", "DEPLOY_RESOLUTION", "PR", "RECOVERY")
-
-
-class AgentHealthCheckValidity(sgqlc.types.Enum):
-    """Verifier verdict on whether the evidence describes a real problem.
-
-    Enumeration Choices:
-
-    * `INCONCLUSIVE`None
-    * `INVALID`None
-    * `VALID`None
-    """
-
-    __schema__ = schema
-    __choices__ = ("INCONCLUSIVE", "INVALID", "VALID")
-
-
-class AgentHealthConfidence(sgqlc.types.Enum):
-    """Confidence tier; `confidenceScore` carries the derived float (0.9
-    / 0.6 / 0.3).
-
-    Enumeration Choices:
-
-    * `HIGH`None
-    * `LOW`None
-    * `MEDIUM`None
-    """
-
-    __schema__ = schema
-    __choices__ = ("HIGH", "LOW", "MEDIUM")
-
-
-class AgentHealthEvidenceCategory(sgqlc.types.Enum):
-    """What aspect of agent behavior an evidence row speaks to.
-
-    Enumeration Choices:
-
-    * `COMPLETION`None
-    * `CONTEXT_MEMORY`None
-    * `COST`None
-    * `EFFICIENCY`None
-    * `EXECUTION`None
-    * `LATENCY`None
-    * `OUTPUT_QUALITY`None
-    * `RELIABILITY`None
-    * `TOOL_USE`None
-    """
-
-    __schema__ = schema
-    __choices__ = (
-        "COMPLETION",
-        "CONTEXT_MEMORY",
-        "COST",
-        "EFFICIENCY",
-        "EXECUTION",
-        "LATENCY",
-        "OUTPUT_QUALITY",
-        "RELIABILITY",
-        "TOOL_USE",
-    )
-
-
-class AgentHealthEvidenceSource(sgqlc.types.Enum):
-    """Signal origin; a row can carry several when cross-source signals
-    merge.  EVAL marks facts originating from an evaluation detector
-    (e.g. an eval-score-drop). PR_DIFF only appears on reports
-    produced before PR information became a check (verifier verdict)
-    on the evidence row rather than a signal source.
-
-    Enumeration Choices:
-
-    * `CONVERSATION`None
-    * `ERROR`None
-    * `EVAL`None
-    * `GRAPH`None
-    * `PR_DIFF`None
-    """
-
-    __schema__ = schema
-    __choices__ = ("CONVERSATION", "ERROR", "EVAL", "GRAPH", "PR_DIFF")
-
-
-class AgentHealthFocusArea(sgqlc.types.Enum):
-    """Coarse 4-way lens an issue or evidence row is filed under.
-    Orthogonal to `category` (the fine-grained detector-family
-    taxonomy): resource cost (PERFORMANCE), execution correctness
-    (BEHAVIORAL), content correctness (OUTPUTS), or context-
-    window/prompt content management (CONTEXT). Declared per detector
-    on evidence; derived on issues as the plurality across cited
-    evidence.
-
-    Enumeration Choices:
-
-    * `BEHAVIORAL`None
-    * `CONTEXT`None
-    * `OUTPUTS`None
-    * `PERFORMANCE`None
-    """
-
-    __schema__ = schema
-    __choices__ = ("BEHAVIORAL", "CONTEXT", "OUTPUTS", "PERFORMANCE")
-
-
-class AgentHealthGranularity(sgqlc.types.Enum):
-    """Grain of the fact an evidence row is based on.
-
-    Enumeration Choices:
-
-    * `CONVERSATION`None
-    * `SPAN`None
-    * `TRACE`None
-    """
-
-    __schema__ = schema
-    __choices__ = ("CONVERSATION", "SPAN", "TRACE")
-
-
-class AgentHealthIssueLifecycle(sgqlc.types.Enum):
-    """Two-state cross-run status of an issue on the nested `issue`
-    payload.  NEW = first seen; ONGOING = re-reported since. Narrower
-    than the node's own `lifecycle`: REOPENED reads as NEW here and
-    RESOLVED has no value at all (the field is null) — read
-    `ReinforcementLoopIssueLifecycle` node-level for the full 4-state
-    vocabulary.
-
-    Enumeration Choices:
-
-    * `NEW`None
-    * `ONGOING`None
-    """
-
-    __schema__ = schema
-    __choices__ = ("NEW", "ONGOING")
-
-
 class AgentHealthPriority(sgqlc.types.Enum):
     """Impact bucket of an issue, a distinct axis from severity. HIDDEN
     applies to RL V2 issues only and is served only with
@@ -479,22 +313,6 @@ class AgentHealthPriority(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("CRITICAL", "HIDDEN", "HIGH", "LOW", "MEDIUM")
-
-
-class AgentHealthSeverity(sgqlc.types.Enum):
-    """Severity vocabulary shared by issues, evidence, and the report
-    `health` grade.
-
-    Enumeration Choices:
-
-    * `CRITICAL`None
-    * `HIGH`None
-    * `LOW`None
-    * `MEDIUM`None
-    """
-
-    __schema__ = schema
-    __choices__ = ("CRITICAL", "HIGH", "LOW", "MEDIUM")
 
 
 class AgentMemoryLevel(sgqlc.types.Enum):
@@ -957,6 +775,9 @@ class AiAgentType(sgqlc.types.Enum):
       domain.
     * `MONITORING`: Configures the monitoring agent that recommends
       and creates monitor coverage for the account's assets.
+    * `REINFORCEMENT_LOOP`: Configures the reinforcement loop, which
+      diagnoses a customer agent's conversations against the agent's
+      own code.
     * `TEAMMATE`: Configures the domain teammate: when and how it
       tells people about issues (channels, timing, who to mention,
       what not to send).
@@ -978,6 +799,7 @@ class AiAgentType(sgqlc.types.Enum):
         "CHAT",
         "GENERAL",
         "MONITORING",
+        "REINFORCEMENT_LOOP",
         "TEAMMATE",
         "TRIAGE",
         "TROUBLESHOOTING",
@@ -2671,10 +2493,8 @@ class CostBucketSize(sgqlc.types.Enum):
 
 class CostComponent(sgqlc.types.Enum):
     """One of the four terms a Cortex span's price sums.
-    ``NEW_INPUT`` is the provider's input count less its cache reads.
-    The remainder     still holds Cortex's cache writes -- see
-    ``SpanCostComponent``. The other three     are charged at their
-    own rates.
+    ``NEW_INPUT`` excludes cache reads and cache writes. Each token is
+    charged     in one component at that component's rate.
 
     Enumeration Choices:
 
@@ -2847,6 +2667,33 @@ class CostFindingWithheldReason(sgqlc.types.Enum):
         "SAVING_NOT_CALCULATED",
         "USAGE_UNAVAILABLE",
     )
+
+
+class CostRateUnit(sgqlc.types.Enum):
+    """The billing unit a cost rate prices.
+
+    Enumeration Choices:
+
+    * `DATABRICKS_DBU`None
+    * `SNOWFLAKE_CREDIT`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("DATABRICKS_DBU", "SNOWFLAKE_CREDIT")
+
+
+class CostRateUsageType(sgqlc.types.Enum):
+    """The kind of usage a cost rate prices. Platforms bill these at
+    different prices.
+
+    Enumeration Choices:
+
+    * `AGENT`None
+    * `COMPUTE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("AGENT", "COMPUTE")
 
 
 class Criticality(sgqlc.types.Enum):
@@ -3146,19 +2993,21 @@ class CustomerMcpUserIdFieldType(sgqlc.types.Enum):
 
 
 class CustomerMcpVendor(sgqlc.types.Enum):
-    """A vendor whose MCP server Monte Carlo recognizes from its URL, and
-    whose integration credentials a server can be created with.
+    """A vendor whose MCP server Monte Carlo recognizes from its URL. For
+    some vendors, a server can be created with the account's
+    integration credentials.
 
     Enumeration Choices:
 
     * `DATABRICKS`None
     * `DBT_CLOUD`None
     * `GITHUB`None
+    * `GITLAB`None
     * `LINEAR`None
     """
 
     __schema__ = schema
-    __choices__ = ("DATABRICKS", "DBT_CLOUD", "GITHUB", "LINEAR")
+    __choices__ = ("DATABRICKS", "DBT_CLOUD", "GITHUB", "GITLAB", "LINEAR")
 
 
 class DashboardType(sgqlc.types.Enum):
@@ -3564,6 +3413,20 @@ class DenialReason(sgqlc.types.Enum):
         "TSA_FEATURE_FLAG_OFF",
         "USER_NOT_PERMITTED",
     )
+
+
+class DestinationHealthStatus(sgqlc.types.Enum):
+    """Whether alerts reach a destination. OK: no problem on record.
+    UNREACHABLE: alerts cannot be posted there, see the reason.
+
+    Enumeration Choices:
+
+    * `OK`None
+    * `UNREACHABLE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("OK", "UNREACHABLE")
 
 
 class DetectorStatus(sgqlc.types.Enum):
@@ -6204,17 +6067,19 @@ class ManualMonitorExecutionStatus(sgqlc.types.Enum):
 class McpServerAgentType(sgqlc.types.Enum):
     """An AI agent whose customer MCP server access can be set by account
     admins. TROUBLESHOOTING: the Troubleshooting agent. CHAT: the
-    Operations agent. TEAMMATE: the Teammate.
+    Operations agent. TEAMMATE: the Teammate. REINFORCEMENT_LOOP: the
+    reinforcement loop.
 
     Enumeration Choices:
 
     * `CHAT`None
+    * `REINFORCEMENT_LOOP`None
     * `TEAMMATE`None
     * `TROUBLESHOOTING`None
     """
 
     __schema__ = schema
-    __choices__ = ("CHAT", "TEAMMATE", "TROUBLESHOOTING")
+    __choices__ = ("CHAT", "REINFORCEMENT_LOOP", "TEAMMATE", "TROUBLESHOOTING")
 
 
 class McpServersAccessMode(sgqlc.types.Enum):
@@ -8260,30 +8125,6 @@ class ReinforcementLoopConfigAccess(sgqlc.types.Enum):
     __choices__ = ("FULL", "TRACES_ONLY")
 
 
-class ReinforcementLoopDispatchOutcome(sgqlc.types.Enum):
-    """Result of a reinforcement-loop dispatch: DISPATCHED (runs queued),
-    or the skip reason — SKIPPED_IN_FLIGHT (runs still
-    queued/running), SKIPPED_NO_TARGETS (the account has no agents to
-    run against), SKIPPED_RECENTLY_DISPATCHED (the daily redispatch
-    guard; not produced by the manual trigger).
-
-    Enumeration Choices:
-
-    * `DISPATCHED`None
-    * `SKIPPED_IN_FLIGHT`None
-    * `SKIPPED_NO_TARGETS`None
-    * `SKIPPED_RECENTLY_DISPATCHED`None
-    """
-
-    __schema__ = schema
-    __choices__ = (
-        "DISPATCHED",
-        "SKIPPED_IN_FLIGHT",
-        "SKIPPED_NO_TARGETS",
-        "SKIPPED_RECENTLY_DISPATCHED",
-    )
-
-
 class ReinforcementLoopFeedbackPriorityReason(sgqlc.types.Enum):
     """Why a person thinks an RL V2 issue has the wrong priority.
 
@@ -8384,26 +8225,6 @@ class ReinforcementLoopIssueDispositionReason(sgqlc.types.Enum):
     )
 
 
-class ReinforcementLoopIssueLifecycle(sgqlc.types.Enum):
-    """Cross-run lifecycle of a stable reinforcement-loop issue.  The
-    full 4-state vocabulary of the stable issue record: NEW = first
-    seen; ONGOING = re-reported since; REOPENED = seen again after
-    having been resolved; RESOLVED = no longer occurring. Prefer this
-    over the 2-state AgentHealthIssueLifecycle on the nested issue
-    payload, which squashes REOPENED into NEW and nulls RESOLVED.
-
-    Enumeration Choices:
-
-    * `NEW`None
-    * `ONGOING`None
-    * `REOPENED`None
-    * `RESOLVED`None
-    """
-
-    __schema__ = schema
-    __choices__ = ("NEW", "ONGOING", "REOPENED", "RESOLVED")
-
-
 class ReinforcementLoopRunMode(sgqlc.types.Enum):
     """Whether a reinforcement-loop run or issue is live work or a
     backtest.
@@ -8416,24 +8237,6 @@ class ReinforcementLoopRunMode(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("BACKTEST", "LIVE")
-
-
-class ReinforcementLoopSnapshotSelection(sgqlc.types.Enum):
-    """Which in-window snapshot carries each issue's payload on the list
-    query.  LATEST (the default) = the issue's most recent in-window
-    occurrence; OLDEST = its first in-window occurrence. An issue last
-    seen in-window can lack an in-window snapshot entirely (its
-    reports all predate startTime); then its newest snapshot at or
-    before endTime carries the payload regardless of selection.
-
-    Enumeration Choices:
-
-    * `LATEST`None
-    * `OLDEST`None
-    """
-
-    __schema__ = schema
-    __choices__ = ("LATEST", "OLDEST")
 
 
 class ReinforcementLoopV2ConversationBucketSize(sgqlc.types.Enum):
@@ -13889,40 +13692,41 @@ class ConversationFiltersInput(sgqlc.types.Input):
     """Maximum total tokens (inclusive)"""
 
     min_cost = sgqlc.types.Field(Float, graphql_name="minCost")
-    """Minimum token cost of a conversation, in the unit its platform
-    bills. A conversation with no priceable span has an unknown token
-    cost and matches no bound. One with some priced spans is bounded
-    on those only. Resolved by scanning the agent's Snowflake event
-    table, which only Cortex agents have, so it matches nothing for
-    any other agent.
+    """Minimum token cost of a conversation, in the agent's costUnit
+    (credits, or the customer's currency when cost rates apply). A
+    conversation with no priceable span has an unknown token cost and
+    matches no bound. One with some priced spans is bounded on those
+    only. Resolved by scanning the agent's Snowflake event table,
+    which only Cortex agents have, so it matches nothing for any other
+    agent.
     """
 
     max_cost = sgqlc.types.Field(Float, graphql_name="maxCost")
-    """Maximum token cost of a conversation, in the same unit"""
+    """Maximum token cost of a conversation, in the same costUnit"""
 
     min_query_cost = sgqlc.types.Field(Float, graphql_name="minQueryCost")
-    """Minimum query cost of a conversation: the warehouse compute
-    credits attributed to its SQL queries, in the same unit.
-    Attribution trails execution by about three hours and excludes
-    warehouse idle time, so the figure is a lower bound. Queries not
-    yet attributed read as zero, not as unknown. Matches nothing for
-    any agent without a Snowflake event table, which is every agent
-    except Cortex.
+    """Minimum query cost of a conversation: the warehouse compute cost
+    attributed to its SQL queries, in the same costUnit. Attribution
+    trails execution by about three hours and excludes warehouse idle
+    time, so the figure is a lower bound. Queries not yet attributed
+    read as zero, not as unknown. Matches nothing for any agent
+    without a Snowflake event table, which is every agent except
+    Cortex.
     """
 
     max_query_cost = sgqlc.types.Field(Float, graphql_name="maxQueryCost")
-    """Maximum query cost of a conversation, in the same unit"""
+    """Maximum query cost of a conversation, in the same costUnit"""
 
     min_total_cost = sgqlc.types.Field(Float, graphql_name="minTotalCost")
     """Minimum total cost of a conversation: token cost plus query cost,
-    in the same unit. Unpriced tokens and queries still awaiting
+    in the same costUnit. Unpriced tokens and queries still awaiting
     attribution contribute zero, so the total is a lower bound.
     Matches nothing for any agent without a Snowflake event table,
     which is every agent except Cortex.
     """
 
     max_total_cost = sgqlc.types.Field(Float, graphql_name="maxTotalCost")
-    """Maximum total cost of a conversation, in the same unit"""
+    """Maximum total cost of a conversation, in the same costUnit"""
 
     min_duration = sgqlc.types.Field(Float, graphql_name="minDuration")
     """Minimum conversation duration in seconds"""
@@ -14156,8 +13960,7 @@ class CreateJiraTicketForAgentHealthIssueInput(sgqlc.types.Input):
     )
     finding_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="findingUuid")
     """UUID of the reinforcement-loop issue to act on — the `issueUuid`
-    of a getReinforcementLoopIssues node (equivalently its
-    `issue.findingUuid`), stable across runs.
+    of a getReinforcementLoopV2Issues node, stable across runs.
     """
 
     integration_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="integrationId")
@@ -14218,8 +14021,7 @@ class CreateLinearTicketForAgentHealthIssueInput(sgqlc.types.Input):
     __field_names__ = ("finding_uuid", "title", "description", "team_id")
     finding_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="findingUuid")
     """UUID of the reinforcement-loop issue to act on — the `issueUuid`
-    of a getReinforcementLoopIssues node (equivalently its
-    `issue.findingUuid`), stable across runs.
+    of a getReinforcementLoopV2Issues node, stable across runs.
     """
 
     title = sgqlc.types.Field(String, graphql_name="title")
@@ -14410,8 +14212,7 @@ class CreateServiceNowTicketForAgentHealthIssueInput(sgqlc.types.Input):
     )
     finding_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="findingUuid")
     """UUID of the reinforcement-loop issue to act on — the `issueUuid`
-    of a getReinforcementLoopIssues node (equivalently its
-    `issue.findingUuid`), stable across runs.
+    of a getReinforcementLoopV2Issues node, stable across runs.
     """
 
     integration_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="integrationId")
@@ -21101,19 +20902,20 @@ class TraceFiltersInput(sgqlc.types.Input):
     """Maximum total tokens"""
 
     min_cost = sgqlc.types.Field(Float, graphql_name="minCost")
-    """Minimum token cost of a trace, in the unit its platform bills. A
-    trace with no priceable span has an unknown token cost and matches
-    no bound. One with some priced spans is bounded on those only.
-    Resolved by scanning the agent's Snowflake event table, which only
-    Cortex agents have, so it matches nothing for any other agent.
+    """Minimum token cost of a trace, in the agent's costUnit (credits,
+    or the customer's currency when cost rates apply). A trace with no
+    priceable span has an unknown token cost and matches no bound. One
+    with some priced spans is bounded on those only. Resolved by
+    scanning the agent's Snowflake event table, which only Cortex
+    agents have, so it matches nothing for any other agent.
     """
 
     max_cost = sgqlc.types.Field(Float, graphql_name="maxCost")
-    """Maximum token cost of a trace, in the same unit"""
+    """Maximum token cost of a trace, in the same costUnit"""
 
     min_query_cost = sgqlc.types.Field(Float, graphql_name="minQueryCost")
-    """Minimum query cost of a trace: the warehouse compute credits
-    attributed to its SQL queries, in the same unit. Attribution
+    """Minimum query cost of a trace: the warehouse compute cost
+    attributed to its SQL queries, in the same costUnit. Attribution
     trails execution by about three hours and excludes warehouse idle
     time, so the figure is a lower bound. Queries not yet attributed
     read as zero, not as unknown. Matches nothing for any agent
@@ -21122,18 +20924,18 @@ class TraceFiltersInput(sgqlc.types.Input):
     """
 
     max_query_cost = sgqlc.types.Field(Float, graphql_name="maxQueryCost")
-    """Maximum query cost of a trace, in the same unit"""
+    """Maximum query cost of a trace, in the same costUnit"""
 
     min_total_cost = sgqlc.types.Field(Float, graphql_name="minTotalCost")
     """Minimum total cost of a trace: token cost plus query cost, in the
-    same unit. Unpriced tokens and queries still awaiting attribution
-    contribute zero, so the total is a lower bound. Matches nothing
-    for any agent without a Snowflake event table, which is every
-    agent except Cortex.
+    same costUnit. Unpriced tokens and queries still awaiting
+    attribution contribute zero, so the total is a lower bound.
+    Matches nothing for any agent without a Snowflake event table,
+    which is every agent except Cortex.
     """
 
     max_total_cost = sgqlc.types.Field(Float, graphql_name="maxTotalCost")
-    """Maximum total cost of a trace, in the same unit"""
+    """Maximum total cost of a trace, in the same costUnit"""
 
     conversation_id = sgqlc.types.Field(String, graphql_name="conversationId")
     """Filter by exact conversation ID"""
@@ -21808,6 +21610,37 @@ class UpdateUserStateInput(sgqlc.types.Input):
     state = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="state")
 
     client_mutation_id = sgqlc.types.Field(String, graphql_name="clientMutationId")
+
+
+class UpsertAgentCostRateInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("warehouse_uuid", "unit", "usage_type", "amount_per_unit", "currency")
+    warehouse_uuid = sgqlc.types.Field(UUID, graphql_name="warehouseUuid")
+    """Warehouse the rate applies to. Omit it for the account-wide rate,
+    which applies to every warehouse without its own rate.
+    """
+
+    unit = sgqlc.types.Field(sgqlc.types.non_null(CostRateUnit), graphql_name="unit")
+    """Billing unit the rate prices. Only SNOWFLAKE_CREDIT is accepted
+    for now, and it needs a Snowflake warehouse.
+    """
+
+    usage_type = sgqlc.types.Field(
+        sgqlc.types.non_null(CostRateUsageType), graphql_name="usageType"
+    )
+    """AGENT prices the agent's model calls. COMPUTE prices the warehouse
+    compute of the SQL the agent runs.
+    """
+
+    amount_per_unit = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="amountPerUnit")
+    """Price of one unit, such as 2.20 for $2.20 per credit. Must be
+    positive and at most 999999999999. Rounded to six decimal places.
+    """
+
+    currency = sgqlc.types.Field(String, graphql_name="currency")
+    """ISO 4217 currency code. Defaults to USD. Every rate on the account
+    must use the same currency.
+    """
 
 
 class UpsertLlmPriceBookOverrideInput(sgqlc.types.Input):
@@ -25528,20 +25361,19 @@ class AgentCost(sgqlc.types.Type):
     cost = sgqlc.types.Field(Float, graphql_name="cost")
 
     cost_unit = sgqlc.types.Field(String, graphql_name="costUnit")
+    """The unit every cost in the response is in. That is `credits`, the
+    platform's billing unit, unless the agent has customer rates for
+    both its model calls and its SQL in one currency. Then it is that
+    currency's lowercase ISO 4217 code, such as `usd`.
+    """
 
     cache_savings = sgqlc.types.Field(Float, graphql_name="cacheSavings")
     """What the prompt cache saved over the window, in `costUnit`,
-    measured against `cost` itself: the cache-read tokens billed at
-    the cache rate rather than the input rate, less the cache-write
-    tokens' charge in full. That write tax is the coded charge, which
-    double-counts cache writes to keep `cost` close to the billed
-    total, so savings are conservative against the real bill -- on
-    models whose cache-write rate equals the input rate the real
-    surcharge of caching is zero while this still charges it. Negative
-    when a window wrote more cache than it read back, which is what a
-    cold cache costs the window that fills it. None when the window
-    was not read whole, or when nothing in it could be priced -- which
-    is not zero.
+    compared with charging every input token at the regular input
+    rate: the cache-read discount less the extra cost of cache writes
+    above that rate. Negative when the extra cost of cache writes
+    exceeds the read savings. None when the window was not read whole,
+    or when nothing in it could be priced.
     """
 
     trace_count = sgqlc.types.Field(Int, graphql_name="traceCount")
@@ -25557,17 +25389,16 @@ class AgentCost(sgqlc.types.Type):
     """
 
     warehouse_cost = sgqlc.types.Field(Float, graphql_name="warehouseCost")
-    """The warehouse compute credits Snowflake attributes to this agent's
-    SQL queries over the window, in `costUnit` -- the same credits
-    `cost` counts tokens in. A lower bound on the agent's share of the
-    bill: warehouse idle time belongs to no query and is attributed to
-    none. Zero when the window attributed nothing, which is what an
-    agent served entirely from the result cache costs. None when the
-    attribution view could not be read: the collector role may lack
-    IMPORTED PRIVILEGES ON DATABASE SNOWFLAKE, or the read may run
-    past its statement timeout on a wide window, which the warehouse
-    answers by cancelling the query. Set when the window was read
-    whole -- unscoped, with or without a bucket size.
+    """The warehouse compute cost Snowflake attributes to this agent's
+    SQL queries over the window, in `costUnit`. A lower bound on the
+    agent's share of the bill: warehouse idle time belongs to no query
+    and is attributed to none. Zero when the window attributed
+    nothing, which is what an agent served entirely from the result
+    cache costs. None when the attribution view could not be read: the
+    collector role may lack IMPORTED PRIVILEGES ON DATABASE SNOWFLAKE,
+    or the read may run past its statement timeout on a wide window,
+    which the warehouse answers by cancelling the query. Set when the
+    window was read whole -- unscoped, with or without a bucket size.
     """
 
     warehouse_cost_as_of = sgqlc.types.Field(DateTime, graphql_name="warehouseCostAsOf")
@@ -25614,9 +25445,52 @@ class AgentCost(sgqlc.types.Type):
     )
 
 
+class AgentCostRate(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "warehouse_uuid",
+        "unit",
+        "usage_type",
+        "amount_per_unit",
+        "currency",
+        "created_time",
+        "updated_time",
+    )
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """Stable identifier of the rate."""
+
+    warehouse_uuid = sgqlc.types.Field(UUID, graphql_name="warehouseUuid")
+    """Warehouse the rate applies to. Null is the account-wide rate,
+    which applies to every warehouse without its own rate.
+    """
+
+    unit = sgqlc.types.Field(sgqlc.types.non_null(CostRateUnit), graphql_name="unit")
+    """Billing unit the rate prices."""
+
+    usage_type = sgqlc.types.Field(
+        sgqlc.types.non_null(CostRateUsageType), graphql_name="usageType"
+    )
+    """What the rate prices: `AGENT` for the agent's model calls,
+    `COMPUTE` for the warehouse compute of the SQL it runs.
+    """
+
+    amount_per_unit = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="amountPerUnit")
+    """Price of one unit, in `currency`."""
+
+    currency = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="currency")
+    """ISO 4217 currency code, such as USD."""
+
+    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
+    """When the rate was created."""
+
+    updated_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="updatedTime")
+    """When the rate was last changed."""
+
+
 class AgentCostTotal(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("agent_name", "trace_table_mcon", "cost", "cost_unit")
+    __field_names__ = ("agent_name", "trace_table_mcon", "cost", "credits", "cost_unit")
     agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
 
     trace_table_mcon = sgqlc.types.Field(
@@ -25628,7 +25502,19 @@ class AgentCostTotal(sgqlc.types.Type):
     priced model call, which is not zero.
     """
 
+    credits = sgqlc.types.Field(Float, graphql_name="credits")
+    """The window total in the platform's billing unit, such as Snowflake
+    credits, whatever `costUnit` is. Sort agents on this: agents
+    priced at different rates or in different currencies compare on
+    it.
+    """
+
     cost_unit = sgqlc.types.Field(String, graphql_name="costUnit")
+    """The unit `cost` is in. That is `credits`, the platform's billing
+    unit, unless the agent has customer rates for both its model calls
+    and its SQL in one currency. Then it is that currency's lowercase
+    ISO 4217 code, such as `usd`.
+    """
 
 
 class AgentCustomBiConnectors(sgqlc.types.Type):
@@ -25935,6 +25821,7 @@ class AgentEvaluationRunSampleRow(sgqlc.types.Type):
         "output_preview",
         "prompt_preview",
         "evaluated_at",
+        "started_at",
     )
     score = sgqlc.types.Field(Float, graphql_name="score")
     """Stored evaluation score for the requested metric"""
@@ -25965,6 +25852,11 @@ class AgentEvaluationRunSampleRow(sgqlc.types.Type):
 
     evaluated_at = sgqlc.types.Field(DateTime, graphql_name="evaluatedAt")
     """Evaluation/run timestamp when available"""
+
+    started_at = sgqlc.types.Field(DateTime, graphql_name="startedAt")
+    """When the evaluated trace (span evaluations) or conversation
+    (conversation evaluations) started; null when unknown
+    """
 
 
 class AgentEvaluationRunSamplesResult(sgqlc.types.Type):
@@ -26019,7 +25911,7 @@ class AgentEvaluationRunSamplesResult(sgqlc.types.Type):
 
 class AgentFeedback(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("feedback_available", "traces")
+    __field_names__ = ("feedback_available", "traces", "content_withheld_reason")
     feedback_available = sgqlc.types.Field(
         sgqlc.types.non_null(Boolean), graphql_name="feedbackAvailable"
     )
@@ -26033,6 +25925,13 @@ class AgentFeedback(sgqlc.types.Type):
         graphql_name="traces",
     )
     """The newest feedback per trace. Traces with no feedback are absent."""
+
+    content_withheld_reason = sgqlc.types.Field(
+        RawContentWithheldReason, graphql_name="contentWithheldReason"
+    )
+    """Set when some categories were withheld. Those traces' categories
+    are empty.
+    """
 
 
 class AgentFeedbackComments(sgqlc.types.Type):
@@ -26348,412 +26247,6 @@ class AgentGraphNode(sgqlc.types.Type):
     """
 
 
-class AgentHealthCheck(sgqlc.types.Type):
-    """One verifier's verdict on an evidence row, plus the proof behind
-    it.  `validity` (is the finding real?) and `resolution` (already
-    fixed?) are independent axes — a verifier fills the axis it can
-    judge and leaves the other INCONCLUSIVE. The proof fields
-    (filePath, symbol, prNumber, url, mergedAt) are populated per
-    check type: code_ref checks carry the code location, pr checks
-    carry the pull-request reference.
-    """
-
-    __schema__ = schema
-    __field_names__ = (
-        "type",
-        "validity",
-        "resolution",
-        "description",
-        "file_path",
-        "symbol",
-        "pr_number",
-        "url",
-        "merged_at",
-        "pre_fix_count",
-        "post_fix_count",
-    )
-    type = sgqlc.types.Field(AgentHealthCheckType, graphql_name="type")
-    """Which verifier produced this check."""
-
-    validity = sgqlc.types.Field(AgentHealthCheckValidity, graphql_name="validity")
-    """Is the finding real? INVALID means a proven false positive."""
-
-    resolution = sgqlc.types.Field(AgentHealthCheckResolution, graphql_name="resolution")
-    """Is the underlying problem still open, or already fixed/addressed?"""
-
-    description = sgqlc.types.Field(String, graphql_name="description")
-    """Human-readable one-liner: what this check proves."""
-
-    file_path = sgqlc.types.Field(String, graphql_name="filePath")
-    """Repository-relative file path the evidence was traced to."""
-
-    symbol = sgqlc.types.Field(String, graphql_name="symbol")
-    """Function / class symbol within the file."""
-
-    pr_number = sgqlc.types.Field(Int, graphql_name="prNumber")
-    """Pull request number, for PR checks."""
-
-    url = sgqlc.types.Field(String, graphql_name="url")
-    """Link to the proof (e.g. the pull request)."""
-
-    merged_at = sgqlc.types.Field(DateTime, graphql_name="mergedAt")
-    """When the referenced pull request merged, for PR checks."""
-
-    pre_fix_count = sgqlc.types.Field(Int, graphql_name="preFixCount")
-    """Trace-slice volume the verdict was decided on, before the
-    referenced PR merged (PR checks). Error findings carry raw error
-    totals; latency findings carry span-weighted avg p95 in ms.
-    Inconclusive checks carry 0 — gate on resolution before rendering.
-    """
-
-    post_fix_count = sgqlc.types.Field(Int, graphql_name="postFixCount")
-    """Trace-slice volume the verdict was decided on, after the
-    referenced PR merged (PR checks). Same units as preFixCount.
-    """
-
-
-class AgentHealthEvidence(sgqlc.types.Type):
-    """One detector fact supporting an issue."""
-
-    __schema__ = schema
-    __field_names__ = (
-        "id",
-        "title",
-        "summary",
-        "significance",
-        "what_happened",
-        "what_it_led_to",
-        "what_caused_it",
-        "node_id",
-        "canonical_node_id",
-        "tool_name",
-        "category",
-        "focus_area",
-        "issue_type",
-        "family",
-        "granularity",
-        "severity",
-        "confidence",
-        "confidence_score",
-        "source",
-        "source_detector",
-        "checks",
-        "checks_status",
-        "samples",
-    )
-    id = sgqlc.types.Field(String, graphql_name="id")
-    """Evidence id, cited by the issue's relatedEvidenceIds."""
-
-    title = sgqlc.types.Field(String, graphql_name="title")
-    """Short headline of the fact."""
-
-    summary = sgqlc.types.Field(String, graphql_name="summary")
-    """What was observed and why it matters."""
-
-    significance = sgqlc.types.Field(String, graphql_name="significance")
-    """One-line framing of why this occurrence matters — the lead-in to
-    the whatHappened / whatItLedTo / whatCausedIt story. Null on
-    reports produced before typed evidence shipped.
-    """
-
-    what_happened = sgqlc.types.Field(String, graphql_name="whatHappened")
-    """The concrete observed behavior, told on one representative
-    occurrence. A non-empty value is what makes an evidence row an
-    example — the issue-level exampleCount counts exactly these rows.
-    Null on reports produced before typed evidence shipped.
-    """
-
-    what_it_led_to = sgqlc.types.Field(String, graphql_name="whatItLedTo")
-    """The consequence of the behavior — what the user saw or what went
-    wrong downstream. Null on reports produced before typed evidence
-    shipped.
-    """
-
-    what_caused_it = sgqlc.types.Field(String, graphql_name="whatCausedIt")
-    """The diagnosed cause of the behavior. Null on reports produced
-    before typed evidence shipped.
-    """
-
-    node_id = sgqlc.types.Field(String, graphql_name="nodeId")
-    """Agent graph node the fact is anchored to."""
-
-    canonical_node_id = sgqlc.types.Field(String, graphql_name="canonicalNodeId")
-    """The owning agent graph node id — nodeId rolled up to the
-    meaningful tool/task that owns it. The stable cross-run identity
-    handle; nodeId stays raw for display and deep-linking. Null for
-    content findings, graph-free runs, and reports produced before
-    this field shipped.
-    """
-
-    tool_name = sgqlc.types.Field(String, graphql_name="toolName")
-    """Tool involved, when the fact is tool-scoped."""
-
-    category = sgqlc.types.Field(AgentHealthEvidenceCategory, graphql_name="category")
-    """Aspect of agent behavior the fact speaks to."""
-
-    focus_area = sgqlc.types.Field(AgentHealthFocusArea, graphql_name="focusArea")
-    """Coarse lens the producing detector declares, independent of
-    category. Null on reports produced before focus areas shipped.
-    """
-
-    issue_type = sgqlc.types.Field(String, graphql_name="issueType")
-    """Stable taxonomy slug (e.g. error_rate, tool_cycle, chokepoint);
-    `other` is the escape hatch. The taxonomy may grow, so this is a
-    string rather than an enum.
-    """
-
-    family = sgqlc.types.Field(String, graphql_name="family")
-    """Mechanism family within the issue type, stamped when evidence is
-    grouped into issues (e.g. unsupported-figure/misunderstood-sql).
-    Finer-grained than issueType and free-form like it. Null on
-    reports produced before typed evidence shipped.
-    """
-
-    granularity = sgqlc.types.Field(AgentHealthGranularity, graphql_name="granularity")
-    """Grain of the underlying fact."""
-
-    severity = sgqlc.types.Field(AgentHealthSeverity, graphql_name="severity")
-    """Severity of the fact."""
-
-    confidence = sgqlc.types.Field(AgentHealthConfidence, graphql_name="confidence")
-    """Detector confidence tier in the fact."""
-
-    confidence_score = sgqlc.types.Field(Float, graphql_name="confidenceScore")
-    """Confidence as a derived float (high 0.9 / medium 0.6 / low 0.3)."""
-
-    source = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(AgentHealthEvidenceSource)), graphql_name="source"
-    )
-    """Signal origins; multiple when cross-source signals merged."""
-
-    source_detector = sgqlc.types.Field(String, graphql_name="sourceDetector")
-    """Which detector rule fired."""
-
-    checks = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(AgentHealthCheck)), graphql_name="checks"
-    )
-    """Verifier verdicts on this evidence row (code-aware judge, recent-
-    PR check). Empty when no verifier ran; null on reports produced
-    before verification shipped.
-    """
-
-    checks_status = sgqlc.types.Field(Boolean, graphql_name="checksStatus")
-    """Rollup over checks: false when a verifier proved the finding a
-    false positive, or resolved with nothing still open — true
-    otherwise, including unverified rows. Filter the open-issues view
-    on this; the why lives in each check's validity/resolution. Null
-    on reports produced before verification shipped.
-    """
-
-    samples = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null("AgentHealthEvidenceSample")),
-        graphql_name="samples",
-    )
-    """Trace/span deep-links to observed occurrences."""
-
-
-class AgentHealthEvidenceSample(sgqlc.types.Type):
-    """Deep-link target for one observed occurrence of an evidence fact."""
-
-    __schema__ = schema
-    __field_names__ = (
-        "span_id",
-        "trace_id",
-        "trace_start_time",
-        "trace_end_time",
-        "thread_id",
-        "turn_index",
-        "part",
-        "step_name",
-        "label",
-        "origin",
-    )
-    span_id = sgqlc.types.Field(String, graphql_name="spanId")
-    """Span id of the sampled occurrence."""
-
-    trace_id = sgqlc.types.Field(String, graphql_name="traceId")
-    """Trace id of the sampled occurrence."""
-
-    trace_start_time = sgqlc.types.Field(DateTime, graphql_name="traceStartTime")
-    """Start bound for looking up this sample's trace — pass to
-    getTraceTreeNodes' traceStartTime. Span event time (the trace's
-    earliest span timestamp, padded by 5 minutes), not ingestion time.
-    Evidence samples may cite traces outside the finding's
-    windowStart/windowEnd (e.g. a historical comparison period), so
-    prefer these bounds over the finding window. Sourced from the
-    persisted sample when the pipeline recorded it, otherwise resolved
-    from the trace store at read time — legacy findings need no
-    backfill. Null when the trace can no longer be found (expired
-    retention or lookup failure); fall back to the finding window.
-    """
-
-    trace_end_time = sgqlc.types.Field(DateTime, graphql_name="traceEndTime")
-    """End bound for looking up this sample's trace — pass to
-    getTraceTreeNodes' traceEndTime. Span event time (the trace's
-    latest span timestamp, padded by 5 minutes), not ingestion time.
-    Evidence samples may cite traces outside the finding's
-    windowStart/windowEnd (e.g. a historical comparison period), so
-    prefer these bounds over the finding window. Sourced from the
-    persisted sample when the pipeline recorded it, otherwise resolved
-    from the trace store at read time — legacy findings need no
-    backfill. Null when the trace can no longer be found (expired
-    retention or lookup failure); fall back to the finding window.
-    """
-
-    thread_id = sgqlc.types.Field(String, graphql_name="threadId")
-    """Conversation thread the sampled occurrence belongs to — the handle
-    for a conversation deep-link. Null when the occurrence is not
-    conversation-scoped, and on reports produced before conversation
-    anchoring shipped.
-    """
-
-    turn_index = sgqlc.types.Field(Int, graphql_name="turnIndex")
-    """Zero-based index of the cited turn within threadId's conversation
-    — matches the conversation API's turnIndex. Null like threadId.
-    """
-
-    part = sgqlc.types.Field(String, graphql_name="part")
-    """Which part of the turn the sample cites (e.g. 'summary table'). A
-    display hint, not a coordinate — a wrong part still opens the
-    right turn.
-    """
-
-    step_name = sgqlc.types.Field(String, graphql_name="stepName")
-    """Name of the trace step (span) the sample anchors to — display text
-    for the trace deep-link.
-    """
-
-    label = sgqlc.types.Field(String, graphql_name="label")
-    """Human-readable one-liner naming what this sample shows (e.g. 'the
-    turn stating $4.2M').
-    """
-
-    origin = sgqlc.types.Field(String, graphql_name="origin")
-    """How the sample was chosen: 'detector' (cited by the detecting
-    rule), 'error_spans' (pulled from the node's error spans), or
-    'fallback' (a generic example trace). Consumers may hide fallback
-    samples. Null on reports produced before origins shipped.
-    """
-
-
-class AgentHealthIssue(sgqlc.types.Type):
-    """One detected health issue, with its evidence and fixes resolved
-    inline.
-    """
-
-    __schema__ = schema
-    __field_names__ = (
-        "finding_uuid",
-        "id",
-        "title",
-        "narrative",
-        "severity",
-        "priority",
-        "confidence",
-        "confidence_score",
-        "related_evidence_ids",
-        "focus_area",
-        "lifecycle",
-        "first_detected",
-        "last_seen",
-        "evidence",
-        "recommended_actions",
-        "action_context",
-        "proposed_monitor_yaml",
-    )
-    finding_uuid = sgqlc.types.Field(UUID, graphql_name="findingUuid")
-    """UUID of the stable issue record behind this issue — the same value
-    as the node's `issueUuid`, and the handle the ticket / draft-PR
-    mutations take. Stable across runs.
-    """
-
-    id = sgqlc.types.Field(String, graphql_name="id")
-    """Stable issue id: the agent-assigned UUID identifying the same
-    problem across runs (the node's `stableIssueId`).
-    """
-
-    title = sgqlc.types.Field(String, graphql_name="title")
-    """Short declarative headline (the card title)."""
-
-    narrative = sgqlc.types.Field(String, graphql_name="narrative")
-    """Plain-language story — what's wrong and why it matters."""
-
-    severity = sgqlc.types.Field(AgentHealthSeverity, graphql_name="severity")
-    """Max severity of the cited evidence."""
-
-    priority = sgqlc.types.Field(AgentHealthPriority, graphql_name="priority")
-    """Impact bucket of the issue."""
-
-    confidence = sgqlc.types.Field(AgentHealthConfidence, graphql_name="confidence")
-    """Confidence tier in the issue."""
-
-    confidence_score = sgqlc.types.Field(Float, graphql_name="confidenceScore")
-    """Confidence as a derived float (high 0.9 / medium 0.6 / low 0.3)."""
-
-    related_evidence_ids = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="relatedEvidenceIds"
-    )
-    """Ids of the evidence rows this issue is built from."""
-
-    focus_area = sgqlc.types.Field(AgentHealthFocusArea, graphql_name="focusArea")
-    """Coarse lens the issue is filed under — the plurality focus area
-    across its cited evidence. Null on reports produced before focus
-    areas shipped.
-    """
-
-    lifecycle = sgqlc.types.Field(AgentHealthIssueLifecycle, graphql_name="lifecycle")
-    """Two-state cross-run status of the issue. Null only when the issue
-    is RESOLVED — a state this enum cannot express; the node's own
-    `lifecycle` carries the full 4-state value and never nulls.
-    """
-
-    first_detected = sgqlc.types.Field(DateTime, graphql_name="firstDetected")
-    """When this issue was FIRST detected across runs — carried forward
-    hop-by-hop through the lifecycle match (an ONGOING issue keeps its
-    prior first_detected; a NEW one is stamped with this run's
-    detection date), so the agent can report 'failing since <date>'
-    and the UI can derive an age/chronic badge. Always populated —
-    every issue is backed by a stable issue record.
-    """
-
-    last_seen = sgqlc.types.Field(DateTime, graphql_name="lastSeen")
-    """When this issue was LAST reported by any run — bumped every time a
-    run re-reports the issue, so it reads as 'still failing as of
-    <date>'. A global as-of-now value, NOT clamped to a query's time
-    window: it can exceed the window's endTime when the issue is still
-    occurring. Always populated, like firstDetected.
-    """
-
-    evidence = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(AgentHealthEvidence)), graphql_name="evidence"
-    )
-    """The supporting evidence, resolved inline."""
-
-    recommended_actions = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null("AgentHealthRecommendedAction")),
-        graphql_name="recommendedActions",
-    )
-    """Fixes addressing this issue, resolved inline."""
-
-    action_context = sgqlc.types.Field(String, graphql_name="actionContext")
-    """Self-contained handoff body for acting on this issue (a ticket
-    description, a coding-agent prompt): agent identity and window,
-    the narrative, cited evidence with trace deep-links and verifier
-    checks, and recommended actions. Currently markdown, but the
-    format may evolve — treat as opaque rich text. Null on reports
-    produced before the bundle shipped.
-    """
-
-    proposed_monitor_yaml = sgqlc.types.Field(String, graphql_name="proposedMonitorYaml")
-    """The proposed agent-metric-monitor spec for this issue rendered as
-    YAML (deterministic, no LLM). Null when the issue has no
-    monitorable LLM span or no monitor was proposed. When present,
-    drives the 'Build monitor' action: the YAML holds the full monitor
-    config (source table, span filter, comparisons, schedule) ready
-    for the create-monitor API.
-    """
-
-
 class AgentHealthIssueJiraTicket(sgqlc.types.Type):
     """A Jira ticket created for an agent-health issue.  Present means a
     ticket already exists for this issue (keyed on the issue's stable
@@ -26836,48 +26329,6 @@ class AgentHealthIssueServiceNowTicket(sgqlc.types.Type):
 
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
     """When the ServiceNow incident was created from this issue."""
-
-
-class AgentHealthRecommendedAction(sgqlc.types.Type):
-    """A remediation addressing one or more issues."""
-
-    __schema__ = schema
-    __field_names__ = (
-        "id",
-        "title",
-        "sub_bullets",
-        "addresses_issue_ids",
-        "is_actionable_fix",
-        "fix_where",
-    )
-    id = sgqlc.types.Field(String, graphql_name="id")
-    """Action id."""
-
-    title = sgqlc.types.Field(String, graphql_name="title")
-    """Imperative fix headline."""
-
-    sub_bullets = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="subBullets"
-    )
-    """Concrete tactical steps."""
-
-    addresses_issue_ids = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="addressesIssueIds"
-    )
-    """Issue id(s) this fix resolves."""
-
-    is_actionable_fix = sgqlc.types.Field(Boolean, graphql_name="isActionableFix")
-    """True when this action is a directly-applicable fix — a concrete
-    grounded change to apply; False when it only offers investigation
-    leads.
-    """
-
-    fix_where = sgqlc.types.Field(String, graphql_name="fixWhere")
-    """Where the fix lands — the platform surface or location to apply
-    the change in (e.g. 'Snowflake Intelligence → semantic model').
-    Present only on fix-disposed actions (isActionableFix true);
-    always null otherwise.
-    """
 
 
 class AgentListMetrics(sgqlc.types.Type):
@@ -27288,7 +26739,7 @@ class AgentObservabilitySummary(sgqlc.types.Type):
     window.  Selected metrics that are null are unavailable;
     unavailableFields lists the selected fields that are null.
     totalRuns, run success rate, p95 latency, historical comparisons,
-    evals, and spend are not yet available.
+    and evals are not yet available.
     """
 
     __schema__ = schema
@@ -27332,8 +26783,9 @@ class AgentObservabilitySummary(sgqlc.types.Type):
     """Whether an accessible agent trace source is registered."""
 
     agents_with_open_issues_count = sgqlc.types.Field(Int, graphql_name="agentsWithOpenIssuesCount")
-    """Agents with active, non-ignored findings seen in the past 48
-    hours.
+    """Agents with active, non-ignored reinforcement-loop issues seen in
+    the past 48 hours. Issues served at HIDDEN priority are left out,
+    as on the agent's issues page.
     """
 
     agents_on_alerted_data_count = sgqlc.types.Field(Int, graphql_name="agentsOnAlertedDataCount")
@@ -27395,8 +26847,10 @@ class AgentObservabilitySummary(sgqlc.types.Type):
     eval_score = sgqlc.types.Field(Float, graphql_name="evalScore")
 
     spend = sgqlc.types.Field(Float, graphql_name="spend")
+    """Always null."""
 
     spend_unit = sgqlc.types.Field(String, graphql_name="spendUnit")
+    """Always null."""
 
     unavailable_fields = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
@@ -27606,6 +27060,22 @@ class AgentSpanTree(sgqlc.types.Type):
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AgentSpanNode))),
         graphql_name="nodes",
     )
+
+
+class AgentSpend(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("spend", "spend_unit")
+    spend = sgqlc.types.Field(Float, graphql_name="spend")
+    """What the cohort's Cortex model calls cost over the window, in
+    spendUnit. It excludes the warehouse cost of the agents' SQL. Null
+    when the user lacks the graphql/query permission, the account
+    lacks an agent or a compute cost rate, a priced agent's cost is in
+    credits or another currency, no agent priced a model call, or the
+    cohort has more Cortex agents than one batched cost read takes.
+    """
+
+    spend_unit = sgqlc.types.Field(String, graphql_name="spendUnit")
+    """The lowercase ISO 4217 currency code spend is in, such as usd."""
 
 
 class AgentTraceExportStatusOutput(sgqlc.types.Type):
@@ -29064,20 +28534,6 @@ class AssetLineageTruncation(sgqlc.types.Type):
 
     limit = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="limit")
     """The node limit the traversal ran with."""
-
-
-class AssetMemoryResultType(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = ("mcon", "memories", "memories_metadata", "last_updated")
-    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
-
-    memories = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="memories"
-    )
-
-    memories_metadata = sgqlc.types.Field(GenericScalar, graphql_name="memoriesMetadata")
-
-    last_updated = sgqlc.types.Field(String, graphql_name="lastUpdated")
 
 
 class AssetMetricAuditLogConnection(sgqlc.types.relay.Connection):
@@ -31993,24 +31449,6 @@ class CleanupCollectorRecordInAccount(sgqlc.types.Type):
     """If the collector record was deleted"""
 
 
-class ClearBootstrapMemoryData(sgqlc.types.Type):
-    """Clear only bootstrap-sourced memories for the caller's account."""
-
-    __schema__ = schema
-    __field_names__ = ("ok",)
-    ok = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="ok")
-    """True if bootstrap memories were cleared successfully."""
-
-
-class ClearMemoryData(sgqlc.types.Type):
-    """Clear all ingested memory data for the caller's account."""
-
-    __schema__ = schema
-    __field_names__ = ("ok",)
-    ok = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="ok")
-    """True if memories were cleared successfully."""
-
-
 class ClusterAssignmentType(sgqlc.types.Type):
     """One of possibly several clusters assigned to a conversation by its
     most recent classification run, in the current taxonomy.
@@ -34724,15 +34162,14 @@ class CostBucket(sgqlc.types.Type):
     cost = sgqlc.types.Field(Float, graphql_name="cost")
 
     warehouse_cost = sgqlc.types.Field(Float, graphql_name="warehouseCost")
-    """The warehouse compute credits Snowflake attributes to this agent's
-    SQL queries whose spans fall in the bucket, in the response's
-    `costUnit`. Zero when the bucket's queries attributed nothing. A
-    query whose span carries no trace id -- or whose trace's spans all
-    match the SqlExecution_CortexAnalyst exclusion -- counts in the
-    response's `warehouseCost` but lands in no bucket, so the rows can
-    sum below it. None for every bucket when the attribution view
-    could not be read -- the agent-level `warehouseCostAsOf` is None
-    then too.
+    """The warehouse compute cost Snowflake attributes to this agent's
+    SQL queries whose spans fall in the bucket, in `costUnit`. Zero
+    when the bucket's queries attributed nothing. A query whose span
+    carries no trace id -- or whose trace's spans all match the
+    SqlExecution_CortexAnalyst exclusion -- counts in the response's
+    `warehouseCost` but lands in no bucket, so the rows can sum below
+    it. None for every bucket when the attribution view could not be
+    read -- the agent-level `warehouseCostAsOf` is None then too.
     """
 
 
@@ -39868,6 +39305,13 @@ class DeleteAgent(sgqlc.types.Type):
     success = sgqlc.types.Field(Boolean, graphql_name="success")
 
 
+class DeleteAgentCostRate(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(Boolean, graphql_name="success")
+    """Whether the rate was deleted."""
+
+
 class DeleteAgentMemory(sgqlc.types.Type):
     """Delete a memory permanently."""
 
@@ -40362,12 +39806,6 @@ class DeleteMcpIntegrationKey(sgqlc.types.Type):
     """True if the key was deleted, false otherwise"""
 
 
-class DeleteMemoryResultType(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = ("message",)
-    message = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="message")
-
-
 class DeleteMonitor(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("success",)
@@ -40517,13 +39955,6 @@ class DeleteRecipientName(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("success",)
     success = sgqlc.types.Field(Boolean, graphql_name="success")
-
-
-class DeleteReinforcementLoopIssuesByAgent(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = ("deleted_count",)
-    deleted_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="deletedCount")
-    """Number of issues actually deleted."""
 
 
 class DeleteReinforcementLoopIssuesByIssueId(sgqlc.types.Type):
@@ -43190,17 +42621,6 @@ class ExtendedDataSource(sgqlc.types.Type):
     """Segment count from the previous run."""
 
 
-class ExtractMemoryData(sgqlc.types.Type):
-    """Trigger an async extraction of incident memory data for the
-    caller's account.
-    """
-
-    __schema__ = schema
-    __field_names__ = ("ok",)
-    ok = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="ok")
-    """True if extraction was triggered, False if it already exists."""
-
-
 class FHEvent(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
@@ -43377,14 +42797,6 @@ class FHNumericResult(sgqlc.types.Type):
 
     correlation = sgqlc.types.Field(String, graphql_name="correlation")
     """high or low correlation found on field"""
-
-
-class FacetBucketType(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = ("value", "count")
-    value = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="value")
-
-    count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="count")
 
 
 class FacetEntry(sgqlc.types.Type):
@@ -46737,17 +46149,6 @@ class InfrastructureDetails(sgqlc.types.Type):
     """Azure information"""
 
 
-class IngestMemoryData(sgqlc.types.Type):
-    """Trigger async ingestion of exported memory data into ai-agent
-    memory stores.
-    """
-
-    __schema__ = schema
-    __field_names__ = ("ok",)
-    ok = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="ok")
-    """True if ingestion was triggered, False if no extraction exists."""
-
-
 class Insight(sgqlc.types.Type):
     """Available data on a specific element of the system created by DS"""
 
@@ -46988,9 +46389,10 @@ class InternalStepGroupV2(sgqlc.types.Type):
 
     cache_read_tokens = sgqlc.types.Field(Int, graphql_name="cacheReadTokens")
     """Input tokens the step's underlying span served from the prompt
-    cache. Set only on Snowflake Cortex reasoning steps, where
-    promptTokens excludes them, so promptTokens plus cacheReadTokens
-    is the step's full input. Not part of totalTokens.
+    cache. Set on Snowflake Cortex planning, response-generation, and
+    suggested-query steps, where promptTokens excludes them, so
+    promptTokens plus cacheReadTokens is the step's full input. Not
+    part of totalTokens.
     """
 
     status = sgqlc.types.Field(Int, graphql_name="status")
@@ -49384,26 +48786,6 @@ class ListDatasetsResponse(sgqlc.types.Type):
     """Page token for the next page"""
 
 
-class ListMemoriesResultType(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = ("query_type", "query", "count", "memories", "total", "offset", "facets")
-    query_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="queryType")
-
-    query = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="query")
-
-    count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="count")
-
-    memories = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null("MemoryRecordType")), graphql_name="memories"
-    )
-
-    total = sgqlc.types.Field(Int, graphql_name="total")
-
-    offset = sgqlc.types.Field(Int, graphql_name="offset")
-
-    facets = sgqlc.types.Field("MemoryFacetsType", graphql_name="facets")
-
-
 class ListMonitorTagsOutput(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("total_count", "tags")
@@ -49985,142 +49367,6 @@ class McpServerReference(sgqlc.types.Type):
 
     name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
     """Display name of the MCP server."""
-
-
-class MemoryExtractionStatus(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = ("exists", "last_modified", "record_count")
-    exists = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="exists")
-    """Whether a completed extraction file exists for the account."""
-
-    last_modified = sgqlc.types.Field(DateTime, graphql_name="lastModified")
-    """When the extraction file was last modified (UTC). Null if no
-    extraction exists.
-    """
-
-    record_count = sgqlc.types.Field(Int, graphql_name="recordCount")
-    """Number of incident records in the extraction file. Null if no
-    extraction exists.
-    """
-
-
-class MemoryFacetsType(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = ("sources", "domains", "is_account_level")
-    sources = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(FacetBucketType)), graphql_name="sources"
-    )
-
-    domains = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(FacetBucketType)), graphql_name="domains"
-    )
-
-    is_account_level = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(FacetBucketType)), graphql_name="isAccountLevel"
-    )
-
-
-class MemoryPipelineStatus(sgqlc.types.Type):
-    """Combined status of the extract → ingest memory pipeline."""
-
-    __schema__ = schema
-    __field_names__ = ("extract", "ingest", "eligible_incident_count")
-    extract = sgqlc.types.Field(
-        sgqlc.types.non_null("MemoryPipelineStepStatus"), graphql_name="extract"
-    )
-    """Status of the extraction step."""
-
-    ingest = sgqlc.types.Field(
-        sgqlc.types.non_null("MemoryPipelineStepStatus"), graphql_name="ingest"
-    )
-    """Status of the ingestion step."""
-
-    eligible_incident_count = sgqlc.types.Field(
-        sgqlc.types.non_null(Int), graphql_name="eligibleIncidentCount"
-    )
-    """Number of incidents with eligible Slack thread replies available
-    for extraction. Zero means there is no data to extract.
-    """
-
-
-class MemoryPipelineStepStatus(sgqlc.types.Type):
-    """Status of a single step (extract or ingest) in the memory
-    pipeline.
-    """
-
-    __schema__ = schema
-    __field_names__ = (
-        "status",
-        "started_at",
-        "completed_at",
-        "error",
-        "record_count",
-        "total_count",
-    )
-    status = sgqlc.types.Field(String, graphql_name="status")
-    """Current status: 'running', 'success', or 'error'. Null if the step
-    has not been triggered.
-    """
-
-    started_at = sgqlc.types.Field(String, graphql_name="startedAt")
-    """ISO 8601 timestamp of when this step was triggered (UTC)."""
-
-    completed_at = sgqlc.types.Field(String, graphql_name="completedAt")
-    """ISO 8601 timestamp of when this step finished (UTC). Null if still
-    running or not started.
-    """
-
-    error = sgqlc.types.Field(String, graphql_name="error")
-    """Error message if the step failed. Null otherwise."""
-
-    record_count = sgqlc.types.Field(Int, graphql_name="recordCount")
-    """Number of records processed by this step. Null if not available."""
-
-    total_count = sgqlc.types.Field(Int, graphql_name="totalCount")
-    """Total number of records to process. Available while running or
-    after completion. Null if not yet known.
-    """
-
-
-class MemoryRecordType(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = (
-        "id",
-        "memory",
-        "score",
-        "metadata",
-        "source",
-        "created_at",
-        "table_id",
-        "resource_id",
-        "memories",
-        "memories_metadata",
-        "last_updated",
-        "extra",
-    )
-    id = sgqlc.types.Field(String, graphql_name="id")
-
-    memory = sgqlc.types.Field(String, graphql_name="memory")
-
-    score = sgqlc.types.Field(Float, graphql_name="score")
-
-    metadata = sgqlc.types.Field(GenericScalar, graphql_name="metadata")
-
-    source = sgqlc.types.Field(String, graphql_name="source")
-
-    created_at = sgqlc.types.Field(String, graphql_name="createdAt")
-
-    table_id = sgqlc.types.Field(String, graphql_name="tableId")
-
-    resource_id = sgqlc.types.Field(String, graphql_name="resourceId")
-
-    memories = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="memories")
-
-    memories_metadata = sgqlc.types.Field(GenericScalar, graphql_name="memoriesMetadata")
-
-    last_updated = sgqlc.types.Field(String, graphql_name="lastUpdated")
-
-    extra = sgqlc.types.Field(GenericScalar, graphql_name="extra")
 
 
 class MergeAlerts(sgqlc.types.Type):
@@ -53255,9 +52501,7 @@ class Mutation(sgqlc.types.Type):
         "create_linear_ticket_for_agent_health_issue",
         "create_jira_ticket_for_agent_health_issue",
         "create_service_now_ticket_for_agent_health_issue",
-        "trigger_reinforcement_loop_dispatch",
         "delete_reinforcement_loop_issues_by_issue_id",
-        "delete_reinforcement_loop_issues_by_agent",
         "submit_reinforcement_loop_issue_feedback",
         "ignore_reinforcement_loop_issue",
         "unignore_reinforcement_loop_issue",
@@ -53272,6 +52516,8 @@ class Mutation(sgqlc.types.Type):
         "delete_golden_set",
         "delete_golden_test_case",
         "upsert_llm_price_book_override",
+        "upsert_agent_cost_rate",
+        "delete_agent_cost_rate",
         "delete_llm_price_book_override",
         "add_conversation_to_golden_set",
         "generate_golden_baseline",
@@ -53284,10 +52530,6 @@ class Mutation(sgqlc.types.Type):
         "update_logs_integration",
         "delete_logs_integration",
         "generate_report",
-        "extract_memory_data",
-        "ingest_memory_data",
-        "clear_memory_data",
-        "clear_bootstrap_memory_data",
         "create_datadog_integration",
         "update_datadog_integration",
         "delete_datadog_integration",
@@ -53865,12 +53107,6 @@ class Mutation(sgqlc.types.Type):
         "bulk_set_etl_job_generates_alerts",
         "start_tsa_analysis",
         "start_remediation",
-        "create_semantic_memory",
-        "update_semantic_memory",
-        "delete_semantic_memory",
-        "create_asset_memory",
-        "update_asset_memory",
-        "delete_asset_memory",
         "request_agent_budget_increase",
         "create_agent_memory",
         "replace_agent_memory",
@@ -55639,14 +54875,6 @@ class Mutation(sgqlc.types.Type):
     * `input` (`CreateServiceNowTicketForAgentHealthIssueInput!`)None
     """
 
-    trigger_reinforcement_loop_dispatch = sgqlc.types.Field(
-        "TriggerReinforcementLoopDispatch", graphql_name="triggerReinforcementLoopDispatch"
-    )
-    """(experimental) DEPRECATED. Manually queue the reinforcement-loop
-    (agent health) fan-out for the calling account. Removed: always
-    returns an error.
-    """
-
     delete_reinforcement_loop_issues_by_issue_id = sgqlc.types.Field(
         DeleteReinforcementLoopIssuesByIssueId,
         graphql_name="deleteReinforcementLoopIssuesByIssueId",
@@ -55670,43 +54898,8 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `issue_uuids` (`[UUID!]!`): UUIDs of the issues to delete — each
-      the `issueUuid` of a getReinforcementLoopIssues node
-      (equivalently its `issue.findingUuid`). Unknown and already-
-      deleted uuids are skipped.
-    """
-
-    delete_reinforcement_loop_issues_by_agent = sgqlc.types.Field(
-        DeleteReinforcementLoopIssuesByAgent,
-        graphql_name="deleteReinforcementLoopIssuesByAgent",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "agent_name",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="agentName", default=None
-                    ),
-                ),
-                (
-                    "trace_table_mcon",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="traceTableMcon", default=None
-                    ),
-                ),
-            )
-        ),
-    )
-    """(experimental) Delete every reinforcement-loop issue of one agent,
-    across all its workflows. A deleted issue never resurfaces; if the
-    agent reports the same problem again it starts over as a brand-new
-    issue.
-
-    Arguments:
-
-    * `agent_name` (`String!`): Name of the agent whose issues to
-      delete.
-    * `trace_table_mcon` (`String!`): The agent's trace table MCON —
-      the same agentName/traceTableMcon pair
-      getReinforcementLoopIssues takes.
+      the `issueUuid` of a getReinforcementLoopV2Issues node. Unknown
+      and already-deleted uuids are skipped.
     """
 
     submit_reinforcement_loop_issue_feedback = sgqlc.types.Field(
@@ -56135,6 +55328,59 @@ class Mutation(sgqlc.types.Type):
     * `input` (`UpsertLlmPriceBookOverrideInput!`)None
     """
 
+    upsert_agent_cost_rate = sgqlc.types.Field(
+        "UpsertAgentCostRate",
+        graphql_name="upsertAgentCostRate",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UpsertAgentCostRateInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Create or replace an agent cost rate: what one
+    billing unit costs the customer, for the agent's model calls
+    (AGENT) or its SQL (COMPUTE). Agent costs are shown in money once
+    an agent has both rates in one currency. Replaces any existing
+    rate for the same warehouse, unit and usage type. Requires the AI
+    agent settings edit permission. The edit permission is account-
+    wide. An editor limited to some domains can still change rates
+    that price agents in every domain.
+
+    Arguments:
+
+    * `input` (`UpsertAgentCostRateInput!`)None
+    """
+
+    delete_agent_cost_rate = sgqlc.types.Field(
+        DeleteAgentCostRate,
+        graphql_name="deleteAgentCostRate",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "rate_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="rateUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Delete an agent cost rate. Agents it priced fall
+    back to the account-wide rate. Without one, they go back to their
+    billing unit. Requires the AI agent settings edit permission.
+
+    Arguments:
+
+    * `rate_uuid` (`UUID!`): Rate to delete.
+    """
+
     delete_llm_price_book_override = sgqlc.types.Field(
         DeleteLlmPriceBookOverride,
         graphql_name="deleteLlmPriceBookOverride",
@@ -56463,39 +55709,6 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `report_parameters` (`ReportArgumentsUnionInput!`)None
-    """
-
-    extract_memory_data = sgqlc.types.Field(
-        ExtractMemoryData,
-        graphql_name="extractMemoryData",
-        args=sgqlc.types.ArgDict(
-            (("start_date", sgqlc.types.Arg(Date, graphql_name="startDate", default=None)),)
-        ),
-    )
-    """(experimental) Extract incident memory data for the caller's
-    account
-
-    Arguments:
-
-    * `start_date` (`Date`): Only extract incidents created on or
-      after this date. Defaults to 90 days ago.
-    """
-
-    ingest_memory_data = sgqlc.types.Field(IngestMemoryData, graphql_name="ingestMemoryData")
-    """(experimental) Ingest exported memory data into ai-agent memory
-    stores
-    """
-
-    clear_memory_data = sgqlc.types.Field(ClearMemoryData, graphql_name="clearMemoryData")
-    """(experimental) Clear all ingested memory data for the caller's
-    account
-    """
-
-    clear_bootstrap_memory_data = sgqlc.types.Field(
-        ClearBootstrapMemoryData, graphql_name="clearBootstrapMemoryData"
-    )
-    """(experimental) Clear only bootstrap-sourced memories for the
-    caller's account
     """
 
     create_datadog_integration = sgqlc.types.Field(
@@ -66375,7 +65588,8 @@ class Mutation(sgqlc.types.Type):
     * `namespace` (`String!`): Namespace of config template
     * `resource` (`String`): Default resource (warehouse) ID or name.
       DEPRECATED: use warehouse instead.
-    * `sql_validation` (`Boolean`): Enable SQL syntax validation
+    * `sql_validation` (`Boolean`): Enable SQL syntax validation and
+      pre-save warehouse checks, including the cost availability check
       (default: true)
     * `warehouse` (`String`): Default warehouse ID or name
     """
@@ -66434,7 +65648,8 @@ class Mutation(sgqlc.types.Type):
     * `namespace` (`String!`): Namespace of config template
     * `resource` (`String`): Default resource (warehouse) ID or name.
       DEPRECATED: use warehouse instead.
-    * `sql_validation` (`Boolean`): Enable SQL syntax validation
+    * `sql_validation` (`Boolean`): Enable SQL syntax validation and
+      pre-save warehouse checks, including the cost availability check
       (default: true)
     * `warehouse` (`String`): Default warehouse ID or name
     """
@@ -80443,187 +79658,6 @@ class Mutation(sgqlc.types.Type):
       plan for
     """
 
-    create_semantic_memory = sgqlc.types.Field(
-        "SemanticMemoryResultType",
-        graphql_name="createSemanticMemory",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "domain_ids",
-                    sgqlc.types.Arg(
-                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
-                        graphql_name="domainIds",
-                        default=None,
-                    ),
-                ),
-                (
-                    "is_account_level",
-                    sgqlc.types.Arg(Boolean, graphql_name="isAccountLevel", default=None),
-                ),
-                (
-                    "memory",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="memory", default=None
-                    ),
-                ),
-                ("source", sgqlc.types.Arg(String, graphql_name="source", default=None)),
-            )
-        ),
-    )
-    """(experimental) Create a semantic memory
-
-    Arguments:
-
-    * `domain_ids` (`[String!]`)None
-    * `is_account_level` (`Boolean`)None
-    * `memory` (`String!`)None
-    * `source` (`String`)None
-    """
-
-    update_semantic_memory = sgqlc.types.Field(
-        "SemanticMemoryResultType",
-        graphql_name="updateSemanticMemory",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "domain_ids",
-                    sgqlc.types.Arg(
-                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
-                        graphql_name="domainIds",
-                        default=None,
-                    ),
-                ),
-                (
-                    "memory",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="memory", default=None
-                    ),
-                ),
-                (
-                    "memory_id",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="memoryId", default=None
-                    ),
-                ),
-            )
-        ),
-    )
-    """(experimental) Update a semantic memory
-
-    Arguments:
-
-    * `domain_ids` (`[String!]`)None
-    * `memory` (`String!`)None
-    * `memory_id` (`String!`)None
-    """
-
-    delete_semantic_memory = sgqlc.types.Field(
-        DeleteMemoryResultType,
-        graphql_name="deleteSemanticMemory",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "memory_id",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="memoryId", default=None
-                    ),
-                ),
-            )
-        ),
-    )
-    """(experimental) Delete a semantic memory
-
-    Arguments:
-
-    * `memory_id` (`String!`)None
-    """
-
-    create_asset_memory = sgqlc.types.Field(
-        AssetMemoryResultType,
-        graphql_name="createAssetMemory",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "mcon",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
-                    ),
-                ),
-                (
-                    "memory",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="memory", default=None
-                    ),
-                ),
-            )
-        ),
-    )
-    """(experimental) Create asset memories
-
-    Arguments:
-
-    * `mcon` (`String!`)None
-    * `memory` (`String!`)None
-    """
-
-    update_asset_memory = sgqlc.types.Field(
-        AssetMemoryResultType,
-        graphql_name="updateAssetMemory",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "mcon",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
-                    ),
-                ),
-                (
-                    "memory_id",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="memoryId", default=None
-                    ),
-                ),
-                (
-                    "text",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="text", default=None
-                    ),
-                ),
-            )
-        ),
-    )
-    """(experimental) Update asset memories
-
-    Arguments:
-
-    * `mcon` (`String!`)None
-    * `memory_id` (`String!`)None
-    * `text` (`String!`)None
-    """
-
-    delete_asset_memory = sgqlc.types.Field(
-        DeleteMemoryResultType,
-        graphql_name="deleteAssetMemory",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "mcon",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
-                    ),
-                ),
-                ("memory_id", sgqlc.types.Arg(String, graphql_name="memoryId", default=None)),
-            )
-        ),
-    )
-    """(experimental) Delete asset memories
-
-    Arguments:
-
-    * `mcon` (`String!`)None
-    * `memory_id` (`String`)None
-    """
-
     request_agent_budget_increase = sgqlc.types.Field(
         "RequestAgentBudgetIncrease",
         graphql_name="requestAgentBudgetIncrease",
@@ -81319,6 +80353,30 @@ class NotificationDailyCount(sgqlc.types.Type):
     """The notification count"""
 
 
+class NotificationDestinationHealth(sgqlc.types.Type):
+    """Whether alerts reach a Slack or Microsoft Teams notification
+    setting, and why not. A setting with several Teams channels gets
+    one answer for all of them.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("status", "reason", "detail", "refused_time")
+    status = sgqlc.types.Field(sgqlc.types.non_null(DestinationHealthStatus), graphql_name="status")
+
+    reason = sgqlc.types.Field(String, graphql_name="reason")
+    """Why alerts cannot be posted, as a stable code: no_slack_workspace,
+    no_msteams_team, app_not_installed (the Monte Carlo Teams app is
+    not installed in the team), last_send_refused (the last alert sent
+    here since the setting was last edited was refused).
+    """
+
+    detail = sgqlc.types.Field(String, graphql_name="detail")
+    """The error text of the refused alert"""
+
+    refused_time = sgqlc.types.Field(DateTime, graphql_name="refusedTime")
+    """When the refused alert was sent"""
+
+
 class NotificationIncidentDailyCount(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("day", "incident_count")
@@ -81509,6 +80567,7 @@ class NotificationSetting(sgqlc.types.Type):
         "integration_id",
         "team_id",
         "channel_url",
+        "destination_health",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
     """Effective ID for notification settings"""
@@ -81588,6 +80647,16 @@ class NotificationSetting(sgqlc.types.Type):
     channel_url = sgqlc.types.Field(String, graphql_name="channelUrl")
     """URL of the channel if this is a channel-based notification.
     Currently only Slack and MS Teams is supported.
+    """
+
+    destination_health = sgqlc.types.Field(
+        NotificationDestinationHealth, graphql_name="destinationHealth"
+    )
+    """Whether alerts reach this Slack or Microsoft Teams setting: the
+    Teams app installation, and whether the last alert sent here since
+    the setting was last edited was refused. Null for other
+    destination types, and for users without access to notification
+    settings. To check a destination now, send a test notification.
     """
 
 
@@ -84119,8 +83188,9 @@ class PriceBookComputation(sgqlc.types.Type):
     unit = sgqlc.types.Field(sgqlc.types.non_null(RateUnit), graphql_name="unit")
     """What every rate in this table is denominated in. This is the rate
     unit, not the cost unit: rates here are per million tokens, and a
-    cost computed from them is reported by `getAgentCost.costUnit` as
-    `credits` or `usd`.
+    cost computed from them is reported by `getAgentCost.costUnit`.
+    That is `credits`, or the customer's currency when cost rates
+    apply.
     """
 
     agent_cost_types = sgqlc.types.Field(
@@ -84432,6 +83502,7 @@ class Query(sgqlc.types.Type):
         "get_custom_dashboard_widget_as_definition",
         "get_open_telemetry_data_stores",
         "get_agent_observability_summary",
+        "get_agent_spend",
         "get_conversation_clustering_spaces",
         "get_conversation_clustering_settings",
         "get_conversation_clustering",
@@ -84449,8 +83520,6 @@ class Query(sgqlc.types.Type):
         "get_golden_test_cases",
         "get_golden_baseline",
         "get_golden_test_runs",
-        "get_reinforcement_loop_issues",
-        "get_reinforcement_loop_reports",
         "get_genie_space_configuration",
         "get_reinforcement_loop_agent",
         "get_reinforcement_loop_github_repos",
@@ -84474,6 +83543,7 @@ class Query(sgqlc.types.Type):
         "get_agents_trace_overview",
         "get_llm_price_book",
         "get_llm_price_book_overrides",
+        "get_agent_cost_rates",
         "get_agent_cost",
         "get_agent_feedback",
         "get_agent_feedback_comments",
@@ -85060,8 +84130,6 @@ class Query(sgqlc.types.Type):
         "get_supported_aws_regions",
         "get_data_export_url",
         "get_generate_report_status",
-        "get_memory_extraction_status",
-        "get_memory_pipeline_status",
         "evaluate_asset_selection",
         "evaluate_field_pattern_matches",
         "get_account_audit_logs",
@@ -85099,7 +84167,6 @@ class Query(sgqlc.types.Type):
         "get_tsa_analysis_result",
         "get_remediation_result",
         "ops_agent_conversations",
-        "get_agent_memories",
         "get_domain_agent_memories",
         "get_agent_context",
         "get_ai_agent_config",
@@ -85719,6 +84786,48 @@ class Query(sgqlc.types.Type):
     * `domain_uuid` (`UUID`)None
     """
 
+    get_agent_spend = sgqlc.types.Field(
+        AgentSpend,
+        graphql_name="getAgentSpend",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "start_time",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(DateTime), graphql_name="startTime", default=None
+                    ),
+                ),
+                (
+                    "end_time",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(DateTime), graphql_name="endTime", default=None
+                    ),
+                ),
+                ("domain_uuid", sgqlc.types.Arg(UUID, graphql_name="domainUuid", default=None)),
+            )
+        ),
+    )
+    """(experimental) What the visible agents' model calls cost in a
+    half-open time window, in the customer's currency. Read separately
+    from getAgentObservabilitySummary because it crosses to the
+    customer's warehouse, so the other cards render first. Three error
+    shapes are expected traffic rather than failures: a request
+    carrying an idempotency id whose scan is still running answers
+    REQUEST_IN_PROGRESS, which the client re-sends under the same id
+    until the spend comes back; a request that ran out of time before
+    the scan started answers REQUEST_TIMEOUT, which the client re-
+    sends under the same id; and a request under an id whose earlier
+    attempt failed answers a validation error carrying the
+    IDEMPOTENT_REQUEST_FAILED code, on which the client must mint a
+    fresh id for the same variables.
+
+    Arguments:
+
+    * `start_time` (`DateTime!`)None
+    * `end_time` (`DateTime!`)None
+    * `domain_uuid` (`UUID`)None
+    """
+
     get_conversation_clustering_spaces = sgqlc.types.Field(
         ConversationClusteringSpaceConnection,
         graphql_name="getConversationClusteringSpaces",
@@ -86099,154 +85208,6 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `set_uuid` (`UUID!`): Set whose test runs to list.
-    """
-
-    get_reinforcement_loop_issues = sgqlc.types.Field(
-        sgqlc.types.non_null("ReinforcementLoopIssueConnection"),
-        graphql_name="getReinforcementLoopIssues",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "agent_name",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="agentName", default=None
-                    ),
-                ),
-                (
-                    "trace_table_mcon",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="traceTableMcon", default=None
-                    ),
-                ),
-                (
-                    "workflow_name",
-                    sgqlc.types.Arg(String, graphql_name="workflowName", default=None),
-                ),
-                (
-                    "workflow_scope",
-                    sgqlc.types.Arg(
-                        ReinforcementLoopWorkflowScope, graphql_name="workflowScope", default=None
-                    ),
-                ),
-                ("issue_uuid", sgqlc.types.Arg(UUID, graphql_name="issueUuid", default=None)),
-                ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
-                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
-                (
-                    "snapshot_selection",
-                    sgqlc.types.Arg(
-                        ReinforcementLoopSnapshotSelection,
-                        graphql_name="snapshotSelection",
-                        default="latest",
-                    ),
-                ),
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=100)),
-                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
-            )
-        ),
-    )
-    """(experimental) Issues last seen in a time window for one agent
-    (optionally narrowed to one workflow or one issue), issue-centric:
-    one node per (workflow, issue) with cross-run lifecycle and
-    recency from the stable issue record plus one selected in-window
-    snapshot's payload. Sorted by lastSeenAt, newest first; forward-
-    paginated.
-
-    Arguments:
-
-    * `agent_name` (`String!`): Observability agent name.
-    * `trace_table_mcon` (`String!`): MCON of the agent's trace table
-      — same value passed as `traceTableMcon` on getAgentGraph.
-      Disambiguates agents with identical names across trace tables.
-    * `workflow_name` (`String`): Workflow within the agent. Omit to
-      span every workflow of the agent in one call — each node carries
-      its workflowName. An empty string narrows to a distinct,
-      explicitly empty-named workflow. To narrow to the no-workflow
-      scope, pass `workflowScope: NO_WORKFLOW` — that scope has no
-      name to give here.
-    * `workflow_scope` (`ReinforcementLoopWorkflowScope`): Which
-      workflow scope to read. Omit for the default: a workflowName
-      narrows to that workflow, its absence spans every workflow.
-      NO_WORKFLOW narrows to issues whose workflow is null and must be
-      sent without a workflowName; NAMED requires one.
-    * `issue_uuid` (`UUID`): Narrow to one issue by its issueUuid
-      (detail views, deep links). ANDs with the other filters — a
-      mismatch returns empty, not an error. When given, startTime
-      becomes optional and an absent startTime/endTime leaves the
-      window unbounded on that side.
-    * `start_time` (`DateTime`): Include issues last seen at or after
-      this instant (inclusive). Required unless issueUuid is given.
-      Pass an ISO-8601 datetime with a UTC offset.
-    * `end_time` (`DateTime`): Include issues last seen at or before
-      this instant (inclusive; must not precede startTime). Required
-      whenever startTime is given so the window's upper bound stays
-      fixed across page fetches; optional only for an issueUuid re-
-      fetch, where its absence leaves the window unbounded above.
-    * `snapshot_selection` (`ReinforcementLoopSnapshotSelection`):
-      Which in-window snapshot carries each issue's payload — LATEST
-      by default. (default: `"latest"`)
-    * `first` (`Int`): Page size, 1..500. (default: `100`)
-    * `after` (`String`): Opaque forward-pagination cursor — the
-      previous page's endCursor. Omit for the first page.
-    """
-
-    get_reinforcement_loop_reports = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("ReinforcementLoopReport"))),
-        graphql_name="getReinforcementLoopReports",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "agent_name",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="agentName", default=None
-                    ),
-                ),
-                (
-                    "trace_table_mcon",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="traceTableMcon", default=None
-                    ),
-                ),
-                (
-                    "workflow_name",
-                    sgqlc.types.Arg(String, graphql_name="workflowName", default=None),
-                ),
-                (
-                    "workflow_scope",
-                    sgqlc.types.Arg(
-                        ReinforcementLoopWorkflowScope, graphql_name="workflowScope", default=None
-                    ),
-                ),
-            )
-        ),
-    )
-    """(experimental) The newest reinforcement-loop report per workflow
-    scope of an (agentName, traceTableMcon) combo — run-level metadata
-    only: health grade, issue/coverage counts, and the analysis
-    window. One entry per workflow scope with at least one report (the
-    no-workflow scope first, then workflow names ascending); scopes
-    with no report yet are absent. Issue bodies live on
-    getReinforcementLoopIssues — keep the nodes whose runUuid matches
-    a report's runUuid to read exactly that report's issues. Query
-    that window up to *now*, not to this report's windowEnd: the issue
-    list filters on lastSeenAt, which is ingest time and always
-    postdates the analysis window it was reported for.
-
-    Arguments:
-
-    * `agent_name` (`String!`): Observability agent name.
-    * `trace_table_mcon` (`String!`): MCON of the agent's trace table
-      — same value passed as `traceTableMcon` on getAgentGraph.
-      Disambiguates agents with identical names across trace tables.
-    * `workflow_name` (`String`): Workflow within the agent. Omit for
-      one entry per workflow. An empty string narrows to a distinct,
-      explicitly empty-named workflow. To narrow to the no-workflow
-      scope, pass `workflowScope: NO_WORKFLOW` — that scope has no
-      name to give here.
-    * `workflow_scope` (`ReinforcementLoopWorkflowScope`): Which
-      workflow scope to read. Omit for the default: a workflowName
-      narrows to that workflow, its absence returns every workflow.
-      NO_WORKFLOW narrows to the report whose workflow is null and
-      must be sent without a workflowName; NAMED requires one.
     """
 
     get_genie_space_configuration = sgqlc.types.Field(
@@ -86999,6 +85960,25 @@ class Query(sgqlc.types.Type):
       connections, so the list is the same with or without it.
     """
 
+    get_agent_cost_rates = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(AgentCostRate)),
+        graphql_name="getAgentCostRates",
+        args=sgqlc.types.ArgDict(
+            (("warehouse_uuid", sgqlc.types.Arg(UUID, graphql_name="warehouseUuid", default=None)),)
+        ),
+    )
+    """(experimental) List the account's agent cost rates: what one
+    billing unit, such as a Snowflake credit, costs the customer. An
+    agent's costs are shown in money when it has an AGENT rate and a
+    COMPUTE rate in one currency. A warehouse rate wins over the
+    account-wide rate. Requires the AI agent settings read permission.
+
+    Arguments:
+
+    * `warehouse_uuid` (`UUID`): Optional warehouse. With it, the list
+      holds that warehouse's rates and the account-wide rates.
+    """
+
     get_agent_cost = sgqlc.types.Field(
         AgentCost,
         graphql_name="getAgentCost",
@@ -87060,26 +86040,26 @@ class Query(sgqlc.types.Type):
         ),
     )
     """(experimental) Cost of an agent's model calls over a time range,
-    in the unit its platform bills. With none of traceIds,
-    conversationIds, bucketSize or spanBreakdown set, it also returns
-    cacheSavings, traceCount, conversationCount, warehouseCost and
-    warehouseCostAsOf for that window. A bucketSize with no traceIds
-    or conversationIds returns the window whole: those same figures
-    alongside the series, each bucket carrying its attributed
-    warehouse credits beside the token cost, so the summary page's
-    cards and chart load from a single call. Read separately from the
-    trace and summary queries because it crosses to the customer's
-    warehouse — the prompt-cache counts it needs exist nowhere else —
-    so a client can render first and fill cost in after. It scans the
-    agent's Snowflake event table, which only Cortex agents have, so
-    it returns empty for any other agent. Two error shapes are
-    expected traffic rather than failures: a request carrying an
-    idempotency id whose scan is still running answers
-    REQUEST_IN_PROGRESS, which the client re-sends under the same id
-    until rows come back; and a request under an id whose earlier
-    attempt failed answers a validation error carrying the
-    IDEMPOTENT_REQUEST_FAILED code, on which the client must mint a
-    fresh id for the same variables.
+    in the agent's costUnit: credits, or the customer's currency when
+    cost rates apply. With none of traceIds, conversationIds,
+    bucketSize or spanBreakdown set, it also returns cacheSavings,
+    traceCount, conversationCount, warehouseCost and warehouseCostAsOf
+    for that window. A bucketSize with no traceIds or conversationIds
+    returns the window whole: those same figures alongside the series,
+    each bucket carrying its attributed warehouse cost beside the
+    token cost, so the summary page's cards and chart load from a
+    single call. Read separately from the trace and summary queries
+    because it crosses to the customer's warehouse — the prompt-cache
+    counts it needs exist nowhere else — so a client can render first
+    and fill cost in after. It scans the agent's Snowflake event
+    table, which only Cortex agents have, so it returns empty for any
+    other agent. Two error shapes are expected traffic rather than
+    failures: a request carrying an idempotency id whose scan is still
+    running answers REQUEST_IN_PROGRESS, which the client re-sends
+    under the same id until rows come back; and a request under an id
+    whose earlier attempt failed answers a validation error carrying
+    the IDEMPOTENT_REQUEST_FAILED code, on which the client must mint
+    a fresh id for the same variables.
 
     Arguments:
 
@@ -87100,23 +86080,21 @@ class Query(sgqlc.types.Type):
       the traces named by traceIds -- the spans carrying a model or a
       token count -- plus, when the attribution view is readable, one
       row per SqlExecution span, which carries no token cost but the
-      warehouse credits its queries were attributed. The response
-      carries warehouseCostAsOf, the account-wide attribution cutoff,
-      with the same meaning as the window grain's field. Each LLM row
-      carries the model, the four token counts, and the four rates its
-      price was computed from; cost is null when the price book has no
-      rate for the model. A single component is indicative, not exact:
-      Cortex's input count includes its cache writes, so NEW_INPUT is
-      overstated and cache writes are counted twice. The components
-      sum to the span's total, and that total is the same value the
-      other grains sum to -- an estimate that converges over a window,
-      not a figure to reconcile one span against a bill. Requires
-      traceIds (at most 100). Cannot be combined with bucketSize or
-      conversationIds. Defaults to false: omit it (or send false) to
-      get the grain the other arguments select.
+      warehouse compute cost, in costUnit, its queries were
+      attributed. The response carries warehouseCostAsOf, the account-
+      wide attribution cutoff, with the same meaning as the window
+      grain's field. Each LLM row carries the model, the four token
+      counts, and the four rates its price was computed from; cost is
+      null when the price book has no rate for the model. The
+      components sum to the span's total, and that total is the same
+      value the other grains sum to -- an estimate that converges over
+      a window, not a figure to reconcile one span against a bill.
+      Requires traceIds (at most 100). Cannot be combined with
+      bucketSize or conversationIds. Defaults to false: omit it (or
+      send false) to get the grain the other arguments select.
     * `include_query_cost` (`Boolean`): Scoped to traceIds, each trace
-      also carries queryCost (the warehouse compute credits attributed
-      to its SQL queries) and totalCost (token cost plus queryCost).
+      also carries queryCost (the warehouse compute cost attributed to
+      its SQL queries) and totalCost (token cost plus queryCost).
       Attribution trails execution by about three hours, so a fresh
       trace's figures are lower bounds that keep filling in; a null
       queryCost means nothing has been attributed to the trace yet --
@@ -87157,14 +86135,14 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """(experimental) End-user feedback (thumbs up or down, and whether a
-    comment was left) on a page of an agent's traces. Collected from
-    the warehouse after each span collection. On a ClickHouse trace
-    store, AGENT_FEEDBACK_UNAVAILABLE means the check for the agent's
-    feedback got no answer or ran out of time, the store does not hold
-    the newest feedback yet, or feedback collection is turned off for
-    the account. REQUEST_TIMEOUT means the feedback read ran out of
-    time. Other query failures are returned unchanged.
+    """(experimental) End-user feedback on a page of an agent's traces.
+    Collected from the warehouse after each span collection. On a
+    ClickHouse trace store, AGENT_FEEDBACK_UNAVAILABLE means the check
+    for the agent's feedback got no answer or ran out of time, the
+    store does not hold the newest feedback yet, or feedback
+    collection is turned off for the account. REQUEST_TIMEOUT means
+    the feedback read ran out of time. Other query failures are
+    returned unchanged.
 
     Arguments:
 
@@ -87255,12 +86233,14 @@ class Query(sgqlc.types.Type):
     agent that is Cortex but priced nothing in the window comes back
     with a null cost, which is not zero. Two entries naming the same
     agent come back indistinguishable, so match results on the agent
-    name and mcon they carry rather than by position. Two error shapes
-    are expected traffic rather than failures: a request carrying an
-    idempotency id whose scan is still running answers
+    name and mcon they carry rather than by position. Three error
+    shapes are expected traffic rather than failures: a request
+    carrying an idempotency id whose scan is still running answers
     REQUEST_IN_PROGRESS, which the client re-sends under the same id
-    until rows come back; and a request under an id whose earlier
-    attempt failed answers a validation error carrying the
+    until rows come back; a request that ran out of time before the
+    scan started answers REQUEST_TIMEOUT, which the client re-sends
+    under the same id; and a request under an id whose earlier attempt
+    failed answers a validation error carrying the
     IDEMPOTENT_REQUEST_FAILED code, on which the client must mint a
     fresh id for the same variables.
 
@@ -108995,20 +107975,6 @@ class Query(sgqlc.types.Type):
     * `report_job_id` (`UUID!`): Report Job ID
     """
 
-    get_memory_extraction_status = sgqlc.types.Field(
-        MemoryExtractionStatus, graphql_name="getMemoryExtractionStatus"
-    )
-    """(experimental) Get status of memory data extraction for the
-    caller's account
-    """
-
-    get_memory_pipeline_status = sgqlc.types.Field(
-        MemoryPipelineStatus, graphql_name="getMemoryPipelineStatus"
-    )
-    """(experimental) Get status of the memory extract → ingest pipeline
-    for the caller's account
-    """
-
     evaluate_asset_selection = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(AssetSelectionResult)),
         graphql_name="evaluateAssetSelection",
@@ -110290,61 +109256,6 @@ class Query(sgqlc.types.Type):
       timestamp is older than this (UTC).
     * `end_time` (`DateTime`): Exclude conversations whose sort
       timestamp is newer than this (UTC).
-    """
-
-    get_agent_memories = sgqlc.types.Field(
-        ListMemoriesResultType,
-        graphql_name="getAgentMemories",
-        args=sgqlc.types.ArgDict(
-            (
-                ("table_id", sgqlc.types.Arg(String, graphql_name="tableId", default=None)),
-                ("mcon", sgqlc.types.Arg(String, graphql_name="mcon", default=None)),
-                ("query", sgqlc.types.Arg(String, graphql_name="query", default=None)),
-                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
-                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
-                ("min_score", sgqlc.types.Arg(Float, graphql_name="minScore", default=None)),
-                (
-                    "sources",
-                    sgqlc.types.Arg(
-                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
-                        graphql_name="sources",
-                        default=None,
-                    ),
-                ),
-                (
-                    "filter_domain_ids",
-                    sgqlc.types.Arg(
-                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
-                        graphql_name="filterDomainIds",
-                        default=None,
-                    ),
-                ),
-                (
-                    "scopes",
-                    sgqlc.types.Arg(
-                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
-                        graphql_name="scopes",
-                        default=None,
-                    ),
-                ),
-                ("domain_id", sgqlc.types.Arg(UUID, graphql_name="domainId", default=None)),
-            )
-        ),
-    )
-    """(experimental) List or search agent memories
-
-    Arguments:
-
-    * `table_id` (`String`)None
-    * `mcon` (`String`)None
-    * `query` (`String`)None
-    * `offset` (`Int`)None
-    * `limit` (`Int`)None
-    * `min_score` (`Float`)None
-    * `sources` (`[String!]`)None
-    * `filter_domain_ids` (`[String!]`)None
-    * `scopes` (`[String!]`)None
-    * `domain_id` (`UUID`)None
     """
 
     get_domain_agent_memories = sgqlc.types.Field(
@@ -112426,160 +111337,6 @@ class ReinforcementLoopDraftPrRef(sgqlc.types.Type):
     """When the dispatch reached a terminal status; null while pending."""
 
 
-class ReinforcementLoopIssue(sgqlc.types.Type):
-    """One reinforcement-loop issue: cross-run identity plus one selected
-    snapshot.
-    """
-
-    __schema__ = schema
-    __field_names__ = (
-        "issue_uuid",
-        "stable_issue_id",
-        "workflow_name",
-        "lifecycle",
-        "first_detected_at",
-        "last_seen_at",
-        "occurrence_count",
-        "snapshot_reported_at",
-        "run_uuid",
-        "report_window_start",
-        "report_window_end",
-        "issue_type",
-        "has_actionable_fix",
-        "example_count",
-        "issue",
-        "linear_ticket",
-        "jira_ticket",
-        "service_now_ticket",
-        "draft_pr",
-    )
-    issue_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="issueUuid")
-    """The stable issue's public id — the handle the ticket and draft-PR
-    mutations resolve, and the issueUuid argument for a targeted re-
-    fetch.
-    """
-
-    stable_issue_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="stableIssueId")
-    """Agent-generated cross-run 'same problem' id the window is deduped
-    on. Unique per workflow, not across workflows.
-    """
-
-    workflow_name = sgqlc.types.Field(String, graphql_name="workflowName")
-    """Workflow the issue belongs to — stamped per node so cross-workflow
-    reads need no client-side flattening. Null is the no-workflow
-    scope — the agent's spans carry no workflow attribute. An empty
-    string is a separate, explicitly empty-named workflow; neither
-    ever means 'all workflows'.
-    """
-
-    lifecycle = sgqlc.types.Field(ReinforcementLoopIssueLifecycle, graphql_name="lifecycle")
-    """Cross-run lifecycle of the stable issue record — the full 4-state
-    enum, unlike the nested issue payload's 2-state parity field.
-    """
-
-    first_detected_at = sgqlc.types.Field(
-        sgqlc.types.non_null(DateTime), graphql_name="firstDetectedAt"
-    )
-    """When the issue was FIRST detected across runs — the age anchor."""
-
-    last_seen_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="lastSeenAt")
-    """When any run LAST reported the issue — the field startTime/endTime
-    filter on and the sort key, newest first. Always inside the
-    requested window by construction.
-    """
-
-    occurrence_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="occurrenceCount")
-    """How many runs have reported this issue in total (not clamped to
-    the query window).
-    """
-
-    snapshot_reported_at = sgqlc.types.Field(
-        sgqlc.types.non_null(DateTime), graphql_name="snapshotReportedAt"
-    )
-    """The SELECTED snapshot's report time. With snapshotSelection:
-    OLDEST this is the issue's first in-window occurrence time; when
-    no in-window snapshot exists it is the newest report at or before
-    endTime and can precede startTime.
-    """
-
-    run_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="runUuid")
-    """The selected snapshot's run — the occurrence's provenance."""
-
-    report_window_start = sgqlc.types.Field(DateTime, graphql_name="reportWindowStart")
-    """Start of the selected snapshot's run window — the time bounds its
-    evidence samples were observed in. Null on runs reported before
-    window stamping.
-    """
-
-    report_window_end = sgqlc.types.Field(DateTime, graphql_name="reportWindowEnd")
-    """End of the selected snapshot's run window; null like
-    reportWindowStart.
-    """
-
-    issue_type = sgqlc.types.Field(String, graphql_name="issueType")
-    """Stable taxonomy slug of the issue's mechanism (e.g.
-    unsupported_figure) — read off the cited evidence, which is typed
-    homogeneously per issue. Free-form like the evidence rows'
-    issueType (the taxonomy may grow). Null on reports produced before
-    typed evidence shipped.
-    """
-
-    has_actionable_fix = sgqlc.types.Field(
-        sgqlc.types.non_null(Boolean), graphql_name="hasActionableFix"
-    )
-    """True when any recommended action is a directly-applicable fix (its
-    isActionableFix is true); false when the actions only offer
-    investigation leads.
-    """
-
-    example_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="exampleCount")
-    """Number of evidence rows carrying a non-empty whatHappened — the
-    definition of an 'example', so consumers derive nothing
-    themselves. 0 on reports produced before typed evidence shipped.
-    """
-
-    issue = sgqlc.types.Field(sgqlc.types.non_null(AgentHealthIssue), graphql_name="issue")
-    """The selected snapshot's issue payload, evidence and recommended
-    actions resolved inline. Tickets are node-level state on this
-    query, not part of the payload.
-    """
-
-    linear_ticket = sgqlc.types.Field(AgentHealthIssueLinearTicket, graphql_name="linearTicket")
-    """Linear ticket linked to this issue (at most one); null when none."""
-
-    jira_ticket = sgqlc.types.Field(AgentHealthIssueJiraTicket, graphql_name="jiraTicket")
-    """Jira ticket linked to this issue (at most one); null when none."""
-
-    service_now_ticket = sgqlc.types.Field(
-        AgentHealthIssueServiceNowTicket, graphql_name="serviceNowTicket"
-    )
-    """ServiceNow incident linked to this issue (at most one); null when
-    none.
-    """
-
-    draft_pr = sgqlc.types.Field(ReinforcementLoopDraftPrRef, graphql_name="draftPr")
-    """The newest draft-PR workflow dispatch for this issue; null when
-    never dispatched.
-    """
-
-
-class ReinforcementLoopIssueConnection(sgqlc.types.relay.Connection):
-    """One page of reinforcement-loop issues."""
-
-    __schema__ = schema
-    __field_names__ = ("nodes", "page_info")
-    nodes = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(ReinforcementLoopIssue))),
-        graphql_name="nodes",
-    )
-    """This page's issues, sorted lastSeenAt descending."""
-
-    page_info = sgqlc.types.Field(
-        sgqlc.types.non_null("ReinforcementLoopIssuePageInfo"), graphql_name="pageInfo"
-    )
-    """Pagination information."""
-
-
 class ReinforcementLoopIssueFeedback(sgqlc.types.Type):
     """The current feedback on an RL V2 issue. Customers don't see Monte
     Carlo staff feedback.
@@ -112695,87 +111452,6 @@ class ReinforcementLoopIssueFeedbackEntry(sgqlc.types.Type):
     """The pull request that fixed it, for FIX_WORKED."""
 
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
-
-
-class ReinforcementLoopIssuePageInfo(sgqlc.types.Type):
-    """Forward-only pagination info for getReinforcementLoopIssues."""
-
-    __schema__ = schema
-    __field_names__ = ("has_next_page", "end_cursor")
-    has_next_page = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="hasNextPage")
-    """Whether more issues follow this page."""
-
-    end_cursor = sgqlc.types.Field(String, graphql_name="endCursor")
-    """Cursor resuming after this page's last node; null on an empty
-    page.
-    """
-
-
-class ReinforcementLoopReport(sgqlc.types.Type):
-    """Run-level metadata of one workflow scope's newest reinforcement-
-    loop report.  The run-scoped half of the RL read surface: health
-    grade, coverage counts, and the analysis window. Issue bodies live
-    on getReinforcementLoopIssues — keep the nodes whose runUuid
-    matches to read exactly this report's issues.
-    """
-
-    __schema__ = schema
-    __field_names__ = (
-        "run_uuid",
-        "report_uuid",
-        "workflow_name",
-        "health",
-        "issue_count",
-        "span_count",
-        "trace_count",
-        "signal_count",
-        "evidence_count",
-        "window_start",
-        "window_end",
-    )
-    run_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="runUuid")
-    """The reported run. Matches the runUuid stamped on
-    getReinforcementLoopIssues nodes whose selected snapshot came from
-    this report.
-    """
-
-    report_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="reportUuid")
-    """Agent-assigned report identifier for this run."""
-
-    workflow_name = sgqlc.types.Field(String, graphql_name="workflowName")
-    """Workflow the report covers. Null is the no-workflow scope — the
-    agent's spans carry no workflow attribute. An empty string is a
-    separate, explicitly empty-named workflow; neither ever means 'all
-    workflows'.
-    """
-
-    health = sgqlc.types.Field(AgentHealthSeverity, graphql_name="health")
-    """The report's health grade, stored verbatim as reported by the
-    agent. Null on early runs reported before agents sent a grade.
-    """
-
-    issue_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="issueCount")
-    """Issues on the report; 0 means a clean report."""
-
-    span_count = sgqlc.types.Field(Int, graphql_name="spanCount")
-    """Spans analyzed in the report window."""
-
-    trace_count = sgqlc.types.Field(Int, graphql_name="traceCount")
-    """Traces analyzed in the report window."""
-
-    signal_count = sgqlc.types.Field(Int, graphql_name="signalCount")
-    """Signals gathered while analyzing."""
-
-    evidence_count = sgqlc.types.Field(Int, graphql_name="evidenceCount")
-    """Evidence items backing the report's issues."""
-
-    window_start = sgqlc.types.Field(DateTime, graphql_name="windowStart")
-    """Start of the report's analysis window."""
-
-    window_end = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="windowEnd")
-    """End of the report's analysis window — the report's detection
-    anchor (newest report = max windowEnd per scope).
-    """
 
 
 class ReinforcementLoopSelector(sgqlc.types.Type):
@@ -115111,18 +113787,6 @@ class SelectGitlabProjects(sgqlc.types.Type):
     success = sgqlc.types.Field(Boolean, graphql_name="success")
 
 
-class SemanticMemoryResultType(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = ("id", "memory", "event", "metadata")
-    id = sgqlc.types.Field(String, graphql_name="id")
-
-    memory = sgqlc.types.Field(String, graphql_name="memory")
-
-    event = sgqlc.types.Field(String, graphql_name="event")
-
-    metadata = sgqlc.types.Field(GenericScalar, graphql_name="metadata")
-
-
 class SendAlertInvite(sgqlc.types.Type):
     """Send an invitation to a non-user for an existing alert"""
 
@@ -116661,16 +115325,16 @@ class SpanCost(sgqlc.types.Type):
     """The four terms the price sums."""
 
     warehouse_cost = sgqlc.types.Field(Float, graphql_name="warehouseCost")
-    """The warehouse compute credits Snowflake attributes to the SQL
-    queries this span ran, in the response's `costUnit`. One span per
-    query carries the credits: the SqlExecution leaf that ran it, or
-    the tool wrapper above it when no leaf span recorded the query. A
-    SqlExecution span joins the breakdown with a null `cost` and no
-    components; a span that also carried tokens keeps its `cost`
-    alongside. Zero when the span's queries attributed nothing as of
-    the attribution cutoff. None when the span ran no warehouse SQL,
-    or when the attribution view could not be read -- then the SQL
-    spans are absent and every listed span's warehouseCost is None.
+    """The warehouse compute cost Snowflake attributes to the SQL queries
+    this span ran, in `costUnit`. One span per query carries the cost:
+    the SqlExecution leaf that ran it, or the tool wrapper above it
+    when no leaf span recorded the query. A SqlExecution span joins
+    the breakdown with a null `cost` and no components; a span that
+    also carried tokens keeps its `cost` alongside. Zero when the
+    span's queries attributed nothing as of the attribution cutoff.
+    None when the span ran no warehouse SQL, or when the attribution
+    view could not be read -- then the SQL spans are absent and every
+    listed span's warehouseCost is None.
     """
 
 
@@ -116684,13 +115348,12 @@ class SpanCostComponent(sgqlc.types.Type):
     """The token count this term charges."""
 
     rate = sgqlc.types.Field(Float, graphql_name="rate")
-    """The price book's rate for this term, per million tokens."""
+    """The rate for this term, in `costUnit` per million tokens."""
 
     cost = sgqlc.types.Field(Float, graphql_name="cost")
-    """Indicative, not exact: Cortex's input count includes its cache
-    writes, so NEW_INPUT is overstated and cache writes are counted
-    twice. The components sum to the span's total, the same value the
-    other grains sum to; the split shows where spend concentrates.
+    """This component's token count charged at its rate per million
+    tokens. NEW_INPUT excludes cache reads and writes; each is charged
+    in its own component. The components sum to the span's total.
     """
 
 
@@ -121084,8 +119747,8 @@ class TraceCost(sgqlc.types.Type):
     cost = sgqlc.types.Field(Float, graphql_name="cost")
 
     query_cost = sgqlc.types.Field(Float, graphql_name="queryCost")
-    """Warehouse compute credits attributed to the trace's SQL queries,
-    in the same unit as cost. Set only when the read asked for the
+    """The warehouse compute cost Snowflake attributes to the trace's SQL
+    queries, in `costUnit`. Set only when the read asked for the
     combined token + query cost (includeQueryCost); null otherwise.
     Null on that read means nothing has been attributed to the trace
     yet -- it ran no SQL, or attribution is still inside its lag --
@@ -121163,7 +119826,9 @@ class TraceFeedback(sgqlc.types.Type):
         graphql_name="categories",
     )
     """What the end user said was wrong, as the vendor names it, such as
-    WRONG_CALCULATIONS. Only Genie reports them. Empty when none.
+    WRONG_CALCULATIONS. Cortex categories can be labels the customer
+    defines. Empty when none were picked, when withheld, or when they
+    were not collected.
     """
 
 
@@ -122264,20 +120929,6 @@ class TriggerPlatformMigrationTest(sgqlc.types.Type):
     __field_names__ = ("migration_uuid",)
     migration_uuid = sgqlc.types.Field(UUID, graphql_name="migrationUuid")
     """UUID assigned to the operation, used to check status"""
-
-
-class TriggerReinforcementLoopDispatch(sgqlc.types.Type):
-    """Deprecated. Always returns an error."""
-
-    __schema__ = schema
-    __field_names__ = ("outcome", "queued_count")
-    outcome = sgqlc.types.Field(
-        sgqlc.types.non_null(ReinforcementLoopDispatchOutcome), graphql_name="outcome"
-    )
-    """Whether runs were queued, or why dispatch was skipped."""
-
-    queued_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="queuedCount")
-    """Number of runs queued (0 when skipped)."""
 
 
 class TroubleshootingAgentConfig(sgqlc.types.Type):
@@ -123817,6 +122468,12 @@ class UploadWarehouseCredentialsMutation(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("key",)
     key = sgqlc.types.Field(String, graphql_name="key")
+
+
+class UpsertAgentCostRate(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("rate",)
+    rate = sgqlc.types.Field(AgentCostRate, graphql_name="rate")
 
 
 class UpsertLlmPriceBookOverride(sgqlc.types.Type):

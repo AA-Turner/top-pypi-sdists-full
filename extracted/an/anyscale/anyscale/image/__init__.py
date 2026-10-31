@@ -16,11 +16,14 @@ from anyscale.image.commands import (
     _LIST_EXAMPLE,
     _REGISTER_ARG_DOCSTRINGS,
     _REGISTER_EXAMPLE,
+    _UNARCHIVE_ARG_DOCSTRINGS,
+    _UNARCHIVE_EXAMPLE,
     archive as archive,
     build as build,
     get as get,
     list as list,  # noqa: A004 - claude_comment("claude-opus-4-5", "SDK public API re-export")
     register as register,
+    unarchive as unarchive,
 )
 from anyscale.image.models import ImageBuild
 
@@ -142,3 +145,17 @@ class ImageSDK:
         Archived images can still be viewed using `include_archived=True` in list().
         """
         return self._private_sdk.archive(name=name, cloud_id=cloud_id)
+
+    @sdk_docs(
+        doc_py_example=_UNARCHIVE_EXAMPLE,
+        arg_docstrings=_UNARCHIVE_ARG_DOCSTRINGS,
+        hidden=True,
+    )
+    def unarchive(self, name: str) -> None:  # noqa: F811
+        """Unarchive an image and all of its versions.
+
+        Once unarchived, the image name can be used again in the organization.
+        Job queues that were sealed when the image was archived stay sealed.
+        Not supported on Azure Control Plane.
+        """
+        return self._private_sdk.unarchive(name=name)

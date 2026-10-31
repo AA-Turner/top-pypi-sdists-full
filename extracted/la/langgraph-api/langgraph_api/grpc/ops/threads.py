@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from contextlib import AsyncExitStack
+from contextlib import AsyncExitStack, aclosing
 from datetime import UTC
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any, Literal
@@ -31,7 +31,6 @@ from langgraph_api import _checkpointer as api_checkpointer
 from langgraph_api import store as api_store
 from langgraph_api.command import map_cmd
 from langgraph_api.config import THREAD_TTL, USE_CUSTOM_CHECKPOINTER
-from langgraph_api.encryption.shared import get_encryption
 from langgraph_api.graph import get_graph
 from langgraph_api.grpc.client import get_shared_client
 from langgraph_api.grpc.ops import (
@@ -47,7 +46,12 @@ from langgraph_api.grpc.ops import (
 from langgraph_api.grpc.ops.runs import Runs
 from langgraph_api.schema import ThreadUpdateResponse
 from langgraph_api.serde import json_dumpb, json_dumpb_optional, json_loads
-from langgraph_api.state import patch_interrupt, state_snapshot_to_thread_state
+from langgraph_api.state import (
+    iter_state_history,
+    narrow_history_reads,
+    patch_interrupt,
+    state_snapshot_to_thread_state,
+)
 from langgraph_api.utils import fetchone
 
 if TYPE_CHECKING:
@@ -68,6 +72,10 @@ logger = structlog.stdlib.get_logger(__name__)
 # the large "values" column. Used by state get/update/bulk/history which
 # only need graph_id (from metadata) and the thread config.
 THREAD_METADATA_READ_MASK_PATHS: list[str] = ["metadata", "config"]
+
+# Read-mask preset for an auth/existence check that discards the thread body;
+# Go's ``repos.ThreadExistenceCheckMask``.
+THREAD_EXISTENCE_CHECK_READ_MASK_PATHS: list[str] = []
 
 
 THREAD_STATUS_TO_PB = {
@@ -285,42 +293,12 @@ def _normalize_uuid(value: UUID | str) -> str:
     return str(value) if isinstance(value, UUID) else str(UUID(str(value)))
 
 
-def _serialize_for_encryption(
-    data: BaseException | dict[str, Any] | None,
-) -> dict[str, Any] | None:
-    """Serialize data to JSON-compatible form before encryption.
-
-    This converts non-JSON-serializable types (like bytes) to JSON-safe forms
-    (like base64 strings) using the existing serde machinery.
-    """
-    if data is None:
-        return None
-
-    return json_loads(json_dumpb(data))
-
-
-async def _encrypt_thread_field(
-    data: BaseException | dict[str, Any] | None, field_name: str
-) -> dict[str, Any] | None:
-    """Apply encryption to a thread field (AES mode only)
-
-    Encryption is handled by the gRPC server for custom encryption,
-    but not for AES encryption."""
-    from langgraph_api.encryption.middleware import (  # noqa: PLC0415
-        encrypt_json_if_needed,
-    )
-    from langgraph_api.encryption.shared import using_custom_encryption  # noqa: PLC0415
-
-    if isinstance(data, BaseException):
-        data = {"error": type(data).__name__, "message": str(data)}
-    if using_custom_encryption() or data is None:
-        return data
-    if not (enc := get_encryption()):
-        return data
-
-    return await encrypt_json_if_needed(
-        _serialize_for_encryption(data), enc, "thread", field=field_name
-    )
+def _serialize_exception(
+    exception: BaseException | dict[str, Any],
+) -> dict[str, Any]:
+    if isinstance(exception, BaseException):
+        return {"error": type(exception).__name__, "message": str(exception)}
+    return exception
 
 
 async def _thread_status_checkpoint_to_proto(
@@ -338,15 +316,10 @@ async def _thread_status_checkpoint_to_proto(
         for t in checkpoint.get("tasks", [])
         if t.get("interrupts")
     }
-    encrypted_interrupts, encrypted_values = await asyncio.gather(
-        _encrypt_thread_field(interrupts, "interrupts"),
-        _encrypt_thread_field(values, "values"),
-    )
-
     return pb.ThreadStatusCheckpoint(
-        values_json=json_dumpb(encrypted_values),
+        values_json=json_dumpb(values),
         next=list(checkpoint.get("next", [])),
-        interrupts_json=json_dumpb(encrypted_interrupts),
+        interrupts_json=json_dumpb(interrupts),
     )
 
 
@@ -370,6 +343,7 @@ class Threads(Authenticated):
         sort_order: str | None = None,
         select: list[ThreadSelectField] | None = None,
         extract: dict[str, str] | None = None,
+        exclude_metadata: list[dict[str, Any]] | None = None,
         ctx: Any = None,
     ) -> tuple[AsyncIterator[Thread], int | None]:
         metadata = metadata or {}
@@ -396,6 +370,8 @@ class Threads(Authenticated):
             "sort_by": _map_threads_sort_by(sort_by),
             "sort_order": _map_sort_order(sort_order),
         }
+        if exclude_metadata:
+            request_kwargs["exclude_metadata_json"] = json_dumpb(exclude_metadata)
 
         if status:
             mapped_status = _map_thread_status(status)
@@ -438,6 +414,7 @@ class Threads(Authenticated):
         metadata: MetadataInput,
         values: MetadataInput,
         status: ThreadStatus | None,
+        exclude_metadata: list[dict[str, Any]] | None = None,
         ctx: Any = None,
     ) -> int:
         metadata = metadata or {}
@@ -458,6 +435,8 @@ class Threads(Authenticated):
             "metadata_json": json_dumpb_optional(metadata),
             "values_json": json_dumpb_optional(values),
         }
+        if exclude_metadata:
+            request_kwargs["exclude_metadata_json"] = json_dumpb(exclude_metadata)
         if status:
             mapped_status = _map_thread_status(status)
             if mapped_status is None:
@@ -823,9 +802,10 @@ class Threads(Authenticated):
             request_kwargs["checkpoint"] = checkpoint_proto
 
         # Map exception to JSON bytes (with optional encryption)
-        encrypted_exception = await _encrypt_thread_field(exception, "error")
-        if encrypted_exception:
-            request_kwargs["exception_json"] = json_dumpb(encrypted_exception)
+        if exception:
+            request_kwargs["exception_json"] = json_dumpb(
+                _serialize_exception(exception)
+            )
 
         # Map expected_status to enum values
         if expected_status:
@@ -885,9 +865,10 @@ class Threads(Authenticated):
             request_kwargs["checkpoint"] = checkpoint_proto
 
         # Map exception to JSON bytes
-        encrypted_exception = await _encrypt_thread_field(exception, "error")
-        if encrypted_exception:
-            request_kwargs["exception_json"] = json_dumpb(encrypted_exception)
+        if exception:
+            request_kwargs["exception_json"] = json_dumpb(
+                _serialize_exception(exception)
+            )
 
         enc_ctx = build_encryption_context("thread")
         if enc_ctx is not None:
@@ -911,6 +892,50 @@ class Threads(Authenticated):
         response = await client.threads.GetGraphID(request)
 
         return response.graph_id if response.graph_id else None
+
+    @staticmethod
+    async def storage(
+        conn,  # Not used
+        thread_id: UUID | str,
+        ctx: Auth.types.BaseAuthContext | None = None,
+    ) -> dict[str, Any]:
+        """Get the bytes a thread's checkpoints occupy, per table and per channel.
+
+        Postgres only: the inmem runtime's ``Threads.storage`` counts its own
+        in-memory checkpointer and never calls this. Go runs the same access
+        check as ``get``, so a missing or hidden thread raises 404.
+        """
+        auth_filters = await Threads.handle_event(
+            ctx, "read", {"thread_id": str(thread_id)}
+        )
+        request = pb.GetThreadStorageRequest(
+            thread_id=pb.UUID(value=_normalize_uuid(thread_id)),
+            filters=auth_filters,
+        )
+
+        client = await get_shared_client()
+        response = await client.threads.Storage(request)
+
+        channel_values = response.channel_values
+        return {
+            "total_bytes": response.total_bytes,
+            "checkpoints": {
+                "count": response.checkpoints.count,
+                "bytes": response.checkpoints.bytes,
+            },
+            "channel_values": {
+                "count": channel_values.count,
+                "bytes": channel_values.bytes,
+                "by_channel": {
+                    entry.channel: {"versions": entry.versions, "bytes": entry.bytes}
+                    for entry in channel_values.by_channel
+                },
+            },
+            "pending_writes": {
+                "count": response.pending_writes.count,
+                "bytes": response.pending_writes.bytes,
+            },
+        }
 
     class Stream(Authenticated):
         """Stream operations for threads."""
@@ -955,13 +980,20 @@ class Threads(Authenticated):
             stream_modes: list[str] | None = None,
             last_event_id: str | None = None,
             ctx: Any = None,
+            auth_filters: list[pb.AuthFilter] | None = None,
         ):
-            """Stream thread events with their run id for protocol demux."""
-            auth_filters = await Threads.Stream.handle_event(
-                ctx,
-                "read",
-                Auth.types.ThreadsRead(thread_id=UUID(str(thread_id))),
-            )
+            """Stream thread events with their run id for protocol demux.
+
+            ``auth_filters`` comes from a ``check_thread_stream_auth`` the
+            caller already ran, so the read handler doesn't run twice. With
+            ``None``, the handler runs here.
+            """
+            if auth_filters is None:
+                auth_filters = await Threads.Stream.handle_event(
+                    ctx,
+                    "read",
+                    Auth.types.ThreadsRead(thread_id=UUID(str(thread_id))),
+                )
 
             stream_modes_pb = _map_thread_stream_modes(stream_modes)
 
@@ -996,6 +1028,43 @@ class Threads(Authenticated):
                 if isinstance(e, AioRpcError):
                     _handle_grpc_error(e)
                 raise
+
+        @staticmethod
+        async def check_thread_stream_auth(
+            thread_id: UUID,
+            ctx: Any = None,
+        ) -> list[pb.AuthFilter]:
+            """Raise 403/404 before a thread stream's response starts.
+
+            Same check as the Go ``Stream`` RPC: the thread is looked up only
+            when custom auth returns filters. Without filters, a thread that
+            doesn't exist yet must stay streamable, because the Python SDK
+            opens its lifecycle stream on ``async with client.threads.stream()``,
+            before the ``run.start`` that creates the thread.
+
+            Returns the auth filters for ``join_event_streaming``.
+            """
+            auth_filters = await Threads.Stream.handle_event(
+                ctx,
+                "read",
+                Auth.types.ThreadsRead(thread_id=thread_id),
+            )
+            if not auth_filters:
+                return auth_filters
+            client = await get_shared_client()
+            try:
+                await client.threads.Get(
+                    pb.GetThreadRequest(
+                        thread_id=pb.UUID(value=_normalize_uuid(thread_id)),
+                        filters=auth_filters,
+                        read_mask=field_mask_pb2.FieldMask(
+                            paths=THREAD_EXISTENCE_CHECK_READ_MASK_PATHS
+                        ),
+                    )
+                )
+            except AioRpcError as e:
+                _handle_grpc_error(e)
+            return auth_filters
 
     class State(Authenticated):
         # treat this like threads resource
@@ -1266,7 +1335,7 @@ class Threads(Authenticated):
                 )
 
         @staticmethod
-        async def list(
+        async def iterate(
             conn,  # Still needed for checkpointer
             *,
             config: dict[str, Any],
@@ -1274,8 +1343,17 @@ class Threads(Authenticated):
             before: Any = None,
             metadata: Any = None,
             ctx: Any = None,
-        ) -> list[StateSnapshot]:
-            """Get the history of a thread."""
+            incremental: bool = False,
+            channels: Sequence[str] | None = None,
+        ) -> AsyncIterator[StateSnapshot]:
+            """Yield the history of a thread.
+
+            With ``incremental``, checkpoints load in growing pages, so a
+            caller that stops early does not load the rest of ``limit``.
+            ``channels`` names the state keys the caller needs; the rest of
+            each checkpoint's stored state is left unread when the
+            checkpointer supports it. None loads everything.
+            """
             async with conn.pipeline():
                 thread, graph_id = await asyncio.gather(
                     Threads.get(
@@ -1308,18 +1386,27 @@ class Threads(Authenticated):
                     store=(await api_store.get_store()),
                     access_context="threads.read",
                 ) as graph:
-                    return [
-                        c
-                        async for c in graph.aget_state_history(
+                    graph = narrow_history_reads(graph, config, channels)
+                    before_config = (
+                        {"configurable": {"checkpoint_id": before}}
+                        if isinstance(before, str)
+                        else before
+                    )
+                    history = (
+                        iter_state_history(
+                            graph,
                             config,
                             limit=limit,
                             filter=metadata,
-                            before=(
-                                {"configurable": {"checkpoint_id": before}}
-                                if isinstance(before, str)
-                                else before
-                            ),
+                            before=before_config,
                         )
-                    ]
-            else:
-                return []
+                        if incremental
+                        else graph.aget_state_history(
+                            config, limit=limit, filter=metadata, before=before_config
+                        )
+                    )
+                    async with aclosing(history) as states:
+                        async for c in states:
+                            yield c
+                            # Drop the entry before the next page loads.
+                            del c

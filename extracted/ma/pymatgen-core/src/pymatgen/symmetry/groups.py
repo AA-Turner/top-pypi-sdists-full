@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from pymatgen.core.lattice import Lattice
 
     # Don't import at runtime to avoid circular import
-    from pymatgen.core.operations import SymmOp  # noqa: TC004
+    from pymatgen.core.operations import SymmOp
 
     CrystalSystem: TypeAlias = Literal[
         "cubic",
@@ -80,8 +80,10 @@ class SymmetryGroup(Sequence, Stringify, ABC):
         """The set of symmetry operations associated with the group."""
 
     def __contains__(self, item: object) -> bool:
+        from pymatgen.core.operations import SymmOp
+
         if not isinstance(item, SymmOp):
-            return NotImplemented
+            return False
 
         return any(np.allclose(i.affine_matrix, item.affine_matrix) for i in self.symmetry_ops)
 
@@ -453,11 +455,11 @@ class SpaceGroup(SymmetryGroup):
         int_number = None
         if int_symbol in SpaceGroup.abbrev_sg_mapping:
             symbols.append(SpaceGroup.abbrev_sg_mapping[int_symbol])
-            int_number = SpaceGroup.sg_encoding[int_symbol]["int_number"]
+            int_number = SpaceGroup.sg_encoding[SpaceGroup.abbrev_sg_mapping[int_symbol]]["int_number"]
 
         elif int_symbol in SpaceGroup.full_sg_mapping:
             symbols.append(SpaceGroup.full_sg_mapping[int_symbol])
-            int_number = SpaceGroup.sg_encoding[int_symbol]["int_number"]
+            int_number = SpaceGroup.sg_encoding[SpaceGroup.full_sg_mapping[int_symbol]]["int_number"]
 
         else:
             for spg in SpaceGroup.SYMM_OPS:
@@ -497,10 +499,13 @@ class SpaceGroup(SymmetryGroup):
             list[array]: Orbit for point.
         """
         orbit: list[np.ndarray] = []
-        for o in self.symmetry_ops:
+        symm_ops = self.symmetry_ops
+        found = np.empty((len(symm_ops), 3))
+        for o in symm_ops:
             pp = o.operate(p)
             pp = np.mod(np.round(pp, decimals=10), 1)
-            if not in_array_list(orbit, pp, tol=tol):
+            if not in_fractional_array_list(found[: len(orbit)], pp, tol=tol):
+                found[len(orbit)] = pp
                 orbit.append(pp)
         return orbit
 
@@ -521,10 +526,14 @@ class SpaceGroup(SymmetryGroup):
         orbit: list[np.ndarray] = [np.array(p, dtype=float)]
         identity = SymmOp.from_rotation_and_translation(np.eye(3), np.zeros(3))
         generators: list[SymmOp] = [identity]
-        for o in self.symmetry_ops:
+        symm_ops = self.symmetry_ops
+        found = np.empty((len(symm_ops) + 1, 3))
+        found[0] = orbit[0]
+        for o in symm_ops:
             pp = o.operate(p)
             pp = np.mod(np.round(pp, decimals=10), 1)
-            if not in_array_list(orbit, pp, tol=tol):
+            if not in_fractional_array_list(found[: len(orbit)], pp, tol=tol):
+                found[len(orbit)] = pp
                 orbit.append(pp)
                 generators.append(o)
         return orbit, generators
@@ -619,7 +628,7 @@ class SpaceGroup(SymmetryGroup):
             bool: True if this space group is a subgroup of the supplied group.
         """
         if not isinstance(supergroup, SpaceGroup):
-            return NotImplemented
+            return False
 
         if len(supergroup.symmetry_ops) < len(self.symmetry_ops) and supergroup.point_group != self.point_group:
             return False
@@ -739,3 +748,27 @@ def in_array_list(array_list: list[np.ndarray] | np.ndarray, arr: np.ndarray, to
     if not tol:
         return any(np.all(array_list == arr[None, :], axes))
     return any(np.sum(np.abs(array_list - arr[None, :]), axes) < tol)
+
+
+def in_fractional_array_list(array_list: np.ndarray, arr: np.ndarray, tol: float = 1e-5) -> bool:
+    """Like `in_array_list`, for fractional coordinates.
+
+    Two coordinates that differ by almost a full lattice vector, such as
+    0.999999 and 0.0, are the same point of the unit cell. The distance used
+    is therefore the L1 norm of the per-axis minimum image difference.
+
+    Args:
+        array_list (array): An (n, 3) array of fractional coordinates.
+        arr (array): The fractional coordinates to look for.
+        tol (float): The tolerance. Defaults to 1e-5. If 0, an exact match is done.
+
+    Returns:
+        bool: True if arr is in array_list.
+    """
+    if len(array_list) == 0:
+        return False
+    diff = np.abs(array_list - arr[None, :])
+    if not tol:
+        return bool(np.any(np.all(diff == 0, axis=1)))
+    diff %= 1
+    return bool(np.any(np.sum(np.minimum(diff, 1 - diff), axis=1) < tol))

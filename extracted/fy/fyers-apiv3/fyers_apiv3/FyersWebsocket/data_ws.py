@@ -255,7 +255,7 @@ class FyersDataSocket:
         self.log_path = log_path
         self.lite = litemode
         self.max_retry = reconnect_retry
-        self.source = "PythonSDK-3.2.0"
+        self.source = "PythonSDK-3.2.1"
         self.channel_num = 11
         self.channels = []
         self.running_channels = set()

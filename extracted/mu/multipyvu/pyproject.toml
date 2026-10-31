@@ -42,7 +42,6 @@ keywords = [
 
 [project.urls]
 "Quantum Design" = "https://qdusa.com"
-"Pharos" = "https://www.qdusa.com/register/account/login"
 
 [tool.setuptools.dynamic]
 version = {attr = "MultiPyVu.__version.__version__"}

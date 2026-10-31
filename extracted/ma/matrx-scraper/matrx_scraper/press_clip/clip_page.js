@@ -22,6 +22,36 @@
     return s;
   }
 
+  // --- a selector that matches EXACTLY this element on the page (root_selector_used must be checkable) ---
+  // Same order as the server's root finder (aidream/services/press_clip/root_candidates.py stable_selector):
+  // tag#id, tag.classes, tag.classes:has(> child.classes), then an :nth-of-type path from the nearest unique ancestor.
+  function uniqueSelector(el) {
+    if (!el) return '';
+    if (el === document.body) return 'body';
+    if (el === document.documentElement) return 'html';
+    const count = (sel) => { try { return document.querySelectorAll(sel).length; } catch (e) { return -1; } };
+    const esc = (v) => (window.CSS && CSS.escape ? CSS.escape(v) : v.replace(/[^\w-]/g, '\\$&'));
+    const tag = el.tagName.toLowerCase();
+    const classes = typeof el.className === 'string' ? el.className.trim().split(/\s+/).filter(Boolean) : [];
+    const simple = tag + (el.id ? '#' + esc(el.id) : '') + classes.map((c) => '.' + esc(c)).join('');
+    // The readable describe() form wins whenever it is already unique.
+    const plain = describe(el);
+    if (count(plain) === 1 && document.querySelector(plain) === el) return plain;
+    if (el.id && count(tag + '#' + esc(el.id)) === 1) return tag + '#' + esc(el.id);
+    const base = tag + classes.map((c) => '.' + esc(c)).join('');
+    if (classes.length && count(base) === 1) return base;
+    for (const child of el.children) {
+      const cc = typeof child.className === 'string' ? child.className.trim().split(/\s+/).filter(Boolean) : [];
+      if (!cc.length) continue;
+      const sel = base + ':has(> ' + child.tagName.toLowerCase() + cc.map((c) => '.' + esc(c)).join('') + ')';
+      if (count(sel) === 1 && document.querySelector(sel) === el) return sel;
+    }
+    const parent = el.parentElement;
+    if (!parent) return simple;
+    const nth = [...parent.children].filter((c) => c.tagName === el.tagName).indexOf(el) + 1;
+    return uniqueSelector(parent) + ' > ' + tag + ':nth-of-type(' + nth + ')';
+  }
+
   const alnum = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
   const metaOf = (sel, attr = 'content') => {
     const e = document.querySelector(sel);
@@ -534,6 +564,8 @@
     const outlet = outletName();
     const rootOverrideMatched = !!(o.root && document.querySelector(o.root));
     const articleRoot = pickContainer(o.root);
+    // Taken before the surgery: the selector must be unique on the page the reviewer will open, not on the clipped one.
+    const rootSelectorUnique = uniqueSelector(articleRoot);
     const brandFound = textHasWholeName(articleRoot.innerText, o.brandName);
 
     const protectedEls = new Set();
@@ -646,7 +678,7 @@
     document.body.prepend(header);
 
     return {
-      root_selector_used: o.root && rootOverrideMatched ? o.root : describe(articleRoot),
+      root_selector_used: o.root && rootOverrideMatched && document.querySelectorAll(o.root).length === 1 ? o.root : rootSelectorUnique,
       root_override_matched: o.root ? rootOverrideMatched : null,
       removed_placeholders: removed,
       section_applied: sectionApplied,
@@ -693,5 +725,5 @@
     return removed;
   }
 
-  window.__pressClip = { PHOTO_DEFAULTS, describe, readMeta, headlineElement, detectMastheadLogo, detectLogoFallback, candidates, pickContainer, markContainer, clip, finalSweep };
+  window.__pressClip = { PHOTO_DEFAULTS, describe, uniqueSelector, readMeta, headlineElement, detectMastheadLogo, detectLogoFallback, candidates, pickContainer, markContainer, clip, finalSweep };
 })();

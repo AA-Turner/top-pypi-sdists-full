@@ -139,7 +139,7 @@ class DecisionQuestionsContent:
         lines: list[str] = ["## Questions", ""]
         for question in self.typed().questions:
             lines.append(f"### {question.name} ({question.type})")
-            lines.append(question.instructions)
+            lines.append(question.rendered_instructions())
             lines.extend(_criteria_lines(question))
             lines.append("")
         return "\n".join(lines).rstrip()

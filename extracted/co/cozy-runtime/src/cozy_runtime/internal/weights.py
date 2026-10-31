@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import functools
 import time
+import warnings
 import zlib
 from collections import Counter
 from collections.abc import Callable, Collection, Hashable, Iterator, Mapping, Sequence
@@ -53,7 +54,6 @@ from cozy_runtime.internal.fill import (
     _refuse,
     dtype_name,
     servability,
-    tensorfs_requirement_dtype,
 )
 from cozy_runtime.internal.fill import fit as fill_fit
 from cozy_runtime.internal.parallel import ulysses  # noqa: F401 (Ulysses' torch side, served)
@@ -68,9 +68,11 @@ from cozy_runtime.internal.residency import (
     Request,
     TensorLayout,
     Weights,
-    blocks_of,
+    paging,
+    split,
 )
 from cozy_runtime.internal.resolution import ResolvedModelPlan, TensorResolution
+from tensorfs.raw import parts as stored_parts
 
 if TYPE_CHECKING:
     import torch
@@ -224,6 +226,7 @@ class Backend:
         unstored: list[str] = []
         warnings: list[str] = []
         routes = {"verbatim": 0, "decoded_float": 0, "encoded_gemm": 0}
+        planned = {key: t.route for key, t in self.resolved.items()}
         for checkpoint, constructed in by_checkpoint.values():
             members = set(constructed)
             requirements = [
@@ -231,7 +234,7 @@ class Backend:
                     component=d.component,
                     key=d.key[len(d.component) + 1 :],
                     shape=list(d.spec.shape),
-                    logical_dtype=tensorfs_requirement_dtype(d.spec.dtype),
+                    logical_dtype=d.spec.dtype,
                     buffer=d.buffer,
                 )
                 for d in walked.destinations
@@ -240,6 +243,7 @@ class Backend:
             fit = fill_fit(
                 requirements,
                 checkpoint,
+                planned=planned,
                 encoded_leaves=encoded_leaves == "accept",
                 custody=self.custody,
                 device=self.device_facts.predicate,
@@ -442,11 +446,20 @@ class Backend:
         leg = time.perf_counter()
         root.eval()
         rows = {self.plan[key].name: self.plan[key] for key in keys}
-        bakes = self.bakes[name] = _Bakes(self, root, rows, set(blocks_of(root)))
         checkpoint = self.checkpoints[name]
+        bound = {stored: row.key.partition(".")[2] for stored, row in rows.items()}
+        # The paging blocks, found once and split where a unit is too large: residency, the bakes
+        # and the execution catch all read these (`Declared.blocks`).
+        rule, found = paging(root)
+        sizes = {
+            bound[stored]: sum(part.length for part in stored_parts(checkpoint.ck, name, stored).values())
+            for stored in rows
+        }
+        blocks = split(root, found, sizes)
+        rule = rule if blocks == found else f"{rule}+split"
+        bakes = self.bakes[name] = _Bakes(self, root, rows, set(blocks))
         routes = _Routes(self, rows)
         leg = self._leg(f"{name}.routes", leg)
-        bound = {stored: row.key.partition(".")[2] for stored, row in rows.items()}
         vars(root)["_cozy_weights"] = Declared(
             Weights(
                 checkpoint.ck,
@@ -455,9 +468,11 @@ class Backend:
                 keys=tuple(rows),
                 bound={stored: path for stored, path in bound.items() if path != stored},
             ),
+            blocks=blocks,
             fill=bakes if bakes.bakes else None,
             bind=routes,
             finals=routes,
+            rule=rule,
         )
         # At RAM: pages reach the device through placement (passes, the plan, an explicit warm),
         # never at construction (v6 13633 filled the card with H3's transformer before its TE).
@@ -692,6 +707,28 @@ class _PlainDtype:
         # The original source remains in its stored dtype. copy_ casts directly into the
         # final region; no unowned full-weight temporary or rounded-source round trip.
         self.base.write(key, parts, destinations)
+        torch, source = self.base.torch, parts["value"]
+        for destination in destinations.values():
+            if (
+                destination.dtype == torch.float16
+                and source.dtype != torch.float16
+                and _overflows(torch, source, destination)
+            ):
+                raise StaleBinding(
+                    f"{key}: a stored {source.dtype} value overflows float16 (beyond ±65504), so "
+                    "this component cannot be held in float16"
+                )
+
+
+def _overflows(torch: ModuleType, source: Tensor, narrowed: Tensor) -> bool:
+    """TensorFS import narrowing's rule: a finite stored value that rounds to ±inf in float16.
+    One reduction over the narrowed copy; the exact check runs only when it holds an inf or NaN."""
+    if narrowed.numel() == 0:
+        return False
+    low, high = torch.aminmax(narrowed)
+    if bool(torch.isfinite(low) & torch.isfinite(high)):
+        return False
+    return bool((torch.isinf(narrowed) & torch.isfinite(source)).any())
 
 
 def _float32(torch: ModuleType, root: Module) -> None:
@@ -1128,9 +1165,12 @@ class Placement:
     def represent(
         self, component: str, dtype: Any, *, resident_only: bool = False
     ) -> Callable[[], None]:
-        """Preflight every requested cast before capture applies any representation change."""
+        """Preflight every requested cast before capture applies any representation change. A CPU
+        executor serves every component in float32 (`_float32`), so a hold there changes nothing."""
         if dtype not in (self.torch.float16, self.torch.bfloat16, self.torch.float32):
             raise StaleBinding("prepared weight dtype must be float16, bfloat16 or float32")
+        if self.memory.device.type == "cpu":
+            return lambda: None
         model = self.models[component]
         base = model.declared_finals
         if not isinstance(base, _Routes):
@@ -1188,14 +1228,29 @@ def _derived_values(
     root: Module, component: str, unstored: Collection[str]
 ) -> dict[tuple[Module, str], Tensor]:
     """Buffers with their constructed values: non-persistent ones, which no checkpoint supplies,
-    and the persistent ones this checkpoint does not store (`unstored`, full keys)."""
+    and the persistent ones this checkpoint does not store (`unstored`, full keys). One built
+    on meta has no value, and a read of it refuses: each is named in a warning now."""
     held: dict[tuple[Module, str], Tensor] = {}
+    unvalued: list[str] = []
     for path, sub in root.named_modules(remove_duplicate=False):
         for local, value in sub._buffers.items():
             key = f"{component}.{path}.{local}" if path else f"{component}.{local}"
             derived = local in getattr(sub, "_non_persistent_buffers_set", ()) or key in unstored
-            if derived and value is not None and str(value.device) != "meta":
+            if not derived or value is None:
+                continue
+            if str(value.device) == "meta":
+                unvalued.append(key)
+            else:
                 held[(sub, local)] = value.detach()
+    if unvalued:
+        more = f", and {len(unvalued) - 3} more" if len(unvalued) > 3 else ""
+        warnings.warn(
+            f"{len(unvalued)} buffer(s) no checkpoint stores were built on meta and have no "
+            f"value, so a read refuses: {', '.join(unvalued[:3])}{more}. Compute them from "
+            "config or a constant, or store them",
+            RuntimeWarning,
+            stacklevel=2,
+        )
     return held
 
 

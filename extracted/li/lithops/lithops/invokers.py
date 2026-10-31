@@ -26,6 +26,7 @@ from math import ceil
 from concurrent.futures import ThreadPoolExecutor
 
 from lithops.future import ResponseFuture
+from lithops.monitoring.monitor import error_status
 from lithops.config import extract_storage_config
 from lithops.version import __version__
 from lithops.utils import (
@@ -38,6 +39,7 @@ from lithops.utils import (
     log_prefix,
 )
 from lithops.constants import (
+    LOCALHOST,
     LOGGER_LEVEL,
     LOGS_DIR,
     SERVERLESS,
@@ -62,9 +64,7 @@ def create_invoker(
     invoker_cls = {
         BackendType.BATCH.value: BatchInvoker,
         BackendType.FAAS.value: FaaSInvoker,
-    }.get(compute_handler.get_backend_type())
-    if invoker_cls is None:
-        return None
+    }[compute_handler.get_backend_type()]
     return invoker_cls(
         config,
         executor_id,
@@ -72,6 +72,15 @@ def create_invoker(
         compute_handler,
         job_monitor,
     )
+
+
+def _drain(q):
+    """Takes the items of the queue one by one, until it is empty, without blocking"""
+    while True:
+        try:
+            yield q.get_nowait()
+        except queue.Empty:
+            return
 
 
 def _format_call_id(index: int) -> str:
@@ -134,9 +143,9 @@ class Invoker:
         job_monitor,
     ):
         log_level = logger.getEffectiveLevel()
-        self.log_active = log_level != logging.WARNING
+        log_active = log_level != logging.WARNING
         self.log_level = (
-            LOGGER_LEVEL if not self.log_active else log_level
+            LOGGER_LEVEL if not log_active else log_level
         )
 
         self.config = config
@@ -144,7 +153,6 @@ class Invoker:
         self.storage_config = extract_storage_config(self.config)
         self.internal_storage = internal_storage
         self.compute_handler = compute_handler
-        self.is_lithops_worker = is_lithops_worker()
         self.job_monitor = job_monitor
 
         self.mode = self.config['lithops']['mode']
@@ -158,7 +166,8 @@ class Invoker:
         self.runtime_name = self.runtime_info['runtime_name']
         self.max_workers = self.runtime_info['max_workers']
 
-        verify_runtime_name(self.runtime_name)
+        # The localhost mode may run a local interpreter given by its path
+        verify_runtime_name(self.runtime_name, allow_local_path=self.mode == LOCALHOST)
 
         logger.debug(
             f'{log_prefix(self.executor_id)} - Invoker initialized. Max workers: {self.max_workers}'
@@ -293,6 +302,9 @@ class Invoker:
                 f'{job.worker_processes} - Chunksize: {job.chunksize}'
             )
 
+        # Built before invoking, so that a call that fails to be invoked has a
+        # future to report the error to
+        futures = self._build_futures(job)
         try:
             self._invoke_job(job)
         except (KeyboardInterrupt, Exception):
@@ -301,7 +313,7 @@ class Invoker:
 
         log_file = os.path.join(LOGS_DIR, job.job_key + '.log')
         logger.info(f'{prefix} - View execution logs at {log_file}')
-        return self._build_futures(job)
+        return futures
 
     def stop(self, wait: bool = False):
         """
@@ -309,7 +321,7 @@ class Invoker:
         """
         pass
 
-    def discard_pending(self, job_keys, job_ids=None):
+    def discard_pending(self, job_keys):
         """
         Drops the calls of the given jobs not invoked yet. Only an invoker
         that queues calls has any
@@ -426,11 +438,8 @@ class FaaSInvoker(Invoker):
         workers = min(64, self.invoke_pool_threads // 4)
         with ThreadPoolExecutor(max_workers=workers) as pool:
             while self.should_run:
-                try:
-                    self.job_monitor.token_bucket_q.get()
-                    job, call_ids_range = self.pending_calls_q.get()
-                except KeyboardInterrupt:
-                    break
+                self.job_monitor.token_bucket_q.get()
+                job, call_ids_range = self.pending_calls_q.get()
                 if not self.should_run:
                     break
                 pool.submit(self._invoke_task, job, call_ids_range)
@@ -441,10 +450,11 @@ class FaaSInvoker(Invoker):
 
     def _start_async_invokers(self):
         """Starts the invoker process responsible to spawn
-        pending calls in background.
+        pending calls in background. They start with no token: the
+        max_workers free workers are invoked directly, and every later
+        one waits for a token handed back by a finished worker
         """
         for inv_id in range(self.ASYNC_INVOKERS):
-            self.job_monitor.token_bucket_q.put('#')
             invoker = threading.Thread(
                 target=self._async_invoker_loop, args=(inv_id,)
             )
@@ -463,11 +473,8 @@ class FaaSInvoker(Invoker):
             )
             self.should_run = False
 
-            while not self.pending_calls_q.empty():
-                try:
-                    self.pending_calls_q.get(block=False)
-                except queue.Empty:
-                    break
+            for _ in _drain(self.pending_calls_q):
+                pass
 
             # One sentinel per invoker, each one preceded by the token it
             # blocks on, so that every loop wakes up and sees should_run
@@ -508,9 +515,21 @@ class FaaSInvoker(Invoker):
                 for call_id in call_ids
             ]
 
-        activation_id, resp_time = _timed_invoke(
-            self.compute_handler, payload
-        )
+        try:
+            activation_id, resp_time = _timed_invoke(
+                self.compute_handler, payload
+            )
+        except Exception as e:
+            # Nobody waits for this call: a raised error would only end up in
+            # the log of the thread pool, with the calls left invoked for ever
+            # and the worker slot of the chunk lost
+            logger.exception(
+                f'{log_prefix(job.executor_id, job.job_id)} - Invocation of '
+                f'calls {", ".join(call_ids)} failed'
+            )
+            self._fail_calls(job, call_ids, e)
+            self.job_monitor.token_bucket_q.put('#')
+            return
 
         if not activation_id:
             time.sleep(random.randint(0, 5))
@@ -523,6 +542,21 @@ class FaaSInvoker(Invoker):
             f'invoked ({resp_time}s) - Activation ID: {activation_id}'
         )
 
+    def _fail_calls(self, job, call_ids, error):
+        """
+        Finishes the calls of a chunk the backend could not invoke with the
+        error it raised, so that waiting for them ends. The monitor is told
+        no worker runs them
+        """
+        # Wrapped in an error that pickles, whatever the backend raised
+        failure = RuntimeError(f'Invocation failed: {error!r}')
+        for call_id in call_ids:
+            job.futures[int(call_id)]._set_ready(error_status(
+                job.executor_id, job.job_id, call_id,
+                exc_info=(RuntimeError, failure, None),
+            ))
+        self.job_monitor.discard_calls({job.job_id: len(call_ids)})
+
     def _invoke_job_remote(self, job):
         """
         Logic for invoking a job using a remote function
@@ -533,7 +567,8 @@ class FaaSInvoker(Invoker):
             'runtime_name': job.runtime_name,
             'runtime_memory': job.runtime_memory,
             'remote_invoker': True,
-            'job': job.__dict__,
+            # The futures stay here: the remote invoker builds its own
+            'job': {k: v for k, v in vars(job).items() if k != 'futures'},
         }
         activation_id, resp_time = _timed_invoke(
             self.compute_handler, payload
@@ -548,31 +583,28 @@ class FaaSInvoker(Invoker):
         raise Exception('Unable to spawn remote invoker')
 
     def _empty_token_bucket(self):
-        while True:
-            try:
-                self.job_monitor.token_bucket_q.get(block=False)
-            except queue.Empty:
-                return
+        for _ in _drain(self.job_monitor.token_bucket_q):
+            pass
 
-    def discard_pending(self, job_keys, job_ids=None):
+    def discard_pending(self, job_keys):
         """
         Drops the calls of the given jobs that are still waiting for a
         worker, leaving the queued calls of every other job in place.
 
-        The monitor also stops tracking those jobs, so their workers will
-        not hand tokens back. When no other job is still queued, the count
-        of running workers is forgotten; otherwise a later map() of the
-        same executor stays capped by workers that never free
+        When no other job is still queued, the count of running workers is
+        forgotten, and every job invoked so far with it; otherwise a later
+        map() of the same executor stays capped by workers that never free
         """
         kept = []
-        while True:
-            try:
-                item = self.pending_calls_q.get(block=False)
-            except queue.Empty:
-                break
-            job, _ = item
+        discarded = {}
+        for item in _drain(self.pending_calls_q):
+            job, call_ids_range = item
             if job is None or job.job_key not in job_keys:
                 kept.append(item)
+            else:
+                discarded[job.job_id] = (
+                    discarded.get(job.job_id, 0) + len(call_ids_range)
+                )
         other_jobs = False
         for item in kept:
             job, _ = item
@@ -580,11 +612,22 @@ class FaaSInvoker(Invoker):
                 other_jobs = True
             self.pending_calls_q.put(item)
         if other_jobs:
+            # The workers of these jobs still count, and the dropped calls
+            # will never free one
+            if discarded:
+                self.job_monitor.discard_calls(discarded)
             return
+        self._forget_workers()
+
+    def _forget_workers(self):
+        """
+        Stops counting the workers invoked so far. Every job they run is
+        closed before the bucket is emptied, so that none of them hands a
+        token back in between
+        """
+        self.job_monitor.close_jobs()
         self._empty_token_bucket()
         self.running_workers = 0
-        if job_ids and self.job_monitor is not None:
-            self.job_monitor.close_jobs(job_ids)
 
     def _drain_token_bucket(self):
         """
@@ -594,11 +637,7 @@ class FaaSInvoker(Invoker):
         if self.running_workers <= 0:
             return
 
-        while not self.job_monitor.token_bucket_q.empty():
-            try:
-                self.job_monitor.token_bucket_q.get(block=False)
-            except queue.Empty:
-                break
+        for _ in _drain(self.job_monitor.token_bucket_q):
             self.running_workers -= 1
             if self.running_workers == 0:
                 break
@@ -644,8 +683,7 @@ class FaaSInvoker(Invoker):
             # Tokens a monitor handed back after the stop belong to workers
             # this restart no longer counts, and would each invoke one more
             # worker than max_workers allows
-            self._empty_token_bucket()
-            self.running_workers = 0
+            self._forget_workers()
             self.should_run = True
             self._start_async_invokers()
 

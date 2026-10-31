@@ -14,10 +14,12 @@ from dataclasses import dataclass
 from enum import Enum
 import json
 import os
+import queue
+import re
 import shutil
 import signal
-import socket
 import subprocess
+import threading
 import time
 from typing import Dict, List, Optional
 
@@ -45,13 +47,15 @@ OPERATOR_HEALTH_ENDPOINT = "/healthz/run"
 DEFAULT_OPERATOR_NAMESPACE = "anyscale-operator"
 
 # Network and timing configuration
-PORT_FORWARD_WAIT_TIME = 3  # seconds to wait for port forward to establish
+# kubectl reports its local port only after it has connected to the API server,
+# which can sit behind an exec credential plugin (e.g. `aws eks get-token`).
+PORT_FORWARD_READY_TIMEOUT = 30  # seconds to wait for kubectl to report its local port
 HTTP_REQUEST_TIMEOUT = 10  # seconds for HTTP requests to operator
 PORT_FORWARD_TERMINATION_TIMEOUT = 5  # seconds to wait for graceful termination
 
 # HTTP retry configuration for operator endpoints. Brief connection
 # refused/dropped errors are common right after the port forward starts
-# (the local socket may not be listening yet) and during operator restarts.
+# and during operator restarts.
 OPERATOR_REQUEST_MAX_ATTEMPTS = 5
 OPERATOR_REQUEST_RETRY_BASE_DELAY = 1.0  # seconds; doubles per retry (1, 2, 4)
 
@@ -479,9 +483,14 @@ class KubectlOperations:
             )
 
     def start_port_forward(
-        self, pod_name: str, local_port: int, remote_port: int, namespace: str
+        self, pod_name: str, remote_port: int, namespace: str
     ) -> subprocess.Popen:
-        """Start port forwarding to a pod."""
+        """
+        Start port forwarding to a pod on a local port kubectl chooses.
+
+        kubectl prints the chosen port as ``Forwarding from 127.0.0.1:<port> -> <remote>``
+        on the returned process's stdout, which also carries its stderr.
+        """
         cmd_args = [
             "port-forward",
             "--context",
@@ -489,7 +498,7 @@ class KubectlOperations:
             "-n",
             namespace,
             pod_name,
-            f"{local_port}:{remote_port}",
+            f":{remote_port}",
         ]
 
         try:
@@ -497,7 +506,10 @@ class KubectlOperations:
             process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
                 start_new_session=True,  # Create new process group for cleanup
             )
             return process
@@ -711,38 +723,22 @@ class OperatorVerifier:
     def _port_forward_to_operator(self, pod_name: str):
         """Context manager that port forwards to operator pod."""
         port_forward_process = None
-        local_port = None
         try:
-            # Get a free port for port forwarding
-            local_port = self._get_free_port()
-            self.log.info(f"Using local port {local_port} for port forwarding")
-
-            # Start port forwarding to the pod
             self.log.info(
-                f"Starting port forward to pod {pod_name} on port {local_port}:{OPERATOR_HEALTH_PORT}..."
+                f"Starting port forward to pod {pod_name} on port {OPERATOR_HEALTH_PORT}..."
             )
-
             port_forward_process = self.kubectl.start_port_forward(
                 pod_name,
-                local_port,
                 OPERATOR_HEALTH_PORT,
                 self.config.operator_namespace,
             )
 
-            # Wait for port forward to establish
             self.log.info("Waiting for port forward to establish...")
-            time.sleep(PORT_FORWARD_WAIT_TIME)
+            local_port = self._read_forwarded_local_port(
+                port_forward_process, timeout=PORT_FORWARD_READY_TIMEOUT
+            )
+            self.log.info(f"Using local port {local_port} for port forwarding")
 
-            # Check if port forward process is still running
-            if port_forward_process.poll() is not None:
-                stderr = (
-                    port_forward_process.stderr.read().decode()
-                    if port_forward_process.stderr
-                    else ""
-                )
-                raise RuntimeError(f"Port forward failed to start: {stderr}")
-
-            # Yield the local port to the calling function
             yield local_port
 
         finally:
@@ -759,13 +755,64 @@ class OperatorVerifier:
                 except (OSError, ValueError) as e:
                     self.log.warning(f"Port forward cleanup warning: {e}")
 
-    def _get_free_port(self) -> int:
-        """Get a random free port on localhost."""
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind(("", 0))
-            s.listen(1)
-            port = s.getsockname()[1]
-        return port
+    @staticmethod
+    def _read_forwarded_local_port(process: subprocess.Popen, timeout: float) -> int:
+        """
+        Read kubectl port-forward output until it reports its local port.
+
+        Raises RuntimeError, carrying kubectl's output, if kubectl exits first or
+        reports no port within ``timeout`` seconds.
+        """
+        stdout = process.stdout
+        if stdout is None:
+            raise RuntimeError("kubectl port-forward process has no stdout pipe")
+
+        # The reader thread bounds a blocking readline by the deadline, and it
+        # keeps draining kubectl's per-connection log lines after this returns
+        # so a full pipe never blocks kubectl.
+        lines: "queue.Queue[Optional[str]]" = queue.Queue()
+
+        def pump() -> None:
+            try:
+                for line in stdout:
+                    lines.put(line)
+            finally:
+                lines.put(None)
+
+        threading.Thread(target=pump, daemon=True).start()
+
+        output: List[str] = []
+        deadline = time.monotonic() + timeout
+        while True:
+            try:
+                line = lines.get(timeout=max(0.0, deadline - time.monotonic()))
+            except queue.Empty:
+                raise RuntimeError(
+                    f"kubectl port-forward did not report a local port within {timeout}s; "
+                    "check that the Kubernetes API server is reachable. "
+                    f"kubectl output:\n{''.join(output) or '(no output)'}"
+                ) from None
+            if line is None:
+                raise RuntimeError(
+                    "kubectl port-forward exited before reporting a local port. "
+                    f"kubectl output:\n{''.join(output) or '(no output)'}"
+                )
+            output.append(line)
+            port = OperatorVerifier._parse_forwarded_local_port(line)
+            if port is not None:
+                return port
+
+    @staticmethod
+    def _parse_forwarded_local_port(line: str) -> Optional[int]:
+        """
+        Return the local port from a kubectl ``Forwarding from <host>:<port> -> <remote>``
+        line, or None for any other line.
+
+        The host is ``127.0.0.1`` or ``[::1]``; both listeners share one port. The
+        format is unchanged since kubectl v1.3.
+        """
+        match = re.match(r"Forwarding from \S+:(\d+) -> \d+$", line.strip())
+        return int(match.group(1)) if match else None
 
     def _get_with_retry(self, url: str) -> requests.Response:
         """

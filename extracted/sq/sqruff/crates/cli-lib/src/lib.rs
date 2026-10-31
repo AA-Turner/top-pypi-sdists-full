@@ -14,6 +14,7 @@ use crate::commands::{Cli, Commands};
 #[cfg(feature = "codegen-docs")]
 use crate::docs::codegen_docs;
 use crate::formatters::github_annotation_native_formatter::GithubAnnotationNativeFormatter;
+use crate::formatters::gitlab::GitlabFormatter;
 use crate::formatters::json::JsonFormatter;
 use crate::formatters::sarif::SarifFormatter;
 use crate::formatters::{NullFormatter, OutputStreamFormatter};
@@ -49,10 +50,11 @@ where
 {
     let _ = logger::init();
     let cli = Cli::parse_from(args);
-    // `fix` must retain parser and templater errors so that it can explain why
-    // fixes were not applied to an unparsable file. Keep the explicit flag for
-    // commands such as `lint`, where collecting parse errors remains opt-in.
-    let collect_parse_errors = cli.parsing_errors || matches!(&cli.command, Commands::Fix(_));
+    // Fixing must explain why unparsable files were skipped, and GitLab reports
+    // include parse errors. Other lint formats retain the explicit opt-in flag.
+    let collect_parse_errors = cli.parsing_errors
+        || matches!(&cli.command, Commands::Fix(_))
+        || matches!(&cli.command, Commands::Lint(args) if matches!(args.format, Format::Gitlab));
 
     let stdin_input = match &cli.command {
         Commands::Lint(args) => is_std_in_flag_input(&args.paths).unwrap_or(false),
@@ -63,17 +65,14 @@ where
         _ => false,
     };
     let config_result = if stdin_input && let Some(filename) = cli.stdin_filename.as_ref() {
-        sqruff_lib::core::config::ConfigLoader {}
-            .try_load_config_up_to_path(filename, cli.config.clone(), false)
-            .map(|raw| FluffConfig::new(raw, cli.config.clone(), None))
-    } else if let Some(path) = cli.config.as_ref() {
-        if !Path::new(path).is_file() {
-            eprintln!("The specified config file '{path}' does not exist.");
-            return 1;
-        }
-        FluffConfig::try_from_file(Path::new(path))
+        FluffConfig::from_path(
+            Path::new(filename),
+            cli.config.clone(),
+            cli.ignore_local_config,
+            None,
+        )
     } else {
-        FluffConfig::from_root(None, false, None)
+        FluffConfig::from_root(cli.config.clone(), cli.ignore_local_config, None)
     };
     let mut config = match config_result {
         Ok(config) => config,
@@ -90,15 +89,12 @@ where
     };
     if let Some((quiet, verbose)) = output_options
         && (quiet || verbose > 0)
-        && let Some(core) = config.raw.get_mut("core").and_then(Value::as_map_mut)
     {
-        core.insert("verbose".to_string(), Value::Int(i32::from(verbose)));
+        config.set_core_override("verbose", Value::Int(i32::from(verbose)));
     }
 
-    if (cli.nocolor || cli.color)
-        && let Some(core) = config.raw.get_mut("core").and_then(Value::as_map_mut)
-    {
-        core.insert("nocolor".to_string(), Value::Bool(cli.nocolor));
+    if cli.nocolor || cli.color {
+        config.set_core_override("nocolor", Value::Bool(cli.nocolor));
     }
 
     if let Some(dialect) = cli.dialect {
@@ -125,24 +121,18 @@ where
         } else {
             Value::String(library_path.into())
         };
-        if let Some(core) = config.raw.get_mut("core").and_then(Value::as_map_mut) {
-            core.insert("library_path".to_string(), value);
-        }
+        config.set_core_override("library_path", value);
     }
 
-    if let Some(disable_noqa_except) = cli.disable_noqa_except
-        && let Some(core) = config.raw.get_mut("core").and_then(Value::as_map_mut)
-    {
-        core.insert(
-            "disable_noqa_except".to_string(),
+    if let Some(disable_noqa_except) = cli.disable_noqa_except {
+        config.set_core_override(
+            "disable_noqa_except",
             Value::String(disable_noqa_except.into()),
         );
     }
 
-    if cli.disable_noqa
-        && let Some(core) = config.raw.get_mut("core").and_then(Value::as_map_mut)
-    {
-        core.insert("disable_noqa".to_string(), Value::Bool(true));
+    if cli.disable_noqa {
+        config.set_core_override("disable_noqa", Value::Bool(true));
     }
 
     let disregard_ignores = match &cli.command {
@@ -172,11 +162,9 @@ where
             Ok(false) => commands_lint::run_lint(args, config, ignorer, collect_parse_errors),
             Ok(true) => commands_lint::run_lint_stdin(
                 config,
-                args.format,
-                args.quiet,
+                args,
                 stdin_filename.as_deref(),
                 &ignorer,
-                args.disregard_sqruffignores,
                 collect_parse_errors,
             ),
         },
@@ -197,7 +185,10 @@ where
             ),
         },
         Commands::Lsp => {
-            sqruff_lsp::run();
+            sqruff_lsp::run_with_config_options(sqruff_lsp::ConfigOptions {
+                extra_config_path: cli.config,
+                ignore_local_config: cli.ignore_local_config,
+            });
             0
         }
         Commands::Info => {
@@ -244,6 +235,10 @@ pub(crate) fn linter(
             let formatter = GithubAnnotationNativeFormatter::new(output_stream);
             Arc::new(formatter)
         }
+        Format::Gitlab => Arc::new(
+            GitlabFormatter::new(commands::AnnotationLevel::Warning, None)
+                .map_err(|err| err.to_string())?,
+        ),
         Format::Json => {
             let formatter = JsonFormatter::default();
             Arc::new(formatter)

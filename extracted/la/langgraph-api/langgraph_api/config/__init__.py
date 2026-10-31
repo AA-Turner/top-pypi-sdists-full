@@ -4,6 +4,7 @@ from os import environ, getenv
 from typing import TYPE_CHECKING, Annotated, Literal, TypeVar, cast
 
 import structlog
+from langgraph.version import __version__ as langgraph_version
 from pydantic.functional_validators import AfterValidator
 from starlette.config import Config
 from starlette.datastructures import CommaSeparatedStrings
@@ -22,6 +23,12 @@ from langgraph_api.config.schemas import (
     TTLConfig,
     WebhooksConfig,
     webhooks_validator,
+)
+from langgraph_api.feature_flags import (
+    DRAIN_RESUME_SUPPORT,
+    IS_POSTGRES_BACKEND,
+    OMIT_PENDING_SENDS,
+    PREFER_GRPC_CHECKPOINTER,
 )
 
 if TYPE_CHECKING:
@@ -49,6 +56,21 @@ STATS_INTERVAL_SECS = env("STATS_INTERVAL_SECS", cast=int, default=60)
 # loudly via connect()'s "Postgres pool not initialized" guard.
 DATABASE_URI: str | None = env(
     "DATABASE_URI", cast=str, default=getenv("POSTGRES_URI", None)
+)
+
+
+def _validate_langgraph_without_database(
+    *, langgraph_supported: bool, is_postgres: bool
+) -> None:
+    """Reject langgraph < 0.5 when the Postgres runtime has no DATABASE_URI."""
+    # langgraph < 0.5 always uses the Python checkpointer, which needs a direct
+    # connection (see feature_flags.PREFER_GRPC_CHECKPOINTER).
+    if is_postgres and not langgraph_supported and not DATABASE_URI:
+        raise ValueError("langgraph >= 0.5 is required when core-api owns the database")
+
+
+_validate_langgraph_without_database(
+    langgraph_supported=OMIT_PENDING_SENDS, is_postgres=IS_POSTGRES_BACKEND
 )
 AGENT_POSTGRES_IAM_AUTH_PROVIDER = env(
     "AGENT_POSTGRES_IAM_AUTH_PROVIDER", cast=str, default=""
@@ -155,6 +177,28 @@ LANGGRAPH_AES_JSON_KEYS: frozenset[str] | None = env(
     "LANGGRAPH_AES_JSON_KEYS", default=None, cast=_get_aes_json_keys
 )
 
+
+def _validate_aes_rotation(
+    prefer_grpc_checkpointer: bool, *, is_postgres: bool
+) -> None:
+    """Reject AES key rotation when Python owns checkpoints, as core-server does."""
+    # Uses the derived PREFER_GRPC_CHECKPOINTER (false on langgraph < 0.5), while
+    # core-server checks the raw env var. A missing LANGGRAPH_AES_KEY is left to
+    # core-server, which reports it first.
+    rotation_keys = getenv("LANGGRAPH_AES_LEGACY_KEY") or getenv(
+        "LANGGRAPH_AES_FALLBACK_KEYS"
+    )
+    if (
+        is_postgres
+        and not prefer_grpc_checkpointer
+        and rotation_keys
+        and LANGGRAPH_AES_KEY
+    ):
+        raise ValueError("AES key rotation requires PREFER_GRPC_CHECKPOINTER=true")
+
+
+_validate_aes_rotation(PREFER_GRPC_CHECKPOINTER, is_postgres=IS_POSTGRES_BACKEND)
+
 # redis
 # Not in public docs: infrastructure, set by platform
 REDIS_URI = env("REDIS_URI_CUSTOM", cast=str, default="") or env("REDIS_URI", cast=str)
@@ -194,6 +238,25 @@ GRPC_CLIENT_POOL_SIZE = env("GRPC_CLIENT_POOL_SIZE", cast=int, default=5)
 # HTTP request body size limit (default matches gRPC limits: 300MB)
 HTTP_MAX_REQUEST_BODY_BYTES = env(
     "HTTP_MAX_REQUEST_BODY_BYTES", cast=int, default=300 * 1024 * 1024
+)
+
+
+def _validate_thread_history_budget(budget: int) -> int:
+    if budget < 0:
+        raise ValueError(
+            "LANGGRAPH_THREAD_HISTORY_MAX_STATE_BYTES must be 0 (disabled) or a "
+            f"positive number of bytes, got {budget}."
+        )
+    return budget
+
+
+# Byte budget for one history response, counted as the serialized size of its
+# entries; every entry carries the full thread state. History stops before the
+# entry that would cross it but always returns the newest. An entry counts at
+# the size of the state loaded for it, which `select` narrows when supported.
+# 0 disables it.
+THREAD_HISTORY_MAX_STATE_BYTES = _validate_thread_history_budget(
+    env("LANGGRAPH_THREAD_HISTORY_MAX_STATE_BYTES", cast=int, default=0)
 )
 
 # gRPC message size limits (300MB default)
@@ -275,9 +338,6 @@ WEBHOOKS_ENABLED = HTTP_CONFIG and HTTP_CONFIG.get("disable_webhooks")
 STORE_CONFIG = env(
     "LANGGRAPH_STORE", cast=_parse.parse_schema(StoreConfig), default=None
 )
-LANGGRAPH_STORE_BACKEND = env("LANGGRAPH_STORE_BACKEND", cast=str, default="python")
-USE_GRPC_STORE = LANGGRAPH_STORE_BACKEND == "grpc"
-
 # When true, the Go core-server owns Postgres schema setup (DB migrations +
 # vector index)
 DB_MIGRATION_BY_CORE_API = env("DB_MIGRATION_BY_CORE_API", cast=bool, default=False)
@@ -359,6 +419,8 @@ if (
 
 BG_JOB_HEARTBEAT = 120  # seconds
 BG_JOB_MAX_RETRIES = env("BG_JOB_MAX_RETRIES", cast=int, default=3)
+# Stops graphs that drain forever. The retry limit only applies to failures.
+BG_JOB_MAX_DRAINS = env("BG_JOB_MAX_DRAINS", cast=int, default=50)
 BG_JOB_ISOLATED_LOOPS = env("BG_JOB_ISOLATED_LOOPS", cast=bool, default=False)
 BG_JOB_SHUTDOWN_GRACE_PERIOD_SECS = env(
     "BG_JOB_SHUTDOWN_GRACE_PERIOD_SECS",
@@ -463,6 +525,36 @@ FF_ASYNC_PUBLISH_QUEUE = env("FF_ASYNC_PUBLISH_QUEUE", cast=bool, default=False)
 FF_CRONS_ENABLED = env("FF_CRONS_ENABLED", cast=bool, default=True)
 FF_LOG_DROPPED_EVENTS = env("FF_LOG_DROPPED_EVENTS", cast=bool, default=False)
 FF_LOG_QUERY_AND_PARAMS = env("FF_LOG_QUERY_AND_PARAMS", cast=bool, default=False)
+# Opt-in handling of drained runs: the server's control signalling to the
+# graph and its handling of drained runs, together. On, a Postgres-backed
+# replica that is shutting down also drains its in-flight runs.
+# Off: no control is created or seeded, and GraphDrained lands in the
+# catch-all error branch.
+FF_RESUME_DRAINED_RUNS = env("FF_RESUME_DRAINED_RUNS", cast=bool, default=False)
+
+
+def _resolve_resume_drained_runs(
+    enabled: bool, *, is_postgres: bool, langgraph_supported: bool
+) -> bool:
+    # Only the Postgres runtime re-queues drained runs: on the in-memory
+    # runtime a drain still ends the run as an error, flag or not.
+    if not (enabled and is_postgres):
+        return False
+    if not langgraph_supported:
+        logger.warning(
+            "Ignoring FF_RESUME_DRAINED_RUNS=true: resuming drained runs "
+            "requires langgraph>=1.2.15, so drained runs end as errors.",
+            langgraph_version=langgraph_version,
+        )
+        return False
+    return True
+
+
+RESUME_DRAINED_RUNS = _resolve_resume_drained_runs(
+    FF_RESUME_DRAINED_RUNS,
+    is_postgres=IS_POSTGRES_BACKEND,
+    langgraph_supported=DRAIN_RESUME_SUPPORT,
+)
 # Not in public docs: internal feature flag
 FF_USE_REDIS_QUEUE = env("FF_USE_REDIS_QUEUE", cast=bool, default=True)
 
@@ -708,6 +800,7 @@ __all__ = [
     "API_VARIANT",
     "BG_JOB_HEARTBEAT",
     "BG_JOB_ISOLATED_LOOPS",
+    "BG_JOB_MAX_DRAINS",
     "BG_JOB_MAX_RETRIES",
     "BG_JOB_SHUTDOWN_GRACE_PERIOD_SECS",
     "BG_JOB_TIMEOUT_SECS",
@@ -737,6 +830,7 @@ __all__ = [
     "FF_LOG_QUERY_AND_PARAMS",
     "FF_PYSPY_PROFILING_ENABLED",
     "FF_PYSPY_PROFILING_MAX_DURATION_SECS",
+    "FF_RESUME_DRAINED_RUNS",
     "FF_USE_REDIS_QUEUE",
     "GRPC_CLIENT_HTTP2_INITIAL_WINDOW_SIZE",
     "GRPC_CLIENT_MAX_RECV_MSG_BYTES",
@@ -759,7 +853,6 @@ __all__ = [
     "LANGGRAPH_METRICS_ENDPOINT",
     "LANGGRAPH_METRICS_EXPORT_INTERVAL_MS",
     "LANGGRAPH_POSTGRES_EXTENSIONS",
-    "LANGGRAPH_STORE_BACKEND",
     "LANGSMITH_API_KEY",
     "LANGSMITH_AUTH_ENDPOINT",
     "LANGSMITH_AUTH_VERIFY_TENANT_ID",
@@ -788,6 +881,7 @@ __all__ = [
     "REDIS_MAX_CONNECTIONS",
     "REDIS_URI",
     "RESUMABLE_STREAM_TTL_SECONDS",
+    "RESUME_DRAINED_RUNS",
     "RUN_STATS_CACHE_SECONDS",
     "SELF_HOSTED_OBSERVABILITY_SERVICE_NAME",
     "SERDE",
@@ -798,6 +892,7 @@ __all__ = [
     "STREAM_PUBLISH_RETRY_JITTER",
     "STREAM_PUBLISH_RETRY_MAX_DURATION_SECS",
     "STREAM_PUBLISH_RETRY_MAX_INTERVAL_SECS",
+    "THREAD_HISTORY_MAX_STATE_BYTES",
     "THREAD_TTL",
     "TRACING",
     "UI_USE_BUNDLER",
@@ -807,7 +902,6 @@ __all__ = [
     "USES_STORE_TTL",
     "USES_THREAD_TTL",
     "USE_CUSTOM_CHECKPOINTER",
-    "USE_GRPC_STORE",
     "AuthConfig",
     "CheckpointerConfig",
     "CorsConfig",

@@ -13,11 +13,12 @@ interface ThreadsSearchMetadataData {
 }
 
 /**
- * Delete the threads each iteration creates, or leave them to accumulate.
+ * Delete the threads each iteration creates, or leave them to the deployment.
  *
- * Off by default: letting the table grow is how this benchmark shows whether
- * search degrades as thread count rises, and it is the realistic case since
- * deployments do not delete threads per request.
+ * Off by default, since deployments do not delete threads per request. The
+ * nightly deployments' 60-minute thread TTL (langgraph.json in
+ * langgraph-server-benchmarks) removes them after the run, so the table holds
+ * about one run's threads rather than growing night over night.
  *
  * The capacity staircase turns it on, because there the table grows *while*
  * load is ramping, so a slower step cannot be attributed to load or to size.

@@ -3,9 +3,8 @@
 import typing
 
 from ..core.api_error import ApiError
-from ..types.data_frame_unknown_format_error import DataFrameUnknownFormatError
 
 
 class UnsupportedMediaTypeError(ApiError):
-    def __init__(self, body: DataFrameUnknownFormatError, headers: typing.Optional[typing.Dict[str, str]] = None):
+    def __init__(self, body: typing.Optional[typing.Any], headers: typing.Optional[typing.Dict[str, str]] = None):
         super().__init__(status_code=415, headers=headers, body=body)

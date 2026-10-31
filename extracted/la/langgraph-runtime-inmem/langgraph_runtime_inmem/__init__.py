@@ -1,6 +1,7 @@
 from langgraph_runtime_inmem import (
     checkpoint,
     database,
+    encryption,
     lifespan,
     metrics,
     ops,
@@ -10,11 +11,12 @@ from langgraph_runtime_inmem import (
     store,
 )
 
-__version__ = "0.36.9"
+__version__ = "0.37.0"
 __all__ = [
     "ops",
     "database",
     "checkpoint",
+    "encryption",
     "lifespan",
     "retry",
     "store",

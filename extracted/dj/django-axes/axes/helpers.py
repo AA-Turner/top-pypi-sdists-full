@@ -5,13 +5,14 @@ from string import Template
 from typing import Callable, Optional, Type, Union, List
 from urllib.parse import urlencode
 
+from django.contrib.auth import get_user_model
 from django.core.cache import BaseCache, caches
 from django.http import HttpRequest, HttpResponse, JsonResponse, QueryDict
 from django.shortcuts import redirect, render
 from django.utils.encoding import force_bytes
 from django.utils.module_loading import import_string
 
-from axes.conf import settings
+from axes.conf import LockoutTier, settings
 from axes.models import AccessBase
 
 log = getLogger(__name__)
@@ -60,8 +61,15 @@ def get_cool_off(request: Optional[HttpRequest] = None) -> Optional[timedelta]:
     offers a unified _timedelta or None_ representation of that configuration for use with the
     Axes internal implementations.
 
+    When ``AXES_LOCKOUT_TIERS`` is configured, the cooloff is resolved from the
+    matching tier based on the failure count attached to the request.
+
     :exception TypeError: if settings.AXES_COOLOFF_TIME is of wrong type.
     """
+
+    tier = resolve_tier_from_request(request)
+    if tier is not None:
+        return tier.cooloff
 
     cool_off = settings.AXES_COOLOFF_TIME
 
@@ -101,6 +109,31 @@ def get_cool_off_iso8601(delta: timedelta) -> str:
     return f"P{days_str}"
 
 
+def get_lockout_tier(failures: int) -> Optional[LockoutTier]:
+    """Return the highest ``LockoutTier`` threshold met by *failures*."""
+    tiers = settings.AXES_LOCKOUT_TIERS
+    if not tiers:
+        return None
+    sorted_tiers = sorted(tiers, key=lambda t: t.failures)
+    matched = None
+    for tier in sorted_tiers:
+        if failures >= tier.failures:
+            matched = tier
+    return matched
+
+
+def resolve_tier_from_request(
+    request: Optional[HttpRequest],
+) -> Optional[LockoutTier]:
+    """Extract failure count from *request* and resolve the tier."""
+    if not settings.AXES_LOCKOUT_TIERS or request is None:
+        return None
+    failures = getattr(request, "axes_failures_since_start", None)
+    if failures is None:
+        return None
+    return get_lockout_tier(failures)
+
+
 def get_attempt_expiration(request: Optional[HttpRequest] = None) -> datetime:
     """
     Get threshold for fetching access attempts from the database.
@@ -131,6 +164,32 @@ def get_credentials(username: Optional[str] = None, **kwargs) -> dict:
     return credentials
 
 
+def get_username_from_data(data: dict) -> Optional[str]:
+    """
+    Extract username from a dict-like object (credentials or request data).
+
+    Tries AXES_USERNAME_FORM_FIELD first, then falls back to Django's USERNAME_FIELD
+    for compatibility with Django's user_login_failed signal.
+
+    See: https://github.com/jazzband/django-axes/issues/1159
+
+    :param data: dict-like object containing username (credentials or request.POST)
+    :return: username string or None if not found
+    """
+    username = data.get(settings.AXES_USERNAME_FORM_FIELD, None)
+    if username is None:
+        # Fallback to Django's USERNAME_FIELD for compatibility with
+        # Django's user_login_failed signal which uses USERNAME_FIELD as the key
+        username_field = get_user_model().USERNAME_FIELD
+        if username_field != str(settings.AXES_USERNAME_FORM_FIELD):
+            log.debug(
+                "Falling back to USERNAME_FIELD '%s' for data lookup",
+                username_field,
+            )
+            username = data.get(username_field, None)
+    return username
+
+
 def get_client_username(
     request: HttpRequest, credentials: Optional[dict] = None
 ) -> str:
@@ -143,6 +202,9 @@ def get_client_username(
     2. If given, use ``credentials`` and fetch username from ``AXES_USERNAME_FORM_FIELD`` (defaults to ``username``)
     3. Use request.POST and fetch username from ``AXES_USERNAME_FORM_FIELD`` (defaults to ``username``)
 
+    Truncate usernames to the maximum length of ``AccessBase.username`` so
+    database records and lockout lookups use the same value.
+
     :param request: incoming Django ``HttpRequest`` or similar object from authentication backend or other source
     :param credentials: incoming credentials ``dict`` or similar object from authentication backend or other source
     """
@@ -151,27 +213,38 @@ def get_client_username(
         log.debug("Using settings.AXES_USERNAME_CALLABLE to get username")
 
         if callable(settings.AXES_USERNAME_CALLABLE):
-            return settings.AXES_USERNAME_CALLABLE(  # pylint: disable=not-callable
+            username = settings.AXES_USERNAME_CALLABLE(  # pylint: disable=not-callable
                 request, credentials
             )
-        if isinstance(settings.AXES_USERNAME_CALLABLE, str):
-            return import_string(settings.AXES_USERNAME_CALLABLE)(request, credentials)
-        raise TypeError(
-            "settings.AXES_USERNAME_CALLABLE needs to be a string, callable, or None."
-        )
-
-    if credentials:
+        elif isinstance(settings.AXES_USERNAME_CALLABLE, str):
+            username = import_string(settings.AXES_USERNAME_CALLABLE)(
+                request, credentials
+            )
+        else:
+            raise TypeError(
+                "settings.AXES_USERNAME_CALLABLE needs to be a string, callable, or None."
+            )
+    elif credentials:
         log.debug(
             "Using parameter credentials to get username with key settings.AXES_USERNAME_FORM_FIELD"
         )
-        return credentials.get(settings.AXES_USERNAME_FORM_FIELD, None)  # type: ignore[return-value]
+        username = get_username_from_data(credentials)
+    else:
+        log.debug(
+            "Using parameter request.POST to get username with key settings.AXES_USERNAME_FORM_FIELD"
+        )
+        request_data = getattr(request, "data", request.POST)
+        username = get_username_from_data(request_data)
 
-    log.debug(
-        "Using parameter request.POST to get username with key settings.AXES_USERNAME_FORM_FIELD"
-    )
-
-    request_data = getattr(request, "data", request.POST)
-    return request_data.get(settings.AXES_USERNAME_FORM_FIELD, None)
+    max_length = AccessBase._meta.get_field("username").max_length
+    if isinstance(username, str) and len(username) > max_length:
+        log.warning(
+            "AXES: Truncating username of length %s to %s characters to fit the database field.",
+            len(username),
+            max_length,
+        )
+        username = username[:max_length]
+    return username  # type: ignore[return-value]
 
 
 def get_client_ip_address(
@@ -408,6 +481,10 @@ def cleanse_parameters(params: dict) -> dict:
     parameters named in ``settings.AXES_SENSITIVE_PARAMETERS`` and
     ``settings.AXES_PASSWORD_FORM_FIELD will be cleansed.
 
+    A parameter is also cleansed if it matches one of the names above with a
+    Django form prefix attached (``prefix-fieldname``), since a prefixed
+    form submits its fields under that name rather than the bare field name.
+
     This is used to prevent passwords and similar values from
     being logged in cleartext.
     """
@@ -417,8 +494,10 @@ def cleanse_parameters(params: dict) -> dict:
 
     if sensitive_parameters:
         cleansed = params.copy()
-        for param in sensitive_parameters:
-            if param in cleansed:
+        for param in cleansed:
+            if param in sensitive_parameters or any(
+                param.endswith(f"-{sensitive}") for sensitive in sensitive_parameters
+            ):
                 cleansed[param] = "********************"
         return cleansed
     return params
@@ -444,6 +523,11 @@ def get_query_str(query: Type[QueryDict], max_length: int = 1024) -> str:
 
 
 def get_failure_limit(request: HttpRequest, credentials) -> int:
+    tiers = settings.AXES_LOCKOUT_TIERS
+    if tiers:
+        sorted_tiers = sorted(tiers, key=lambda t: t.failures)
+        return sorted_tiers[0].failures
+
     if callable(settings.AXES_FAILURE_LIMIT):
         return settings.AXES_FAILURE_LIMIT(  # pylint: disable=not-callable
             request, credentials
@@ -456,9 +540,23 @@ def get_failure_limit(request: HttpRequest, credentials) -> int:
 
 
 def get_lockout_message() -> str:
-    if settings.AXES_COOLOFF_TIME:
+    if settings.AXES_COOLOFF_TIME or settings.AXES_LOCKOUT_TIERS:
         return settings.AXES_COOLOFF_MESSAGE
     return settings.AXES_PERMALOCK_MESSAGE
+
+
+def set_retry_after_header(request: HttpRequest, response: HttpResponse) -> None:
+    """Set a ``Retry-After`` header on a lockout ``response``.
+
+    No-op unless ``AXES_ENABLE_RETRY_AFTER_HEADER`` is enabled and a cool-off
+    period is configured — a permanent lockout has no meaningful retry time.
+    The response is mutated in place; nothing is returned.
+    """
+    if not settings.AXES_ENABLE_RETRY_AFTER_HEADER:
+        return
+    cool_off = get_cool_off(request)
+    if cool_off is not None:
+        response["Retry-After"] = str(int(cool_off.total_seconds()))
 
 
 def get_lockout_response(
@@ -488,8 +586,10 @@ def get_lockout_response(
         )
 
     status = settings.AXES_HTTP_RESPONSE_CODE
+    failures = getattr(request, "axes_failures_since_start", None) or 0
     context = {
         "failure_limit": get_failure_limit(request, credentials),
+        "failure_count": failures,
         "username": get_client_username(request, credentials) or "",
     }
 
@@ -504,27 +604,28 @@ def get_lockout_response(
             }
         )
 
+    response: HttpResponse
     if request.META.get("HTTP_X_REQUESTED_WITH") == "XMLHttpRequest":
-        json_response = JsonResponse(context, status=status)
-        json_response["Access-Control-Allow-Origin"] = (
-            settings.AXES_ALLOWED_CORS_ORIGINS
-        )
-        json_response["Access-Control-Allow-Methods"] = "POST, OPTIONS"
-        json_response["Access-Control-Allow-Headers"] = (
+        response = JsonResponse(context, status=status)
+        response["Access-Control-Allow-Origin"] = settings.AXES_ALLOWED_CORS_ORIGINS
+        response["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response["Access-Control-Allow-Headers"] = (
             "Origin, Content-Type, Accept, Authorization, x-requested-with"
         )
-        return json_response
-
-    if settings.AXES_LOCKOUT_TEMPLATE:
-        return render(request, settings.AXES_LOCKOUT_TEMPLATE, context, status=status)
-
-    if settings.AXES_LOCKOUT_URL:
+    elif settings.AXES_LOCKOUT_TEMPLATE:
+        response = render(
+            request, settings.AXES_LOCKOUT_TEMPLATE, context, status=status
+        )
+    elif settings.AXES_LOCKOUT_URL:
         lockout_url = settings.AXES_LOCKOUT_URL
         query_string = urlencode({"username": context["username"]})
         url = f"{lockout_url}?{query_string}"
-        return redirect(url)
+        response = redirect(url)
+    else:
+        response = HttpResponse(get_lockout_message(), status=status)
 
-    return HttpResponse(get_lockout_message(), status=status)
+    set_retry_after_header(request, response)
+    return response
 
 
 def is_ip_address_in_whitelist(ip_address: str) -> bool:

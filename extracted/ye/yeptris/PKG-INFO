@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: yeptris
-Version: 0.6.50.0
+Version: 0.6.51.0
 Summary: YAML for Python at libleptris speed — an FFI-based (no C extension) binding over libyeptris, PyYAML-compatible
 Author-email: "Ribose Inc." <open.source@ribose.com>
 License: MIT

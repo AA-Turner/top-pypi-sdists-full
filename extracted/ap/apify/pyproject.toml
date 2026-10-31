@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "apify"
-version = "4.1.0"
+version = "4.2.0"
 description = "Apify SDK for Python"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
@@ -19,6 +19,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Software Development :: Libraries",
     "Typing :: Typed",
 ]
@@ -34,14 +35,15 @@ keywords = [
     "scraping",
 ]
 dependencies = [
-    "apify-client[brotli]>=3.1.0,<4.0.0",
-    "crawlee>=1.8.0,<2.0.0,!=1.10.1",
+    "apify-client[brotli]>=3.3.0,<4.0.0",
+    "crawlee>=1.9.1,<2.0.0,!=1.10.1",
     "cachetools>=5.5.0",
     "cryptography>=42.0.0",
     "impit>=0.8.0",
     "lazy-object-proxy>=1.11.0",
     "more_itertools>=10.2.0",
     "pydantic>=2.11.0",
+    "pydantic-settings>=2.12.0",
     "typing-extensions>=4.4.0",
     "websockets>=14.0",
     "yarl>=1.18.0",
@@ -79,7 +81,7 @@ dev = [
     "pytest-timeout<3.0.0",
     "pytest-xdist<4.0.0",
     "pytest<10.0.0",
-    "ruff~=0.16.0",
+    "ruff~=0.17.0",
     "setuptools",
     "ty~=0.0.0",
     "types-cachetools<7.0.1",
@@ -219,6 +221,15 @@ include = [
 [tool.ty.overrides.rules]
 unresolved-import = "ignore"
 
+[[tool.ty.overrides]]
+include = [
+    "docs/**/scrapy_project/src/spiders/*.py",
+    "tests/e2e/test_scrapy/actor_source/spider_*.py",
+]
+
+[tool.ty.overrides.rules]
+invalid-mutable-override = "ignore"
+
 [tool.coverage.report]
 exclude_lines = [
     "pragma: no cover",
@@ -243,41 +254,81 @@ apify-client = false
 apify_fingerprint_datapoints = false
 crawlee = false
 
-[tool.poe.tasks]
-clean = "rm -rf .coverage .pytest_cache .ruff_cache .ty_cache build dist htmlcov"
-install-sync = "uv sync --all-extras"
-build = "uv build"
-publish-to-pypi = "uv publish --token ${APIFY_PYPI_TOKEN_CRAWLEE}"
-type-check = "uv run ty check"
-unit-tests = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} tests/unit"
-unit-tests-cov = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} --cov=src/apify --cov-report=xml:coverage-unit.xml tests/unit"
-integration-tests = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} tests/integration"
-integration-tests-cov = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} --cov=src/apify --cov-report=xml:coverage-integration.xml tests/integration"
-e2e-tests = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} tests/e2e"
-e2e-tests-cov = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} --cov=src/apify --cov-report=xml:coverage-e2e.xml tests/e2e"
-check-code = [
+[tool.poe.tasks.clean]
+cmd = "rm -rf .coverage .pytest_cache .ruff_cache .ty_cache build dist htmlcov"
+help = "Remove build artifacts and clean caches"
+
+[tool.poe.tasks.install-sync]
+cmd = "uv sync --all-extras"
+help = "Sync dependencies with all extras"
+
+[tool.poe.tasks.build]
+cmd = "uv build"
+help = "Build the package"
+
+[tool.poe.tasks.publish-to-pypi]
+cmd = "uv publish --token ${APIFY_PYPI_TOKEN_CRAWLEE}"
+help = "Publish the package to PyPI"
+
+[tool.poe.tasks.type-check]
+cmd = "uv run ty check"
+help = "Run the type checker"
+
+[tool.poe.tasks.unit-tests]
+cmd = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} tests/unit"
+help = "Run unit tests"
+
+[tool.poe.tasks.unit-tests-cov]
+cmd = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} --cov=src/apify --cov-report=xml:coverage-unit.xml tests/unit"
+help = "Run unit tests with an XML coverage report"
+
+[tool.poe.tasks.integration-tests]
+cmd = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} tests/integration"
+help = "Run integration tests"
+
+[tool.poe.tasks.integration-tests-cov]
+cmd = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} --cov=src/apify --cov-report=xml:coverage-integration.xml tests/integration"
+help = "Run integration tests with an XML coverage report"
+
+[tool.poe.tasks.e2e-tests]
+cmd = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} tests/e2e"
+help = "Run E2E tests"
+
+[tool.poe.tasks.e2e-tests-cov]
+cmd = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} --cov=src/apify --cov-report=xml:coverage-e2e.xml tests/e2e"
+help = "Run E2E tests with an XML coverage report"
+
+[tool.poe.tasks.check-code]
+sequence = [
     "lint",
     "type-check",
     "unit-tests",
 ]
+help = "Run lint, type check, and unit tests"
 
 [tool.poe.tasks.install-dev]
 shell = "uv sync --all-extras && uv run pre-commit install"
+help = "Install development dependencies and pre-commit hooks"
 
 [tool.poe.tasks.lint]
 shell = "uv run ruff format --check && uv run ruff check"
+help = "Run the linter and check formatting"
 
 [tool.poe.tasks.format]
 shell = "uv run ruff check --fix && uv run ruff format"
+help = "Fix lint issues and format code"
 
 [tool.poe.tasks.update-docs-theme]
 shell = "pnpm update @apify/docs-theme"
 cwd = "website"
+help = "Update the documentation website theme"
 
 [tool.poe.tasks.build-docs]
 shell = "./build_api_reference.sh && pnpm install && uv run pnpm build"
 cwd = "website"
+help = "Build the documentation website"
 
 [tool.poe.tasks.run-docs]
 shell = "./build_api_reference.sh && pnpm install && uv run pnpm start"
 cwd = "website"
+help = "Run the documentation website locally"

@@ -4,17 +4,18 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dagster-dbt"
-version = "0.29.27"
+version = "0.29.28"
 description = "A Dagster integration for dbt"
 authors = [{name = "Dagster Labs", email = "hello@dagsterlabs.com"}]
 license = "Apache-2.0"
 requires-python = ">=3.10,<3.14"
 dependencies = [
-    "dagster==1.13.27",
+    "dagster==1.13.28",
     "gitpython",
     "Jinja2",
     "networkx",
     "orjson",
+    "python-dateutil",
     "requests",
     "rich",
     # FW-731 pinned <28.1.0 after that release's optimizer change crashed
@@ -46,6 +47,9 @@ dagster_dbt = "dagster_dbt"
 # Follow the version support constraints for dbt Core:
 # https://docs.getdbt.com/docs/dbt-versions/core
 dbt-core = ["dbt-core>=1.7,<1.13"]
+# dbt v2: the Fusion engine, published on PyPI as `dbt`. Mutually exclusive with
+# the dbt-core extra -- both install into the `dbt` Python package.
+dbt = ["dbt>=2,<3"]
 
 [dependency-groups]
 # Test deps that pull in no dbt adapter, and so no dbt-core. The dbtfusion

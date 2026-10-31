@@ -1318,6 +1318,21 @@ class IVolatilityModel(metaclass=abc.ABCMeta):
         """
         ...
 
+    def warm_up(self, history_provider: QuantConnect.Interfaces.IHistoryProvider, subscription_manager: QuantConnect.Data.SubscriptionManager, security: QuantConnect.Securities.Security, utc_time: typing.Union[datetime.datetime, datetime.date], time_zone: typing.Any, live_mode: bool, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None) -> None:
+        """
+        Warms up the security's volatility model.
+        This can happen either on initialization or after a split or dividend is processed.
+        
+        :param history_provider: The history provider to use to get historical data
+        :param subscription_manager: The subscription manager to use
+        :param security: The security which volatility model is being warmed up
+        :param utc_time: The current UTC time
+        :param time_zone: The algorithm time zone
+        :param live_mode: Whether the algorithm is in live mode
+        :param data_normalization_mode: The security subscribed data normalization mode
+        """
+        ...
+
 
 class IPriceVariationModel(metaclass=abc.ABCMeta):
     """Gets the minimum price variation of a given security"""
@@ -1956,6 +1971,26 @@ class Security(DynamicObject, QuantConnect.Interfaces.ISecurityPrice):
         """
         warnings.warn("This method is obsolete. Use the 'SubscriptionDataConfig' exposed by 'SubscriptionManager' and the 'IsCustomData()' extension method", DeprecationWarning)
 
+    def is_internal_feed(self) -> bool:
+        """Determines if all subscriptions for the security are internal feeds"""
+        ...
+
+    def is_market_open(self, extended_market_hours: bool) -> bool:
+        """
+        Helper method to determine if a specific market is open
+        
+        :param extended_market_hours: True if should consider extended market hours
+        :returns: True if the market is open.
+        """
+        ...
+
+    def make_tradable(self) -> None:
+        """
+        Helper method to set the Security.is_tradable property to true
+        for the given security when possible
+        """
+        ...
+
     def refresh_data_normalization_mode_property(self) -> None:
         """
         This method will refresh the value of the data_normalization_mode property.
@@ -2323,12 +2358,97 @@ class MaintenanceMargin(System.Object):
         """The maintenance margin value in account currency"""
         ...
 
+    @overload
+    def __add__(self, other: QuantConnect.Securities.MaintenanceMargin) -> float:
+        ...
+
+    @overload
+    def __add__(self, other: float) -> float:
+        ...
+
+    def __float__(self) -> float:
+        ...
+
+    @overload
+    def __ge__(self, other: QuantConnect.Securities.MaintenanceMargin) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: QuantConnect.Securities.MaintenanceMargin) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: float) -> bool:
+        ...
+
     def __init__(self, value: float) -> None:
         """
         Initializes a new instance of the MaintenanceMargin class
         
         :param value: The maintenance margin
         """
+        ...
+
+    def __int__(self) -> int:
+        ...
+
+    @overload
+    def __le__(self, other: QuantConnect.Securities.MaintenanceMargin) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: QuantConnect.Securities.MaintenanceMargin) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __mul__(self, other: QuantConnect.Securities.MaintenanceMargin) -> float:
+        ...
+
+    @overload
+    def __mul__(self, other: float) -> float:
+        ...
+
+    def __neg__(self) -> float:
+        ...
+
+    def __radd__(self, other: float) -> float:
+        ...
+
+    def __rmul__(self, other: float) -> float:
+        ...
+
+    def __rsub__(self, other: float) -> float:
+        ...
+
+    def __rtruediv__(self, other: float) -> float:
+        ...
+
+    @overload
+    def __sub__(self, other: QuantConnect.Securities.MaintenanceMargin) -> float:
+        ...
+
+    @overload
+    def __sub__(self, other: float) -> float:
+        ...
+
+    @overload
+    def __truediv__(self, other: QuantConnect.Securities.MaintenanceMargin) -> float:
+        ...
+
+    @overload
+    def __truediv__(self, other: float) -> float:
         ...
 
 
@@ -2346,12 +2466,97 @@ class InitialMargin(System.Object):
         """The initial margin value in account currency"""
         ...
 
+    @overload
+    def __add__(self, other: QuantConnect.Securities.InitialMargin) -> float:
+        ...
+
+    @overload
+    def __add__(self, other: float) -> float:
+        ...
+
+    def __float__(self) -> float:
+        ...
+
+    @overload
+    def __ge__(self, other: QuantConnect.Securities.InitialMargin) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: QuantConnect.Securities.InitialMargin) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: float) -> bool:
+        ...
+
     def __init__(self, value: float) -> None:
         """
         Initializes a new instance of the InitialMargin class
         
         :param value: The initial margin
         """
+        ...
+
+    def __int__(self) -> int:
+        ...
+
+    @overload
+    def __le__(self, other: QuantConnect.Securities.InitialMargin) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: QuantConnect.Securities.InitialMargin) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __mul__(self, other: QuantConnect.Securities.InitialMargin) -> float:
+        ...
+
+    @overload
+    def __mul__(self, other: float) -> float:
+        ...
+
+    def __neg__(self) -> float:
+        ...
+
+    def __radd__(self, other: float) -> float:
+        ...
+
+    def __rmul__(self, other: float) -> float:
+        ...
+
+    def __rsub__(self, other: float) -> float:
+        ...
+
+    def __rtruediv__(self, other: float) -> float:
+        ...
+
+    @overload
+    def __sub__(self, other: QuantConnect.Securities.InitialMargin) -> float:
+        ...
+
+    @overload
+    def __sub__(self, other: float) -> float:
+        ...
+
+    @overload
+    def __truediv__(self, other: QuantConnect.Securities.InitialMargin) -> float:
+        ...
+
+    @overload
+    def __truediv__(self, other: float) -> float:
         ...
 
 
@@ -2436,6 +2641,15 @@ class HasSufficientBuyingPowerForOrderResult(System.Object):
 
 class ISecurityProvider(metaclass=abc.ABCMeta):
     """Represents a type capable of fetching the holdings for the specified symbol"""
+
+    def get_holdings_quantity(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> float:
+        """
+        Extension method to return the quantity of holdings, if no holdings are present, then zero is returned.
+        
+        :param symbol: The symbol we want holdings quantity for
+        :returns: The quantity of holdings for the specified symbol.
+        """
+        ...
 
     def get_security(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect.Securities.Security:
         """
@@ -4073,8 +4287,93 @@ class ConvertibleCashAmount(System.Object):
         """The amount in account currency"""
         ...
 
+    @overload
+    def __add__(self, other: QuantConnect.Securities.ConvertibleCashAmount) -> float:
+        ...
+
+    @overload
+    def __add__(self, other: float) -> float:
+        ...
+
+    def __float__(self) -> float:
+        ...
+
+    @overload
+    def __ge__(self, other: QuantConnect.Securities.ConvertibleCashAmount) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: QuantConnect.Securities.ConvertibleCashAmount) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: float) -> bool:
+        ...
+
     def __init__(self, amount: float, cash: QuantConnect.Securities.Cash) -> None:
         """Creates a new instance"""
+        ...
+
+    def __int__(self) -> int:
+        ...
+
+    @overload
+    def __le__(self, other: QuantConnect.Securities.ConvertibleCashAmount) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: QuantConnect.Securities.ConvertibleCashAmount) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __mul__(self, other: QuantConnect.Securities.ConvertibleCashAmount) -> float:
+        ...
+
+    @overload
+    def __mul__(self, other: float) -> float:
+        ...
+
+    def __neg__(self) -> float:
+        ...
+
+    def __radd__(self, other: float) -> float:
+        ...
+
+    def __rmul__(self, other: float) -> float:
+        ...
+
+    def __rsub__(self, other: float) -> float:
+        ...
+
+    def __rtruediv__(self, other: float) -> float:
+        ...
+
+    @overload
+    def __sub__(self, other: QuantConnect.Securities.ConvertibleCashAmount) -> float:
+        ...
+
+    @overload
+    def __sub__(self, other: float) -> float:
+        ...
+
+    @overload
+    def __truediv__(self, other: QuantConnect.Securities.ConvertibleCashAmount) -> float:
+        ...
+
+    @overload
+    def __truediv__(self, other: float) -> float:
         ...
 
 
@@ -5278,6 +5577,18 @@ class BuyingPowerParameters(System.Object):
 
 class IBuyingPowerModel(metaclass=abc.ABCMeta):
     """Represents a security's model of buying power"""
+
+    def above_minimum_order_margin_portfolio_percentage(self, security: QuantConnect.Securities.Security, quantity: float, portfolio_manager: QuantConnect.Securities.SecurityPortfolioManager, minimum_order_margin_portfolio_percentage: float) -> bool:
+        """
+        Helper method to determine if the requested quantity is above the algorithm minimum order margin portfolio percentage
+        
+        :param security: The security
+        :param quantity: The quantity of shares
+        :param portfolio_manager: The algorithm's portfolio
+        :param minimum_order_margin_portfolio_percentage: Minimum order margin portfolio percentage to ignore bad orders, orders with unrealistic small sizes
+        :returns: True if this order quantity is above the minimum requested.
+        """
+        ...
 
     def get_buying_power(self, parameters: QuantConnect.Securities.BuyingPowerParameters) -> QuantConnect.Securities.BuyingPower:
         """
@@ -7924,6 +8235,38 @@ class IndicatorVolatilityModel(QuantConnect.Securities.Volatility.BaseVolatility
         """
         ...
 
+    @overload
+    def warm_up(self, history_provider: QuantConnect.Interfaces.IHistoryProvider, subscription_manager: QuantConnect.Data.SubscriptionManager, security: QuantConnect.Securities.Security, utc_time: typing.Union[datetime.datetime, datetime.date], time_zone: typing.Any, resolution: typing.Optional[QuantConnect.Resolution], bar_count: int, live_mode: bool, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None) -> None:
+        """
+        Warms up the security's volatility model.
+        This can happen either on initialization or after a split or dividend is processed.
+        
+        :param history_provider: The history provider to use to get historical data
+        :param subscription_manager: The subscription manager to use
+        :param security: The security which volatility model is being warmed up
+        :param utc_time: The current UTC time
+        :param time_zone: The algorithm time zone
+        :param resolution: The data resolution required for the indicator
+        :param bar_count: The bar count required to fully warm the indicator up
+        :param live_mode: Whether the algorithm is in live mode
+        :param data_normalization_mode: The security subscribed data normalization mode
+        """
+        ...
+
+    @overload
+    def warm_up(self, algorithm: QuantConnect.Interfaces.IAlgorithm, security: QuantConnect.Securities.Security, resolution: typing.Optional[QuantConnect.Resolution], bar_count: int, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None) -> None:
+        """
+        Warms up the security's volatility model.
+        This can happen either on initialization or after a split or dividend is processed.
+        
+        :param algorithm: The algorithm running
+        :param security: The security which volatility model is being warmed up
+        :param resolution: The data resolution required for the indicator
+        :param bar_count: The bar count required to fully warm the indicator up
+        :param data_normalization_mode: The security subscribed data normalization mode
+        """
+        ...
+
 
 class OptionChainFilterUniverse(QuantConnect.Securities.BaseOptionFilterUniverse[QuantConnect_Securities_OptionChainFilterUniverse, QuantConnect.Data.Market.OptionContract]):
     """
@@ -8872,6 +9215,86 @@ class OptionFilterUniverse(QuantConnect.Securities.BaseOptionFilterUniverse[Quan
         """
         ...
 
+    @overload
+    def select(self, map_func: typing.Any) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Maps universe
+        
+        :param map_func: Symbol function to determine which Symbols are filtered
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    @overload
+    def select(self, map_func: typing.Callable[[QuantConnect.Data.UniverseSelection.OptionUniverse], QuantConnect.Symbol]) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Maps universe
+        
+        :param map_func: Symbol function to determine which Symbols are filtered
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    @overload
+    def select_many(self, map_func: typing.Any) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Binds universe
+        
+        :param map_func: Symbol function to determine which Symbols are filtered
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    @overload
+    def select_many(self, map_func: typing.Callable[[QuantConnect.Data.UniverseSelection.OptionUniverse], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Binds universe
+        
+        :param map_func: Symbol function to determine which Symbols are filtered
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    @overload
+    def where(self, predicate: typing.Any) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Filters universe
+        
+        :param predicate: Bool function to determine which Symbol are filtered
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    @overload
+    def where(self, predicate: typing.Callable[[QuantConnect.Data.UniverseSelection.OptionUniverse], bool]) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Filters universe
+        
+        :param predicate: Bool function to determine which Symbol are filtered
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    @overload
+    def where_contains(self, filter_list: typing.Any) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Updates universe to only contain the symbols in the list
+        
+        :param filter_list: List of Symbols to keep in the Universe
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    @overload
+    def where_contains(self, filter_list: typing.List[QuantConnect.Symbol]) -> QuantConnect.Securities.OptionFilterUniverse:
+        """
+        Updates universe to only contain the symbols in the list
+        
+        :param filter_list: List of Symbols to keep in the Universe
+        :returns: Universe with filter applied.
+        """
+        ...
+
 
 class OptionFilterUniverseEx(System.Object):
     """Extensions for Linq support"""
@@ -9056,6 +9479,33 @@ class FutureFilterUniverse(QuantConnect.Securities.BaseFutureFilterUniverse[Quan
         
         
         This Class is protected.
+        """
+        ...
+
+    def select(self, map_func: typing.Callable[[QuantConnect.Data.UniverseSelection.FutureUniverse], QuantConnect.Symbol]) -> QuantConnect.Securities.FutureFilterUniverse:
+        """
+        Maps universe
+        
+        :param map_func: Symbol function to determine which Symbols are filtered
+        :returns: FutureFilterUniverse with filter applied.
+        """
+        ...
+
+    def select_many(self, map_func: typing.Callable[[QuantConnect.Data.UniverseSelection.FutureUniverse], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Securities.FutureFilterUniverse:
+        """
+        Binds universe
+        
+        :param map_func: Symbols function to determine which Symbols are filtered
+        :returns: FutureFilterUniverse with filter applied.
+        """
+        ...
+
+    def where(self, predicate: typing.Callable[[QuantConnect.Data.UniverseSelection.FutureUniverse], bool]) -> QuantConnect.Securities.FutureFilterUniverse:
+        """
+        Filters universe
+        
+        :param predicate: Bool function to determine which Symbol are filtered
+        :returns: FutureFilterUniverse with filter applied.
         """
         ...
 

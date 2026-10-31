@@ -2672,6 +2672,8 @@ impl WebRTCPeerConnection {
             .on_peer_connection_state_change(Box::new(|_| Box::pin(async {})));
         self.peer_connection
             .on_signaling_state_change(Box::new(|_| Box::pin(async {})));
+        self.peer_connection
+            .on_ice_connection_state_change(Box::new(|_| Box::pin(async {})));
 
         // CRITICAL: Explicitly drop the ICE agent guard to ensure resource cleanup
         // This breaks any circular references that might prevent the guard from being dropped

@@ -236,4 +236,3 @@ async function cleanThreads(baseUrl, langsmithApiKey) {
 
     console.log(`Thread cleanup completed. Total threads deleted: ${totalDeleted}`);
 }
-

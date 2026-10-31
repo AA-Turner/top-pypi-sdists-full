@@ -2,7 +2,7 @@ from collections import defaultdict
 from datetime import date, datetime, timezone
 import logging
 import os
-from typing import Any, DefaultDict, Dict, Generator, List, Optional, Tuple, Union
+from typing import Any, DefaultDict, Dict, Generator, List, NamedTuple, Optional, Tuple, Union
 from unittest.mock import Mock
 import uuid
 
@@ -45,12 +45,14 @@ from anyscale.client.openapi_client.models import (
     ExperimentalWorkspace,
     FineTunedModel,
     FineTuneType,
+    GpuDetail,
     HaJobGoalStates,
     HaJobStates,
     InternalProductionJob,
     ListResponseMetadata,
     MiniCloud,
     MiniUser,
+    NodeGpusResponse,
     OrganizationBaseRole,
     OrganizationCollaborator,
     OrganizationcollaboratorListResponse,
@@ -138,6 +140,7 @@ from anyscale.sdk.anyscale_client.models import (
     ServiceEventCurrentState,
     ServiceVersionState,
     SessionState,
+    TrafficPolicy,
 )
 from anyscale.sdk.anyscale_client.models.cluster_environment import ClusterEnvironment
 from anyscale.sdk.anyscale_client.models.list_response_metadata import (
@@ -185,6 +188,12 @@ def _matches_tag_filter(workspace, tag_filter: List[str]) -> bool:
     return True
 
 
+class _ComputeConfigCopy(NamedTuple):
+    compute_config_id: str
+    cloud_id: Optional[str]
+    version: int
+
+
 class FakeAnyscaleClient(AnyscaleClientInterface):
     OPENAPI_NO_VALIDATION = OPENAPI_NO_VALIDATION
     BASE_UI_URL = "http://fake.com"
@@ -216,6 +225,15 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         self._events: Dict[str, List[UnifiedEvent]] = {}
         self.unified_events_calls: List[Dict[str, Any]] = []
         self.unified_events_page_size: int = 1000
+        # Metrics: what the fake answers with, and every call it received.
+        self.metric_names: List[str] = []
+        self.metrics_result: Dict[str, Any] = {"resultType": "vector", "result": []}
+        self.metrics_calls: List[Dict[str, Any]] = []
+        # GPUs: what the fake answers with, keyed by (cluster_id, node_id) and
+        # (cluster_id, gpu_uuid), plus every call it received.
+        self.node_gpus: Dict[Tuple[str, str], NodeGpusResponse] = {}
+        self.gpus: Dict[Tuple[str, str], GpuDetail] = {}
+        self.gpu_calls: List[Dict[str, Any]] = []
 
         self._builds: Dict[str, ClusterEnvironmentBuild] = {
             self.DEFAULT_CLUSTER_ENV_BUILD_ID: ClusterEnvironmentBuild(
@@ -267,7 +285,8 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             anonymous=True,
             is_default=True,
         )
-        self._compute_config_name_to_ids: DefaultDict[str, List[str]] = defaultdict(list)
+        # Compute config name to its copies across clouds, oldest first.
+        self._compute_config_copies: DefaultDict[str, List[_ComputeConfigCopy]] = defaultdict(list)
         self._compute_config_id_to_cloud_id: Dict[str, str] = {}
         self._compute_configs: Dict[str, ClusterCompute] = {}
         self._archived_compute_configs: Dict[str, ClusterCompute] = {}
@@ -286,6 +305,9 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         self._rolled_out_model: Optional[ApplyProductionServiceV2Model] = None
         self._sent_workspace_notifications: List[WorkspaceNotification] = []
         self._rolled_back_service: Optional[Tuple[str, Optional[int]]] = None
+        self._updated_traffic_policy: Optional[Tuple[str, TrafficPolicy, Optional[List[str]]]] = (
+            None
+        )
         self._terminated_service: Optional[str] = None
         self._archived_jobs: Dict[str, ProductionJob] = {}
         self._deleted_jobs: Dict[str, ProductionJob] = {}
@@ -300,6 +322,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         self._schedule_trigger_counts: Dict[str, int] = defaultdict(int)
         self._users: Dict[str, AdminCreatedUser] = {}
         self._workspaces: Dict[str, ExperimentalWorkspace] = {}
+        self._deleted_workspaces: Dict[str, ExperimentalWorkspace] = {}
         self._workspaces_dependencies: Dict[str, List[str]] = {}
         self._workspaces_env_vars: Dict[str, Dict[str, str]] = {}
         self._clusters_headnode_ip: Dict[str, str] = {}
@@ -675,6 +698,8 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
                 "created_at": created_at or datetime.utcnow(),
                 "last_modified_at": last_modified_at or datetime.utcnow(),
                 "deleted_at": None,
+                "archived_at": None,
+                "archiver_id": None,
             },
         )
 
@@ -711,10 +736,14 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
                     latest = build
         return latest
 
+    def _get_image_env(self, env_id: str) -> Optional[ClusterEnvironment]:
+        env = self._images.get(env_id)
+        return env if env is not None else self._archived_images.get(env_id)
+
     def _build_application_template_model(
         self, env_id: str
     ) -> Optional[DecoratedApplicationTemplate]:
-        env = self._images.get(env_id)
+        env = self._get_image_env(env_id)
         meta = self._application_template_metadata.get(env_id)
         if env is None or meta is None:
             return None
@@ -767,8 +796,8 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             created_at=meta.get("created_at"),
             last_modified_at=meta.get("last_modified_at"),
             deleted_at=meta.get("deleted_at"),
-            archiver_id=None,
-            archived_at=None,
+            archiver_id=meta.get("archiver_id"),
+            archived_at=meta.get("archived_at"),
             is_default=meta.get("is_default", False),
             anonymous=meta.get("anonymous", False),
             creator=creator,
@@ -873,6 +902,90 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         )
         self._events.setdefault(entity_id, []).append(event)
         return event
+
+    # --- metrics -------------------------------------------------------------------------
+
+    def get_metric_names(
+        self,
+        *,
+        resource: Dict[str, str],
+        start: Optional[float] = None,
+        end: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        self.metrics_calls.append(
+            {"method": "names", "resource": resource, "start": start, "end": end}
+        )
+        return {"status": "success", "data": list(self.metric_names)}
+
+    def query_metrics(
+        self,
+        *,
+        promql_query: str,
+        resource: Dict[str, str],
+        time: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        self.metrics_calls.append(
+            {"method": "query", "promql_query": promql_query, "resource": resource, "time": time}
+        )
+        return {"status": "success", "data": self.metrics_result}
+
+    def query_metrics_range(
+        self,
+        *,
+        promql_query: str,
+        resource: Dict[str, str],
+        start: float,
+        end: float,
+        step: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        self.metrics_calls.append(
+            {
+                "method": "query_range",
+                "promql_query": promql_query,
+                "resource": resource,
+                "start": start,
+                "end": end,
+                "step": step,
+            }
+        )
+        return {"status": "success", "data": self.metrics_result}
+
+    def get_node_gpus(
+        self,
+        *,
+        cluster_id: str,
+        node_id: str,
+        time: Optional[float] = None,
+    ) -> NodeGpusResponse:
+        self.gpu_calls.append(
+            {"method": "node_gpus", "cluster_id": cluster_id, "node_id": node_id, "time": time}
+        )
+        if (cluster_id, node_id) not in self.node_gpus:
+            # The backend does not 404 a node it has no metrics for: it answers with an
+            # empty GPU list, so the fake does the same.
+            return NodeGpusResponse(
+                cluster_id=cluster_id,
+                node_id=node_id,
+                gpu_count=0,
+                gpus=[],
+                time=int(time if time is not None else datetime.now(timezone.utc).timestamp()),
+                local_vars_configuration=OPENAPI_NO_VALIDATION,
+            )
+        return self.node_gpus[(cluster_id, node_id)]
+
+    def get_gpu(
+        self,
+        *,
+        cluster_id: str,
+        gpu_uuid: str,
+        time: Optional[float] = None,
+    ) -> GpuDetail:
+        self.gpu_calls.append(
+            {"method": "get", "cluster_id": cluster_id, "gpu_uuid": gpu_uuid, "time": time}
+        )
+        if (cluster_id, gpu_uuid) not in self.gpus:
+            raise ValueError(f"GPU '{gpu_uuid}' not found in cluster '{cluster_id}'.")
+        return self.gpus[(cluster_id, gpu_uuid)]
 
     def get_unified_events(  # noqa: PLR0913
         self,
@@ -1018,9 +1131,12 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         return self._system_cluster_status.get(key, ClusterState.TERMINATED)
 
     def add_compute_config(self, compute_config: DecoratedComputeTemplate) -> int:
-        compute_config.version = len(self._compute_config_name_to_ids[compute_config.name]) + 1
+        cloud_id = compute_config.config.cloud_id if compute_config.config is not None else None
+        copies = self._compute_config_copies[compute_config.name]
+        # Versions are numbered per (name, cloud), as on the backend.
+        compute_config.version = 1 + sum(1 for copy in copies if copy.cloud_id == cloud_id)
         self._compute_configs[compute_config.id] = compute_config
-        self._compute_config_name_to_ids[compute_config.name].append(compute_config.id)
+        copies.append(_ComputeConfigCopy(compute_config.id, cloud_id, compute_config.version))
 
         return compute_config.version
 
@@ -1063,19 +1179,37 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         compute_config_name: Optional[str] = None,
         cloud: Optional[str] = None,
         *,
+        cloud_id: Optional[str] = None,
         include_archived=False,
     ) -> Optional[str]:
+        if cloud is not None and cloud_id is not None:
+            raise ValueError("Only one of cloud or cloud_id should be provided.")
+
         if compute_config_name is not None:
             name, version = parse_cluster_compute_name_version(compute_config_name)
-            if name not in self._compute_config_name_to_ids:
+            if cloud is not None:
+                # Not get_cloud_id: the real client never swaps a named cloud for the workspace's.
+                named_cloud = self.get_cloud_by_name(name=cloud)
+                if named_cloud is None:
+                    raise CloudNotFoundError(f"Cloud with name '{cloud}' not found.")
+                cloud_id = named_cloud.id
+
+            # Copies are oldest first, so the last match is the newest, as the backend sorts.
+            # Archived copies are filtered out first, as the backend's search does.
+            matching_ids = [
+                copy.compute_config_id
+                for copy in self._compute_config_copies.get(name, [])
+                if (cloud_id is None or copy.cloud_id == cloud_id)
+                and (version is None or copy.version == version)
+                and (
+                    include_archived
+                    or copy.compute_config_id not in self._archived_compute_configs
+                )
+            ]
+            if len(matching_ids) == 0:
                 return None
 
-            if version is None:
-                version = len(self._compute_config_name_to_ids[name])
-
-            compute_config_id = self._compute_config_name_to_ids[name][version - 1]
-            if not include_archived and compute_config_id in self._archived_compute_configs:
-                return None
+            compute_config_id = matching_ids[-1]
 
             return compute_config_id
 
@@ -1356,16 +1490,33 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             return None
         if build.docker_image_name is not None and not use_image_alias:
             return ImageURI.from_str(build.docker_image_name)
-        cluster_env = self._images[build.cluster_environment_id]
+        cluster_env = self._get_image_env(build.cluster_environment_id)
+        if cluster_env is None:
+            return None
         return ImageURI.from_cluster_env_build(cluster_env, build)
 
     def archive_image(self, *, image_id: str) -> None:
         """Archive an image (cluster environment) by ID."""
         if image_id not in self._images:
             raise ValueError(f"Image '{image_id}' not found.")
-        image = self._images[image_id]
-        image.archived_at = datetime.utcnow()
+        meta = self._application_template_metadata[image_id]
+        meta["archived_at"] = datetime.utcnow()
+        meta["archiver_id"] = self.DEFAULT_USER_ID
         self._archived_images[image_id] = self._images.pop(image_id)
+
+    def unarchive_image(self, *, image_id: str) -> None:
+        """Unarchive an image (cluster environment) by ID."""
+        # The endpoint's order: 404, then 400 for a default image, then a no-op if not archived.
+        if self._get_image_env(image_id) is None:
+            raise ValueError(f"Image '{image_id}' not found.")
+        meta = self._application_template_metadata[image_id]
+        if meta["is_default"]:
+            raise ValueError("Cannot unarchive a default cluster environment.")
+        if image_id in self._images:
+            return
+        meta["archived_at"] = None
+        meta["archiver_id"] = None
+        self._images[image_id] = self._archived_images.pop(image_id)
 
     def get_application_template(
         self, application_template_id: str
@@ -1401,7 +1552,9 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
                 continue
 
             meta = self._application_template_metadata.get(env_id, {})
-            if not include_archived and meta.get("deleted_at") is not None:
+            if meta.get("deleted_at") is not None:
+                continue
+            if not include_archived and template.archived_at is not None:
                 continue
             if name and (template.name or "").find(name) == -1:
                 continue
@@ -1912,6 +2065,20 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         self._rolled_back_service = (service_id, max_surge_percent)
 
     @property
+    def updated_traffic_policy(
+        self,
+    ) -> Optional[Tuple[str, TrafficPolicy, Optional[List[str]]]]:
+        return self._updated_traffic_policy
+
+    def update_service_traffic_policy(
+        self,
+        service_id: str,
+        traffic_policy: TrafficPolicy,
+        version_names: Optional[List[str]] = None,
+    ):
+        self._updated_traffic_policy = (service_id, traffic_policy, version_names)
+
+    @property
     def terminated_service(self) -> Optional[str]:
         return self._terminated_service
 
@@ -2255,13 +2422,41 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         workspace = self._workspaces.get(workspace_id, None)
         if workspace is None:
             raise ValueError(f"Workspace '{workspace_id}' not found.")
+        if workspace.kuberay_cr_id:
+            # Resume acts only on a suspended or suspending RayCluster; the backend accepts
+            # a start from any other state and leaves the row as it is.
+            if workspace.state in (SessionState.STOPPED, SessionState.TERMINATING):
+                workspace.state = SessionState.RUNNING
+            return
         workspace.state = SessionState.RUNNING
 
     def terminate_workspace(self, workspace_id: str):
         workspace = self._workspaces.get(workspace_id, None)
         if workspace is None:
             raise ValueError(f"Workspace '{workspace_id}' not found.")
+        if workspace.kuberay_cr_id:
+            # Suspend keeps the CR, so the row settles at Stopped, never Terminated. Left
+            # alone: AwaitingStartup, which suspends only once the scheduler has placed it
+            # (scheduling state this fake does not model), and Terminated/StartupErrored,
+            # which have no RayCluster to suspend.
+            if workspace.state in (
+                SessionState.RUNNING,
+                SessionState.STARTINGUP,
+                SessionState.TERMINATING,
+            ):
+                workspace.state = SessionState.STOPPED
+            return
         workspace.state = SessionState.TERMINATED
+
+    def delete_workspace(self, workspace_id: str) -> None:
+        # No state gate: the server's gate depends on whether a cluster exists, which the
+        # fake does not model, so tests inject refusals instead.
+        if workspace_id not in self._workspaces:
+            raise ValueError(f"Workspace '{workspace_id}' not found.")
+        self._deleted_workspaces[workspace_id] = self._workspaces.pop(workspace_id)
+
+    def is_deleted_workspace(self, workspace_id: str) -> bool:
+        return workspace_id in self._deleted_workspaces
 
     def update_workspace_dependencies_offline_only(
         self, workspace_id: Optional[str], requirements: List[str]
@@ -2278,6 +2473,11 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
     def get_workspace_cluster(self, workspace_id: Optional[str]) -> Optional[DecoratedSession]:
         workspace_model = self._workspaces.get(workspace_id, None) if workspace_id else None
         assert workspace_model is not None
+        if workspace_model.kuberay_cr_id:
+            # What the real client surfaces from the backend's 403 on a `kcr_` id.
+            raise ValueError(
+                "Permission denied. Please ensure this cluster exists and you have permission to access it."
+            )
         compute_config = self.get_compute_config(workspace_model.compute_config_id)
         assert compute_config is not None
         return Mock(
@@ -2357,6 +2557,13 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             raise ValueError(f"Workspace '{workspace_id}' not found.")
 
         workspace = self._workspaces[workspace_id]
+
+        if workspace.kuberay_cr_id and (
+            compute_config_id or cluster_environment_build_id or idle_timeout_minutes is not None
+        ):
+            raise ValueError(
+                f"Workspace '{workspace_id}' runs on KubeRay: its compute config, image and idle timeout can't be updated."
+            )
 
         if name:
             workspace.name = name
@@ -2944,7 +3151,12 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             local_vars_configuration=OPENAPI_NO_VALIDATION,
         )
 
-    def migrate_scim_permissions(self, *, dry_run: bool = True) -> Dict:
+    def migrate_scim_permissions(
+        self,
+        *,
+        dry_run: bool = True,
+        acknowledge_user_removal_count: Optional[int] = None,  # noqa: ARG002
+    ) -> Dict:
         """Fake implementation of SCIM permission migration."""
         return {
             "result": {

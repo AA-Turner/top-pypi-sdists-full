@@ -18,7 +18,7 @@ from sys import argv
 
 from MultiPyVu.gui.Controller import Controller
 from MultiPyVu.ParseInputs import parse_input
-from MultiPyVu.scripts.helper_scripts import get_ip
+from MultiPyVu.scripts.helper_scripts import copy_examples, get_ip
 from MultiPyVu.scripts.helper_scripts_client import (force_quit, is_running,
                                                      run_status)
 
@@ -43,5 +43,8 @@ if __name__ == '__main__':
             print(force_quit(inputs.host, inputs.port))
         elif inputs.get_host_ip:
             print(f"This computer's IP address:  {get_ip()}")
+        elif inputs.examples_folder:
+            folder = copy_examples(inputs.examples_folder)
+            print(f'Copied the example scripts to {folder}')
         else:
             run_gui()

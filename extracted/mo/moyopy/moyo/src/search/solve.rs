@@ -61,9 +61,9 @@ impl PeriodicNeighborSearch {
     pub fn new(reduced_cell: &Cell, symprec: f64) -> Self {
         let lattice = reduced_cell.lattice.clone();
 
-        // Twice the padding for safety
-        let padding =
-            2.0 * symprec / (3.0 * (lattice.basis * lattice.basis.transpose()).trace()).sqrt();
+        // Convert the Cartesian radius to fractional padding using each plane spacing.
+        let inverse_basis = lattice.basis.try_inverse().unwrap();
+        let padding = Vector3::from_fn(|axis, _| symprec * inverse_basis.row(axis).norm());
 
         // `f64::EPSILON` floor keeps the bin size positive for degenerate symprec;
         // queries then fall back to exact-match behavior instead of dividing by zero.
@@ -76,13 +76,9 @@ impl PeriodicNeighborSearch {
                 let mut new_position = *position;
                 new_position -= position.map(|e| e.floor()); // [0, 1)
                 new_position += Vector3::new(offset.0 as f64, offset.1 as f64, offset.2 as f64);
-                if new_position[0] < -padding
-                    || new_position[0] > 1.0 + padding
-                    || new_position[1] < -padding
-                    || new_position[1] > 1.0 + padding
-                    || new_position[2] < -padding
-                    || new_position[2] > 1.0 + padding
-                {
+                if (0..3).any(|axis| {
+                    new_position[axis] < -padding[axis] || new_position[axis] > 1.0 + padding[axis]
+                }) {
                     continue;
                 }
 
@@ -168,6 +164,7 @@ pub fn solve_correspondence(
 ) -> Option<Permutation> {
     let num_atoms = neighbor_search.num_sites;
     let mut mapping = vec![None; num_atoms];
+    let mut visited = vec![false; num_atoms];
 
     for i in 0..num_atoms {
         let neighbor = neighbor_search.nearest(&new_positions[i])?;
@@ -175,11 +172,12 @@ pub fn solve_correspondence(
         if reduced_cell.numbers[i] != reduced_cell.numbers[j] {
             return None;
         }
-        if mapping[i].is_some() {
+        if visited[j] {
             return None;
         }
 
         mapping[i] = Some(j);
+        visited[j] = true;
     }
 
     let mapping = mapping.into_iter().map(|v| v.unwrap()).collect::<Vec<_>>();
@@ -321,6 +319,44 @@ mod tests {
     }
 
     #[test]
+    fn test_periodic_neighbor_search_boundary_images() {
+        for (row_basis, position, query, radius, expected_distance) in [
+            (
+                Matrix3::identity(),
+                Vector3::new(0.92, 0.5, 0.5),
+                Vector3::new(0.01, 0.5, 0.5),
+                0.1,
+                0.09,
+            ),
+            (
+                Matrix3::from_diagonal(&Vector3::new(2.87, 2.87, 68.88)),
+                Vector3::new(0.996, 0.5, 0.5),
+                Vector3::new(0.004, 0.5, 0.5),
+                0.2,
+                0.02296,
+            ),
+            (
+                Matrix3::new(1.0, 0.0, 0.0, 0.5, 3.0_f64.sqrt() / 2.0, 0.0, 0.0, 0.0, 4.0),
+                Vector3::new(0.895, 0.5, 0.5),
+                Vector3::new(0.001, 0.447, 0.5),
+                0.1,
+                0.053 * 3.0_f64.sqrt(),
+            ),
+        ] {
+            let lattice = Lattice::new(row_basis);
+            assert!(lattice.is_minkowski_reduced());
+            // Exercise images beyond both faces, and queries outside the unit cell.
+            for sign in [-1.0, 1.0] {
+                let cell = Cell::new(lattice.clone(), vec![sign * position], vec![26]);
+                let search = PeriodicNeighborSearch::new(&cell, radius);
+                let neighbor = search.nearest(&(sign * query)).unwrap();
+                assert_eq!(neighbor.index, 0);
+                assert_relative_eq!(neighbor.distance, expected_distance, epsilon = 1e-12);
+            }
+        }
+    }
+
+    #[test]
     fn test_periodic_neighbor_search_axis_aligned_grid() {
         // Many sites sharing coordinate values on every axis (an axis-aligned
         // n x n x n grid). Cross-check every translation against the naive
@@ -421,6 +457,27 @@ mod tests {
                 solve_correspondence(&neighbor_search, &reduced_cell, &new_positions);
             assert_eq!(actual_neighbor_search, None);
         }
+    }
+
+    #[test]
+    fn test_solve_correspondence_requires_bijection() {
+        let cell = Cell::new(
+            Lattice::new(Matrix3::identity()),
+            vec![Vector3::new(0.2, 0.5, 0.5), Vector3::new(0.5, 0.5, 0.5)],
+            vec![26, 26],
+        );
+        let search = PeriodicNeighborSearch::new(&cell, 0.05);
+        let duplicate_targets = [Vector3::new(0.2, 0.5, 0.5), Vector3::new(0.21, 0.5, 0.5)];
+        assert_eq!(
+            solve_correspondence(&search, &cell, &duplicate_targets),
+            None
+        );
+
+        let swapped = [Vector3::new(0.5, 0.5, 0.5), Vector3::new(0.2, 0.5, 0.5)];
+        assert_eq!(
+            solve_correspondence(&search, &cell, &swapped),
+            Some(Permutation::new(vec![1, 0]))
+        );
     }
 
     #[test]

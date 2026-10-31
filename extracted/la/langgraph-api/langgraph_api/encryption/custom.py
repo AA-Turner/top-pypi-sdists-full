@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 
     from langgraph_api.encryption.aes_json import AesEncryptionInstance
 
-ModelType = Literal["run", "thread", "assistant", "cron", "checkpoint"]
+ModelType = Literal["run", "thread", "assistant", "cron", "checkpoint", "store"]
 SUPPORTED_ENCRYPTION_MODELS: frozenset[str] = frozenset(get_args(ModelType))
 
 logger = structlog.stdlib.get_logger(__name__)
@@ -271,6 +271,7 @@ class JsonEncryptionWrapper:
         )
 
         custom_decryptor = self._custom.get_json_decryptor(model_type)
+        custom_encryptor = self.get_json_encryptor(model_type)
 
         async def decryptor(ctx: Any, data: dict[str, Any]) -> dict[str, Any]:
             # No marker → plaintext passthrough
@@ -287,7 +288,18 @@ class JsonEncryptionWrapper:
                         f"for {model_type}"
                     )
                 aes_decryptor = self._aes.get_json_decryptor(model_type)
-                return await aes_decryptor(ctx, data)
+                plaintext = await aes_decryptor(ctx, data)
+                if with_replacement and custom_encryptor is not None:
+                    try:
+                        replacement = await custom_encryptor(ctx, plaintext)
+                    except Exception:
+                        await logger.aexception(
+                            "Failed to create AES-to-custom replacement",
+                            model=model_type,
+                        )
+                        replacement = None
+                    return DecryptResult(plaintext, replacement)
+                return plaintext
 
             # Custom marker → use custom decryptor
             if custom_decryptor is None:
@@ -321,11 +333,3 @@ class JsonEncryptionWrapper:
             return result if with_replacement else result.plaintext
 
         return decryptor
-
-    @property
-    def has_aes(self) -> bool:
-        return self._aes is not None
-
-    @property
-    def has_custom(self) -> bool:
-        return self._custom is not None

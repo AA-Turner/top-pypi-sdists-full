@@ -3,6 +3,7 @@
 # SPDX-FileCopyrightText: 2022 Florian Snow <florian@familysnow.net>
 # SPDX-FileCopyrightText: 2023 Matthias Riße
 # SPDX-FileCopyrightText: 2024 Skyler Grey <sky@a.starrysky.fyi>
+# SPDX-FileCopyrightText: 2025 Nguyễn Gia Phong <cnx@loang.net>
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -27,6 +28,7 @@ from unittest.mock import create_autospec
 
 import pytest
 from jinja2 import Environment
+from pytest_lazy_fixtures import lf
 
 os.environ["LC_ALL"] = "C"
 os.environ["LANGUAGE"] = ""
@@ -49,7 +51,18 @@ finally:
     )
     from reuse.global_licensing import ReuseDep5
     from reuse.lint import format_lines, format_lines_subset
-    from reuse.vcs import GIT_EXE, HG_EXE, JUJUTSU_EXE, PIJUL_EXE
+    from reuse.vcs import (
+        FOSSIL_EXE,
+        GIT_EXE,
+        HG_EXE,
+        JUJUTSU_EXE,
+        PIJUL_EXE,
+        VCSStrategyFossil,
+        VCSStrategyGit,
+        VCSStrategyHg,
+        VCSStrategyJujutsu,
+        VCSStrategyPijul,
+    )
 
 try:
     _chardet = bool(importlib.import_module("chardet"))
@@ -73,13 +86,16 @@ except ImportError:
 cpython = pytest.mark.skipif(
     sys.implementation.name != "cpython", reason="only CPython supported"
 )
-git = pytest.mark.skipif(not GIT_EXE, reason="requires git")
-hg = pytest.mark.skipif(not HG_EXE, reason="requires mercurial")
-pijul = pytest.mark.skipif(not PIJUL_EXE, reason="requires pijul")
-no_root = pytest.mark.xfail(is_root, reason="fails when user is root")
+no_root = pytest.mark.skipif(is_root, reason="user cannot be root")
 posix = pytest.mark.skipif(not is_posix, reason="Windows not supported")
 chardet = pytest.mark.skipif(not _chardet, reason="chardet is not installed")
 
+# Version control systems
+fossil = pytest.mark.skipif(not FOSSIL_EXE, reason="requires fossil")
+git = pytest.mark.skipif(not GIT_EXE, reason="requires git")
+hg = pytest.mark.skipif(not HG_EXE, reason="requires mercurial")
+jujutsu = pytest.mark.skipif(not JUJUTSU_EXE, reason="requires jujutsu")
+pijul = pytest.mark.skipif(not PIJUL_EXE, reason="requires pijul")
 
 # REUSE-IgnoreStart
 
@@ -118,72 +134,41 @@ def pytest_runtest_teardown(item):
     os.chdir(CWD)
 
 
-@pytest.fixture(scope="session")
-def git_exe() -> str:
-    """Run the test with git."""
-    if not GIT_EXE:
-        pytest.skip("cannot run this test without git")
-    return str(GIT_EXE)
-
-
-@pytest.fixture(params=[True, False])
-def optional_git_exe(request, monkeypatch) -> Generator[str | None, None, None]:
-    """Run the test with or without git."""
-    exe = GIT_EXE if request.param else ""
-    monkeypatch.setattr("reuse.vcs.GIT_EXE", exe)
-    yield exe
-
-
-@pytest.fixture(scope="session")
-def hg_exe() -> str:
-    """Run the test with mercurial (hg)."""
-    if not HG_EXE:
-        pytest.skip("cannot run this test without mercurial")
-    return str(HG_EXE)
-
-
-@pytest.fixture(params=[True, False])
-def optional_hg_exe(request, monkeypatch) -> Generator[str | None, None, None]:
-    """Run the test with or without mercurial."""
-    exe = HG_EXE if request.param else ""
-    monkeypatch.setattr("reuse.vcs.HG_EXE", exe)
-    yield exe
-
-
-@pytest.fixture(scope="session")
-def jujutsu_exe() -> str:
-    """Run the test with Jujutsu."""
-    if not JUJUTSU_EXE:
-        pytest.skip("cannot run this test without jujutsu")
-    return str(JUJUTSU_EXE)
-
-
-@pytest.fixture(params=[True, False])
-def optional_jujutsu_exe(
-    request, monkeypatch
-) -> Generator[str | None, None, None]:
-    """Run the test with or without Jujutsu."""
-    exe = JUJUTSU_EXE if request.param else ""
-    monkeypatch.setattr("reuse.vcs.JUJUTSU_EXE", exe)
-    yield exe
-
-
-@pytest.fixture(scope="session")
-def pijul_exe() -> str:
-    """Run the test with Pijul."""
-    if not PIJUL_EXE:
-        pytest.skip("cannot run this test without pijul")
-    return str(PIJUL_EXE)
-
-
-@pytest.fixture(params=[True, False])
-def optional_pijul_exe(
-    request, monkeypatch
-) -> Generator[str | None, None, None]:
-    """Run the test with or without Pijul."""
-    exe = PIJUL_EXE if request.param else ""
-    monkeypatch.setattr("reuse.vcs.PIJUL_EXE", exe)
-    yield exe
+vcs_params = pytest.mark.parametrize(
+    "vcs_strategy, vcs_repo",
+    [
+        pytest.param(
+            VCSStrategyFossil,
+            lf("fossil_checkout"),
+            marks=fossil,
+            id="fossil",
+        ),
+        pytest.param(
+            VCSStrategyGit,
+            lf("git_repository"),
+            marks=git,
+            id="git",
+        ),
+        pytest.param(
+            VCSStrategyHg,
+            lf("hg_repository"),
+            marks=hg,
+            id="mercurial",
+        ),
+        pytest.param(
+            VCSStrategyJujutsu,
+            lf("jujutsu_repository"),
+            marks=jujutsu,
+            id="jujutsu",
+        ),
+        pytest.param(
+            VCSStrategyPijul,
+            lf("pijul_repository"),
+            marks=pijul,
+            id="pijul",
+        ),
+    ],
+)
 
 
 @pytest.fixture(params=[True, False])
@@ -299,8 +284,40 @@ def _repo_contents(
 
 
 @pytest.fixture(scope="session")
+def _cached_fossil_checkout(
+    _cached_fake_repository: Path, tmp_path_factory
+) -> Path:
+    """Create a Fossil checkout with ignored files."""
+    repo = tmp_path_factory.mktemp("museum") / "example.fossil"
+    subprocess.run([FOSSIL_EXE, "init", "-A", "example", repo], check=True)
+    ckout = tmp_path_factory.mktemp("cached_fossil_checkout")
+    subprocess.run([FOSSIL_EXE, "open", repo, "--workdir", ckout], check=True)
+
+    shutil.copytree(_cached_fake_repository, ckout, dirs_exist_ok=True)
+    os.chdir(ckout)
+    (ckout / ".fossil-settings").mkdir()
+    _repo_contents(ckout, ".fossil-settings/ignore-glob")
+
+    # Files whose name starts with "." are ignored by fossil add.
+    subprocess.run([FOSSIL_EXE, "add", ".fossil-settings"], check=True)
+    subprocess.run([FOSSIL_EXE, "add", ckout], check=True)
+    subprocess.run([FOSSIL_EXE, "user", "default", "example"], check=True)
+    subprocess.run([FOSSIL_EXE, "settings", "clearsign", "0"], check=True)
+    subprocess.run([FOSSIL_EXE, "ci", "-m", "initial"], check=True)
+    return ckout
+
+
+@pytest.fixture()
+def fossil_checkout(_cached_fossil_checkout, tmp_path) -> Path:
+    """Create a git repository with ignored files."""
+    shutil.copytree(_cached_fossil_checkout, tmp_path, dirs_exist_ok=True)
+    os.chdir(tmp_path)
+    return tmp_path
+
+
+@pytest.fixture(scope="session")
 def _cached_git_repository(
-    _cached_fake_repository: Path, tmp_path_factory, git_exe: str
+    _cached_fake_repository: Path, tmp_path_factory
 ) -> Path:
     """Create a git repository with ignored files."""
     directory = tmp_path_factory.mktemp("cached_git_directory")
@@ -308,23 +325,21 @@ def _cached_git_repository(
     os.chdir(directory)
     _repo_contents(directory)
 
-    subprocess.run([git_exe, "init", str(directory)], check=True)
+    subprocess.run([GIT_EXE, "init", str(directory)], check=True)
     Path(".git/config").write_text(
-        cleandoc(
-            """
+        cleandoc("""
             [user]
               name = Example
               email = example@example.com
             [commit]
               gpgSign = false
-            """
-        ),
+            """),
         encoding="utf-8",
     )
-    subprocess.run([git_exe, "add", str(directory)], check=True)
+    subprocess.run([GIT_EXE, "add", str(directory)], check=True)
     subprocess.run(
         [
-            git_exe,
+            GIT_EXE,
             "commit",
             "-m",
             "initial",
@@ -345,7 +360,7 @@ def git_repository(_cached_git_repository, tmp_path) -> Path:
 
 @pytest.fixture(scope="session")
 def _cached_hg_repository(
-    _cached_fake_repository: Path, tmp_path_factory, hg_exe: str
+    _cached_fake_repository: Path, tmp_path_factory
 ) -> Path:
     """Create a mercurial repository with ignored files."""
     directory = tmp_path_factory.mktemp("cached_hg_repository")
@@ -357,11 +372,11 @@ def _cached_hg_repository(
         ignore_prefix="syntax:glob",
     )
 
-    subprocess.run([hg_exe, "init", "."], check=True)
-    subprocess.run([hg_exe, "addremove"], check=True)
+    subprocess.run([HG_EXE, "init", "."], check=True)
+    subprocess.run([HG_EXE, "addremove"], check=True)
     subprocess.run(
         [
-            hg_exe,
+            HG_EXE,
             "commit",
             "--user",
             "Example <example@example.com>",
@@ -384,7 +399,7 @@ def hg_repository(_cached_hg_repository, tmp_path) -> Path:
 
 @pytest.fixture(scope="session")
 def _cached_jujutsu_repository(
-    _cached_fake_repository: Path, tmp_path_factory, jujutsu_exe: str
+    _cached_fake_repository: Path, tmp_path_factory
 ) -> Path:
     """Create a jujutsu repository with ignored files."""
     directory = tmp_path_factory.mktemp("cached_jujutsu_repository")
@@ -392,7 +407,7 @@ def _cached_jujutsu_repository(
     os.chdir(directory)
     _repo_contents(directory)
 
-    subprocess.run([jujutsu_exe, "git", "init", str(directory)], check=True)
+    subprocess.run([JUJUTSU_EXE, "git", "init", str(directory)], check=True)
 
     return directory
 
@@ -407,7 +422,7 @@ def jujutsu_repository(_cached_jujutsu_repository, tmp_path) -> Path:
 
 @pytest.fixture(scope="session")
 def _cached_pijul_repository(
-    _cached_fake_repository: Path, tmp_path_factory, pijul_exe: str
+    _cached_fake_repository: Path, tmp_path_factory
 ) -> Path:
     """Create a pijul repository with ignored files."""
     directory = tmp_path_factory.mktemp("cached_pijul_repository")
@@ -418,11 +433,11 @@ def _cached_pijul_repository(
         ignore_filename=".ignore",
     )
 
-    subprocess.run([pijul_exe, "init", "."], check=True)
-    subprocess.run([pijul_exe, "add", "--recursive", "."], check=True)
+    subprocess.run([PIJUL_EXE, "init", "."], check=True)
+    subprocess.run([PIJUL_EXE, "add", "--recursive", "."], check=True)
     subprocess.run(
         [
-            pijul_exe,
+            PIJUL_EXE,
             "record",
             "--all",
             "--message",
@@ -444,42 +459,38 @@ def pijul_repository(_cached_pijul_repository, tmp_path) -> Path:
 
 @pytest.fixture(scope="session", params=["submodule-add", "manual"])
 def _cached_submodule_repository(
-    _cached_git_repository: Path, git_exe: str, tmp_path_factory, request
+    _cached_git_repository: Path, tmp_path_factory, request
 ) -> Path:
     """Create a git repository that contains a submodule."""
     directory = tmp_path_factory.mktemp("cached_submodule_repository")
     shutil.copytree(_cached_git_repository, directory, dirs_exist_ok=True)
-    header = cleandoc(
-        """
+    header = cleandoc("""
             SPDX-FileCopyrightText: 2019 Jane Doe
 
             SPDX-License-Identifier: CC0-1.0
-            """
-    )
+            """)
 
     submodule = tmp_path_factory.mktemp("submodule")
     (submodule / "foo.py").write_text(header, encoding="utf-8")
 
     os.chdir(submodule)
 
-    subprocess.run([git_exe, "init", str(submodule)], check=True)
+    subprocess.run([GIT_EXE, "init", str(submodule)], check=True)
     Path(".git/config").write_text(
-        cleandoc(
-            """
+        cleandoc("""
             [user]
               name = Example
               email = example@example.com
             [commit]
               gpgSign = false
-            """
-        ),
+            """),
         encoding="utf-8",
     )
 
-    subprocess.run([git_exe, "add", str(submodule)], check=True)
+    subprocess.run([GIT_EXE, "add", str(submodule)], check=True)
     subprocess.run(
         [
-            git_exe,
+            GIT_EXE,
             "commit",
             "-m",
             "initial",
@@ -492,7 +503,7 @@ def _cached_submodule_repository(
     if request.param == "submodule-add":
         subprocess.run(
             [
-                git_exe,
+                GIT_EXE,
                 # https://git-scm.com/docs/git-config#Documentation/git-config.txt-protocolallow
                 #
                 # This circumvents a bug/behaviour caused by CVE-2022-39253
@@ -509,24 +520,20 @@ def _cached_submodule_repository(
         )
     elif request.param == "manual":
         subprocess.run(
-            [git_exe, "clone", str(submodule.resolve()), "submodule"],
+            [GIT_EXE, "clone", str(submodule.resolve()), "submodule"],
             check=True,
         )
         with open(
             directory / ".gitmodules", mode="a", encoding="utf-8"
         ) as gitmodules_file:
-            gitmodules_file.write(
-                cleandoc(
-                    f"""
+            gitmodules_file.write(cleandoc(f"""
                     [submodule "submodule"]
                       path = submodule
                       url = {submodule.resolve().as_posix()}
-                    """
-                )
-            )
+                    """))
         subprocess.run(
             [
-                git_exe,
+                GIT_EXE,
                 "add",
                 "--no-warn-embedded-repo",
                 ".gitmodules",
@@ -536,7 +543,7 @@ def _cached_submodule_repository(
         )
 
     subprocess.run(
-        [git_exe, "commit", "-m", "add submodule"],
+        [GIT_EXE, "commit", "-m", "add submodule"],
         check=True,
     )
     (directory / ".gitmodules.license").write_text(header)
@@ -555,27 +562,19 @@ def submodule_repository(_cached_submodule_repository, tmp_path) -> Path:
 @pytest.fixture()
 def subproject_repository(fake_repository: Path) -> Path:
     """Add a Meson subproject to the fake repo."""
-    (fake_repository / "meson.build").write_text(
-        cleandoc(
-            """
+    (fake_repository / "meson.build").write_text(cleandoc("""
             SPDX-FileCopyrightText: 2022 Jane Doe
             SPDX-License-Identifier: CC0-1.0
-            """
-        )
-    )
+            """))
     subprojects_dir = fake_repository / "subprojects"
     subprojects_dir.mkdir()
     libfoo_dir = subprojects_dir / "libfoo"
     libfoo_dir.mkdir()
     # ./subprojects/foo.wrap has license and linter succeeds
-    (subprojects_dir / "foo.wrap").write_text(
-        cleandoc(
-            """
+    (subprojects_dir / "foo.wrap").write_text(cleandoc("""
             SPDX-FileCopyrightText: 2022 Jane Doe
             SPDX-License-Identifier: CC0-1.0
-            """
-        )
-    )
+            """))
     # ./subprojects/libfoo/foo.c misses license but is ignored
     (libfoo_dir / "foo.c").write_text("foo")
     return fake_repository
@@ -584,7 +583,10 @@ def subproject_repository(fake_repository: Path) -> Path:
 @pytest.fixture(scope="session")
 def reuse_dep5():
     """Create a ReuseDep5 object."""
-    return ReuseDep5.from_file(RESOURCES_DIRECTORY / "dep5")
+    return ReuseDep5.from_file(
+        RESOURCES_DIRECTORY / "dep5",
+        RESOURCES_DIRECTORY,
+    )
 
 
 @pytest.fixture()
@@ -602,8 +604,7 @@ def binary_string():
 @pytest.fixture()
 def template_simple_source():
     """Source code of simple Jinja2 template."""
-    return cleandoc(
-        """
+    return cleandoc("""
         Hello, world!
 
         {% for copyright_line in copyright_lines %}
@@ -613,8 +614,7 @@ def template_simple_source():
         {% for expression in spdx_expressions %}
         SPDX-License-Identifier: {{ expression }}
         {% endfor %}
-        """
-    )
+        """)
 
 
 @pytest.fixture()
@@ -640,8 +640,7 @@ def template_no_spdx(template_no_spdx_source):
 @pytest.fixture()
 def template_commented_source():
     """Source code of a simple Jinja2 template that is already commented."""
-    return cleandoc(
-        """
+    return cleandoc("""
         # Hello, world!
         #
         {% for copyright_line in copyright_lines %}
@@ -651,10 +650,7 @@ def template_commented_source():
         {% for expression in spdx_expressions %}
         # SPDX-License-Identifier: {{ expression }}
         {% endfor %}
-        """.replace(
-            "spdx-Lic", "SPDX-Lic"
-        )
-    )
+        """.replace("spdx-Lic", "SPDX-Lic"))
 
 
 @pytest.fixture()

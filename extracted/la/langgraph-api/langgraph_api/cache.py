@@ -26,12 +26,17 @@ else:
 
     async def _cache_set(key: str, value: bytes, ttl: timedelta | None = None) -> None:
         ttl = _clamp_ttl(ttl)
-        _CACHE.set(key, value)
+        _CACHE.set(key, value, ttl=ttl.total_seconds())
 
 
 logger = logging.getLogger(__name__)
 
 _SWR_KEY_PREFIX = "__lg_swr__:"
+# Deliberately a disjoint prefix (diverges from _SWR_KEY_PREFIX at the first
+# character after the shared "__lg_swr" stem), not a suffix appended to a
+# cache_key: a caller using swr(key="foo:marker") would otherwise produce a
+# cache_key identical to the marker key for swr(key="foo"), clobbering it.
+_SWR_MARKER_KEY_PREFIX = "__lg_swr_marker__:"
 _SWR_SCHEMA_VERSION = 1
 _DELTA_ZERO = timedelta(0)
 _UNSET: Any = object()
@@ -127,6 +132,31 @@ class _SWREntry(TypedDict):
     stored_at_ms: int
 
 
+class _SWRMarker(TypedDict):
+    """A tiny, payload-free record of when a key was last written.
+
+    Stored under a separate key with a much longer ttl than the full entry,
+    so swr() can still tell "this existed and is now expired" from "never
+    written" long after the (possibly large) payload itself has expired.
+
+    Two accepted trade-offs from using a second key, deliberately not
+    engineered around:
+    - A write's ttl=max_age reflects that call's own max_age, not the
+      largest max_age any caller has ever used for this key. A key read
+      with different max_age values across calls can see an earlier,
+      shorter-lived write evict the entry before a later call's own window
+      would have, forcing an extra reload. The reload still returns a
+      correct value; only cache-hit efficiency is affected.
+    - Every swr() key now costs two slots in the in-memory backend's
+      max_size=1000 LRU instead of one. swr() is scoped to moderate-
+      cardinality use (auth/metadata lookups per its own docstring), so this
+      is judged an acceptable capacity cost for bounding payload memory.
+    """
+
+    v: int
+    stored_at_ms: int
+
+
 @dataclass(slots=True)
 class _SWRState:
     task: asyncio.Task[Any] | None = None
@@ -158,10 +188,15 @@ async def swr(
             Defaults to ``timedelta(0)`` so every access triggers a background
             revalidate while still returning the cached value instantly. Values
             above :data:`MAX_CACHE_TTL` are clamped to the backend maximum.
-        max_age: Total lifetime of a cached entry. After this, the next access
-            blocks on the loader. Defaults to :data:`MAX_CACHE_TTL` (24 h by
-            default). Values above :data:`MAX_CACHE_TTL` are clamped to the
-            backend maximum.
+        max_age: Total lifetime of a cached entry before it's considered
+            expired rather than stale. After this, the next access blocks on
+            the loader. Defaults to :data:`MAX_CACHE_TTL` (24 h by default).
+            Values above :data:`MAX_CACHE_TTL` are clamped to the backend
+            maximum. The full entry is physically stored for `max_age`, so a
+            short `max_age` doesn't pin a large payload in the backend for
+            longer than it's needed; a small marker without the payload is
+            kept for the backend's max TTL so `swr` can still classify a
+            later access as `"expired"` instead of missing it entirely.
         model: Optional Pydantic model class. When provided, values are
             serialized via ``model_dump(mode="json")`` before storage and
             deserialized via ``model.model_validate()`` on read.
@@ -179,7 +214,7 @@ async def swr(
     """
     resolved_fresh_for = min(fresh_for, MAX_CACHE_TTL)
     resolved_max_age = _resolve_swr_max_age(max_age)
-    fresh_for_ms, max_age_ms, resolved_max_age = _validate_swr_windows(
+    fresh_for_ms, max_age_ms = _validate_swr_windows(
         resolved_fresh_for, resolved_max_age
     )
     cache_key = _swr_cache_key(key)
@@ -216,8 +251,11 @@ async def swr(
 
     entry = _parse_swr_entry(await cache_get(cache_key))
     if entry is None:
+        # The full entry is gone, but a marker surviving past the entry's own
+        # ttl means it existed before and is now expired, not merely missing.
+        marker = _parse_swr_marker(await cache_get(_swr_marker_key(cache_key)))
         raw = await _await_swr_load(cache_key, json_loader, resolved_max_age)
-        return _result(_deserialize(raw), "miss")
+        return _result(_deserialize(raw), "expired" if marker is not None else "miss")
 
     age_ms = max(0, _now_ms() - entry["stored_at_ms"])
     cached_value = _deserialize(entry["value"])
@@ -252,9 +290,11 @@ def _swr_cache_key(key: str) -> str:
     return f"{_SWR_KEY_PREFIX}{key}"
 
 
-def _validate_swr_windows(
-    fresh_for: timedelta, max_age: timedelta
-) -> tuple[int, int, timedelta]:
+def _swr_marker_key(cache_key: str) -> str:
+    return _SWR_MARKER_KEY_PREFIX + cache_key.removeprefix(_SWR_KEY_PREFIX)
+
+
+def _validate_swr_windows(fresh_for: timedelta, max_age: timedelta) -> tuple[int, int]:
     if fresh_for < _DELTA_ZERO:
         raise ValueError("fresh_for must be >= 0")
     if max_age <= _DELTA_ZERO:
@@ -265,7 +305,6 @@ def _validate_swr_windows(
     return (
         int(fresh_for.total_seconds() * 1000),
         int(max_age.total_seconds() * 1000),
-        max_age,
     )
 
 
@@ -289,6 +328,18 @@ def _parse_swr_entry(value: Any) -> _SWREntry | None:
         "value": value["value"],
         "stored_at_ms": stored_at_ms,
     }
+
+
+def _parse_swr_marker(value: Any) -> _SWRMarker | None:
+    if not isinstance(value, dict):
+        return None
+
+    version = value.get("v")
+    stored_at_ms = value.get("stored_at_ms")
+    if version != _SWR_SCHEMA_VERSION or not isinstance(stored_at_ms, int):
+        return None
+
+    return {"v": _SWR_SCHEMA_VERSION, "stored_at_ms": stored_at_ms}
 
 
 def _acquire_swr_state(cache_key: str) -> _SWRState:
@@ -315,34 +366,41 @@ def _maybe_cleanup_swr_state(cache_key: str, state: _SWRState) -> None:
         _SWR_STATES.pop(cache_key, None)
 
 
-async def _cache_swr_entry(cache_key: str, value: Any, ttl: timedelta) -> None:
+async def _cache_swr_entry(cache_key: str, value: Any, max_age: timedelta) -> None:
+    stored_at_ms = _now_ms()
     entry: _SWREntry = {
         "v": _SWR_SCHEMA_VERSION,
         "value": value,
-        "stored_at_ms": _now_ms(),
+        "stored_at_ms": stored_at_ms,
     }
-    await cache_set(cache_key, entry, ttl=ttl)
+    marker: _SWRMarker = {"v": _SWR_SCHEMA_VERSION, "stored_at_ms": stored_at_ms}
+    # The full payload expires at max_age, so a short max_age doesn't pin a
+    # large value in the backend longer than it's needed. The marker carries
+    # no payload, so it's cheap to keep around for the backend's own max ttl
+    # regardless of max_age - see swr()'s cache_get(cache_key) is None branch.
+    await cache_set(cache_key, entry, ttl=max_age)
+    await cache_set(_swr_marker_key(cache_key), marker)
 
 
-async def _write_swr_value(cache_key: str, value: Any, ttl: timedelta) -> None:
+async def _write_swr_value(cache_key: str, value: Any, max_age: timedelta) -> None:
     state = _acquire_swr_state(cache_key)
     try:
         async with state.write_lock:
             state.write_epoch += 1
-            await _cache_swr_entry(cache_key, value, ttl)
+            await _cache_swr_entry(cache_key, value, max_age)
     finally:
         _release_swr_state(cache_key, state)
 
 
 async def _store_loaded_swr_value(
-    cache_key: str, value: Any, ttl: timedelta, *, start_epoch: int
+    cache_key: str, value: Any, max_age: timedelta, *, start_epoch: int
 ) -> bool:
     state = _acquire_swr_state(cache_key)
     try:
         async with state.write_lock:
             if start_epoch != state.write_epoch:
                 return False
-            await _cache_swr_entry(cache_key, value, ttl)
+            await _cache_swr_entry(cache_key, value, max_age)
             return True
     finally:
         _release_swr_state(cache_key, state)
@@ -351,12 +409,14 @@ async def _store_loaded_swr_value(
 async def _load_and_store_swr_value(
     cache_key: str,
     loader: Callable[[], Awaitable[T]],
-    ttl: timedelta,
+    max_age: timedelta,
     *,
     start_epoch: int,
 ) -> T:
     value = await loader()
-    if await _store_loaded_swr_value(cache_key, value, ttl, start_epoch=start_epoch):
+    if await _store_loaded_swr_value(
+        cache_key, value, max_age, start_epoch=start_epoch
+    ):
         return value
 
     entry = _parse_swr_entry(await cache_get(cache_key))
@@ -368,7 +428,7 @@ async def _load_and_store_swr_value(
 def _ensure_swr_load_task(
     cache_key: str,
     loader: Callable[[], Awaitable[T]],
-    ttl: timedelta,
+    max_age: timedelta,
     *,
     log_errors: bool,
 ) -> asyncio.Task[T]:
@@ -380,7 +440,7 @@ def _ensure_swr_load_task(
 
         task = asyncio.create_task(
             _load_and_store_swr_value(
-                cache_key, loader, ttl, start_epoch=state.write_epoch
+                cache_key, loader, max_age, start_epoch=state.write_epoch
             )
         )
         state.task = task
@@ -407,12 +467,12 @@ def _ensure_swr_load_task(
 
 
 async def _await_swr_load(
-    cache_key: str, loader: Callable[[], Awaitable[T]], ttl: timedelta
+    cache_key: str, loader: Callable[[], Awaitable[T]], max_age: timedelta
 ) -> T:
-    return await _ensure_swr_load_task(cache_key, loader, ttl, log_errors=False)
+    return await _ensure_swr_load_task(cache_key, loader, max_age, log_errors=False)
 
 
 def _start_swr_refresh(
-    cache_key: str, loader: Callable[[], Awaitable[Any]], ttl: timedelta
+    cache_key: str, loader: Callable[[], Awaitable[Any]], max_age: timedelta
 ) -> None:
-    _ensure_swr_load_task(cache_key, loader, ttl, log_errors=True)
+    _ensure_swr_load_task(cache_key, loader, max_age, log_errors=True)

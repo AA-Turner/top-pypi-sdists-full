@@ -73,33 +73,6 @@ def get_encryption() -> JsonEncryptionWrapper | AesEncryptionInstance | None:
 
 
 @functools.lru_cache(maxsize=1)
-def using_custom_encryption() -> bool:
-    """Check if custom encryption is configured.
-    This is *not* mutually exclusive with AES encryption.
-
-    Returns:
-        True if custom encryption is configured, False otherwise.
-    """
-    from langgraph_api.encryption.custom import JsonEncryptionWrapper  # noqa: PLC0415
-
-    return (
-        isinstance(get_encryption(), JsonEncryptionWrapper)
-        and get_encryption().has_custom
-    )
-
-
-@functools.lru_cache(maxsize=1)
-def using_aes_encryption() -> bool:
-    """Check if AES encryption is configured.
-    This is *not* mutually exclusive with custom encryption.
-
-    Returns:
-        True if AES encryption is configured, False otherwise.
-    """
-    from langgraph_api.encryption.aes_json import AesEncryptionInstance  # noqa: PLC0415
-    from langgraph_api.encryption.custom import JsonEncryptionWrapper  # noqa: PLC0415
-
-    enc = get_encryption()
-    return isinstance(enc, AesEncryptionInstance) or (
-        isinstance(enc, JsonEncryptionWrapper) and enc.has_aes
-    )
+def using_encryption() -> bool:
+    """Return whether JSON encryption is configured."""
+    return get_encryption() is not None

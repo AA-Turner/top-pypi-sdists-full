@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: firebird-driver
-Version: 2.1.0
+Version: 2.1.1
 Summary: Firebird driver for Python
 Project-URL: Home, https://github.com/FirebirdSQL/python3-driver
 Project-URL: Documentation, https://firebird-driver.rtfd.io

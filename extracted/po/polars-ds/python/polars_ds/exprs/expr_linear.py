@@ -20,6 +20,7 @@ __all__ = [
     "simple_lin_reg",
     "recursive_lin_reg",
     "rolling_lin_reg",
+    "rolling_lin_reg_1d",
     "lin_reg_report",
     "logistic_reg",
 ]
@@ -37,9 +38,7 @@ def lr_formula(s: Any) -> pl.Expr:
     elif hasattr(s, "__array__"):
         return pl.lit(pl.Series(values=s.__array__()))
     else:
-        raise ValueError(
-            "Input can only be str or polars expression. The str must be valid SQL strings that polars can understand."
-        )
+        raise ValueError("input can only be str or polars expression")
 
 
 def simple_lin_reg(
@@ -189,7 +188,7 @@ def lin_reg(
     if isinstance(target, list):
         n_targets = len(target)
         if n_targets == 0:
-            raise ValueError("If `target` is a list, it cannot be empty.")
+            raise ValueError("'target' list cannot be empty")
         elif n_targets == 1:
             return lin_reg(
                 *x,
@@ -232,7 +231,7 @@ def lin_reg(
                 ).alias("coeffs")
     else:
         if max_iter <= 0:
-            raise ValueError("Input `max_iter` must be a positive.")
+            raise ValueError("'max_iter' must be positive")
 
         weighted = weights is not None
         lr_kwargs = {
@@ -250,7 +249,7 @@ def lin_reg(
 
         if weighted:
             cols = [
-                lr_formula(weights).cast(dtype).rechunk(),
+                lr_formula(weights).cast(dtype),
                 lr_formula(target).cast(dtype),
             ]
         else:
@@ -325,7 +324,7 @@ def logistic_reg(
         the coefficients.
     """
     if max_iter <= 0:
-        raise ValueError("Input `max_iter` must be a positive.")
+        raise ValueError("'max_iter' must be positive")
 
     lr_kwargs = {
         "bias": add_bias,
@@ -455,7 +454,7 @@ def recursive_lin_reg(
         dtype = pl.Float32
 
     if start_with < 1:
-        raise ValueError("You must start with >= 1 rows for recursive linear regression.")
+        raise ValueError("recursive linear regression requires at least 1 row")
 
     cols = [lr_formula(target).cast(dtype)]
     features = [lr_formula(z) for z in x]
@@ -575,24 +574,33 @@ def rolling_lin_reg(
         dtype = pl.Float32
 
     if window_size < 2:
-        raise ValueError("`window_size` must be >= 2.")
+        raise ValueError("'window_size' must be >= 2")
 
     if half_life is not None:
         if not math.isfinite(half_life) or half_life <= 0:
-            raise ValueError("`half_life` must be positive and finite.")
+            raise ValueError("'half_life' must be positive and finite")
         if l2_reg != 0:
-            raise ValueError("Exponentially weighted rolling regression requires `l2_reg=0`.")
+            raise ValueError("exponentially weighted rolling regression requires l2_reg=0")
         if null_policy.lower() not in ("skip", "raise"):
-            raise ValueError("EWLS supports only `null_policy='skip'` or 'raise'.")
+            raise ValueError("rolling ewls supports only null_policy='skip' or 'raise'")
         if min_valid_rows is not None and not 1 <= min_valid_rows <= window_size:
-            raise ValueError("EWLS requires 1 <= min_valid_rows <= window_size.")
+            raise ValueError("rolling ewls requires 1 <= min_valid_rows <= window_size")
         if not x and not add_bias:
-            raise ValueError("EWLS requires a predictor or an intercept.")
+            raise ValueError("rolling ewls requires a predictor or an intercept")
+
+        if len(x) == 1 and add_bias and null_policy.lower() == "skip":
+            return rolling_lin_reg_1d(
+                x[0],
+                target=target,
+                window_size=window_size,
+                half_life=half_life,
+                min_valid_rows=min_valid_rows,
+            )
 
     cols = [lr_formula(target).cast(dtype)]
     features = [lr_formula(z) for z in x]
     if len(features) > window_size:
-        raise ValueError("# features > window size. Linear regression is not well-defined.")
+        raise ValueError("number of samples must be greater than or equal to number of features")
 
     if min_valid_rows is None:
         min_size = min(len(features), window_size)
@@ -618,6 +626,86 @@ def rolling_lin_reg(
     return pl_plugin(
         symbol=cfg._which_lin_reg("pl_rolling_lr"),
         args=cols,
+        kwargs=kwargs,
+        pass_name_to_apply=True,
+    )
+
+
+def rolling_lin_reg_1d(
+    x: str | pl.Expr,
+    *,
+    target: str | pl.Expr,
+    window_size: int,
+    half_life: float,
+    min_valid_rows: int | None = None,
+) -> pl.Expr:
+    """Exponentially weighted rolling regression for one predictor and an intercept.
+
+    This specialized implementation maintains finite-window weighted statistics
+    and solves the two coefficients with scalar Cholesky steps. Statistics are
+    rebuilt periodically and after unstable removals, so expired extreme values
+    do not contaminate later windows. Apply ``.over(...)`` to the returned
+    expression after sorting each group into the intended rolling order.
+
+    Rows where either input is null, NaN or infinite are excluded from the fit but
+    retain their position and age in the window. The first ``window_size - 1``
+    outputs are null. A missing current target does not prevent prediction, while
+    an invalid current predictor makes the prediction null.
+
+    Computation follows ``LIN_REG_EXPR_F64``. Weights are normalized to the newest
+    valid observation to preserve identifiable fits through long missing tails.
+    A nonfinite prediction is returned as null even when the coefficients are finite.
+
+    The output is a struct with ``coeffs`` (slope followed by intercept) and
+    ``pred``, matching :func:`rolling_lin_reg`. This path deliberately supports
+    only the one-predictor, intercept, exponentially weighted ``skip`` case.
+
+    Parameters
+    ----------
+    x
+        The single predictor.
+    target
+        The target variable.
+    window_size
+        Number of original row positions in each rolling window. Must be at least 2.
+    half_life
+        Positive, finite exponential-weight half-life, measured in row positions.
+    min_valid_rows
+        Minimum valid observations required. Defaults to 2.
+
+    Examples
+    --------
+    >>> panel.sort(["asset", "date"]).with_columns(  # doctest: +SKIP
+    ...     rolling_lin_reg_1d(
+    ...         "market_return",
+    ...         target="stock_return",
+    ...         window_size=504,
+    ...         half_life=126.0,
+    ...         min_valid_rows=126,
+    ...     ).over("asset").alias("fit")
+    ... )
+    """
+    if window_size < 2:
+        raise ValueError("'window_size' must be >= 2")
+    if not math.isfinite(half_life) or half_life <= 0:
+        raise ValueError("'half_life' must be positive and finite")
+    if min_valid_rows is None:
+        min_valid_rows = 2
+    if not 1 <= min_valid_rows <= window_size:
+        raise ValueError("'min_valid_rows' must be between 1 and 'window_size'")
+
+    kwargs = {
+        "null_policy": "skip",
+        "n": window_size,
+        "bias": True,
+        "lambda": 0.0,
+        "min_size": min_valid_rows,
+        "half_life": float(half_life),
+    }
+    dtype = pl.Float64 if cfg.LIN_REG_EXPR_F64 else pl.Float32
+    return pl_plugin(
+        symbol=cfg._which_lin_reg("pl_rolling_lr_1d_expr"),
+        args=[lr_formula(target).cast(dtype), lr_formula(x).cast(dtype)],
         kwargs=kwargs,
         pass_name_to_apply=True,
     )
@@ -683,7 +771,7 @@ def lin_reg_report(
         symbol = cfg._which_lin_reg("pl_lin_reg_report")
     else:
         w = lr_formula(weights)
-        cols = [w.cast(dtype).rechunk(), t.var(), t]
+        cols = [w.cast(dtype), t.var(), t]
         cols.extend(lr_formula(z) for z in x)
         symbol = cfg._which_lin_reg("pl_wls_report")
 

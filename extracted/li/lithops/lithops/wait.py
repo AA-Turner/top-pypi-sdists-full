@@ -14,19 +14,15 @@
 # limitations under the License.
 #
 
-import signal
 import logging
 import time
 import math
 import concurrent.futures as cf
-from functools import partial
 from types import SimpleNamespace
 from itertools import chain
 from typing import Optional, List, Union, Tuple, Any
 
 from lithops.utils import (
-    is_unix_system,
-    timeout_handler,
     is_notebook,
     is_lithops_worker,
     FuturesList,
@@ -94,30 +90,17 @@ def _log_wait_start(prefix: str, return_when: Any, pending: int) -> None:
     )
 
 
-def _set_wait_alarm(timeout: float) -> None:
+def _check_deadline(deadline: Optional[float], timeout: Optional[float]) -> None:
     """
-    Arms a SIGALRM that aborts the wait once the timeout is exceeded.
-
-    signal.alarm() takes whole seconds and rounds nothing, so a fractional
-    timeout used to raise TypeError before the wait even started, which is
-    what a caller asking for 0.5 s got. Rounded up rather than truncated:
-    int(0.5) is 0, and alarm(0) cancels the alarm instead of setting one, so
-    the wait would have run for ever with no timeout at all.
-
-    A timeout that has already passed raises here, since there is no shorter
-    alarm than one second to arm
+    Raises TimeoutError once the deadline has passed. Checked between polls
+    rather than with a SIGALRM, which only the main thread of a Unix process
+    can arm and which would take the alarm of the caller over
     """
-    error_msg = (
-        f'Timeout of {timeout} seconds exceeded waiting for '
-        'function activations to finish'
-    )
-    if timeout <= 0:
-        raise TimeoutError(error_msg)
-
-    seconds = math.ceil(timeout)
-    logger.debug(f'Setting waiting timeout to {timeout} seconds')
-    signal.signal(signal.SIGALRM, partial(timeout_handler, error_msg))
-    signal.alarm(seconds)
+    if deadline is not None and time.monotonic() >= deadline:
+        raise TimeoutError(
+            f'Timeout of {timeout} seconds exceeded waiting for '
+            'function activations to finish'
+        )
 
 
 def _create_progressbar(total: int, initial: int):
@@ -163,13 +146,25 @@ def _poll_until_done(
     download_results,
     sleep_sec,
     poll_kwargs,
+    already_complete=(),
+    deadline=None,
+    timeout=None,
 ):
     """
     Polls every executor until return_when% of the futures are done. A round
     that fetched something is followed immediately by another one, as more
-    statuses are likely to be waiting already
+    statuses are likely to be waiting already.
+
+    The futures in already_complete do not count: they were done before the
+    wait started. The wait times out at the deadline, when there is one
     """
-    while not _check_done(fs, return_when, download_results):
+    def watched():
+        if not already_complete:
+            return fs
+        return [f for f in fs if id(f) not in already_complete]
+
+    while not _check_done(watched(), return_when, download_results):
+        _check_deadline(deadline, timeout)
         # The monitor is a daemon thread that exits on its own once every
         # future it knows about is done, so it may need waking up for the
         # futures that showed up afterwards
@@ -183,7 +178,10 @@ def _poll_until_done(
 
         if new_data:
             continue
-        time.sleep(sleep_sec)
+        if deadline is not None:
+            time.sleep(max(0, min(sleep_sec, deadline - time.monotonic())))
+        else:
+            time.sleep(sleep_sec)
 
 
 def wait(
@@ -243,16 +241,19 @@ def wait(
     fs_to_wait = math.ceil(return_when * len(not_done_futures) / 100)
     _log_wait_start(prefix, return_when, len(not_done_futures))
 
-    if is_unix_system() and timeout is not None:
-        _set_wait_alarm(timeout)
-
+    # Waiting on every future of an executor, the ones some earlier wait saw
+    # finish count for nothing, or ANY_COMPLETED would return right away
+    already_complete = (
+        {id(f) for f in fs_done} if futures_from_executor_wait else ()
+    )
     pbar = (
-        _create_progressbar(fs_to_wait, len(fs_done))
+        _create_progressbar(fs_to_wait, 0 if futures_from_executor_wait else len(fs_done))
         if show_progressbar else None
     )
 
     started_monitors = []
     pool = None
+    deadline = None if timeout is None else time.monotonic() + timeout
     try:
         executors_data = _create_executors_data_from_futures(
             fs, internal_storage
@@ -270,7 +271,6 @@ def wait(
             pbar=pbar,
             throw_except=throw_except,
             download_results=download_results,
-            threadpool_size=threadpool_size,
             pool=pool,
         )
 
@@ -280,7 +280,10 @@ def wait(
         else:
             _poll_until_done(
                 fs, executors_data, job_monitor, return_when,
-                download_results, sleep_sec, poll_kwargs
+                download_results, sleep_sec, poll_kwargs,
+                already_complete=already_complete,
+                deadline=deadline,
+                timeout=timeout,
             )
 
     except KeyboardInterrupt:
@@ -296,8 +299,6 @@ def wait(
             pool.shutdown(wait=True)
         for monitor in started_monitors:
             monitor.stop()
-        if is_unix_system():
-            signal.alarm(0)
         if pbar and not pbar.disable:
             pbar.close()
             if not is_notebook():
@@ -332,6 +333,10 @@ def get_result(
 
     :return: The result of the future/s
     """
+    # None is the default and, like wait(), an empty input. Wrapping it
+    # first made it a one-element list and then crashed on the future
+    if not fs:
+        return []
     fs = _as_future_list(fs)
     prefix = log_prefix(fs[0].executor_id)
 
@@ -431,9 +436,8 @@ def _get_executor_data(
     exec_data,
     download_results,
     throw_except,
-    threadpool_size,
     pbar,
-    pool=None,
+    pool,
 ):
     """
     Downloads the status, or the whole result, of every ready future of one
@@ -452,11 +456,7 @@ def _get_executor_data(
         else:
             f.status(throw_except=throw_except, internal_storage=storage)
 
-    if pool is None:
-        with cf.ThreadPoolExecutor(max_workers=threadpool_size) as owned:
-            list(owned.map(fetch, fs_to_wait_on))
-    else:
-        list(pool.map(fetch, fs_to_wait_on))
+    list(pool.map(fetch, fs_to_wait_on))
 
     if pbar:
         for f in fs_to_wait_on:

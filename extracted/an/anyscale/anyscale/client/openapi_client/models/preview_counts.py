@@ -34,52 +34,31 @@ class PreviewCounts(object):
     """
     openapi_types = {
         'groups': 'int',
-        'role_bindings': 'int',
         'existing_groups': 'int',
-        'existing_role_bindings': 'int',
-        'people': 'int',
-        'people_with_access': 'int',
-        'service_accounts': 'int',
-        'service_accounts_with_access': 'int'
+        'people': 'int'
     }
 
     attribute_map = {
         'groups': 'groups',
-        'role_bindings': 'role_bindings',
         'existing_groups': 'existing_groups',
-        'existing_role_bindings': 'existing_role_bindings',
-        'people': 'people',
-        'people_with_access': 'people_with_access',
-        'service_accounts': 'service_accounts',
-        'service_accounts_with_access': 'service_accounts_with_access'
+        'people': 'people'
     }
 
-    def __init__(self, groups=None, role_bindings=None, existing_groups=0, existing_role_bindings=0, people=None, people_with_access=None, service_accounts=None, service_accounts_with_access=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, groups=None, existing_groups=0, people=None, local_vars_configuration=None):  # noqa: E501
         """PreviewCounts - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._groups = None
-        self._role_bindings = None
         self._existing_groups = None
-        self._existing_role_bindings = None
         self._people = None
-        self._people_with_access = None
-        self._service_accounts = None
-        self._service_accounts_with_access = None
         self.discriminator = None
 
         self.groups = groups
-        self.role_bindings = role_bindings
         if existing_groups is not None:
             self.existing_groups = existing_groups
-        if existing_role_bindings is not None:
-            self.existing_role_bindings = existing_role_bindings
         self.people = people
-        self.people_with_access = people_with_access
-        self.service_accounts = service_accounts
-        self.service_accounts_with_access = service_accounts_with_access
 
     @property
     def groups(self):
@@ -107,31 +86,6 @@ class PreviewCounts(object):
         self._groups = groups
 
     @property
-    def role_bindings(self):
-        """Gets the role_bindings of this PreviewCounts.  # noqa: E501
-
-        How many role bindings conversion creates, the user groups' included.  # noqa: E501
-
-        :return: The role_bindings of this PreviewCounts.  # noqa: E501
-        :rtype: int
-        """
-        return self._role_bindings
-
-    @role_bindings.setter
-    def role_bindings(self, role_bindings):
-        """Sets the role_bindings of this PreviewCounts.
-
-        How many role bindings conversion creates, the user groups' included.  # noqa: E501
-
-        :param role_bindings: The role_bindings of this PreviewCounts.  # noqa: E501
-        :type: int
-        """
-        if self.local_vars_configuration.client_side_validation and role_bindings is None:  # noqa: E501
-            raise ValueError("Invalid value for `role_bindings`, must not be `None`")  # noqa: E501
-
-        self._role_bindings = role_bindings
-
-    @property
     def existing_groups(self):
         """Gets the existing_groups of this PreviewCounts.  # noqa: E501
 
@@ -153,29 +107,6 @@ class PreviewCounts(object):
         """
 
         self._existing_groups = existing_groups
-
-    @property
-    def existing_role_bindings(self):
-        """Gets the existing_role_bindings of this PreviewCounts.  # noqa: E501
-
-        How many role bindings those user groups already hold and keep.  # noqa: E501
-
-        :return: The existing_role_bindings of this PreviewCounts.  # noqa: E501
-        :rtype: int
-        """
-        return self._existing_role_bindings
-
-    @existing_role_bindings.setter
-    def existing_role_bindings(self, existing_role_bindings):
-        """Sets the existing_role_bindings of this PreviewCounts.
-
-        How many role bindings those user groups already hold and keep.  # noqa: E501
-
-        :param existing_role_bindings: The existing_role_bindings of this PreviewCounts.  # noqa: E501
-        :type: int
-        """
-
-        self._existing_role_bindings = existing_role_bindings
 
     @property
     def people(self):
@@ -201,81 +132,6 @@ class PreviewCounts(object):
             raise ValueError("Invalid value for `people`, must not be `None`")  # noqa: E501
 
         self._people = people
-
-    @property
-    def people_with_access(self):
-        """Gets the people_with_access of this PreviewCounts.  # noqa: E501
-
-        How many users who are not service accounts hold a role binding afterwards, directly or through a group.  # noqa: E501
-
-        :return: The people_with_access of this PreviewCounts.  # noqa: E501
-        :rtype: int
-        """
-        return self._people_with_access
-
-    @people_with_access.setter
-    def people_with_access(self, people_with_access):
-        """Sets the people_with_access of this PreviewCounts.
-
-        How many users who are not service accounts hold a role binding afterwards, directly or through a group.  # noqa: E501
-
-        :param people_with_access: The people_with_access of this PreviewCounts.  # noqa: E501
-        :type: int
-        """
-        if self.local_vars_configuration.client_side_validation and people_with_access is None:  # noqa: E501
-            raise ValueError("Invalid value for `people_with_access`, must not be `None`")  # noqa: E501
-
-        self._people_with_access = people_with_access
-
-    @property
-    def service_accounts(self):
-        """Gets the service_accounts of this PreviewCounts.  # noqa: E501
-
-        How many service accounts hold a legacy permission row.  # noqa: E501
-
-        :return: The service_accounts of this PreviewCounts.  # noqa: E501
-        :rtype: int
-        """
-        return self._service_accounts
-
-    @service_accounts.setter
-    def service_accounts(self, service_accounts):
-        """Sets the service_accounts of this PreviewCounts.
-
-        How many service accounts hold a legacy permission row.  # noqa: E501
-
-        :param service_accounts: The service_accounts of this PreviewCounts.  # noqa: E501
-        :type: int
-        """
-        if self.local_vars_configuration.client_side_validation and service_accounts is None:  # noqa: E501
-            raise ValueError("Invalid value for `service_accounts`, must not be `None`")  # noqa: E501
-
-        self._service_accounts = service_accounts
-
-    @property
-    def service_accounts_with_access(self):
-        """Gets the service_accounts_with_access of this PreviewCounts.  # noqa: E501
-
-        How many service accounts hold a role binding afterwards, directly or through a group.  # noqa: E501
-
-        :return: The service_accounts_with_access of this PreviewCounts.  # noqa: E501
-        :rtype: int
-        """
-        return self._service_accounts_with_access
-
-    @service_accounts_with_access.setter
-    def service_accounts_with_access(self, service_accounts_with_access):
-        """Sets the service_accounts_with_access of this PreviewCounts.
-
-        How many service accounts hold a role binding afterwards, directly or through a group.  # noqa: E501
-
-        :param service_accounts_with_access: The service_accounts_with_access of this PreviewCounts.  # noqa: E501
-        :type: int
-        """
-        if self.local_vars_configuration.client_side_validation and service_accounts_with_access is None:  # noqa: E501
-            raise ValueError("Invalid value for `service_accounts_with_access`, must not be `None`")  # noqa: E501
-
-        self._service_accounts_with_access = service_accounts_with_access
 
     def to_dict(self):
         """Returns the model properties as a dict"""

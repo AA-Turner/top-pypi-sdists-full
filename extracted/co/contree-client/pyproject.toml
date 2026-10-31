@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "contree-client"
-version = "0.5.2"
+version = "0.5.3"
 description = "Python client for the Contree API, generated from the OpenAPI specification"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -36,7 +36,6 @@ dev = [
 
 [tool.uv.build-backend]
 module-root = ""
-namespace = true
 source-include = ["tests/**"]
 
 [tool.pytest.ini_options]
@@ -45,9 +44,6 @@ markers = ["integration: live tests against the real Contree API; auto-skip with
 
 [tool.ty.environment]
 python-version = "3.10"
-
-[tool.ty.src]
-respect-ignore-files = false
 
 [tool.ruff]
 line-length = 88

@@ -47,6 +47,10 @@ def _get_defaults(data: dict[str, Any]) -> Defaults:
     )
 
 
+def _get_parent_groups(data: dict[str, Any], groups: Groups) -> ParentGroups:
+    return ParentGroups([groups[name] for name in data.get("groups") or []])
+
+
 def _get_inventory_element(
     typ: type[HostOrGroup], data: dict[str, Any], name: str, defaults: Defaults
 ) -> HostOrGroup:
@@ -58,7 +62,6 @@ def _get_inventory_element(
         password=data.get("password"),
         platform=data.get("platform"),
         data=data.get("data"),
-        groups=data.get("groups"),  # this is a hack, we will convert it later to the correct type
         defaults=defaults,
         connection_options=_get_connection_options(data.get("connection_options", {})),
     )
@@ -72,30 +75,40 @@ class SimpleInventory:
         defaults_file: str = "defaults.yaml",
         encoding: str = "utf-8",
     ) -> None:
-        """
-        SimpleInventory is an inventory plugin that loads data from YAML files.
-        The YAML files follow the same structure as the native objects
+        """Load inventory data from YAML files.
+
+        The YAML files follow the same structure as the native objects.
 
         Args:
-
           host_file: path to file with hosts definition
           group_file: path to file with groups definition. If
                 it doesn't exist it will be skipped
           defaults_file: path to file with defaults definition.
                 If it doesn't exist it will be skipped
           encoding: Encoding used to save inventory files. Defaults to utf-8
-        """
 
+        """
         self.host_file = pathlib.Path(host_file).expanduser()
         self.group_file = pathlib.Path(group_file).expanduser()
         self.defaults_file = pathlib.Path(defaults_file).expanduser()
         self.encoding = encoding
 
     def load(self) -> Inventory:
+        """Build the inventory from the YAML files given to the constructor.
+
+        Only the hosts file is required. A missing groups or defaults file is skipped,
+        and a file that is empty or holds nothing but comments is treated as empty and
+        logged as a warning. The group names the hosts refer to are resolved into the
+        group objects themselves, so a name that is not in the groups file is an error.
+
+        Returns:
+            :obj:`nornir.core.inventory.Inventory`: The inventory the files describe.
+
+        """
         yml = ruamel.yaml.YAML(typ="safe")
 
         if self.defaults_file.exists():
-            with open(self.defaults_file, "r", encoding=self.encoding) as f:
+            with self.defaults_file.open(encoding=self.encoding) as f:
                 defaults_dict = yml.load(f) or {}
             if defaults_dict == {}:
                 logger.warning(
@@ -107,7 +120,7 @@ class SimpleInventory:
             defaults = Defaults()
 
         hosts = Hosts()
-        with open(self.host_file, "r", encoding=self.encoding) as f:
+        with self.host_file.open(encoding=self.encoding) as f:
             hosts_dict = yml.load(f) or {}
         if hosts_dict == {}:
             logger.warning(
@@ -120,7 +133,7 @@ class SimpleInventory:
 
         groups = Groups()
         if self.group_file.exists():
-            with open(self.group_file, "r", encoding=self.encoding) as f:
+            with self.group_file.open(encoding=self.encoding) as f:
                 groups_dict = yml.load(f) or {}
             if groups_dict == {}:
                 logger.warning(
@@ -132,10 +145,10 @@ class SimpleInventory:
             for n, g in groups_dict.items():
                 groups[n] = _get_inventory_element(Group, g, n, defaults)
 
-            for g in groups.values():
-                g.groups = ParentGroups([groups[g] for g in g.groups])
+            for n, g in groups_dict.items():
+                groups[n].groups = _get_parent_groups(g, groups)
 
-        for h in hosts.values():
-            h.groups = ParentGroups([groups[g] for g in h.groups])
+        for n, h in hosts_dict.items():
+            hosts[n].groups = _get_parent_groups(h, groups)
 
         return Inventory(hosts=hosts, groups=groups, defaults=defaults)

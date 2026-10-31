@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ultralytics-platform
-Version: 0.1.101
+Version: 0.1.102
 Summary: Typed Python SDK for the Ultralytics Platform API
 Keywords: api-client,computer-vision,machine-learning,openapi,sdk,ultralytics,yolo
 Author: Ultralytics
@@ -69,6 +69,8 @@ asyncio.run(main())
 ```
 
 The package includes typed responses, multipart uploads, retries for temporary failures, structured API errors, custom HTTP clients, and context-manager cleanup.
+
+After a successful ingest or training start, both clients send a best-effort `GET http://127.0.0.1:8765/wake` so an On Premise worker on the same machine claims the job at once; a custom `http_client` skips it.
 
 ## Unified `ul` CLI
 

@@ -32,9 +32,7 @@ class Brt():
             error message
         """
         msg = 'bridge_number must be 1, 2, or 3 '
-        # Note that python version 3.7 does not allow formatting
-        # strings using {bridge_number = }
-        msg += f'(bridge_number = {bridge_number})'
+        msg += f'({bridge_number = })'
         return msg
 
     def bridge_setup(self,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bsdiff4
-Version: 1.4.0
+Version: 1.4.1
 Summary: binary diff and patch using the BSDIFF4-format
 Home-page: https://github.com/ilanschnell/bsdiff4
 Author: Ilan Schnell
@@ -42,14 +42,17 @@ The code is mostly derived from ``cx_bsdiff`` (written by Anthony Tuininga,
 http://cx-bsdiff.sourceforge.net/).  The ``cx_bsdiff`` code in turn was
 derived from bsdiff, the standalone utility produced for BSD which can be
 found at http://www.daemonology.net/bsdiff.
-In addition to the two functions (diff and patch) cx_bsdiff provides, this
-package includes:
 
-* an interface to the BSDIFF4-format
+Key features of this package include:
+
+* high-level ``diff`` and ``patch`` functions
+* an interface to the BSDIFF4 format
 * improved error handling for malformed patches
-* functions for creating and applying patches directly to files
-* command line interfaces: ``bsdiff4`` and ``bspatch4``
-* tests
+* functions for creating patches from files and applying them to files
+* command-line interfaces: ``bsdiff4`` and ``bspatch4``
+* support for free-threaded Python
+* type hints
+* extensive tests
 
 
 The bsdiff4 package defines the following high level functions:

@@ -4902,21 +4902,28 @@ class AsyncResponsesConnection(AsyncWebSocketConnectionBase):
         An infinite-iterator that will continue to yield events until
         the connection is closed.
         """
-        from websockets.exceptions import ConnectionClosedOK, ConnectionClosedError
+        from websockets.exceptions import ConnectionClosed, ConnectionClosedOK, ConnectionClosedError
 
         while True:
             try:
                 yield await self.recv()
-            except ConnectionClosedOK:
-                return
-            except ConnectionClosedError as exc:
-                if not await self._reconnect(exc):
+            except ConnectionClosed as exc:
+                # Older SDK bases read close codes only from ConnectionClosedError.
+                # Adapt the policy input; keep the original close for EOF and errors.
+                reconnect_exc = (
+                    ConnectionClosedError(exc.rcvd, exc.sent, exc.rcvd_then_sent)
+                    if isinstance(exc, ConnectionClosedOK)
+                    else exc
+                )
+                if not await self._reconnect(reconnect_exc):
                     unsent = self._send_queue.drain()
                     if unsent:
                         raise WebSocketConnectionClosedError(
                             "WebSocket connection closed with unsent messages",
                             unsent_messages=unsent,
                         ) from exc
+                    if isinstance(exc, ConnectionClosedOK):
+                        return
                     raise
 
     async def recv(self) -> BetaResponsesServerEvent:
@@ -4964,10 +4971,7 @@ class AsyncResponsesConnection(AsyncWebSocketConnectionBase):
             if isinstance(event, BaseModel)
             else json.dumps(await async_maybe_transform(event, BetaResponsesClientEventParam))
         )
-        if self._is_reconnecting:
-            self._send_queue.enqueue(data)
-            return
-        await self._connection.send(data)
+        await AsyncWebSocketConnectionBase.send_raw(self, data)
 
     def parse_event(self, data: str | bytes) -> BetaResponsesServerEvent:
         """
@@ -5272,7 +5276,11 @@ class AsyncResponsesConnectionManager:
         self, exc_type: type[BaseException] | None, exc: BaseException | None, exc_tb: TracebackType | None
     ) -> None:
         if self.__connection is not None:
-            await self.__connection.close()
+            try:
+                await self.__connection.close()
+            except Exception:
+                if exc is None:
+                    raise
 
 
 class ResponsesConnection(WebSocketConnectionBase):
@@ -5316,21 +5324,28 @@ class ResponsesConnection(WebSocketConnectionBase):
         An infinite-iterator that will continue to yield events until
         the connection is closed.
         """
-        from websockets.exceptions import ConnectionClosedOK, ConnectionClosedError
+        from websockets.exceptions import ConnectionClosed, ConnectionClosedOK, ConnectionClosedError
 
         while True:
             try:
                 yield self.recv()
-            except ConnectionClosedOK:
-                return
-            except ConnectionClosedError as exc:
-                if not self._reconnect(exc):
+            except ConnectionClosed as exc:
+                # Older SDK bases read close codes only from ConnectionClosedError.
+                # Adapt the policy input; keep the original close for EOF and errors.
+                reconnect_exc = (
+                    ConnectionClosedError(exc.rcvd, exc.sent, exc.rcvd_then_sent)
+                    if isinstance(exc, ConnectionClosedOK)
+                    else exc
+                )
+                if not self._reconnect(reconnect_exc):
                     unsent = self._send_queue.drain()
                     if unsent:
                         raise WebSocketConnectionClosedError(
                             "WebSocket connection closed with unsent messages",
                             unsent_messages=unsent,
                         ) from exc
+                    if isinstance(exc, ConnectionClosedOK):
+                        return
                     raise
 
     def recv(self) -> BetaResponsesServerEvent:
@@ -5380,10 +5395,7 @@ class ResponsesConnection(WebSocketConnectionBase):
             if isinstance(event, BaseModel)
             else json.dumps(maybe_transform(event, BetaResponsesClientEventParam))
         )
-        if self._is_reconnecting:
-            self._send_queue.enqueue(data)
-            return
-        self._connection.send(data)
+        WebSocketConnectionBase.send_raw(self, data)
 
     def parse_event(self, data: str | bytes) -> BetaResponsesServerEvent:
         """
@@ -5682,7 +5694,11 @@ class ResponsesConnectionManager:
         self, exc_type: type[BaseException] | None, exc: BaseException | None, exc_tb: TracebackType | None
     ) -> None:
         if self.__connection is not None:
-            self.__connection.close()
+            try:
+                self.__connection.close()
+            except Exception:
+                if exc is None:
+                    raise
 
 
 class BaseResponsesConnectionResource:
@@ -5699,6 +5715,7 @@ class ResponsesResponseResource(BaseResponsesConnectionResource):
         context_management: Optional[Iterable[beta_responses_client_event_param.ResponseCreateContextManagement]]
         | Omit = omit,
         conversation: Optional[beta_responses_client_event_param.ResponseCreateConversation] | Omit = omit,
+        generate: bool | Omit = omit,
         include: Optional[List[BetaResponseIncludable]] | Omit = omit,
         input: Union[str, BetaResponseInputParam] | Omit = omit,
         instructions: Optional[str] | Omit = omit,
@@ -5865,6 +5882,7 @@ class ResponsesResponseResource(BaseResponsesConnectionResource):
                         "background": background,
                         "context_management": context_management,
                         "conversation": conversation,
+                        "generate": generate,
                         "include": include,
                         "input": input,
                         "instructions": instructions,
@@ -5957,6 +5975,7 @@ class AsyncResponsesResponseResource(BaseAsyncResponsesConnectionResource):
         context_management: Optional[Iterable[beta_responses_client_event_param.ResponseCreateContextManagement]]
         | Omit = omit,
         conversation: Optional[beta_responses_client_event_param.ResponseCreateConversation] | Omit = omit,
+        generate: bool | Omit = omit,
         include: Optional[List[BetaResponseIncludable]] | Omit = omit,
         input: Union[str, BetaResponseInputParam] | Omit = omit,
         instructions: Optional[str] | Omit = omit,
@@ -6123,6 +6142,7 @@ class AsyncResponsesResponseResource(BaseAsyncResponsesConnectionResource):
                         "background": background,
                         "context_management": context_management,
                         "conversation": conversation,
+                        "generate": generate,
                         "include": include,
                         "input": input,
                         "instructions": instructions,

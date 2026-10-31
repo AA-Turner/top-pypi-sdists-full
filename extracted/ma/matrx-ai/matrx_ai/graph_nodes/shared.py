@@ -1085,3 +1085,55 @@ def _extract_usage(raw: Any) -> AiUsage:
         total_tokens=int(getattr(raw, "total_tokens", 0) or 0),
         cost_usd=float(getattr(raw, "cost_usd", 0.0) or 0.0),
     )
+
+
+def failed_turn_failure(completed: Any, *, code: str, model: str) -> Any:
+    """The turn's OWN failure as a step Failure, or ``None`` when the turn did not fail.
+
+    ``execute_ai_request`` reports a provider refusal on ``completed.metadata``
+    (``status == "failed"``) with an empty ``final_response``. A media step that only
+    looked for an artifact said "returned no audio" and hid the real cause — Text to
+    Speech on ElevenLabs with no voice read as an empty provider (2026-10-29).
+    """
+    from matrx_graph.types.result import failure
+
+    meta = getattr(completed, "metadata", None) or {}
+    if not isinstance(meta, dict) or meta.get("status") != "failed":
+        return None
+    cause, trace = terminal_cause(completed)
+    return failure(
+        code,
+        f"{model}: {meta.get('error') or 'the AI call failed'}",
+        details={
+            "model": model,
+            "error_type": meta.get("error_type"),
+            "provider": meta.get("provider"),
+            "cause": cause,
+            "usage": _extract_usage(getattr(completed, "total_usage", None)).model_dump(mode="json"),
+        },
+        technical=f"{cause}\n{trace}".strip() if cause else None,
+    )
+
+
+#: A traceback kept on a step failure is cut to its last frames (the raise site and its callers).
+_TRACEBACK_TAIL_CHARS = 4000
+
+
+def terminal_cause(completed: Any) -> tuple[str | None, str]:
+    """The real exception behind a failed turn: ``"ValueError: <its own text>"`` and its traceback tail.
+
+    The turn's ``error`` is the classifier's person sentence — for anything the provider
+    error translators do not recognise (a plain ``ValueError`` from an adapter) that is
+    "An unexpected ElevenLabs error occurred.", which hid every root cause of the
+    2026-10-29 voice changer and moderation failures. The executor keeps the exception on
+    ``CompletedRequest.terminal_exception``; the step carries its text and traceback in
+    ``details.cause`` / ``technical`` while the message stays the friendly sentence.
+    """
+    import traceback
+
+    exc = getattr(completed, "terminal_exception", None)
+    if not isinstance(exc, BaseException):
+        return None, ""
+    cause = f"{type(exc).__name__}: {exc}".strip()
+    trace = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+    return cause, trace[-_TRACEBACK_TAIL_CHARS:]

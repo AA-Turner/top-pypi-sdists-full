@@ -26,6 +26,7 @@ Usage::
         DescribeGlobalClustersPaginator,
         DescribeOrderableDBInstanceOptionsPaginator,
         DescribePendingMaintenanceActionsPaginator,
+        DescribeServerlessV2PlatformVersionsPaginator,
         DocDBClient,
     )
 
@@ -48,6 +49,7 @@ Usage::
     describe_global_clusters_paginator: DescribeGlobalClustersPaginator = client.get_paginator("describe_global_clusters")
     describe_orderable_db_instance_options_paginator: DescribeOrderableDBInstanceOptionsPaginator = client.get_paginator("describe_orderable_db_instance_options")
     describe_pending_maintenance_actions_paginator: DescribePendingMaintenanceActionsPaginator = client.get_paginator("describe_pending_maintenance_actions")
+    describe_serverless_v2_platform_versions_paginator: DescribeServerlessV2PlatformVersionsPaginator = client.get_paginator("describe_serverless_v2_platform_versions")
     ```
 """
 
@@ -66,6 +68,7 @@ from .paginator import (
     DescribeGlobalClustersPaginator,
     DescribeOrderableDBInstanceOptionsPaginator,
     DescribePendingMaintenanceActionsPaginator,
+    DescribeServerlessV2PlatformVersionsPaginator,
 )
 from .waiter import DBInstanceAvailableWaiter, DBInstanceDeletedWaiter
 
@@ -88,5 +91,6 @@ __all__ = (
     "DescribeGlobalClustersPaginator",
     "DescribeOrderableDBInstanceOptionsPaginator",
     "DescribePendingMaintenanceActionsPaginator",
+    "DescribeServerlessV2PlatformVersionsPaginator",
     "DocDBClient",
 )

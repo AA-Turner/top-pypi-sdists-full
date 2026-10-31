@@ -282,3 +282,14 @@ def test_detector_interaction_is_canonical():
     parser threw on them and emptied the model picker."""
     caps = {"input": ["audio"], "output": ["text"], "features": [], "interaction": "detection"}
     assert normalize_capabilities(caps, label="wake-word-x").ok
+
+
+def test_audio_and_moderation_features_the_client_and_live_table_carry_are_canonical():
+    """2026-10-29: migration 1615 wrote sound_effect_generation; the client vocabulary
+    (apps/shared/matrx-agents/models/capabilities.ts) already had it, speech_to_speech and
+    moderation, and the server refused them at the write."""
+    for feature in ("sound_effect_generation", "speech_to_speech", "moderation"):
+        caps = {"input": ["text"], "output": ["audio"], "features": [feature], "interaction": "single"}
+        result = normalize_capabilities(caps, label=f"model-{feature}")
+        assert result.ok, result.rejections
+        assert feature in result.value["features"]

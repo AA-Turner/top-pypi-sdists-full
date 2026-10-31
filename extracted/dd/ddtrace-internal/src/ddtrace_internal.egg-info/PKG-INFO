@@ -1,8 +1,10 @@
 Metadata-Version: 2.4
 Name: ddtrace-internal
-Version: 0.1.0
+Version: 0.2.0
 Summary: Stub internal Datadog Python package (ddtrace-internal).
 Author-email: "Datadog, Inc." <dev@datadoghq.com>
+License-Expression: BSD-3-Clause OR Apache-2.0
+Project-URL: Repository, https://github.com/DataDog/datadog-apm-python
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 
@@ -19,15 +21,18 @@ python -m pip install -e .
 ## Running tests
 
 ```bash
-cd packages/ddtrace-internal
-riot run                # all supported Python versions
-riot run -p 3.12        # a single version
+scripts/run_tests.py                        # all supported Python versions
+scripts/run_tests.py --python 3.12          # a single version
+scripts/run_tests.py --list                 # show the matrix without running it
 ```
 
-`riot` installs the package fresh into each test venv, so it must be run from this directory (not the repo root). In CI, `riot --wheel-path <dir>` is used instead to test the actual built wheel.
+Each (variant, Python) pair in `suitespec.yml` runs as a cached `uv run --no-project`
+environment with the package installed editable, so tests import the working tree; run it
+from anywhere. In CI, `--wheel-path <dir>` installs the exact built wheel instead of the
+working tree.
 
 ## Layout
 
 - `src/_ddtrace_internal/` — package root
 - `tests/<module_path>/test.py` — tests, mirroring the source layout (e.g. `src/_ddtrace_internal/foo.py` → `tests/foo/test.py`)
-- `riotfile.py` — test venv/matrix definitions
+- `suitespec.yml` — test matrix definition

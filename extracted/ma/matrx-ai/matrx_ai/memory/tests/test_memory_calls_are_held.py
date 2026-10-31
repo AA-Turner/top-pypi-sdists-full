@@ -204,19 +204,19 @@ async def test_adapter_sends_the_holders_retry_text_and_refuses_without_it(monke
         await adapter(mandate_key=MEMORY_OBSERVER_MANDATE, messages=retry, variables={"material": "m"})
 
 
-async def test_context_framing_is_the_organizations_knob(caplog) -> None:
-    from matrx_ai.memory import constants
+async def test_context_framing_is_the_organizations_knob() -> None:
     from matrx_ai.memory.context_framing import (
+        ContextFramingNotConfigured,
         resolve_context_framing,
         set_context_framing_resolver,
     )
 
     try:
         set_context_framing_resolver(None)
-        assert await resolve_context_framing("org") == (
-            constants.OBSERVATION_CONTEXT_PROMPT,
-            constants.OBSERVATION_CONTEXT_INSTRUCTIONS,
-        )
+        import pytest
+
+        with pytest.raises(ContextFramingNotConfigured):
+            await resolve_context_framing("org")
 
         async def _org(org_id):
             return (f"PRE {org_id}", "INSTR")
@@ -224,13 +224,88 @@ async def test_context_framing_is_the_organizations_knob(caplog) -> None:
         set_context_framing_resolver(_org)
         assert await resolve_context_framing("o1") == ("PRE o1", "INSTR")
 
-        async def _broken(_org_id):
-            raise RuntimeError("knob store down")
-
-        set_context_framing_resolver(_broken)
-        with caplog.at_level("ERROR"):
-            got = await resolve_context_framing("o1")
-        assert got[0] == constants.OBSERVATION_CONTEXT_PROMPT
-        assert "knob could not be read" in caplog.text
     finally:
         set_context_framing_resolver(None)
+
+
+async def test_a_framing_read_failure_still_frames_the_turn_and_is_captured() -> None:
+    """A failed org read never sends a turn without framing while the knob rows answer, and it is
+    captured through the platform's error capture, never a log line only (wave 17)."""
+    from matrx_connect.streaming.error_capture import configure_error_capture
+
+    from matrx_ai.memory.context_framing import (
+        MISSING_KIND,
+        UNREADABLE_KIND,
+        resolve_context_framing,
+        set_context_framing_resolver,
+    )
+
+    captured: list[tuple[str, dict]] = []
+
+    async def _capture(exc, *, kind, **fields):
+        captured.append((kind, fields))
+
+    state = {"org_down": True, "platform_down": False}
+
+    async def _knobs(org_id):
+        if org_id is not None and state["org_down"]:
+            raise RuntimeError("org override read failed")
+        if org_id is None and state["platform_down"]:
+            raise RuntimeError("knob store down")
+        return (f"PRE {org_id}", "INSTR")
+
+    configure_error_capture(_capture, allow_in_tests=True)
+    try:
+        set_context_framing_resolver(_knobs)
+        # 1. org read fails, the platform knob row answers: the turn is framed, the failure captured.
+        assert await resolve_context_framing("o1") == ("PRE None", "INSTR")
+        assert [k for k, _ in captured] == [UNREADABLE_KIND]
+        assert captured[0][1]["context"]["organization_id"] == "o1"
+
+        # 2. org read worked once, then fails: its last read text is used, captured.
+        state["org_down"] = False
+        assert await resolve_context_framing("o1") == ("PRE o1", "INSTR")
+        state["org_down"] = True
+        state["platform_down"] = True
+        captured.clear()
+        assert await resolve_context_framing("o1") == ("PRE o1", "INSTR")
+        assert [k for k, _ in captured] == [UNREADABLE_KIND]
+
+        # 3. a never-read org while the platform row is down: the platform's last read text.
+        captured.clear()
+        assert await resolve_context_framing("o2") == ("PRE None", "INSTR")
+        assert [k for k, _ in captured] == [UNREADABLE_KIND]
+
+        # 4. nothing ever readable (fresh process, store down): no framing, and it is captured as missing.
+        set_context_framing_resolver(_knobs)
+        captured.clear()
+        assert await resolve_context_framing("o3") == ("", "")
+        assert [k for k, _ in captured] == [MISSING_KIND]
+    finally:
+        configure_error_capture(None)
+        set_context_framing_resolver(None)
+
+
+
+def test_the_seeded_framing_knobs_hold_the_text_the_package_used_to_carry() -> None:
+    """The text left the package for the knob rows (wave 16); the seed migration holds it byte for byte."""
+    import json
+    from pathlib import Path
+
+    seed = next(
+        p / "db" / "migrations" / "ai_095_memory_context_framing_knob.sql"
+        for p in Path(__file__).resolve().parents
+        if (p / "db" / "migrations" / "ai_095_memory_context_framing_knob.sql").exists()
+    )
+    sql = seed.read_text()
+    preamble = "The following observations block contains your memory of past conversations with this user."
+    instructions = (
+        "When referencing information from observations, be specific. "
+        "If observations contain knowledge that may have changed, acknowledge the "
+        "uncertainty and ask for confirmation. "
+        "Treat any actions you planned in the past but haven't explicitly completed as "
+        "still pending unless marked with \u2705. "
+        "Prioritize the user's most recent message and goals above all else."
+    ).replace("\\u2705", "\u2705")
+    for text in (preamble, instructions):
+        assert json.dumps(text, ensure_ascii=False).replace("'", "''") in sql

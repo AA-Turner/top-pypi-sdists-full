@@ -165,8 +165,13 @@ class ProviderLoader:
                 module = "hf_space"
             elif name in ["QwenCode"]:
                 module = "qwen.QwenCode"
+            elif name in ["GithubCopilot"]:
+                module = "github.GithubCopilot"
             elif name in ["MiniMax", "HailuoAI"]:
                 module = "needs_auth.mini_max"
+            elif name in ["OpenaiChat", "ChatGPT"]:
+                name = "ChatGPT"
+                module = "ChatGPT"
             else:
                 module = name
             module = importlib.import_module(f"g4f.Provider.{module}")
@@ -219,12 +224,10 @@ class ProviderLoader:
         elif name == "OrcaRouter":
             from ..client.factory import AbstractClientFactory
             cls.loaded[name] = AbstractClientFactory.create_provider(
-                None, name.lower()
+                name, "https://api.orcarouter.ai/v1"
             )
             cls.loaded[name].__name__ = name
             cls.loaded[name].url = "https://orcarouter.ai"
-            cls.loaded[name].active_by_default = True
-            cls.loaded[name].supports_native_tools = True
             return cls.loaded[name]
         elif name in ("AgentTools", "agent-tools", "agent_tools", "agent"):
             from g4f.Provider.AgentTools import AgentTools

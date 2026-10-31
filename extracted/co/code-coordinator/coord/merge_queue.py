@@ -41,6 +41,7 @@ from coord.ci_store import (
     is_unreadable_check,
     is_unreadable_check_name,
     is_verdictless_job,
+    shifted_failed_check_names,
     shrunk_check_names,
     summarize,
     summarize_counts,
@@ -900,9 +901,11 @@ def find_scoped_review_candidate(
     ancillary_files: list[str] | None = None,
     ancillary_gh_ops: "GhOps | None" = None,
     config=None,
+    verdicts: tuple[str, ...] = ("approve",),
 ) -> Assignment | None:
-    """Return the previously-approved review whose approval was voided
-    ONLY by a content-changing rebase (#1476), or ``None``.
+    """Return the previous review whose approval was voided ONLY by a
+    content-changing rebase (#1476), or whose ``request-changes`` verdict
+    was answered by a bounded fix round, or ``None``.
 
     *config*, when supplied, resolves *ancillary_files*/*ancillary_gh_ops*
     via :func:`_resolve_ancillary_config` (#3707) — see
@@ -915,10 +918,27 @@ def find_scoped_review_candidate(
     (the base to diff the resolution from) and ``briefing``/findings as
     established context, not just a yes/no.
 
+    *verdicts* controls which prior verdicts are eligible candidates. The
+    default, ``("approve",)``, only matches an actual approval — callers
+    that merely *reaffirm* an existing verdict (rather than scoping a fresh
+    re-review around the delta) must stay on this default, since a
+    ``request-changes`` row reaffirmed as covering the current SHA would
+    report the branch unblocked while the merge gate (which still requires
+    ``review_verdict == "approve"``) keeps refusing it. Callers that
+    dispatch a brand-new scoped re-review — where a ``request-changes``
+    verdict legitimately means "here's a fix round to scope the diff
+    around" rather than "this is still approved" — opt in explicitly with
+    ``verdicts=("approve", "request-changes")``; it's
+    :func:`only_bounded_fix_since_review` (checked by every such caller)
+    that then gates whether the delta since that ``request-changes``
+    verdict is actually just the bounded fix round it asked for, as opposed
+    to unrelated new work.
+
     Returns ``None`` — meaning "not this path, fall back to a full review"
     — when:
 
-    - No approved review exists for *entry*'s work chain at all.
+    - No approved or request-changes review exists for *entry*'s work chain
+      at all.
     - The branch's current SHA isn't known (can't confirm anything changed),
       or the current patch-id isn't known and can't be computed (#1506: when
       *gh_ops* is supplied, a null ``branch_patch_id`` is backfilled on
@@ -973,7 +993,7 @@ def find_scoped_review_candidate(
             continue
         if getattr(a, "review_of_assignment_id", None) not in branch_work_ids:
             continue
-        if getattr(a, "review_verdict", None) != "approve":
+        if getattr(a, "review_verdict", None) not in verdicts:
             continue
         review_sha = getattr(a, "review_head_sha", None)
         if review_sha is None or review_sha == current_sha:
@@ -1763,6 +1783,49 @@ def _record_ci_flake_audit(entry: "QueuedMerge", pending_json: str) -> None:
             "pr_number": entry.pr_number,
             "sha": payload.get("sha"),
             "checks": payload.get("checks", []),
+        },
+    )
+
+
+def _record_ci_flake_shift_audit(
+    entry: "QueuedMerge",
+    prev_names: frozenset[str],
+    shifted: frozenset[str],
+    shift_reruns: int,
+) -> None:
+    """Emit one ``ci_flake_shift_detected`` operational audit row (#3809):
+    the failing check names differed between two reads of the same commit,
+    so :func:`process` reran again instead of falling through to
+    ``checks_failed`` — which would otherwise have sent #2510's ci-fix
+    dispatch after a test that was never actually broken.
+
+    Sibling to :func:`_record_ci_flake_audit`, same best-effort shape
+    (``record_audit`` never raises). Records *prev_names*/*shifted* — the
+    previously-failing set and the names that changed — as the cause, and
+    *shift_reruns* (the count AFTER this rerun, bounded by
+    ``MAX_CI_FLAKY_SHIFT_RERUNS``) as the provenance, so a repeat offender
+    is queryable via ``coord audit`` the same way a plain #2252 flake is.
+    """
+    record_audit(
+        tier="operational",
+        category="ci",
+        event_type="ci_flake_shift_detected",
+        actor="system",
+        summary=(
+            f"Shifting-subset CI flake on {entry.repo_name}#"
+            f"{entry.issue_number} (PR #{entry.pr_number}): failing checks "
+            "differed across reads — rerun instead of dispatching a fix "
+            f"leg ({shift_reruns}/{MAX_CI_FLAKY_SHIFT_RERUNS}, #3809)"
+        ),
+        repo=entry.repo_name,
+        issue=entry.issue_number,
+        assignment_id=entry.assignment_id,
+        details={
+            "pr_number": entry.pr_number,
+            "sha": entry.branch_head_sha,
+            "previously_failing": sorted(prev_names),
+            "shifted_names": sorted(shifted),
+            "shift_reruns": shift_reruns,
         },
     )
 
@@ -3126,6 +3189,22 @@ MAX_CI_STALE_RERUNS = 2
 # genuinely, repeatedly broken — a higher cap here would blur back into the
 # thing #1892's own cap already guards against for the verdictless case.
 MAX_CI_FLAKY_RERUNS = 1
+
+# #3809: once `MAX_CI_FLAKY_RERUNS` is spent, #2252's own fall-through treats
+# "still red" as "confirmed real" unconditionally — right for a genuine
+# regression (same test fails every run), wrong for an environment-flaky
+# suite whose failing subset *shifts* between runs. `checks_failed` from a
+# shifted read sends #2510's ci-fix dispatch after a test that was never
+# broken (the refund-loop pathology #3745/#3760 describe), so a shifted
+# read is granted its own small, SEPARATE rerun allowance — tracked inside
+# `ci_flaky_pending`'s own JSON (`"shift_reruns"`), never in
+# `ci_flaky_reruns` itself, so the "one rerun per failure streak" bound
+# #2252 documents above stays exactly what it always was for the
+# deterministic case. Bounded (not unbounded) because a required gate that
+# is *itself* chronically flaky must eventually escalate (C4, #3760's
+# sibling action) rather than rerun forever; this action only owns "don't
+# loop a doomed fix leg", not "never ask a human".
+MAX_CI_FLAKY_SHIFT_RERUNS = 2
 
 # #2347: bounded count of consecutive LIVE `process()` attempts that have
 # observed a bare check-list FETCH failure for a single entry — mirrors
@@ -9280,13 +9359,87 @@ def process(
                         # for a re-run that never actually happened.
                     elif entry.ci_flaky_pending:
                         # Budget already spent for this failure streak and
-                        # it is STILL red on the second read — confirmed
-                        # real, not a flake (#2252's other acceptance
+                        # it is STILL red on the second read. #2252 treats
+                        # that as "confirmed real" unconditionally; #3809
+                        # adds one more question first: is it the SAME
+                        # check name(s) failing both times (a genuine
+                        # regression — the code is actually broken), or did
+                        # the failing SUBSET SHIFT between reads (an
+                        # environment-flaky suite — nothing in the diff is
+                        # broken, but #2252's own fall-through would still
+                        # send #2510's ci-fix dispatch after it)?
+                        try:
+                            pending_payload = json.loads(entry.ci_flaky_pending)
+                        except (TypeError, ValueError):
+                            pending_payload = {}
+                        prev_names = frozenset(
+                            c.get("name")
+                            for c in pending_payload.get("checks", [])
+                            if c.get("name")
+                        )
+                        shifted = shifted_failed_check_names(prev_names, checks)
+                        shift_reruns = pending_payload.get("shift_reruns", 0)
+                        if shifted and shift_reruns < MAX_CI_FLAKY_SHIFT_RERUNS:
+                            rerun_failed_for_pr = getattr(
+                                ci, "rerun_failed_for_pr", None
+                            )
+                            reran = (
+                                rerun_failed_for_pr(
+                                    entry.repo_github, entry.pr_number
+                                )
+                                if rerun_failed_for_pr is not None
+                                else False
+                            )
+                            if reran:
+                                shift_reruns += 1
+                                entry.ci_flaky_pending = json.dumps({
+                                    "checks": [
+                                        {
+                                            "name": c.name,
+                                            "conclusion": c.conclusion,
+                                        }
+                                        for c in failed
+                                    ],
+                                    "sha": entry.branch_head_sha,
+                                    "shift_reruns": shift_reruns,
+                                })
+                                msg = (
+                                    f"{CI_FLAKY_PREFIX} {summary} — failing "
+                                    "checks shifted across reads, "
+                                    "re-running instead of dispatching a "
+                                    f"fix leg ({shift_reruns}/"
+                                    f"{MAX_CI_FLAKY_SHIFT_RERUNS}, #3809)"
+                                )
+                                entry.error = msg
+                                _log.info(
+                                    "#3809 shifting-subset flake re-check "
+                                    "%d/%d for %s#%d (PR #%s): %s -> %s "
+                                    "(rerun_failed_for_pr triggered)",
+                                    shift_reruns, MAX_CI_FLAKY_SHIFT_RERUNS,
+                                    entry.repo_name, entry.issue_number,
+                                    entry.pr_number, sorted(prev_names),
+                                    summary,
+                                )
+                                _record_ci_flake_shift_audit(
+                                    entry, prev_names, shifted, shift_reruns,
+                                )
+                                events.append(
+                                    MergeEvent(entry, "ci_flaky_rerun", msg)
+                                )
+                                continue  # #292: skip, don't halt the group
+                            # Could not trigger a rerun (no capability, or
+                            # the `gh` call failed) — fall straight through
+                            # below exactly like #2252's own fail-safe:
+                            # never mask "could not re-run" as a flake.
+                        # Either the same name(s) failed both times
+                        # (confirmed real — #2252's other acceptance
                         # criterion: "a check that fails twice: attempt
-                        # consumed, entry blocks — identical to today").
-                        # Nothing to record; clear the pending marker so a
-                        # later, unrelated resolution doesn't misattribute
-                        # this already-confirmed streak as a flake.
+                        # consumed, entry blocks — identical to today") or
+                        # the #3809 shift-rerun budget is exhausted — same
+                        # destination either way. Nothing further to
+                        # record; clear the pending marker so a later,
+                        # unrelated resolution doesn't misattribute this
+                        # already-confirmed streak as a flake.
                         entry.ci_flaky_pending = ""
                     msg = f"checks failed: {summary}"
                     # #1986: a RED check can be exactly as stale as a GREEN

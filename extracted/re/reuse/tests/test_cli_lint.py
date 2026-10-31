@@ -18,7 +18,7 @@ import shutil
 from inspect import cleandoc
 
 from click.testing import CliRunner
-from conftest import RESOURCES_DIRECTORY
+from conftest import RESOURCES_DIRECTORY, git, vcs_params
 
 from reuse._util import cleandoc_nl
 from reuse.cli.main import main
@@ -28,10 +28,8 @@ from reuse.report import LINT_VERSION
 class TestLint:
     """Tests for lint."""
 
-    def test_simple(self, fake_repository, optional_git_exe, optional_hg_exe):
-        """Run a successful lint. The optional VCSs are there to make sure that
-        the test also works if these programs are not installed.
-        """
+    def test_simple(self, fake_repository):
+        """Run a successful lint."""
         result = CliRunner().invoke(main, ["lint"])
 
         assert result.exit_code == 0
@@ -51,13 +49,15 @@ class TestLint:
         assert result.exit_code == 0
         assert ":-)" in result.output
 
-    def test_git(self, git_repository):
+    @vcs_params
+    def test_vcs(self, vcs_strategy, vcs_repo):
         """Run a successful lint."""
         result = CliRunner().invoke(main, ["lint"])
 
         assert result.exit_code == 0
         assert ":-)" in result.output
 
+    @git
     def test_submodule(self, submodule_repository):
         """Run a successful lint."""
         (submodule_repository / "submodule/foo.c").write_text("foo")
@@ -66,6 +66,7 @@ class TestLint:
         assert result.exit_code == 0
         assert ":-)" in result.output
 
+    @git
     def test_submodule_included(self, submodule_repository):
         """Run a successful lint."""
         result = CliRunner().invoke(main, ["--include-submodules", "lint"])
@@ -73,6 +74,7 @@ class TestLint:
         assert result.exit_code == 0
         assert ":-)" in result.output
 
+    @git
     def test_submodule_included_fail(self, submodule_repository):
         """Run a failed lint."""
         (submodule_repository / "submodule/foo.c").write_text("foo")
@@ -110,12 +112,10 @@ class TestLint:
         """Successfully lint when Meson subprojects are included."""
         # ./subprojects/libfoo/foo.c has license and linter succeeds
         (subproject_repository / "subprojects/libfoo/foo.c").write_text(
-            cleandoc(
-                """
+            cleandoc("""
                 SPDX-FileCopyrightText: 2022 Jane Doe
                 SPDX-License-Identifier: GPL-3.0-or-later
-                """
-            )
+                """)
         )
         result = CliRunner().invoke(
             main, ["--include-meson-subprojects", "lint"]
@@ -173,16 +173,12 @@ class TestLint:
         self, fake_repository_reuse_toml, capsys
     ):
         """If there is an error in an annotation, print an error."""
-        (fake_repository_reuse_toml / "REUSE.toml").write_text(
-            cleandoc_nl(
-                """
+        (fake_repository_reuse_toml / "REUSE.toml").write_text(cleandoc_nl("""
                 version = 1
 
                 [[annotations]]
                 path = 1
-                """
-            )
-        )
+                """))
         result = CliRunner().invoke(main, ["lint"])
         assert result.exit_code != 0
         assert str(fake_repository_reuse_toml / "REUSE.toml") in result.output
@@ -228,8 +224,10 @@ class TestLint:
         assert "usage.md" in result.output
         assert ":-(" in result.output
 
-    def test_custom_root_git(self, git_repository):
-        """Use a custom root location in a git repo."""
+    @vcs_params
+    def test_custom_root_vcs(self, vcs_strategy, vcs_repo):
+        """Use a custom root location in a vcs repo."""
+        # pylint: disable=unused-argument
         result = CliRunner().invoke(main, ["--root", "doc", "lint"])
 
         assert result.exit_code > 0

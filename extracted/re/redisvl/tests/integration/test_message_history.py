@@ -32,6 +32,13 @@ def semantic_history(app_name, client, hf_vectorizer):
     history.delete()
 
 
+def _numbered_messages(count):
+    return [
+        {"role": "user" if i % 2 == 0 else "llm", "content": f"message {i:04d}"}
+        for i in range(count)
+    ]
+
+
 @pytest.fixture(autouse=True)
 def disable_deprecation_warnings():
     with warnings.catch_warnings():
@@ -242,6 +249,15 @@ def test_standard_messages_property(standard_history):
     ]
 
 
+def test_standard_messages_property_past_1000(standard_history):
+    messages = _numbered_messages(1005)
+    standard_history.add_messages(messages)
+    standard_history.add_messages(_numbered_messages(15), session_tag="other_session")
+    assert standard_history.count() == 1005
+
+    assert standard_history.messages == messages
+
+
 def test_standard_scope(standard_history):
     # store entries under default session tag
     standard_history.store("some prompt", "some response")
@@ -396,6 +412,22 @@ def test_semantic_scope(semantic_history):
 
 
 @pytest.mark.requires_hf
+def test_semantic_get_relevant_falls_back_within_the_requested_session(
+    semantic_history,
+):
+    semantic_history.store("default prompt", "default response")
+    semantic_history.store("other prompt", "other response", session_tag="other")
+
+    context = semantic_history.get_relevant(
+        "unrelated", session_tag="other", fall_back=True, distance_threshold=0
+    )
+    assert context == [
+        {"role": "user", "content": "other prompt"},
+        {"role": "llm", "content": "other response"},
+    ]
+
+
+@pytest.mark.requires_hf
 def test_semantic_store_and_get_recent(semantic_history):
     context = semantic_history.get_recent()
     assert len(context) == 0
@@ -524,6 +556,15 @@ def test_semantic_messages_property(semantic_history):
         {"role": "llm", "content": "second response"},
         {"role": "user", "content": "third prompt"},
     ]
+
+
+@pytest.mark.requires_hf
+def test_semantic_messages_property_past_10(semantic_history):
+    messages = _numbered_messages(12)
+    semantic_history.add_messages(messages)
+    assert semantic_history.count() == 12
+
+    assert semantic_history.messages == messages
 
 
 @pytest.mark.requires_hf

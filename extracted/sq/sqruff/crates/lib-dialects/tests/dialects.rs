@@ -561,6 +561,27 @@ fn redshift_rejects_postgres_merge_extensions() {
         "MERGE INTO t USING s ON t.id = s.id WHEN NOT MATCHED THEN DO NOTHING;",
         "MERGE INTO t USING s ON t.id = s.id WHEN NOT MATCHED BY TARGET THEN INSERT VALUES (s.id);",
         "MERGE INTO t USING s ON t.id = s.id WHEN NOT MATCHED BY SOURCE THEN DELETE;",
+        "MERGE INTO t USING s ON t.id = s.id WHEN MATCHED THEN DELETE RETURNING *;",
+    ] {
+        let (tokens, lex_errors) = lexer.lex(&tables, sql);
+        assert!(lex_errors.is_empty(), "{sql}");
+        let tree = parser.parse(&tables, &tokens).unwrap().unwrap();
+        assert!(!check_no_unparsable_segments(&tree).is_empty(), "{sql}");
+    }
+}
+
+#[test]
+fn redshift_rejects_comma_before_select_exclude() {
+    let dialect = kind_to_dialect(&DialectKind::Redshift, None).unwrap();
+    let tables = Tables::default();
+    let lexer = Lexer::from(&dialect);
+    let parser = Parser::from(&dialect);
+
+    // A comma before `SELECT ... EXCLUDE` must not parse as a select item.
+    for sql in [
+        "SELECT *, a, EXCLUDE x FROM tbl;",
+        "SELECT col1, EXCLUDE col2 FROM tbl;",
+        "SELECT col1, EXCLUDE (col2) FROM tbl;",
     ] {
         let (tokens, lex_errors) = lexer.lex(&tables, sql);
         assert!(lex_errors.is_empty(), "{sql}");
@@ -618,6 +639,50 @@ fn snowflake_materialized_view_rejects_invalid_cluster_and_unset_tag() {
         assert!(lex_errors.is_empty(), "{sql}");
         let tree = parser.parse(&tables, &tokens).unwrap().unwrap();
         assert!(!check_no_unparsable_segments(&tree).is_empty(), "{sql}");
+    }
+}
+
+#[test]
+fn snowflake_define_stage_binds_options_to_cloud() {
+    let dialect = kind_to_dialect(&DialectKind::Snowflake, None).unwrap();
+    let tables = Tables::default();
+    let lexer = Lexer::from(&dialect);
+    let parser = Parser::from(&dialect);
+
+    for (sql, valid) in [
+        (
+            "DEFINE STAGE s URL = 's3://bucket/' DIRECTORY = (ENABLE = TRUE NOTIFICATION_INTEGRATION = notifications);",
+            false,
+        ),
+        (
+            "DEFINE STAGE s URL = 'gcs://bucket/' CREDENTIALS = (AWS_ROLE = 'role');",
+            false,
+        ),
+        (
+            "DEFINE STAGE s URL = 'azure://account.blob.core.windows.net/container/' CREDENTIALS = (AWS_ROLE = 'role');",
+            false,
+        ),
+        (
+            "DEFINE STAGE s URL = $STAGE_URL CREDENTIALS = (AWS_ROLE = 'role');",
+            true,
+        ),
+        (
+            "DEFINE STAGE s URL = $STAGE_URL DIRECTORY = (ENABLE = TRUE NOTIFICATION_INTEGRATION = notifications);",
+            true,
+        ),
+        (
+            "DEFINE STAGE s URL = $STAGE_URL CREDENTIALS = (AZURE_SAS_TOKEN = 'token');",
+            true,
+        ),
+    ] {
+        let (tokens, lex_errors) = lexer.lex(&tables, sql);
+        assert!(lex_errors.is_empty(), "{sql}");
+        let tree = parser.parse(&tables, &tokens).unwrap().unwrap();
+        assert_eq!(
+            check_no_unparsable_segments(&tree).is_empty(),
+            valid,
+            "{sql}"
+        );
     }
 }
 
@@ -872,6 +937,16 @@ fn bracketed_matching_modes() {
         ("( a )", ParseMode::Strict, true, true, 1),
         ("(a b)", ParseMode::Strict, true, true, 0),
         ("(a b)", ParseMode::Greedy, true, true, 1),
+        // Empty brackets shouldn't match if the content grammar contains
+        // required elements. The same applies in GREEDY mode: by not
+        // matching, we allow any other grammars which *can* match empty
+        // brackets to be tried, or the surrounding grammar to mark the
+        // section as unparsable.
+        // https://github.com/sqlfluff/sqlfluff/issues/8368
+        ("()", ParseMode::Strict, true, true, 0),
+        ("( )", ParseMode::Strict, true, true, 0),
+        ("()", ParseMode::Greedy, true, true, 0),
+        ("( )", ParseMode::Greedy, true, true, 0),
     ] {
         let tables = Tables::default();
         let (segments, errors) = Lexer::from(&dialect).lex(&tables, sql);

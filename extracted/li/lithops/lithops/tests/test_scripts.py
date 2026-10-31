@@ -15,6 +15,7 @@
 import os
 import pickle
 import sys
+import time
 from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -124,6 +125,27 @@ class TestCliHelpers:
         ]
         sorted_rows = _localize_and_sort_rows(rows, 1)
         assert sorted_rows[0][0] == 'a'
+
+    @pytest.mark.skipif(not hasattr(time, 'tzset'), reason='time.tzset() is POSIX only')
+    def test_localize_rows_uses_the_local_time_zone(self, monkeypatch):
+        """
+        The times used to stay in UTC unless pytz and tzlocal, which are not
+        dependencies of Lithops, happened to be installed
+        """
+        monkeypatch.setenv('TZ', 'Europe/Madrid')
+        time.tzset()
+        try:
+            rows = _localize_and_sort_rows([
+                ['summer', '2024-07-01 10:00:00 UTC'],
+                ['winter', '2024-01-01 10:00:00 UTC'],
+            ], 1)
+        finally:
+            monkeypatch.undo()
+            time.tzset()
+        assert rows == [
+            ['winter', '2024-01-01 11:00:00 CET'],
+            ['summer', '2024-07-01 12:00:00 CEST'],
+        ]
 
 
 class TestStorageCommands:
@@ -309,6 +331,24 @@ class TestHelloAndClean:
         cli_module._clean_local_temp_data()
 
         assert missing.is_dir()
+
+
+class TestRuntimeUpdate:
+
+    def test_update_caches_the_runtime_timeout_like_deploy(self):
+        # job.py reads runtime_timeout from the cached metadata
+        handler = MagicMock()
+        handler.get_runtime_info.return_value = {'runtime_name': 'rt', 'runtime_timeout': 600}
+        handler.list_runtimes.return_value = [('rt', 256, cli_module.__version__, 'w')]
+        handler.get_runtime_key.return_value = 'key'
+        handler.deploy_runtime.return_value = {'preinstalls': []}
+        internal_storage = MagicMock()
+        with patch('lithops.scripts.cli._prepare_serverless', return_value=(handler, internal_storage)):
+            result = _cli('runtime', 'update', 'rt')
+        assert result.exit_code == 0, result.output
+        internal_storage.put_runtime_meta.assert_called_once_with(
+            'key', {'preinstalls': [], 'runtime_timeout': 600}
+        )
 
 
 class TestJobWorkerList:

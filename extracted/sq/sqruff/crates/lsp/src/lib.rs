@@ -19,8 +19,6 @@ use lsp_types::{
     Uri, VersionedTextDocumentIdentifier,
 };
 use serde_json::Value;
-#[cfg(not(target_arch = "wasm32"))]
-use sqruff_lib::core::config::ConfigLoader;
 use sqruff_lib::core::config::FluffConfig;
 use sqruff_lib::core::linter::core::Linter;
 #[cfg(not(target_arch = "wasm32"))]
@@ -28,21 +26,26 @@ use sqruff_lib::ignore::IgnoreFile;
 use sqruff_lib::templaters::RAW_TEMPLATER;
 use wasm_bindgen::prelude::*;
 
+/// Configuration discovery policy retained for initialization and reloads.
+#[derive(Default)]
+pub struct ConfigOptions {
+    pub extra_config_path: Option<String>,
+    pub ignore_local_config: bool,
+}
+
 #[cfg(not(target_arch = "wasm32"))]
-fn load_config(root: Option<&Path>) -> FluffConfig {
-    if let Some(root) = root {
-        let loader = ConfigLoader {};
-        loader
-            .try_load_config_at_path(root)
-            .map(|config| FluffConfig::new(config, None, None))
-            .unwrap_or_default()
-    } else {
-        FluffConfig::from_root(None, false, None).unwrap_or_default()
-    }
+fn load_config(root: Option<&Path>, options: &ConfigOptions) -> FluffConfig {
+    FluffConfig::from_path(
+        root.unwrap_or_else(|| Path::new(".")),
+        options.extra_config_path.clone(),
+        options.ignore_local_config,
+        None,
+    )
+    .unwrap_or_default()
 }
 
 #[cfg(target_arch = "wasm32")]
-fn load_config(_root: Option<&Path>) -> FluffConfig {
+fn load_config(_root: Option<&Path>, _options: &ConfigOptions) -> FluffConfig {
     FluffConfig::default()
 }
 
@@ -69,6 +72,7 @@ pub struct LanguageServer {
     linter: Linter,
     send_diagnostics_callback: Box<dyn Fn(PublishDiagnosticsParams)>,
     documents: HashMap<Uri, String>,
+    config_options: ConfigOptions,
     #[cfg(not(target_arch = "wasm32"))]
     workspace_root: PathBuf,
     #[cfg(not(target_arch = "wasm32"))]
@@ -138,11 +142,12 @@ impl Wasm {
 
 impl LanguageServer {
     pub fn new(send_diagnostics_callback: impl Fn(PublishDiagnosticsParams) + 'static) -> Self {
-        Self::new_with_workspace_root(None, send_diagnostics_callback)
+        Self::new_with_workspace_root(None, ConfigOptions::default(), send_diagnostics_callback)
     }
 
     fn new_with_workspace_root(
         workspace_root: Option<PathBuf>,
+        config_options: ConfigOptions,
         send_diagnostics_callback: impl Fn(PublishDiagnosticsParams) + 'static,
     ) -> Self {
         #[cfg(not(target_arch = "wasm32"))]
@@ -150,19 +155,20 @@ impl LanguageServer {
             .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
 
         #[cfg(not(target_arch = "wasm32"))]
-        let config = load_config(Some(&workspace_root));
+        let config = load_config(Some(&workspace_root), &config_options);
 
         #[cfg(target_arch = "wasm32")]
         let _ = workspace_root;
 
         #[cfg(target_arch = "wasm32")]
-        let config = load_config(None);
+        let config = load_config(None, &config_options);
 
         let templater = Linter::get_templater(&config).unwrap_or(&RAW_TEMPLATER);
         Self {
             linter: Linter::new(config, None, Some(templater), false).unwrap(),
             send_diagnostics_callback: Box::new(send_diagnostics_callback),
             documents: HashMap::new(),
+            config_options,
             #[cfg(not(target_arch = "wasm32"))]
             ignore_file: load_ignore_file(&workspace_root),
             #[cfg(not(target_arch = "wasm32"))]
@@ -280,7 +286,16 @@ impl LanguageServer {
                 let params: DidSaveTextDocumentParams = serde_json::from_value(params).unwrap();
                 let uri = params.text_document.uri.as_str();
 
-                if uri.ends_with(".sqlfluff") || uri.ends_with(".sqruff") {
+                if [
+                    ".sqlfluff",
+                    ".sqruff",
+                    ".sqruff.ini",
+                    "sqruff.toml",
+                    "pyproject.toml",
+                ]
+                .iter()
+                .any(|name| uri.rsplit('/').next() == Some(name))
+                {
                     if self.reload_config() {
                         self.recheck_files();
                     }
@@ -364,12 +379,12 @@ impl LanguageServer {
         let new_config = {
             #[cfg(not(target_arch = "wasm32"))]
             {
-                load_config(Some(&self.workspace_root))
+                load_config(Some(&self.workspace_root), &self.config_options)
             }
 
             #[cfg(target_arch = "wasm32")]
             {
-                load_config(None)
+                load_config(None, &self.config_options)
             }
         };
 
@@ -399,6 +414,10 @@ fn load_ignore_file(root: &Path) -> IgnoreFile {
 }
 
 pub fn run() {
+    run_with_config_options(ConfigOptions::default());
+}
+
+pub fn run_with_config_options(config_options: ConfigOptions) {
     let (connection, io_threads) = Connection::stdio();
     let (id, params) = connection.initialize_start().unwrap();
 
@@ -406,18 +425,22 @@ pub fn run() {
     let initialize_result = serde_json::to_value(server_initialize_result()).unwrap();
     connection.initialize_finish(id, initialize_result).unwrap();
 
-    main_loop(connection, init_param);
+    main_loop(connection, init_param, config_options);
 
     io_threads.join().unwrap();
 }
 
-fn main_loop(connection: Connection, init_param: InitializeParams) {
+fn main_loop(connection: Connection, init_param: InitializeParams, config_options: ConfigOptions) {
     let sender = connection.sender.clone();
     let workspace_root = workspace_root_from_initialize(&init_param);
-    let mut lsp = LanguageServer::new_with_workspace_root(workspace_root, move |diagnostics| {
-        let notification = new_notification::<PublishDiagnostics>(diagnostics);
-        sender.send(Message::Notification(notification)).unwrap();
-    });
+    let mut lsp = LanguageServer::new_with_workspace_root(
+        workspace_root,
+        config_options,
+        move |diagnostics| {
+            let notification = new_notification::<PublishDiagnostics>(diagnostics);
+            sender.send(Message::Notification(notification)).unwrap();
+        },
+    );
 
     let params = save_registration_options();
     connection
@@ -586,6 +609,21 @@ pub fn save_registration_options() -> lsp_types::RegistrationParams {
                 lsp_types::DocumentFilter {
                     language: None,
                     scheme: None,
+                    pattern: Some("**/.sqruff.ini".into()),
+                },
+                lsp_types::DocumentFilter {
+                    language: None,
+                    scheme: None,
+                    pattern: Some("**/sqruff.toml".into()),
+                },
+                lsp_types::DocumentFilter {
+                    language: None,
+                    scheme: None,
+                    pattern: Some("**/pyproject.toml".into()),
+                },
+                lsp_types::DocumentFilter {
+                    language: None,
+                    scheme: None,
                     pattern: Some("**/.sqruffignore".into()),
                 },
             ]),
@@ -665,12 +703,94 @@ mod tests {
     fn diagnostics_lsp(root: &Path) -> (LanguageServer, Arc<Mutex<Vec<PublishDiagnosticsParams>>>) {
         let diagnostics = Arc::new(Mutex::new(Vec::new()));
         let sent_diagnostics = Arc::clone(&diagnostics);
-        let lsp =
-            LanguageServer::new_with_workspace_root(Some(root.to_path_buf()), move |params| {
-                sent_diagnostics.lock().unwrap().push(params)
-            });
+        let lsp = LanguageServer::new_with_workspace_root(
+            Some(root.to_path_buf()),
+            ConfigOptions::default(),
+            move |params| sent_diagnostics.lock().unwrap().push(params),
+        );
 
         (lsp, diagnostics)
+    }
+
+    #[test]
+    fn documents_use_nested_and_other_workspace_configs() {
+        let root = TempRoot::new();
+        let other = TempRoot::new();
+        let nested = root.path.join("nested");
+        fs::create_dir(&nested).unwrap();
+        fs::write(root.path.join(".sqruff"), "[sqruff]\nrules = CP01\n[sqruff:rules:capitalisation.keywords]\ncapitalisation_policy = lower\n").unwrap();
+        fs::write(
+            nested.join(".sqruff"),
+            "[sqruff:rules:capitalisation.keywords]\ncapitalisation_policy = upper\n",
+        )
+        .unwrap();
+        fs::write(other.path.join("sqruff.toml"), "[tool.sqlfluff.core]\nrules = 'CP01'\n[tool.sqlfluff.rules.capitalisation.keywords]\ncapitalisation_policy = 'upper'\n").unwrap();
+        let (mut lsp, diagnostics) = diagnostics_lsp(&root.path);
+        for dir in [&nested, &other.path] {
+            let path = dir.join("query.sql");
+            fs::write(&path, "select 1;\n").unwrap();
+            let uri = path_to_uri(&path);
+            lsp.on_notification(DidOpenTextDocument::METHOD, serde_json::json!({
+                "textDocument": {"uri": uri, "languageId": "sql", "version": 1, "text": "select 1;\n"}
+            }));
+            assert_eq!(
+                diagnostics
+                    .lock()
+                    .unwrap()
+                    .last()
+                    .unwrap()
+                    .diagnostics
+                    .len(),
+                1
+            );
+            assert_eq!(lsp.format(uri)[0].new_text, "SELECT 1;\n");
+        }
+    }
+
+    #[test]
+    fn saving_nested_toml_rechecks_documents_with_new_config() {
+        let root = TempRoot::new();
+        let nested = root.path.join("nested");
+        fs::create_dir(&nested).unwrap();
+        let config = nested.join("sqruff.toml");
+        let write_config = |policy| {
+            fs::write(&config, format!("[tool.sqlfluff.core]\nrules = 'CP01'\n[tool.sqlfluff.rules.capitalisation.keywords]\ncapitalisation_policy = '{policy}'\n")).unwrap()
+        };
+        write_config("upper");
+        let sql = nested.join("query.sql");
+        fs::write(&sql, "select 1;\n").unwrap();
+        let uri = path_to_uri(&sql);
+        let (mut lsp, diagnostics) = diagnostics_lsp(&root.path);
+        lsp.on_notification(DidOpenTextDocument::METHOD, serde_json::json!({
+            "textDocument": {"uri": uri, "languageId": "sql", "version": 1, "text": "select 1;\n"}
+        }));
+        assert_eq!(
+            diagnostics
+                .lock()
+                .unwrap()
+                .last()
+                .unwrap()
+                .diagnostics
+                .len(),
+            1
+        );
+        write_config("lower");
+        lsp.on_notification(
+            DidSaveTextDocument::METHOD,
+            serde_json::json!({
+                "textDocument": {"uri": path_to_uri(&config)}
+            }),
+        );
+        assert!(
+            diagnostics
+                .lock()
+                .unwrap()
+                .last()
+                .unwrap()
+                .diagnostics
+                .is_empty()
+        );
+        assert_eq!(lsp.format(uri)[0].new_text, "select 1;\n");
     }
 
     #[test]
@@ -681,6 +801,29 @@ mod tests {
         let (lsp, _) = diagnostics_lsp(&root.path);
 
         assert_eq!(lsp.linter.config().dialect_kind().as_ref(), "postgres");
+    }
+
+    #[test]
+    fn config_reload_retains_discovery_policy_and_explicit_config() {
+        let root = TempRoot::new();
+        fs::write(root.path.join("sqruff.toml"), "invalid toml [").unwrap();
+        let extra = root.path.join("extra.cfg");
+        fs::write(&extra, "[sqruff]\ndialect = postgres\n").unwrap();
+        let mut lsp = LanguageServer::new_with_workspace_root(
+            Some(root.path.clone()),
+            ConfigOptions {
+                extra_config_path: Some(extra.to_string_lossy().into_owned()),
+                ignore_local_config: true,
+            },
+            |_| {},
+        );
+        assert_eq!(lsp.linter.config().dialect_kind().as_ref(), "postgres");
+        assert!(lsp.linter.config().ignore_local_config());
+
+        fs::write(&extra, "[sqruff]\ndialect = sqlite\n").unwrap();
+        assert!(lsp.reload_config());
+        assert_eq!(lsp.linter.config().dialect_kind().as_ref(), "sqlite");
+        assert!(lsp.linter.config().ignore_local_config());
     }
 
     #[test]

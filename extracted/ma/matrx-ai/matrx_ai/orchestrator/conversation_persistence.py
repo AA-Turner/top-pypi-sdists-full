@@ -141,13 +141,13 @@ def _text_of(message: Any) -> Any:
     if isinstance(content, str):
         return content
     if isinstance(content, list):
-        parts = [
-            (b.get("text", "") if isinstance(b, dict) else getattr(b, "text", ""))
-            for b in content
-            if (isinstance(b, dict) and b.get("type") == "text") or hasattr(b, "text")
-        ]
-        if parts:
-            return "".join(parts)
+        # Text blocks only: a ``thinking`` block keeps the model's reasoning under ``text`` and a
+        # history read back to a caller is what was SAID.
+        from matrx_ai.config.message_config import content_text
+
+        text = content_text(content, sep="")
+        if text:
+            return text
     return content
 
 

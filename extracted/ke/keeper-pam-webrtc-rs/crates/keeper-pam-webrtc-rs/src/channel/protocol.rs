@@ -1052,6 +1052,14 @@ impl Channel {
                     self.channel_id, target_connection_no, self.conversation_id
                 );
 
+                // A reused conn_no may still carry the closed markers from its previous
+                // life; left in place they reject this connection's traffic and suppress
+                // its close notification. The locally acknowledged path clears them too.
+                self.webrtc.failed_connections.remove(&target_connection_no);
+                self.webrtc
+                    .notified_connections
+                    .remove(&target_connection_no);
+
                 // Send ConnectionOpened event to Python handler
                 if let Some(ref tx) = self.python_handler_tx {
                     if tx
@@ -1667,5 +1675,63 @@ mod tests {
     fn parse_totp_uri_no_query_string_returns_none() {
         let uri = "otpauth://totp/Example";
         assert!(parse_totp_uri(uri).is_none());
+    }
+
+    /// A conn_no reused after a close must not keep the closed markers, or its
+    /// traffic is rejected and its close is never reported to Python.
+    #[tokio::test]
+    async fn python_handler_remote_reopen_clears_closed_markers() {
+        use crate::channel::core::{Channel, ChannelParams, PythonHandlerMessage};
+        use parking_lot::Mutex;
+        use std::collections::HashMap;
+        use std::sync::Arc;
+        use tokio::sync::mpsc;
+
+        let webrtc = crate::tests::common_tests::create_test_webrtc_data_channel().await;
+        webrtc.set_test_send_hook(|_| Box::pin(async {}));
+        let (py_tx, mut py_rx) = mpsc::channel::<PythonHandlerMessage>(8);
+        let (to_channel_tx, to_channel_rx) = mpsc::unbounded_channel();
+        let mut settings = HashMap::new();
+        settings.insert(
+            "conversationType".to_string(),
+            serde_json::json!("python_handler"),
+        );
+        let mut channel = Channel::new(ChannelParams {
+            webrtc: webrtc.clone(),
+            rx_from_dc: to_channel_rx,
+            tx_from_dc: Arc::new(Mutex::new(Some(to_channel_tx))),
+            channel_id: "python-handler-reopen".to_string(),
+            conversation_id: "python-handler-reopen".to_string(),
+            timeouts: None,
+            protocol_settings: settings,
+            server_mode: false,
+            shutdown_notify: Arc::new(tokio::sync::Notify::new()),
+            callback_token: None,
+            ksm_config: None,
+            client_version: "test".to_string(),
+            capabilities: crate::tube_protocol::Capabilities::NONE,
+            python_handler_tx: Some(py_tx),
+            handler_registry: None,
+            spawned_task_completion_tx: Arc::new(mpsc::unbounded_channel().0),
+            video_output: None,
+        })
+        .await
+        .expect("channel");
+
+        // conn_no 7 was used before and closed.
+        channel.webrtc.failed_connections.insert(7);
+        channel.webrtc.notified_connections.insert(7);
+
+        channel
+            .handle_open_connection(&7u32.to_be_bytes())
+            .await
+            .expect("remote OpenConnection");
+
+        assert!(matches!(
+            py_rx.try_recv(),
+            Ok(PythonHandlerMessage::ConnectionOpened { conn_no: 7 })
+        ));
+        assert!(!channel.webrtc.failed_connections.contains(&7));
+        assert!(!channel.webrtc.notified_connections.contains(&7));
     }
 }

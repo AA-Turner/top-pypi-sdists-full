@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import os
+import socket
 import sys
 from contextlib import contextmanager
+from http.client import HTTPResponse
 from io import BytesIO
-from typing import IO, TYPE_CHECKING, Any
+from typing import IO, TYPE_CHECKING, Any, Final
 
 import pytest
 
@@ -413,6 +415,29 @@ def test_req_file(tmp_path: Path, req: str, opts: dict[str, Any], requirements: 
     assert found == requirements
 
 
+@pytest.mark.parametrize(
+    ("requirement", "expected"),
+    [
+        pytest.param("./a/b", f"a{os.sep}b", id="nested-path"),
+        pytest.param("./--log=outside/sentinel", f".{os.sep}--log=outside{os.sep}sentinel", id="option-like-path"),
+        pytest.param(
+            "a/../--report=outside/sentinel",
+            f".{os.sep}--report=outside{os.sep}sentinel",
+            id="resolved-option-like-path",
+        ),
+        pytest.param(
+            "a/../-routside/sentinel",
+            f".{os.sep}-routside{os.sep}sentinel",
+            id="resolved-short-option-like-path",
+        ),
+    ],
+)
+def test_local_requirement_remains_a_path(tmp_path: Path, requirement: str, expected: str) -> None:
+    requirements_file: Final[Path] = tmp_path / "req.txt"
+    requirements_file.write_text(requirement)
+    assert RequirementsFile(requirements_file, constraint=False).as_root_args == [expected]
+
+
 def test_requirements_env_var_present(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("ENV_VAR", "beta")
     requirements_file = tmp_path / "req.txt"
@@ -431,6 +456,18 @@ def test_requirements_env_var_missing(monkeypatch: MonkeyPatch, tmp_path: Path) 
     assert vars(req_file.options) == {}
     found = [str(i) for i in req_file.requirements]
     assert found == [f".{os.sep}${{ENV_VAR}}"]
+
+
+def test_requirements_env_var_from_environment_provider(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("ENV_VAR", "host")
+    monkeypatch.setenv("OTHER_VAR", "host")
+    (tmp_path / "nested.txt").write_text("${OTHER_VAR}")
+    requirements_file: Final[Path] = tmp_path / "req.txt"
+    requirements_file.write_text("${ENV_VAR} >= 1\n-r nested.txt")
+    req_file: Final[RequirementsFile] = RequirementsFile(
+        requirements_file, constraint=False, environment_provider=lambda: {"ENV_VAR": "beta"}
+    )
+    assert [str(item) for item in req_file.requirements] == ["beta>=1", f".{os.sep}${{OTHER_VAR}}"]
 
 
 @pytest.mark.parametrize("flag", ["-r", "--requirement"])
@@ -466,6 +503,15 @@ def test_bad_line(tmp_path: Path, raw: str, capfd: CaptureFixture, error: str) -
     out, err = capfd.readouterr()
     assert not out
     assert not err
+
+
+def test_bad_line_masks_secret_flag(tmp_path: Path) -> None:
+    requirements_file: Final = tmp_path / "req.txt"
+    requirements_file.write_text("--api-token=hunter2")
+    with pytest.raises(ValueError, match="unrecognized arguments") as error:
+        _ = RequirementsFile(requirements_file, constraint=False).options
+    assert "--api-token=*******" in str(error.value)
+    assert "hunter2" not in str(error.value)
 
 
 def test_requirements_file_missing(tmp_path: Path) -> None:
@@ -572,6 +618,46 @@ def test_req_over_http(tmp_path: Path, flag: str, mocker: MockerFixture) -> None
     assert found == [f"{'-c ' if is_constraint else ''}a"]
     # urlopen must be called with a timeout to avoid hanging on slow / unresponsive mirrors
     assert url_open.call_args.kwargs.get("timeout") is not None
+
+
+def test_req_file_over_size_limit(tmp_path: Path) -> None:
+    (tmp_path / "big.txt").write_bytes(b"a" * (10 * 1024 * 1024 + 1))
+    requirements_txt: Final[Path] = tmp_path / "req.txt"
+    requirements_txt.write_text("-c big.txt")
+    with pytest.raises(ValueError, match=r"big\.txt exceeds the 10485760 byte limit"):
+        _ = RequirementsFile(requirements_txt, constraint=False).requirements
+
+
+def test_req_file_at_size_limit(tmp_path: Path) -> None:
+    requirements_txt: Final[Path] = tmp_path / "req.txt"
+    requirements_txt.write_bytes(b"#" * (10 * 1024 * 1024 - len(b"\nvalid\n")) + b"\nvalid\n")
+    assert [str(requirement) for requirement in RequirementsFile(requirements_txt, constraint=False).requirements] == [
+        "valid"
+    ]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="/dev/zero is a POSIX device")
+def test_req_file_endless_stream_is_bounded(tmp_path: Path) -> None:
+    requirements_txt: Final[Path] = tmp_path / "req.txt"
+    requirements_txt.write_text("-c /dev/zero")
+    with pytest.raises(ValueError, match="exceeds the 10485760 byte limit"):
+        _ = RequirementsFile(requirements_txt, constraint=False).requirements
+
+
+def test_req_over_http_slow_drip_hits_deadline(tmp_path: Path, mocker: MockerFixture) -> None:
+    requirements_txt: Final[Path] = tmp_path / "req.txt"
+    requirements_txt.write_text("-c https://user:hunter2@example.com/c.txt")
+    reader, writer = socket.socketpair()
+    with reader, writer:
+        reader.settimeout(0.05)
+        writer.sendall(b"HTTP/1.1 200 OK\r\n\r\n#")
+        response: Final[HTTPResponse] = HTTPResponse(reader)
+        response.begin()
+        mocker.patch("tox.tox_env.python.pip.req.file.urlopen", autospec=True, return_value=response)
+        mocker.patch("tox.tox_env.python.pip.req.file.monotonic", side_effect=[0, 121])
+        with pytest.raises(ValueError, match=r"https://example\.com/c\.txt took longer than 120 seconds") as exc:
+            _ = RequirementsFile(requirements_txt, constraint=False).requirements
+        assert "hunter2" not in str(exc.value)
 
 
 def test_req_over_http_has_req(tmp_path: Path, mocker: MockerFixture) -> None:

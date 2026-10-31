@@ -2,8 +2,6 @@
 Core cron schedule DSL functionality
 """
 
-from __future__ import annotations
-
 from typing import NamedTuple
 import hashlib
 

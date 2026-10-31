@@ -1,8 +1,9 @@
 Metadata-Version: 2.4
 Name: lithops
-Version: 3.8.0
+Version: 3.9.0
 Summary: Run unmodified Python code at massive scale on any cloud, with no servers to manage
-Author-email: Gil Vernik <gilv@ibm.com>, Josep Sampe <josep.sampe@gmail.com>
+Author: Gil Vernik, Josep Sampe
+Author-email: gilv@ibm.com, josep.sampe@gmail.com
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/lithops-cloud/lithops
 Project-URL: Documentation, https://lithops-cloud.github.io/docs/
@@ -108,6 +109,14 @@ Requires-Dist: opentelemetry-exporter-otlp-proto-http; extra == "telemetry"
 Provides-Extra: dev
 Requires-Dist: ruff<0.17,>=0.16; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: myst-parser; extra == "docs"
+Requires-Dist: sphinx-copybutton; extra == "docs"
+Requires-Dist: nbsphinx; extra == "docs"
+Requires-Dist: ipykernel; extra == "docs"
+Requires-Dist: sphinx-book-theme; extra == "docs"
+Requires-Dist: sphinxcontrib-mermaid; extra == "docs"
 Provides-Extra: all
 Requires-Dist: alibabacloud-fc20230330>=4.7.0; extra == "all"
 Requires-Dist: azure-identity; extra == "all"

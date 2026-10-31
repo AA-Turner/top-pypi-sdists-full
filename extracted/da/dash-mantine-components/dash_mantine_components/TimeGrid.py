@@ -198,12 +198,18 @@ Keyword arguments:
     Margin inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- mie (number; optional):
+    MarginInlineEnd, theme key: theme.spacing.
+
 - mih (string | number | dict; optional):
     Minimum height – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
 
 - minTime (string; optional):
     All controls before this time are disabled.
+
+- mis (number; optional):
+    MarginInlineStart, theme key: theme.spacing.
 
 - miw (string | number | dict; optional):
     Minimum width – Accepts theme spacing keys, CSS values, or a dict
@@ -272,6 +278,12 @@ Keyword arguments:
     memory, reset on page refresh. local: window.localStorage, data is
     kept after the browser quit. session: window.sessionStorage, data
     is cleared once the browser quit.
+
+- pie (number; optional):
+    PaddingInlineEnd, theme key: theme.spacing.
+
+- pis (number; optional):
+    PaddingInlineStart, theme key: theme.spacing.
 
 - pl (string | number | dict; optional):
     Padding left – Accepts theme spacing keys, CSS values, or a dict
@@ -481,6 +493,10 @@ Keyword arguments:
         style: typing.Optional[typing.Any] = None,
         lightHidden: typing.Optional[bool] = None,
         darkHidden: typing.Optional[bool] = None,
+        mis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        mie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         classNames: typing.Optional[dict] = None,
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
@@ -488,9 +504,9 @@ Keyword arguments:
         attributes: typing.Optional[typing.Any] = None,
         **kwargs
     ):
-        self._prop_names = ['id', 'allowDeselect', 'amPmLabels', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data', 'data-*', 'defaultValue', 'disableTime', 'disabled', 'display', 'ff', 'flex', 'format', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inset', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxTime', 'mb', 'me', 'mih', 'minTime', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'right', 'simpleGridProps', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'timeRangeData', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withSeconds']
+        self._prop_names = ['id', 'allowDeselect', 'amPmLabels', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data', 'data-*', 'defaultValue', 'disableTime', 'disabled', 'display', 'ff', 'flex', 'format', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inset', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxTime', 'mb', 'me', 'mie', 'mih', 'minTime', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pie', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'right', 'simpleGridProps', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'timeRangeData', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withSeconds']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['id', 'allowDeselect', 'amPmLabels', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data', 'data-*', 'defaultValue', 'disableTime', 'disabled', 'display', 'ff', 'flex', 'format', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inset', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxTime', 'mb', 'me', 'mih', 'minTime', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'right', 'simpleGridProps', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'timeRangeData', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withSeconds']
+        self.available_properties = ['id', 'allowDeselect', 'amPmLabels', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data', 'data-*', 'defaultValue', 'disableTime', 'disabled', 'display', 'ff', 'flex', 'format', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inset', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxTime', 'mb', 'me', 'mie', 'mih', 'minTime', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pie', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'right', 'simpleGridProps', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'timeRangeData', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withSeconds']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

@@ -79,6 +79,50 @@ TIntStr = TypeVar("TIntStr", int, str)
 DataFrameGetOptions = TypeVar("DataFrameGetOptions", bool, Filter, Underscore, FeatureWrapper, Feature, str)
 
 
+class ForRelationship:
+    """Names the has-many relationship that the rows of a `DataFrame[...]` annotation belong to.
+
+    Create it with `for_relationship(...)`, as the first item of the subscript."""
+
+    __slots__ = ("feature",)
+
+    def __init__(self, feature: Feature):
+        super().__init__()
+        self.feature = feature
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, ForRelationship) and self.feature == other.feature
+
+    def __hash__(self) -> int:
+        return hash(("for_relationship", self.feature))
+
+    def __repr__(self) -> str:
+        return f"for_relationship({self.feature.root_fqn})"
+
+
+def for_relationship(relationship: Any) -> ForRelationship:
+    """Declare which has-many relationship the rows of a resolver's output `DataFrame` belong to.
+
+    When two has-manys connect the same pair of feature classes, the output columns alone do not say which
+    relationship a resolver fills, so name it as the first item of the annotation:
+
+    ```python
+    @offline
+    def get_sending(users: DataFrame[Index, User.id]) -> DataFrame[
+        for_relationship(User.sent), Index, Transaction.id, Transaction.amount
+    ]:
+        ...
+    ```
+    """
+    # Only a feature reference names a relationship; a string would be looked up in the feature registry instead.
+    feature = unwrap_feature(relationship) if isinstance(relationship, (FeatureWrapper, Feature)) else None
+    if feature is None or not feature.is_has_many:
+        raise TypeError(
+            f"for_relationship(...) takes a has-many feature, such as User.transactions, not {relationship!r}."
+        )
+    return ForRelationship(feature)
+
+
 class DataFrameMeta(type):
     def __getitem__(cls, item: Any) -> Type[DataFrame]:
         from chalk.features.feature_set import Features
@@ -88,6 +132,21 @@ class DataFrameMeta(type):
         cls = cast(Type[DataFrame], cls)
 
         item = ensure_tuple(item)
+
+        relationship_positions = [i for i, x in enumerate(item) if isinstance(x, ForRelationship)]
+        if len(relationship_positions) > 1:
+            raise TypeError(f"for_relationship(...) can appear at most once in {cls.__name__}[...].")
+        if relationship_positions and relationship_positions[0] != 0:
+            raise TypeError(f"for_relationship(...) must be the first item in {cls.__name__}[...].")
+        relationship = cls.__relationship__
+        if relationship_positions:
+            if relationship is not None:
+                raise TypeError(
+                    f"{cls.__name__} already belongs to for_relationship({relationship.root_fqn}); "
+                    + "it cannot be given another relationship."
+                )
+            relationship = item[0].feature
+            item = item[1:]
 
         # Disallow string annotations like DataFrame["User"].
         # Instead, the entire thing should be in quotes -- like "DataFrame[User]"
@@ -163,6 +222,7 @@ class DataFrameMeta(type):
             __references_feature_set__ = new_references_feature_set
             __pydantic_model__ = pydantic_model
             __limit__ = limit
+            __relationship__ = relationship
 
             def __eq__(self, other: object):
                 if not isinstance(other, SubclassedDataFrame):
@@ -186,6 +246,8 @@ class DataFrameMeta(type):
     def __repr__(cls):
         cls = cast(Type[DataFrame], cls)
         elements = [str(x) for x in (*cls.filters, *cls.columns)]
+        if cls.__relationship__ is not None:
+            elements.insert(0, f"for_relationship({cls.__relationship__.root_fqn})")
         if cls.__pydantic_model__:
             return f"DataFrame[{', '.join(elements)}], model={cls.__pydantic_model__}"
         return f"DataFrame[{', '.join(elements)}]"
@@ -263,6 +325,8 @@ class DataFrame(metaclass=DataFrameMeta):
     __pydantic_model__: "ClassVar[Optional[Type[BaseModel]]]" = None
     __limit__: int | None = None
     """The maximum number of rows to return"""
+    __relationship__: ClassVar[Feature | None] = None
+    """The has-many relationship the rows belong to, if declared with `for_relationship(...)`"""
 
     if TYPE_CHECKING:
 

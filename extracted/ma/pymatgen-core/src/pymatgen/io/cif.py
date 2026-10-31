@@ -226,9 +226,9 @@ class CifBlock:
                         break
                     items.append("".join(deq.popleft()))
 
+                if len(items) % len(columns) != 0:
+                    raise ValueError(f"{len(items)=} is not a multiple of {len(columns)=}")
                 n = len(items) // len(columns)
-                if len(items) % n != 0:
-                    raise ValueError(f"{len(items)=} is not a multiple of {n=}")
                 loops.append(columns)
                 for k, v in zip(columns * n, items, strict=True):
                     data[k].append(v.strip())
@@ -530,14 +530,13 @@ class CifParser:
 
                     idxs_to_remove.append(idx)
 
-            # Remove the original row by iterating over all keys in the CIF
-            # data looking for lists, which indicates
-            # multiple data items, one for each row, and remove items from the
-            # list that corresponds to the removed row,
+            # Remove the original row from every column of the _atom_site loop,
             # so that it's not processed by the rest of this function (which
-            # would result in an error).
-            for original_key in data.data:
-                if isinstance(data.data[original_key], list):
+            # would result in an error). Columns of other loops (e.g. symmetry
+            # operations) are indexed independently and must be left untouched.
+            atom_site_keys = next((loop for loop in data.loops if "_atom_site_label" in loop), [])
+            for original_key in atom_site_keys:
+                if isinstance(data.data.get(original_key), list):
                     for idx in sorted(idxs_to_remove, reverse=True):
                         del data.data[original_key][idx]
 
@@ -601,22 +600,24 @@ class CifParser:
             for final_key, interim_key in changes_to_make.items():
                 data.data[final_key] = data.data[interim_key]
 
-        # Check for finite precision coordinates (e.g. 0.6667 instead of 0.6666666...),
+        # Check for finite precision coordinates close to fractional thirds (e. g. 0.667),
         # which can cause issues when applying symmetry operations.
-        important_fracs = (1 / 3, 2 / 3)
-        fracs_to_change = {}
+        fracs_to_change: dict[tuple[str, int], str] = {}
         for label in ("_atom_site_fract_x", "_atom_site_fract_y", "_atom_site_fract_z"):
-            if label in data.data:
-                for idx, frac in enumerate(data.data[label]):
-                    try:
-                        frac = str2float(frac)
-                    except Exception:
-                        # Coordinate might not be defined, e.g. '?'
-                        continue
+            if label not in data.data:
+                continue
+            for idx, value in enumerate(data.data[label]):
+                try:
+                    frac = str2float(value)
+                except ValueError:
+                    # Coordinate might not be defined, e.g. '?'
+                    continue
 
-                    for comparison_frac in important_fracs:
-                        if math.isclose(frac / comparison_frac, 1, abs_tol=self._frac_tolerance, rel_tol=0):
-                            fracs_to_change[label, idx] = str(comparison_frac)
+                thirds_index = round(3 * frac)
+                if thirds_index % 3:
+                    closest_third = thirds_index / 3
+                    if math.isclose(frac, closest_third, abs_tol=self._frac_tolerance, rel_tol=0):
+                        fracs_to_change[label, idx] = str(closest_third)
 
         if fracs_to_change:
             self.warnings.append(
@@ -715,20 +716,21 @@ class CifParser:
                 "_symmetry_cell_setting",
                 "_space_group_crystal_system",
             ):
-                if data.data.get(lattice_label):
-                    lattice_type = data.data.get(lattice_label, "").lower()
-                    try:
-                        required_args = getfullargspec(getattr(Lattice, lattice_type)).args
+                if not data.data.get(lattice_label):
+                    continue
+                lattice_type = data.data.get(lattice_label, "").lower()
+                try:
+                    required_args = getfullargspec(getattr(Lattice, lattice_type)).args
 
-                        lengths = (length for length in length_strings if length in required_args)
-                        angles = (a for a in angle_strings if a in required_args)
-                        return self.get_lattice(data, lengths, angles, lattice_type=lattice_type)
-                    except AttributeError as exc:
-                        self.warnings.append(str(exc))
-                        warnings.warn(str(exc), stacklevel=2)
-
-                else:
-                    return None
+                    lengths = tuple(length for length in length_strings if length in required_args)
+                    angles = tuple(a for a in angle_strings if a in required_args)
+                    return self.get_lattice_no_exception(data, lengths, angles, lattice_type=lattice_type)
+                except AttributeError as exc:
+                    self.warnings.append(str(exc))
+                    warnings.warn(str(exc), stacklevel=2)
+                except KeyError:
+                    # Parameters required by this crystal system are missing as well
+                    continue
         return None
 
     @staticmethod
@@ -1243,8 +1245,11 @@ class CifParser:
             else:
                 all_labels = None  # type: ignore[assignment]
 
+            if lattice is None:
+                raise ValueError("Cannot determine lattice: missing or incomplete _cell_length/_cell_angle data.")
+
             struct: Structure = Structure(
-                lattice,  # type:ignore[arg-type]
+                lattice,
                 all_species,
                 all_coords,
                 site_properties=site_properties,
@@ -1263,15 +1268,12 @@ class CifParser:
                 struct = SymmetrizedStructure(struct, sg, equivalent_indices, wyckoffs)
 
             if not check_occu:
-                if lattice is None:
-                    raise RuntimeError("Cannot generate Structure with lattice as None.")
-
                 for idx in range(len(struct)):
                     struct[idx] = PeriodicSite(
                         all_species_noedit[idx],
                         all_coords[idx],
                         lattice,
-                        properties=site_properties,
+                        properties={key: vals[idx] for key, vals in site_properties.items()},
                         label=all_labels[idx],
                         skip_checks=True,
                     )
@@ -1545,22 +1547,36 @@ class CifParser:
         return failure_reason
 
 
-def str2float(text: str) -> float:
+def str2float(text: str | list[str]) -> float:
     """Remove uncertainty brackets from strings and return the float."""
     try:
         # Note that the ending ) is sometimes missing. That is why the code has
         # been modified to treat it as optional. Same logic applies to lists.
-        return float(re.sub(r"\(.+\)*", "", text))
+        return float(re.sub(r"\(.+\)*", "", cast("str", text)))
 
     except TypeError:
         if isinstance(text, list) and len(text) == 1:
-            return float(re.sub(r"\(.+\)*", "", text[0]))
+            try:
+                return float(re.sub(r"\(.+\)*", "", text[0]))
+            except TypeError:
+                pass
 
     except ValueError:
         if text.strip() == ".":
-            return 0
+            return 0.0
         raise
     raise ValueError(f"{text!s} cannot be converted to float")
+
+
+def _clean_species(sp: Element | Species | DummySpecies) -> str:
+    """Returns a cleaned species string for CIF writing, stripping spin and formatting oxidation state.
+
+    Keeps all explicit oxidation states except 0 for `DummySpecies`.
+    """
+    oxi = getattr(sp, "oxi_state", None)
+    if oxi is None or (oxi == 0 and isinstance(sp, DummySpecies)):
+        return sp.symbol
+    return sp.to_pretty_string()
 
 
 class CifWriter:
@@ -1606,15 +1622,20 @@ class CifWriter:
         spacegroup: tuple[str, int] = ("P 1", 1)
         if symprec is not None:
             spg_analyzer = SpacegroupAnalyzer(struct, symprec, angle_tolerance=angle_tolerance)
-            spacegroup = (
-                spg_analyzer.get_space_group_symbol(),
-                spg_analyzer.get_space_group_number(),
-            )
 
             if refine_struct:
                 # Need the refined structure when using symprec. This converts
                 # primitive to conventional structures, the standard for CIF.
                 struct = spg_analyzer.get_refined_structure()
+                # Symmetrizing can raise the symmetry found at the same tolerance, so re-analyze
+                # the refined structure. The space group, symmetry operations and asymmetric unit
+                # written below then all describe the structure that is actually written.
+                spg_analyzer = SpacegroupAnalyzer(struct, symprec, angle_tolerance=angle_tolerance)
+
+            spacegroup = (
+                spg_analyzer.get_space_group_symbol(),
+                spg_analyzer.get_space_group_number(),
+            )
 
         lattice = struct.lattice
         comp = struct.composition
@@ -1638,9 +1659,8 @@ class CifWriter:
             blocks["_symmetry_equiv_pos_as_xyz"] = ["x, y, z"]
 
         else:
-            spg_analyzer = SpacegroupAnalyzer(struct, symprec)
             symm_ops: list[SymmOp] = []
-            for op in spg_analyzer.get_symmetry_operations():
+            for op in spg_analyzer.get_symmetry_operations():  # type: ignore[reportPossiblyUnboundVariable]
                 v = op.translation_vector
                 symm_ops.append(SymmOp.from_rotation_and_translation(op.rotation_matrix, v))
 
@@ -1653,9 +1673,9 @@ class CifWriter:
         ]
 
         try:
-            symbol_to_oxi_num = {str(el): float(el.oxi_state or 0) for el in sorted(comp.elements)}
-            blocks["_atom_type_symbol"] = list(symbol_to_oxi_num)
-            blocks["_atom_type_oxidation_number"] = symbol_to_oxi_num.values()
+            symbol_to_oxi_num = {_clean_species(el): float(el.oxi_state or 0) for el in sorted(comp.elements)}
+            blocks["_atom_type_symbol"] = list(symbol_to_oxi_num.keys())
+            blocks["_atom_type_oxidation_number"] = list(symbol_to_oxi_num.values())
             loops.append(["_atom_type_symbol", "_atom_type_oxidation_number"])
         except (TypeError, AttributeError):
             symbol_to_oxi_num = {el.symbol: 0 for el in sorted(comp.elements)}
@@ -1676,7 +1696,7 @@ class CifWriter:
         if symprec is None:
             for site in struct:
                 for sp, occu in sorted(site.species.items()):
-                    atom_site_type_symbol.append(str(sp))
+                    atom_site_type_symbol.append(_clean_species(sp))
                     atom_site_symmetry_multiplicity.append("1")
                     atom_site_fract_x.append(format_str.format(site.a))
                     atom_site_fract_y.append(format_str.format(site.b))
@@ -1705,7 +1725,12 @@ class CifWriter:
 
                     if write_site_properties:
                         for key, val in site.properties.items():
-                            atom_site_properties[key].append(format_str.format(val))
+                            try:
+                                formatted = format_str.format(val)
+                            except (TypeError, ValueError):
+                                # Non-numeric property (e.g. str, list, Magmom)
+                                formatted = str(val)
+                            atom_site_properties[key].append(formatted)
 
                     count += 1
 
@@ -1729,7 +1754,7 @@ class CifWriter:
                 ),
             ):
                 for sp, occu in site.species.items():
-                    atom_site_type_symbol.append(str(sp))
+                    atom_site_type_symbol.append(_clean_species(sp))
                     atom_site_symmetry_multiplicity.append(f"{mult}")
                     atom_site_fract_x.append(format_str.format(site.a))
                     atom_site_fract_y.append(format_str.format(site.b))

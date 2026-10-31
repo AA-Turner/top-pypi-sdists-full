@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import contextvars
 import copy
+import logging
 import re as _re
 from collections.abc import Callable
 from typing import Any
@@ -31,6 +32,8 @@ from matrx_utils import vcprint
 from pydantic import BaseModel
 
 from matrx_ai.config.structured_input_config import _StructuredInputBase
+
+logger = logging.getLogger(__name__)
 
 PICKLIST_REF_TYPE = "picklist_ref"
 
@@ -550,14 +553,38 @@ def redact_wire_payload(payload: Any) -> Any | None:
         for value in swaps.values():
             single = _esc(value)
             if single in s or _esc(single) in s:
+                _announce_dropped_snapshot("a swapped value survived the reverse swap", value_chars=len(value))
                 return None
         for value in short:
             single = _esc(value)
             if single in s or _esc(single) in s:
+                _announce_dropped_snapshot(
+                    "a value too short to swap unambiguously appears on the wire", value_chars=len(value)
+                )
                 return None
         return _json.loads(s)
-    except Exception:  # noqa: BLE001 — fail closed, drop the payload
+    except Exception as exc:  # noqa: BLE001 — fail closed, drop the payload (captured, never silent)
+        _announce_dropped_snapshot("the reverse swap failed", exc=exc)
         return None
+
+
+def _announce_dropped_snapshot(reason: str, *, exc: BaseException | None = None, value_chars: int | None = None) -> None:
+    """A dropped request snapshot is CAPTURED, never silent (adversarial 2026-10-30 B9): the platform's
+    ``capture_error`` (kind ``request_snapshot_dropped``) with the reason and the value's LENGTH only —
+    never the value. Scheduled on the running loop (this function is sync, inside an async send)."""
+    from matrx_utils import capture_error, detached_task
+
+    error = exc or RuntimeError(f"request snapshot dropped: {reason}")
+    context: dict[str, Any] = {"reason": reason}
+    if value_chars is not None:
+        context["value_chars"] = value_chars
+    logger.warning("[picklist_runtime] request snapshot dropped: %s", reason)
+    capture = capture_error(error, kind="request_snapshot_dropped", context=context)
+    try:
+        detached_task(capture, name="capture-request-snapshot-dropped")
+    except RuntimeError:  # no running loop (a sync caller): said at ERROR, the coroutine closed
+        capture.close()
+        logger.error("[picklist_runtime] request snapshot dropped with no loop to capture on: %s", reason)
 
 
 def restore_wire_payload(payload: Any, swaps: dict[str, str]) -> tuple[Any, list[str]]:

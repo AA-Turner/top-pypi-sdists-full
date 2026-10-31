@@ -5,6 +5,7 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any, Dict
 
+from ._whitespace import trim_javascript_whitespace
 from .errors import SuperDocError
 from .generated.contract import CONTRACT, OPERATION_INDEX
 
@@ -28,7 +29,7 @@ def describe_contract_operation(params: Dict[str, Any]) -> Dict[str, Any]:
             exit_code=1,
         )
 
-    index = CONTRACT['introspection']['lookup'].get(query.strip().lower())
+    index = CONTRACT['introspection']['lookup'].get(trim_javascript_whitespace(query).lower())
     if index is None:
         raise SuperDocError(
             f'Unknown operation: {query}',

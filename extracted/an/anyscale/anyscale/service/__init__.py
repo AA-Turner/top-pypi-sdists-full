@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from anyscale._private.anyscale_client import AnyscaleClientInterface
 from anyscale._private.models.model_base import ResultIterator
@@ -34,6 +34,8 @@ from anyscale.service.commands import (
     _TOKEN_ADD_EXAMPLE,
     _TOKEN_DELETE_ARG_DOCSTRINGS,
     _TOKEN_DELETE_EXAMPLE,
+    _UPDATE_TRAFFIC_POLICY_ARG_DOCSTRINGS,
+    _UPDATE_TRAFFIC_POLICY_EXAMPLE,
     _WAIT_ARG_DOCSTRINGS,
     _WAIT_EXAMPLE,
     add_tags as add_tags,
@@ -48,6 +50,7 @@ from anyscale.service.commands import (
     terminate as terminate,
     token_add as token_add,
     token_delete as token_delete,
+    update_traffic_policy as update_traffic_policy,
     wait as wait,
 )
 from anyscale.service.models import (
@@ -57,6 +60,7 @@ from anyscale.service.models import (
     ServiceSortOrder,
     ServiceState,
     ServiceStatus,
+    TrafficPolicy,
 )
 
 
@@ -128,6 +132,38 @@ class ServiceSDK:
         """
         return self._private_sdk.rollback(
             name=name, max_surge_percent=max_surge_percent, cloud=cloud, project=project
+        )
+
+    @sdk_docs(
+        doc_py_example=_UPDATE_TRAFFIC_POLICY_EXAMPLE,
+        arg_docstrings=_UPDATE_TRAFFIC_POLICY_ARG_DOCSTRINGS,
+    )
+    def update_traffic_policy(  # noqa: F811
+        self,
+        name: Optional[str] = None,
+        *,
+        traffic_policy: Union[TrafficPolicy, Dict[str, Any]],
+        version_names: Optional[List[str]] = None,
+        cloud: Optional[str] = None,
+        project: Optional[str] = None,
+    ) -> str:
+        """Update the traffic policy of a service without deploying it.
+
+        The policy sets how a service on several cloud resources splits its traffic and
+        capacity across them. It replaces the policy of the versions in `version_names`, or
+        of every version of the service when `version_names` is not provided. It also
+        applies during a rollout.
+
+        This command is asynchronous, so it always returns immediately.
+
+        Returns the id of the updated service.
+        """
+        return self._private_sdk.update_traffic_policy(
+            name=name,
+            traffic_policy=traffic_policy,
+            version_names=version_names,
+            cloud=cloud,
+            project=project,
         )
 
     @sdk_docs(

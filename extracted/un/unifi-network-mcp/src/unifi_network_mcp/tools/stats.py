@@ -208,7 +208,7 @@ async def get_device_stats(
         device_type = device_raw.get("type", "unknown")
 
         # Auto-detect device type for the stats endpoint
-        device_type_map = {"uap": "ap", "ugw": "gw", "udm": "gw"}
+        device_type_map = {"uap": "ap", "ugw": "gw", "udm": "gw", "uxg": "gw"}
         stats_device_type = device_type_map.get(device_type, "dev")
 
         stats = await stats_manager.get_device_stats(
@@ -431,7 +431,11 @@ async def get_gateway_stats(
 
 @server.tool(
     name="unifi_get_speedtest_results",
-    description="Get historical speedtest results including download, upload (Mbps), and latency (ms).",
+    description=(
+        "Get historical speedtest results including download, upload (Mbps), and latency (ms). "
+        "On a multi-WAN site each result names its uplink in wan_networkgroup (e.g. WAN, WAN2) and "
+        "interface_name; group by it rather than averaging across uplinks."
+    ),
     annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False),
 )
 async def get_speedtest_results(
@@ -478,7 +482,7 @@ async def get_speedtest_results(
 )
 async def get_site_dpi_traffic(
     group_by: Annotated[
-        str,
+        Literal["by_app", "by_cat"],
         Field(description="Group results: 'by_app' (default) for per-application or 'by_cat' for per-category"),
     ] = "by_app",
     duration: Annotated[
@@ -527,7 +531,7 @@ async def get_site_dpi_traffic(
 async def get_client_dpi_traffic(
     mac_address: Annotated[str, Field(description="Client MAC address")],
     group_by: Annotated[
-        str,
+        Literal["by_app", "by_cat"],
         Field(description="Group results: 'by_app' (default) for per-application or 'by_cat' for per-category"),
     ] = "by_app",
     duration: Annotated[

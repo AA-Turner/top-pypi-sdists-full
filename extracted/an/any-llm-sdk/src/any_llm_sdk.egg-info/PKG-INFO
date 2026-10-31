@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: any-llm-sdk
-Version: 1.40.2
+Version: 1.41.0
 License: Apache-2.0
 Project-URL: Documentation, https://docs.mozilla.ai/any-llm/
 Project-URL: Issues, https://github.com/mozilla-ai/any-llm/issues
@@ -36,7 +36,7 @@ Requires-Dist: anthropic[vertex]<1,>=0.119.0; extra == "vertexaianthropic"
 Provides-Extra: azureanthropic
 Requires-Dist: anthropic<1,>=0.124.0; extra == "azureanthropic"
 Provides-Extra: huggingface
-Requires-Dist: huggingface-hub; extra == "huggingface"
+Requires-Dist: huggingface-hub>=0.30.0; extra == "huggingface"
 Provides-Extra: cohere
 Requires-Dist: cohere>=7.0.5; extra == "cohere"
 Provides-Extra: cerebras
@@ -52,7 +52,7 @@ Requires-Dist: azure-ai-inference; extra == "azure"
 Provides-Extra: watsonx
 Requires-Dist: ibm-watsonx-ai; python_version < "3.14" and extra == "watsonx"
 Provides-Extra: together
-Requires-Dist: together>=2.0.0; extra == "together"
+Requires-Dist: together<3,>=2.0.0; extra == "together"
 Provides-Extra: ollama
 Requires-Dist: ollama>=0.6.0; extra == "ollama"
 Provides-Extra: voyage

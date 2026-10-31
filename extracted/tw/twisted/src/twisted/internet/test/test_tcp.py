@@ -13,10 +13,9 @@ import gc
 import io
 import os
 import socket
+import sys
 from collections.abc import Mapping, Sequence
 from functools import wraps
-from io import BytesIO
-from types import ModuleType
 from typing import Any, Callable, ClassVar
 from unittest import skipIf
 
@@ -36,6 +35,7 @@ from twisted.internet.defer import (
 )
 from twisted.internet.endpoints import TCP4ClientEndpoint, TCP4ServerEndpoint
 from twisted.internet.error import (
+    CannotListenError,
     ConnectBindError,
     ConnectionAborted,
     ConnectionClosed,
@@ -44,6 +44,7 @@ from twisted.internet.error import (
     ConnectionRefusedError,
     DNSLookupError,
     NoProtocol,
+    ServiceNameUnknownError,
     UserError,
 )
 from twisted.internet.interfaces import (
@@ -61,15 +62,18 @@ from twisted.internet.interfaces import (
     IResolverSimple,
     ITLSTransport,
 )
-from twisted.internet.protocol import ClientFactory, Protocol, ServerFactory
+from twisted.internet.protocol import ClientFactory, Factory, Protocol, ServerFactory
 from twisted.internet.tcp import (
+    _NUMERIC_ONLY,
     Connection,
+    Port,
     Server,
     _BuffersLogs,
     _FileDescriptorReservation,
     _IFileDescriptorReservation,
     _NullFileDescriptorReservation,
     _resolveIPv6,
+    makeBinding,
 )
 from twisted.internet.test.connectionmixins import (
     BrokenContextFactory,
@@ -87,6 +91,7 @@ from twisted.internet.test.reactormixins import (
     needsRunningReactor,
     stopOnError,
 )
+from twisted.internet.test.test_fakes import newFakeSocket
 from twisted.internet.testing import (
     AccumulatingProtocol,
     MemoryReactor,
@@ -94,9 +99,9 @@ from twisted.internet.testing import (
 )
 from twisted.logger import Logger
 from twisted.python import log
+from twisted.python.compat import _PYPY
 from twisted.python.failure import Failure
-from twisted.python.modules import walkModules
-from twisted.python.runtime import platform
+from twisted.python.runtime import platform, platformType
 from twisted.test.test_tcp import (
     ClientStartStopFactory,
     ClosingFactory,
@@ -133,7 +138,16 @@ if platform.isWindows():
 
     getLinkLocalIPv6Addresses = _win32ifaces.win32GetLinkLocalIPv6Addresses
 
+    try:
+        from twisted.internet.iocpreactor.reactor import IOCPReactor
+    except ImportError:  # pragma: no cover
+        # On our CI, we always have iocp-support package available.
+        # This is here for the case in which someone runs the tests on
+        # Windows, without the package installed.
+        IOCPReactor = None  # type: ignore[misc,assignment]
+
     SKIP_EMFILE = True
+
 else:
     try:
         from twisted.internet.test import _posixifaces
@@ -141,6 +155,9 @@ else:
         getLinkLocalIPv6Addresses = lambda: []
     else:
         getLinkLocalIPv6Addresses = _posixifaces.posixGetLinkLocalIPv6Addresses
+
+    # Outside of Windows we don't have an IOCP reactor.
+    IOCPReactor = None  # type: ignore[misc,assignment]
 
     SKIP_EMFILE = False
 
@@ -172,110 +189,12 @@ def connect(client, destination):
         port a C{int}. If the C{host} is an IPv6 IP, the address is resolved
         using C{getaddrinfo} and the first version found is used.
     """
-    (host, port) = destination
+    host, port = destination
     if "%" in host or ":" in host:
         address = socket.getaddrinfo(host, port)[0][4]
     else:
         address = (host, port)
     client.connect(address)
-
-
-class FakeSocket:
-    """
-    A fake for L{socket.socket} objects.
-
-    @ivar data: A C{str} giving the data which will be returned from
-        L{FakeSocket.recv}.
-
-    @ivar sendBuffer: A C{list} of the objects passed to L{FakeSocket.send}.
-    """
-
-    def __init__(self, data):
-        self.data = data
-        self.sendBuffer = []
-
-    def setblocking(self, blocking):
-        self.blocking = blocking
-
-    def recv(self, size):
-        return self.data
-
-    def send(self, bytes):
-        """
-        I{Send} all of C{bytes} by accumulating it into C{self.sendBuffer}.
-
-        @return: The length of C{bytes}, indicating all the data has been
-            accepted.
-        """
-        self.sendBuffer.append(bytes)
-        return len(bytes)
-
-    def shutdown(self, how):
-        """
-        Shutdown is not implemented.  The method is provided since real sockets
-        have it and some code expects it.  No behavior of L{FakeSocket} is
-        affected by a call to it.
-        """
-
-    def close(self):
-        """
-        Close is not implemented.  The method is provided since real sockets
-        have it and some code expects it.  No behavior of L{FakeSocket} is
-        affected by a call to it.
-        """
-
-    def setsockopt(self, *args):
-        """
-        Setsockopt is not implemented.  The method is provided since
-        real sockets have it and some code expects it.  No behavior of
-        L{FakeSocket} is affected by a call to it.
-        """
-
-    def fileno(self):
-        """
-        Return a fake file descriptor.  If actually used, this will have no
-        connection to this L{FakeSocket} and will probably cause surprising
-        results.
-        """
-        return 1
-
-
-class FakeSocketTests(TestCase):
-    """
-    Test that the FakeSocket can be used by the doRead method of L{Connection}
-    """
-
-    def test_blocking(self):
-        skt = FakeSocket(b"someData")
-        skt.setblocking(0)
-        self.assertEqual(skt.blocking, 0)
-
-    def test_recv(self):
-        skt = FakeSocket(b"someData")
-        self.assertEqual(skt.recv(10), b"someData")
-
-    def test_send(self):
-        """
-        L{FakeSocket.send} accepts the entire string passed to it, adds it to
-        its send buffer, and returns its length.
-        """
-        skt = FakeSocket(b"")
-        count = skt.send(b"foo")
-        self.assertEqual(count, 3)
-        self.assertEqual(skt.sendBuffer, [b"foo"])
-
-
-class FakeProtocol(Protocol):
-    """
-    An L{IProtocol} that returns a value from its dataReceived method.
-    """
-
-    def dataReceived(self, data):
-        """
-        Return something other than L{None} to trigger a deprecation warning for
-        that behavior.
-        """
-        return ()
 
 
 @implementer(IReactorFDSet)
@@ -326,33 +245,76 @@ class _FakeFDSetReactor:
 verifyClass(IReactorFDSet, _FakeFDSetReactor)
 
 
+class TCPPortTests(SynchronousTestCase):
+    """
+    Whitebox tests for L{twisted.internet.tcp.Port}.
+    """
+
+    def setUp(self) -> None:
+        self.reactor = _FakeFDSetReactor()
+        self.sktstate, self.skt = newFakeSocket(b"")
+        self.factory = Factory()
+        self.server = Port(4321, self.factory, reactor=self.reactor)
+        self.server.createInternetSocket = (  # type: ignore[method-assign]
+            lambda: self.skt
+        )
+
+    def test_createFailure(self) -> None:
+        """
+        L{Server.startListening} will fail with L{CannotListenError} when
+        creating the underlying socket fails with L{OSError}.
+        """
+
+        def noNewSocket() -> socket.socket:
+            raise OSError("socket creation failure")
+
+        self.server.createInternetSocket = noNewSocket  # type: ignore[method-assign]
+        with self.assertRaises(CannotListenError):
+            self.server.startListening()
+
+    def test_bindFailure(self) -> None:
+        """
+        L{Server.startListening} should clean up the created socket when
+        L{socket.socket.bind} fails.
+        """
+        self.sktstate.raiseOnBind(OSError("binding failed for some reason"))
+        with self.assertRaises(CannotListenError):
+            self.server.startListening()
+        self.assertTrue(self.sktstate.closed, "socket was not closed")
+
+
 class TCPServerTests(TestCase):
     """
     Whitebox tests for L{twisted.internet.tcp.Server}.
     """
 
-    def setUp(self):
+    def setUp(self) -> None:
         self.reactor = _FakeFDSetReactor()
 
         class FakePort:
             _realPortNumber = 3
 
-        self.skt = FakeSocket(b"")
+        self.sktstate, self.skt = newFakeSocket(b"")
         self.protocol = Protocol()
         self.server = Server(
-            self.skt, self.protocol, ("", 0), FakePort(), None, self.reactor
+            self.skt,
+            self.protocol,
+            ("", 0),
+            FakePort(),  # type: ignore[arg-type]
+            1111,
+            self.reactor,
         )
 
-    def test_writeAfterDisconnect(self):
+    def test_writeAfterDisconnect(self) -> None:
         """
         L{Server.write} discards bytes passed to it if called after it has lost
         its connection.
         """
         self.server.connectionLost(Failure(Exception("Simulated lost connection")))
         self.server.write(b"hello world")
-        self.assertEqual(self.skt.sendBuffer, [])
+        self.assertEqual(self.sktstate.sendBuffer, [])
 
-    def test_writeAfterDisconnectAfterTLS(self):
+    def test_writeAfterDisconnectAfterTLS(self) -> None:
         """
         L{Server.write} discards bytes passed to it if called after it has lost
         its connection when the connection had started TLS.
@@ -360,16 +322,16 @@ class TCPServerTests(TestCase):
         self.server.TLS = True
         self.test_writeAfterDisconnect()
 
-    def test_writeSequenceAfterDisconnect(self):
+    def test_writeSequenceAfterDisconnect(self) -> None:
         """
         L{Server.writeSequence} discards bytes passed to it if called after it
         has lost its connection.
         """
         self.server.connectionLost(Failure(Exception("Simulated lost connection")))
         self.server.writeSequence([b"hello world"])
-        self.assertEqual(self.skt.sendBuffer, [])
+        self.assertEqual(self.sktstate.sendBuffer, [])
 
-    def test_writeSequenceAfterDisconnectAfterTLS(self):
+    def test_writeSequenceAfterDisconnectAfterTLS(self) -> None:
         """
         L{Server.writeSequence} discards bytes passed to it if called after it
         has lost its connection when the connection had started TLS.
@@ -383,45 +345,27 @@ class TCPConnectionTests(TestCase):
     Whitebox tests for L{twisted.internet.tcp.Connection}.
     """
 
-    def test_doReadWarningIsRaised(self):
-        """
-        When an L{IProtocol} implementation that returns a value from its
-        C{dataReceived} method, a deprecated warning is emitted.
-        """
-        skt = FakeSocket(b"someData")
-        protocol = FakeProtocol()
-        conn = Connection(skt, protocol)
-        conn.doRead()
-        warnings = self.flushWarnings([FakeProtocol.dataReceived])
-        self.assertEqual(warnings[0]["category"], DeprecationWarning)
-        self.assertEqual(
-            warnings[0]["message"],
-            "Returning a value other than None from "
-            "twisted.internet.test.test_tcp.FakeProtocol.dataReceived "
-            "is deprecated since Twisted 11.0.0.",
-        )
-        self.assertEqual(len(warnings), 1)
-
-    def test_noTLSBeforeStartTLS(self):
+    def test_noTLSBeforeStartTLS(self) -> None:
         """
         The C{TLS} attribute of a L{Connection} instance is C{False} before
         L{Connection.startTLS} is called.
         """
-        skt = FakeSocket(b"")
-        protocol = FakeProtocol()
+        state, skt = newFakeSocket()
+        protocol = Protocol()
         conn = Connection(skt, protocol)
         self.assertFalse(conn.TLS)
 
     @skipIf(not useSSL, "No SSL support available")
-    def test_tlsAfterStartTLS(self):
+    def test_tlsAfterStartTLS(self) -> None:
         """
         The C{TLS} attribute of a L{Connection} instance is C{True} after
         L{Connection.startTLS} is called.
         """
-        skt = FakeSocket(b"")
-        protocol = FakeProtocol()
+        state, skt = newFakeSocket()
+        protocol = Protocol()
         conn = Connection(skt, protocol, reactor=_FakeFDSetReactor())
-        conn._tlsClientDefault = True
+        # this is a weird requirement of the internals of startTLS
+        conn._tlsClientDefault = True  # type: ignore[attr-defined]
         conn.startTLS(ClientContextFactory(), True)
         self.assertTrue(conn.TLS)
 
@@ -673,7 +617,6 @@ class TCPClientTestsBase(ReactorBuilder, ConnectionTestsMixin, StreamClientTests
             while True:
                 port = findFreePort(self.interface, self.family)
                 bindAddress = (self.interface, port[1])
-                log.msg(f"Connect attempt with bindAddress {bindAddress}")
                 try:
                     reactor.connectTCP(
                         fakeDomain,
@@ -761,6 +704,189 @@ class TCPClientTestsBase(ReactorBuilder, ConnectionTestsMixin, StreamClientTests
             raise SkipTest("Reactor does not support ITLSTransport")
         self.assertEqual(BrokenContextFactory.message, str(results[0]))
 
+    def test_connectPortUnderflow(self):
+        """
+        When trying to connect using a port outside of the 1-65535 range the
+        error is raised as an errback.
+        """
+
+        def test(message):
+            self.assertConnectPortError(-1, message)
+
+        if self.addressClass == IPv4Address:
+            if _PYPY:
+                test(("port must be 0-65535.",))
+            elif self.reactorFactory is IOCPReactor:
+                # Windows IOCP reactor.
+                test(("can't convert negative value to unsigned short",))
+            else:
+                test(("connect_ex(): port must be 0-65535.",))
+        else:
+            # For IPv6 the getaddrinfo() API is used at low-level.
+            if self.reactorFactory is IOCPReactor:
+                # Windows IOCP reactor.
+                test(("can't convert negative value to unsigned short",))
+            elif platform.isWindows():
+                # Windows select reactor.
+                test(("connect_ex(): port must be 0-65535.",))
+            elif platform.isMacOSX():
+                test((8, "nodename nor servname provided, or not known"))
+            else:
+                test((-8, "Servname not supported for ai_socktype"))
+
+    def test_connectPortOverflow(self):
+        """
+        When trying to connect using a port outside of the 1-65535 range the
+        error is raised as an errback.
+        """
+
+        def test(message):
+            self.assertConnectPortError(65536, message)
+
+        if _PYPY:
+            test(("port must be 0-65535.",))
+        elif platform.isMacOSX() and self.addressClass == IPv6Address:
+            test((8, "nodename nor servname provided, or not known"))
+        elif platform.isWindows():
+            if self.reactorFactory is IOCPReactor:
+                # Windows IOCP reactor.
+                test(("value too large to convert to unsigned short",))
+            else:
+                # Windows select reactor.
+                test(("connect_ex(): port must be 0-65535.",))
+        else:
+            test(("connect_ex(): port must be 0-65535.",))
+
+    def test_connectPortZero(self):
+        """
+        An error is raised as errback when trying to listed on the
+        reserved port C{0}.
+        """
+
+        def test(message):
+            self.assertConnectPortError(0, message)
+
+        if platform.isMacOSX():
+            test(("Can't assign requested address",))
+        elif platform.isWindows():
+            if self.reactorFactory is IOCPReactor:
+                # Windows IOCP reactor.
+                test(("WSAEADDRNOTAVAIL",))
+            else:
+                # Windows select reactor.
+                test(("The requested address is not valid in its context.",))
+        else:
+            test(("Connection refused",))
+
+    def test_connectPortNotNumeric(self):
+        """
+        When trying to connect with an endpoint using a port which can not be
+        resolved to a service an errback is raised.
+        """
+        self.assertConnectPortError("invalid", ("service/proto not found ('invalid')",))
+
+    def test_getaddrinfo_negative_port(self):
+        """
+        When a negative port number is used,
+        L{socket.getaddrinfo} raises an exception on Linux and macOS,
+        while returning a result on Windows.
+
+        This is an assumption used in the implementation of L{twisted.internet.tcp._resolveIPv6}.
+        """
+
+        def resolve_negative_port():
+            """
+            Here to share the exact call between Windows and other OSes.
+            """
+            return socket.getaddrinfo("127.0.0.1", -1, 0, 0, 0, _NUMERIC_ONLY)
+
+        if platform.isWindows():
+            result = resolve_negative_port()
+            firstResolve = result[0]
+            addressResolve = firstResolve[4]
+            portResolve = addressResolve[1]
+            self.assertEqual(65535, portResolve)
+            return
+
+        with self.assertRaises(socket.gaierror):
+            resolve_negative_port()
+
+    def test_getaddrinfo_overflow_port(self):
+        """
+        When a invalid big port number is used,
+        L{socket.getaddrinfo} raises an exception macOS,
+        while returning a result on Linux and Windows.
+
+        This is an assumption used in the implementation of L{twisted.internet.tcp._resolveIPv6}.
+        """
+
+        def resolve_overflow_port():
+            """
+            Here to share the exact call between Windows and other OSes.
+            """
+            return socket.getaddrinfo("127.0.0.1", 123456, 0, 0, 0, _NUMERIC_ONLY)
+
+        if platform.isWindows() or platform.isLinux():
+            result = resolve_overflow_port()
+            firstResolve = result[0]
+            addressResolve = firstResolve[4]
+            portResolve = addressResolve[1]
+            self.assertEqual(57920, portResolve)
+            return
+
+        with self.assertRaises(socket.gaierror):
+            resolve_overflow_port()
+
+    # This is used to count the number of calls in a single test run.
+    # It is defined as a class member but used as an instance member.
+    assertConnectPortErrorCalls = 0
+
+    def assertConnectPortError(self, port, message):
+        """
+        Check that trying to connect to C{port} will raise an errback.
+
+        @param port: Port number for which to try a client connection.
+        @type  port: C{int}
+
+        @param message: String representation of the expected error.
+        @type  message: C{str}
+
+        @raise AssertionError: when called multiple time from the same test.
+        """
+
+        def resetCallCount():
+            self.assertConnectPortErrorCalls = 0
+
+        if self.assertConnectPortErrorCalls != 0:  # pragma: no cover
+            # This is never called during normal tests.
+            # This is here to make sure the assertion is not misused.
+            raise AssertionError("This assertion can only be called once per test.")
+        else:
+            self.assertConnectPortErrorCalls = 1
+        self.addCleanup(resetCallCount)
+
+        reactor = self.buildReactor()
+        results = []
+
+        # Connect with invalid port number.
+        fakeServerAddress = self.addressClass("TCP", self.interface, port)
+        endpoint = self.endpoints.client(reactor, fakeServerAddress)
+        connectDeferred = endpoint.connect(Factory.forProtocol(Protocol))
+
+        def whenRun():
+            """
+            Accumulate any errors and stop the reactor.
+            """
+            connectDeferred.addErrback(lambda failure: results.append(failure))
+            connectDeferred.addBoth(lambda ign: reactor.stop())
+
+        needsRunningReactor(reactor, whenRun)
+
+        self.runReactor(reactor)
+
+        errors = [failure.value.args for failure in results]
+        self.assertEqual([message], errors)
+
 
 class TCP4ClientTestsBuilder(TCPClientTestsBase):
     """
@@ -796,6 +922,222 @@ class TCP6ClientTestsBuilder(TCPClientTestsBase):
         # it so that the connect call for the IPv6 address test simply uses an
         # address literal.
         self.fakeDomainName = self.endpoints.interface
+
+
+class TestBindAddressBuilder(TCPCreator, ReactorBuilder):
+    """
+    Test the various combinations of bindAddress arguments
+    """
+
+    requiredInterfaces = (IReactorTCP,)
+    fakeDomainName = "some-fake.domain.example.com"
+    family = socket.AF_INET
+    addressClass = IPv4Address
+
+    def _checkTestBindAddressConnect(self, createBinding, confirmClient):
+        """
+        Harness to test passing bindAddress= variants to connectTCP
+        """
+        host, port = findFreePort(self.interface, self.family)[:2]
+        reactor = self.buildReactor()
+        fakeDomain = self.fakeDomainName
+        reactor.installResolver(FakeResolver({fakeDomain: self.interface}))
+
+        clientFactory = Stop(reactor)
+        bindAddress = createBinding(host, port)
+
+        connector = reactor.connectTCP(
+            fakeDomain,
+            port,
+            clientFactory,
+            bindAddress=bindAddress,
+        )
+        client = connector.transport
+        laddr = client.socket.getsockname()
+        self.assertEqual(laddr[1], port)
+        confirmClient(client)
+
+    def _checkTestBindAddressListen(self, createBinding, confirmPort):
+        """
+        Harness to test passing bindAddress= variants to listenTCP
+        """
+        host, port = findFreePort(self.interface, self.family)[:2]
+        reactor = self.buildReactor()
+
+        serverFactory = MyServerFactory()
+        bindAddress = createBinding(host, port)
+
+        tcpport = reactor.listenTCP(
+            bindAddress,
+            serverFactory,
+        )
+        addr = tcpport.getHost()
+        self.assertEqual(addr.port, port)
+        confirmPort(tcpport)
+
+    def test_bindAddressListenInconsistent(self):
+        """
+        Both an interface= and port= with Binding cannot be
+        specifed at once
+        """
+        host, port = findFreePort(self.interface, self.family)[:2]
+        reactor = self.buildReactor()
+
+        serverFactory = MyServerFactory()
+        bindAddress = makeBinding(host, port)
+
+        with self.assertRaises(ValueError):
+            _ = reactor.listenTCP(
+                bindAddress,
+                serverFactory,
+                interface="inconsistent interface",
+            )
+
+    def test_bindAddressListenConsistent(self):
+        """
+        It is okay to specify both a Binding and an interface as long as
+        they're consistent.
+        """
+        host, port = findFreePort(self.interface, self.family)[:2]
+        reactor = self.buildReactor()
+
+        serverFactory = MyServerFactory()
+        bindAddress = makeBinding(host, port)
+
+        _ = reactor.listenTCP(
+            bindAddress,
+            serverFactory,
+            interface=host,
+        )
+
+    def test_bindAddressLegacy(self):
+        """
+        We can use a (host, port) 2-tuple for the binding
+        """
+
+        def check_client(client):
+            reuseAddr = bool(
+                client.socket.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR)
+            )
+            self.assertEqual(reuseAddr, False)
+            if platformType == "posix" and sys.platform != "cygwin":
+                reusePort = bool(
+                    client.socket.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT)
+                )
+                self.assertEqual(reusePort, False)
+
+        self._checkTestBindAddressConnect(
+            lambda host, port: tuple((host, port)), check_client
+        )
+
+    def test_bindAddressLegacyServerDefault(self):
+        """
+        Legacy defaults for SO_REUSEADDR and SO_REUSEPORT are
+        different for the connect vs listen APIs: SO_REUSEADDR was
+        always specified in Twisted 26.4.0 and earlier for listen
+        ports.
+        """
+
+        def check_server(client):
+            if platformType == "posix" and sys.platform != "cygwin":
+                reuseAddr = bool(
+                    client.socket.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR)
+                )
+                self.assertEqual(reuseAddr, True)
+                reusePort = bool(
+                    client.socket.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT)
+                )
+                self.assertEqual(reusePort, False)
+
+        self._checkTestBindAddressListen(lambda host, port: port, check_server)
+
+    @skipIf(
+        not (platformType == "posix" and sys.platform != "cygwin"),
+        "Only works on POSIX",
+    )
+    def test_bindAddressBasic(self):
+        """
+        Defaults for makeBinding are correct
+        """
+
+        def check(client):
+            reuseAddr = bool(
+                client.socket.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR)
+            )
+            self.assertEqual(reuseAddr, False)
+            reusePort = bool(
+                client.socket.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT)
+            )
+            self.assertEqual(reusePort, False)
+
+        self._checkTestBindAddressConnect(makeBinding, check)
+        self._checkTestBindAddressListen(makeBinding, check)
+
+    @skipIf(
+        not (platformType == "posix" and sys.platform != "cygwin"),
+        "Only works on POSIX",
+    )
+    def test_bindAddressReusePort(self):
+        def check(client):
+            reuseAddr = bool(
+                client.socket.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR)
+            )
+            self.assertEqual(reuseAddr, False)
+            reusePort = bool(
+                client.socket.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT)
+            )
+            self.assertEqual(reusePort, True)
+
+        def bind(a, b):
+            return makeBinding(a, b, reusePort=True, reuseAddress=False)
+
+        self._checkTestBindAddressConnect(bind, check)
+        self._checkTestBindAddressListen(bind, check)
+
+    @skipIf(
+        not (platformType == "posix" and sys.platform != "cygwin"),
+        "Only works on POSIX",
+    )
+    def test_bindAddressReuseAddr(self):
+        def check(client):
+            reuseAddr = bool(
+                client.socket.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR)
+            )
+            reusePort = bool(
+                client.socket.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT)
+            )
+            self.assertEqual(reuseAddr, True)
+            self.assertEqual(reusePort, False)
+
+        def bind(a, b):
+            return makeBinding(a, b, reuseAddress=True)
+
+        self._checkTestBindAddressConnect(bind, check)
+        self._checkTestBindAddressListen(bind, check)
+
+    @skipIf(
+        not (platformType == "posix" and sys.platform != "cygwin"),
+        "Only works on POSIX",
+    )
+    def test_bindAddressReuseAddrPort(self):
+        def check(client):
+            reuseAddr = bool(
+                client.socket.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR)
+            )
+            reusePort = bool(
+                client.socket.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT)
+            )
+            self.assertEqual(reuseAddr, True)
+            reusePort = bool(
+                client.socket.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT)
+            )
+            self.assertEqual(reusePort, True)
+
+        def bind(a, b):
+            return makeBinding(a, b, reuseAddress=True, reusePort=True)
+
+        self._checkTestBindAddressConnect(bind, check)
+        self._checkTestBindAddressListen(bind, check)
 
 
 class TCPConnectorTestsBuilder(ReactorBuilder):
@@ -912,6 +1254,27 @@ class TCPConnectorTestsBuilder(ReactorBuilder):
         clientFactory.reason.trap(ConnectionRefusedError)
         self.assertEqual(protocolMadeAndClosed, [(1, 1)])
 
+    def test_invalidServiceName(self):
+        """
+        When connection is done with an invalid service name as port,
+        L{ServiceNameUnknownError} is raised.
+        """
+        reactor = self.buildReactor()
+
+        error = self.assertRaises(
+            ServiceNameUnknownError,
+            reactor.connectTCP,
+            self.interface,
+            "invalid-port",
+            MyClientFactory(),
+        )
+
+        self.assertEqual(
+            "Service name given as port is unknown: "
+            "service/proto not found ('invalid-port').",
+            str(error),
+        )
+
 
 class TCP4ConnectorTestsBuilder(TCPConnectorTestsBuilder):
     interface = "127.0.0.1"
@@ -974,51 +1337,6 @@ class _IExhaustsFileDescriptors(Interface):
         """
 
 
-@attr.s(auto_attribs=True)
-class SourceCacheForCoverage:
-    """
-    Per U{this upstream issue in coverage.py
-    <https://github.com/coveragepy/coveragepy/issues/2091>}, C{coverage} may
-    need to open files at any time, on any line of code, to examine the
-    relevant source file being covered.  When it does this, under conditions of
-    file-descriptor exhaustion (which we are testing in this test suite), it
-    will (obviously) fail, raising an unexpected
-    C{coverage.exceptions.NoSource} exception out of a line of code which is of
-    course not being covered by anything.
-
-    L{SourceCacheForCoverage} prevents this issue by monkey-patching
-    C{coverage.py} in order to replace the C{open} function in the relevant
-    module to pre-allocate the source code of I{every} module in the C{twisted}
-    package and return that code back without opening any files in-line.
-    """
-
-    patchedModule: ModuleType
-    origOpen: Callable[..., Any]
-    pathToContents: dict[str, bytes] = attr.ib(default=attr.Factory(dict))
-
-    @classmethod
-    def enable(cls) -> SourceCacheForCoverage | None:
-        try:
-            from coverage import python
-        except ImportError:  # pragma: no cover
-            return None  # pragma: no cover
-
-        origOpen = getattr(python, "open", open)
-        self = cls(python, origOpen)
-        for module in walkModules("twisted"):
-            self.pathToContents[module.filePath.path] = module.filePath.getContent()
-        python.open = self.open  # type:ignore[assignment]
-        return self
-
-    def open(self, path: str, mode: str) -> BytesIO:
-        # this is called *inside* coverage, and so will not be marked as
-        # covered.
-        return BytesIO(self.pathToContents[path])  # pragma: no cover
-
-    def disable(self) -> None:
-        self.patchedModule.open = self.origOpen  # type:ignore[attr-defined]
-
-
 @implementer(_IExhaustsFileDescriptors)
 @attr.s(auto_attribs=True)
 class _ExhaustsFileDescriptors:
@@ -1041,15 +1359,12 @@ class _ExhaustsFileDescriptors:
     _fileDescriptors: list[int] = attr.ib(
         default=attr.Factory(list), init=False, repr=False
     )
-    _sourceCache: SourceCacheForCoverage | None = None
 
     def exhaust(self) -> None:
         """
         Open file descriptors until C{EMFILE} is reached.
         """
         # Force a collection to close dangling files.
-        if self._sourceCache is None:  # pragma: no branch
-            self._sourceCache = SourceCacheForCoverage.enable()
         gc.collect()
         try:
             while True:
@@ -1083,9 +1398,6 @@ class _ExhaustsFileDescriptors:
                 if e.errno == errno.EBADF:
                     continue
                 raise
-        if self._sourceCache is not None:
-            self._sourceCache.disable()
-            self._sourceCache = None
 
     def count(self):
         """
@@ -2423,6 +2735,7 @@ class AdoptStreamConnectionTestsBuilder(
         client.protocolConnectionLost = Deferred()
 
         port = reactor.listenTCP(0, firstServer, interface=interface)
+        self.addCleanup(port.stopListening)
 
         def firtServerConnected(proto):
             reactor.removeReader(proto.transport)
@@ -2430,6 +2743,7 @@ class AdoptStreamConnectionTestsBuilder(
             reactor.adoptStreamConnection(
                 proto.transport.fileno(), addressFamily, server
             )
+            proto.transport.socket.close()
 
         firstServer.protocolConnectionMade.addCallback(firtServerConnected)
 
@@ -2472,6 +2786,7 @@ globals().update(TCP4ConnectorTestsBuilder.makeTestCaseClasses())
 globals().update(TCP6ConnectorTestsBuilder.makeTestCaseClasses())
 globals().update(TCPTransportTestsBuilder.makeTestCaseClasses())
 globals().update(AdoptStreamConnectionTestsBuilder.makeTestCaseClasses())
+globals().update(TestBindAddressBuilder.makeTestCaseClasses())
 
 
 class ServerAbortsTwice(ConnectableProtocol):
@@ -2513,9 +2828,10 @@ class ReadAbortServerProtocol(AbortServerWritingProtocol):
     possibly arrive.
     """
 
-    def dataReceived(self, data):
-        if data.replace(b"X", b""):
-            raise Exception("Unexpectedly received data.")
+    def dataReceived(self, data: bytes) -> None:
+        assert not (  # pragma: no cover
+            surprise := data.replace(b"X", b"")
+        ), f"Unexpectedly received data: {repr(surprise)}"
 
 
 class NoReadServer(ConnectableProtocol):
@@ -2878,12 +3194,6 @@ class AbortConnectionMixin:
             clientConnectionLostReason=ConnectionLost,
         )
 
-    # This test is flaky on macOS on Azure and we skip it due to lack of active macOS developers.
-    # If you care about Twisted on macOS, consider enabling this tests and find out why we get random failures.
-    @skipIf(
-        os.environ.get("CI", "").lower() == "true" and platform.isMacOSX(),
-        "Flaky on macOS on Azure.",
-    )
     def test_resumeProducingAbort(self):
         """
         abortConnection() is called in resumeProducing, before any bytes have
@@ -2892,20 +3202,12 @@ class AbortConnectionMixin:
         """
         self.runAbortTest(ProducerAbortingClient, ConnectableProtocol)
 
-    # This test is flaky on macOS on Azure and we skip it due to lack of active macOS developers.
-    # If you care about Twisted on macOS, consider enabling this tests and find out why we get random failures.
-    @skipIf(
-        os.environ.get("CI", "").lower() == "true" and platform.isMacOSX(),
-        "Flaky on macOS on Azure.",
-    )
     def test_resumeProducingAbortLater(self):
         """
         abortConnection() is called in resumeProducing, after some
         bytes have been exchanged. The protocol should be disconnected.
         """
-        return self.runAbortTest(
-            ProducerAbortingClientLater, AbortServerWritingProtocol
-        )
+        self.runAbortTest(ProducerAbortingClientLater, AbortServerWritingProtocol)
 
     def test_fullWriteBuffer(self):
         """
@@ -2928,7 +3230,7 @@ class AbortConnectionMixin:
         allowing a TLS handshake if we're testing TLS. The connection will
         then be lost.
         """
-        return self.runAbortTest(StreamingProducerClientLater, EventualNoReadServer)
+        self.runAbortTest(StreamingProducerClientLater, EventualNoReadServer)
 
     def test_dataReceivedThrows(self):
         """
@@ -3025,6 +3327,22 @@ class SimpleUtilityTests(TestCase):
         # but, luckily, IP presentation format and what it means to be a port
         # number are a little better specified.
         self.assertEqual(result[:2], ("::1", 2))
+
+    def test_resolveIPv6OverflowPort(self):
+        """
+        L{_resolveIPv6} preserves the requested port number, even when it is
+        not valid.
+        """
+        result = _resolveIPv6("::1", 123456)
+        self.assertEqual(result[:2], ("::1", 123456))
+
+    def test_resolveIPv6UnderflowPort(self):
+        """
+        L{_resolveIPv6} preserves the requested port number, even when it a
+        negative number.
+        """
+        result = _resolveIPv6("::1", -1)
+        self.assertEqual(result[:2], ("::1", -1))
 
 
 class BuffersLogsTests(SynchronousTestCase):

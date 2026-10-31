@@ -13,6 +13,9 @@ CreatableAssetType = typing.Union[
         "user_interface",
         "skill",
         "collab_agent",
+        "figure",
+        "word_document",
+        "presentation",
     ],
     typing.Any,
 ]

@@ -1,10 +1,10 @@
 [build-system]
-requires = ["uv_build>=0.7.0,<0.14.0"]
+requires = ["uv_build==0.13.5"]
 build-backend = "uv_build"
 
 [project]
 name = "cuid2"
-version = "2.1.0"
+version = "2.2.0"
 description = "Next generation GUIDs. Collision-resistant ids optimized for horizontal scaling and performance."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -20,6 +20,8 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Programming Language :: Python :: Free Threading :: 3 - Stable",
     "Topic :: Security :: Cryptography",
     "Typing :: Typed",
 ]
@@ -38,107 +40,47 @@ email = "dev@gordoncode.dev"
 
 [project.urls]
 repository = "https://github.com/gordon-code/cuid2/"
+Changelog = "https://github.com/gordon-code/cuid2/blob/main/CHANGELOG.md"
+Issues = "https://github.com/gordon-code/cuid2/issues"
 
 [project.scripts]
 cuid2 = "cuid2.cli:main"
 
 [tool.uv]
 default-groups = [
+    "build",
     "lint",
     "test",
-    "tox",
     "typing",
 ]
 
-[tool.tox]
-legacy_tox_ini = """
-    [tox]
-    min_version = 4
-    env_list = py3{10,11,12,13,14}, check
-    work_dir = local/.tox
-    isolated_build = True
+[tool.codespell]
+check-hidden = ""
+ignore-words-list = "intoto"
+skip = ".cache,.claude,.coverage,.coverage.*,.git,.hypothesis,.mypy_cache,.pdm-build,.pytest_cache,.ruff_cache,.rumdl_cache,.venv,__pycache__,build,dist,hack,uv.lock"
 
-    [testenv]
-    runner = uv-venv-lock-runner
-    description = run unit tests
-    dependency_groups = test
-    commands = pytest local/tests
+[tool.rumdl]
+cache-dir = "local/.rumdl_cache"
+disable = ["MD013"]
+exclude = ["hack"]
 
-    [testenv:check]
-    runner = uv-venv-lock-runner
-    description = run linters and typing
-    package = skip
-    dependency_groups =
-        lint
-        typing
-        test
-    commands =
-        ruff check src/ local/tests/
-        ruff format --check src/ local/tests/
-        codespell src/ local/tests/
-        pylint src/ local/tests/
-        mypy src/ local/tests/
-"""
+[tool.rumdl.per-file-ignores]
+".github/**/*.md" = ["MD041"]
 
 [tool.ruff]
 line-length = 120
 src = ["src"]
 target-version = "py310"
 cache-dir = "local/.ruff_cache"
+extend-exclude = ["hack"]
 force-exclude = true
 
 [tool.ruff.lint]
-select = [
-    "F",
-    "E",
-    "W",
-    "C90",
-    "I",
-    "N",
-    "ASYNC",
-    "S",
-    "BLE",
-    "B",
-    "A",
-    "COM",
-    "C4",
-    "DTZ",
-    "T10",
-    "EM",
-    "FA",
-    "ISC",
-    "ICN",
-    "G",
-    "INP",
-    "PIE",
-    "T20",
-    "PT",
-    "Q",
-    "RSE",
-    "RET",
-    "SLF",
-    "SLOT",
-    "SIM",
-    "INT",
-    "ARG",
-    "PTH",
-    "PGH",
-    "PL",
-    "TRY",
-    "FLY",
-    "PERF",
-    "LOG",
-    "RUF",
-]
+select = ["ALL"]
 ignore = [
-    "D100",
-    "D101",
-    "D102",
-    "D104",
-    "D205",
-    "D401",
     "COM812",
     "ISC001",
+    "CPY001",
 ]
 unfixable = [
     "T201",
@@ -147,14 +89,21 @@ unfixable = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"test_*.py" = [
-    "S101",
+"local/tests/*.py" = [
+    "D100",
+    "D101",
+    "D102",
+    "D103",
+    "D104",
+    "D205",
+    "D401",
+    "FBT001",
     "PLR2004",
+    "S101",
     "SLF001",
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["src"]
 section-order = [
     "future",
     "standard-library",
@@ -167,46 +116,84 @@ section-order = [
 convention = "numpy"
 
 [tool.pytest.ini_options]
-minversion = "8.1"
+minversion = "9.0"
+strict = true
 cache_dir = "local/.pytest_cache"
 python_files = "test_*.py"
+pythonpath = ["."]
 testpaths = ["local/tests"]
-
-[tool.pylint.master]
-ignore-patterns = "test_.*.py"
-
-[tool.pylint.format]
-max-line-length = 120
-
-[tool.pylint.messages_control]
-disable = [
-    "missing-module-docstring",
-    "missing-class-docstring",
+addopts = [
+    "--import-mode=importlib",
+    "--cov",
+    "--cov-report=term-missing:skip-covered",
+    "-m",
+    "not slow and not heavy",
+]
+filterwarnings = ["error"]
+markers = [
+    "slow: mark test as slow to run",
+    "heavy: mark collision test as heavy (>=10M IDs)",
 ]
 
-[tool.pylint.design]
-max-parents = 13
-max-args = 10
+[tool.coverage.run]
+branch = true
+source_pkgs = ["cuid2"]
 
-[tool.pylint.string]
-check-quote-consistency = "yes"
+[tool.coverage.paths]
+source = [
+    "src/cuid2",
+    "*/site-packages/cuid2",
+]
+
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
+exclude_also = ["if TYPE_CHECKING:"]
 
 [tool.mypy]
 cache_dir = "local/.mypy_cache"
+files = ["."]
+exclude = [
+    "^build/",
+    "^dist/",
+    "^hack/",
+]
+strict = true
+
+[[tool.mypy.overrides]]
+module = [
+    "atheris",
+    "keepachangelog",
+]
+ignore_missing_imports = true
+
+[tool.pyright]
+exclude = [
+    "build",
+    "dist",
+    "hack",
+]
+strict = ["src"]
 
 [dependency-groups]
+build = ["twine==7.0.0"]
 lint = [
     "codespell==2.4.3",
-    "pylint==4.1.2",
-    "ruff==0.16.10",
+    "prek==0.5.7",
+    "ruff==0.17.0",
+    "rumdl==0.3.0",
+    "zizmor==1.31.1; python_version >= '3.11'",
 ]
 test = [
+    "coverage[toml]==7.16.2",
+    "hypothesis==6.168.5; python_version < '3.11'",
+    "hypothesis==6.170.5; python_version >= '3.11'",
+    "keepachangelog==2.0.0",
     "pytest==9.1.1",
+    "pytest-cov==7.1.0",
     "pytest-mock==3.16.0",
-    "pytest-sugar==1.1.1",
 ]
-tox = [
-    "tox==4.64.8",
-    "tox-uv==1.36.1",
+typing = [
+    "mypy==2.4.0",
+    "pyright[nodejs]==1.1.414",
 ]
-typing = ["mypy==2.4.0"]

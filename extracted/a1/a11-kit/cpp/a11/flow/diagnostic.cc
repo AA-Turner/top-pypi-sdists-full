@@ -45,8 +45,11 @@ constexpr std::array kCodes = {
              Severity::kError,
              "A '<-' carries a value where there is no 'repeat' to carry it "
              "into."},
+    CodeInfo{"flow.barrier.continuation-cycle", Family::kBarrier,
+             Severity::kError,
+             "A continuation completion depends on a writer it prevents."},
     CodeInfo{"flow.barrier.duplicate", Family::kBarrier, Severity::kWeakWarning,
-             "A second 'wait' or 'drain' on something this body already holds "
+             "A second 'wait' or 'close' on something this body already holds "
              "for."},
     CodeInfo{"flow.barrier.duplicate-carry", Family::kBarrier, Severity::kError,
              "A repeat carries the same name twice."},
@@ -54,6 +57,8 @@ constexpr std::array kCodes = {
              "A loop is given a second stop condition."},
     CodeInfo{"flow.barrier.expression-cycle", Family::kBarrier,
              Severity::kError, "Expression cycle."},
+    CodeInfo{"flow.barrier.scope-cycle", Family::kBarrier, Severity::kError,
+             "A preceding producer needs a consumer after a scope barrier."},
     CodeInfo{"flow.barrier.unordered-clock", Family::kBarrier,
              Severity::kWarning,
              "A statement reads the clock against something the flow produced, "
@@ -71,21 +76,17 @@ constexpr std::array kCodes = {
              "the two reads take turns on it rather than seeing one value."},
     CodeInfo{"flow.barrier.wait-lends-node", Family::kBarrier,
              Severity::kWarning,
-             "A 'wait' or 'drain' on a node nothing in the flow writes: it "
+             "A 'wait' or 'close' on a node nothing in the flow writes: it "
              "ends the node at once rather than waiting for it."},
     CodeInfo{"flow.barrier.wrong-carry", Family::kBarrier, Severity::kError,
              "A carry names something other than what its repeat carries."},
-    CodeInfo{"flow.form.advance-in-loop", Family::kForm, Severity::kError,
-             "An 'advance' names a value bound outside the loop, where its "
-             "fixed step would bind the same value on every pass."},
     CodeInfo{"flow.form.bad-number", Family::kForm, Severity::kError,
              "A number the language cannot read."},
     CodeInfo{"flow.form.bad-pattern", Family::kForm, Severity::kError,
              "A 'match' pattern the language cannot read: an unclosed hole, an "
              "unknown kind, or two holes with one name."},
-    CodeInfo{"flow.form.bind-many-targets", Family::kForm, Severity::kError,
-             "A name is given to a pipe that writes several destinations, "
-             "which is several steps."},
+    CodeInfo{"flow.form.continuation-grouping", Family::kForm, Severity::kError,
+             "A transfer and broadcast need explicit unambiguous grouping."},
     CodeInfo{"flow.form.count-not-positive", Family::kForm, Severity::kWarning,
              "A count that is not a number of anything: 'parallel 0', "
              "'skip -1'."},
@@ -157,6 +158,11 @@ constexpr std::array kCodes = {
              "'one of []' allows nothing, so nothing would validate."},
     CodeInfo{"flow.form.one-of-not-a-list", Family::kForm, Severity::kError,
              "'one of' is given something other than a list of constants."},
+    CodeInfo{
+        "flow.form.optional-binding", Family::kForm, Severity::kError,
+        "An optional binding requires an option with validated provenance."},
+    CodeInfo{"flow.form.pipeline-call", Family::kForm, Severity::kError,
+             "A pipeline invocation has an unknown or incompatible interface."},
     CodeInfo{"flow.form.port-modifier-order", Family::kForm, Severity::kError,
              "'stream' or 'required' is written in front of the port's type "
              "instead of after it."},
@@ -164,6 +170,12 @@ constexpr std::array kCodes = {
              "Private type exposed."},
     CodeInfo{"flow.form.repeated-modifier", Family::kForm, Severity::kError,
              "A modifier that says one thing is written twice."},
+    CodeInfo{"flow.form.resource-limit", Family::kForm, Severity::kError,
+             "A host-configured parsing or compilation limit was reached."},
+    CodeInfo{"flow.form.scope-barrier", Family::kForm, Severity::kError,
+             "A bare scope barrier cannot be modified or used as a value."},
+    CodeInfo{"flow.form.sink-as-source", Family::kForm, Severity::kError,
+             "A continuation sink cannot be read or carried as payload."},
     CodeInfo{"flow.form.stage-argument", Family::kForm, Severity::kError,
              "A stage is missing the argument it takes, or was given one of "
              "the wrong kind."},
@@ -217,7 +229,7 @@ constexpr std::array kCodes = {
              "'_' used as a name: bound to a statement, declared as a port, or "
              "given to a loop. It is the discard, not a name."},
     CodeInfo{"flow.name.discard-read", Family::kName, Severity::kError,
-             "'_' read: as a pipeline source, as something to wait on, drain "
+             "'_' read: as a pipeline source, as something to wait on, close "
              "or abort, or inside an expression. It keeps nothing, so there is "
              "nothing there to read."},
     CodeInfo{"flow.name.import-alias-conflict", Family::kName, Severity::kError,
@@ -235,10 +247,6 @@ constexpr std::array kCodes = {
              "Something that is not a call is asked to stop."},
     CodeInfo{"flow.name.not-a-stream", Family::kName, Severity::kError,
              "Something that cannot be read is used as a pipeline source."},
-    CodeInfo{
-        "flow.name.not-advanceable", Family::kName, Severity::kError,
-        "'advance' names something other than a value a 'let' bound, which "
-        "is the only thing with a next value."},
     CodeInfo{"flow.name.not-writable", Family::kName, Severity::kError,
              "A stream is written somewhere that cannot be written: an 'in' "
              "port, a call's output, a barrier."},
@@ -249,6 +257,8 @@ constexpr std::array kCodes = {
     CodeInfo{"flow.name.unknown", Family::kName, Severity::kError,
              "A name nothing has bound, including one bound further down: a "
              "flow reads in order."},
+    CodeInfo{"flow.name.unknown-call", Family::kName, Severity::kError,
+             "A qualified invocation has no matching callable contract."},
     CodeInfo{"flow.name.unknown-node-map", Family::kName, Severity::kError,
              "A node map used before 'nodes' declares it."},
     CodeInfo{"flow.name.unknown-port", Family::kName, Severity::kError,
@@ -260,9 +270,15 @@ constexpr std::array kCodes = {
     CodeInfo{"flow.schema.unsupported-keyword", Family::kForm,
              Severity::kWarning,
              "A JSON Schema contains a constraint without a Flow spelling."},
+    CodeInfo{"flow.sequence.conflicting-access", Family::kSequence,
+             Severity::kError,
+             "Parallel accesses require a deterministic order."},
     CodeInfo{"flow.sequence.impossible", Family::kSequence, Severity::kWarning,
              "A sequence of stages that cannot produce what it appears to: "
              "dropping from one value, counting a reduced stream, 'first 0'."},
+    CodeInfo{"flow.sequence.lossy-conversion", Family::kSequence,
+             Severity::kWarning,
+             "A constant conversion loses precision or falls back to zero."},
     CodeInfo{"flow.sequence.redundant-declaration", Family::kSequence,
              Severity::kInformation, "Redundant declaration."},
     CodeInfo{"flow.sequence.redundant-definition", Family::kSequence,
@@ -331,8 +347,8 @@ constexpr std::array kCodes = {
              "A 'try' whose status nothing reads: a failure leaves the ports "
              "it feeds silently empty."},
     CodeInfo{"flow.unused.value", Family::kUnused, Severity::kWarning,
-             "A `let` nothing reads: the stream behind it is never read "
-             "either, so whatever produces it may be left waiting."},
+             "An initialized value that no expression reads."},
+
 };
 
 }  // namespace

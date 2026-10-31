@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 from tox.util.redact import redact_argv
 from tox.util.typing_compat import override
@@ -36,6 +36,8 @@ class ExecuteRequest:
         stdin: StdinSource,
         run_id: str,
         allow: list[str] | None = None,
+        *,
+        capture: bool = False,
     ) -> None:
         """Create a new execution request.
 
@@ -44,6 +46,10 @@ class ExecuteRequest:
         :param env: the environment variables
         :param stdin: the type of standard input allowed
         :param run_id: an id to identify this run
+        :param allow: executable allowlist, or ``None`` to allow any command
+        :param capture: capture output even when no-capture mode is enabled
+
+        :raises ValueError: if the command is empty
 
         """
         if len(cmd) == 0:
@@ -54,6 +60,7 @@ class ExecuteRequest:
         self.env = env  #: the environment variables to use
         self.stdin = stdin  #: the type of standard input interaction allowed
         self.run_id = run_id  #: an id to identify this run
+        self.capture = capture
         if allow is not None and "*" in allow:
             allow = None  # if we allow everything we can just disable the check
         self.allow = allow
@@ -65,7 +72,7 @@ class ExecuteRequest:
 
     @property
     def shell_cmd_redacted(self) -> str:
-        """:returns: the command to run as a shell command with secret-looking flag values masked"""
+        """:returns: the command with URL userinfo and secret-looking inline flag values masked"""
         return self._shell_cmd(redact=True)
 
     def _shell_cmd(self, *, redact: bool) -> str:
@@ -80,7 +87,8 @@ class ExecuteRequest:
 
     @override
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(cmd={self.cmd!r}, cwd={self.cwd!r}, env=..., stdin={self.stdin!r})"
+        cmd: Final = redact_argv(self.cmd)
+        return f"{self.__class__.__name__}(cmd={cmd!r}, cwd={self.cwd!r}, env=..., stdin={self.stdin!r})"
 
 
 def shell_cmd(cmd: Sequence[str]) -> str:
@@ -94,8 +102,8 @@ def shell_cmd(cmd: Sequence[str]) -> str:
     return " ".join(shlex_quote(str(x)) for x in cmd)
 
 
-__all__ = (
+__all__ = [
     "ExecuteRequest",
     "StdinSource",
     "shell_cmd",
-)
+]

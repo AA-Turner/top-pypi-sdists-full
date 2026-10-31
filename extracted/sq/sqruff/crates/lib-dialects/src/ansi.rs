@@ -1159,15 +1159,45 @@ pub fn raw_dialect() -> Dialect {
             "NestedJoinGrammar".into(),
             Nothing::new().to_matchable().into(),
         ),
-        // Grammar for join targets - either a simple table expression or a
-        // bracketed join expression (for parenthesized joined tables)
+        // Recursive so redundant brackets do not impose a depth limit on a
+        // joined table. Keep this separate from FROM expression parsing.
+        (
+            "BracketedJoinTargetGrammar".into(),
+            Bracketed::new(vec![
+                one_of(vec![
+                    Sequence::new(vec![
+                        Ref::new("FromExpressionElementSegment").to_matchable(),
+                        AnyNumberOf::new(vec![Ref::new("JoinClauseSegment").to_matchable()])
+                            .config(|this| this.min_times = 1)
+                            .to_matchable(),
+                    ])
+                    .to_matchable(),
+                    Sequence::new(vec![
+                        Ref::new("BracketedJoinTargetGrammar").to_matchable(),
+                        AnyNumberOf::new(vec![Ref::new("JoinClauseSegment").to_matchable()])
+                            .to_matchable(),
+                    ])
+                    .to_matchable(),
+                ])
+                .to_matchable(),
+            ])
+            .to_matchable()
+            .into(),
+        ),
         (
             "JoinTargetGrammar".into(),
             one_of(vec![
                 Ref::new("FromExpressionElementSegment").to_matchable(),
-                Bracketed::new(vec![Ref::new("FromExpressionSegment").to_matchable()])
-                    .to_matchable(),
+                Ref::new("BracketedJoinTargetSegment").to_matchable(),
             ])
+            .to_matchable()
+            .into(),
+        ),
+        (
+            "BracketedJoinTargetSegment".into(),
+            NodeMatcher::new(SyntaxKind::FromExpressionElement, |_| {
+                Ref::new("BracketedJoinTargetGrammar").to_matchable()
+            })
             .to_matchable()
             .into(),
         ),
@@ -4028,7 +4058,10 @@ pub fn raw_dialect() -> Dialect {
         ),
         (
             "EmptyStructLiteralSegment".into(),
-            NodeMatcher::new(SyntaxKind::EmptyStructLiteral, |_| {
+            // Serialises as `typed_struct_literal` (like a regular struct
+            // literal) so that spacing rules are applied correctly to
+            // `STRUCT()`, matching SQLFluff.
+            NodeMatcher::new(SyntaxKind::TypedStructLiteral, |_| {
                 Sequence::new(vec![
                     Ref::new("StructTypeSegment").to_matchable(),
                     Ref::new("EmptyStructLiteralBracketsSegment").to_matchable(),
@@ -4513,7 +4546,9 @@ pub fn raw_dialect() -> Dialect {
         ),
         (
             "EmptyStructLiteralBracketsSegment".into(),
-            NodeMatcher::new(SyntaxKind::EmptyStructLiteralBrackets, |_| {
+            // Serialises as `struct_literal` (an empty one) so that spacing
+            // rules are applied correctly to `STRUCT()`, matching SQLFluff.
+            NodeMatcher::new(SyntaxKind::StructLiteral, |_| {
                 Bracketed::new(vec![]).to_matchable()
             })
             .to_matchable()
@@ -5644,7 +5679,7 @@ fn access_schema_plural_object_segment() -> Matchable {
     .to_matchable()
 }
 
-fn access_permission_segment() -> Matchable {
+pub fn access_permission_segment() -> Matchable {
     one_of(vec![
         Sequence::new(vec![
             Ref::keyword("CREATE").to_matchable(),

@@ -1,11 +1,16 @@
+import os
 import time
+import uuid
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 
 from lithops import FunctionExecutor
 from lithops import RetryingFunctionExecutor
+from lithops import Storage
 from lithops.retries import RetryingFuture
+from lithops.utils import FuturesList
 from lithops.wait import ALWAYS, ANY_COMPLETED
 
 
@@ -288,6 +293,62 @@ class TestRetryingFunctionExecutorUnit:
         assert retrying.response_future is retried
         inner.map.assert_called_once()
 
+    def test_wait_shares_one_timeout_across_retries(self, monkeypatch):
+        """Each retry round used to be given the original timeout again"""
+        clock = {'now': 1000.0}
+        monkeypatch.setattr('lithops.retries.time.monotonic', lambda: clock['now'])
+        failed = FakeResponseFuture(error=True)
+        retried = FakeResponseFuture(error=False, result=1)
+        inner = MagicMock()
+        inner.config = {}
+        recorded = []
+
+        def on_wait(fs, **kwargs):
+            assert kwargs['cancel_on_timeout'] is False
+            recorded.append(kwargs['timeout'])
+            clock['now'] += 4
+            if len(recorded) == 1:
+                return [failed], []
+            return [retried], []
+
+        inner.wait.side_effect = on_wait
+        inner.map.return_value = [retried]
+        retrying = RetryingFuture(failed, map_function=lambda x: x, input=1, retries=1)
+        done, pending = RetryingFunctionExecutor(inner).wait(
+            [retrying], timeout=10, throw_except=False, show_progressbar=False
+        )
+        assert pending == []
+        assert done == [retrying]
+        assert recorded == [10, 6]
+
+    def test_wait_timeout_does_not_retry_past_the_deadline(self, monkeypatch):
+        """
+        A timeout used to cancel every call, so a failure that had already
+        come back was never retried, and the next round started a new budget
+        """
+        clock = {'now': 1000.0}
+        monkeypatch.setattr('lithops.retries.time.monotonic', lambda: clock['now'])
+        failed = FakeResponseFuture(error=True)
+        still_running = FakeResponseFuture()
+        inner = MagicMock()
+        inner.config = {}
+
+        def on_wait(fs, **kwargs):
+            clock['now'] += kwargs['timeout']
+            return [failed], [still_running]
+
+        inner.wait.side_effect = on_wait
+        futures = [
+            RetryingFuture(failed, map_function=lambda x: x, input=1, retries=2),
+            RetryingFuture(still_running, map_function=lambda x: x, input=2, retries=2),
+        ]
+        with pytest.raises(TimeoutError, match='Timeout of 10 seconds'):
+            RetryingFunctionExecutor(inner).wait(
+                futures, timeout=10, throw_except=False, show_progressbar=False
+            )
+        inner.map.assert_not_called()
+        assert inner.wait.call_count == 1
+
     def test_wait_always_returns_after_first_poll(self):
         pending_resp = FakeResponseFuture()
         inner = MagicMock()
@@ -316,6 +377,30 @@ class TestRetryingFunctionExecutorUnit:
         assert done == [done_f]
         assert still_pending == [pending_f]
         assert inner.wait.call_count == 1
+
+    def test_wait_a_percentage_returns_once_that_share_is_done(self):
+        """A percentage return_when used to loop for ever, even with every call done"""
+        finished = [FakeResponseFuture(error=False, result=i) for i in range(2)]
+        pending = [FakeResponseFuture() for _ in range(2)]
+        inner = MagicMock()
+        inner.config = {}
+        inner.wait.return_value = (finished, pending)
+        fs = [RetryingFuture(f, map_function=lambda x: x, input=i, retries=0)
+              for i, f in enumerate(finished + pending)]
+        executor = RetryingFunctionExecutor(inner)
+        done, still_pending = executor.wait(fs, return_when=50)
+        assert done == fs[:2]
+        assert still_pending == fs[2:]
+        assert inner.wait.call_count == 1
+
+    def test_wait_on_no_futures_returns_at_once(self):
+        """ANY_COMPLETED used to wait for ever for one of no futures"""
+        inner = MagicMock()
+        inner.config = {}
+        inner.wait.side_effect = [([], [])]
+        executor = RetryingFunctionExecutor(inner)
+        assert executor.wait([], return_when=ANY_COMPLETED) == ([], [])
+        assert executor.wait([]) == ([], [])
 
     def test_wait_exhausted_retries_are_treated_as_done(self):
         failed = FakeResponseFuture(error=True)
@@ -347,3 +432,253 @@ class TestRetryingFunctionExecutorUnit:
         assert executor._retries_to_use(None) == 9
         executor.config = {}
         assert executor._retries_to_use(None) == 0
+
+
+def test_wait_retries_with_the_default_throw_except(tmp_path):
+    """The first failure used to end the wait instead of being retried"""
+    timing_map = {0: [-1]}
+
+    def partial_map_function(x):
+        return deterministic_failure(tmp_path, timing_map, x)
+
+    fexec = FunctionExecutor(config=pytest.lithops_config)
+    with RetryingFunctionExecutor(fexec) as executor:
+        futures = executor.map(partial_map_function, range(2), retries=1)
+        done, pending = executor.wait(futures)
+    assert pending == []
+    assert sorted(f.result() for f in done) == [0, 1]
+    check_invocation_counts(tmp_path, timing_map, 2, retries=1)
+
+
+def test_wait_raises_by_default_once_retries_are_exhausted(tmp_path):
+    timing_map = {0: [-1, -1]}
+
+    def partial_map_function(x):
+        return deterministic_failure(tmp_path, timing_map, x)
+
+    fexec = FunctionExecutor(config=pytest.lithops_config)
+    with RetryingFunctionExecutor(fexec) as executor:
+        futures = executor.map(partial_map_function, range(2), retries=1)
+        with pytest.raises(RuntimeError, match='Deliberately fail'):
+            executor.wait(futures)
+    check_invocation_counts(tmp_path, timing_map, 2, retries=1)
+
+
+def _count_lines(obj):
+    return obj.data_stream.read().count(b'\n')
+
+
+def _count_lines_from(obj, skip):
+    return obj.data_stream.read().count(b'\n') - skip
+
+
+def test_a_directory_is_retried_one_file_at_a_time(tmp_path):
+    """Each file is a call of its own, and a retry runs only the one that failed. An empty one runs none"""
+    data = tmp_path / 'data'
+    data.mkdir()
+    for name, lines in (('a.txt', 1), ('b.txt', 2), ('c.txt', 3), ('empty.txt', 0)):
+        (data / name).write_text('x\n' * lines)
+    calls = tmp_path / 'calls'
+    calls.mkdir()
+
+    def count_lines(obj):
+        name = os.path.basename(obj.path)
+        first = not any(f.startswith(name) for f in os.listdir(calls))
+        (calls / f'{name}.{uuid.uuid4().hex}').touch()
+        if name == 'b.txt' and first:
+            raise RuntimeError('Deliberately fail on the first read of b.txt')
+        return obj.data_stream.read().count(b'\n')
+
+    fexec = FunctionExecutor(config=pytest.lithops_config)
+    with RetryingFunctionExecutor(fexec) as executor:
+        futures = executor.map(count_lines, [str(data)], retries=1)
+        done, pending = executor.wait(futures)
+    assert pending == []
+    assert sorted(f.result() for f in done) == [1, 2, 3]
+    assert sorted(f.rsplit('.', 1)[0] for f in os.listdir(calls)) == ['a.txt', 'b.txt', 'b.txt', 'c.txt']
+
+
+
+
+def test_a_chunk_is_retried_on_its_own(tmp_path):
+    data = tmp_path / 'data.txt'
+    data.write_text(''.join(f'{i:04d}\n' for i in range(30)))
+    calls = tmp_path / 'calls'
+    calls.mkdir()
+
+    def count_lines(obj):
+        first = not any(f.startswith(f'{obj.part}.') for f in os.listdir(calls))
+        (calls / f'{obj.part}.{uuid.uuid4().hex}').touch()
+        if obj.part == 2 and first:
+            raise RuntimeError('Deliberately fail on the first read of chunk 2')
+        return obj.data_stream.read().count(b'\n')
+
+    fexec = FunctionExecutor(config=pytest.lithops_config)
+    with RetryingFunctionExecutor(fexec) as executor:
+        futures = executor.map(count_lines, [str(data)], obj_chunk_size=50, retries=1)
+        done, pending = executor.wait(futures)
+    assert pending == []
+    assert sum(f.result() for f in done) == 30
+    assert sorted(f.split('.')[0] for f in os.listdir(calls)) == ['1', '2', '2', '3']
+
+def test_a_prefix_costs_the_requests_of_map(monkeypatch):
+    """
+    It is listed once and its objects are not sized again: map() used to
+    send a head request per object, one after the other
+    """
+    from lithops.storage.backends.localhost.localhost import LocalhostStorageBackend
+
+    storage = Storage(config=pytest.lithops_config)
+    prefix = f'retries-{uuid.uuid4().hex}/'
+    for name, data in (('a.txt', b'x\n'), ('b.txt', b'x\nx\n'), ('empty.txt', b'')):
+        storage.put_object(storage.bucket, prefix + name, data)
+
+    requests = []
+    for method in ('list_objects', 'head_object'):
+        original = getattr(LocalhostStorageBackend, method)
+
+        def counting(self, bucket, key=None, *args, _method=method, _original=original, **kwargs):
+            if key and key.startswith(prefix):
+                requests.append(_method)
+            return _original(self, bucket, key, *args, **kwargs)
+        monkeypatch.setattr(LocalhostStorageBackend, method, counting)
+
+    try:
+        fexec = FunctionExecutor(config=pytest.lithops_config)
+        with RetryingFunctionExecutor(fexec) as executor:
+            futures = executor.map(_count_lines, [f'localhost://{storage.bucket}/{prefix}'])
+            done, pending = executor.wait(futures)
+        assert pending == []
+        assert sorted(f.result() for f in done) == [1, 2]
+        assert requests == ['list_objects']
+    finally:
+        storage.delete_objects(storage.bucket, storage.list_keys(storage.bucket, prefix))
+
+class TestRetryingThrowExcept:
+
+    def test_result_and_status_honour_throw_except_false(self):
+        future = RetryingFuture(FakeResponseFuture(error=True, result='partial'), lambda x: x, 1)
+        assert future.result(throw_except=False) == 'partial'
+        assert future.status(throw_except=False) == 'ok'
+
+    def test_inner_wait_never_raises_and_the_outer_one_reraises_at_the_end(self):
+        first = FakeResponseFuture(error=True)
+        still_failing = FakeResponseFuture(error=True)
+        inner = MagicMock()
+        inner.config = {}
+        inner.wait.side_effect = [([first], []), ([still_failing], [])]
+        inner.map.return_value = [still_failing]
+        retrying = RetryingFuture(first, map_function=lambda x: x, input=1, retries=1)
+
+        with pytest.raises(RuntimeError, match='failed'):
+            RetryingFunctionExecutor(inner).wait([retrying])
+
+        assert inner.map.call_count == 1
+        assert [c.kwargs['throw_except'] for c in inner.wait.call_args_list] == [False, False]
+
+
+class TestRetryingMapInputs:
+
+    @staticmethod
+    def _inner(n_futures, objects=()):
+        """An executor whose storage, of the localhost backend, lists ``objects``"""
+        inner = MagicMock()
+        inner.config = {}
+        inner.map.return_value = [FakeResponseFuture() for _ in range(n_futures)]
+        inner.internal_storage = SimpleNamespace(backend='localhost', storage=MagicMock())
+        inner.internal_storage.storage.list_objects.return_value = list(objects)
+        return inner
+
+    @pytest.mark.parametrize('chunks', [{'obj_chunk_number': 3}, {'obj_chunk_size': 100}])
+    def test_each_chunk_of_an_object_is_an_input(self, chunks):
+        """Chunks used to be refused, since a retry resubmitted the whole object"""
+        inner = self._inner(3, [{'Key': 'prefix/a.txt', 'Size': 300}])
+        futures = RetryingFunctionExecutor(inner).map(_count_lines, ['localhost://bucket/prefix/'], **chunks)
+        assert [f.input['obj'].part for f in futures] == [1, 2, 3]
+        assert inner.map.call_args.args[1] == [f.input for f in futures]
+
+    @staticmethod
+    def _names(futures):
+        """The object the input of each future names, and its other params"""
+        def name(obj):
+            return getattr(obj, 'path', None) or f'{obj.backend}://{obj.bucket}/{obj.key}'
+        return [
+            (name(f.input['obj']), {k: v for k, v in f.input.items() if k != 'obj'})
+            for f in futures
+        ]
+
+    def test_a_prefix_is_split_into_one_input_per_object(self):
+        """
+        It used to raise once its calls were running, since a retry of one
+        of them would have resubmitted the whole prefix
+        """
+        objects = [
+            {'Key': 'prefix/a.txt', 'Size': 2},
+            {'Key': 'prefix/', 'Size': 0},
+            {'Key': 'prefix/empty.txt', 'Size': 0},
+            {'Key': 'prefix/b.txt', 'Size': 4},
+        ]
+        inner = self._inner(2, objects)
+        futures = RetryingFunctionExecutor(inner).map(
+            _count_lines_from, ['localhost://bucket/prefix/'], extra_args={'skip': 1}
+        )
+        # A folder marker and an empty object run no call, as with map()
+        assert self._names(futures) == [
+            ('localhost://bucket/prefix/a.txt', {'skip': 1}),
+            ('localhost://bucket/prefix/b.txt', {'skip': 1}),
+        ]
+        assert inner.map.call_args.args[1] == [f.input for f in futures]
+        storage = inner.internal_storage.storage
+        storage.list_objects.assert_called_once_with('bucket', 'prefix/', None)
+        storage.head_object.assert_not_called()
+        # Merged into every input already, so neither the map nor a retry adds them again
+        assert inner.map.call_args.kwargs['extra_args'] is None
+        assert all(f.map_kwargs['extra_args'] is None for f in futures)
+
+    def test_a_directory_is_split_into_one_input_per_file(self, tmp_path):
+        """An empty file runs no call, so it is no input either"""
+        for name, data in (('a.txt', 'x\n'), ('empty.txt', ''), ('b.txt', 'x\n')):
+            (tmp_path / name).write_text(data)
+        futures = RetryingFunctionExecutor(self._inner(2)).map(_count_lines, [str(tmp_path)])
+        assert sorted(name for name, _ in self._names(futures)) == [
+            str(tmp_path / 'a.txt'), str(tmp_path / 'b.txt')
+        ]
+        futures = RetryingFunctionExecutor(self._inner(1)).map(_count_lines, [str(tmp_path / 'a.txt')])
+        assert self._names(futures) == [(str(tmp_path / 'a.txt'), {})]
+
+    def test_single_objects_are_sized_once_and_an_empty_one_is_no_input(self):
+        inner = self._inner(1)
+        storage = inner.internal_storage.storage
+        storage.head_object.side_effect = lambda bucket, key: {
+            'content-length': '0' if key == 'empty.txt' else '2'
+        }
+        futures = RetryingFunctionExecutor(inner).map(
+            _count_lines, ['localhost://bucket/a.txt', 'localhost://bucket/empty.txt']
+        )
+        assert self._names(futures) == [('localhost://bucket/a.txt', {})]
+        assert storage.head_object.call_count == 2
+        storage.list_objects.assert_not_called()
+
+    def test_a_prefix_with_no_objects_is_refused_before_invoking(self):
+        inner = self._inner(0)
+        with pytest.raises(Exception, match='No objects found'):
+            RetryingFunctionExecutor(inner).map(_count_lines, ['localhost://bucket/empty/'])
+        inner.map.assert_not_called()
+
+    def test_more_calls_than_inputs_is_an_error(self):
+        inner = self._inner(3)
+        with pytest.raises(ValueError, match='cannot be retried'):
+            RetryingFunctionExecutor(inner).map(lambda x: x, [1, 2])
+
+    def test_a_generator_is_paired_with_its_futures(self):
+        inner = self._inner(3)
+        futures = RetryingFunctionExecutor(inner).map(lambda x: x, (i for i in range(3)))
+        assert [f.input for f in futures] == [0, 1, 2]
+        assert inner.map.call_args.args[1] == [0, 1, 2]
+
+    def test_a_chain_after_map_reduce_pairs_the_reduce_future_only(self):
+        map_stage = [SimpleNamespace(_mapreduce_map=True) for _ in range(3)]
+        reducer = SimpleNamespace(_mapreduce_map=False)
+        inner = self._inner(1)
+        futures = RetryingFunctionExecutor(inner).map(lambda x: x, FuturesList(map_stage + [reducer]))
+        assert [f.input for f in futures] == [reducer]

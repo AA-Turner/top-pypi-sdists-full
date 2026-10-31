@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from matrx_graph.actions import register_node
+from matrx_graph.actions import ActionFailed, declare_action, register_node
 from matrx_graph.types.context import NodeExecutionContext
 from matrx_graph.types.primitives import ActionTier, NodeCategory
 from matrx_graph.types.result import NodeResult, failure, success
@@ -95,7 +95,7 @@ class ScrapeInput(BaseModel):
     )
 
 
-@register_node(
+@declare_action(
     name="scraper.scrape",
     display_name="Read a Web Page",
     description="Fetch a web page and return its text and details.",
@@ -106,28 +106,36 @@ class ScrapeInput(BaseModel):
     output_kind="scraped_page",
     icon="globe",
     tags=("scrape", "web", "fetch"),
+    doors={"step"},
 )
-async def scraper_scrape(ctx: NodeExecutionContext, inputs: ScrapeInput) -> NodeResult[ScrapedPage]:
-    _ = ctx
+async def scraper_scrape(app: Any, inputs: ScrapeInput) -> ScrapedPage:
+    """ONE Action (engine ``code``): a step, and — like every Action — a directive
+    (``directive_v1_action_scraper_scrape``). A failed read is ``ActionFailed("scrape_failed")``,
+    which the step door turns into the node failure it always was."""
+    _ = app
     from matrx_scraper import scrape as raw_scrape
 
+    from matrx_scraper.utils.proxy import redact_url_secrets
+
+    shown = redact_url_secrets(inputs.url)
     try:
         result = await raw_scrape(url=inputs.url, use_proxy=inputs.use_proxy, fast=inputs.fast)
     except Exception as e:
-        return failure(
+        reason = redact_url_secrets(f"{type(e).__name__}: {e}")
+        raise ActionFailed(
             "scrape_failed",
-            f"scrape of {inputs.url} raised {type(e).__name__}: {e}",
-            details={"url": inputs.url, "failure_reason": f"{type(e).__name__}: {e}"},
-        )
+            f"scrape of {shown} raised {reason}",
+            details={"url": shown, "failure_reason": reason},
+        ) from e
     page = _scrape_result_to_page(result)
     if not page.success:
-        reason = page.failure_reason or "unknown failure"
-        return failure(
+        reason = redact_url_secrets(page.failure_reason or "unknown failure")
+        raise ActionFailed(
             "scrape_failed",
-            f"scrape of {inputs.url} failed: {reason}",
-            details={"url": inputs.url, "failure_reason": reason},
+            f"scrape of {shown} failed: {reason}",
+            details={"url": shown, "failure_reason": reason},
         )
-    return success(ScrapedPage(**page.model_dump(exclude={"success", "failure_reason", "char_count", "is_good"})))
+    return ScrapedPage(**page.model_dump(exclude={"success", "failure_reason", "char_count", "is_good"}))
 
 
 class ScrapeManyInput(BaseModel):

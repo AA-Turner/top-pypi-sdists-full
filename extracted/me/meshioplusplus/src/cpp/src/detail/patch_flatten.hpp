@@ -85,17 +85,6 @@ struct PatchSplitOptions {
 };
 
 /**
- * @brief Halve a patch once along the direction its normals spread most: at
- * the area-weighted median of `n · e`, `patch_split_until_flat`'s cut,
- * whether or not it flattens. Each half is split into its edge-connected
- * components.
- * @return per triangle its piece, numbered in the order of each piece's lowest
- *         triangle; `rNumPieces` the count (0 for fewer than two triangles).
- */
-std::vector<std::int64_t> patch_bisect(const std::vector<PatchVec>& rPts,
-                                       const std::vector<PatchTri>& rTris, std::size_t& rNumPieces);
-
-/**
  * @brief Split a patch no flattening parametrises into pieces one does.
  *
  * The triangles are halved at the area-weighted median of `n . e`, `e` the
@@ -113,27 +102,6 @@ std::vector<std::int64_t> patch_split_until_flat(const std::vector<PatchVec>& rP
                                                  const std::vector<PatchTri>& rTris,
                                                  const PatchSplitOptions& rOptions,
                                                  std::size_t& rNumPieces);
-
-/**
- * @brief Halve a patch across its longest extent: a tile, for a patch that
- * flattens but that no single B-spline surface follows within the tolerance.
- *
- * The triangles are cut at the area-weighted median of their centroids along
- * the principal axis of the centroid cloud (the direction the patch is
- * longest in), so the halves stay compact however the patch curves. Each half
- * is split into its edge-connected components. Deterministic: ties go by
- * triangle index, and pieces are numbered in the order of their lowest
- * triangle.
- *
- * @param rMinTriangles a piece with fewer triangles is left to the caller as
- *        facets (-1).
- * @param rNumPieces set to the number of pieces numbered from 0.
- * @return per triangle, its piece, or -1; empty when the patch is too small to
- *         halve (under twice @p MinTriangles) or does not separate.
- */
-std::vector<std::int64_t> patch_bisect(const std::vector<PatchVec>& rPts,
-                                       const std::vector<PatchTri>& rTris,
-                                       std::size_t MinTriangles, std::size_t& rNumPieces);
 
 }  // namespace detail
 }  // namespace meshioplusplus

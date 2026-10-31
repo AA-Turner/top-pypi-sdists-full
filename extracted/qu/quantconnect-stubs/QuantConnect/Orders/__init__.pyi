@@ -329,6 +329,22 @@ class OrderType(IntEnum):
     TRAILING_STOP = 11
     """Trailing Stop Order Type - (11)"""
 
+    def is_limit_order(self) -> bool:
+        """
+        Determines whether or not the specified order is a limit order
+        
+        :returns: True if the order is a limit order, false otherwise.
+        """
+        ...
+
+    def is_stop_order(self) -> bool:
+        """
+        Determines whether or not the specified order is a stop order
+        
+        :returns: True if the order is a stop order, false otherwise.
+        """
+        ...
+
 
 class OrderDirection(IntEnum):
     """Direction of the order"""
@@ -341,6 +357,19 @@ class OrderDirection(IntEnum):
 
     HOLD = 2
     """Default Value - No Order Direction (2)"""
+
+    def closes(self, side: QuantConnect.PositionSide) -> bool:
+        """
+        Determines if an order with the specified direction would close a position with the
+        specified side
+        
+        :param side: The side of the position, long/short
+        :returns: True if the order direction would close the position, otherwise false.
+        """
+        ...
+
+    def to_csv(self) -> str:
+        ...
 
 
 class GroupOrderManager(System.Object):
@@ -926,6 +955,31 @@ class OrderStatus(IntEnum):
     UPDATE_SUBMITTED = 9
     """Order update submitted to the market (9)"""
 
+    def is_closed(self) -> bool:
+        """
+        Determines if the specified status is in a closed state.
+        
+        :returns: True if the status is OrderStatus.FILLED, OrderStatus.CANCELED, or OrderStatus.INVALID.
+        """
+        ...
+
+    def is_fill(self) -> bool:
+        """
+        Determines if the specified status is a fill, that is, OrderStatus.FILLED
+        order OrderStatus.PARTIALLY_FILLED
+        
+        :returns: True if the status is OrderStatus.FILLED or OrderStatus.PARTIALLY_FILLED, false otherwise.
+        """
+        ...
+
+    def is_open(self) -> bool:
+        """
+        Determines if the specified status is in an open state.
+        
+        :returns: True if the status is not OrderStatus.FILLED, OrderStatus.CANCELED, or OrderStatus.INVALID.
+        """
+        ...
+
 
 class OrderSubmissionData(System.Object):
     """
@@ -1322,12 +1376,27 @@ class Order(System.Object, metaclass=abc.ABCMeta):
         """
         ...
 
+    def get_contingency_link(self, role: QuantConnect.Orders.ContingencyRole) -> QuantConnect.Orders.ContingencyLink:
+        """Gets the first ContingencyType.ONE_TRIGGERS_OTHER link of the order with the given role, null if none"""
+        ...
+
     def get_default_tag(self) -> str:
         """
         Gets the default tag for this order
         
         :returns: The default tag.
         """
+        ...
+
+    def get_sibling_link(self) -> QuantConnect.Orders.ContingencyLink:
+        """
+        Gets the link of the order to its siblings, the other members of its ContingencyType.ONE_CANCELS_OTHER
+        or ContingencyType.ONE_UPDATES_OTHER contingency, null if none
+        """
+        ...
+
+    def get_triggered_time(self) -> typing.Optional[datetime.datetime]:
+        """Gets the utc time at which the contingent child order was triggered, null if not a child or not triggered yet"""
         ...
 
     def get_value(self, security: QuantConnect.Securities.Security) -> float:
@@ -1350,6 +1419,35 @@ class Order(System.Object, metaclass=abc.ABCMeta):
         This Class is protected.
         
         :param security: The security matching this order's symbol
+        """
+        ...
+
+    def get_working_time(self) -> datetime.datetime:
+        """
+        Gets the utc time from which the order is considered to be working in the market:
+        the time it was triggered for contingent child orders, else its creation time
+        """
+        ...
+
+    def is_contingent(self) -> bool:
+        """Determines whether the order is part of a set of contingent orders"""
+        ...
+
+    def is_contingent_sibling(self, other: QuantConnect.Orders.Order) -> bool:
+        """
+        Determines whether both orders are members of the same ContingencyType.ONE_CANCELS_OTHER
+        or ContingencyType.ONE_UPDATES_OTHER contingency, so at most one of them is expected to completely fill
+        """
+        ...
+
+    def is_same_group_order(self, other: QuantConnect.Orders.Order) -> bool:
+        """Determines whether both orders are legs of the same group (combo) order"""
+        ...
+
+    def is_waiting_for_trigger(self) -> bool:
+        """
+        Determines whether the order is a contingent child still held waiting for its parent to fill,
+        that is, the order is not working in the market yet
         """
         ...
 
@@ -1762,6 +1860,18 @@ class OrderEvent(System.Object):
     @staticmethod
     def from_serialized(serialized_order_event: QuantConnect.Orders.Serialization.SerializedOrderEvent) -> QuantConnect.Orders.OrderEvent:
         """Creates a new instance based on the provided serialized order event"""
+        ...
+
+    def is_win(self, security: QuantConnect.Securities.Security, profit_loss: float) -> bool:
+        """
+        Checks whether the fill event for closing a trade is a winning trade
+        
+        :param security: The security being traded
+        :param profit_loss: The profit-loss for the closed trade
+        :returns: Whether the trade is a win.
+        For options assignments this depends on whether the option is ITM or OTM and the position side.
+        See Trade.IsWin for more information.
+        """
         ...
 
     def short_to_string(self) -> str:
@@ -3108,6 +3218,253 @@ class StopMarketOrder(QuantConnect.Orders.Order):
         ...
 
 
+class QuantBridgeOrderProperties(QuantConnect.Orders.OrderProperties):
+    """The Quant Bridge order properties"""
+
+    class StrategyParameters(System.Object):
+        """Models an EMSX order strategy parameter"""
+
+        @property
+        def name(self) -> str:
+            """The strategy name"""
+            ...
+
+        @name.setter
+        def name(self, value: str) -> None:
+            ...
+
+        @property
+        def fields(self) -> typing.List[QuantConnect.Orders.QuantBridgeOrderProperties.StrategyField]:
+            """The strategy fields"""
+            ...
+
+        @fields.setter
+        def fields(self, value: typing.List[QuantConnect.Orders.QuantBridgeOrderProperties.StrategyField]) -> None:
+            ...
+
+        def __init__(self, name: str, fields: typing.List[QuantConnect.Orders.QuantBridgeOrderProperties.StrategyField]) -> None:
+            """
+            Creates a new Quant Bridge order strategy instance
+            
+            :param name: The strategy name
+            :param fields: The strategy fields
+            """
+            ...
+
+    class StrategyField(System.Object):
+        """Models an EMSX order strategy field"""
+
+        @property
+        def value(self) -> str:
+            """The strategy field value"""
+            ...
+
+        @value.setter
+        def value(self, value: str) -> None:
+            ...
+
+        @property
+        def has_value(self) -> bool:
+            """Whether the strategy field carries a value"""
+            ...
+
+        @has_value.setter
+        def has_value(self, value: bool) -> None:
+            ...
+
+        @overload
+        def __init__(self, value: str) -> None:
+            """
+            Creates a new Quant Bridge order strategy field carrying a value.
+            
+            :param value: The strategy field value
+            """
+            ...
+
+        @overload
+        def __init__(self) -> None:
+            """Creates a new Quant Bridge order strategy field without a value."""
+            ...
+
+    @property
+    def additional_properties(self) -> QuantConnect.Util.BaseExtendedDictionary[str, str]:
+        """
+        Custom EMSX fields to send with the order. The key is the EMSX element name
+        and the value is the element value, e.g. AdditionalProperties<"EMSX_CFD_FLAG"> = "1"
+        """
+        ...
+
+    @additional_properties.setter
+    def additional_properties(self, value: QuantConnect.Util.BaseExtendedDictionary[str, str]) -> None:
+        ...
+
+    @property
+    def notes(self) -> str:
+        """The EMSX Instructions is the free form instructions that may be sent to the broker"""
+        ...
+
+    @notes.setter
+    def notes(self, value: str) -> None:
+        ...
+
+    @property
+    def handling_instruction(self) -> str:
+        """
+        The EMSX Handling Instruction is the instructions for handling the order or route.The values can be
+        preconfigured or a value customized by the broker.
+        """
+        ...
+
+    @handling_instruction.setter
+    def handling_instruction(self, value: str) -> None:
+        ...
+
+    @property
+    def execution_instruction(self) -> str:
+        """The execution instruction field"""
+        ...
+
+    @execution_instruction.setter
+    def execution_instruction(self, value: str) -> None:
+        ...
+
+    @property
+    def custom_notes_1(self) -> str:
+        """Custom user order notes 1"""
+        ...
+
+    @custom_notes_1.setter
+    def custom_notes_1(self, value: str) -> None:
+        ...
+
+    @property
+    def custom_notes_2(self) -> str:
+        """Custom user order notes 2"""
+        ...
+
+    @custom_notes_2.setter
+    def custom_notes_2(self, value: str) -> None:
+        ...
+
+    @property
+    def custom_notes_3(self) -> str:
+        """Custom user order notes 3"""
+        ...
+
+    @custom_notes_3.setter
+    def custom_notes_3(self, value: str) -> None:
+        ...
+
+    @property
+    def custom_notes_4(self) -> str:
+        """Custom user order notes 4"""
+        ...
+
+    @custom_notes_4.setter
+    def custom_notes_4(self, value: str) -> None:
+        ...
+
+    @property
+    def custom_notes_5(self) -> str:
+        """Custom user order notes 5"""
+        ...
+
+    @custom_notes_5.setter
+    def custom_notes_5(self, value: str) -> None:
+        ...
+
+    @property
+    def account(self) -> str:
+        """The EMSX account"""
+        ...
+
+    @account.setter
+    def account(self, value: str) -> None:
+        ...
+
+    @property
+    def broker(self) -> str:
+        """The EMSX broker code"""
+        ...
+
+    @broker.setter
+    def broker(self, value: str) -> None:
+        ...
+
+    @property
+    def locate_broker(self) -> str:
+        """
+        The EMSX locate broker code identifying the counterparty the shares are being borrowed
+        from for a short sale (EMSX_LOCATE_BROKER, e.g. "BMTB"). Maps to the LocBrkr field on
+        the EMSX trading ticket. Setting this (or locate_id) on a short equity sale
+        causes the brokerage to emit EMSX_LOCATE_REQ = "Y" alongside.
+        """
+        ...
+
+    @locate_broker.setter
+    def locate_broker(self, value: str) -> None:
+        ...
+
+    @property
+    def locate_id(self) -> str:
+        """
+        The EMSX locate confirmation/ticket id returned by the lending broker (EMSX_LOCATE_ID).
+        Maps to the LocId field on the EMSX trading ticket.
+        """
+        ...
+
+    @locate_id.setter
+    def locate_id(self, value: str) -> None:
+        ...
+
+    @property
+    def is_cfd_trade(self) -> bool:
+        """
+        Indicates if the order is a contract for differences (CFD) trade (EMSX_CFD_FLAG).
+        This field is applicable to trades on an order level, and does not populate on a per
+        security basis.
+        """
+        ...
+
+    @is_cfd_trade.setter
+    def is_cfd_trade(self, value: bool) -> None:
+        ...
+
+    @property
+    def strategy(self) -> QuantConnect.Orders.QuantBridgeOrderProperties.StrategyParameters:
+        """
+        The EMSX order strategy details.
+        Strategy parameters must be appended in the correct order as expected by EMSX.
+        """
+        ...
+
+    @strategy.setter
+    def strategy(self, value: QuantConnect.Orders.QuantBridgeOrderProperties.StrategyParameters) -> None:
+        ...
+
+    @property
+    def automatic_position_sides(self) -> bool:
+        """Whether to automatically include the position side in the order direction (buy-to-open, sell-to-close, etc.) instead of the default (buy, sell)"""
+        ...
+
+    @automatic_position_sides.setter
+    def automatic_position_sides(self, value: bool) -> None:
+        ...
+
+    @property
+    def position_side(self) -> typing.Optional[QuantConnect.Orders.OrderPosition]:
+        """Can optionally specify the position side in the order direction (buy-to-open, sell-to-close, etc.) instead of the default (buy, sell)"""
+        ...
+
+    @position_side.setter
+    def position_side(self, value: typing.Optional[QuantConnect.Orders.OrderPosition]) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Interfaces.IOrderProperties:
+        """Returns a new instance clone of this object"""
+        ...
+
+
 class FixOrderProperites(QuantConnect.Orders.FixOrderProperties):
     """
     FIX (Financial Information Exchange) order properties
@@ -3892,251 +4249,13 @@ class TimeInForceJsonConverter:
         ...
 
 
-class TerminalLinkOrderProperties(QuantConnect.Orders.OrderProperties):
-    """The terminal link order properties"""
-
-    class StrategyParameters(System.Object):
-        """Models an EMSX order strategy parameter"""
-
-        @property
-        def name(self) -> str:
-            """The strategy name"""
-            ...
-
-        @name.setter
-        def name(self, value: str) -> None:
-            ...
-
-        @property
-        def fields(self) -> typing.List[QuantConnect.Orders.TerminalLinkOrderProperties.StrategyField]:
-            """The strategy fields"""
-            ...
-
-        @fields.setter
-        def fields(self, value: typing.List[QuantConnect.Orders.TerminalLinkOrderProperties.StrategyField]) -> None:
-            ...
-
-        def __init__(self, name: str, fields: typing.List[QuantConnect.Orders.TerminalLinkOrderProperties.StrategyField]) -> None:
-            """
-            Creates a new TerminalLink order strategy instance
-            
-            :param name: The strategy name
-            :param fields: The strategy fields
-            """
-            ...
-
-    class StrategyField(System.Object):
-        """Models an EMSX order strategy field"""
-
-        @property
-        def value(self) -> str:
-            """The strategy field value"""
-            ...
-
-        @value.setter
-        def value(self, value: str) -> None:
-            ...
-
-        @property
-        def has_value(self) -> bool:
-            """Whether the strategy field carries a value"""
-            ...
-
-        @has_value.setter
-        def has_value(self, value: bool) -> None:
-            ...
-
-        @overload
-        def __init__(self, value: str) -> None:
-            """
-            Creates a new TerminalLink order strategy field carrying a value.
-            
-            :param value: The strategy field value
-            """
-            ...
-
-        @overload
-        def __init__(self) -> None:
-            """Creates a new TerminalLink order strategy field without a value."""
-            ...
-
-    @property
-    def additional_properties(self) -> QuantConnect.Util.BaseExtendedDictionary[str, str]:
-        """
-        Custom EMSX fields to send with the order. The key is the EMSX element name
-        and the value is the element value, e.g. AdditionalProperties<"EMSX_CFD_FLAG"> = "1"
-        """
-        ...
-
-    @additional_properties.setter
-    def additional_properties(self, value: QuantConnect.Util.BaseExtendedDictionary[str, str]) -> None:
-        ...
-
-    @property
-    def notes(self) -> str:
-        """The EMSX Instructions is the free form instructions that may be sent to the broker"""
-        ...
-
-    @notes.setter
-    def notes(self, value: str) -> None:
-        ...
-
-    @property
-    def handling_instruction(self) -> str:
-        """
-        The EMSX Handling Instruction is the instructions for handling the order or route.The values can be
-        preconfigured or a value customized by the broker.
-        """
-        ...
-
-    @handling_instruction.setter
-    def handling_instruction(self, value: str) -> None:
-        ...
-
-    @property
-    def execution_instruction(self) -> str:
-        """The execution instruction field"""
-        ...
-
-    @execution_instruction.setter
-    def execution_instruction(self, value: str) -> None:
-        ...
-
-    @property
-    def custom_notes_1(self) -> str:
-        """Custom user order notes 1"""
-        ...
-
-    @custom_notes_1.setter
-    def custom_notes_1(self, value: str) -> None:
-        ...
-
-    @property
-    def custom_notes_2(self) -> str:
-        """Custom user order notes 2"""
-        ...
-
-    @custom_notes_2.setter
-    def custom_notes_2(self, value: str) -> None:
-        ...
-
-    @property
-    def custom_notes_3(self) -> str:
-        """Custom user order notes 3"""
-        ...
-
-    @custom_notes_3.setter
-    def custom_notes_3(self, value: str) -> None:
-        ...
-
-    @property
-    def custom_notes_4(self) -> str:
-        """Custom user order notes 4"""
-        ...
-
-    @custom_notes_4.setter
-    def custom_notes_4(self, value: str) -> None:
-        ...
-
-    @property
-    def custom_notes_5(self) -> str:
-        """Custom user order notes 5"""
-        ...
-
-    @custom_notes_5.setter
-    def custom_notes_5(self, value: str) -> None:
-        ...
-
-    @property
-    def account(self) -> str:
-        """The EMSX account"""
-        ...
-
-    @account.setter
-    def account(self, value: str) -> None:
-        ...
-
-    @property
-    def broker(self) -> str:
-        """The EMSX broker code"""
-        ...
-
-    @broker.setter
-    def broker(self, value: str) -> None:
-        ...
-
-    @property
-    def locate_broker(self) -> str:
-        """
-        The EMSX locate broker code identifying the counterparty the shares are being borrowed
-        from for a short sale (EMSX_LOCATE_BROKER, e.g. "BMTB"). Maps to the LocBrkr field on
-        the EMSX trading ticket. Setting this (or locate_id) on a short equity sale
-        causes the brokerage to emit EMSX_LOCATE_REQ = "Y" alongside.
-        """
-        ...
-
-    @locate_broker.setter
-    def locate_broker(self, value: str) -> None:
-        ...
-
-    @property
-    def locate_id(self) -> str:
-        """
-        The EMSX locate confirmation/ticket id returned by the lending broker (EMSX_LOCATE_ID).
-        Maps to the LocId field on the EMSX trading ticket.
-        """
-        ...
-
-    @locate_id.setter
-    def locate_id(self, value: str) -> None:
-        ...
-
-    @property
-    def is_cfd_trade(self) -> bool:
-        """
-        Indicates if the order is a contract for differences (CFD) trade (EMSX_CFD_FLAG).
-        This field is applicable to trades on an order level, and does not populate on a per
-        security basis.
-        """
-        ...
-
-    @is_cfd_trade.setter
-    def is_cfd_trade(self, value: bool) -> None:
-        ...
-
-    @property
-    def strategy(self) -> QuantConnect.Orders.TerminalLinkOrderProperties.StrategyParameters:
-        """
-        The EMSX order strategy details.
-        Strategy parameters must be appended in the correct order as expected by EMSX.
-        """
-        ...
-
-    @strategy.setter
-    def strategy(self, value: QuantConnect.Orders.TerminalLinkOrderProperties.StrategyParameters) -> None:
-        ...
-
-    @property
-    def automatic_position_sides(self) -> bool:
-        """Whether to automatically include the position side in the order direction (buy-to-open, sell-to-close, etc.) instead of the default (buy, sell)"""
-        ...
-
-    @automatic_position_sides.setter
-    def automatic_position_sides(self, value: bool) -> None:
-        ...
-
-    @property
-    def position_side(self) -> typing.Optional[QuantConnect.Orders.OrderPosition]:
-        """Can optionally specify the position side in the order direction (buy-to-open, sell-to-close, etc.) instead of the default (buy, sell)"""
-        ...
-
-    @position_side.setter
-    def position_side(self, value: typing.Optional[QuantConnect.Orders.OrderPosition]) -> None:
-        ...
-
-    def clone(self) -> QuantConnect.Interfaces.IOrderProperties:
-        """Returns a new instance clone of this object"""
-        ...
+class TerminalLinkOrderProperties(QuantConnect.Orders.QuantBridgeOrderProperties):
+    """
+    The terminal link order properties
+    
+    
+    TerminalLinkOrderProperties is deprecated. Use QuantBridgeOrderProperties instead.
+    """
 
 
 class CharlesSchwabOrderProperties(QuantConnect.Orders.OrderProperties):

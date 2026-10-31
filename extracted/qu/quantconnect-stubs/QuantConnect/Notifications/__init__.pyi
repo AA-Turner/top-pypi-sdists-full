@@ -12,6 +12,14 @@ import System.Collections.Generic
 class Notification(System.Object, metaclass=abc.ABCMeta):
     """Local/desktop implementation of messaging system for Lean Engine."""
 
+    def can_send(self) -> bool:
+        """
+        Check if the notification can be sent (implements the Notification.send method)
+        
+        :returns: Whether the notification can be sent.
+        """
+        ...
+
     def send(self) -> None:
         """Method for sending implementations of notification object types."""
         ...

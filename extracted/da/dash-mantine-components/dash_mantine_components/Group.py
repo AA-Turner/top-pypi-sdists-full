@@ -182,9 +182,15 @@ Keyword arguments:
     Margin inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- mie (number; optional):
+    MarginInlineEnd, theme key: theme.spacing.
+
 - mih (string | number | dict; optional):
     Minimum height – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
+
+- mis (number; optional):
+    MarginInlineStart, theme key: theme.spacing.
 
 - miw (string | number | dict; optional):
     Minimum width – Accepts theme spacing keys, CSS values, or a dict
@@ -233,6 +239,12 @@ Keyword arguments:
 - pe (string | number | dict; optional):
     Padding inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
+
+- pie (number; optional):
+    PaddingInlineEnd, theme key: theme.spacing.
+
+- pis (number; optional):
+    PaddingInlineStart, theme key: theme.spacing.
 
 - pl (string | number | dict; optional):
     Padding left – Accepts theme spacing keys, CSS values, or a dict
@@ -304,7 +316,7 @@ Keyword arguments:
     Width – Accepts theme spacing keys, CSS values, or a dict for
     responsive styles.
 
-- wrap (a value equal to: '-moz-initial', 'inherit', 'initial', 'revert', 'revert-layer', 'unset', 'nowrap', 'wrap', 'wrap-reverse'; optional):
+- wrap (a value equal to: '-moz-initial', 'inherit', 'initial', 'revert', 'revert-layer', 'unset', 'wrap', 'nowrap', 'wrap-reverse'; optional):
     Controls `flex-wrap` CSS property, `'wrap'` by default."""
     _children_props: typing.List[str] = []
     _base_nodes = ['children']
@@ -325,7 +337,7 @@ Keyword arguments:
         children: typing.Optional[ComponentType] = None,
         justify: typing.Optional[typing.Union[Literal["left"], Literal["right"], Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["normal"], Literal["center"], Literal["end"], Literal["start"], Literal["flex-end"], Literal["flex-start"], Literal["stretch"], Literal["space-around"], Literal["space-between"], Literal["space-evenly"]]] = None,
         align: typing.Optional[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["normal"], Literal["center"], Literal["end"], Literal["start"], Literal["flex-end"], Literal["flex-start"], Literal["self-end"], Literal["self-start"], Literal["baseline"], Literal["stretch"]]] = None,
-        wrap: typing.Optional[Literal["-moz-initial", "inherit", "initial", "revert", "revert-layer", "unset", "nowrap", "wrap", "wrap-reverse"]] = None,
+        wrap: typing.Optional[Literal["-moz-initial", "inherit", "initial", "revert", "revert-layer", "unset", "wrap", "nowrap", "wrap-reverse"]] = None,
         gap: typing.Optional[typing.Union[str, NumberType]] = None,
         grow: typing.Optional[bool] = None,
         preventGrowOverflow: typing.Optional[bool] = None,
@@ -386,6 +398,10 @@ Keyword arguments:
         style: typing.Optional[typing.Any] = None,
         lightHidden: typing.Optional[bool] = None,
         darkHidden: typing.Optional[bool] = None,
+        mis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        mie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         classNames: typing.Optional[dict] = None,
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
@@ -396,9 +412,9 @@ Keyword arguments:
         loading_state: typing.Optional["LoadingState"] = None,
         **kwargs
     ):
-        self._prop_names = ['children', 'id', 'align', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'gap', 'grow', 'h', 'hiddenFrom', 'inset', 'justify', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'preventGrowOverflow', 'ps', 'pt', 'px', 'py', 'right', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'wrap']
+        self._prop_names = ['children', 'id', 'align', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'gap', 'grow', 'h', 'hiddenFrom', 'inset', 'justify', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pie', 'pis', 'pl', 'pos', 'pr', 'preventGrowOverflow', 'ps', 'pt', 'px', 'py', 'right', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'wrap']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['children', 'id', 'align', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'gap', 'grow', 'h', 'hiddenFrom', 'inset', 'justify', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'preventGrowOverflow', 'ps', 'pt', 'px', 'py', 'right', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'wrap']
+        self.available_properties = ['children', 'id', 'align', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'gap', 'grow', 'h', 'hiddenFrom', 'inset', 'justify', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pie', 'pis', 'pl', 'pos', 'pr', 'preventGrowOverflow', 'ps', 'pt', 'px', 'py', 'right', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'wrap']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

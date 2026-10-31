@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: Deprecated
-Version: 3.0.0
+Version: 3.0.1
 Summary: Python @deprecated decorator to deprecate old python classes, functions or methods.
 Project-URL: Homepage, https://github.com/laurent-laporte-pro/deprecated
 Project-URL: Documentation, https://deprecated.readthedocs.io/en/latest/

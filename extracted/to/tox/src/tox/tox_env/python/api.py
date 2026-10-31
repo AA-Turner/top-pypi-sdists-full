@@ -8,17 +8,23 @@ import sys
 import sysconfig
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, NamedTuple
+from typing import TYPE_CHECKING, Any, Final, NamedTuple
 
 from virtualenv.discovery.py_spec import PythonSpec
 
+from tox.config.loader.str_convert import StrConvert
 from tox.tox_env.api import ToxEnv, ToxEnvCreateArgs
 from tox.tox_env.errors import Fail, Recreate, Skip
 from tox.util.typing_compat import override
 
 if TYPE_CHECKING:
+    from python_discovery import MarkerEnvironment
+
+    from tox.config.cli.parser import Parsed
     from tox.config.main import Config
+    from tox.config.sets import CoreConfigSet, EnvConfigSet
     from tox.util.json_types import JsonValue
 
 
@@ -41,6 +47,7 @@ class PythonInfo:
     free_threaded: bool = False
     debug: bool = False
     machine: str | None = None
+    marker_environment: MarkerEnvironment | None = None
 
     @property
     def version_no_dot(self) -> str:
@@ -113,10 +120,13 @@ class Python(ToxEnv, ABC):
         self._base_python_explicitly_set = True  # track whether base_python was explicitly configured
 
         def validate_base_python(value: list[str] | str) -> list[str]:
-            result = _ensure_list(value)
+            result: Final[list[str]] = [entry for entry in _ensure_list(value) if entry.strip()]
             if self._base_python_explicitly_set and self.conf["base_python_file"]:
                 msg = "cannot set both base_python and base_python_file"
                 raise Fail(msg)
+            if self._base_python_explicitly_set and not result:
+                empty_spec_message: Final[str] = f"base_python for env {self.name} is empty"
+                raise Fail(empty_spec_message)
             return self._validate_base_python(self.name, result, self.core["ignore_base_python_conflict"])
 
         self.conf.add_config(
@@ -222,14 +232,63 @@ class Python(ToxEnv, ABC):
             path = tox_root / file_path
             if not path.exists():
                 continue
-            content = path.read_text(encoding="utf-8-sig")
-            for line in content.splitlines():
-                stripped = line.strip()
-                if stripped and not stripped.startswith("#"):
-                    return [stripped]
+            if not path.is_file():
+                msg = f"base_python_file: {file_path!r} is not a regular file"
+                raise Fail(msg)
+            try:
+                version = self._first_version_line(path, file_path)
+            except (OSError, UnicodeDecodeError) as exc:
+                msg = f"base_python_file: cannot read {file_path!r}: {exc}"
+                raise Fail(msg) from exc
+            if version is not None:
+                if not self._is_python_version_spec(version):
+                    # A version file can be a symlink to a secret; only name the configured path.
+                    msg = f"base_python_file: {file_path!r} does not contain a Python version specifier"
+                    raise Fail(msg)
+                return [version]
         paths = ", ".join(repr(f) for f in file_paths)
         msg = f"base_python_file: no valid Python version found in {paths}"
         raise Fail(msg)
+
+    @staticmethod
+    def _first_version_line(path: Path, file_path: str) -> str | None:
+        with path.open(encoding="utf-8-sig") as file_handler:
+            max_length: Final[int] = 1024
+            while line := file_handler.readline(max_length + 1):
+                stripped = line.strip()
+                if len(line) > max_length and not line.endswith("\n"):
+                    msg = f"base_python_file: line in {file_path!r} exceeds {max_length} characters"
+                    if stripped and not stripped.startswith("#"):
+                        raise Fail(msg)
+                    is_comment = stripped.startswith("#")
+                    while continuation := file_handler.readline(max_length + 1):
+                        stripped_continuation = continuation.strip()
+                        if not is_comment and stripped_continuation and not stripped_continuation.startswith("#"):
+                            raise Fail(msg)
+                        is_comment = is_comment or stripped_continuation.startswith("#")
+                        if continuation.endswith("\n"):
+                            break
+                    continue
+                if stripped and not stripped.startswith("#"):
+                    return stripped
+        return None
+
+    @staticmethod
+    def _is_python_version_spec(value: str) -> bool:
+        spec: Final[PythonSpec] = PythonSpec.from_string_spec(value)
+        if spec.path is not None or spec.major is None:
+            return False
+        if spec.implementation is None:
+            return True
+        return spec.implementation.lower() in {
+            "python",
+            "cpython",
+            "pypy",
+            "jython",
+            "graalpy",
+            "rustpython",
+            "ironpython",
+        }
 
     @classmethod
     def extract_base_python(cls, env_name: str) -> str | None:
@@ -450,3 +509,42 @@ class NoInterpreter(Fail):
     @override
     def __str__(self) -> str:
         return f"could not find python interpreter matching any of the specs {', '.join(self.base_pythons)}"
+
+
+def add_skip_missing_interpreters_to_core(core: CoreConfigSet, options: Parsed) -> None:
+    core.add_config(
+        keys=["skip_missing_interpreters"],
+        default=False,
+        of_type=bool,
+        post_process=partial(_skip_missing_interpreters_post_process, options),
+        desc="skip running missing interpreters",
+    )
+
+
+def _skip_missing_interpreters_post_process(options: Parsed, value: bool) -> bool:  # ruff:ignore[boolean-type-hint-positional-argument]
+    if getattr(options, "skip_missing_interpreters", "config") != "config":
+        return StrConvert().to_bool(str(options.skip_missing_interpreters))
+    return value
+
+
+def add_skip_missing_interpreters_to_env(conf: EnvConfigSet, core: CoreConfigSet, options: Parsed) -> None:
+    def _default_skip_missing(conf: Config, env_name: str | None) -> bool:  # ruff:ignore[unused-function-argument]
+        return core.get("skip_missing_interpreters", bool)
+
+    conf.add_config(
+        keys=["skip_missing_interpreters"],
+        default=_default_skip_missing,
+        of_type=bool,
+        post_process=partial(_skip_missing_interpreters_post_process, options),
+        desc="override core skip_missing_interpreters for this environment",
+    )
+
+
+__all__ = [
+    "NoInterpreter",
+    "Python",
+    "PythonInfo",
+    "VersionInfo",
+    "add_skip_missing_interpreters_to_core",
+    "add_skip_missing_interpreters_to_env",
+]

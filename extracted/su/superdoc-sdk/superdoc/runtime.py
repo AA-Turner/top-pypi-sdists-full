@@ -13,6 +13,7 @@ from typing import Any, Dict, Literal, Optional, Tuple
 
 from .embedded_cli import resolve_embedded_cli_path
 from .embedded_document_host import resolve_embedded_document_host_path
+from ._whitespace import trim_javascript_whitespace
 from .errors import SuperDocError
 from .generated.contract import OPERATION_INDEX
 from .protocol import normalize_default_change_mode
@@ -28,7 +29,7 @@ def _resolve_runtime_process(
     env: Dict[str, str],
     document_host_path: Optional[str],
 ) -> Tuple[str, Literal['cli', 'document']]:
-    if document_host_path is not None and not document_host_path.strip():
+    if document_host_path is not None and not trim_javascript_whitespace(document_host_path):
         raise SuperDocError(
             'document_host_path must be a non-empty path.',
             code='INVALID_ARGUMENT',
@@ -40,7 +41,7 @@ def _resolve_runtime_process(
     else:
         configured_document_host = os.environ.get('SUPERDOC_SDK_DOCUMENT_HOST_BIN')
     if configured_document_host is not None:
-        if not configured_document_host.strip():
+        if not trim_javascript_whitespace(configured_document_host):
             raise SuperDocError(
                 'SUPERDOC_SDK_DOCUMENT_HOST_BIN must be a non-empty path.',
                 code='INVALID_ARGUMENT',

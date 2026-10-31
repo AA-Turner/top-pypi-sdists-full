@@ -926,6 +926,24 @@ class Candlestick(System.Object, QuantConnect.ISeriesPoint):
         ...
 
 
+class OptionStyle(IntEnum):
+    """Specifies the style of an option"""
+
+    AMERICAN = 0
+    """American style options are able to be exercised at any time on or before the expiration date (0)"""
+
+    EUROPEAN = 1
+    """European style options are able to be exercised on the expiration date only (1)"""
+
+    def option_style_to_lower(self) -> str:
+        """
+        Converts the specified option_style value to its corresponding lower-case string representation
+        
+        :returns: A lower case string representation of the specified optionStyle value.
+        """
+        ...
+
+
 class SecurityType(IntEnum):
     """Type of tradable security / underlying asset"""
 
@@ -965,15 +983,48 @@ class SecurityType(IntEnum):
     CRYPTO_FUTURE = 11
     """Crypto Future Type (11)"""
 
+    def default_option_style(self) -> QuantConnect.OptionStyle:
+        """
+        Gets the default OptionStyle for the provided SecurityType
+        
+        :returns: Default OptionStyle for the SecurityType.
+        """
+        ...
 
-class OptionStyle(IntEnum):
-    """Specifies the style of an option"""
+    def has_options(self) -> bool:
+        """
+        Determines if the provided SecurityType has a matching option SecurityType, used to represent
+        the current SecurityType as a derivative.
+        
+        :returns: true if there are options for the SecurityType, false otherwise.
+        """
+        ...
 
-    AMERICAN = 0
-    """American style options are able to be exercised at any time on or before the expiration date (0)"""
+    def is_option(self) -> bool:
+        """
+        Determines if the provided SecurityType is a type of Option.
+        Valid option types are: Equity Options, Futures Options, and Index Options.
+        
+        :returns: true if the asset has the makings of an option (exercisable, expires, and is a derivative of some underlying),
+        false otherwise.
+        """
+        ...
 
-    EUROPEAN = 1
-    """European style options are able to be exercised on the expiration date only (1)"""
+    def is_valid(self) -> bool:
+        """
+        Asserts the specified security_type value is valid
+        
+        :returns: True if valid security type value.
+        """
+        ...
+
+    def security_type_to_lower(self) -> str:
+        """
+        Converts the specified security_type value to its corresponding lower-case string representation
+        
+        :returns: A lower-case string representation of the specified SecurityType value.
+        """
+        ...
 
 
 class OptionRight(IntEnum):
@@ -984,6 +1035,37 @@ class OptionRight(IntEnum):
 
     PUT = 1
     """A put option, the right to sell at the strike price (1)"""
+
+    def get_exercise_direction(self, is_short: bool) -> QuantConnect.Orders.OrderDirection:
+        """
+        Gets the option exercise order direction resulting from the specified right and
+        whether or not we wrote the option (is_short is true) or bought to
+        option (is_short is false)
+        
+        :param is_short: True if we wrote the option, false if we purchased the option
+        :returns: The order direction resulting from an exercised option.
+        """
+        ...
+
+    def invert(self) -> QuantConnect.OptionRight:
+        """Inverts the specified right"""
+        ...
+
+    def option_right_to_lower(self) -> str:
+        """
+        Converts the specified option_right value to its corresponding lower-case string representation
+        
+        :returns: A lower case string representation of the specified OptionRight value.
+        """
+        ...
+
+    def to_string_performance(self) -> str:
+        """
+        Converts the specified option_right value to its corresponding string representation
+        
+        :returns: A string representation of the specified OptionRight value.
+        """
+        ...
 
 
 class Symbol(str, System.Object, System.IEquatable[QuantConnect_Symbol], System.IComparable):
@@ -1138,6 +1220,25 @@ class Symbol(str, System.Object, System.IEquatable[QuantConnect_Symbol], System.
         
         :param right: The right operand
         :returns: True if both symbols are not equal, otherwise false.
+        """
+        ...
+
+    def adjust_symbol_by_offset(self, offset: int) -> QuantConnect.Symbol:
+        """
+        Helper method that will return a back month, with future expiration, future contract based on the given offset
+        
+        :param offset: The quantity of contracts to move into the future expiration chain
+        :returns: A new future expiration symbol instance.
+        """
+        ...
+
+    def compare_pair(self, base_currency_b: str, quote_currency_b: str) -> QuantConnect.Util.CurrencyPairUtil.Match:
+        """
+        Returns how two currency pairs are related to each other
+        
+        :param base_currency_b: The base currency of the second pair
+        :param quote_currency_b: The quote currency of the second pair
+        :returns: The Match member that represents the relation between the two pairs.
         """
         ...
 
@@ -1320,6 +1421,15 @@ class Symbol(str, System.Object, System.IEquatable[QuantConnect_Symbol], System.
         """
         ...
 
+    def currency_pair_dual(self, known_symbol: str) -> str:
+        """
+        You have currencyPair AB and one known symbol (A or B). This function returns the other symbol (B or A).
+        
+        :param known_symbol: Known part of the currencyPair (either A or B)
+        :returns: The other part of currencyPair (either B or A), or null if known symbol is not part of currencyPair.
+        """
+        ...
+
     def ends_with(self, value: str) -> bool:
         """Symbol.EndsWith is a pass-through for Symbol.Value.EndsWith"""
         warnings.warn("Symbol.EndsWith is a pass-through for Symbol.Value.EndsWith", DeprecationWarning)
@@ -1344,9 +1454,35 @@ class Symbol(str, System.Object, System.IEquatable[QuantConnect_Symbol], System.
         """
         ...
 
+    def generate_option_ticker_osi(self) -> str:
+        """
+        Returns option symbol ticker in accordance with OSI symbology
+        More information can be found at http://www.optionsclearing.com/components/docs/initiatives/symbology/symbology_initiative_v1_8.pdf
+        
+        :returns: The OSI ticker representation.
+        """
+        ...
+
+    def generate_option_ticker_osi_compact(self) -> str:
+        """
+        Returns option symbol ticker in accordance with OSI symbology
+        More information can be found at http://www.optionsclearing.com/components/docs/initiatives/symbology/symbology_initiative_v1_8.pdf
+        
+        :returns: The OSI ticker representation.
+        """
+        ...
+
     @staticmethod
     def get_alias(security_identifier: QuantConnect.SecurityIdentifier, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security] = None) -> str:
         """Centralized helper method to resolve alias for a symbol"""
+        ...
+
+    def get_delisting_date(self, map_file: QuantConnect.Data.Auxiliary.MapFile = None) -> datetime.datetime:
+        """
+        Gets the delisting date for the provided Symbol
+        
+        :param map_file: Map file to use for delisting date. Defaults to SID.DefaultDate if no value is passed and is equity.
+        """
         ...
 
     def get_hash_code(self) -> int:
@@ -1354,6 +1490,14 @@ class Symbol(str, System.Object, System.IEquatable[QuantConnect_Symbol], System.
         Serves as a hash function for a particular type.
         
         :returns: A hash code for the current System.Object.
+        """
+        ...
+
+    def get_mirror_option_symbol(self) -> QuantConnect.Symbol:
+        """
+        Helper method to get the mirror option symbol for a given option symbol
+        
+        :returns: The mirror option contract symbol.
         """
         ...
 
@@ -1410,6 +1554,16 @@ class Symbol(str, System.Object, System.IEquatable[QuantConnect_Symbol], System.
         """
         ...
 
+    def is_market_open(self, utc_time: typing.Union[datetime.datetime, datetime.date], extended_market_hours: bool) -> bool:
+        """
+        Helper method to determine if a specific market is open
+        
+        :param utc_time: The current UTC time
+        :param extended_market_hours: True if should consider extended market hours
+        :returns: True if the market is open.
+        """
+        ...
+
     def starts_with(self, value: str) -> bool:
         """Symbol.StartsWith is a pass-through for Symbol.Value.StartsWith"""
         warnings.warn("Symbol.StartsWith is a pass-through for Symbol.Value.StartsWith", DeprecationWarning)
@@ -1456,6 +1610,22 @@ class Resolution(IntEnum):
     DAILY = 4
     """Daily Resolution (4)"""
 
+    def resolution_to_lower(self) -> str:
+        """
+        Converts the specified resolution value to its corresponding lower-case string representation
+        
+        :returns: A lower-case string representation of the specified resolution value.
+        """
+        ...
+
+    def to_time_span(self) -> datetime.timedelta:
+        """
+        Converts the Resolution instance into a TimeSpan instance
+        
+        :returns: A TimeSpan instance that represents the resolution specified.
+        """
+        ...
+
 
 class TickType(IntEnum):
     """Types of tick data"""
@@ -1468,6 +1638,14 @@ class TickType(IntEnum):
 
     OPEN_INTEREST = 2
     """Open Interest type tick object (for options, futures) (2)"""
+
+    def tick_type_to_lower(self) -> str:
+        """
+        Converts the specified tick_type value to its corresponding lower-case string representation
+        
+        :returns: A lower-case string representation of the specified tickType value.
+        """
+        ...
 
 
 class DataDownloaderGetParameters(System.Object):
@@ -1527,6 +1705,18 @@ class DataDownloaderGetParameters(System.Object):
         :param start_utc: Start time of the data in UTC
         :param end_utc: End time of the data in UTC
         :param tick_type: <Optional> The type of tick to get. Defaults to QuantConnect.TickType.Trade
+        """
+        ...
+
+    def get_data_downloader_parameter_for_all_mapped_symbols(self, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, exchange_time_zone: typing.Any) -> typing.Sequence[QuantConnect.DataDownloaderGetParameters]:
+        """
+        Get DataDownloaderGetParameters for all mapped symbol with appropriate ticker name in specific date time range.
+        
+        :param map_file_provider: Provides instances of MapFileResolver at run time
+        :param exchange_time_zone: Provides the time zone this exchange
+        :returns: Return DataDownloaderGetParameters with different
+        DataDownloaderGetParameters.start_utc - DataDownloaderGetParameters.end_utc range
+        and symbol.
         """
         ...
 
@@ -2072,6 +2262,10 @@ class BaseSeries(System.Object, metaclass=abc.ABCMeta):
         """
         ...
 
+    def is_empty(self) -> bool:
+        """Returns true if the specified BaseSeries instance holds no ISeriesPoint"""
+        ...
+
     def purge(self) -> None:
         """Removes the data from this series and resets the update position to 0"""
         ...
@@ -2330,6 +2524,13 @@ class Chart(System.Object):
         """
         Fetch a chart with only the updates since the last request,
         Underlying series will save the index position.
+        """
+        ...
+
+    def is_empty(self) -> bool:
+        """
+        Returns if the specified Chart instance holds no series
+        or they are all empty Extensions.is_empty(BaseSeries)
         """
         ...
 
@@ -2789,6 +2990,14 @@ class PositionSide(IntEnum):
     LONG = 1
     """A long position, quantity greater than zero (1)"""
 
+    def to_order_direction(self) -> QuantConnect.Orders.OrderDirection:
+        """
+        Gets the OrderDirection that corresponds to the specified side
+        
+        :returns: The order direction that maps from the provided position side.
+        """
+        ...
+
 
 class SettlementType(IntEnum):
     """Specifies the type of settlement in derivative deals"""
@@ -3013,6 +3222,10 @@ class DataMappingMode(IntEnum):
 
     OPEN_INTEREST_ANNUAL = 3
     """The contract maps when any of the back month contracts of the next year have a higher open interest than the current front month (3)"""
+
+    def is_available_for_future_market(self, market: str) -> bool:
+        """Determines whether there is mapping data for the given data mapping mode in the given future market"""
+        ...
 
 
 class CashBookUpdateType(IntEnum):
@@ -3400,6 +3613,68 @@ class _BinaryComparison_GetExpression:
         ...
 
 
+class _Typed_BinaryComparison_Filter(typing.Generic[QuantConnect_BinaryComparisonExtensions_Filter_T]):
+    """"""
+
+    @overload
+    def __call__(self, values: QuantConnect_BinaryComparisonExtensions_Filter_TCollection, reference: QuantConnect_BinaryComparisonExtensions_Filter_T) -> QuantConnect_BinaryComparisonExtensions_Filter_TCollection:
+        """
+        Filters the provided values according to this BinaryComparison
+        and the specified reference value. The reference value is
+        used as the RIGHT side of the binary comparison. Consider the binary comparison is LessThan and
+        we call Filter(values, 42). We're looking for keys that are less than 42.
+        """
+        ...
+
+    @overload
+    def __call__(self, values: System.Collections.Generic.SortedDictionary[QuantConnect_BinaryComparisonExtensions_Filter_TKey, QuantConnect_BinaryComparisonExtensions_Filter_TValue], reference: QuantConnect_BinaryComparisonExtensions_Filter_TKey) -> System.Collections.Generic.SortedDictionary[QuantConnect_BinaryComparisonExtensions_Filter_TKey, QuantConnect_BinaryComparisonExtensions_Filter_TValue]:
+        """
+        Filters the provided values according to this BinaryComparison
+        and the specified reference value. The reference value is
+        used as the RIGHT side of the binary comparison. Consider the binary comparison is LessThan and
+        we call Filter(values, 42). We're looking for keys that are less than 42.
+        """
+        ...
+
+    @overload
+    def __call__(self, values: System.Collections.Immutable.ImmutableSortedDictionary[QuantConnect_BinaryComparisonExtensions_Filter_TKey, QuantConnect_BinaryComparisonExtensions_Filter_TValue], reference: QuantConnect_BinaryComparisonExtensions_Filter_TKey) -> System.Collections.Immutable.ImmutableSortedDictionary[QuantConnect_BinaryComparisonExtensions_Filter_TKey, QuantConnect_BinaryComparisonExtensions_Filter_TValue]:
+        """
+        Filters the provided values according to this BinaryComparison
+        and the specified reference value. The reference value is
+        used as the RIGHT side of the binary comparison. Consider the binary comparison is LessThan and
+        we call Filter(values, 42). We're looking for keys that are less than 42.
+        """
+        ...
+
+
+class _BinaryComparison_Filter:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_BinaryComparisonExtensions_Filter_T]) -> QuantConnect._Typed_BinaryComparison_Filter[QuantConnect_BinaryComparisonExtensions_Filter_T]:
+        ...
+
+
+class _Typed_BinaryComparison_SplitBy(typing.Generic[QuantConnect_BinaryComparisonExtensions_SplitBy_TKey]):
+    """"""
+
+    @overload
+    def __call__(self, values: System.Collections.Immutable.ImmutableSortedDictionary[QuantConnect_BinaryComparisonExtensions_SplitBy_TKey, QuantConnect_BinaryComparisonExtensions_SplitBy_TValue], reference: QuantConnect_BinaryComparisonExtensions_SplitBy_TKey) -> System.Tuple[System.Collections.Immutable.ImmutableSortedDictionary[QuantConnect_BinaryComparisonExtensions_SplitBy_TKey, QuantConnect_BinaryComparisonExtensions_SplitBy_TValue], System.Collections.Immutable.ImmutableSortedDictionary[QuantConnect_BinaryComparisonExtensions_SplitBy_TKey, QuantConnect_BinaryComparisonExtensions_SplitBy_TValue]]:
+        """
+        Filters the provided values according to this BinaryComparison
+        and the specified reference value. The reference value is
+        used as the RIGHT side of the binary comparison. Consider the binary comparison is LessThan and
+        we call Filter(values, 42). We're looking for keys that are less than 42.
+        """
+        ...
+
+
+class _BinaryComparison_SplitBy:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_BinaryComparisonExtensions_SplitBy_TKey]) -> QuantConnect._Typed_BinaryComparison_SplitBy[QuantConnect_BinaryComparisonExtensions_SplitBy_TKey]:
+        ...
+
+
 class BinaryComparison(System.Object):
     """
     Enumeration class defining binary comparisons and providing access to expressions and functions
@@ -3440,6 +3715,14 @@ class BinaryComparison(System.Object):
 
     @property
     def get_expression(self) -> QuantConnect._BinaryComparison_GetExpression:
+        ...
+
+    @property
+    def filter(self) -> QuantConnect._BinaryComparison_Filter:
+        ...
+
+    @property
+    def split_by(self) -> QuantConnect._BinaryComparison_SplitBy:
         ...
 
     def flip_operands(self) -> QuantConnect.BinaryComparison:
@@ -4395,12 +4678,42 @@ class ChartPoint(System.Object, QuantConnect.ISeriesPoint):
         ...
 
 
+class ITimeProvider(metaclass=abc.ABCMeta):
+    """
+    Provides access to the current time in UTC. This doesn't necessarily
+    need to be wall-clock time, but rather the current time in some system
+    """
+
+    def get_utc_now(self) -> datetime.datetime:
+        """
+        Gets the current time in UTC
+        
+        :returns: The current time in UTC.
+        """
+        ...
+
+
 class IIsolatorLimitResultProvider(metaclass=abc.ABCMeta):
     """
     Provides an abstraction for managing isolator limit results.
     This is originally intended to be used by the training feature to permit a single
     algorithm time loop to extend past the default of ten minutes
     """
+
+    @overload
+    def consume(self, scheduled_event: QuantConnect.Scheduling.ScheduledEvent, scan_time_utc: typing.Union[datetime.datetime, datetime.date], time_monitor: QuantConnect.Scheduling.TimeMonitor) -> None:
+        """Convenience method for invoking a scheduled event's Scan method inside the IsolatorLimitResultProvider"""
+        ...
+
+    @overload
+    def consume(self, time_provider: QuantConnect.ITimeProvider, code: typing.Callable[[], typing.Any], time_monitor: QuantConnect.Scheduling.TimeMonitor, name: str = None) -> None:
+        """
+        Executes the provided code block and while the code block is running, continually consume from
+        the limit result provided one token each minute. This function allows the code to run for the
+        first full minute without requesting additional time from the provider. Following that, every
+        minute an additional one minute will be requested from the provider.
+        """
+        ...
 
     def is_within_limit(self) -> QuantConnect.IsolatorLimitResult:
         """Determines whether or not a custom isolator limit has be reached."""
@@ -4425,21 +4738,6 @@ class IIsolatorLimitResultProvider(metaclass=abc.ABCMeta):
         the specified number of minutes.
         
         :param minutes: The number of additional minutes to request
-        """
-        ...
-
-
-class ITimeProvider(metaclass=abc.ABCMeta):
-    """
-    Provides access to the current time in UTC. This doesn't necessarily
-    need to be wall-clock time, but rather the current time in some system
-    """
-
-    def get_utc_now(self) -> datetime.datetime:
-        """
-        Gets the current time in UTC
-        
-        :returns: The current time in UTC.
         """
         ...
 

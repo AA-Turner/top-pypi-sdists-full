@@ -19,16 +19,29 @@ from coord.board_doctor import (
     ALERT_SKIPPED,
     CAUSE_BASELINE_RED,
     CAUSE_CEILING_BLOCKED_MERGEABLE,
+    CAUSE_SMOKE_NO_VERDICT,
     TIER_ALERT,
     TIER_AUTO,
     StuckRow,
     _reclassify_ceiling_blocked,
+    _refresh_ceiling_blocked_settled_rows,
     baseline_red_rows,
+    smoke_no_verdict_rows,
     sweep,
+)
+from coord.drive_queue import QueueEntry
+from coord.models import Assignment, Board
+from coord.queue_diagnose import LiveState
+from coord.smoke import (
+    ABANDONED_BACKGROUND_SMOKE_MARKER,
+    ENVIRONMENTAL_SMOKE_MARKER,
+    MUTE_SMOKE_LEG_BUDGET,
+    TEST_STATE_BLOCKED,
+    mute_smoke_tally,
 )
 
 
-def _row(key: str, cause: str, queue: str = "drive-queue") -> StuckRow:
+def _row(key: str, cause: str, queue: str = "drive-queue", *, fresh: bool = False) -> StuckRow:
     return StuckRow(
         queue=queue,
         key=key,
@@ -36,6 +49,7 @@ def _row(key: str, cause: str, queue: str = "drive-queue") -> StuckRow:
         cause=cause,
         confidence="high",
         evidence=(f"cause={cause}",),
+        fresh=fresh,
     )
 
 
@@ -74,18 +88,205 @@ def _seed_ceiling_blocked_entry(repo: str, issue: int) -> None:
     )
 
 
+class _FakeProbe:
+    """A :class:`coord.queue_diagnose.LiveProbe` double keyed by ``repo#issue``."""
+
+    def __init__(self, live_by_key: dict[str, LiveState | Exception]) -> None:
+        self._live_by_key = live_by_key
+        #: every key this probe was actually called with, in order — lets a
+        #: test assert the probe was never reached (``calls == []``) rather
+        #: than relying on an unconfigured key's ``AssertionError`` as a
+        #: proxy, since production's ``except Exception`` would also catch
+        #: that error and mask the short-circuit silently passing.
+        self.calls: list[str] = []
+
+    def probe(self, entry: QueueEntry) -> LiveState:
+        key = f"{entry.repo}#{entry.issue}"
+        self.calls.append(key)
+        result = self._live_by_key.get(key)
+        if isinstance(result, Exception):
+            raise result
+        if result is None:
+            raise AssertionError(f"no fake live state configured for {key}")
+        return result
+
+
+class TestRefreshCeilingBlockedSettledRows:
+    """#3777: one more live probe for a settled, ceiling-blocked episode."""
+
+    def test_ceiling_blocked_episode_is_refreshed_to_pr_merged(self) -> None:
+        _seed_ceiling_blocked_entry("acme/widgets", 101)
+        entry = QueueEntry(repo="acme/widgets", issue=101)
+        episode = {
+            "key": "acme/widgets#101",
+            "state": "stuck",
+            "diagnosed_cause": queue_diagnose.CAUSE_MERGE_CONFLICT,
+            "diagnosis_confidence": queue_diagnose.CONFIDENCE_HIGH,
+            "diagnosis_evidence": ("pr: mergeable=False",),
+        }
+        probe = _FakeProbe({"acme/widgets#101": LiveState(pr_state="MERGED")})
+
+        refreshed, remaining = _refresh_ceiling_blocked_settled_rows(
+            [episode],
+            entries_by_key={entry.key: entry},
+            probe=probe,
+            trigger="board-doctor-sweep",
+        )
+
+        assert remaining == []
+        [row] = refreshed
+        assert row.key == "acme/widgets#101"
+        assert row.cause == queue_diagnose.CAUSE_PR_MERGED
+        assert row.confidence == queue_diagnose.CONFIDENCE_HIGH
+        assert row.fresh is True
+
+    def test_episode_not_ceiling_blocked_is_left_in_remaining(self) -> None:
+        # A drive-queue row IS seeded here, but it's still "running" — not
+        # ceiling-blocked — so the ceiling predicate reads False and this
+        # refresh path must never even reach the probe for it. (A prior
+        # version of this test seeded no row at all, which only proved the
+        # "no matching entry" branch, already covered separately below.)
+        state.enqueue_drive_queue("acme/widgets", 102, after=[])
+        entry = QueueEntry(repo="acme/widgets", issue=102)
+        episode = {
+            "key": "acme/widgets#102",
+            "state": "stuck",
+            "diagnosed_cause": queue_diagnose.CAUSE_MERGE_CONFLICT,
+            "diagnosis_confidence": queue_diagnose.CONFIDENCE_HIGH,
+        }
+        probe = _FakeProbe({})
+
+        refreshed, remaining = _refresh_ceiling_blocked_settled_rows(
+            [episode],
+            entries_by_key={entry.key: entry},
+            probe=probe,
+            trigger="board-doctor-sweep",
+        )
+
+        assert refreshed == []
+        assert remaining == [episode]
+        assert probe.calls == []
+
+    def test_episode_with_no_matching_drive_queue_entry_is_left_in_remaining(self) -> None:
+        episode = {
+            "key": "acme/widgets#103",
+            "state": "stuck",
+            "diagnosed_cause": queue_diagnose.CAUSE_MERGE_CONFLICT,
+            "diagnosis_confidence": queue_diagnose.CONFIDENCE_HIGH,
+        }
+        probe = _FakeProbe({})
+
+        refreshed, remaining = _refresh_ceiling_blocked_settled_rows(
+            [episode],
+            entries_by_key={},
+            probe=probe,
+            trigger="board-doctor-sweep",
+        )
+
+        assert refreshed == []
+        assert remaining == [episode]
+        assert probe.calls == []
+
+    def test_a_probe_failure_falls_back_to_remaining_instead_of_crashing(self) -> None:
+        _seed_ceiling_blocked_entry("acme/widgets", 104)
+        entry = QueueEntry(repo="acme/widgets", issue=104)
+        episode = {
+            "key": "acme/widgets#104",
+            "state": "stuck",
+            "diagnosed_cause": queue_diagnose.CAUSE_MERGE_CONFLICT,
+            "diagnosis_confidence": queue_diagnose.CONFIDENCE_HIGH,
+        }
+        probe = _FakeProbe({"acme/widgets#104": RuntimeError("gh timed out")})
+
+        refreshed, remaining = _refresh_ceiling_blocked_settled_rows(
+            [episode],
+            entries_by_key={entry.key: entry},
+            probe=probe,
+            trigger="board-doctor-sweep",
+        )
+
+        assert refreshed == []
+        assert remaining == [episode]
+
+    def test_ceiling_blocked_episode_still_blocked_keeps_its_cause(self) -> None:
+        # The live probe confirms the row is still mid-conflict — the
+        # refreshed diagnosis just re-derives the same cause from fresh
+        # evidence rather than leaving a stale answer in place.
+        _seed_ceiling_blocked_entry("acme/widgets", 105)
+        entry = QueueEntry(repo="acme/widgets", issue=105)
+        episode = {
+            "key": "acme/widgets#105",
+            "state": "stuck",
+            "diagnosed_cause": queue_diagnose.CAUSE_MERGE_CONFLICT,
+            "diagnosis_confidence": queue_diagnose.CONFIDENCE_HIGH,
+        }
+        probe = _FakeProbe({"acme/widgets#105": LiveState(mergeable=False)})
+
+        refreshed, remaining = _refresh_ceiling_blocked_settled_rows(
+            [episode],
+            entries_by_key={entry.key: entry},
+            probe=probe,
+            trigger="board-doctor-sweep",
+        )
+
+        assert remaining == []
+        [row] = refreshed
+        assert row.cause == queue_diagnose.CAUSE_MERGE_CONFLICT
+        assert row.fresh is True
+
+    def test_inconclusive_refresh_keeps_the_prior_stored_cause_in_remaining(self) -> None:
+        # A refresh probe that comes back empty must not downgrade a
+        # previously settled, actionable stored cause (CAUSE_PR_MERGED
+        # here) to CAUSE_UNKNOWN — the episode stays in `remaining` so
+        # `_episode_stuck_row` reconstructs it from `block_log` exactly as
+        # it would have without this refresh ever running.
+        _seed_ceiling_blocked_entry("acme/widgets", 106)
+        entry = QueueEntry(repo="acme/widgets", issue=106)
+        episode = {
+            "key": "acme/widgets#106",
+            "state": "stuck",
+            "diagnosed_cause": queue_diagnose.CAUSE_PR_MERGED,
+            "diagnosis_confidence": queue_diagnose.CONFIDENCE_HIGH,
+        }
+        probe = _FakeProbe({"acme/widgets#106": LiveState()})
+
+        refreshed, remaining = _refresh_ceiling_blocked_settled_rows(
+            [episode],
+            entries_by_key={entry.key: entry},
+            probe=probe,
+            trigger="board-doctor-sweep",
+        )
+
+        assert refreshed == []
+        assert remaining == [episode]
+
+
 class TestReclassifyCeilingBlocked:
     """#3760 Action 1: relabel a ceiling-blocked-but-live-clear row."""
 
     def test_nothing_blocking_row_is_reclassified(self) -> None:
         _seed_ceiling_blocked_entry("acme/widgets", 101)
-        row = _row("acme/widgets#101", queue_diagnose.CAUSE_NOTHING_BLOCKING)
+        row = _row("acme/widgets#101", queue_diagnose.CAUSE_NOTHING_BLOCKING, fresh=True)
 
         [out] = _reclassify_ceiling_blocked([row])
 
         assert out.cause == CAUSE_CEILING_BLOCKED_MERGEABLE
         assert out.evidence[:-1] == row.evidence
         assert "#2972" in out.evidence[-1]
+
+    def test_stale_nothing_blocking_row_is_left_alone(self) -> None:
+        # #3806: a row rebuilt from `block_log`'s *stored* diagnosis
+        # (fresh=False, e.g. `_episode_stuck_row`'s reconstruction of a
+        # settled episode) must never grant a fresh #2972 fix-round budget
+        # — that stored "nothing blocking" verdict can be arbitrarily old,
+        # taken before the PR went red or conflicted, and nothing
+        # re-confirms it just because this sweep is replaying it.
+        _seed_ceiling_blocked_entry("acme/widgets", 108)
+        row = _row("acme/widgets#108", queue_diagnose.CAUSE_NOTHING_BLOCKING, fresh=False)
+
+        [out] = _reclassify_ceiling_blocked([row])
+
+        assert out == row
 
     def test_ci_green_row_is_left_alone(self) -> None:
         # queue_diagnose._rule_ci_green fires on green checks alone and is
@@ -94,7 +295,7 @@ class TestReclassifyCeilingBlocked:
         # mergeable) did NOT fire. It is not proof the row is actually
         # clear, so it must not be promoted to auto-tier here.
         _seed_ceiling_blocked_entry("acme/widgets", 102)
-        row = _row("acme/widgets#102", queue_diagnose.CAUSE_CI_GREEN)
+        row = _row("acme/widgets#102", queue_diagnose.CAUSE_CI_GREEN, fresh=True)
 
         [out] = _reclassify_ceiling_blocked([row])
 
@@ -111,6 +312,7 @@ class TestReclassifyCeilingBlocked:
             cause=queue_diagnose.CAUSE_NOTHING_BLOCKING,
             confidence=queue_diagnose.CONFIDENCE_LOW,
             evidence=(f"cause={queue_diagnose.CAUSE_NOTHING_BLOCKING}",),
+            fresh=True,
         )
 
         [out] = _reclassify_ceiling_blocked([row])
@@ -119,7 +321,7 @@ class TestReclassifyCeilingBlocked:
 
     def test_live_clear_row_that_is_not_ceiling_blocked_is_left_alone(self) -> None:
         # No drive-queue row at all for this issue — "nothing to block on".
-        row = _row("acme/widgets#103", queue_diagnose.CAUSE_NOTHING_BLOCKING)
+        row = _row("acme/widgets#103", queue_diagnose.CAUSE_NOTHING_BLOCKING, fresh=True)
 
         [out] = _reclassify_ceiling_blocked([row])
 
@@ -133,7 +335,7 @@ class TestReclassifyCeilingBlocked:
             state="blocked",
             last_reason="merge conflict, no path forward",
         )
-        row = _row("acme/widgets#104", queue_diagnose.CAUSE_NOTHING_BLOCKING)
+        row = _row("acme/widgets#104", queue_diagnose.CAUSE_NOTHING_BLOCKING, fresh=True)
 
         [out] = _reclassify_ceiling_blocked([row])
 
@@ -144,7 +346,7 @@ class TestReclassifyCeilingBlocked:
         # the two "live reads completely clear" causes — must not relabel
         # every cause a ceiling-blocked row happens to carry.
         _seed_ceiling_blocked_entry("acme/widgets", 105)
-        row = _row("acme/widgets#105", "merge_conflict")
+        row = _row("acme/widgets#105", "merge_conflict", fresh=True)
 
         [out] = _reclassify_ceiling_blocked([row])
 
@@ -153,7 +355,10 @@ class TestReclassifyCeilingBlocked:
     def test_merge_queue_rows_are_never_reclassified(self) -> None:
         _seed_ceiling_blocked_entry("acme/widgets", 106)
         row = _row(
-            "acme/widgets#106", queue_diagnose.CAUSE_NOTHING_BLOCKING, queue="merge-queue"
+            "acme/widgets#106",
+            queue_diagnose.CAUSE_NOTHING_BLOCKING,
+            queue="merge-queue",
+            fresh=True,
         )
 
         [out] = _reclassify_ceiling_blocked([row])
@@ -161,7 +366,19 @@ class TestReclassifyCeilingBlocked:
         assert out == row
 
     def test_unparseable_key_is_left_alone(self) -> None:
-        row = _row("no-hash-separator", queue_diagnose.CAUSE_NOTHING_BLOCKING)
+        row = _row("no-hash-separator", queue_diagnose.CAUSE_NOTHING_BLOCKING, fresh=True)
+
+        [out] = _reclassify_ceiling_blocked([row])
+
+        assert out == row
+
+    def test_negative_issue_number_is_left_alone(self) -> None:
+        # #3807: "repo#-5" must be rejected here exactly as it is by every
+        # other row-key reader in this module and in board_doctor_policy —
+        # all now share coord.drive_queue.parse_key, which requires a bare
+        # digit tail and so never parses a leading "-".
+        _seed_ceiling_blocked_entry("acme/widgets", 5)
+        row = _row("acme/widgets#-5", queue_diagnose.CAUSE_NOTHING_BLOCKING, fresh=True)
 
         [out] = _reclassify_ceiling_blocked([row])
 
@@ -797,3 +1014,160 @@ class TestDryRun:
         after = state.board_doctor_row_state("drive-queue", key)
         assert after == before
         assert dispatch.count == 1  # only the real sweep dispatched
+
+
+def _parked_assignment(
+    *,
+    assignment_id: str,
+    repo: str,
+    issue: int,
+    type: str = "work",  # noqa: A002
+    test_reason: str | None = None,
+) -> Assignment:
+    return Assignment(
+        machine_name="m1",
+        repo_name=repo,
+        issue_number=issue,
+        issue_title=f"issue-{issue}-x",
+        assignment_id=assignment_id,
+        status="done",
+        branch=f"issue-{issue}-x",
+        type=type,
+        test_state=TEST_STATE_BLOCKED,
+        test_reason=test_reason if test_reason is not None else mute_smoke_tally(MUTE_SMOKE_LEG_BUDGET),
+    )
+
+
+class TestSmokeNoVerdictRows:
+    """#3760 Action 5 / #2244: `smoke_no_verdict_rows` is the detector half
+    of `coord.board_doctor_permissions.sweep_smoke_requeue` — it must only
+    surface a row the handler can actually clear.
+    """
+
+    def test_a_row_parked_at_the_mute_budget_is_selected(self) -> None:
+        board = Board(
+            completed=[
+                _parked_assignment(assignment_id="aid-x", repo="acme/widgets", issue=1),
+            ]
+        )
+
+        [row] = smoke_no_verdict_rows(board)
+
+        assert row.queue == "smoke-no-verdict"
+        assert row.key == "acme/widgets#1"
+        assert row.cause == CAUSE_SMOKE_NO_VERDICT
+        assert row.evidence == (f"mute_smoke_legs={MUTE_SMOKE_LEG_BUDGET}",)
+
+    def test_a_row_below_the_mute_budget_is_not_selected(self) -> None:
+        board = Board(
+            completed=[
+                _parked_assignment(
+                    assignment_id="aid-x",
+                    repo="acme/widgets",
+                    issue=2,
+                    test_reason=mute_smoke_tally(MUTE_SMOKE_LEG_BUDGET - 1),
+                ),
+            ]
+        )
+
+        assert smoke_no_verdict_rows(board) == []
+
+    def test_a_row_not_parked_at_all_is_not_selected(self) -> None:
+        board = Board(
+            completed=[
+                Assignment(
+                    machine_name="m1",
+                    repo_name="acme/widgets",
+                    issue_number=3,
+                    issue_title="issue-3-x",
+                    assignment_id="aid-x",
+                    status="done",
+                    test_state="passed",
+                ),
+            ]
+        )
+
+        assert smoke_no_verdict_rows(board) == []
+
+    def test_a_3315_environmental_retry_park_is_not_picked_up(self) -> None:
+        # Its own tally marker text does not match `mute_smoke_legs`'s
+        # regex, so this cause never fires for it.
+        board = Board(
+            completed=[
+                _parked_assignment(
+                    assignment_id="aid-x",
+                    repo="acme/widgets",
+                    issue=4,
+                    test_reason=ENVIRONMENTAL_SMOKE_MARKER,
+                ),
+            ]
+        )
+
+        assert smoke_no_verdict_rows(board) == []
+
+    def test_a_3737_abandoned_background_park_is_not_picked_up(self) -> None:
+        board = Board(
+            completed=[
+                _parked_assignment(
+                    assignment_id="aid-x",
+                    repo="acme/widgets",
+                    issue=5,
+                    test_reason=ABANDONED_BACKGROUND_SMOKE_MARKER,
+                ),
+            ]
+        )
+
+        assert smoke_no_verdict_rows(board) == []
+
+    def test_a_test_author_row_at_the_mute_budget_is_not_selected(self) -> None:
+        # `coord.state.reset_work_test_state`/`test_reset_candidates` can
+        # only clear this type with an `assignment_id` this detector has no
+        # row to carry (`StuckRow` has no such field) — surfacing it here
+        # would mint a row `sweep_smoke_requeue` could never actually clear.
+        board = Board(
+            completed=[
+                _parked_assignment(
+                    assignment_id="aid-x",
+                    repo="acme/widgets",
+                    issue=6,
+                    type="test-author",
+                ),
+            ]
+        )
+
+        assert smoke_no_verdict_rows(board) == []
+
+    def test_two_parked_rows_on_the_same_issue_collapse_to_one(self) -> None:
+        board = Board(
+            completed=[
+                _parked_assignment(assignment_id="aid-a", repo="acme/widgets", issue=7),
+                _parked_assignment(assignment_id="aid-b", repo="acme/widgets", issue=7),
+            ]
+        )
+
+        rows = smoke_no_verdict_rows(board)
+
+        assert [row.key for row in rows] == ["acme/widgets#7"]
+
+    def test_rows_on_different_issues_both_surface(self) -> None:
+        board = Board(
+            completed=[
+                _parked_assignment(assignment_id="aid-a", repo="acme/widgets", issue=8),
+                _parked_assignment(assignment_id="aid-b", repo="acme/gadgets", issue=9),
+            ]
+        )
+
+        rows = smoke_no_verdict_rows(board)
+
+        assert {row.key for row in rows} == {"acme/widgets#8", "acme/gadgets#9"}
+
+    def test_active_assignments_are_also_scanned(self) -> None:
+        board = Board(
+            active=[
+                _parked_assignment(assignment_id="aid-x", repo="acme/widgets", issue=10),
+            ]
+        )
+
+        [row] = smoke_no_verdict_rows(board)
+
+        assert row.key == "acme/widgets#10"

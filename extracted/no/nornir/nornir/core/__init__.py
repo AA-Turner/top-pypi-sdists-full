@@ -14,15 +14,15 @@ from nornir.core.task import AggregatedResult, Task
 if TYPE_CHECKING:
     import builtins
     import types
-    from collections.abc import Callable, Generator
+    from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
 
 class Nornir:
-    """
-    This is the main object to work with. It contains the inventory and it serves
-    as task dispatcher.
+    """Main object to work with.
+
+    It contains the inventory and it serves as task dispatcher.
 
     Arguments:
         inventory (:obj:`nornir.core.inventory.Inventory`): Inventory to work with
@@ -35,6 +35,7 @@ class Nornir:
         data(:obj:`nornir.core.GlobalState`): shared data amongst different iterations of nornir
         dry_run(``bool``): Whether if we are testing the changes or not
         config (:obj:`nornir.core.configuration.Config`): Configuration parameters
+
     """
 
     def __init__(
@@ -63,25 +64,35 @@ class Nornir:
         self.close_connections(on_good=True, on_failed=True)
 
     def with_processors(self, processors: list[Processor]) -> Nornir:
-        """
-        Given a list of Processor objects return a copy of the nornir object with the processors
-        assigned to the copy. The original object is left unmodified.
+        """Return a copy of the object with the given processors assigned to it.
+
+        The original object is left unmodified.
+
+        Returns:
+            :obj:`Nornir`: A copy of ``self`` with the given processors assigned.
+
         """
         return Nornir(**{**self._clone_parameters(), **{"processors": Processors(processors)}})
 
     def with_runner(self, runner: RunnerPlugin) -> Nornir:
-        """
-        Given a runner return a copy of the nornir object with the runner
-        assigned to the copy. The original object is left unmodified.
+        """Return a copy of the object with the given runner assigned to it.
+
+        The original object is left unmodified.
+
+        Returns:
+            :obj:`Nornir`: A copy of ``self`` with the given runner assigned.
+
         """
         return Nornir(**{**self._clone_parameters(), **{"runner": runner}})
 
     def filter(self, *args: Any, **kwargs: Any) -> Nornir:
-        """
-        See :py:meth:`nornir.core.inventory.Inventory.filter`
+        """Return a copy of the object with a filtered inventory.
+
+        See :py:meth:`nornir.core.inventory.Inventory.filter` for the accepted arguments.
 
         Returns:
             :obj:`Nornir`: A new object with same configuration as ``self`` but filtered inventory.
+
         """
         b = Nornir(**self._clone_parameters())
         b.inventory = self.inventory.filter(*args, **kwargs)
@@ -96,8 +107,7 @@ class Nornir:
         name: str | None = None,
         **kwargs: Any,
     ) -> AggregatedResult:
-        """
-        Run task over all the hosts in the inventory.
+        """Run task over all the hosts in the inventory.
 
         Arguments:
             task (``callable``): function or callable that will be run against each device in
@@ -105,14 +115,16 @@ class Nornir:
             raise_on_error (``bool``): Override raise_on_error behavior
             on_good(``bool``): Whether to run or not this task on hosts marked as good
             on_failed(``bool``): Whether to run or not this task on hosts marked as failed
+            name (``str``): Name of the task, defaults to the name of the ``task`` callable
             **kwargs: additional argument to pass to ``task`` when calling it
-
-        Raises:
-            :obj:`nornir.core.exceptions.NornirExecutionError`: if at least a task fails
-              and self.config.core.raise_on_error is set to ``True``
 
         Returns:
             :obj:`nornir.core.task.AggregatedResult`: results of each execution
+
+        Raises:
+            nornir.core.exceptions.NornirExecutionError: if at least a task fails
+              and self.config.core.raise_on_error is set to ``True``
+
         """
         run_task = Task(
             task,
@@ -160,10 +172,28 @@ class Nornir:
         return result
 
     def dict(self) -> dict[str, Any]:
-        """Return a dictionary representing the object."""
+        """Return a dictionary representing the object.
+
+        Returns:
+            The ``data`` and ``inventory`` attributes serialized as dictionaries.
+
+        """
         return {"data": self.data.dict(), "inventory": self.inventory.dict()}
 
     def close_connections(self, on_good: bool = True, on_failed: bool = False) -> None:
+        """Close all the connections open on the hosts of the inventory.
+
+        The connections are closed by running a task, so the call goes through the
+        runner and the processors see it like any other task. Using the object as a
+        context manager closes the connections of every host on exit, failed ones
+        included.
+
+        Arguments:
+            on_good(``bool``): Whether to close the connections of the hosts marked as good
+            on_failed(``bool``): Whether to close the connections of the hosts marked as failed
+
+        """
+
         def close_connections_task(task: Task) -> None:
             task.host.close_connections()
 
@@ -171,6 +201,17 @@ class Nornir:
 
     @property
     def runner(self) -> RunnerPlugin:
+        """The runner this object dispatches its tasks with.
+
+        Returns:
+            :obj:`nornir.core.plugins.runners.RunnerPlugin`: The runner assigned to ``self``.
+
+        Raises:
+            nornir.core.exceptions.PluginNotRegistered: no runner was assigned. Objects
+                built by :obj:`nornir.InitNornir` always have one, so this is only
+                reachable when constructing :obj:`Nornir` directly.
+
+        """
         if self._runner:
             return self._runner
 
@@ -184,13 +225,3 @@ class Nornir:
             "processors": self.processors,
             "runner": self._runner,
         }
-
-    @classmethod
-    def get_validators(cls) -> Generator[Callable[[Nornir], Nornir], None, None]:
-        yield cls.validate
-
-    @classmethod
-    def validate(cls, v: Nornir) -> Nornir:
-        if not isinstance(v, cls):
-            raise ValueError(f"Nornir: Nornir expected not {type(v)}")
-        return v

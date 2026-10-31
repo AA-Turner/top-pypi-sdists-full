@@ -31,7 +31,7 @@ from matrx_graph.contract_kinds import ContractDirection, ContractFamily, contra
 from matrx_graph.types.context import NodeExecutionContext
 from matrx_graph.types.primitives import ActionTier, NodeCategory
 from matrx_graph.types.result import Failure, NodeResult, success
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from matrx_ai._ext import get_ext, has_ext
 from matrx_ai.graph_nodes.agent_action import (
@@ -72,7 +72,7 @@ def host_request_payload(
 
     payload = agent.model_dump(
         exclude_none=True,
-        exclude={*HOST_REQUEST_EXCLUDED_INPUTS, "conversation_id", "is_new"},
+        exclude=set(HOST_REQUEST_EXCLUDED_INPUTS),
     )
     layered: dict[str, Any] = {}
     for layer in (mandate_overrides, payload.get("config_overrides"), agent.runtime_config_overrides):
@@ -142,14 +142,9 @@ class AgentAssignmentBatchInput(BaseModel):
         ),
     )
 
-    @model_validator(mode="after")
-    def require_fresh_per_item_conversations(self) -> AgentAssignmentBatchInput:
-        if self.agent.conversation_id is not None or self.agent.is_new is not None:
-            raise ValueError(
-                "coordinated agent assignments own one durable conversation per item; "
-                "agent.conversation_id and agent.is_new must be omitted"
-            )
-        return self
+    # Each item owns ONE durable conversation the engine assigns (``execute`` below). The agent
+    # template has no conversation input at all — a value an author sets is refused by name by the
+    # shared ``refuse_conversation_continuation`` (agent_action.py), the same as on Run Agent.
 
 
 _AGENT_OUTPUT_KIND = contract_from_model(

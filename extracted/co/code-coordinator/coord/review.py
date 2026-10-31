@@ -4350,7 +4350,12 @@ def dispatch_review(
         # and must never be silently degraded by a cost-driven ladder or a
         # usage-gate reroute, so this is checked ahead of (and instead of)
         # `models.default`, never folded into it.
-        review_model_alias = config.models.model_for_type("review") or config.models.default
+        # A re-review (`completed.review_iteration > 0` — i.e. `completed`
+        # is itself a bounce-fix worker) pins to the fleet default `sonnet`
+        # instead — see `ModelsConfig.model_for_review`.
+        review_model_alias = config.models.model_for_review(
+            getattr(completed, "review_iteration", 0) or 0
+        )
         review_model_wire = config.models.resolve(review_model_alias)
 
         # #821: capture branch HEAD SHA once; staleness detected post-review.
@@ -5462,40 +5467,79 @@ def build_scoped_review_briefing(
     branch: str | None,
     resolution_delta: str,
     default_branch: str = "main",
+    prior_verdict: str = "approve",
+    prior_findings_body: str | None = None,
 ) -> str:
     """Assemble a SCOPED re-review briefing (#1476, widened by #3161).
     Pure function — testable.
 
     Dispatched when a conflict-fix rebase, ci-fix, or fix-round leg changed
-    content under an already-approved review with nothing else intervening
-    (``coord.merge_queue.only_bounded_fix_since_review``). The reviewer is
-    told the PR was already approved — it must not re-derive a verdict
-    already reached — and is handed ONLY the resolution delta
-    (:func:`compute_resolution_delta`) to rule on. This is the whole point:
-    a ~1300-line PR whose conflict-fix resolution was two hunks costs a
-    ~15-line read, not a full re-review (the #1453 motivating case).
+    content since a prior review with nothing else intervening
+    (``coord.merge_queue.only_bounded_fix_since_review``). The premise
+    handed to the reviewer depends on *prior_verdict*:
+
+    * ``"approve"`` — the PR was already approved; the reviewer must not
+      re-derive a verdict already reached, and is handed ONLY the
+      resolution delta (:func:`compute_resolution_delta`) to rule on. This
+      is the whole point: a ~1300-line PR whose conflict-fix resolution was
+      two hunks costs a ~15-line read, not a full re-review (the #1453
+      motivating case).
+    * ``"request-changes"`` — the prior review was NOT an approval; this is
+      a fix round responding to blocking findings, not a content-preserving
+      rebase over settled-good code. The reviewer is told that plainly, is
+      handed the prior review's findings (*prior_findings_body*) alongside
+      the delta, and is asked to confirm each blocking finding was actually
+      addressed rather than told to avoid re-litigating anything.
     """
+    is_fix_round = prior_verdict != "approve"
     lines: list[str] = []
     lines.append(f"# Scoped re-review: {repo_github} PR #{pr_number}")
     lines.append("")
-    lines.append(
-        f"You are re-reviewing issue #{issue_number}: {issue_title}. This PR "
-        "was **already approved** by a previous review. Since then, an "
-        "automated conflict-fix worker rebased the branch onto its target "
-        "branch to resolve a merge conflict, and that rebase changed "
-        "content — so the branch's content-fingerprint no longer matches "
-        "what the prior review covered, and the approval was voided."
-    )
-    lines.append("")
-    lines.append(
-        "**You do NOT need to re-review the whole PR.** Everything the "
-        "prior review already approved stands — do not re-litigate it and "
-        "do not raise new findings about code the resolution delta below "
-        "doesn't touch. Your ONLY job is to judge whether the conflict-fix "
-        "resolution itself introduced a real bug or silently dropped "
-        "something either side of the conflict needed."
-    )
-    lines.append("")
+    if is_fix_round:
+        lines.append(
+            f"You are re-reviewing issue #{issue_number}: {issue_title}. The "
+            f"PREVIOUS review of this branch returned verdict "
+            f"`{prior_verdict}` — it was **not** an approval. A fix round "
+            "then addressed that review's findings, and nothing else has "
+            "changed since. You are reviewing whether the fix round actually "
+            "resolved what the prior review raised."
+        )
+        lines.append("")
+        lines.append(
+            "**You do NOT need to re-review the whole PR.** Code the prior "
+            "review already covers and that the resolution delta below "
+            "doesn't touch is unchanged since that review; focus on the "
+            "delta. Your job is to check EACH blocking finding from the "
+            "prior review (below) against the delta: was it actually "
+            "addressed? A finding left unaddressed, or addressed with a new "
+            "bug, means `request-changes` again."
+        )
+        lines.append("")
+        lines.append("## Prior review findings (verdict: " + prior_verdict + ")")
+        lines.append("")
+        lines.append(
+            (prior_findings_body or "(prior findings text unavailable)").strip()
+        )
+        lines.append("")
+    else:
+        lines.append(
+            f"You are re-reviewing issue #{issue_number}: {issue_title}. This PR "
+            "was **already approved** by a previous review. Since then, an "
+            "automated conflict-fix worker rebased the branch onto its target "
+            "branch to resolve a merge conflict, and that rebase changed "
+            "content — so the branch's content-fingerprint no longer matches "
+            "what the prior review covered, and the approval was voided."
+        )
+        lines.append("")
+        lines.append(
+            "**You do NOT need to re-review the whole PR.** Everything the "
+            "prior review already approved stands — do not re-litigate it and "
+            "do not raise new findings about code the resolution delta below "
+            "doesn't touch. Your ONLY job is to judge whether the conflict-fix "
+            "resolution itself introduced a real bug or silently dropped "
+            "something either side of the conflict needed."
+        )
+        lines.append("")
     lines.append("## Context")
     lines.append(f"- Repo: {repo_github} (local name: {repo_name})")
     lines.append(f"- Branch: {branch or '(unknown)'}")
@@ -5504,15 +5548,26 @@ def build_scoped_review_briefing(
     lines.append("")
     lines.append("## Resolution delta (review THIS)")
     lines.append("")
-    lines.append(
-        "This is a diff *of diffs* — the difference between the diff the "
-        "prior review approved and the branch's current diff, computed "
-        "with `git patch-id`-fingerprinted content that changed under the "
-        "conflict-fix rebase. A line starting with `-` was in the "
-        "previously-approved diff and is gone now; a line starting with "
-        "`+` is new since the approval. This is exactly what the "
-        "conflict-fix resolution changed — nothing else in the PR did."
-    )
+    if is_fix_round:
+        lines.append(
+            "This is a diff *of diffs* — the difference between the diff "
+            "the prior review covered and the branch's current diff, "
+            "computed with `git patch-id`-fingerprinted content that "
+            "changed under the fix round. A line starting with `-` was in "
+            "the previously-reviewed diff and is gone now; a line starting "
+            "with `+` is new since that review. This is exactly what the "
+            "fix round changed — nothing else in the PR did."
+        )
+    else:
+        lines.append(
+            "This is a diff *of diffs* — the difference between the diff the "
+            "prior review approved and the branch's current diff, computed "
+            "with `git patch-id`-fingerprinted content that changed under the "
+            "conflict-fix rebase. A line starting with `-` was in the "
+            "previously-approved diff and is gone now; a line starting with "
+            "`+` is new since the approval. This is exactly what the "
+            "conflict-fix resolution changed — nothing else in the PR did."
+        )
     lines.append("")
     lines.append("```diff")
     lines.append(resolution_delta.strip())
@@ -5526,12 +5581,23 @@ def build_scoped_review_briefing(
         f"{default_branch}...origin/{branch or 'HEAD'}` gets you the full "
         "current diff for extra context — but you should rarely need it."
     )
-    lines.append(
-        "2. `approve` unless the resolution itself introduces a genuine bug "
-        "or silently drops content either side of the conflict needed. "
-        "Do NOT block on style/nit findings about code outside the delta — "
-        "that code was already approved."
-    )
+    if is_fix_round:
+        lines.append(
+            "2. Check the delta against EACH blocking finding listed above. "
+            "`approve` only if every blocking finding was actually addressed "
+            "and the fix itself didn't introduce a new bug. `request-changes` "
+            "if a blocking finding was left unaddressed, only partially "
+            "addressed, or the fix introduced a new genuine bug. Do NOT "
+            "re-raise non-blocking concerns or nits from the prior review as "
+            "new blocking findings — they were already non-blocking."
+        )
+    else:
+        lines.append(
+            "2. `approve` unless the resolution itself introduces a genuine bug "
+            "or silently drops content either side of the conflict needed. "
+            "Do NOT block on style/nit findings about code outside the delta — "
+            "that code was already approved."
+        )
     lines.append(
         "3. Before you end your session, record your verdict TWICE — belt "
         "and braces, neither step substitutes for the other. FIRST, if the "
@@ -5791,6 +5857,37 @@ def dispatch_scoped_review(
             entry.assignment_id,
         )
 
+    # When *prior_review* was a `request-changes` verdict (a fix round, not
+    # a content-preserving rebase over settled-good code), the briefing
+    # must say so and hand the reviewer the actual blocking findings to
+    # check the delta against — see `build_scoped_review_briefing`'s
+    # docstring. Resolved once here (not per-candidate below) since it
+    # doesn't depend on which machine ends up reviewing. Deferred import
+    # avoids review.py/auto_loop.py's circular import at module level
+    # (auto_loop imports review.py), mirroring `dispatch_headless_fix`'s
+    # identical pattern above.
+    prior_review_verdict = getattr(prior_review, "review_verdict", None) or "approve"
+    prior_findings_body: str | None = None
+    if prior_review_verdict != "approve":
+        from coord.auto_loop import _load_review_findings  # noqa: PLC0415
+
+        try:
+            _prior_findings = _load_review_findings(
+                prior_review,
+                None,  # no local log path available from this call site
+                prior_review.machine_name,
+                repo_github=repo.github,
+            )
+        except Exception as exc:  # noqa: BLE001 — fail-safe: briefing still works
+            log.warning(
+                "[review] scoped review for merge entry %s: failed to load "
+                "prior review %s's findings: %s",
+                entry.assignment_id, prior_review.assignment_id, exc,
+            )
+            _prior_findings = None
+        if _prior_findings is not None:
+            prior_findings_body = _prior_findings.body
+
     # #1476 fix: rank candidates against the machine that authored the code
     # under review — the WORK assignment behind *entry* — not the prior
     # reviewer's machine. ``QueuedMerge`` doesn't carry the worker's machine
@@ -5811,10 +5908,13 @@ def dispatch_scoped_review(
     if not candidates:
         return None
 
-    # #1650: see the #911/#1650 comment at the other `review_model_alias`
-    # assignment site (`dispatch_review` above) — `models.pinned["review"]`
-    # wins outright over `models.default` here too.
-    review_model_alias = config.models.model_for_type("review") or config.models.default
+    # This function only ever runs for a subsequent/re-review — it exists
+    # specifically to scope the diff to what changed since `prior_review`
+    # — so always resolve via the re-review path regardless of what
+    # iteration (if any) ends up stamped on the new review row; see
+    # `ModelsConfig.model_for_review` and the comment at the other
+    # `review_model_alias` assignment site (`dispatch_review` above).
+    review_model_alias = config.models.model_for_review(review_iteration=1)
     review_model_wire = config.models.resolve(review_model_alias)
 
     _get_sha = branch_sha_fetcher or github_ops.get_branch_sha
@@ -5823,6 +5923,80 @@ def dispatch_scoped_review(
         review_head_sha = _get_sha(repo.github, entry.branch)
     except Exception:  # noqa: BLE001 — fail-safe: missing SHA is not blocking
         pass
+
+    # #3787 review round 2 (blocking): this scoped path reaches the same
+    # request-changes -> fix -> re-review bounce chain `dispatch_review`
+    # does, but was skipping BOTH pre-review mechanical gates
+    # (`run_prereview_gate`, `_mechanical_mandatory_verdict`) that
+    # `dispatch_review` always runs — against the full diff — before ever
+    # spending a review leg. Run the same gates here against `new_diff`
+    # (the branch's full current diff; `delta` is a diff-of-diffs neither
+    # check can parse as a real unified diff) and bail out to `None` on a
+    # violation so the caller falls back to the full `dispatch_review`
+    # above, which re-runs these same checks and records the terminal
+    # verdict against the real `completed: Assignment` — `entry` here is a
+    # `QueuedMerge`, which (when synthesized by `maybe_scoped_review_for_
+    # completed_fix`) has no `review_state` a verdict could be written onto.
+    sealed_paths = config.acceptance.sealed_paths(entry.repo_name)
+    sealed_entrypoints = [
+        ep for ep in config.acceptance.entrypoints(entry.repo_name)
+        if ep in sealed_paths
+    ]
+    additive_only_entrypoints = config.acceptance.additive_only_entrypoints(
+        entry.repo_name
+    )
+    coordinator_doc_paths = coordinator_owned_docs(repo)
+
+    _gate_worker_machine = next(
+        (m for m in config.machines if m.name == worker_machine_name), None
+    )
+    _gate_repo_path = (
+        _gate_worker_machine.repo_path(entry.repo_name)
+        if _gate_worker_machine is not None else None
+    )
+    try:
+        _gate_result: GateResult = run_prereview_gate(
+            diff_text=new_diff,
+            repo_config=config.prereview_gate.for_repo(entry.repo_name),
+            repo_path=_gate_repo_path,
+            expected_head_sha=review_head_sha,
+        )
+    except Exception:  # noqa: BLE001 — fail-open: a gate crash must never
+        # block the fallback to a full review, same posture as
+        # `dispatch_review`'s matching call.
+        log.exception(
+            "[review] scoped review for merge entry %s: prereview "
+            "mechanical gate crashed — treating as passed (fail-open)",
+            entry.assignment_id,
+        )
+        _gate_result = GateResult(passed=True)
+    if not _gate_result.passed:
+        log.warning(
+            "[review] scoped review for merge entry %s: prereview "
+            "mechanical gate found %d finding(s) — returning None so the "
+            "caller falls back to a full dispatch_review to record the "
+            "terminal verdict",
+            entry.assignment_id, len(_gate_result.findings),
+        )
+        return None
+
+    _mechanical = _mechanical_mandatory_verdict(
+        assignment_type=entry.assignment_type,
+        diff_text=new_diff,
+        sealed_paths=sealed_paths,
+        sealed_entrypoints=sealed_entrypoints,
+        coordinator_doc_paths=coordinator_doc_paths,
+        additive_only_entrypoints=additive_only_entrypoints,
+    )
+    if _mechanical is not None:
+        log.warning(
+            "[review] scoped review for merge entry %s: mandatory "
+            "mechanical verdict (%s) triggered — returning None so the "
+            "caller falls back to a full dispatch_review to record the "
+            "terminal verdict",
+            entry.assignment_id, _mechanical[0],
+        )
+        return None
 
     _compute_patch_id = patch_id_computer or github_ops.compute_patch_id
     review_patch_id: str | None = None
@@ -5895,6 +6069,8 @@ def dispatch_scoped_review(
                 branch=entry.branch,
                 resolution_delta=delta,
                 default_branch=base_branch,
+                prior_verdict=prior_review_verdict,
+                prior_findings_body=prior_findings_body,
             )
 
             payload = {
@@ -6109,6 +6285,7 @@ def dispatch_scoped_reviews_for_queue(
             board,
             ancillary_files=ancillary_files,
             ancillary_gh_ops=github_ops,
+            verdicts=("approve", "request-changes"),
         )
         if prior_review is None:
             continue  # no scoped candidate — needs a full review, not this path
@@ -6225,12 +6402,20 @@ def maybe_scoped_review_for_completed_fix(
     dominating re-review volume. Both callers now try this function FIRST
     and only fall back to :func:`dispatch_review` when it returns ``None``.
 
-    Looks up the ALREADY-EXISTING merge-queue entry for ``completed``'s
-    branch (:func:`coord.merge_queue.load_queue`) — never synthesizes one;
-    an automated bulk/transition pass must not create queue state as a side
-    effect, unlike ``coord review-reaffirm``'s explicit human invocation.
-    Refetches the branch's live head SHA/patch-id (never trusts a stale
-    queued value) and then reuses exactly
+    Looks up the merge-queue entry for ``completed``'s branch
+    (:func:`coord.merge_queue.load_queue`) and, when none exists yet,
+    synthesizes an in-memory throwaway one — the SAME pattern ``coord
+    review-reaffirm`` already uses, since nothing in this function ever
+    persists ``entry`` back to the queue DB (:func:`coord.merge_queue.
+    save_queue` is never called here). A real entry only exists once a
+    review for this branch has ALREADY been approved
+    (:func:`coord.merge_queue.enqueue_approved_work` is the only production
+    enqueue path), which means the canonical "first review returns
+    request-changes, a fix round answers it, re-review the delta" loop —
+    the common case this function exists to scope — would otherwise never
+    reach the eligibility chain below at all. Refetches the branch's live
+    head SHA/patch-id (never trusts a stale queued value) and then reuses
+    exactly
     :func:`dispatch_scoped_reviews_for_queue`'s own eligibility chain:
     the ``entry.state == mq.PENDING`` check,
     :func:`~coord.merge_queue.has_approved_review`,
@@ -6340,7 +6525,23 @@ def maybe_scoped_review_for_completed_fix(
             None,
         )
         if entry is None:
-            return None  # never enqueued (or already cleared) — nothing to scope against
+            # No live queue entry (the common case on the request-changes →
+            # fix → re-review loop — see docstring). Synthesize a throwaway
+            # one, exactly as `coord review-reaffirm` does: every field the
+            # eligibility chain below reads is populated here or refetched
+            # from GitHub a few lines down, and `state` defaults to
+            # `mq.PENDING`, so the entry behaves identically to a real one
+            # for the rest of this function without ever being written to
+            # the queue DB.
+            entry = mq.QueuedMerge(
+                assignment_id=completed.assignment_id,
+                repo_name=completed.repo_name,
+                repo_github=repo.github,
+                branch=completed.branch,
+                target_branch=repo.default_branch,
+                issue_number=completed.issue_number,
+                issue_title=completed.issue_title or "",
+            )
 
         # #3161 review follow-up (non-blocking finding): parity with
         # `dispatch_scoped_reviews_for_queue`'s own eligibility loop, which
@@ -6382,6 +6583,7 @@ def maybe_scoped_review_for_completed_fix(
             board,
             ancillary_files=ancillary_files,
             ancillary_gh_ops=github_ops,
+            verdicts=("approve", "request-changes"),
         )
         if prior_review is None:
             return None

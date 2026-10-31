@@ -958,25 +958,26 @@ def get_gate_verdict_recorder() -> Any:
 # an ordinary chat somebody opens and closes, and wrong for a conversation that
 # by construction never ends — a person's Personal Staff thread, continued by
 # every text, every call and the app itself. The SIZE of the window is an
-# opinion, so it is a host-side setting (``personal_staff.thread_context_turns``)
+# opinion, so it is a host-side setting (``chat.history.held_history_turns``)
 # and not a constant here.
 #
 # Contract:
 #   * OPTIONAL. Unconfigured → ``get_conversation_history_window()`` returns
 #     None and nothing is bounded (matrx-ai stays standalone).
-#   * AWAITED once per resolution, inside ``ConversationResolver._finish`` — the
-#     ONE exit every resolution path takes (cache hit, cold DB load, responder /
-#     Holder re-resolution), BEFORE this turn's user input is appended and
-#     BEFORE the send boundary. So the window covers the persisted history only,
-#     it is identical on every door, and it is not a mutation between the
-#     resolver and the provider (see ``config/send_boundary.py``).
-#   * The host MUST return None for a conversation it has no opinion about —
-#     which is nearly all of them — and MUST make that answer cheap.
+#   * AWAITED once per resolution, inside ``prepare_for_send`` (resolve stage,
+#     ``send_boundary._apply_history_window``) on the PERSISTED history only — this
+#     turn's input is never a turn the window may drop. The send boundary applies
+#     the cut, and MOVES it only when the provider cache is already cold (the cache
+#     law); a moved cut is recorded on the request (B2, 2026-10-30).
+#   * The host returns a ``config.history_budget.HistoryWindowPolicy`` (turns,
+#     token budget, whether to wait for a cold cache) read from ITS knobs, or None
+#     for no window. It MUST make that answer cheap.
 #   * IT MAY RAISE, and a raise is NOT swallowed here. A host that HAS an
 #     opinion but cannot read it must fail the turn rather than let the run
 #     silently use a window nobody chose.
-#   * Signature: ``async window(*, conversation_id: str, messages: list) ->
-#     list | None`` — the bounded message list, or None to leave it alone.
+#   * Signature: ``async window(*, conversation_id: str, structure_is_live: bool)
+#     -> HistoryWindowPolicy | None``. ``structure_is_live`` says the conversation
+#     is mandate-held (``agents/live_structure.py``), read from the config in hand.
 
 _CONVERSATION_HISTORY_WINDOW_KEY = "conversation_history_window"
 
@@ -1000,8 +1001,9 @@ def get_conversation_history_window() -> Any:
 # Contract:
 #   * OPTIONAL. Unconfigured → nothing is marked (matrx-ai stays standalone).
 #   * AWAITED once per resolution, inside ``prepare_for_send`` (resolve stage).
-#   * Signature: ``async marker(*, conversation_id: str) -> bool``. MUST be cheap
-#     and MUST answer False for conversations it has no opinion about.
+#   * Signature: ``async marker(*, conversation_id: str, structure_is_live: bool)
+#     -> bool``. MUST be cheap and MUST answer False for conversations it has no
+#     opinion about. ``structure_is_live``: as for the history window above.
 #   * A raise is announced by the send boundary and the step is skipped — this
 #     is shaping, never a reason to lose a turn.
 

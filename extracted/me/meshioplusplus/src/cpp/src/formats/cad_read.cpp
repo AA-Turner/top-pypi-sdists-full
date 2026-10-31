@@ -32,9 +32,6 @@
 // Project includes (private, not installed)
 #include "../detail/library_lock.hpp"
 #include "../detail/occt_brep.hpp"
-
-// External includes
-#include <Standard_Failure.hxx>
 #endif
 
 namespace meshioplusplus {
@@ -52,24 +49,17 @@ Mesh cad_read_shape(const std::string& rPath, bool Iges, BrepInfo& rInfo,
                                     "deflection positive");
     detail::LibraryLock lock;
     detail::OcctQuiet quiet;
-    try {
-        detail::OcctNurbs nurbs = detail::occt_nurbs(detail::occt_read_cad_file(rPath, Iges, fmt));
-        Mesh mesh = detail::occt_tessellate(nurbs.mShape, nurbs.mInfo, rOptions.mDeflection,
-                                            rOptions.mAngularDeflection);
-        rInfo = std::move(nurbs.mInfo);
-        return mesh;
-    } catch (const Standard_Failure& rErr) {
-        // Never OpenCASCADE's own exception, which is no std::exception.
-        throw ReadError(std::string("meshio++: ") + fmt + ": OpenCASCADE failed converting '" +
-                        rPath + "': " + rErr.GetMessageString());
-    }
+    detail::OcctNurbs nurbs = detail::occt_nurbs(detail::occt_read_cad_file(rPath, Iges, fmt));
+    Mesh mesh = detail::occt_tessellate(nurbs.mShape, nurbs.mInfo, rOptions.mDeflection,
+                                        rOptions.mAngularDeflection);
+    rInfo = std::move(nurbs.mInfo);
+    return mesh;
 }
 #else
 [[noreturn]] void cad_read_unsupported(const char* pFormat) {
     throw Unsupported(std::string("meshio++: ") + pFormat +
-                      ": reading needs the OpenCASCADE backend, which the PyPI wheels and "
-                      "the release binaries carry; rebuild with -DMESHIOPLUSPLUS_WITH_OCCT=ON "
-                      "(OpenCASCADE 7.6 or later, build/build-occt.sh builds one)");
+                      ": reading needs the OpenCASCADE backend; rebuild with "
+                      "-DMESHIOPLUSPLUS_WITH_OCCT=ON (OpenCASCADE 7.6 or later)");
 }
 #endif
 

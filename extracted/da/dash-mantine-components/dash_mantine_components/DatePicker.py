@@ -143,6 +143,10 @@ Keyword arguments:
 - fs (dict; optional):
     Font style – Accepts CSS values or a dict for responsive styles.
 
+- fullWidth (boolean; optional):
+    Determines whether the calendar should take the full width of its
+    container default False.
+
 - fw (number | dict; optional):
     Font weight – Accepts CSS values or a dict for responsive styles.
 
@@ -251,12 +255,18 @@ Keyword arguments:
     Margin inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- mie (number; optional):
+    MarginInlineEnd, theme key: theme.spacing.
+
 - mih (string | number | dict; optional):
     Minimum height – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
 
 - minDate (string; optional):
     Minimum possible date.
+
+- mis (number; optional):
+    MarginInlineStart, theme key: theme.spacing.
 
 - miw (string | number | dict; optional):
     Minimum width – Accepts theme spacing keys, CSS values, or a dict
@@ -342,6 +352,12 @@ Keyword arguments:
     memory, reset on page refresh. local: window.localStorage, data is
     kept after the browser quit. session: window.sessionStorage, data
     is cleared once the browser quit.
+
+- pie (number; optional):
+    PaddingInlineEnd, theme key: theme.spacing.
+
+- pis (number; optional):
+    PaddingInlineStart, theme key: theme.spacing.
 
 - pl (string | number | dict; optional):
     Padding left – Accepts theme spacing keys, CSS values, or a dict
@@ -447,6 +463,10 @@ Keyword arguments:
     Determines whether controls should be separated by spacing, True
     by default.
 
+- withNativeLevelSelect (boolean; optional):
+    Determines whether level select controls should be rendered as
+    native `<select>` elements default False.
+
 - withWeekNumbers (boolean; optional):
     Determines whether week numbers should be displayed, False by
     default.
@@ -456,7 +476,12 @@ Keyword arguments:
     returns year label based on year value, defaults to \"YYYY\".
 
 - yearsListFormat (string; optional):
-    dayjs format for years list, `'YYYY'` by default."""
+    dayjs format for years list, `'YYYY'` by default.
+
+- yearsSelectRange (list of 2 elements: [number, number]; optional):
+    Year range for native level select, tuple of `[startYear,
+    endYear]`. Defaults to `[currentYear - 100, currentYear + 50]` or
+    values derived from `minDate`/`maxDate` if set."""
     _children_props: typing.List[str] = ['nextIcon', 'previousIcon']
     _base_nodes = ['nextIcon', 'previousIcon', 'children']
     _namespace = 'dash_mantine_components'
@@ -559,6 +584,10 @@ Keyword arguments:
         style: typing.Optional[typing.Any] = None,
         lightHidden: typing.Optional[bool] = None,
         darkHidden: typing.Optional[bool] = None,
+        mis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        mie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         maxLevel: typing.Optional[Literal["month", "year", "decade"]] = None,
         level: typing.Optional[Literal["month", "year", "decade"]] = None,
         presets: typing.Optional[typing.Sequence["Presets"]] = None,
@@ -589,11 +618,14 @@ Keyword arguments:
         numberOfColumns: typing.Optional[NumberType] = None,
         columnsToScroll: typing.Optional[NumberType] = None,
         ariaLabels: typing.Optional["AriaLabels"] = None,
+        fullWidth: typing.Optional[bool] = None,
         nextIcon: typing.Optional[ComponentType] = None,
         previousIcon: typing.Optional[ComponentType] = None,
         nextLabel: typing.Optional[str] = None,
         previousLabel: typing.Optional[str] = None,
         headerControlsOrder: typing.Optional[typing.Sequence[Literal["level", "next", "previous"]]] = None,
+        withNativeLevelSelect: typing.Optional[bool] = None,
+        yearsSelectRange: typing.Optional[typing.Tuple[NumberType, NumberType]] = None,
         hasNextLevel: typing.Optional[bool] = None,
         classNames: typing.Optional[dict] = None,
         styles: typing.Optional[typing.Any] = None,
@@ -602,9 +634,9 @@ Keyword arguments:
         attributes: typing.Optional[typing.Any] = None,
         **kwargs
     ):
-        self._prop_names = ['id', 'allowDeselect', 'allowSingleDateInRange', 'aria-*', 'ariaLabels', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'columnsToScroll', 'darkHidden', 'data-*', 'decadeLabelFormat', 'defaultDate', 'disabledDates', 'display', 'ff', 'firstDayOfWeek', 'flex', 'fs', 'fw', 'fz', 'getDayProps', 'getMonthControlProps', 'getYearControlProps', 'h', 'hasNextLevel', 'headerControlsOrder', 'hiddenFrom', 'hideOutsideDates', 'hideWeekdays', 'inset', 'left', 'level', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxDate', 'maxLevel', 'mb', 'me', 'mih', 'minDate', 'miw', 'ml', 'mod', 'monthLabelFormat', 'monthsListFormat', 'mr', 'ms', 'mt', 'mx', 'my', 'nextIcon', 'nextLabel', 'numberOfColumns', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'pos', 'pr', 'presets', 'previousIcon', 'previousLabel', 'ps', 'pt', 'px', 'py', 'renderDay', 'right', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'type', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'weekdayFormat', 'weekendDays', 'withCellSpacing', 'withWeekNumbers', 'yearLabelFormat', 'yearsListFormat']
+        self._prop_names = ['id', 'allowDeselect', 'allowSingleDateInRange', 'aria-*', 'ariaLabels', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'columnsToScroll', 'darkHidden', 'data-*', 'decadeLabelFormat', 'defaultDate', 'disabledDates', 'display', 'ff', 'firstDayOfWeek', 'flex', 'fs', 'fullWidth', 'fw', 'fz', 'getDayProps', 'getMonthControlProps', 'getYearControlProps', 'h', 'hasNextLevel', 'headerControlsOrder', 'hiddenFrom', 'hideOutsideDates', 'hideWeekdays', 'inset', 'left', 'level', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxDate', 'maxLevel', 'mb', 'me', 'mie', 'mih', 'minDate', 'mis', 'miw', 'ml', 'mod', 'monthLabelFormat', 'monthsListFormat', 'mr', 'ms', 'mt', 'mx', 'my', 'nextIcon', 'nextLabel', 'numberOfColumns', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pie', 'pis', 'pl', 'pos', 'pr', 'presets', 'previousIcon', 'previousLabel', 'ps', 'pt', 'px', 'py', 'renderDay', 'right', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'type', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'weekdayFormat', 'weekendDays', 'withCellSpacing', 'withNativeLevelSelect', 'withWeekNumbers', 'yearLabelFormat', 'yearsListFormat', 'yearsSelectRange']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['id', 'allowDeselect', 'allowSingleDateInRange', 'aria-*', 'ariaLabels', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'columnsToScroll', 'darkHidden', 'data-*', 'decadeLabelFormat', 'defaultDate', 'disabledDates', 'display', 'ff', 'firstDayOfWeek', 'flex', 'fs', 'fw', 'fz', 'getDayProps', 'getMonthControlProps', 'getYearControlProps', 'h', 'hasNextLevel', 'headerControlsOrder', 'hiddenFrom', 'hideOutsideDates', 'hideWeekdays', 'inset', 'left', 'level', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxDate', 'maxLevel', 'mb', 'me', 'mih', 'minDate', 'miw', 'ml', 'mod', 'monthLabelFormat', 'monthsListFormat', 'mr', 'ms', 'mt', 'mx', 'my', 'nextIcon', 'nextLabel', 'numberOfColumns', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'pos', 'pr', 'presets', 'previousIcon', 'previousLabel', 'ps', 'pt', 'px', 'py', 'renderDay', 'right', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'type', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'weekdayFormat', 'weekendDays', 'withCellSpacing', 'withWeekNumbers', 'yearLabelFormat', 'yearsListFormat']
+        self.available_properties = ['id', 'allowDeselect', 'allowSingleDateInRange', 'aria-*', 'ariaLabels', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'columnsToScroll', 'darkHidden', 'data-*', 'decadeLabelFormat', 'defaultDate', 'disabledDates', 'display', 'ff', 'firstDayOfWeek', 'flex', 'fs', 'fullWidth', 'fw', 'fz', 'getDayProps', 'getMonthControlProps', 'getYearControlProps', 'h', 'hasNextLevel', 'headerControlsOrder', 'hiddenFrom', 'hideOutsideDates', 'hideWeekdays', 'inset', 'left', 'level', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxDate', 'maxLevel', 'mb', 'me', 'mie', 'mih', 'minDate', 'mis', 'miw', 'ml', 'mod', 'monthLabelFormat', 'monthsListFormat', 'mr', 'ms', 'mt', 'mx', 'my', 'nextIcon', 'nextLabel', 'numberOfColumns', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pie', 'pis', 'pl', 'pos', 'pr', 'presets', 'previousIcon', 'previousLabel', 'ps', 'pt', 'px', 'py', 'renderDay', 'right', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'type', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'weekdayFormat', 'weekendDays', 'withCellSpacing', 'withNativeLevelSelect', 'withWeekNumbers', 'yearLabelFormat', 'yearsListFormat', 'yearsSelectRange']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

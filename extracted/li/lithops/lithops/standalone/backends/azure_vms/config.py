@@ -24,8 +24,8 @@ DEFAULT_CONFIG_KEYS = {
     'worker_instance_type': 'Standard_B2s',
     'ssh_username': 'ubuntu',
     'ssh_password': str(uuid.uuid4()),
-    'request_spot_instances': True,
-    'delete_on_dismantle': True,
+    'request_spot_instances': False,
+    'delete_on_dismantle': False,
     'max_workers': 100,
     'worker_processes': 'AUTO'
 }

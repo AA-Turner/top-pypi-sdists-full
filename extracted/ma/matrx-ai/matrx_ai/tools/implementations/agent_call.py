@@ -68,6 +68,7 @@ from typing import Any
 
 from matrx_utils import vcprint
 
+from matrx_ai.config.host_turn import HostTurn
 from matrx_ai.tools.knobs import AGENT_CALL_MAX_DEPTH_MIRROR
 from matrx_ai.tools.models import (
     AGENT_DEPTH_METADATA_KEY,
@@ -319,6 +320,7 @@ async def agent_call(
     mute_stream: bool = False,
     is_version: bool = False,
     on_child_result: Any = None,
+    host_turn: HostTurn | None = None,
 ) -> ToolResult:
     """Run a saved agent by id and return its result. See module docstring.
 
@@ -346,6 +348,10 @@ async def agent_call(
       success): how a server door records the run it caused (``mandate_call``
       writes ``metadata.mandate_run``). A failing callback is captured, never
       the call's failure.
+    * ``host_turn`` — a turn the HOST writes (``matrx_ai.config.host_turn``) instead of
+      ``user_input``: a machine-started continuation (a helper resumed after a restart)
+      is stored as ``authored_by: host``, never as the person's words. Never with
+      ``user_input``.
     """
     started_at = time.time()
 
@@ -354,6 +360,12 @@ async def agent_call(
     from matrx_ai.tools._generated_declarations import AgentCallArgs
 
     parsed = AgentCallArgs(**args)
+    from matrx_ai.config.host_turn import HostTurnConflict, refuse_both
+
+    try:
+        refuse_both(parsed.user_input, host_turn)
+    except HostTurnConflict as exc:
+        return _fail(ctx, started_at, error_type="invalid_arguments", message=str(exc))
     agent_id = parsed.agent_id.strip()
     if not agent_id:
         return _fail(
@@ -726,7 +738,7 @@ async def agent_call(
             agent.config.messages.extend(own_messages)
             history_message_count = len(history)
     if history_mode != "none" and source_conversation_id:
-        if not (parsed.user_input or "").strip() and not list(agent.config.messages):
+        if not (parsed.user_input or "").strip() and host_turn is None and not list(agent.config.messages):
             # No new turn at all: the run's trigger would be the LAST BORROWED
             # history message — if that is a rebuilt (id-less, synthesized)
             # tool-pairing row it gets mis-persisted as a stray child row. A
@@ -833,11 +845,15 @@ async def agent_call(
         undeclared_variable_names,
     )
 
-    refusal = refuse_empty_child_turn(
-        agent,
-        user_input=parsed.user_input,
-        variables=parsed.variables,
-        input_arg="user_input",
+    refusal = (
+        None
+        if host_turn is not None
+        else refuse_empty_child_turn(
+            agent,
+            user_input=parsed.user_input,
+            variables=parsed.variables,
+            input_arg="user_input",
+        )
     )
     if refusal is not None:
         refusal_message, refusal_action = refusal
@@ -914,7 +930,12 @@ async def agent_call(
             label=label,
             source_feature="agent_call",
             conversation_id=run_conversation_id,
-            user_input=parsed.user_input or None,
+            # ONE author per turn: the host's turn, or what was typed (never both on the call).
+            **(
+                {"host_turn": host_turn}
+                if host_turn is not None
+                else {"user_input": parsed.user_input or None}
+            ),
             # Reference mode: the child's tokens never reach the client — the
             # descriptor + ValueStoredEvent are the caller's signal.
             # `inline_once` is deliberately NOT muted — it is an inline mode

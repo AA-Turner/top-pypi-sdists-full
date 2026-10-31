@@ -228,6 +228,7 @@ def _factorize(x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 
 def _extract_codes_and_categories_pandas(cat_vec) -> tuple[np.ndarray, np.ndarray]:
+    assert pd is not None
     if isinstance(cat_vec, pd.Categorical):
         categories = cat_vec.categories
         indices = cat_vec.codes
@@ -242,14 +243,14 @@ def _extract_codes_and_categories_pandas(cat_vec) -> tuple[np.ndarray, np.ndarra
 def _extract_codes_and_categories_polars(cat_vec) -> tuple[np.ndarray, np.ndarray]:
     dtype = cat_vec.dtype
     if isinstance(dtype, pl.Enum):
-        categories = cat_vec.cat.get_categories().to_numpy()
+        categories = dtype.categories.to_numpy()
         indices = cat_vec.to_physical().fill_null(-1).to_numpy()
         return indices, categories
 
     if not isinstance(cat_vec.dtype, pl.Categorical):
         cat_vec = cat_vec.cast(pl.Categorical)
-    # as of polars 1.32, `get_categories()` won't yield a useful result as
-    # this is "not per column" anymore.
+    # as of polars 1.32, `Series.cat.get_categories()` won't yield a useful
+    # result as this is "not per column" anymore (and it is removed in 2.0).
     mask = cat_vec.is_null()
     categories = cat_vec.filter(~mask).unique().sort().to_numpy()
     indices = np.nan_to_num(cat_vec.rank("dense").to_numpy() - 1, nan=-1)

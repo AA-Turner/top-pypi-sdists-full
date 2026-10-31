@@ -27,6 +27,8 @@ _USAGE_A = {
     "input_tokens": 100,
     "output_tokens": 50,
     "total_tokens": 150,
+    "cached_input_tokens": 40,
+    "cache_write_tokens": 10,
     "cost_usd": 0.01,
     "models": {
         "m1": {
@@ -40,6 +42,8 @@ _USAGE_B = {
     "input_tokens": 200,
     "output_tokens": 100,
     "total_tokens": 300,
+    "cached_input_tokens": 60,
+    "cache_write_tokens": 0,
     "cost_usd": 0.02,
     "models": {
         "m1": {
@@ -102,6 +106,9 @@ def test_resumed_run_reports_full_but_settles_only_this_attempt():
     assert full is not None and delta is not None
     assert full["cost_usd"] == round(0.01 + 0.02, 6) or abs(full["cost_usd"] - 0.03) < 1e-9
     assert full["total_tokens"] == 450
+    # Cache reads/writes sum across stages like every other count.
+    assert (full["cached_input_tokens"], full["cache_write_tokens"]) == (100, 10)
+    assert (delta["cached_input_tokens"], delta["cache_write_tokens"]) == (60, 0)
     assert delta["cost_usd"] == 0.02  # replayed stage excluded from settlement
     assert delta["total_tokens"] == 300
 

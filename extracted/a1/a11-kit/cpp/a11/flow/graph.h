@@ -18,6 +18,7 @@
 #define A11_FLOW_GRAPH_H_
 
 #include <cstddef>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -27,6 +28,7 @@
 #include <absl/container/flat_hash_map.h>
 #include <absl/container/flat_hash_set.h>
 #include <absl/time/time.h>
+#include <absl/types/span.h>
 
 #include "a11/flow/syntax.h"
 #include "a11/flow/vocabulary.h"
@@ -48,6 +50,8 @@ inline constexpr size_t kNone = static_cast<size_t>(-1);
 
 /// What a stream in the plan *is*.
 enum class RefKind {
+  /// A virtual continuation destination and its attached writer group.
+  kSink,
   /// A declared port of this flow.
   kFlowPort,
   /// A port of an action this flow calls: `x.out`.
@@ -107,6 +111,8 @@ struct LogTail {
 
 struct Stage {
   std::string name;
+  bool optional = false;
+  std::optional<syntax::TypeExpression> type;
   vocabulary::StageArgument takes = vocabulary::StageArgument::kNone;
   /// `kNumber`: the count.
   long long count = 0;
@@ -121,17 +127,13 @@ struct Stage {
   /// Whether `at` was written as an index rather than a field name.
   bool indexed = false;
   long long index = 0;
-  /// Whether `at` should try its name and *then* its index, which is what a
-  /// destructuring `let` needs: `let name, age = user` is by field over a
-  /// record and by position over a pair, and only the value knows which it is.
-  bool named_or_indexed = false;
+  std::vector<std::string> destructured;
+  std::vector<std::optional<syntax::TypeExpression>> destructured_types;
   /// `kDuration`: how long `timeout` waits for the next value, or `pace` leaves
   /// between two of them.
   absl::Duration duration;
   /// `sort`: whether the order is reversed.
   bool descending = false;
-  // `fold`: what the first pass carries, the name it is bound to, and the ref
-  // that name resolves to inside the fold's expression.
   /// `fold`: what the first pass carries, the name it is bound to, and the ref
   /// that name resolves to inside the fold's expression. The ref is how the
   /// accumulator reaches [Evaluate]: a name in an expression is a ref, and
@@ -147,6 +149,7 @@ struct Stage {
   RefId failures = kNone;
   /// `parallel n`: how many values this stage may work on at once.
   int parallel = 1;
+  ExprId parallel_expression = kNone;
   /// Whether values leave in the order they arrived. A parallel stage puts them
   /// back in order unless `unordered` said not to.
   bool ordered = true;
@@ -161,6 +164,7 @@ struct Stage {
 /// [Graph::Upstreams] and [Graph::ValueRefs] rather than by each kind
 /// separately.
 struct Ref {
+  StepId phase_gate = kNone;
   RefKind kind = RefKind::kExpr;
   /// How a reader would say it: `search.hits | truncate 200`.
   std::string label;
@@ -215,8 +219,6 @@ struct Ref {
   /// `kBound`: which of a loop's streams this is -- `item`, `index`, `carry`.
   std::string role;
   StepId bound_by = kNone;
-  // `kZip`: the streams read in step, in the order they were written, which is
-  // the order their values appear in each tuple.
   /// `kZip`: the streams read in step, in the order they were written, which is
   /// the order their values appear in each tuple. `kMerge`: the streams read at
   /// once, where the order they were written in says nothing about the order
@@ -230,7 +232,7 @@ enum class StepKind {
   kPipe,
   kSkip,
   kWait,
-  kDrain,
+  kClose,
   kCancel,
   /// `abort node ..`: end a node with a failure rather than with an end.
   kAbort,
@@ -257,11 +259,29 @@ std::string_view StepKindName(StepKind kind);
 inline bool RecordsOutcome(StepKind kind) {
   return kind == StepKind::kBlock || kind == StepKind::kForEach ||
          kind == StepKind::kRepeat || kind == StepKind::kPipe ||
-         kind == StepKind::kWait || kind == StepKind::kDrain;
+         kind == StepKind::kWait || kind == StepKind::kClose;
 }
+
+/// Sparse joins retain observable owned-call and expression cleanup boundaries.
+struct TransferJoin {
+  RefId source = kNone;
+  size_t target = kNone;
+  bool expression = false;
+};
+
+/// Extra transfer metadata is absent on ordinary single-arrow statements.
+struct TransferPlan {
+  std::vector<RefId> sources;
+  std::vector<RefId> destinations;
+  std::vector<TransferJoin> joins;
+  std::vector<StepId> destination_calls;
+};
 
 /// One resolved statement.
 struct Step {
+  StepId phase_gate = kNone;
+  bool scope_barrier = false;
+  std::vector<StepId> preceding_steps;
   StepKind kind = StepKind::kPipe;
   /// The name this step is known by: a bound name, or `action`/`for`/`if` with
   /// a `#2` after it where one label is used twice.
@@ -278,6 +298,8 @@ struct Step {
   std::string mode;
   std::string node_map;
   std::optional<absl::Duration> timeout;
+  StepId deadline = kNone;
+  StepId timeout_value = kNone;
   bool tee = false;
   bool tolerant = false;
   std::vector<std::pair<std::string, ExprId>> headers;
@@ -291,6 +313,9 @@ struct Step {
   /// `kPipe` reads and writes these refs. `kCapture` reads `source`.
   RefId source = kNone;
   RefId destination = kNone;
+  std::shared_ptr<TransferPlan> transfer;
+  /// The observed continuation group produced by this operation, if any.
+  RefId sink = kNone;
   /// `kPipe`: `-> _`, which reads the stream and keeps nothing.
   ///
   /// The opposite end of the language from a counted `skip`: that one is
@@ -308,11 +333,9 @@ struct Step {
   /// `kCapture`: which slot of the enclosing loop it fills.
   std::string slot;
 
-  /// `kWait`/`kDrain`: the outcome read, and whether a bad one is this flow's
+  /// `kWait`/`kClose`: the outcome read, and whether a bad one is this flow's
   /// business or the subject's.
   RefId outcome = kNone;
-  // `kWait`: the outcomes of a `wait first of` / `wait all of`, in the order
-  // they were written.
   /// `kWait`: the outcomes of a `wait first of` / `wait all of`, in the order
   /// they were written. Empty for the single-subject form, whose one outcome is
   /// `outcome` -- which is also the *first* of these, so anything reading a
@@ -349,6 +372,7 @@ struct Step {
   RefId item = kNone;
   RefId index = kNone;
   int parallel = 1;
+  ExprId parallel_expression = kNone;
   /// `kRepeat`: what it carries, where the next pass's value comes from, and
   /// when it stops.
   RefId carry = kNone;
@@ -359,7 +383,30 @@ struct Step {
   std::optional<int> max_iterations;
   ExprId condition = kNone;
   bool stop_when = true;
+
+  /// Outer values updated by a child body, with its per-body input versions.
+  struct VariableUpdate {
+    RefId result = kNone;
+    std::vector<std::pair<BodyId, RefId>> inputs;
+  };
+
+  std::vector<VariableUpdate> variable_updates;
 };
+
+inline absl::Span<const RefId> TransferSources(const Step& step) {
+  return step.transfer != nullptr && !step.transfer->sources.empty()
+             ? absl::MakeConstSpan(step.transfer->sources)
+             : absl::MakeConstSpan(
+                   &step.source, step.source == kNone ? size_t{0} : size_t{1});
+}
+
+inline absl::Span<const RefId> TransferTargets(const Step& step) {
+  return step.transfer != nullptr && !step.transfer->destinations.empty()
+             ? absl::MakeConstSpan(step.transfer->destinations)
+             : absl::MakeConstSpan(&step.destination, step.destination == kNone
+                                                          ? size_t{0}
+                                                          : size_t{1});
+}
 
 /// A block of steps: a flow's top level, or a loop or branch body.
 struct Body {
@@ -377,6 +424,7 @@ struct Body {
 /// syntax node that named it. Keying on the node rather than rewriting the tree
 /// is what lets the tree stay immutable and shared.
 struct Expr {
+  bool materialized = false;
   const syntax::Node* absl_nullable node = nullptr;
   std::vector<std::pair<const syntax::Node* absl_nonnull, RefId>> bound;
   /// The same refs, in the order they were first mentioned, for the analysis.
@@ -412,7 +460,6 @@ struct FlowGraph {
   [[nodiscard]] std::vector<RefId> ValueSources(StepId step) const;
   /// The refs a step writes, one entry per independent writer.
   [[nodiscard]] std::vector<RefId> Destinations(StepId step) const;
-  // The refs the *stages* a step reads write to: a `try ...
   /// The refs the *stages* a step reads write to: a `try ... into failures`.
   ///
   /// A stage is part of a stream rather than of a statement, so its destination
@@ -438,6 +485,8 @@ struct Analysis {
   std::vector<RefId> refs;
   /// How many readers each of them has.
   absl::flat_hash_map<RefId, int> readers;
+  /// Consumers sharing each value cursor; retire it after the last consumer.
+  absl::flat_hash_map<RefId, int> value_consumers;
   // The ones read from inside a nested body, which are buffered once and
   // replayed to each reader:
   /// Refs read inside a nested body. They are buffered once and replayed so
@@ -514,7 +563,7 @@ class GraphBuilder {
         "mime", "distinct", "first", "last", "drop", "log", "logf", "scan",
         // `sort` reorders and keeps every value; `timeout` and `pace` say
         // *when* a value may pass and change nothing about which do.
-        "sort", "timeout", "pace"};
+        "sort", "timeout", "pace", "coerce", "destructure"};
     return kPerValue->contains(stage.name);
   }
 
@@ -537,6 +586,7 @@ class GraphBuilder {
         // expression, and one value bound per pass of a loop.
         ref.unary = true;
         break;
+      case RefKind::kSink:
       case RefKind::kNode:
         // A node is a stream the flow may write from anywhere, including from
         // inside a loop, so nothing about it is provable from the plan.

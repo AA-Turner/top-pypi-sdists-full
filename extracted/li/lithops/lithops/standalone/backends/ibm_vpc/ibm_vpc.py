@@ -23,6 +23,7 @@ import uuid
 import functools
 import inspect
 from datetime import datetime
+from urllib.parse import parse_qs, urlparse
 from ibm_vpc import VpcV1
 from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
 from ibm_cloud_sdk_core import ApiException
@@ -133,19 +134,11 @@ class IBMVPCBackend:
         if os.path.exists(self.cache_file):
             os.remove(self.cache_file)
 
-    def _reset_init_created(self):
-        self._init_created = {
-            'vpc': False,
-            'ssh_key': False,
-            'subnet': False,
-            'gateway': False,
-        }
-
     def _safe_rollback_delete(self, delete_fn, resource_desc):
         try:
             delete_fn()
         except ApiException as err:
-            if err.code not in (404, 400):
+            if _status_code(err) not in (404, 400):
                 logger.warning(f'Rollback: could not delete {resource_desc}: {err}')
         except Exception as err:
             logger.warning(f'Rollback: could not delete {resource_desc}: {err}')
@@ -154,7 +147,7 @@ class IBMVPCBackend:
         """
         Deletes IBM VPC resources created during a failed init().
         """
-        if not self._init_created:
+        if self._init_created is None:
             return
 
         logger.info('Rolling back IBM VPC resources provisioned during failed init')
@@ -163,7 +156,7 @@ class IBMVPCBackend:
             self.config['vpc_id'][-6:] if self.config.get('vpc_id') else ''
         )
 
-        if created.get('gateway') and self.config.get('gateway_id'):
+        if 'gateway' in created and self.config.get('gateway_id'):
             gateway_id = self.config['gateway_id']
             gateway_name = f'lithops-gateway-{vpc_key}'
 
@@ -178,7 +171,7 @@ class IBMVPCBackend:
                 f'public gateway {gateway_name}',
             )
 
-        if created.get('subnet') and self.config.get('subnet_id'):
+        if 'subnet' in created and self.config.get('subnet_id'):
             subnet_name = f'lithops-subnet-{vpc_key}'
             subnet_id = self.config['subnet_id']
             self._safe_rollback_delete(
@@ -186,7 +179,7 @@ class IBMVPCBackend:
                 f'subnet {subnet_name}',
             )
 
-        if created.get('vpc') and self.config.get('vpc_id'):
+        if 'vpc' in created and self.config.get('vpc_id'):
             vpc_name = self.vpc_name or self.config.get('vpc_name', 'lithops-vpc')
             vpc_id = self.config['vpc_id']
             self._safe_rollback_delete(
@@ -194,7 +187,13 @@ class IBMVPCBackend:
                 f'VPC {vpc_name}',
             )
 
-        if created.get('ssh_key'):
+        for fip_id in list(getattr(self, '_init_created_fips', ())):
+            self._safe_rollback_delete(
+                lambda fid=fip_id: self.vpc_cli.delete_floating_ip(id=fid),
+                f'floating IP {fip_id}',
+            )
+
+        if 'ssh_key' in created:
             key_filename = self.config.get('ssh_key_filename')
             if key_filename and 'lithops-key-' in key_filename:
                 for path in (key_filename, f'{key_filename}.pub'):
@@ -239,8 +238,7 @@ class IBMVPCBackend:
         assert re.match("^[a-z0-9-:-]*$", self.vpc_name), \
             f'VPC name "{self.vpc_name}" not valid'
 
-        vpcs_info = self.vpc_cli.list_vpcs().get_result()
-        for vpc in vpcs_info['vpcs']:
+        for vpc in _list_all(self.vpc_cli.list_vpcs, 'vpcs'):
             if vpc['name'] == self.vpc_name:
                 vpc_info = vpc
 
@@ -253,8 +251,7 @@ class IBMVPCBackend:
             vpc_prototype['resource_group'] = {'id': self.config['resource_group_id']}
             response = self.vpc_cli.create_vpc(**vpc_prototype)
             vpc_info = response.result
-            if self._init_created is not None:
-                self._init_created['vpc'] = True
+            self._init_created.add('vpc')
 
         self.config['vpc_id'] = vpc_info['id']
         self.config['security_group_id'] = vpc_info['default_security_group']['id']
@@ -314,16 +311,18 @@ class IBMVPCBackend:
         key_info = None
 
         def _get_ssh_key():
-            for key in self.vpc_cli.list_keys().result["keys"]:
+            for key in _list_all(self.vpc_cli.list_keys, 'keys'):
                 if key["name"] == keyname:
                     return key
 
-        ssh_key_created = False
+        # Each part of the key is recorded as soon as it exists, so a failure
+        # from there on deletes it
+        self.config['ssh_key_filename'] = key_filename
         if not os.path.isfile(key_filename):
             logger.debug("Generating new ssh key pair")
             os.system(f'ssh-keygen -b 2048 -t rsa -f {key_filename} -q -N ""')
             logger.debug(f"SHH key pair generated: {key_filename}")
-            ssh_key_created = True
+            self._init_created.add('ssh_key')
         else:
             key_info = _get_ssh_key()
 
@@ -335,7 +334,7 @@ class IBMVPCBackend:
                     public_key=ssh_key_data, name=keyname, type="rsa",
                     resource_group={"id": self.config['resource_group_id']}
                 ).get_result()
-                ssh_key_created = True
+                self._init_created.add('ssh_key')
             except ApiException as e:
                 logger.error(e)
                 if "Key with name already exists" in e.message:
@@ -344,16 +343,13 @@ class IBMVPCBackend:
                         public_key=ssh_key_data, name=keyname, type="rsa",
                         resource_group={"id": self.config['resource_group_id']},
                     ).get_result()
-                    ssh_key_created = True
+                    self._init_created.add('ssh_key')
                 else:
                     if "Key with fingerprint already exists" in e.message:
                         logger.error("Can't register an SSH key with the same fingerprint")
                     raise e  # can't continue the configuration process without a valid ssh key
 
         self.config['ssh_key_id'] = key_info["id"]
-        self.config['ssh_key_filename'] = key_filename
-        if self._init_created is not None and ssh_key_created:
-            self._init_created['ssh_key'] = True
 
     def _create_subnet(self):
         """
@@ -379,8 +375,10 @@ class IBMVPCBackend:
         subnet_name = f'lithops-subnet-{self.vpc_key}'
         subnet_data = None
 
-        subnets_info = self.vpc_cli.list_subnets(resource_group_id=self.config['resource_group_id']).get_result()
-        for sn in subnets_info['subnets']:
+        for sn in _list_all(
+            self.vpc_cli.list_subnets, 'subnets',
+            resource_group_id=self.config['resource_group_id'],
+        ):
             if sn['name'] == subnet_name:
                 subnet_data = sn
 
@@ -395,8 +393,7 @@ class IBMVPCBackend:
             subnet_prototype['total_ipv4_address_count'] = 8192
             response = self.vpc_cli.create_subnet(subnet_prototype)
             subnet_data = response.result
-            if self._init_created is not None:
-                self._init_created['subnet'] = True
+            self._init_created.add('subnet')
 
         self.config['subnet_id'] = subnet_data['id']
         self.config['zone_name'] = subnet_data['zone']['name']
@@ -420,8 +417,7 @@ class IBMVPCBackend:
         gateway_name = f'lithops-gateway-{self.vpc_key}'
         gateway_data = None
 
-        gateways_info = self.vpc_cli.list_public_gateways().get_result()
-        for gw in gateways_info['public_gateways']:
+        for gw in _list_all(self.vpc_cli.list_public_gateways, 'public_gateways'):
             if gw['vpc']['id'] == self.config['vpc_id']:
                 gateway_data = gw
 
@@ -436,8 +432,7 @@ class IBMVPCBackend:
             gateway_prototype['floating_ip'] = {'id': fip_id}
             response = self.vpc_cli.create_public_gateway(**gateway_prototype)
             gateway_data = response.result
-            if self._init_created is not None:
-                self._init_created['gateway'] = True
+            self._init_created.add('gateway')
 
         self.config['gateway_id'] = gateway_data['id']
 
@@ -451,8 +446,7 @@ class IBMVPCBackend:
         """
         fip_data = None
 
-        floating_ips_info = self.vpc_cli.list_floating_ips().get_result()
-        for fip in floating_ips_info['floating_ips']:
+        for fip in _list_all(self.vpc_cli.list_floating_ips, 'floating_ips'):
             if fip['name'].startswith("lithops-recyclable") and 'target' not in fip \
                and fip['zone']['name'] == self.config['zone_name']:
                 fip_data = fip
@@ -466,6 +460,11 @@ class IBMVPCBackend:
             floating_ip_prototype['resource_group'] = {'id': self.config['resource_group_id']}
             response = self.vpc_cli.create_floating_ip(floating_ip_prototype)
             fip_data = response.result
+            # Only an address this init() allocated is deleted if init fails.
+            # A recyclable one that was already free is left for the next use
+            created = getattr(self, '_init_created_fips', None)
+            if created is not None:
+                created.add(fip_data['id'])
 
         return fip_data['address'], fip_data['id']
 
@@ -501,9 +500,11 @@ class IBMVPCBackend:
             self.config['image_id'] = self.vpc_data['image_id']
             return
 
-        images_def = self.vpc_cli.list_images().result['images']
-        images_user = self.vpc_cli.list_images(resource_group_id=self.config['resource_group_id']).result['images']
-        images_def.extend(images_user)
+        images_def = _list_all(self.vpc_cli.list_images, 'images')
+        images_def.extend(_list_all(
+            self.vpc_cli.list_images, 'images',
+            resource_group_id=self.config['resource_group_id'],
+        ))
 
         if 'image_id' in self.vpc_data:
             for image in images_def:
@@ -571,7 +572,9 @@ class IBMVPCBackend:
 
         elif self.mode in [StandaloneMode.CREATE.value, StandaloneMode.REUSE.value]:
 
-            self._reset_init_created()
+            # The resources this init() creates, deleted again if it fails
+            self._init_created = set()
+            self._init_created_fips = set()
             try:
                 # Create the VPC if not exists
                 self._create_vpc()
@@ -617,6 +620,7 @@ class IBMVPCBackend:
                 raise
             finally:
                 self._init_created = None
+                self._init_created_fips = None
 
     def build_image(self, image_name, script_file, overwrite, include, extra_args=[]):
         """
@@ -624,10 +628,10 @@ class IBMVPCBackend:
         """
         image_name = image_name or DEFAULT_LITHOPS_IMAGE_NAME
 
-        images = self.vpc_cli.list_images(
-            name=image_name,
-            resource_group_id=self.config['resource_group_id']
-        ).result['images']
+        images = _list_all(
+            self.vpc_cli.list_images, 'images',
+            name=image_name, resource_group_id=self.config['resource_group_id'],
+        )
 
         if len(images) > 0:
             image_id = images[0]['id']
@@ -705,9 +709,10 @@ class IBMVPCBackend:
         logger.debug("Be patient, VM imaging can take up to 6 minutes")
 
         while True:
-            images = self.vpc_cli.list_images(
-                name=image_name, resource_group_id=self.config['resource_group_id']
-            ).result['images']
+            images = _list_all(
+                self.vpc_cli.list_images, 'images',
+                name=image_name, resource_group_id=self.config['resource_group_id'],
+            )
             if len(images) > 0:
                 logger.debug(f"VM Image is being created. Current status: {images[0]['status']}")
                 if images[0]['status'] == 'available':
@@ -726,10 +731,10 @@ class IBMVPCBackend:
         Deletes a VM Image
         """
         def list_images():
-            return self.vpc_cli.list_images(
-                name=image_name,
-                resource_group_id=self.config['resource_group_id']
-            ).result['images']
+            return _list_all(
+                self.vpc_cli.list_images, 'images',
+                name=image_name, resource_group_id=self.config['resource_group_id'],
+            )
 
         images = list_images()
 
@@ -792,9 +797,11 @@ class IBMVPCBackend:
         List Ubuntu LTS images (22.04–24.04) and Lithops custom images.
         Returns tuples of (name, image_id, creation_date).
         """
-        images_def = self.vpc_cli.list_images().result['images']
-        images_user = self.vpc_cli.list_images(resource_group_id=self.config['resource_group_id']).result['images']
-        images_def.extend(images_user)
+        images_def = _list_all(self.vpc_cli.list_images, 'images')
+        images_def.extend(_list_all(
+            self.vpc_cli.list_images, 'images',
+            resource_group_id=self.config['resource_group_id'],
+        ))
 
         result = set()
 
@@ -824,7 +831,7 @@ class IBMVPCBackend:
                 logger.debug(f'Deleting instance {ins_name}')
                 self.vpc_cli.delete_instance(ins_id)
             except ApiException as err:
-                if err.code == 404:
+                if _status_code(err) == 404:
                     pass
                 else:
                     raise err
@@ -833,8 +840,7 @@ class IBMVPCBackend:
 
         def get_instances():
             instances = set()
-            instances_info = self.vpc_cli.list_instances().get_result()
-            for ins in instances_info['instances']:
+            for ins in _list_all(self.vpc_cli.list_instances, 'instances'):
                 if ins['name'].startswith(vms_prefixes) \
                    and ins['vpc']['id'] == self.vpc_data['vpc_id']:
                     instances.add((ins['name'], ins['id']))
@@ -876,7 +882,7 @@ class IBMVPCBackend:
             try:
                 self.vpc_cli.unset_subnet_public_gateway(self.vpc_data['subnet_id'])
             except ApiException as err:
-                if err.code == 404 or err.code == 400:
+                if _status_code(err) in (404, 400):
                     logger.debug(err)
                 else:
                     raise err
@@ -884,7 +890,7 @@ class IBMVPCBackend:
             try:
                 self.vpc_cli.delete_subnet(self.vpc_data['subnet_id'])
             except ApiException as err:
-                if err.code == 404 or err.code == 400:
+                if _status_code(err) in (404, 400):
                     logger.debug(err)
                 else:
                     raise err
@@ -899,7 +905,7 @@ class IBMVPCBackend:
             try:
                 self.vpc_cli.delete_public_gateway(self.vpc_data['gateway_id'])
             except ApiException as err:
-                if err.code == 404 or err.code == 400:
+                if _status_code(err) in (404, 400):
                     logger.debug(err)
                 else:
                     raise err
@@ -922,7 +928,7 @@ class IBMVPCBackend:
             try:
                 self.vpc_cli.delete_vpc(self.vpc_data['vpc_id'])
             except ApiException as err:
-                if err.code == 404 or err.code == 400:
+                if _status_code(err) in (404, 400):
                     logger.debug(err)
                 else:
                     raise err
@@ -947,7 +953,7 @@ class IBMVPCBackend:
             try:
                 self.vpc_cli.delete_key(id=self.vpc_data['ssh_key_id'])
             except ApiException as err:
-                if err.code == 404 or err.code == 400:
+                if _status_code(err) in (404, 400):
                     logger.debug(err)
                 else:
                     raise err
@@ -1052,7 +1058,7 @@ class IBMVPCBackend:
 
 class IBMVPCInstance:
 
-    def __init__(self, name, ibm_vpc_config, ibm_vpc_client=None, public=False):
+    def __init__(self, name, ibm_vpc_config, ibm_vpc_client, public=False):
         """
         Initialize a IBMVPCInstance instance
         VMs can have master role, this means they will have a public IP address
@@ -1063,7 +1069,7 @@ class IBMVPCInstance:
         self.delete_on_dismantle = self.config['delete_on_dismantle']
         self.instance_type = self.config['worker_profile_name']
 
-        self.vpc_cli = ibm_vpc_client or self._create_vpc_client()
+        self.vpc_cli = ibm_vpc_client
         self.public = public
 
         self.ssh_client = None
@@ -1087,19 +1093,6 @@ class IBMVPCInstance:
             return f'VM instance {self.name}'
         else:
             return f'VM instance {self.name} ({ip})'
-
-    def _create_vpc_client(self):
-        """
-        Creates an IBM VPC python-sdk instance
-        """
-        authenticator = IAMAuthenticator(self.config.get('iam_api_key'), url=self.config.get('iam_endpoint'))
-        ibm_vpc_client = VpcV1(VPC_API_VERSION, authenticator=authenticator)
-        ibm_vpc_client.set_service_url(self.config['endpoint'] + '/v1')
-
-        # decorate instance public methods with except/retry logic
-        decorate_instance(self.vpc_cli, vpc_retry_on_except)
-
-        return ibm_vpc_client
 
     def get_ssh_client(self):
         """
@@ -1202,13 +1195,13 @@ class IBMVPCInstance:
         try:
             resp = self.vpc_cli.create_instance(instance_prototype)
         except ApiException as err:
-            if err.code == 400 and 'already exists' in err.message:
+            if _status_code(err) == 400 and 'already exists' in err.message:
                 return self.get_instance_data()
-            elif err.code == 400 and 'over quota' in err.message:
+            elif _status_code(err) == 400 and 'over quota' in err.message:
                 logger.debug(f"Create VM instance {self.name} failed due to quota limit")
             else:
                 logger.debug("Create VM instance {} failed with status code {}: {}"
-                             .format(self.name, str(err.code), err.message))
+                             .format(self.name, str(_status_code(err)), err.message))
             raise err
 
         self.instance_data = resp.result
@@ -1253,9 +1246,9 @@ class IBMVPCInstance:
         """
         Returns the instance information
         """
-        instances_data = self.vpc_cli.list_instances(name=self.name).get_result()
-        if len(instances_data['instances']) > 0:
-            self.instance_data = instances_data['instances'][0]
+        instances_data = _list_all(self.vpc_cli.list_instances, 'instances', name=self.name)
+        if instances_data:
+            self.instance_data = instances_data[0]
             self.instance_id = self.instance_data['id']
 
         return self.instance_data
@@ -1341,7 +1334,7 @@ class IBMVPCInstance:
         try:
             self.vpc_cli.create_instance_action(self.instance_id, 'start')
         except ApiException as err:
-            if err.code == 404:
+            if _status_code(err) == 404:
                 pass
             else:
                 raise err
@@ -1356,7 +1349,7 @@ class IBMVPCInstance:
         try:
             self.vpc_cli.delete_instance(self.instance_id)
         except ApiException as err:
-            if err.code == 404:
+            if _status_code(err) == 404:
                 pass
             else:
                 raise err
@@ -1398,7 +1391,7 @@ class IBMVPCInstance:
         try:
             self.vpc_cli.create_instance_action(self.instance_id, 'stop')
         except ApiException as err:
-            if err.code == 404:
+            if _status_code(err) == 404:
                 pass
             else:
                 raise err
@@ -1435,6 +1428,38 @@ class IBMVPCInstance:
                 )
 
 
+def _page_start(next_page):
+    """
+    The start token of the next VPC page. next.href carries it as a query
+    parameter, and a page stops at 50 items
+    """
+    href = (next_page or {}).get('href')
+    if not href:
+        return None
+    return (parse_qs(urlparse(href).query).get('start') or [None])[0]
+
+
+def _list_all(method, item_key, **kwargs):
+    """Every item of a VPC list, following next.href"""
+    found = []
+    while True:
+        result = method(**kwargs).get_result()
+        found.extend(result.get(item_key) or [])
+        start = _page_start(result.get('next'))
+        if not start:
+            return found
+        kwargs['start'] = start
+
+
+def _status_code(err):
+    """
+    The HTTP status of an ApiException. status_code replaced the deprecated
+    code attribute, which SDK versions older than that still only have
+    """
+    status_code = getattr(err, 'status_code', None)
+    return err.code if status_code is None else status_code
+
+
 RETRIABLE = ['list_vpcs',
              'create_vpc',
              'get_security_group',
@@ -1458,9 +1483,7 @@ RETRIABLE = ['list_vpcs',
              'get_key',
              'create_instance',
              'add_instance_network_interface_floating_ip',
-             'get_instance',
-             'create_instance_action',
-             'delete_instance']
+             'create_instance_action']
 
 
 def decorate_instance(instance, decorator):
@@ -1494,9 +1517,10 @@ def vpc_retry_on_except(func):
             try:
                 return func(*args, **kwargs)
             except ApiException as err:
-                if func.__name__ in IGNORED_404_METHODS and err.code == 404:
-                    # logger.debug((f'Got exception {err} when trying to invoke {func.__name__}, ignoring'))
-                    pass
+                if func.__name__ in IGNORED_404_METHODS and _status_code(err) == 404:
+                    # The resource is already gone (or never existed): there
+                    # is nothing to retry
+                    return None
                 else:
                     sleep_time = _sleep_or_raise(sleep_time, err)
             except Exception as err:

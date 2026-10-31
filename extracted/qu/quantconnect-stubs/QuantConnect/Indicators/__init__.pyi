@@ -50,6 +50,17 @@ class IndicatorDataPoint(QuantConnect.Data.BaseData, System.IEquatable[QuantConn
     """Represents a piece of data at a specific time"""
 
     @overload
+    def __add__(self, other: QuantConnect.Indicators.IndicatorDataPoint) -> float:
+        ...
+
+    @overload
+    def __add__(self, other: float) -> float:
+        ...
+
+    def __float__(self) -> float:
+        ...
+
+    @overload
     def __ge__(self, other: QuantConnect.Indicators.IndicatorDataPoint) -> bool:
         ...
 
@@ -58,11 +69,19 @@ class IndicatorDataPoint(QuantConnect.Data.BaseData, System.IEquatable[QuantConn
         ...
 
     @overload
+    def __ge__(self, other: float) -> bool:
+        ...
+
+    @overload
     def __gt__(self, other: QuantConnect.Indicators.IndicatorDataPoint) -> bool:
         ...
 
     @overload
     def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: float) -> bool:
         ...
 
     @overload
@@ -94,6 +113,9 @@ class IndicatorDataPoint(QuantConnect.Data.BaseData, System.IEquatable[QuantConn
         """
         ...
 
+    def __int__(self) -> int:
+        ...
+
     @overload
     def __le__(self, other: QuantConnect.Indicators.IndicatorDataPoint) -> bool:
         ...
@@ -103,11 +125,58 @@ class IndicatorDataPoint(QuantConnect.Data.BaseData, System.IEquatable[QuantConn
         ...
 
     @overload
+    def __le__(self, other: float) -> bool:
+        ...
+
+    @overload
     def __lt__(self, other: QuantConnect.Indicators.IndicatorDataPoint) -> bool:
         ...
 
     @overload
     def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __mul__(self, other: QuantConnect.Indicators.IndicatorDataPoint) -> float:
+        ...
+
+    @overload
+    def __mul__(self, other: float) -> float:
+        ...
+
+    def __neg__(self) -> float:
+        ...
+
+    def __radd__(self, other: float) -> float:
+        ...
+
+    def __rmul__(self, other: float) -> float:
+        ...
+
+    def __rsub__(self, other: float) -> float:
+        ...
+
+    def __rtruediv__(self, other: float) -> float:
+        ...
+
+    @overload
+    def __sub__(self, other: QuantConnect.Indicators.IndicatorDataPoint) -> float:
+        ...
+
+    @overload
+    def __sub__(self, other: float) -> float:
+        ...
+
+    @overload
+    def __truediv__(self, other: QuantConnect.Indicators.IndicatorDataPoint) -> float:
+        ...
+
+    @overload
+    def __truediv__(self, other: float) -> float:
         ...
 
     @overload
@@ -537,6 +606,29 @@ class MovingAverageType(IntEnum):
 
     MGD = 12
     """The McGinley Dynamic moving average (12)"""
+
+    @overload
+    def as_indicator(self, period: int) -> QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint]:
+        """
+        Creates a new indicator from the specified MovingAverageType. So if MovingAverageType.Simple
+        is specified, then a new SimpleMovingAverage will be returned.
+        
+        :param period: The smoothing period
+        :returns: A new indicator that matches the MovingAverageType.
+        """
+        ...
+
+    @overload
+    def as_indicator(self, name: str, period: int) -> QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint]:
+        """
+        Creates a new indicator from the specified MovingAverageType. So if MovingAverageType.Simple
+        is specified, then a new SimpleMovingAverage will be returned.
+        
+        :param name: The name of the new indicator
+        :param period: The smoothing period
+        :returns: A new indicator that matches the MovingAverageType.
+        """
+        ...
 
 
 class ForceIndex(QuantConnect.Indicators.TradeBarIndicator, QuantConnect.Indicators.IIndicatorWarmUpPeriodProvider):
@@ -5992,6 +6084,117 @@ class MidPoint(QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.Ind
         ...
 
 
+class CompositeIndicator(QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint]):
+    """
+    This indicator is capable of wiring up two separate indicators into a single indicator
+    such that the output of each will be sent to a user specified function.
+    """
+
+    @property
+    def left(self) -> QuantConnect.Indicators.IndicatorBase:
+        """Gets the 'left' indicator for the delegate"""
+        ...
+
+    @property
+    def right(self) -> QuantConnect.Indicators.IndicatorBase:
+        """Gets the 'right' indicator for the delegate"""
+        ...
+
+    @property
+    def is_ready(self) -> bool:
+        """Gets a flag indicating when this indicator is ready and fully initialized"""
+        ...
+
+    @overload
+    def __init__(self, name: str, left: typing.Any, right: typing.Any, handler: typing.Any) -> None:
+        """
+        Initializes a new instance of CompositeIndicator using two indicators
+        and a custom function.
+        
+        :param name: The name of the composite indicator.
+        :param left: The first indicator in the composition.
+        :param right: The second indicator in the composition.
+        :param handler: A Python function that processes the indicator values.
+        """
+        ...
+
+    @overload
+    def __init__(self, left: typing.Any, right: typing.Any, handler: typing.Any) -> None:
+        """
+        Initializes a new instance of CompositeIndicator using two indicators
+        and a custom function.
+        
+        :param left: The first indicator in the composition.
+        :param right: The second indicator in the composition.
+        :param handler: A Python function that processes the indicator values.
+        """
+        ...
+
+    @overload
+    def __init__(self, name: str, left: QuantConnect.Indicators.IndicatorBase, right: QuantConnect.Indicators.IndicatorBase, composer: typing.Callable[[QuantConnect.Indicators.IndicatorBase, QuantConnect.Indicators.IndicatorBase], QuantConnect.Indicators.IndicatorResult]) -> None:
+        """
+        Creates a new CompositeIndicator capable of taking the output from the left and right indicators
+        and producing a new value via the composer delegate specified
+        
+        :param name: The name of this indicator
+        :param left: The left indicator for the 'composer'
+        :param right: The right indicator for the 'composer'
+        :param composer: Function used to compose the left and right indicators
+        """
+        ...
+
+    @overload
+    def __init__(self, left: QuantConnect.Indicators.IndicatorBase, right: QuantConnect.Indicators.IndicatorBase, composer: typing.Callable[[QuantConnect.Indicators.IndicatorBase, QuantConnect.Indicators.IndicatorBase], QuantConnect.Indicators.IndicatorResult]) -> None:
+        """
+        Creates a new CompositeIndicator capable of taking the output from the left and right indicators
+        and producing a new value via the composer delegate specified
+        
+        :param left: The left indicator for the 'composer'
+        :param right: The right indicator for the 'composer'
+        :param composer: Function used to compose the left and right indicators
+        """
+        ...
+
+    def compute_next_value(self, _: QuantConnect.Indicators.IndicatorDataPoint) -> float:
+        """
+        Computes the next value of this indicator from the given state
+        
+        
+        This Class is protected.
+        
+        :param _: The input given to the indicator
+        :returns: A new value for this indicator.
+        """
+        ...
+
+    def indicator_composer(self, left: QuantConnect.Indicators.IndicatorBase, right: QuantConnect.Indicators.IndicatorBase) -> QuantConnect.Indicators.IndicatorResult:
+        """
+        Delegate type used to compose the output of two indicators into a new value.
+        
+        :param left: The left indicator
+        :param right: The right indicator
+        :returns: And indicator result representing the composition of the two indicators.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Resets this indicator to its initial state"""
+        ...
+
+    def validate_and_compute_next_value(self, input: QuantConnect.Indicators.IndicatorDataPoint) -> QuantConnect.Indicators.IndicatorResult:
+        """
+        Computes the next value of this indicator from the given state
+        and returns an instance of the IndicatorResult class
+        
+        
+        This Class is protected.
+        
+        :param input: The input given to the indicator
+        :returns: An IndicatorResult object including the status of the indicator.
+        """
+        ...
+
+
 class IndicatorBase(typing.Generic[QuantConnect_Indicators_IndicatorBase_T], QuantConnect_Indicators_IndicatorBase, metaclass=abc.ABCMeta):
     """Provides a base type for all indicators"""
 
@@ -6038,6 +6241,14 @@ class IndicatorBase(typing.Generic[QuantConnect_Indicators_IndicatorBase_T], Qua
         ...
 
     @overload
+    def __add__(self, other: QuantConnect.Indicators.IndicatorBase[QuantConnect_Indicators_IndicatorBase_T]) -> float:
+        ...
+
+    @overload
+    def __add__(self, other: float) -> float:
+        ...
+
+    @overload
     def __eq__(self, right: float) -> bool:
         """Determines if the indicator's current value is equal to the specified value"""
         ...
@@ -6075,6 +6286,9 @@ class IndicatorBase(typing.Generic[QuantConnect_Indicators_IndicatorBase_T], Qua
     @overload
     def __eq__(self, right: QuantConnect.Indicators.IndicatorBase) -> bool:
         """Determines if the specified value is equal to the indicator's current value"""
+        ...
+
+    def __float__(self) -> float:
         ...
 
     @overload
@@ -6195,6 +6409,9 @@ class IndicatorBase(typing.Generic[QuantConnect_Indicators_IndicatorBase_T], Qua
         """
         ...
 
+    def __int__(self) -> int:
+        ...
+
     @overload
     def __le__(self, other: QuantConnect.Indicators.IIndicator) -> bool:
         ...
@@ -6292,6 +6509,14 @@ class IndicatorBase(typing.Generic[QuantConnect_Indicators_IndicatorBase_T], Qua
         ...
 
     @overload
+    def __mul__(self, other: QuantConnect.Indicators.IndicatorBase[QuantConnect_Indicators_IndicatorBase_T]) -> float:
+        ...
+
+    @overload
+    def __mul__(self, other: float) -> float:
+        ...
+
+    @overload
     def __ne__(self, right: float) -> bool:
         """Determines if the indicator's current value is not equal to the specified value"""
         ...
@@ -6329,6 +6554,37 @@ class IndicatorBase(typing.Generic[QuantConnect_Indicators_IndicatorBase_T], Qua
     @overload
     def __ne__(self, right: QuantConnect.Indicators.IndicatorBase) -> bool:
         """Determines if the specified value is not equal to the indicator's current value"""
+        ...
+
+    def __neg__(self) -> float:
+        ...
+
+    def __radd__(self, other: float) -> float:
+        ...
+
+    def __rmul__(self, other: float) -> float:
+        ...
+
+    def __rsub__(self, other: float) -> float:
+        ...
+
+    def __rtruediv__(self, other: float) -> float:
+        ...
+
+    @overload
+    def __sub__(self, other: QuantConnect.Indicators.IndicatorBase[QuantConnect_Indicators_IndicatorBase_T]) -> float:
+        ...
+
+    @overload
+    def __sub__(self, other: float) -> float:
+        ...
+
+    @overload
+    def __truediv__(self, other: QuantConnect.Indicators.IndicatorBase[QuantConnect_Indicators_IndicatorBase_T]) -> float:
+        ...
+
+    @overload
+    def __truediv__(self, other: float) -> float:
         ...
 
     @overload
@@ -6363,6 +6619,17 @@ class IndicatorBase(typing.Generic[QuantConnect_Indicators_IndicatorBase_T], Qua
         """
         ...
 
+    def ema(self, period: int, smoothing_factor: typing.Optional[float] = None, wait_for_first_to_ready: bool = True) -> QuantConnect.Indicators.ExponentialMovingAverage:
+        """
+        Creates a new ExponentialMovingAverage indicator with the specified period and smoothing_factor from the left indicator
+        
+        :param period: The period of the ExponentialMovingAverage indicators
+        :param smoothing_factor: The percentage of data from the previous value to be carried into the next value
+        :param wait_for_first_to_ready: True to only send updates to the second if left.IsReady returns true, false to always send updates
+        :returns: A reference to the ExponentialMovingAverage indicator to allow for method chaining.
+        """
+        ...
+
     def equals(self, obj: typing.Any) -> bool:
         """
         Determines whether the specified object is equal to the current object.
@@ -6380,6 +6647,47 @@ class IndicatorBase(typing.Generic[QuantConnect_Indicators_IndicatorBase_T], Qua
         """
         ...
 
+    def min(self, period: int, wait_for_first_to_ready: bool = True) -> QuantConnect.Indicators.Minimum:
+        """
+        Creates a new Minimum indicator with the specified period from the left indicator
+        
+        :param period: The period of the Minimum indicator
+        :param wait_for_first_to_ready: True to only send updates to the second if left.IsReady returns true, false to always send updates
+        :returns: A reference to the Minimum indicator to allow for method chaining.
+        """
+        ...
+
+    @overload
+    def minus(self, constant: float) -> QuantConnect.Indicators.CompositeIndicator:
+        """
+        Creates a new CompositeIndicator such that the result will be the difference of the left and constant
+        
+        :param constant: The subtrahend
+        :returns: The difference of the left and right indicators.
+        """
+        ...
+
+    @overload
+    def minus(self, right: QuantConnect.Indicators.IndicatorBase) -> QuantConnect.Indicators.CompositeIndicator:
+        """
+        Creates a new CompositeIndicator such that the result will be the difference of the left and right
+        
+        :param right: The right indicator
+        :returns: The difference of the left and right indicators.
+        """
+        ...
+
+    @overload
+    def minus(self, right: QuantConnect.Indicators.IndicatorBase, name: str) -> QuantConnect.Indicators.CompositeIndicator:
+        """
+        Creates a new CompositeIndicator such that the result will be the difference of the left and right
+        
+        :param right: The right indicator
+        :param name: The name of this indicator
+        :returns: The difference of the left and right indicators.
+        """
+        ...
+
     def on_updated(self, consolidated: QuantConnect.Indicators.IndicatorDataPoint) -> None:
         """
         Event invocator for the Updated event
@@ -6391,8 +6699,111 @@ class IndicatorBase(typing.Generic[QuantConnect_Indicators_IndicatorBase_T], Qua
         """
         ...
 
+    @overload
+    def over(self, constant: float) -> QuantConnect.Indicators.CompositeIndicator:
+        """
+        Creates a new CompositeIndicator such that the result will be the ratio of the left to the constant
+        
+        :param constant: The constant value denominator
+        :returns: The ratio of the left to the right indicator.
+        """
+        ...
+
+    @overload
+    def over(self, right: QuantConnect.Indicators.IndicatorBase) -> QuantConnect.Indicators.CompositeIndicator:
+        """
+        Creates a new CompositeIndicator such that the result will be the ratio of the left to the right
+        
+        :param right: The right indicator
+        :returns: The ratio of the left to the right indicator.
+        """
+        ...
+
+    @overload
+    def over(self, right: QuantConnect.Indicators.IndicatorBase, name: str) -> QuantConnect.Indicators.CompositeIndicator:
+        """
+        Creates a new CompositeIndicator such that the result will be the ratio of the left to the right
+        
+        :param right: The right indicator
+        :param name: The name of this indicator
+        :returns: The ratio of the left to the right indicator.
+        """
+        ...
+
+    @overload
+    def plus(self, constant: float) -> QuantConnect.Indicators.CompositeIndicator:
+        """
+        Creates a new CompositeIndicator such that the result will be the sum of the left and the constant
+        
+        :param constant: The addend
+        :returns: The sum of the left and right indicators.
+        """
+        ...
+
+    @overload
+    def plus(self, right: QuantConnect.Indicators.IndicatorBase) -> QuantConnect.Indicators.CompositeIndicator:
+        """
+        Creates a new CompositeIndicator such that the result will be the sum of the left and right
+        
+        :param right: The right indicator
+        :returns: The sum of the left and right indicators.
+        """
+        ...
+
+    @overload
+    def plus(self, right: QuantConnect.Indicators.IndicatorBase, name: str) -> QuantConnect.Indicators.CompositeIndicator:
+        """
+        Creates a new CompositeIndicator such that the result will be the sum of the left and right
+        
+        :param right: The right indicator
+        :param name: The name of this indicator
+        :returns: The sum of the left and right indicators.
+        """
+        ...
+
     def reset(self) -> None:
         """Resets this indicator to its initial state"""
+        ...
+
+    def sma(self, period: int, wait_for_first_to_ready: bool = True) -> QuantConnect.Indicators.SimpleMovingAverage:
+        """
+        Initializes a new instance of the SimpleMovingAverage class with the specified name and period from the left indicator
+        
+        :param period: The period of the SMA
+        :param wait_for_first_to_ready: True to only send updates to the second if first.IsReady returns true, false to always send updates to second
+        :returns: The reference to the SimpleMovingAverage indicator to allow for method chaining.
+        """
+        ...
+
+    @overload
+    def times(self, constant: float) -> QuantConnect.Indicators.CompositeIndicator:
+        """
+        Creates a new CompositeIndicator such that the result will be the product of the left and the constant
+        
+        :param constant: The constant value to multiple by
+        :returns: The product of the left to the right indicators.
+        """
+        ...
+
+    @overload
+    def times(self, right: QuantConnect.Indicators.IndicatorBase) -> QuantConnect.Indicators.CompositeIndicator:
+        """
+        Creates a new CompositeIndicator such that the result will be the product of the left to the right
+        
+        :param right: The right indicator
+        :returns: The product of the left to the right indicators.
+        """
+        ...
+
+    @overload
+    def times(self, right: QuantConnect.Indicators.IndicatorBase, name: str) -> QuantConnect.Indicators.CompositeIndicator:
+        """
+        Creates a new CompositeIndicator such that the result will be the product of the left to the right
+        
+        :param right: The right indicator
+        :param name: The name of this indicator
+        :returns: The product of the left to the right indicators.
+        """
         ...
 
     def to_detailed_string(self) -> str:
@@ -6444,6 +6855,16 @@ class IndicatorBase(typing.Generic[QuantConnect_Indicators_IndicatorBase_T], Qua
         
         :param input: The input given to the indicator
         :returns: An IndicatorResult object including the status of the indicator.
+        """
+        ...
+
+    def weighted_by(self, weight: QuantConnect.Indicators.IndicatorBase, period: int) -> QuantConnect.Indicators.CompositeIndicator:
+        """
+        Creates a new CompositeIndicator such that the result will be average of a first indicator weighted by a second one
+        
+        :param weight: Indicator that provides the average weights
+        :param period: Average period
+        :returns: Indicator that results of the average of first by weights given by second.
         """
         ...
 
@@ -9863,117 +10284,6 @@ class Beta(QuantConnect.Indicators.DualSymbolIndicator[QuantConnect.Data.Market.
         ...
 
 
-class CompositeIndicator(QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint]):
-    """
-    This indicator is capable of wiring up two separate indicators into a single indicator
-    such that the output of each will be sent to a user specified function.
-    """
-
-    @property
-    def left(self) -> QuantConnect.Indicators.IndicatorBase:
-        """Gets the 'left' indicator for the delegate"""
-        ...
-
-    @property
-    def right(self) -> QuantConnect.Indicators.IndicatorBase:
-        """Gets the 'right' indicator for the delegate"""
-        ...
-
-    @property
-    def is_ready(self) -> bool:
-        """Gets a flag indicating when this indicator is ready and fully initialized"""
-        ...
-
-    @overload
-    def __init__(self, name: str, left: typing.Any, right: typing.Any, handler: typing.Any) -> None:
-        """
-        Initializes a new instance of CompositeIndicator using two indicators
-        and a custom function.
-        
-        :param name: The name of the composite indicator.
-        :param left: The first indicator in the composition.
-        :param right: The second indicator in the composition.
-        :param handler: A Python function that processes the indicator values.
-        """
-        ...
-
-    @overload
-    def __init__(self, left: typing.Any, right: typing.Any, handler: typing.Any) -> None:
-        """
-        Initializes a new instance of CompositeIndicator using two indicators
-        and a custom function.
-        
-        :param left: The first indicator in the composition.
-        :param right: The second indicator in the composition.
-        :param handler: A Python function that processes the indicator values.
-        """
-        ...
-
-    @overload
-    def __init__(self, name: str, left: QuantConnect.Indicators.IndicatorBase, right: QuantConnect.Indicators.IndicatorBase, composer: typing.Callable[[QuantConnect.Indicators.IndicatorBase, QuantConnect.Indicators.IndicatorBase], QuantConnect.Indicators.IndicatorResult]) -> None:
-        """
-        Creates a new CompositeIndicator capable of taking the output from the left and right indicators
-        and producing a new value via the composer delegate specified
-        
-        :param name: The name of this indicator
-        :param left: The left indicator for the 'composer'
-        :param right: The right indicator for the 'composer'
-        :param composer: Function used to compose the left and right indicators
-        """
-        ...
-
-    @overload
-    def __init__(self, left: QuantConnect.Indicators.IndicatorBase, right: QuantConnect.Indicators.IndicatorBase, composer: typing.Callable[[QuantConnect.Indicators.IndicatorBase, QuantConnect.Indicators.IndicatorBase], QuantConnect.Indicators.IndicatorResult]) -> None:
-        """
-        Creates a new CompositeIndicator capable of taking the output from the left and right indicators
-        and producing a new value via the composer delegate specified
-        
-        :param left: The left indicator for the 'composer'
-        :param right: The right indicator for the 'composer'
-        :param composer: Function used to compose the left and right indicators
-        """
-        ...
-
-    def compute_next_value(self, _: QuantConnect.Indicators.IndicatorDataPoint) -> float:
-        """
-        Computes the next value of this indicator from the given state
-        
-        
-        This Class is protected.
-        
-        :param _: The input given to the indicator
-        :returns: A new value for this indicator.
-        """
-        ...
-
-    def indicator_composer(self, left: QuantConnect.Indicators.IndicatorBase, right: QuantConnect.Indicators.IndicatorBase) -> QuantConnect.Indicators.IndicatorResult:
-        """
-        Delegate type used to compose the output of two indicators into a new value.
-        
-        :param left: The left indicator
-        :param right: The right indicator
-        :returns: And indicator result representing the composition of the two indicators.
-        """
-        ...
-
-    def reset(self) -> None:
-        """Resets this indicator to its initial state"""
-        ...
-
-    def validate_and_compute_next_value(self, input: QuantConnect.Indicators.IndicatorDataPoint) -> QuantConnect.Indicators.IndicatorResult:
-        """
-        Computes the next value of this indicator from the given state
-        and returns an instance of the IndicatorResult class
-        
-        
-        This Class is protected.
-        
-        :param input: The input given to the indicator
-        :returns: An IndicatorResult object including the status of the indicator.
-        """
-        ...
-
-
 class VolumeWeightedAveragePriceIndicator(QuantConnect.Indicators.TradeBarIndicator, QuantConnect.Indicators.IIndicatorWarmUpPeriodProvider):
     """
     Volume Weighted Average Price (VWAP) Indicator:
@@ -12139,8 +12449,93 @@ class IndicatorDataPoints(QuantConnect.Data.DynamicData):
         """The indicator value at a given point"""
         ...
 
+    @overload
+    def __add__(self, other: QuantConnect.Indicators.IndicatorDataPoints) -> float:
+        ...
+
+    @overload
+    def __add__(self, other: float) -> float:
+        ...
+
+    def __float__(self) -> float:
+        ...
+
+    @overload
+    def __ge__(self, other: QuantConnect.Indicators.IndicatorDataPoints) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: float) -> bool:
+        ...
+
     def __getitem__(self, name: str) -> QuantConnect.Indicators.IndicatorDataPoint:
         """Access the historical indicator values per indicator property name"""
+        ...
+
+    @overload
+    def __gt__(self, other: QuantConnect.Indicators.IndicatorDataPoints) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: float) -> bool:
+        ...
+
+    def __int__(self) -> int:
+        ...
+
+    @overload
+    def __le__(self, other: QuantConnect.Indicators.IndicatorDataPoints) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: QuantConnect.Indicators.IndicatorDataPoints) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __mul__(self, other: QuantConnect.Indicators.IndicatorDataPoints) -> float:
+        ...
+
+    @overload
+    def __mul__(self, other: float) -> float:
+        ...
+
+    def __neg__(self) -> float:
+        ...
+
+    def __radd__(self, other: float) -> float:
+        ...
+
+    def __rmul__(self, other: float) -> float:
+        ...
+
+    def __rsub__(self, other: float) -> float:
+        ...
+
+    def __rtruediv__(self, other: float) -> float:
+        ...
+
+    @overload
+    def __sub__(self, other: QuantConnect.Indicators.IndicatorDataPoints) -> float:
+        ...
+
+    @overload
+    def __sub__(self, other: float) -> float:
+        ...
+
+    @overload
+    def __truediv__(self, other: QuantConnect.Indicators.IndicatorDataPoints) -> float:
+        ...
+
+    @overload
+    def __truediv__(self, other: float) -> float:
         ...
 
     def to_string(self) -> str:
@@ -12376,6 +12771,16 @@ class IIndicator(typing.Generic[QuantConnect_Indicators_IIndicator_T], System.IC
     @abc.abstractmethod
     def samples(self) -> int:
         """Gets the number of samples processed by this indicator"""
+        ...
+
+    def max(self, period: int, wait_for_first_to_ready: bool = True) -> QuantConnect.Indicators.Maximum:
+        """
+        Creates a new Maximum indicator with the specified period from the left indicator
+        
+        :param period: The period of the Maximum indicator
+        :param wait_for_first_to_ready: True to only send updates to the second if left.IsReady returns true, false to always send updates
+        :returns: A reference to the Maximum indicator to allow for method chaining.
+        """
         ...
 
     def reset(self) -> None:

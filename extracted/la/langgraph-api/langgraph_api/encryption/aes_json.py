@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import base64
 import functools
+import hashlib
 from typing import TYPE_CHECKING, Any
 
 import orjson
@@ -24,17 +25,57 @@ if TYPE_CHECKING:
     from langgraph_api.encryption.custom import ModelType
 
 AES_ENCRYPTED_PREFIX = "encrypted.aes:"
+AES_ENVELOPE_MAGIC = b"LGAES-ENVELOPE\x00\x00"
+AES_ENVELOPE_VERSION = 1
+AES_KEY_ID_SIZE = 16
+AES_ENVELOPE_SIZE = len(AES_ENVELOPE_MAGIC) + 1 + AES_KEY_ID_SIZE
 
 # Marker key to identify AES encryption in __encryption_context__
 AES_ENCRYPTION_TYPE_KEY = "__langgraph_encryption_type__"
 AES_ENCRYPTION_CONTEXT = {AES_ENCRYPTION_TYPE_KEY: "aes"}
 
 
-def _get_aes_cipher(key: bytes) -> CipherProtocol:
-    """Get AES cipher using the SDK's implementation (same as checkpoint encryption)."""
-    # EncryptedSerializer.from_pycryptodome_aes creates a PycryptodomeAesCipher internally
-    # We extract it to reuse the exact same encryption format as checkpoints
-    return EncryptedSerializer.from_pycryptodome_aes(key=key).cipher
+class _EnvelopeAwareAesCipher:
+    """Read Go AES envelopes while preserving legacy Python writes."""
+
+    def __init__(self, key: bytes, legacy: CipherProtocol) -> None:
+        self._key = key
+        self._legacy = legacy
+
+    def encrypt(self, plaintext: bytes) -> tuple[str, bytes]:
+        return self._legacy.encrypt(plaintext)
+
+    def decrypt(self, ciphername: str, ciphertext: bytes) -> bytes:
+        if not ciphertext.startswith(AES_ENVELOPE_MAGIC):
+            return self._legacy.decrypt(ciphername, ciphertext)
+        if len(ciphertext) < AES_ENVELOPE_SIZE:
+            raise ValueError("invalid AES envelope: header is truncated")
+
+        header = ciphertext[:AES_ENVELOPE_SIZE]
+        if header[len(AES_ENVELOPE_MAGIC)] != AES_ENVELOPE_VERSION:
+            raise ValueError(
+                f"unsupported AES envelope version {header[len(AES_ENVELOPE_MAGIC)]}"
+            )
+        expected_key_id = hashlib.sha256(
+            b"langgraph-aes-key-id-v1\x00" + self._key
+        ).digest()[:AES_KEY_ID_SIZE]
+        if header[-AES_KEY_ID_SIZE:] != expected_key_id:
+            raise ValueError("AES envelope was encrypted with a different key")
+
+        from Crypto.Cipher import AES  # noqa: PLC0415
+
+        encrypted = ciphertext[AES_ENVELOPE_SIZE:]
+        nonce = encrypted[:16]
+        tag = encrypted[16:32]
+        cipher = AES.new(self._key, AES.MODE_EAX, nonce=nonce)
+        cipher.update(header)
+        return cipher.decrypt_and_verify(encrypted[32:], tag)
+
+
+def get_aes_cipher(key: bytes) -> CipherProtocol:
+    """Return cipher compatible with legacy Python and Go envelope formats."""
+    legacy = EncryptedSerializer.from_pycryptodome_aes(key=key).cipher
+    return _EnvelopeAwareAesCipher(key, legacy)
 
 
 def is_aes_encrypted(value: Any) -> bool:
@@ -72,7 +113,7 @@ class AesEncryptionInstance:
     """
 
     def __init__(self, key: bytes, allowlist: frozenset[str]) -> None:
-        self._cipher = _get_aes_cipher(key)
+        self._cipher = get_aes_cipher(key)
         self._allowlist = allowlist
 
     def encrypt_value(self, value: Any) -> str:

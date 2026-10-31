@@ -394,7 +394,9 @@ class Predictor:
         response = self._ctx.post_json(
             f"/session/{self.session_id}/predict_table",
             data=request_payload,
-            **({"timeout": PREDICT_ROUTER_TIMEOUT_SECONDS} if self._may_generate(generate) else {}),
+            # A cold model plus a whole table runs past the default timeout, and a read-timed-out
+            # predict is never re-sent, so anything shorter than the router's wait loses the batch.
+            timeout=PREDICT_ROUTER_TIMEOUT_SECONDS,
         )
 
         training_status = _extract_training_status_from_body(response)

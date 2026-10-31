@@ -12,7 +12,7 @@ import sys
 # `from datetime import time` below shadows the stdlib `time` module in this
 # namespace, so the monotonic clock is imported under an explicit alias.
 import time as time_module
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, field, fields, replace
 from datetime import time
 from pathlib import Path
 from typing import Any, Iterable
@@ -876,6 +876,73 @@ class PrereviewGateConfig:
         return self.repos.get(repo_name, PrereviewGateRepoConfig())
 
 
+@dataclass
+class PreflightGuardRepoConfig:
+    """One entry under ``preflight_guard.<repo_name>`` (#3816) — the
+    opt-in preflight decomposition guard: a size heuristic
+    (:func:`coord.preflight_size.score_issue_size`) that decides whether an
+    issue is worth the (paid) size-triage agent, and a mechanical gate
+    (:func:`coord.preflight_size.verify_split_proposal`) that rejects a
+    triage agent's SPLIT proposal before it is ever filed as a real epic.
+
+    Disabled by default (``enabled=False``): an absent or unconfigured
+    repo takes none of this epic's later rungs, identical to today's
+    behaviour. The threshold fields below are all ``None`` by default —
+    "use :data:`coord.preflight_size.DEFAULT_THRESHOLDS`'s own value" —
+    so setting ``enabled: true`` alone opts a repo into the module's
+    stock heuristic rather than requiring every knob to be re-specified.
+    Wiring this config into an actual dispatch decision is child 4's job;
+    this class only carries the knobs.
+    """
+
+    enabled: bool = False
+    files_some: int | None = None
+    files_many: int | None = None
+    dirs_many: int | None = None
+    criteria_some: int | None = None
+    criteria_many: int | None = None
+    triage_threshold: float | None = None
+
+    def resolve_thresholds(self) -> "SizeThresholds":
+        """This repo's :class:`~coord.preflight_size.SizeThresholds`,
+        overlaying only the fields this entry set onto
+        :data:`~coord.preflight_size.DEFAULT_THRESHOLDS` — an unset
+        (``None``) field keeps the module's own default rather than
+        silently becoming ``0``, same "absent means default, not zero"
+        posture the rest of this config file uses.
+        """
+        from coord.preflight_size import DEFAULT_THRESHOLDS
+
+        overrides = {
+            name: value
+            for name, value in (
+                ("files_some", self.files_some),
+                ("files_many", self.files_many),
+                ("dirs_many", self.dirs_many),
+                ("criteria_some", self.criteria_some),
+                ("criteria_many", self.criteria_many),
+                ("triage_threshold", self.triage_threshold),
+            )
+            if value is not None
+        }
+        if not overrides:
+            return DEFAULT_THRESHOLDS
+        return replace(DEFAULT_THRESHOLDS, **overrides)
+
+
+@dataclass
+class PreflightGuardConfig:
+    """``preflight_guard:`` — repo name -> :class:`PreflightGuardRepoConfig`."""
+
+    repos: dict[str, PreflightGuardRepoConfig] = field(default_factory=dict)
+
+    def for_repo(self, repo_name: str) -> PreflightGuardRepoConfig:
+        """*repo_name*'s guard config, or an all-disabled default when it
+        has none configured — mirrors :meth:`PrereviewGateConfig.for_repo`'s
+        "absent means opted out" posture."""
+        return self.repos.get(repo_name, PreflightGuardRepoConfig())
+
+
 # #1430: plan-worker ESTIMATE -> escalation rung (see ModelsConfig.model_for_estimate).
 _ESTIMATE_RUNG: dict[str, int] = {"trivial": 0, "small": 0, "medium": 1, "large": 2}
 
@@ -910,6 +977,10 @@ class ModelsConfig:
     resolve_dispatch_model_alias`, checks ``pinned`` FIRST and returns
     immediately when it matches, so the ladder/labels/usage-gate are never
     even consulted for that dispatch — see :meth:`model_for_type`.
+    ``"review_rereview"`` is a special pinned key consulted only by
+    :meth:`model_for_review` for a re-review (``review_iteration > 0``) —
+    see that method for why its fleet default (``sonnet``) is hardcoded
+    there rather than living in this dataclass's own default factory.
 
     A route is either a bare model alias (resolved against the implicit
     ``claude`` provider's known aliases — ``default``/``escalation``/
@@ -950,6 +1021,39 @@ class ModelsConfig:
         if assignment_type is None:
             return None
         return self.pinned.get(assignment_type)
+
+    def model_for_review(self, review_iteration: int) -> str:
+        """Return the model alias to dispatch a review leg on.
+
+        *review_iteration* is the fix-round counter already carried by the
+        work/fix :class:`~coord.models.Assignment` being reviewed (``0`` for
+        the original work, ``N`` for the Nth bounce-fix round) — the same
+        value every review row inherits via ``getattr(completed,
+        "review_iteration", 0)`` (see :func:`coord.review.dispatch_review`).
+
+        Iteration ``0`` (a first review) keeps today's behaviour: the
+        ``models.pinned["review"]`` route (``opus`` by default) wins outright
+        over ``models.default``, exactly as :meth:`model_for_type` already
+        resolves it.
+
+        Iteration ``> 0`` (a re-review after a fix round) resolves to
+        ``models.pinned["review_rereview"]`` instead, with a **hardcoded**
+        ``"sonnet"`` fallback when that key isn't configured — deliberately
+        not derived from the ``pinned`` dict's own dataclass default, because
+        setting ANY ``models.pinned`` in ``coordinator.yml`` replaces the
+        whole mapping (see ``_parse_models``), which would otherwise silently
+        drop this fleet-wide default for every operator who already pins
+        ``"review"`` to something. A re-review is scoped to the incremental
+        diff since the last fix round (see
+        :func:`coord.merge_queue.find_scoped_review_candidate`), so a lighter
+        model is both cheap and sufficient — operators who need a heavier
+        (or different) re-review model still win outright by setting
+        ``models.pinned["review_rereview"]`` explicitly, same as any other
+        pinned route.
+        """
+        if review_iteration > 0:
+            return self.pinned.get("review_rereview", "sonnet")
+        return self.model_for_type("review") or self.default
 
     def next_model(self, current: str) -> str:
         """Return the next model in the escalation ladder.
@@ -2772,6 +2876,26 @@ class HealthConfig:
     # WARN regardless of age. See `coord.health.checks.config_drift`.
     config_drift_crit_hours: float = 24.0
 
+    # ── sustained CPU pin, fleet scope (#3779) ─────────────────────────────
+    # `psutil.cpu_percent` is normalized 0-100 **across all cores**, so 5
+    # pinned cores on a 10-core box reads ~50%, not 100% — the motivating
+    # incident for this check never crossed a "high" threshold like 85%,
+    # it just sat at ~50% for hours. The discriminator that actually catches
+    # it is the SUSTAINED window, not a high percent, so the default here is
+    # moderate on purpose; raising it "to reduce noise" quietly re-opens the
+    # gap this check exists to close. See `coord.health.checks.sustained_cpu`.
+    sustained_cpu_percent: float = 50.0
+    # Hours of history that must be covered — and found hot — before this
+    # ever reaches CRIT.  `coord.machine_metrics.DEFAULT_MAX_SAMPLES` (1440)
+    # holds 1439 *intervals*, so at the default 15s cadence the fullest
+    # possible buffer spans `1439 * 15s` = ~5.996h.  This default sits
+    # strictly below that representable maximum on purpose — at or above
+    # 6.0h the CRIT branch is unreachable except via incidental poll-loop
+    # slop, since the buffer can never actually cover a 6.0h window.  A
+    # daemon that just started (not yet enough history) still reports
+    # OK/UNKNOWN, never a false CRIT.
+    sustained_cpu_window_hours: float = 5.5
+
 
 @dataclass
 class NotificationsConfig:
@@ -3004,6 +3128,9 @@ class Config:
     # dispatch_review call skips straight to the #3180 mechanical check,
     # today's behaviour untouched.
     prereview_gate: PrereviewGateConfig = field(default_factory=PrereviewGateConfig)
+    # #3816 — absent block == no repo has opted in == every repo skips the
+    # preflight decomposition guard entirely, today's behaviour untouched.
+    preflight_guard: PreflightGuardConfig = field(default_factory=PreflightGuardConfig)
     models: ModelsConfig = field(default_factory=ModelsConfig)
     pipeline: PipelineConfig = field(default_factory=PipelineConfig)
     dispatch: DispatchConfig = field(default_factory=DispatchConfig)
@@ -3291,6 +3418,7 @@ def parse_mapping(raw: Any, *, path: Path | None = None) -> Config:
     smoke_tests = _parse_smoke_tests(raw.get("smoke_tests"))
     acceptance = _parse_acceptance(raw.get("acceptance"))
     prereview_gate = _parse_prereview_gate(raw.get("prereview_gate"))
+    preflight_guard = _parse_preflight_guard(raw.get("preflight_guard"))
     models = _parse_models(raw.get("models"), set(providers.definitions))
     pipeline = _parse_pipeline(raw.get("pipeline"))
     dispatch = _parse_dispatch(raw.get("dispatch"))
@@ -3320,6 +3448,7 @@ def parse_mapping(raw: Any, *, path: Path | None = None) -> Config:
         smoke_tests=smoke_tests,
         acceptance=acceptance,
         prereview_gate=prereview_gate,
+        preflight_guard=preflight_guard,
         models=models,
         pipeline=pipeline,
         dispatch=dispatch,
@@ -4430,6 +4559,55 @@ def _parse_prereview_gate(raw: Any) -> PrereviewGateConfig:
     return PrereviewGateConfig(repos=repos)
 
 
+def _parse_preflight_guard(raw: Any) -> PreflightGuardConfig:
+    """Parse the ``preflight_guard:`` block (#3816).
+
+    ``preflight_guard.<repo_name>`` maps a local repo name (as declared
+    under ``repos:``) to its :class:`PreflightGuardRepoConfig`. Absent
+    entirely -> no repo has opted in, matching today's behaviour (no issue
+    takes any rung of this epic's size-triage / mechanical-verification
+    pipeline). The threshold fields are left ``None`` unless explicitly set,
+    so an entry with only ``enabled: true`` inherits
+    :data:`coord.preflight_size.DEFAULT_THRESHOLDS` via
+    :meth:`PreflightGuardRepoConfig.resolve_thresholds` rather than silently
+    becoming ``0``.
+    """
+    if raw is None:
+        return PreflightGuardConfig()
+    if not isinstance(raw, dict):
+        raise ConfigError("'preflight_guard' must be a mapping")
+
+    repos: dict[str, PreflightGuardRepoConfig] = {}
+    for repo_name, entry in raw.items():
+        if not isinstance(entry, dict):
+            raise ConfigError(f"preflight_guard[{repo_name!r}] must be a mapping")
+
+        cfg = PreflightGuardRepoConfig()
+        if "enabled" in entry:
+            value = entry["enabled"]
+            if not isinstance(value, bool):
+                raise ConfigError(f"preflight_guard[{repo_name!r}].enabled must be a boolean")
+            cfg.enabled = value
+        for int_field in ("files_some", "files_many", "dirs_many", "criteria_some", "criteria_many"):
+            if int_field in entry:
+                value = entry[int_field]
+                if isinstance(value, bool) or not isinstance(value, int):
+                    raise ConfigError(
+                        f"preflight_guard[{repo_name!r}].{int_field} must be an integer"
+                    )
+                setattr(cfg, int_field, value)
+        if "triage_threshold" in entry:
+            value = entry["triage_threshold"]
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise ConfigError(
+                    f"preflight_guard[{repo_name!r}].triage_threshold must be a number"
+                )
+            cfg.triage_threshold = float(value)
+        repos[repo_name] = cfg
+
+    return PreflightGuardConfig(repos=repos)
+
+
 def _parse_acceptance(raw: Any) -> AcceptanceConfig:
     """Parse the ``acceptance:`` block (#944, docs/ORACLE_LOOP.md).
 
@@ -5179,6 +5357,13 @@ _HEALTH_FLOAT_FIELDS: dict[str, float] = {
     "webapp_build_heartbeat_crit_minutes": 0.0,
     "pr_churn_window_hours": 0.0,
     "config_drift_crit_hours": 0.0,
+    # Unlike every other entry above, `0` is not "disabled" for these two —
+    # `sustained_cpu_percent: 0` makes every sample "hot" (cpu_percent is
+    # never negative) and `sustained_cpu_window_hours: 0` makes any history
+    # at all "enough span", so either one at 0 is an instant fleet-wide CRIT
+    # rather than a no-op. Floor both above zero instead of at it.
+    "sustained_cpu_percent": 1.0,
+    "sustained_cpu_window_hours": 0.1,
 }
 _HEALTH_INT_FIELDS: tuple[str, ...] = (
     "worktree_warn_count",

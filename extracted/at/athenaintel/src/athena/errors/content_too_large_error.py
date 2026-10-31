@@ -3,9 +3,8 @@
 import typing
 
 from ..core.api_error import ApiError
-from ..types.file_too_large_error import FileTooLargeError
 
 
 class ContentTooLargeError(ApiError):
-    def __init__(self, body: FileTooLargeError, headers: typing.Optional[typing.Dict[str, str]] = None):
+    def __init__(self, body: typing.Optional[typing.Any], headers: typing.Optional[typing.Dict[str, str]] = None):
         super().__init__(status_code=413, headers=headers, body=body)

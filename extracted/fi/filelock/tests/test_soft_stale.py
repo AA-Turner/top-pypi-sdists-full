@@ -375,7 +375,7 @@ def test_stale_break_restores_a_marker_of_another_host_with_the_breakers_pid(  #
     assert (lock.read_text(encoding="utf-8"), list(tmp_path.glob("test.lock.break.*"))) == (foreign, [])
 
 
-def _restore_name(lock: Path, pid: int) -> Path:  # pragma: win32 no cover
+def _restore_name(lock: Path, pid: int | str) -> Path:  # pragma: win32 no cover
     return lock.with_name(f"test.lock.restore.{pid}.{'0' * 32}")
 
 
@@ -504,6 +504,30 @@ def test_stale_break_skips_a_record_a_live_recoverer_claimed(  # pragma: win32 n
         lock_type(lock).acquire(blocking=False)
 
     assert (lock.read_text(encoding="utf-8"), claimed.read_text(encoding="utf-8")) == (record, foreign)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows cannot exchange two names")
+@STALE_BREAKERS
+@NEEDS_STALE_RECLAIM
+@pytest.mark.parametrize(
+    "recoverer",
+    [
+        pytest.param(str(2**64), id="oversized"),
+        pytest.param("0", id="zero"),
+        # This process's pid in fullwidth digits, which int() reads back as the same number.
+        pytest.param("".join(chr(0xFF10 + int(digit)) for digit in str(os.getpid())), id="wide"),
+    ],
+)
+def test_stale_break_ignores_a_claim_naming_no_valid_pid(  # pragma: win32 no cover
+    tmp_path: Path, lock_type: type[SoftFileLock], record: str, recoverer: str
+) -> None:
+    (lock := tmp_path / "test.lock").write_text(record, encoding="utf-8")
+    foreign: Final = record.replace(_HOST, "elsewhere")
+    (planted := _restore_name(lock, recoverer)).write_text(foreign, encoding="utf-8")
+    with held_after_reclaim(lock_type(lock)) as held:
+        assert held.is_locked
+
+    assert planted.read_text(encoding="utf-8") == foreign
 
 
 def _refuse_returning_a_claim(mocker: MockerFixture) -> None:  # pragma: win32 no cover
@@ -1243,11 +1267,37 @@ def test_failed_acquire_cleanup_spares_a_replacement(lock_path: Path, mocker: Mo
 
 def test_publication_without_identity_leaves_the_marker(lock_path: Path, mocker: MockerFixture) -> None:
     # The rollback cannot prove the path still names the file it created, so it leaves the marker to stale handling.
-    mocker.patch("filelock._soft.os.fstat", autospec=True, side_effect=OSError(ENODEV, "no identity"))
+    open_spy: Final = mocker.spy(os, "open")
+    real_fstat: Final = os.fstat
+
+    def no_identity(fd: int) -> os.stat_result:
+        if fd == open_spy.spy_return:
+            raise OSError(ENODEV, "no identity")
+        return real_fstat(fd)
+
+    mocker.patch("filelock._soft.os.fstat", autospec=True, side_effect=no_identity)
     lock: Final = SoftFileLock(lock_path)
     with pytest.raises(OSError, match="no identity"):
         lock.acquire()
     assert (lock.is_locked, lock_path.exists()) == (False, True)
+
+
+def test_transient_identity_failure_still_cleans_the_marker(lock_path: Path, mocker: MockerFixture) -> None:
+    # Only the first read of the new marker's identity fails. The rollback reads it again through the descriptor it
+    # still owns, so on Windows it recognizes the marker it created; an empty marker left there is never broken.
+    real_fstat: Final = os.fstat
+    calls: Final = itertools.count()
+
+    def fail_first(fd: int) -> os.stat_result:
+        if next(calls) == 0:
+            raise OSError(EIO, "Input/output error")
+        return real_fstat(fd)
+
+    mocker.patch("filelock._soft.os.fstat", side_effect=fail_first)
+    lock: Final = SoftFileLock(lock_path)
+    with pytest.raises(OSError, match="Input/output error"):
+        lock.acquire()
+    assert (lock.is_locked, lock_path.exists()) == (False, False)
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="Windows cannot exchange two names")
@@ -1289,9 +1339,17 @@ def test_release_under_a_peers_exchange_leaves_the_peers_marker(lock_path: Path)
 def test_release_without_identity_skips_unlink(lock_path: Path, mocker: MockerFixture) -> None:
     lock = SoftFileLock(lock_path)
     lock.acquire()
-    # The held descriptor can no longer be identified, so release cannot prove the path is still ours: it closes and
-    # clears held state without unlinking rather than risk deleting a successor's marker.
-    mocker.patch("filelock._soft.os.fstat", side_effect=OSError)
+    held: Final = lock_path.stat()
+    real_fstat: Final = os.fstat
+
+    def no_identity(fd: int) -> os.stat_result:
+        # The held descriptor can no longer be identified, so release cannot prove the path is still ours: it closes
+        # and clears held state without unlinking rather than risk deleting a successor's marker.
+        if os.path.samestat(found := real_fstat(fd), held):
+            raise OSError
+        return found
+
+    mocker.patch("filelock._soft.os.fstat", side_effect=no_identity)
     lock.release()
     assert not lock.is_locked
     assert lock_path.exists()

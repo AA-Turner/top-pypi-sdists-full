@@ -127,6 +127,8 @@ __all__ = (
     "DescribeOrderableDBInstanceOptionsMessageTypeDef",
     "DescribePendingMaintenanceActionsMessagePaginateTypeDef",
     "DescribePendingMaintenanceActionsMessageTypeDef",
+    "DescribeServerlessV2PlatformVersionsMessagePaginateTypeDef",
+    "DescribeServerlessV2PlatformVersionsMessageTypeDef",
     "EmptyResponseMetadataTypeDef",
     "EndpointTypeDef",
     "EngineDefaultsTypeDef",
@@ -182,6 +184,8 @@ __all__ = (
     "RestoreDBClusterToPointInTimeMessageTypeDef",
     "RestoreDBClusterToPointInTimeResultTypeDef",
     "ServerlessV2FeaturesSupportTypeDef",
+    "ServerlessV2PlatformVersionInfoTypeDef",
+    "ServerlessV2PlatformVersionsMessageTypeDef",
     "ServerlessV2ScalingConfigurationInfoTypeDef",
     "ServerlessV2ScalingConfigurationTypeDef",
     "StartDBClusterMessageTypeDef",
@@ -775,9 +779,18 @@ class DBClusterTypeDef(TypedDict):
     IOOptimizedNextAllowedModificationTime: NotRequired[datetime]
     StorageType: NotRequired[str]
     ServerlessV2ScalingConfiguration: NotRequired[ServerlessV2ScalingConfigurationInfoTypeDef]
+    ServerlessV2PlatformVersion: NotRequired[str]
     MasterUserSecret: NotRequired[ClusterMasterUserSecretTypeDef]
     NetworkType: NotRequired[str]
     CopyTagsToSnapshot: NotRequired[bool]
+
+class ServerlessV2PlatformVersionInfoTypeDef(TypedDict):
+    ServerlessV2PlatformVersion: NotRequired[str]
+    ServerlessV2PlatformVersionDescription: NotRequired[str]
+    Engine: NotRequired[str]
+    ServerlessV2FeaturesSupport: NotRequired[ServerlessV2FeaturesSupportTypeDef]
+    Status: NotRequired[str]
+    IsDefault: NotRequired[bool]
 
 class DBEngineVersionTypeDef(TypedDict):
     Engine: NotRequired[str]
@@ -888,6 +901,15 @@ class DescribePendingMaintenanceActionsMessageTypeDef(TypedDict):
     Marker: NotRequired[str]
     MaxRecords: NotRequired[int]
 
+class DescribeServerlessV2PlatformVersionsMessageTypeDef(TypedDict):
+    ServerlessV2PlatformVersion: NotRequired[str]
+    Engine: NotRequired[str]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    DefaultOnly: NotRequired[bool]
+    IncludeAll: NotRequired[bool]
+    MaxRecords: NotRequired[int]
+    Marker: NotRequired[str]
+
 class ListTagsForResourceMessageTypeDef(TypedDict):
     ResourceName: str
     Filters: NotRequired[Sequence[FilterTypeDef]]
@@ -964,6 +986,14 @@ class DescribeOrderableDBInstanceOptionsMessagePaginateTypeDef(TypedDict):
 class DescribePendingMaintenanceActionsMessagePaginateTypeDef(TypedDict):
     ResourceIdentifier: NotRequired[str]
     Filters: NotRequired[Sequence[FilterTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class DescribeServerlessV2PlatformVersionsMessagePaginateTypeDef(TypedDict):
+    ServerlessV2PlatformVersion: NotRequired[str]
+    Engine: NotRequired[str]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    DefaultOnly: NotRequired[bool]
+    IncludeAll: NotRequired[bool]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribeDBInstancesMessageWaitExtraTypeDef(TypedDict):
@@ -1123,6 +1153,11 @@ class StartDBClusterResultTypeDef(TypedDict):
 
 class StopDBClusterResultTypeDef(TypedDict):
     DBCluster: DBClusterTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ServerlessV2PlatformVersionsMessageTypeDef(TypedDict):
+    Marker: str
+    ServerlessV2PlatformVersions: list[ServerlessV2PlatformVersionInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DBEngineVersionMessageTypeDef(TypedDict):

@@ -68,6 +68,15 @@ PLATFORM_PARTS: dict[str, PlatformPart] = {
             "when and how to emit the Kind Directives the agent declares",
         ),
         PlatformPart(
+            "answer_contract",
+            "Final answer format",
+            "system",
+            "matrx_ai/schema/answer_contract.py json_text_contract (a kind's registered writer: "
+            "aidream/services/visual_maps/authoring.py ANSWER_CONTRACT_HEAD_TEXT + the kind_visual_map skill guidance)",
+            "the provider cannot hold the declared output schema: the answer's shape goes in the system message "
+            "and the answer is still checked against the schema",
+        ),
+        PlatformPart(
             "agent_identity",
             "Who made this agent",
             "turn_context",
@@ -130,7 +139,7 @@ MID_LOOP_PARTS: dict[str, PlatformPart] = {
             "visual_map_repair",
             "Visual map: repair the diagram",
             "host_turn",
-            "matrx_ai/orchestrator/visual_map_repair.py repair_notice",
+            "matrx_ai/orchestrator/visual_map_repair.py repair_notice (+ visual_map_fixes.py REPAIR_TURN_PATCH_TEXT)",
             "a visual map failed validation: one tool-less repair turn names what to fix",
         ),
         PlatformPart(
@@ -214,6 +223,14 @@ HOST_TURN_PARTS: dict[str, PlatformPart] = {
     p.id: p
     for p in (
         PlatformPart(
+            "podcast_extraction",
+            "Podcast: read the person's files",
+            "host_turn",
+            "matrx_ai/agent_runners/podcast_generator.py _EXTRACTION_HOST_TURN_TEXT",
+            "the podcast content extractor's activation line; the person's files ride the same turn as "
+            "her attachments",
+        ),
+        PlatformPart(
             "inbox_driver",
             "Queued message wakes the thread",
             "host_turn",
@@ -229,12 +246,35 @@ HOST_TURN_PARTS: dict[str, PlatformPart] = {
             "the applet builder asks the agent to fix the one check its last answer failed",
         ),
         PlatformPart(
+            "agent_mail",
+            "Agent mail wakes the session",
+            "host_turn",
+            "aidream/services/agent_messaging/agent_members.py run_agent_turn (the mail notice or the first-turn briefing)",
+            "mail for an agent conversation, or its briefing on first add, is delivered as the turn's input "
+            "without anyone typing it",
+        ),
+        PlatformPart(
+            "bench_search_results",
+            "Bench arm: search results",
+            "host_turn",
+            "aidream/services/masterworks/bench/arms.py (the corpus search results an arm asked for)",
+            "the masterwork bench's research arm asked for corpus searches; their results come back as the next turn",
+        ),
+        PlatformPart(
             "platform_repair",
             "Repair run: work the chosen problem",
             "host_turn",
             "aidream/services/platform_repair/service.py (HOST_TURN_TEXT)",
             "an admin pressed Start on a known problem without typing; the problem rides the "
             "repair_subject context entry",
+        ),
+        PlatformPart(
+            "helper_reattach",
+            "Helper resumed after a restart",
+            "host_turn",
+            "aidream/services/runtime/helper_reattach.py (RESUME_TURN_TEXT)",
+            "a helper agent interrupted by a server restart is continued in its own conversation: "
+            "check what it already did, never repeat a write, then finish",
         ),
     )
 }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: copulas
-Version: 0.14.1
+Version: 0.15.0
 Summary: Create tabular synthetic data using copulas-based modeling.
 Author-email: "DataCebo, Inc." <info@sdv.dev>
 License-Expression: BUSL-1.1
@@ -8,24 +8,22 @@ Project-URL: Source Code, https://github.com/sdv-dev/Copulas/
 Project-URL: Issue Tracker, https://github.com/sdv-dev/Copulas/issues
 Project-URL: Changes, https://github.com/sdv-dev/Copulas/blob/main/HISTORY.md
 Project-URL: Twitter, https://twitter.com/sdv_dev
-Project-URL: Chat, https://bit.ly/sdv-slack-invite
+Project-URL: Chat, https://forum.datacebo.com/
 Keywords: copulas
 Classifier: Development Status :: 2 - Pre-Alpha
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: <3.15,>=3.9
+Requires-Python: <3.15,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: numpy>=1.21.0; python_version < "3.10"
-Requires-Dist: numpy>=1.23.3; python_version >= "3.10" and python_version < "3.12"
+Requires-Dist: numpy>=1.23.3; python_version < "3.12"
 Requires-Dist: numpy>=1.26.0; python_version >= "3.12" and python_version < "3.13"
 Requires-Dist: numpy>=2.1.0; python_version >= "3.13" and python_version < "3.14"
 Requires-Dist: numpy>=2.3.2; python_version >= "3.14"
@@ -36,8 +34,7 @@ Requires-Dist: pandas<3,>=2.2.3; python_version >= "3.13" and python_version < "
 Requires-Dist: pandas<3,>=2.3.3; python_version >= "3.14"
 Requires-Dist: plotly>=5.10.0; python_version < "3.13"
 Requires-Dist: plotly>=5.12.0; python_version >= "3.13"
-Requires-Dist: scipy>=1.7.3; python_version < "3.10"
-Requires-Dist: scipy>=1.9.2; python_version >= "3.10" and python_version < "3.12"
+Requires-Dist: scipy>=1.9.2; python_version < "3.12"
 Requires-Dist: scipy>=1.12.0; python_version >= "3.12" and python_version < "3.13"
 Requires-Dist: scipy>=1.14.1; python_version >= "3.13" and python_version < "3.14"
 Requires-Dist: scipy>=1.16.1; python_version >= "3.14"
@@ -92,7 +89,7 @@ Dynamic: license-file
 [![Downloads](https://pepy.tech/badge/copulas)](https://pepy.tech/project/copulas)
 [![Unit Tests](https://github.com/sdv-dev/Copulas/actions/workflows/unit.yml/badge.svg)](https://github.com/sdv-dev/Copulas/actions/workflows/unit.yml)
 [![Coverage Status](https://codecov.io/gh/sdv-dev/Copulas/branch/main/graph/badge.svg)](https://codecov.io/gh/sdv-dev/Copulas)
-[![Slack](https://img.shields.io/badge/Community-Slack-blue?style=plastic&logo=slack)](https://bit.ly/sdv-slack-invite)
+[![Forum](https://img.shields.io/badge/Forum-Join%20now!-36C5F0)](https://forum.datacebo.com)
 
 <br/>
 <p align="center" style="text-align:center">
@@ -176,10 +173,10 @@ Click below to run the code yourself on a Colab Notebook and discover new featur
 
 Learn more about Copulas library from our [documentation](https://sdv.dev/Copulas/) site.
 
-**Questions or issues?** Join our [Slack channel](https://bit.ly/sdv-slack-invite)
-to discuss more about Copulas and synthetic data.
+**Questions or issues?** Join our [forum](https://forum.datacebo.com/)
+to discuss Copulas features, ask questions, and receive help.
 If you find a bug or have a feature request, you can also
-[open an issue](https://github.com/sdv-dev/Copulas/issues/new/choose) on our GitHub.
+[open an issue](https://forum.datacebo.com/) on our forum.
 
 **Interested in contributing to Copulas?** Read our
 [Contribution Guide](https://sdv.dev/Copulas/contributing.html) to get started.

@@ -247,6 +247,7 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | DropSequenceStatement
         | DropCastStatement
         | CreateFunctionStatement
+        | CreateDataMetricFunctionStatement
         | DropFunctionStatement
         | CreateModelStatement
         | CreateViewStatement
@@ -304,6 +305,7 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | BracketedArguments
         | DataType
         | IntervalDataType
+        | AliasColumnList
         | AliasExpression
         | ArrayAccessor
         | ArrayLiteral
@@ -344,10 +346,13 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | ForInStatement
         | RepeatStatements
         | RepeatStatement
+        | RepeatLoopStatement
         | IfStatements
         | IfStatement
         | LoopStatements
         | LoopStatement
+        | ScriptingBreakStatement
+        | ScriptingCaseStatement
         | WhileStatements
         | WhileStatement
         | SelectExceptClause
@@ -445,6 +450,9 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | AlterDefaultPrivilegesRevoke
         | AlterIndexStatement
         | ReindexStatementSegment
+        | ReindexStatement
+        | AttachStatement
+        | DetachStatement
         | AnalyzeStatement
         | AlterTrigger
         | OperationClassReference
@@ -538,6 +546,9 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | CopyOptions
         | SchemaObjectProperties
         | CreateTaskStatement
+        | CreateAlertStatement
+        | AlterAlertStatement
+        | AlertCondition
         | SnowflakeTaskExpressionSegment
         | CreateStatement
         | DefineStatement
@@ -560,6 +571,7 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | GcsExternalStageParameters
         | AzureBlobStorageExternalStageParameters
         | CreateStageStatement
+        | DefinePipeStatement
         | DefineStageStatement
         | AlterStageStatement
         | CreateStreamStatement
@@ -660,6 +672,7 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | Semicolon
         | BackQuote
         | DollarQuote
+        | DollarQuotedLiteral
         | Question
         | EndCurlyBracket
         | Dedent
@@ -685,6 +698,17 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | UnicodeEscapeValue
         | At
         | FileKeyword
+        | SemanticView
+        | SemanticViewDimension
+        | SemanticViewDimensionsClause
+        | SemanticViewExpression
+        | SemanticViewFact
+        | SemanticViewFactsClause
+        | SemanticViewFieldReference
+        | SemanticViewMetric
+        | SemanticViewMetricsClause
+        | SemanticViewObjectReference
+        | SemanticViewWhereClause
         | SemiStructuredElement
         | BytesDoubleQuote
         | BytesSingleQuote
@@ -701,6 +725,7 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | ColumnSelector
         | ExcludeBracketClose
         | WarehouseSize
+        | WarehouseGeneration
         | ExcludeBracketOpen
         | SymlinkFormatManifest
         | StartExcludeBracket
@@ -845,6 +870,7 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | CreateDatabaseWithOptions
         | CreateDbtProjectStatement
         | CreateDcmProjectStatement
+        | CreateMcpServerStatement
         | CreateEventStatement
         | CreateEventTableStatement
         | CreateExternalDataSourceStatement
@@ -994,6 +1020,7 @@ pub(crate) fn classify(kind: SyntaxKind) -> Option<Highlight> {
         | IdentifierClauseSegment
         | IdentityGrammar
         | IfClause
+        | IfStatementList
         | IfThenStatement
         | IndexHintClause
         | IndexOption

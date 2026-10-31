@@ -17,7 +17,7 @@ from dis import distb
 from io import StringIO
 from traceback import FrameSummary
 from types import TracebackType
-from typing import Any, cast
+from typing import Any
 from unittest import skipIf
 
 from cython_test_exception_raiser import raiser
@@ -30,9 +30,7 @@ class ComparableException(Exception):
     """An exception that can be compared by value."""
 
     def __eq__(self, other: object) -> bool:
-        return (self.__class__ == other.__class__) and (
-            self.args == cast(ComparableException, other).args
-        )
+        return (self.__class__ == other.__class__) and (self.args == other.args)
 
 
 def getDivisionFailure(*, captureVars: bool = False) -> failure.Failure:
@@ -111,7 +109,7 @@ class FailureTests(SynchronousTestCase):
 
         self.assertIs(f2.value, exception)
 
-    def assertStartsWith(self, s: str, prefix: str) -> None:
+    def assertStartsWith(self, s: str, prefix: str) -> None:  # type: ignore[override]
         """
         Assert that C{s} starts with a particular C{prefix}.
 
@@ -122,7 +120,7 @@ class FailureTests(SynchronousTestCase):
         """
         self.assertTrue(s.startswith(prefix), f"{prefix!r} is not the start of {s!r}")
 
-    def assertEndsWith(self, s: str, suffix: str) -> None:
+    def assertEndsWith(self, s: str, suffix: str) -> None:  # type: ignore[override]
         """
         Assert that C{s} end with a particular C{suffix}.
 
@@ -621,7 +619,6 @@ class BrokenExceptionMetaclass(type):
 
 
 class BrokenExceptionType(Exception, metaclass=BrokenExceptionMetaclass):
-
     """
     The aforementioned exception type which cannot be presented as a string via
     L{str}.

@@ -3140,6 +3140,18 @@ def _mechanical_mute_verdict(
     )
 
 
+#: `test_reason` text for a `SMOKE: harness-crash` verdict (the smoke command
+#: ran, exited non-zero, and produced no output at all). Deliberately
+#: contains the literal phrase `coord.failure_class`'s `_INFRA_RE` matches
+#: ("infra issue, not a test result") so `record_test_verdict`'s
+#: `_reclassify_infra_test_failure` choke point treats this the same as any
+#: other infra-flavoured Test-stage death — see the call site below.
+_HARNESS_CRASH_REASON = (
+    "headless smoke harness crashed: the smoke command exited non-zero with "
+    "no output at all — an infra issue, not a test result"
+)
+
+
 def _record_smoke_verdict(
     transition: Transition, entry: dict, parent_id: str,
 ) -> None:
@@ -3164,7 +3176,12 @@ def _record_smoke_verdict(
        authoritative and this must never clobber it — `dispatch_smoke` stamps
        ``"running"`` at dispatch, so anything terminal here came from the
        worker.
-    2. **The worker's `SMOKE:` marker** — pass / fail / baseline-red (#2170).
+    2. **The worker's `SMOKE:` marker** — pass / fail / baseline-red (#2170) /
+       harness-crash (the smoke command itself ran and exited non-zero but
+       produced no output at all, so there is no assertion signal to grade —
+       routed through the infra-outage reclassifier below rather than ever
+       persisting ``failed``; a non-zero exit WITH output still records
+       ``failed``).
     3. **A non-zero session exit with no marker** — still ``failed``. Only
        reachable for a non-`claude -p` smoke lane where the exit code IS the
        signal; it stays fail-closed there.
@@ -3245,6 +3262,37 @@ def _record_smoke_verdict(
 
     verdict = _smoke_worker_verdict(transition, entry)
     exit_code = transition.exit_code or 0
+
+    if verdict is not None and verdict.kind == "harness-crash":
+        # The smoke command itself ran and exited non-zero, but produced no
+        # output at all (empty or whitespace-only combined stdout/stderr) —
+        # there is no assertion signal to grade, so this is not a graded
+        # product result the way an ordinary `fail` (non-zero exit WITH
+        # output) is.
+        #
+        # Writing `test_state="failed"` here — rather than inventing a new
+        # `skipped`-plus-confirmation shape — deliberately routes through
+        # `coord.state`'s existing infra-outage reclassifier
+        # (`_reclassify_infra_test_failure`, the single choke point every
+        # `test_state="failed"` write passes through). `_HARNESS_CRASH_REASON`
+        # below matches `coord.failure_class`'s infra-outage signature, so
+        # that reclassifier transparently converts this into either a
+        # cleared verdict (bounded automatic re-dispatch) or
+        # `TEST_STATE_BLOCKED` once the shared environmental-retry budget is
+        # exhausted — the same bounded mechanism every other infra-flavoured
+        # Test-stage death already uses, so a chronically flaky harness
+        # cannot merge everything untested forever, and a real fix-off-this
+        # leg is never dispatched.
+        record_test_verdict(
+            assignment_id=parent_id,
+            test_state="failed",
+            test_reason=(
+                f"{_HARNESS_CRASH_REASON}: {verdict.reason}"
+                if verdict.reason
+                else _HARNESS_CRASH_REASON
+            ),
+        )
+        return
 
     if verdict is not None and verdict.kind == "baseline-red":
         # #2170: `skipped`, not `failed` — the merge gate treats a skipped

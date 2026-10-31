@@ -999,3 +999,19 @@ def test_a_manual_or_offline_report_sends_no_undeliverable_event(machine, monkey
     monkeypatch.setenv("PROBE_BASE_URL", f"http://127.0.0.1:{_closed_port()}")
     assert report.send(auto=True, family="worker", reason="x", env={}).skipped == "offline"
     assert said == []
+
+
+def test_a_manual_report_carries_codex_hooks_and_an_automatic_one_does_not(machine, monkeypatch):
+    """A Codex session unknown to the service may be one whose hooks Codex skips:
+    `probe doctor --send` says which of Probe's hooks Codex runs, as `probe status` does."""
+    from probe.cli import codex_hooks
+
+    snapshot = {"state": "needs_approval", "untrusted": ["probe-research-tap@research-os-agent:hooks/hooks.json:"
+                                                         "SessionStart:0:0"], "checked_at": 1, "unheard_session": SID}
+    monkeypatch.setattr(codex_hooks, "status_snapshot", lambda: dict(snapshot))
+    manual = report.collect(report.Scope.STAFF).report
+    auto = report.collect(report.Scope.STAFF, family="worker", reason="gave_up", kind=report.Kind.AUTO).report
+    assert manual["codex_hooks"] == {**snapshot, "unheard_session": "withheld"}
+    _bind(SID)
+    assert report.collect(report.Scope.STAFF, sid=SID).report["codex_hooks"] == snapshot
+    assert "codex_hooks" not in auto

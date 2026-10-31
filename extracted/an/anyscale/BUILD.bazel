@@ -49,7 +49,6 @@ py_library(
         requirement("kubernetes"),
         requirement("packaging"),
         requirement("pathspec"),
-        requirement("pydantic"),
         requirement("python-dateutil"),
         requirement("requests"),
         requirement("rich"),

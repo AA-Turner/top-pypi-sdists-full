@@ -969,7 +969,7 @@ async fn run_one_call(
     flush_timeout: Duration,
     metrics: Option<Arc<CallMetrics>>,
 ) {
-    let attempt = match input_queue.delivery_attempt(&delivery).await {
+    let attempt = match input_queue.prepare_delivery(&delivery).await {
         Ok(attempt) => attempt,
         Err(error) => {
             error!(call_id = %delivery.call.call_id, %error, "failed to resolve delivery attempt");
@@ -1135,7 +1135,7 @@ async fn run_one_coalesced_call(
     live_calls: LiveCalls,
     metrics: Option<Arc<CallMetrics>>,
 ) {
-    let attempt = match input_queue.delivery_attempt(&delivery).await {
+    let attempt = match input_queue.prepare_delivery(&delivery).await {
         Ok(attempt) => attempt,
         Err(error) => {
             error!(call_id = %delivery.call.call_id, %error, "failed to resolve delivery attempt");
@@ -1386,7 +1386,7 @@ async fn execute_and_write(
     let mut flushed: usize = 0;
     // A retry must not duplicate generator chunks. Retry-enabled calls buffer
     // output until the handler succeeds or reaches its final attempt.
-    let buffer_until_terminal = work.max_retries.is_some();
+    let buffer_until_terminal = work.max_retries.unwrap_or(0) > 0;
 
     // Completion is driven by the handler future resolving, NOT by the buffer
     // emitter being torn down — so a handler that pins its emitter (e.g. via a

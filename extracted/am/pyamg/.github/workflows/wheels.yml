@@ -34,13 +34,6 @@ jobs:
           CIBW_ARCHS_MACOS: "auto"
           CIBW_ARCHS_WINDOWS: "AMD64"  # avoid x86: scipy no longer provides 32-bit Windows wheels
           CIBW_ARCHS_LINUX: "x86_64"
-          # Windows (as in matplotlib):
-          # force MSVC (--vsenv)
-          # link the C++ runtime statically (b_vscrt=mt)
-          CIBW_CONFIG_SETTINGS_WINDOWS: >-
-            setup-args=--vsenv
-            setup-args=-Db_vscrt=mt
-            "setup-args=-Dcpp_link_args=['ucrt.lib','vcruntime.lib','/nodefaultlib:libucrt.lib','/nodefaultlib:libvcruntime.lib']"
           CIBW_BUILD_VERBOSITY: 2
           CIBW_TEST_REQUIRES: pytest
           CIBW_TEST_COMMAND: "pytest --pyargs pyamg"
@@ -90,9 +83,35 @@ jobs:
           name: cibw-sdist
           path: dist/*.tar.gz
 
+  # build and test the sdist on Windows with pip
+  test_sdist_windows:
+    name: Test source distribution on Windows
+    needs: build_sdist
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: Retrieve sdist
+        uses: actions/download-artifact@v7
+        with:
+          name: cibw-sdist
+          path: dist
+
+      - name: Test sdist
+        run: |
+          python -m pip install dist/*.tar.gz pytest
+          cd "$RUNNER_TEMP"
+          python -c 'import pyamg; print(pyamg.__version__)'
+          python -m pytest --pyargs pyamg
+
   upload_all:
     name: upload to PyPI
-    needs: [build_wheels, build_sdist]
+    needs: [build_wheels, build_sdist, test_sdist_windows]
     if: github.event_name == 'release'  # manual runs only build artifacts
     environment: publish_pypi
     permissions:

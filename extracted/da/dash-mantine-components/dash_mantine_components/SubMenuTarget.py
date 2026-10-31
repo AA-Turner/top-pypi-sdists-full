@@ -255,7 +255,19 @@ Keyword arguments:
 
     - darkHidden (boolean; optional):
         Determines whether component should be hidden in dark color
-        scheme with `display: none`."""
+        scheme with `display: none`.
+
+    - mis (number; optional):
+        MarginInlineStart, theme key: theme.spacing.
+
+    - mie (number; optional):
+        MarginInlineEnd, theme key: theme.spacing.
+
+    - pis (number; optional):
+        PaddingInlineStart, theme key: theme.spacing.
+
+    - pie (number; optional):
+        PaddingInlineEnd, theme key: theme.spacing."""
     _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
@@ -319,7 +331,11 @@ Keyword arguments:
             "className": NotRequired[str],
             "style": NotRequired[typing.Union[typing.Any]],
             "lightHidden": NotRequired[bool],
-            "darkHidden": NotRequired[bool]
+            "darkHidden": NotRequired[bool],
+            "mis": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
+            "mie": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
+            "pis": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
+            "pie": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]]
         }
     )
 

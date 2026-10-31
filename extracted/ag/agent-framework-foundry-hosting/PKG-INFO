@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: agent-framework-foundry-hosting
-Version: 1.0.0b261022
+Version: 1.0.0b261030
 Summary: Foundry Hosting integration for Microsoft Agent Framework.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
@@ -9,7 +9,6 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -17,13 +16,14 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
 License-File: LICENSE
-Requires-Dist: agent-framework-core>=1.23.0,<2
+Requires-Dist: agent-framework-core>=1.24.0,<2
 Requires-Dist: azure-ai-agentserver-core>=2.1.0,<3
 Requires-Dist: azure-ai-agentserver-responses>=2.2.0b1,<3
 Requires-Dist: azure-ai-agentserver-invocations>=1.1.0,<2
 Requires-Dist: httpx>=0.28,<1
 Requires-Dist: httpx2>=2.0.0,<3
 Requires-Dist: mcp>=2.2.0,<3
+Requires-Dist: tenacity>=9.1.4,<9.2.0
 Project-URL: homepage, https://aka.ms/agent-framework
 Project-URL: issues, https://github.com/microsoft/agent-framework/issues
 Project-URL: release_notes, https://github.com/microsoft/agent-framework/releases?q=tag%3Apython-1&expanded=true
@@ -307,6 +307,18 @@ screenshots, and typed safety checks. It restores those items from request input
 output item ID without changing the provider's `call_id`.
 Although screenshots are optional in shared `Content`, this Responses host requires them on computer results.
 The computer-use `Content` constructors and `ComputerSafetyCheck` type are experimental Agent Framework APIs.
+
+## Responses citation annotations
+
+`ResponsesHostServer` serializes supported framework URL and file citations into `output_text.annotations`.
+URL and container-file citation spans refer to character positions in the generated response text.
+Annotations with `annotated_regions_coordinate_space == "source"` retain source-document coordinates
+(for example, Anthropic character, page, or block locations); the host does not emit those regions as
+output-text spans. Other supported citation metadata, such as file citations with an explicit output index,
+is still converted.
+Completed provider responses retain separate text content parts, keeping citation offsets relative to
+their original part. Ordinary streaming deltas still merge within their existing text occurrence,
+without shifting citation offsets.
 
 ## State store
 

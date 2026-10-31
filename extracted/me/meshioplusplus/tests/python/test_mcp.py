@@ -6,7 +6,7 @@ Two halves, mirroring test_interop.py's split:
   which imports no third-party library beyond numpy — it runs in the default
   CI matrix with the ``mcp`` SDK absent. Every report is asserted to be
   strict JSON (``json.dumps(..., allow_nan=False)``).
-* The **gated half** (``pytest.importorskip("mcp")``) builds the MCP
+* The **gated half** (``pytest.importorskip("mcp")``) builds the FastMCP
   server and exercises tool listing, tool calls, resources and the error
   payload shape.
 
@@ -1456,114 +1456,6 @@ def test_tessellate_reports_counts_and_watertightness(tmp_path):
     assert bad["error_type"] == "ValueError" and "levels" in bad["error"]
 
 
-def test_adapt_tool_reports_the_capability(tmp_path):
-    # Roadmap 3.2: the MMG backend, or its absence named, with mmg_available.
-    src = str(tmp_path / "square.vtu")
-    meshioplusplus.write(
-        src, meshioplusplus.rectangle(dims=(4, 4), cell_type="triangle")
-    )
-    out = _dump(
-        _tools.call_tool(
-            "adapt",
-            {"input_path": src, "output_path": str(tmp_path / "a.vtu"), "hsiz": 0.1},
-        )
-    )
-    assert out["mmg_available"] is meshioplusplus.has_mmg()
-    if meshioplusplus.has_mmg():
-        assert out["library"] == "mmg2d" and out["status"] == "success"
-        assert out["num_elements_out"] > out["num_elements_in"]
-    else:
-        assert out["error_type"] == "NotImplementedError"
-        assert "MESHIOPLUSPLUS_WITH_MMG" in out["error"]
-
-
-def test_discretize_levelset_and_mesh_domain_tools(tmp_path):
-    # Roadmap 3.2.2 and 3.2.3, or their absence named, with mmg_available.
-    square = meshioplusplus.rectangle(
-        dims=(8, 8), size=(2, 2), origin=(-1, -1, 0), cell_type="triangle"
-    )
-    square.point_data["ls"] = np.linalg.norm(square.points[:, :2], axis=1) - 0.5
-    src = str(tmp_path / "square.vtu")
-    meshioplusplus.write(src, square)
-    cut = _dump(
-        _tools.call_tool(
-            "discretize_levelset",
-            {
-                "input_path": src,
-                "output_path": str(tmp_path / "c.vtu"),
-                "level_set": "ls",
-            },
-        )
-    )
-    th = np.linspace(0, 2 * np.pi, 17)[:-1]
-    lines = np.array([[i, (i + 1) % 16] for i in range(16)])
-    circle = meshioplusplus.Mesh(np.c_[np.cos(th), np.sin(th)], [("line", lines)])
-    bnd = str(tmp_path / "circle.vtu")
-    meshioplusplus.write(bnd, circle)
-    dom = _dump(
-        _tools.call_tool(
-            "mesh_domain",
-            {"input_path": bnd, "output_path": str(tmp_path / "d.vtu"), "hsiz": 0.2},
-        )
-    )
-    for out in (cut, dom):
-        assert out["mmg_available"] is meshioplusplus.has_mmg()
-    if meshioplusplus.has_mmg():
-        assert cut["library"] == "mmg2d" and cut["status"] == "success"
-        assert dom["num_subdomains"] == 1 and dom["num_holes"] == 0
-        assert dom["num_elements_out"] > 50
-    else:
-        for out in (cut, dom):
-            assert out["error_type"] == "NotImplementedError"
-
-
-def test_move_tool_reports_the_capability(tmp_path):
-    # Roadmap 3.2.4: a box's xmax face pushed out, or the missing backend named.
-    box = meshioplusplus.box(dims=(4, 4, 4), cell_type="tetra")
-    d = np.zeros((len(box.points), 3))
-    d[np.isclose(box.points[:, 0], 1.0), 0] = 0.1
-    box.point_data["d"] = d
-    src = str(tmp_path / "box.vtu")
-    meshioplusplus.write(src, box)
-    dst = str(tmp_path / "moved.vtu")
-    out = _dump(
-        _tools.call_tool(
-            "move",
-            {
-                "input_path": src,
-                "output_path": dst,
-                "displacement": "d",
-                "moving": ["xmax"],
-            },
-        )
-    )
-    assert out["mmg_available"] is meshioplusplus.has_mmg()
-    if meshioplusplus.has_mmg() and meshioplusplus.has_mmg_elas():
-        assert out["library"] == "mmg3d" and out["status"] == "success"
-        assert np.isclose(meshioplusplus.read(dst).points[:, 0].max(), 1.1)
-    else:
-        assert out["error_type"] == "NotImplementedError"
-
-
-def test_metric_from_hessian_tool(tmp_path):
-    mesh = meshioplusplus.rectangle(dims=(2, 2), cell_type="triangle")
-    mesh.point_data["h"] = np.tile(
-        [2.0, 0, 0, 0, 20.0, 0, 0, 0, 0], (len(mesh.points), 1)
-    )
-    src = str(tmp_path / "h.vtu")
-    meshioplusplus.write(src, mesh)
-    dst = str(tmp_path / "m.vtu")
-    out = _dump(
-        _tools.call_tool(
-            "metric_from_hessian",
-            {"input_path": src, "output_path": dst, "hessian": "h", "hmax": 10.0},
-        )
-    )
-    assert "error" not in out, out
-    metric = meshioplusplus.read(dst).point_data["metric"]
-    assert metric.shape == (len(mesh.points), 6)
-
-
 def test_fit_cad_tool_reports_the_capability(tmp_path):
     from meshioplusplus._fit_cad import has_occt
 
@@ -1580,26 +1472,12 @@ def test_fit_cad_tool_reports_the_capability(tmp_path):
         )
     )
     assert out["occt_available"] is has_occt()
-    # Without OpenCASCADE the native backend builds the analytic solid.
-    assert out["backend"] == ("occt" if has_occt() else "native")
+    if not has_occt():
+        assert out["error_type"] == "NotImplementedError"
+        assert "MESHIOPLUSPLUS_WITH_OCCT" in out["error"]
+        return
     assert out["valid"] is True
     assert out["num_plane"] == 6
-    assert out["num_faceted_faces"] == 0
-    if not has_occt():
-        bad = _dump(
-            _tools.call_tool(
-                "fit_cad",
-                {
-                    "input_path": src,
-                    "output_path": str(tmp_path / "x.step"),
-                    "backend": "occt",
-                },
-            )
-        )
-        assert bad["error_type"] == "NotImplementedError"
-        assert "MESHIOPLUSPLUS_WITH_OCCT" in bad["error"]
-        assert bad["occt_available"] is False
-        return
     assert out["num_split_patches"] == 0
     assert out["num_fillet"] == 0 and out["num_helical"] == 0
     assert out["num_variable_fillet"] == out["num_blend"] == 0
@@ -1615,118 +1493,6 @@ def test_fit_cad_tool_reports_the_capability(tmp_path):
     assert out["step_path"].endswith("cube.step")
     assert "fit_cad:face" in out["cell_data"]
     assert os.path.exists(tmp_path / "solid.vtu")
-
-
-def test_refine_patches_tool_refuses_bad_options_before_the_core(tmp_path):
-    from .analytic_surfaces import box_skin
-
-    # Segmented already, so every refusal is refine_patches' own.
-    src = str(tmp_path / "box.vtu")
-    meshioplusplus.write(src, meshioplusplus.segment(box_skin(2)))
-    for key, value in (
-        ("normal_weight", -1.0),
-        ("epsilon", -1.0),
-        ("feature_angle", 200.0),
-        ("max_iterations", -1),
-        ("min_patch_cells", 0),
-        ("ransac_seed", -1),
-        ("types", ["blob"]),
-        ("prefix", ""),
-    ):
-        bad = _dump(
-            _tools.call_tool(
-                "refine_patches",
-                {"input_path": src, "output_path": str(tmp_path / "x.vtu"), key: value},
-            )
-        )
-        assert bad["error_type"] == "ValueError", key
-        assert "refine_patches" in bad["error"], key
-
-
-@pytest.mark.skipif(
-    not hasattr(_core, "refine_patches"), reason="core predates refine_patches"
-)
-def test_refine_patches_tool_segments_then_refines(tmp_path):
-    from .analytic_surfaces import box_skin
-
-    src = str(tmp_path / "box.vtu")
-    meshioplusplus.write(src, box_skin(3))
-    out = _dump(
-        _tools.call_tool(
-            "refine_patches",
-            {"input_path": src, "output_path": str(tmp_path / "refined.vtu")},
-        )
-    )
-    # A box segmented by its creases is already six planes: nothing moves.
-    assert out["output_path"].endswith("refined.vtu")
-    assert out["num_patches"] == out["num_primitive"] == 6
-    assert out["num_freeform"] == out["num_facets"] == 0
-    assert out["explained_area_fraction"] == pytest.approx(1.0)
-    assert out["stop"] == "unchanged"
-    assert "segment:patch" in out["cell_data"]
-    assert "fit:type" in out["cell_data"]
-    for name in ("refine:patch_proxy", "refine:explained_area_fraction"):
-        assert name in out["field_data"]
-    # A feature angle above the box's right angles leaves one patch, which
-    # the RANSAC split takes apart into the six sides again.
-    split = _dump(
-        _tools.call_tool(
-            "refine_patches",
-            {
-                "input_path": src,
-                "output_path": str(tmp_path / "split.vtu"),
-                "feature_angle": 100.0,
-                "max_iterations": 20,
-            },
-        )
-    )
-    assert split["num_splits"] > 0
-    assert split["initial_explained_area_fraction"] == 0.0
-    assert split["num_primitive"] == 6
-    # fit_cad's own refinement adds its report keys only when it ran.
-    plain = _dump(
-        _tools.call_tool(
-            "fit_cad",
-            {
-                "input_path": src,
-                "output_path": str(tmp_path / "a.step"),
-                "backend": "native",
-            },
-        )
-    )
-    assert "refined" not in plain
-    refined = _dump(
-        _tools.call_tool(
-            "fit_cad",
-            {
-                "input_path": src,
-                "output_path": str(tmp_path / "b.step"),
-                "backend": "native",
-                "refine_segmentation": True,
-            },
-        )
-    )
-    assert refined["refined"] is True
-    assert "refinement_kept" in refined
-    assert refined["explained_area_fraction"] == pytest.approx(1.0)
-    for key in ("refine_iterations", "num_refine_splits", "num_refine_merges"):
-        assert key in refined
-    # The constrained primitives report only when asked for.
-    assert "num_constrained_primitives" not in plain
-    constrained = _dump(
-        _tools.call_tool(
-            "fit_cad",
-            {
-                "input_path": src,
-                "output_path": str(tmp_path / "c.step"),
-                "backend": "native",
-                "constrain_primitives": True,
-            },
-        )
-    )
-    assert constrained["num_constrained_primitives"] >= 0
-    assert constrained["num_constraint_groups"] >= 0
-    assert constrained["num_demoted"] == 0
 
 
 def test_cad_json_brep_rides_through_convert(tmp_path):
@@ -2149,8 +1915,6 @@ _NOT_TOOLS = {
     "view",  # interactive; screenshot is the headless tool
     "tui",  # interactive (it takes over a terminal); render_mesh is the headless tool
     "has_viewer",
-    "has_mmg",  # capability probes; the adapt tool reports mmg_available
-    "has_mmg_elas",
     "to_pyvista",
     "from_pyvista",
     "to_trimesh",
@@ -2173,9 +1937,6 @@ _NOT_TOOLS = {
     "has_open3d",
     "has_dolfinx",
     "edge_index",  # in-memory (2, E) array; no path-based form
-    # Its input is polygons as in-memory (n, 2) arrays, not a file; the
-    # mesh_cad_surface tool covers meshing a CAD file.
-    "triangulate_polygon_2d",
     "feature_matrix",  # in-memory matrix + schema; no path-based form
     "FeatureMatrix",
     # An in-memory value (the mesh plus its provenance arrays); the
@@ -2305,440 +2066,6 @@ def test_every_tool_function_is_callable():
                 var.islower() and var in getattr(_tools, "__annotations__", {})
             ), f"{name}: unresolved global {var}"
         assert inspect.signature(fn) is not None
-
-
-def test_generator_tools(tmp_path):
-    """The parametric generators read no input and write a mesh."""
-    cases = [
-        ("rectangle", dict(dims=[3, 2], cell_type="triangle", split="center"), 24),
-        ("box", dict(dims=[2, 2, 2], cell_type="tetra", order=2), 48),
-        ("disk", dict(n=3, cell_type="triangle"), 54),
-        ("uv_sphere", dict(nu=8, nv=4, cell_type="quad"), 16 + 16),
-        ("icosa_sphere", dict(subdivisions=1, order=2), 80),
-        ("cylinder", dict(nxy=2, nz=2, cell_type="wedge"), 48),
-        ("reference_triangle", dict(n=3, order=2), 9),
-        ("ngon", dict(sides=5, rings=2), 20),
-        ("annulus", dict(ntheta=12, nr=3, cell_type="triangle"), 72),
-        ("lshape", dict(n=2), 12),
-        ("plate_with_hole", dict(nt=3, nr=2), 24),
-        ("honeycomb", dict(dims=[3, 2]), 6),
-        ("reference_cells", dict(types=["tetra", "wedge"]), 2),
-        ("line", dict(n=5, end=[0.0, 0.0, 2.0], order=3), 5),
-        ("circle", dict(n=6, order=2), 6),
-        ("helix", dict(n=10, turns=1.0), 10),
-        ("sphere_points", dict(n=17), 17),
-        ("box_points", dict(n=9, seed=4), 9),
-        ("tetra_sphere", dict(subdivisions=1), 16),
-        ("octa_sphere", dict(subdivisions=1), 32),
-        ("cube_sphere", dict(n=2, order=2, complete=True), 24),
-        ("geo_sphere", dict(n=2), 80),
-        ("torus", dict(nu=6, nv=4, cell_type="triangle"), 48),
-        ("moebius", dict(nu=8, nv=2, num_twists=3), 16),
-        ("tube", dict(ntheta=6, nz=2), 12),
-        ("cone", dict(ntheta=6, nz=2), 6 * 4),
-        ("capsule", dict(ntheta=6, nz=1, ncap=2), 6 * 5),
-        ("box_surface", dict(dims=[1, 2, 3]), 22),
-        ("platonic", dict(name="dodecahedron"), 12),
-        ("ball", dict(n=1, cell_type="tetra"), 48),
-        ("spherical_shell", dict(n=2, nr=1, ratio=1.5), 24),
-        ("pipe", dict(ntheta=6, nr=1, nz=2), 12),
-        ("fichera", dict(n=1), 7),
-        ("solid_torus", dict(n=2, nu=5, order=2), 20),
-    ]
-    for name, kwargs, num_cells in cases:
-        out = tmp_path / f"{name}.vtu"
-        report = getattr(_tools, f"tool_{name}")(str(out), **kwargs)
-        assert out.exists(), name
-        assert meshioplusplus.read(out).points.shape[0] == report["num_points"], name
-        assert report["num_cells"] == num_cells, name
-
-    with pytest.raises(ValueError, match="unknown cell_type"):
-        _tools.tool_box(str(tmp_path / "bad.vtu"), cell_type="quad")
-    with pytest.raises(ValueError, match="above the limit"):
-        _tools.tool_box(str(tmp_path / "big.vtu"), dims=[10, 10, 10], max_cells=50)
-    with pytest.raises(ValueError, match="less than half the size"):
-        _tools.tool_plate_with_hole(str(tmp_path / "hole.vtu"), radius=0.9)
-
-
-def test_octree_mesh_tool(tmp_path):
-    skin = tmp_path / "skin.vtu"
-    meshioplusplus.write(skin, meshioplusplus.icosa_sphere(1.0, 2))
-    out = tmp_path / "volume.vtu"
-    report = _tools.tool_octree_mesh(
-        str(skin), str(out), output="castellated", max_size=0.5, min_size=0.125
-    )
-    assert out.exists()
-    assert report["output"] == "castellated"
-    assert report["num_inside"] == report["num_cells"] > 0
-    assert report["num_surrogate_faces"] > 0
-    assert report["quality"]["num_inverted"] == 0
-    assert "warnings" in report and "timings" in report
-    written = meshioplusplus.read(out)
-    assert "sdf:distance" in written.point_data
-    assert "sdf:closest_point" in written.point_data
-
-    with pytest.raises(ValueError, match="output"):
-        _tools.tool_octree_mesh(str(skin), str(out), output="bogus")
-    with pytest.raises(ValueError, match="winding_threshold"):
-        _tools.tool_octree_mesh(str(skin), str(out), winding_threshold=2.0)
-
-    graded = _tools.tool_octree_mesh(
-        str(skin), str(out), output="hex", hex_grading="graded", max_size=0.5
-    )
-    assert graded["output"] == "hex" and graded["num_hexahedra"] > 0
-    assert graded["num_inverted"] == 0
-    with pytest.raises(ValueError, match="hex_grading"):
-        _tools.tool_octree_mesh(str(skin), str(out), output="hex", hex_grading="bogus")
-
-
-def test_boundary_layer_tool(tmp_path):
-    """Roadmap 6.9: layers grown out of the sphere's mesh are wedges."""
-    if not hasattr(_core, "boundary_layer"):
-        pytest.skip("core predates boundary_layer")
-    model = pathlib.Path(__file__).parent / "meshes" / "cad_json" / "sphere.cad.json"
-    skin = tmp_path / "sphere.vtu"
-    _tools.tool_mesh_cad_surface(str(model), str(skin), 0.3)
-    out = tmp_path / "layers.vtu"
-    report = _tools.tool_boundary_layer(str(skin), str(out), 0.01, num_layers=2)
-    assert report["num_wedges"] > 0 and report["cap_closed"]
-    assert report["min_scaled_jacobian"] > 0.0
-    assert "wedge" in {c.type for c in meshioplusplus.read(out).cells}
-    with pytest.raises(ValueError, match="first_height"):
-        _tools.tool_boundary_layer(str(skin), str(out), 0.0)
-
-
-def test_boundary_layer_tool_collapse_and_front(tmp_path):
-    """Roadmap 6.9.1: the collapse, normal smoothing and front-test options
-    reach the operation, and its two counters the report."""
-    if not hasattr(_core, "boundary_layer"):
-        pytest.skip("core predates boundary_layer")
-    model = pathlib.Path(__file__).parent / "meshes" / "cad_json" / "sphere.cad.json"
-    skin = tmp_path / "sphere.vtu"
-    _tools.tool_mesh_cad_surface(str(model), str(skin), 0.3)
-    out = tmp_path / "layers.vtu"
-    report = _tools.tool_boundary_layer(
-        str(skin),
-        str(out),
-        0.01,
-        num_layers=2,
-        collapse="layers",
-        normal_smooth_iterations=2,
-        front_check=False,
-    )
-    assert report["num_wedges"] > 0
-    assert report["num_fewer_layers"] >= 0 and report["num_front_crossings"] == 0
-    with pytest.raises(ValueError, match="collapse"):
-        _tools.tool_boundary_layer(str(skin), str(out), 0.01, collapse="rows")
-
-
-def test_tetrahedralize_tool(tmp_path):
-    """Roadmap 6.7: the sphere's mesh filled with tetrahedra by the native
-    octree backend (always built, its boundary fitted) and, with Netgen, its
-    skin kept; without Netgen asking for it names the build flag."""
-    if not hasattr(_core, "tetrahedralize"):
-        pytest.skip("core predates tetrahedralize")
-    model = pathlib.Path(__file__).parent / "meshes" / "cad_json" / "sphere.cad.json"
-    skin = tmp_path / "sphere.vtu"
-    _tools.tool_mesh_cad_surface(str(model), str(skin), 0.3)
-    out = tmp_path / "tets.vtu"
-    with pytest.raises(ValueError, match="grading"):
-        _tools.tool_tetrahedralize(str(skin), str(out), grading=2.0)
-    fitted = _tools.tool_tetrahedralize(str(skin), str(out), backend="octree")
-    assert fitted["backend"] == "octree" and not fitted["boundary_preserved"]
-    assert fitted["num_tetrahedra"] > 0 and fitted["hausdorff_to_surface"] > 0.0
-    if not _core.__has_netgen__:
-        with pytest.raises(NotImplementedError, match="MESHIOPLUSPLUS_WITH_NETGEN"):
-            _tools.tool_tetrahedralize(str(skin), str(out), backend="netgen")
-        return
-    report = _tools.tool_tetrahedralize(str(skin), str(out), max_size=0.3)
-    assert report["num_tetrahedra"] > 0 and report["num_regions"] == 1
-    assert report["boundary_preserved"] and report["backend"] == "netgen"
-    assert 4.0 < report["volume"] < 4 / 3 * np.pi
-    assert {c.type for c in meshioplusplus.read(out).cells} == {"tetra", "triangle"}
-
-
-def test_project_to_cad_tool(tmp_path):
-    """Roadmap 6.10.1: the sphere's mesh, smoothed (which shrinks it), goes
-    back onto the sphere."""
-    if not hasattr(_core, "project_to_cad"):
-        pytest.skip("core predates project_to_cad")
-    model = pathlib.Path(__file__).parent / "meshes" / "cad_json" / "sphere.cad.json"
-    meshed = tmp_path / "sphere.vtu"
-    _tools.tool_mesh_cad_surface(str(model), str(meshed), 0.25)
-    smoothed = meshioplusplus.smooth(meshioplusplus.read(meshed), iterations=5)
-    shrunk = tmp_path / "shrunk.vtu"
-    meshioplusplus.write(shrunk, smoothed)
-    out = tmp_path / "back.vtu"
-    report = _tools.tool_project_to_cad(str(shrunk), str(model), str(out))
-    assert report["num_projected"] == len(smoothed.points)
-    assert report["num_ambiguous"] == report["num_failed"] == 0
-    assert report["max_move"] > 1e-3
-    assert 0 <= report["num_on_curves"] <= report["num_on_edges"]
-    assert report["outside_trim"] == []
-    back = meshioplusplus.read(out)
-    assert np.allclose(np.linalg.norm(back.points, axis=1), 1.0, atol=1e-12)
-    with pytest.raises(ValueError, match="trim_samples"):
-        _tools.tool_project_to_cad(str(shrunk), str(model), str(out), trim_samples=1)
-
-
-def test_error_size_tool(tmp_path):
-    """Roadmap 6.10.2: estimate_error's indicator becomes a size field that
-    mesh_cad_surface's background reads."""
-    if not hasattr(_core, "error_size"):
-        pytest.skip("core predates error_size")
-    model = pathlib.Path(__file__).parent / "meshes" / "cad_json" / "sphere.cad.json"
-    meshed = tmp_path / "sphere.vtu"
-    _tools.tool_mesh_cad_surface(str(model), str(meshed), 0.3, edges=False)
-    mesh = meshioplusplus.read(meshed)
-    mesh.point_data["f"] = np.exp(3.0 * mesh.points[:, 2])
-    with_field = tmp_path / "field.vtu"
-    meshioplusplus.write(with_field, mesh)
-    indicated = tmp_path / "indicated.vtu"
-    _tools.tool_estimate_error(str(with_field), str(indicated), "f")
-    sized = tmp_path / "sized.vtu"
-    report = _tools.tool_error_size(
-        str(indicated), str(sized), 0.05, min_size=0.05, max_size=0.5
-    )
-    assert report["num_cells"] > 0 and report["num_skipped"] == 0
-    assert 0.05 <= report["min_size"] <= report["max_size"] <= 0.5
-    back = meshioplusplus.read(sized)
-    assert np.all((back.point_data["size"] >= 0.05) & (back.point_data["size"] <= 0.5))
-    remeshed = tmp_path / "remeshed.vtu"
-    adapted = _tools.tool_mesh_cad_surface(
-        str(model), str(remeshed), 0.5, background_path=str(sized)
-    )
-    assert adapted["num_failed"] == 0
-    assert adapted["min_metric_angle"] == 0.0
-    with pytest.raises(ValueError, match="target_error"):
-        _tools.tool_error_size(str(indicated), str(sized), 0.0)
-    with pytest.raises(ValueError, match="error:zz"):
-        _tools.tool_error_size(str(with_field), str(sized), 0.05)
-
-
-def test_mesh_cad_surface_tool(tmp_path):
-    if not hasattr(_core, "mesh_cad_surface"):
-        pytest.skip("core predates mesh_cad_surface")
-    src = pathlib.Path(__file__).parent / "meshes" / "cad_json" / "unit_cube.cad.json"
-    out = tmp_path / "cube.vtu"
-    report = _tools.tool_mesh_cad_surface(str(src), str(out), 0.25)
-    assert out.exists()
-    assert report["num_faces"] == 6
-    assert report["num_failed"] == 0
-    assert report["num_open_edges"] == 0
-    assert report["num_misoriented_edges"] == 0
-    assert len(report["faces"]) == 6
-    assert all(f["status"] == "ok" for f in report["faces"])
-    assert "warnings" in report
-    written = meshioplusplus.read(out)
-    assert "cad:face" in written.cell_data
-    with pytest.raises(ValueError, match="target_size"):
-        _tools.tool_mesh_cad_surface(str(src), str(out), 0.0)
-    # Refined to 25 degrees and smoothed: the bound is met and reported.
-    refined = _tools.tool_mesh_cad_surface(
-        str(src),
-        str(out),
-        0.25,
-        min_angle=25.0,
-        smooth_iterations=2,
-        smooth_method="odt",
-    )
-    assert refined["min_angle_deg"] >= 25.0 - 1e-9
-    assert refined["num_faces_below_bound"] == 0
-    assert sum(refined["angle_histogram"]) == 3 * refined["num_triangles"]
-    assert all(f["corners"] == [] for f in refined["faces"])
-    with pytest.raises(ValueError, match="smooth_method"):
-        _tools.tool_mesh_cad_surface(str(src), str(out), 0.25, smooth_method="none")
-    # Curved: quadratic triangles, every element valid.
-    curved = _tools.tool_mesh_cad_surface(str(src), str(out), 0.25, order=2)
-    assert curved["num_curved_straightened"] == 0
-    assert [c.type for c in meshioplusplus.read(out).cells][0] == "triangle6"
-    with pytest.raises(ValueError, match="order"):
-        _tools.tool_mesh_cad_surface(str(src), str(out), 0.25, order=4)
-    # Sized by curvature: the cylinder's side is finer than target_size.
-    cyl = src.parent / "capped_cylinder.cad.json"
-    uniform = _tools.tool_mesh_cad_surface(str(cyl), str(out), 0.2)
-    sized = _tools.tool_mesh_cad_surface(
-        str(cyl), str(out), 0.2, curvature_deviation=0.002, grading=1.3
-    )
-    assert sized["num_failed"] == 0
-    assert sized["num_triangles"] > uniform["num_triangles"]
-    assert sized["max_edge"] <= uniform["max_edge"] + 1e-12
-    with pytest.raises(ValueError, match="grading"):
-        _tools.tool_mesh_cad_surface(str(cyl), str(out), 0.2, grading=0.5)
-    # Rings at the sphere's poles: every angle meets the bound.
-    sphere = src.parent / "sphere.cad.json"
-    ringed = _tools.tool_mesh_cad_surface(
-        str(sphere), str(out), 0.2, min_angle=25.0, pole_rings=2
-    )
-    assert ringed["num_failed"] == 0
-    assert ringed["min_angle_deg"] >= 25.0 - 1e-9
-    with pytest.raises(ValueError, match="pole_rings"):
-        _tools.tool_mesh_cad_surface(str(sphere), str(out), 0.2, pole_rings=9)
-    # Given sizes (v17.19.0): a face's, by index as JSON gives it.
-    given = _tools.tool_mesh_cad_surface(
-        str(src), str(out), 0.4, face_sizes={"1": 0.1, "2": 0.4}
-    )
-    assert given["num_failed"] == 0
-    assert any(f["limited_by_edges"] for f in given["faces"])
-    assert given["virtual_edges"] == []
-    with pytest.raises(ValueError, match="face_sizes"):
-        _tools.tool_mesh_cad_surface(str(src), str(out), 0.4, face_sizes={"9": 0.1})
-    # Virtual edges (v17.19.0): the rim's sliver is skipped, its chain named.
-    rim = src.parent / "split_rim.cad.json"
-    virtual = _tools.tool_mesh_cad_surface(str(rim), str(out), 0.25, virtual_edges=True)
-    assert virtual["num_failed"] == 0 and virtual["virtual_edges"] == [[3, 5]]
-    # A varying metric (v17.19.0): the sphere's poles meet the bound.
-    varying = _tools.tool_mesh_cad_surface(
-        str(sphere), str(out), 0.2, min_angle=25.0, metric="varying"
-    )
-    assert varying["num_failed"] == 0 and varying["min_angle_deg"] >= 25.0 - 1e-9
-    # The discrete reparametrisation (v17.20.0): the sphere's hemispheres are
-    # flattened through their poles and meet the bound, both reported.
-    flat = _tools.tool_mesh_cad_surface(
-        str(sphere), str(out), 0.2, min_angle=25.0, reparam_condition_number=4.0
-    )
-    assert flat["num_failed"] == 0 and flat["min_angle_deg"] >= 25.0 - 1e-9
-    assert [r["taken"] for r in flat["reparametrised"]] == [True, True]
-    # Virtual faces and model tolerances are accepted; nothing is a sliver
-    # nor declares a tolerance here.
-    other = _tools.tool_mesh_cad_surface(
-        str(sphere), str(out), 0.2, virtual_faces=True, model_tolerances=True
-    )
-    assert other["merged_faces"] == [] and other["tolerance_uses"] == []
-    # Corner lopping: the sphere's faces have no acute corner to lop.
-    lopped = _tools.tool_mesh_cad_surface(
-        str(sphere), str(out), 0.2, min_angle=20.0, lop_corners=True
-    )
-    assert lopped["lopped_corners"] == []
-    # A metric from a Hessian (roadmap 6.10.2): a background of the sphere
-    # with a field's Hessian, read from a file.
-    bg = meshioplusplus.mesh_cad_surface(meshioplusplus.read(sphere), 0.2, edges=False)
-    x = np.asarray(bg.points)
-    bg.point_data["f"] = np.tanh((x[:, 2] - 0.3) / 0.1)
-    bg = meshioplusplus.hessian(bg, "f", location="point")
-    bg_path = tmp_path / "hessian.vtu"
-    meshioplusplus.write(bg_path, bg)
-    metric = _tools.tool_mesh_cad_surface(
-        str(sphere),
-        str(out),
-        0.3,
-        metric_background_path=str(bg_path),
-        metric_array="f:hessian",
-        metric_error=0.01,
-    )
-    assert metric["num_failed"] == 0
-    assert metric["num_points"] > uniform_sphere_points(sphere, out)
-    with pytest.raises(ValueError, match="metric_error"):
-        _tools.tool_mesh_cad_surface(
-            str(sphere),
-            str(out),
-            0.3,
-            metric_background_path=str(bg_path),
-            metric_array="f:hessian",
-        )
-    # Quads (roadmap 6.8): all-quad leaves no triangle; untangling (6.6.3)
-    # needs curved elements.
-    quads = _tools.tool_mesh_cad_surface(
-        str(sphere), str(out), 0.3, min_angle=25.0, quads="all"
-    )
-    assert quads["num_quads"] > 0 and quads["num_leftover_triangles"] == 0
-    assert quads["min_quad_scaled_jacobian"] > 0.0
-    assert {c.type for c in meshioplusplus.read(out).cells} == {"quad", "line"}
-    curved = _tools.tool_mesh_cad_surface(
-        str(sphere), str(out), 0.3, order=2, untangle=True
-    )
-    assert curved["num_untangled"] == 0
-    with pytest.raises(ValueError, match="untangle"):
-        _tools.tool_mesh_cad_surface(str(sphere), str(out), 0.3, untangle=True)
-    with pytest.raises(ValueError, match="quads"):
-        _tools.tool_mesh_cad_surface(str(sphere), str(out), 0.3, quads="hex")
-    # Pairing (6.8.1): the matching leaves no more triangles than the greedy.
-    greedy = _tools.tool_mesh_cad_surface(
-        str(sphere), str(out), 0.3, quads="dominant", quad_pairs="greedy"
-    )
-    matched = _tools.tool_mesh_cad_surface(str(sphere), str(out), 0.3, quads="dominant")
-    assert matched["num_leftover_triangles"] <= greedy["num_leftover_triangles"]
-    with pytest.raises(ValueError, match="quad_pairs"):
-        _tools.tool_mesh_cad_surface(str(sphere), str(out), 0.3, quad_pairs="best")
-
-
-def uniform_sphere_points(sphere, out):
-    """The points of the sphere meshed at 0.3 with nothing else asked."""
-    return _tools.tool_mesh_cad_surface(str(sphere), str(out), 0.3)["num_points"]
-
-
-def test_octree_tool(tmp_path):
-    skin = tmp_path / "skin.vtu"
-    meshioplusplus.write(
-        skin,
-        meshioplusplus.convert_cells(
-            meshioplusplus.extract_surface(meshioplusplus.grid([2, 2, 2])),
-            mode="simplexify",
-        ),
-    )
-    out = tmp_path / "tree.vtu"
-    report = _tools.tool_octree(str(skin), str(out), max_level=3, fill="inside")
-    assert out.exists()
-    assert report["dimension"] == 3
-    assert report["num_leaves"] > 0
-    assert "num_hanging" in report
-
-    with pytest.raises(ValueError, match="balance"):
-        _tools.tool_octree(str(skin), str(out), balance="bogus")
-
-    conforming = tmp_path / "conforming.vtu"
-    report = _tools.tool_octree(
-        str(skin), str(conforming), max_level=3, transition="templates"
-    )
-    assert report["num_hanging"] == 0
-    snapped = _tools.tool_octree(
-        str(skin), str(out), max_level=3, fill="inside", snap=True
-    )
-    assert "num_snapped" in snapped and "num_refused" in snapped
-
-
-def test_check_conformity_tool(tmp_path):
-    # One coarse quad beside two fine ones: the fine side's middle node hangs.
-    pts = np.array(
-        [[0, 0], [1, 0], [1, 1], [0, 1], [2, 0], [2, 0.5], [2, 1], [1, 0.5]],
-        dtype=float,
-    )
-    quads = np.array([[0, 1, 2, 3], [1, 4, 5, 7], [7, 5, 6, 2]])
-    src = tmp_path / "t.vtu"
-    meshioplusplus.write(src, meshioplusplus.Mesh(pts, [("quad", quads)]))
-    report = _tools.tool_check_conformity(str(src))
-    assert report["num_t_junctions"] == 1
-    assert report["conforming"] is False
-    assert report["interface_mode"] == "proximity"
-    assert "output_path" not in report
-    flagged = tmp_path / "flags.vtu"
-    report = _tools.tool_check_conformity(str(src), output_path=str(flagged))
-    assert report["output_path"] == str(flagged)
-    flags = meshioplusplus.read(flagged).point_data["conformity:hanging"]
-    assert list(np.nonzero(flags)[0]) == [7]
-    with pytest.raises(ValueError, match="tolerance"):
-        _tools.tool_check_conformity(str(src), tolerance=-1.0)
-
-
-def test_voxelize_tool_plane(tmp_path):
-    # A square polyline in the xz plane: "auto" and "xz" agree, "xy" sees a
-    # degenerate box and an unknown plane is refused by name.
-    pts = np.array([[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1]], dtype=float)
-    loop = meshioplusplus.Mesh(
-        pts, [("line", np.array([[0, 1], [1, 2], [2, 3], [3, 0]]))]
-    )
-    src = tmp_path / "loop.vtu"
-    meshioplusplus.write(src, loop)
-    auto = _tools.tool_voxelize(str(src), str(tmp_path / "a.vtu"), resolution=[4, 4])
-    xz = _tools.tool_voxelize(
-        str(src), str(tmp_path / "b.vtu"), resolution=[4, 4], plane="xz"
-    )
-    assert auto["dims"] == xz["dims"] == [4, 4, 1]
-    assert auto["origin"] == xz["origin"]
-    with pytest.raises(ValueError, match="plane"):
-        _tools.tool_voxelize(
-            str(src), str(tmp_path / "c.vtu"), resolution=[4, 4], plane="uv"
-        )
 
 
 def test_compute_sdf_tool(tmp_path):
@@ -2948,7 +2275,7 @@ def test_crop_tool_takes_a_data_predicate(mesh_file, tmp_path):
 
 
 # --------------------------------------------------------------------------- #
-# Gated half: the MCP server (needs the [mcp] extra)                      #
+# Gated half: the FastMCP server (needs the [mcp] extra)                      #
 # --------------------------------------------------------------------------- #
 
 
@@ -2965,16 +2292,10 @@ def _run(coro):
     return asyncio.run(coro)
 
 
-def _content(result):
-    # call_tool returns a content list (mcp 1.x, older), a (content,
-    # structured) tuple (1.x, newer) or a CallToolResult (2.x).
-    if hasattr(result, "content"):
-        return result.content
-    return result[0] if isinstance(result, tuple) else result
-
-
 def _tool_json(result):
-    content = _content(result)
+    # FastMCP.call_tool returns a content list (older SDKs) or a
+    # (content, structured) tuple (newer); normalize to the parsed JSON.
+    content = result[0] if isinstance(result, tuple) else result
     text = next(c.text for c in content if getattr(c, "type", "") == "text")
     return json.loads(text)
 
@@ -2985,8 +2306,7 @@ def test_server_lists_every_registered_tool():
     assert sorted(t.name for t in tools) == sorted(TOOL_REGISTRY)
     for t in tools:
         assert (t.description or "").strip(), f"tool '{t.name}' has no description"
-        schema = getattr(t, "input_schema", None) or getattr(t, "inputSchema", None)
-        assert schema, f"tool '{t.name}' has no input schema"
+        assert t.inputSchema, f"tool '{t.name}' has no input schema"
 
 
 def test_server_render_mesh_returns_an_image(mesh_file, tmp_path):
@@ -3003,7 +2323,7 @@ def test_server_render_mesh_returns_an_image(mesh_file, tmp_path):
             },
         )
     )
-    content = _content(result)
+    content = result[0] if isinstance(result, tuple) else result
     assert any(getattr(c, "type", "") == "image" for c in content)
     text = _tool_json(
         _run(server.call_tool("render_mesh", {"input_path": mesh_file, "rows": 5}))
@@ -3049,7 +2369,7 @@ def test_server_screenshot_falls_back_to_the_software_rasterizer(
     result = _run(
         server.call_tool("screenshot", {"input_path": mesh_file, "output_path": out})
     )
-    content = _content(result)
+    content = result[0] if isinstance(result, tuple) else result
     assert any(getattr(c, "type", "") == "image" for c in content)
     assert open(out, "rb").read(8) == b"\x89PNG\r\n\x1a\n"
 
@@ -3635,7 +2955,7 @@ def test_server_mirrors_the_train_start_and_predict_file_parameters():
 
     Deliberately never ``from meshioplusplus.mcp import _server`` (or
     ``importlib.import_module``): that line executes the module, whose own
-    top-level ``from mcp.server.mcpserver import ...`` raises
+    top-level ``from mcp.server.fastmcp import FastMCP`` raises
     ``ModuleNotFoundError`` on the SDK-absent default matrix this test is
     meant to run in -- the same pure/gated split `_tools.py`'s import chain
     already keeps. Reading the ``.py`` file's text directly is what actually
@@ -3655,10 +2975,9 @@ def test_server_mirrors_the_train_start_and_predict_file_parameters():
             "train_start",
             "predict_file",
             "fit_cad",
-            "refine_patches",
         ):
             mirrored[node.name] = [a.arg for a in node.args.args]
-    for name in ("train_start", "predict_file", "fit_cad", "refine_patches"):
+    for name in ("train_start", "predict_file", "fit_cad"):
         pure = list(inspect.signature(getattr(_tools, f"tool_{name}")).parameters)
         assert mirrored[name] == pure, name
 
@@ -3847,26 +3166,3 @@ def test_marc_and_ansys_results_formats(tmp_path):
     stress = str(tmp_path / "stress.vtu")
     _tools.tool_convert(rst, stress)
     assert "S" in meshioplusplus.read(stress).point_data
-
-
-def test_extrude_revolve_and_mirror_tools(tmp_path):
-    """Roadmap 3.1.2, 3.1.3 and 3.2.5: the sweep and reflection tools write
-    their mesh and report the operations' counters."""
-    if not hasattr(_core, "extrude"):
-        pytest.skip("core predates extrude")
-    rect = tmp_path / "rect.vtu"
-    meshioplusplus.write(rect, meshioplusplus.rectangle(dims=(3, 2)))
-    out = tmp_path / "swept.vtu"
-    report = _tools.tool_extrude(str(rect), str(out), num_layers=4)
-    assert report["num_hexahedra"] == 24 and report["num_flipped"] == 0
-    assert {c.type for c in meshioplusplus.read(out).cells} == {"hexahedron"}
-    with pytest.raises(ValueError, match="parallel"):
-        _tools.tool_extrude(str(rect), str(out), direction=[0, 1, 0])
-    report = _tools.tool_revolve(str(rect), str(out), num_layers=8)
-    assert report["full"] and report["num_on_axis"] == 3
-    box = tmp_path / "box.vtu"
-    meshioplusplus.write(box, meshioplusplus.box(dims=(2, 2, 2), cell_type="tetra"))
-    report = _tools.tool_mirror(str(box), str(out), keep_original=True)
-    assert report["num_points_on_plane"] == 9 and report["num_flipped_cells"] == 48
-    with pytest.raises(ValueError, match="normal"):
-        _tools.tool_mirror(str(box), str(out), normal=[0, 0, 0])

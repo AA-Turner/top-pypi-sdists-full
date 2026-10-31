@@ -9,6 +9,7 @@ import typing_extensions
 from ...core.pydantic_utilities import IS_PYDANTIC_V2
 from ...core.unchecked_base_model import UncheckedBaseModel, UnionMetadata
 from .abuse_ipdb_credential import AbuseIpdbCredential
+from .amazon_security_lake_custom_log_sources_config import AmazonSecurityLakeCustomLogSourcesConfig
 from .api_config import ApiConfig
 from .api_region import ApiRegion
 from .appsec_opentext_core_application_security_dataset import AppsecOpentextCoreApplicationSecurityDataset
@@ -90,6 +91,8 @@ from .identity_okta_dataset import IdentityOktaDataset
 from .identity_ping_one_dataset import IdentityPingOneDataset
 from .incident_io_credential import IncidentIoCredential
 from .intune_credential import IntuneCredential
+from .ironscales_credential import IronscalesCredential
+from .ironscales_region import IronscalesRegion
 from .iru_credential import IruCredential
 from .ivanti_credential import IvantiCredential
 from .ivanti_credential_ticketing import IvantiCredentialTicketing
@@ -1130,6 +1133,21 @@ class ProviderConfig_EmailsecurityExchangeOnline(UncheckedBaseModel):
             extra = pydantic.Extra.allow
 
 
+class ProviderConfig_EmailsecurityIronscales(UncheckedBaseModel):
+    type: typing.Literal["emailsecurity_ironscales"] = "emailsecurity_ironscales"
+    company_id: str
+    credential: IronscalesCredential
+    region: IronscalesRegion
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
 class ProviderConfig_EmailsecurityMimecastCloudGateway(UncheckedBaseModel):
     type: typing.Literal["emailsecurity_mimecast_cloud_gateway"] = "emailsecurity_mimecast_cloud_gateway"
     api_gateway: typing.Optional[MimecastApiGateway] = None
@@ -1674,6 +1692,22 @@ class ProviderConfig_SecurityawarenessKnowbe4(UncheckedBaseModel):
             extra = pydantic.Extra.allow
 
 
+class ProviderConfig_SiemAmazonSecurityLake(UncheckedBaseModel):
+    type: typing.Literal["siem_amazon_security_lake"] = "siem_amazon_security_lake"
+    credential: AwsProviderCredential
+    custom_log_sources: typing.Optional[AmazonSecurityLakeCustomLogSourcesConfig] = None
+    region: AwsRegion
+    workgroup_name: str
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
 class ProviderConfig_SiemCrowdstrike(UncheckedBaseModel):
     type: typing.Literal["siem_crowdstrike"] = "siem_crowdstrike"
     credential: CrowdStrikeCredential
@@ -1883,6 +1917,21 @@ class ProviderConfig_SiemSumoLogic(UncheckedBaseModel):
     credential: SumoLogicCredential
     siem_logs_only: typing.Optional[bool] = None
     url: str
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
+class ProviderConfig_SinkAmazonSecurityLake(UncheckedBaseModel):
+    type: typing.Literal["sink_amazon_security_lake"] = "sink_amazon_security_lake"
+    credential: AwsProviderCredential
+    custom_log_sources: AmazonSecurityLakeCustomLogSourcesConfig
+    region: AwsRegion
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2
@@ -2980,6 +3029,7 @@ ProviderConfig = typing_extensions.Annotated[
         ProviderConfig_EmailsecurityDefenderForOffice,
         ProviderConfig_EmailsecurityDefenderForOfficeMock,
         ProviderConfig_EmailsecurityExchangeOnline,
+        ProviderConfig_EmailsecurityIronscales,
         ProviderConfig_EmailsecurityMimecastCloudGateway,
         ProviderConfig_EmailsecurityMimecastCloudGatewayMock,
         ProviderConfig_EmailsecurityO365ManagementActivity,
@@ -3018,6 +3068,7 @@ ProviderConfig = typing_extensions.Annotated[
         ProviderConfig_NotificationsSlackWebhook,
         ProviderConfig_NotificationsTeams,
         ProviderConfig_SecurityawarenessKnowbe4,
+        ProviderConfig_SiemAmazonSecurityLake,
         ProviderConfig_SiemCrowdstrike,
         ProviderConfig_SiemDatadog,
         ProviderConfig_SiemElasticsearch,
@@ -3031,6 +3082,7 @@ ProviderConfig = typing_extensions.Annotated[
         ProviderConfig_SiemSentinel,
         ProviderConfig_SiemSplunk,
         ProviderConfig_SiemSumoLogic,
+        ProviderConfig_SinkAmazonSecurityLake,
         ProviderConfig_SinkAwsS3,
         ProviderConfig_SinkAwsSecurityLake,
         ProviderConfig_SinkAwsSqs,

@@ -153,6 +153,7 @@ fn get_hint_refs(segment: &ErasedSegment) -> HashSet<u32> {
 fn get_object_references_excluding(
     segment: &ErasedSegment,
     exclude_ids: Option<&HashSet<u32>>,
+    recurse_into: bool,
 ) -> Vec<ObjectReferenceSegment> {
     segment
         .recursive_crawl(
@@ -163,7 +164,7 @@ fn get_object_references_excluding(
                     SyntaxKind::WildcardIdentifier,
                 ])
             },
-            true,
+            recurse_into,
             const { &SyntaxSet::new(&[SyntaxKind::SelectStatement, SyntaxKind::MergeStatement]) },
             true,
         )
@@ -174,7 +175,7 @@ fn get_object_references_excluding(
 }
 
 pub fn get_object_references(segment: &ErasedSegment) -> Vec<ObjectReferenceSegment> {
-    get_object_references_excluding(segment, None)
+    get_object_references_excluding(segment, None, true)
 }
 
 pub fn get_select_statement_info(
@@ -192,7 +193,7 @@ pub fn get_select_statement_info(
     let mut exclude_ref_ids = get_struct_alias_refs(&sc);
     exclude_ref_ids.extend(get_select_except_refs(&sc));
     exclude_ref_ids.extend(get_hint_refs(&sc));
-    let mut reference_buffer = get_object_references_excluding(&sc, Some(&exclude_ref_ids));
+    let mut reference_buffer = get_object_references_excluding(&sc, Some(&exclude_ref_ids), true);
     let mut table_reference_buffer = Vec::new();
     for potential_clause in [
         SyntaxKind::WhereClause,
@@ -233,7 +234,20 @@ pub fn get_select_statement_info(
         ) {
             for seg in table_expression.segments() {
                 if !seg.is_type(SyntaxKind::TableReference) {
-                    reference_buffer.extend(get_object_references(seg));
+                    // TSQL wraps an object_reference in a table_reference.
+                    // Stop at the outer reference so its inner node cannot
+                    // leak back into the column-reference buffer.
+                    for reference in get_object_references_excluding(seg, None, false) {
+                        // Tables declared inside a bracketed join or a table
+                        // function are declarations, rather than columns.
+                        if reference.0.is_type(SyntaxKind::TableReference) {
+                            if reference.is_qualified() {
+                                table_reference_buffer.push(reference);
+                            }
+                        } else {
+                            reference_buffer.push(reference);
+                        }
+                    }
                 } else if seg.reference().is_qualified() {
                     table_reference_buffer.extend(get_object_references(seg));
                 }
@@ -467,15 +481,23 @@ fn get_lambda_argument_columns(segment: &ErasedSegment, dialect: Option<&Dialect
         return Vec::new();
     };
 
-    if !matches!(
+    // Dialects whose grammar has a dedicated lambda function, so that a lambda
+    // always parses as a `lambda_function` holding a `lambda_arrow`. In these
+    // dialects a plain `->` binary operator is something else - duckdb and trino
+    // also use it for JSON extraction - and must not be read as a lambda.
+    let uses_lambda_function = matches!(
         dialect.name,
-        DialectKind::Athena
-            | DialectKind::Sparksql
-            | DialectKind::Duckdb
-            | DialectKind::Trino
-            | DialectKind::Databricks
-            | DialectKind::Snowflake
-    ) {
+        DialectKind::Duckdb | DialectKind::Trino | DialectKind::Snowflake
+    );
+    // Dialects that parse a lambda as an ordinary expression with a `->` binary
+    // operator.
+    let uses_lambda_expression = matches!(
+        dialect.name,
+        DialectKind::Athena | DialectKind::Sparksql | DialectKind::Databricks
+    );
+
+    if !uses_lambda_function && !uses_lambda_expression {
+        // Dialects without lambda expressions have zero lambda columns.
         return Vec::new();
     }
 
@@ -486,9 +508,17 @@ fn get_lambda_argument_columns(segment: &ErasedSegment, dialect: Option<&Dialect
         &SyntaxSet::EMPTY,
         true,
     ) {
-        let Some(potential_arrow) = potential_lambda.child(
-            const { &SyntaxSet::new(&[SyntaxKind::BinaryOperator, SyntaxKind::LambdaArrow]) },
-        ) else {
+        let potential_arrow = if uses_lambda_function {
+            // A bare expression with a `->` is not a lambda in these dialects.
+            if !potential_lambda.is_type(SyntaxKind::LambdaFunction) {
+                continue;
+            }
+            potential_lambda.child(const { &SyntaxSet::single(SyntaxKind::LambdaArrow) })
+        } else {
+            potential_lambda.child(const { &SyntaxSet::single(SyntaxKind::BinaryOperator) })
+        };
+
+        let Some(potential_arrow) = potential_arrow else {
             continue;
         };
 
@@ -506,7 +536,11 @@ fn get_lambda_argument_columns(segment: &ErasedSegment, dialect: Option<&Dialect
                 })
                 .collect_vec();
 
-            assert_eq!(argument_segments.len(), 1);
+            if argument_segments.len() != 1 {
+                // Not a shape we recognise as a lambda parameter list.
+                // Contribute no columns rather than crashing the whole analyzer.
+                continue;
+            }
             let child_segment = argument_segments.pop().unwrap();
 
             match child_segment.get_type() {

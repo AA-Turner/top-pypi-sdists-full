@@ -29,12 +29,64 @@ fn staged_handoff_bindings_are_registered() {
             "validate_staged_handoff",
             "validate_staged_handoff_receipt",
             "evaluate_stage_admission",
+            "evaluate_host_stage_admission",
             "staged_handoff_receipt_authorizes",
+            "gate_staged_payload_schema_version",
+            "validate_gate_staged_payload",
+            "build_gate_staged_payload",
+            "staged_monitor_launch_payload_schema_version",
+            "validate_staged_monitor_launch_payload",
+            "evaluate_staged_monitor_membership",
+            "evaluate_staged_owner_liveness",
+            "evaluate_staged_self_wait",
         ] {
             assert!(module.getattr(name).is_ok(), "{name}");
         }
         assert_eq!(py_staged_handoff_wire_schema_version(), 1);
+        assert_eq!(py_gate_staged_payload_schema_version(), 1);
     });
+}
+
+fn gate_payload() -> serde_json::Value {
+    json!({
+        "gate_schema_version": 1,
+        "request_id": "custom-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+        "spec": {
+            "request_id": "custom-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+            "resources": [
+                {
+                    "path": "notes.md",
+                    "role": "editable",
+                    "executable": false,
+                    "source": "/tmp/work/notes.md"
+                }
+            ]
+        },
+        "auto": {
+            "decision": {"profile": "manual"},
+            "policy_block": {},
+            "auto_execute": false
+        },
+        "resources": [
+            {
+                "path": "notes.md",
+                "role": "editable",
+                "executable": false,
+                "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+                "size_bytes": 3,
+                "origin": "/tmp/work/notes.md",
+                "staged_relpath": "snapshots/notes.md"
+            }
+        ],
+        "creator": {
+            "project": "sase",
+            "project_file": "/tmp/sase.project.json",
+            "artifacts_dir": "/tmp/artifacts/20261029T000000Z",
+            "timestamp": "20261029T000000Z",
+            "agent": "agent-1"
+        },
+        "workspace_mode": "inherit"
+    })
 }
 
 #[test]
@@ -100,6 +152,49 @@ fn admission_binding_refuses_occupying_and_submission() {
 }
 
 #[test]
+fn host_admission_binding_allows_review_despite_submission() {
+    pyo3::prepare_freethreaded_python();
+    Python::with_gil(|py| {
+        let admitted = json!({
+            "schema_version": 1,
+            "command": "workflow review",
+            "is_agent": true,
+            "artifacts_dir_present": true,
+            "is_finalizer_owned": false,
+            "is_native_helper": false,
+            "occupying": [],
+            "has_accepted_current_submission": true,
+            "host_workflow": "review-doc",
+            "host_step": "draft",
+            "host_step_type": "agent",
+            "host_provider_evidence": "nonce:abc sha256:def"
+        });
+        let request = json_value_to_py(py, &admitted).unwrap();
+        let request = request.bind(py).downcast::<PyDict>().unwrap();
+        py_evaluate_host_stage_admission(request)
+            .expect("host review with evidence must stage");
+
+        let refused = json!({
+            "schema_version": 1,
+            "command": "workflow review",
+            "is_agent": true,
+            "artifacts_dir_present": true,
+            "is_finalizer_owned": false,
+            "is_native_helper": false,
+            "occupying": [],
+            "has_accepted_current_submission": false,
+            "host_workflow": "review-doc",
+            "host_step": "draft",
+            "host_step_type": "agent"
+        });
+        let request = json_value_to_py(py, &refused).unwrap();
+        let request = request.bind(py).downcast::<PyDict>().unwrap();
+        let error = py_evaluate_host_stage_admission(request).unwrap_err();
+        assert!(error.to_string().contains("completed-provider evidence"));
+    });
+}
+
+#[test]
 fn receipt_authorizes_binding_round_trips() {
     pyo3::prepare_freethreaded_python();
     Python::with_gil(|py| {
@@ -125,5 +220,139 @@ fn receipt_authorizes_binding_round_trips() {
             "bbbbbbbb-bbbb-4ccc-8ddd-eeeeeeeeeeee"
         )
         .unwrap());
+    });
+}
+
+#[test]
+fn gate_payload_binding_round_trips() {
+    pyo3::prepare_freethreaded_python();
+    Python::with_gil(|py| {
+        let raw = gate_payload();
+        let record = json_value_to_py(py, &raw).unwrap();
+        let record = record.bind(py).downcast::<PyDict>().unwrap();
+        let result = py_build_gate_staged_payload(py, record).unwrap();
+        let value = py_to_json_value(result.bind(py)).unwrap();
+        assert_eq!(value["gate_schema_version"], json!(1));
+        let validated = {
+            let normalized = json_value_to_py(py, &value).unwrap();
+            let normalized = normalized.bind(py).downcast::<PyDict>().unwrap();
+            let result =
+                py_validate_gate_staged_payload(py, normalized).unwrap();
+            py_to_json_value(result.bind(py)).unwrap()
+        };
+        assert_eq!(validated, value);
+    });
+}
+
+fn launch_payload() -> serde_json::Value {
+    serde_json::json!({
+        "schema_version": 1,
+        "staged_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+        "monitor_id": "monitor-1",
+        "member_id": "member-1",
+        "request_fingerprint": "fp-1",
+        "command": ["sase", "tool", "run", "check"],
+        "execution_argv": ["sase", "tool", "run", "check"],
+        "label": "check",
+        "policy_digest": "a".repeat(64),
+        "lane": "followup",
+        "cwd": "/tmp/work",
+        "starter": {
+            "agent_id": "agent-1",
+            "run_id": "run-1",
+            "artifacts_dir": "/tmp/artifacts/1"
+        },
+        "workspace": {"mode": "inherit"},
+        "continuation": {"parent_node_ids": [], "protocol": "legacy"},
+        "resources": {"tool_run_id": "run-abc"}
+    })
+}
+
+#[test]
+fn launch_payload_binding_round_trips() {
+    pyo3::prepare_freethreaded_python();
+    Python::with_gil(|py| {
+        assert_eq!(py_staged_monitor_launch_payload_schema_version(), 1);
+        let raw = launch_payload();
+        let payload = json_value_to_py(py, &raw).unwrap();
+        let payload = payload.bind(py).downcast::<PyDict>().unwrap();
+        let result =
+            py_validate_staged_monitor_launch_payload(py, payload).unwrap();
+        let value = py_to_json_value(result.bind(py)).unwrap();
+        assert_eq!(value, raw);
+    });
+}
+
+#[test]
+fn gate_payload_binding_rejects_request_id_mismatch() {
+    pyo3::prepare_freethreaded_python();
+    Python::with_gil(|py| {
+        let mut raw = gate_payload();
+        raw["request_id"] = json!("custom-other-id");
+        let record = json_value_to_py(py, &raw).unwrap();
+        let record = record.bind(py).downcast::<PyDict>().unwrap();
+        let error = py_build_gate_staged_payload(py, record).unwrap_err();
+        assert!(error.to_string().contains("payload.spec.request_id"));
+
+        let mut missing = gate_payload();
+        missing["spec"]["resources"][0]
+            .as_object_mut()
+            .expect("object")
+            .remove("source");
+        let record = json_value_to_py(py, &missing).unwrap();
+        let record = record.bind(py).downcast::<PyDict>().unwrap();
+        let error = py_validate_gate_staged_payload(py, record).unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("exactly one of content or source"));
+    });
+}
+
+#[test]
+fn membership_liveness_self_wait_bindings_decide() {
+    pyo3::prepare_freethreaded_python();
+    Python::with_gil(|py| {
+        let membership = serde_json::json!({
+            "schema_version": 1,
+            "monitor_state": "staged",
+            "supervisor_present": false
+        });
+        let request = json_value_to_py(py, &membership).unwrap();
+        let request = request.bind(py).downcast::<PyDict>().unwrap();
+        let result =
+            py_evaluate_staged_monitor_membership(py, request).unwrap();
+        let value = py_to_json_value(result.bind(py)).unwrap();
+        assert_eq!(value["nonterminal"], serde_json::json!(true));
+        assert_eq!(value["has_supervisor"], serde_json::json!(false));
+
+        let liveness = serde_json::json!({
+            "schema_version": 1,
+            "owner_kind": "monitor",
+            "owner_id": "monitor-1",
+            "staged_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+            "stage_record_present": true,
+            "proc_exists": false
+        });
+        let request = json_value_to_py(py, &liveness).unwrap();
+        let request = request.bind(py).downcast::<PyDict>().unwrap();
+        let result = py_evaluate_staged_owner_liveness(py, request).unwrap();
+        let value = py_to_json_value(result.bind(py)).unwrap();
+        assert_eq!(value["pending_owner"], serde_json::json!(true));
+
+        let wait = serde_json::json!({
+            "schema_version": 1,
+            "caller_owner_kind": "monitor",
+            "caller_owner_id": "monitor-1",
+            "caller_staged_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+            "run_owner_kind": "monitor",
+            "run_owner_id": "monitor-1",
+            "run_staged_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+            "run_proc_exists": false
+        });
+        let request = json_value_to_py(py, &wait).unwrap();
+        let request = request.bind(py).downcast::<PyDict>().unwrap();
+        let result = py_evaluate_staged_self_wait(py, request).unwrap();
+        let value = py_to_json_value(result.bind(py)).unwrap();
+        assert_eq!(value["is_self_wait"], serde_json::json!(true));
     });
 }

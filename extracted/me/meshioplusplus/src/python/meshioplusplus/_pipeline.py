@@ -29,9 +29,7 @@ from contextvars import ContextVar
 
 import numpy as np
 
-from . import _primitives
 from ._agglomerate import agglomerate
-from ._check_conformity import check_conformity
 from ._clean import clean
 from ._convert_cells import convert_cells
 from ._crop import crop
@@ -43,9 +41,8 @@ from ._data_manage import data_drop, data_keep, data_rename
 from ._decimate import decimate
 from ._decimate_volume import decimate_volume
 from ._error import estimate_error
-from ._error_size import error_size
 from ._feature_edges import feature_edges
-from ._fit_cad import DEFAULT_RANSAC_SEED, fit_cad
+from ._fit_cad import fit_cad
 from ._fit_primitives import TYPES, fit_primitives, types_mask
 from ._gradient import gradient
 from ._helpers import _filetypes_from_path, _write_format_for_path, read, write
@@ -54,36 +51,15 @@ from ._interfaces import find_interface, region_adjacency, split_interface
 from ._interpolate import interpolate
 from ._isosurface import isosurface
 from ._merge import merge
-from ._mesh import Mesh
-from ._mmg import adapt, discretize_levelset, mesh_domain, move
 from ._normals import compute_normals
-from ._octree import octree
-from ._octree_mesh import octree_mesh
 from ._optimize_volume import optimize_volume
 from ._partition import partition, partition_labels
-from ._primitives import (
-    annulus,
-    box,
-    cylinder,
-    disk,
-    honeycomb,
-    icosa_sphere,
-    lshape,
-    ngon,
-    plate_with_hole,
-    rectangle,
-    reference_cells,
-    reference_triangle,
-    uv_sphere,
-)
 from ._provenance import add_operation as _prov_add_operation
 from ._provenance import set_source as _prov_set_source
 from ._provenance import set_target as _prov_set_target
 from ._quality import attach_quality
 from ._quality_gate import check_quality, format_quality_gate
 from ._refine import refine
-from ._refine_patches import STOPS as REFINE_STOPS
-from ._refine_patches import refine_patches
 from ._region_ops import edit_regions
 from ._remesh import remesh
 from ._remesh_volume import remesh_volume
@@ -193,8 +169,6 @@ _OP_TABLE = {
         "MinPatchCells",
         "Region",
         "Prefix",
-        "Method",
-        "Tolerance",
     ),
     "FitPrimitives": (
         "PatchData",
@@ -217,53 +191,6 @@ _OP_TABLE = {
         "FreeformSplit",
         "Fillets",
         "Threads",
-        "MergeFaces",
-        "Backend",
-        "RefineSegmentation",
-        "MaxRefineIterations",
-        "RefineEpsilon",
-        "NormalWeight",
-        "AllowMerge",
-        "AllowSplit",
-        "RansacSeed",
-        "RefineTolerance",
-        "RelativeTolerance",
-        "FreeformGeneral",
-        "FreeformTolerance",
-        "FreeformSmoothing",
-        "MaxFreeformPoles",
-        "MaxFreeformIterations",
-        "MaxFreeformSplits",
-        "SewTolerance",
-        "ExtendSurfaces",
-        "SnapJunctions",
-        "FaceDeviation",
-        "FreeformMode",
-        "FreeformParameterization",
-        "ExtraordinaryVertex",
-        "LocalRefine",
-        "FreeformG1ToleranceDeg",
-        "FreeformMaxControlPoints",
-        "LayoutTargetPatchSize",
-        "LayoutMaxValenceDeviation",
-        "ResegmentRounds",
-        "LayoutSnapToFeatures",
-        "ValidateBySurfaceSampling",
-        "ConstrainPrimitives",
-    ),
-    "RefinePatches": (
-        "Tolerance",
-        "Relative",
-        "NormalWeight",
-        "Epsilon",
-        "FeatureAngle",
-        "MaxIterations",
-        "MinPatchCells",
-        "RansacSeed",
-        "Types",
-        "AllowSplit",
-        "AllowMerge",
-        "Prefix",
     ),
     "EditRegions": ("Edit", "Inputs", "Output", "Kind", "Dim", "Tag", "KeepInputs"),
     "RegionAdjacency": ("Regions",),
@@ -278,7 +205,6 @@ _OP_TABLE = {
     ),
     "SplitInterface": ("Region", "AddCohesive"),
     "QualityGate": ("Require", "MaxInverted", "MaxDegenerate"),
-    "CheckConformity": ("Tolerance", "Require", "AttachFlags"),
     "Snapshot": (
         "Path",
         "Width",
@@ -359,88 +285,6 @@ _OP_TABLE = {
         "Tolerance",
     ),
     "EstimateError": ("Array", "Method", "Marking", "MarkingValue", "Output", "Marked"),
-    "ErrorSize": ("Array", "TargetError", "Order", "MinSize", "MaxSize", "Output"),
-    "Adapt": (
-        "Hsiz",
-        "Size",
-        "Metric",
-        "Hmin",
-        "Hmax",
-        "Hausd",
-        "Hgrad",
-        "Hgradreq",
-        "AngleDetection",
-        "Optim",
-        "NoInsert",
-        "NoSwap",
-        "NoMove",
-        "NoSurf",
-        "Nreg",
-        "Opnbdy",
-        "Frozen",
-        "Required",
-    ),
-    "DiscretizeLevelset": (
-        "LevelSet",
-        "Isovalue",
-        "RemoveSmallComponents",
-        "Materials",
-        "Hmin",
-        "Hmax",
-        "Hausd",
-        "Hgrad",
-        "Hgradreq",
-        "AngleDetection",
-        "Optim",
-        "NoInsert",
-        "NoSwap",
-        "NoMove",
-        "NoSurf",
-        "Nreg",
-        "Opnbdy",
-        "Frozen",
-        "Required",
-    ),
-    "MeshDomain": (
-        "Hsiz",
-        "Size",
-        "Holes",
-        "Hmin",
-        "Hmax",
-        "Hausd",
-        "Hgrad",
-        "Hgradreq",
-        "AngleDetection",
-        "Optim",
-        "NoInsert",
-        "NoSwap",
-        "NoMove",
-        "NoSurf",
-        "Nreg",
-        "Opnbdy",
-        "Frozen",
-        "Required",
-    ),
-    "Move": (
-        "Displacement",
-        "Moving",
-        "Lagrangian",
-        "Hmin",
-        "Hmax",
-        "Hausd",
-        "Hgrad",
-        "Hgradreq",
-        "AngleDetection",
-        "Optim",
-        "NoInsert",
-        "NoSwap",
-        "NoMove",
-        "NoSurf",
-        "Nreg",
-        "Opnbdy",
-        "Frozen",
-        "Required",
-    ),
     "Remesh": (
         "NumClusters",
         "Subdivide",
@@ -483,110 +327,6 @@ _OP_TABLE = {
         "AttachOccupancy",
         "MaxCells",
         "Sign",
-        "Plane",
-    ),
-    "Generate": (
-        "Shape",
-        "Dims",
-        "Size",
-        "Origin",
-        "Center",
-        "Radius",
-        "Height",
-        "N",
-        "Nu",
-        "Nv",
-        "Nxy",
-        "Nz",
-        "Subdivisions",
-        "Sides",
-        "Rings",
-        "InnerRadius",
-        "OuterRadius",
-        "Ntheta",
-        "Nr",
-        "Nt",
-        "Angle",
-        "Edge",
-        "CellType",
-        "Split",
-        "Order",
-        "MaxCells",
-        "Types",
-        "Pairs",
-        "Complete",
-        "Start",
-        "End",
-        "Pitch",
-        "Turns",
-        "Seed",
-        "MajorRadius",
-        "MinorRadius",
-        "Width",
-        "NumTwists",
-        "Ncap",
-        "Ratio",
-        "Name",
-    ),
-    "OctreeMesh": (
-        "Output",
-        "MinSize",
-        "MaxSize",
-        "MaxLevel",
-        "Bounds",
-        "Padding",
-        "PaddingRelative",
-        "CurvatureAngle",
-        "FeatureAngle",
-        "CornerAngle",
-        "FeatureSize",
-        "GapCells",
-        "GapOutside",
-        "SizeArray",
-        "SurfaceRegion",
-        "GradingLayers",
-        "SkinGrading",
-        "SurfaceSize",
-        "WindingThreshold",
-        "WindingBeta",
-        "Conformity",
-        "AlphaLong",
-        "AlphaShort",
-        "PreserveFeatures",
-        "FitIterations",
-        "DihedralFloorGuard",
-        "Fill",
-        "KeepOutside",
-        "AttachDistance",
-        "AttachQuality",
-        "Pillow",
-        "HexGrading",
-        "UntangleIterations",
-        "MaxCells",
-        "MaxTets",
-    ),
-    "Octree": (
-        "RootCells",
-        "MinLevel",
-        "MaxLevel",
-        "Bounds",
-        "Padding",
-        "PaddingRelative",
-        "Dimension",
-        "SampleDistance",
-        "Balance",
-        "Fill",
-        "AttachDistance",
-        "EvenOdd",
-        "MaxCells",
-        "Sign",
-        "Transition",
-        "Snap",
-        "SurfaceLevel",
-        "CurvatureThreshold",
-        "FeatureAngle",
-        "SizeArray",
-        "Plane",
     ),
     "ComputeSdf": (
         "Structure",
@@ -662,97 +402,6 @@ _OP_TABLE = {
     ),
     "ToCell": ("Names",),
     "ToPoint": ("Names", "Weight"),
-    # The model steps (roadmap 6.1.1): they act on the CAD model the Input
-    # read carries beside its mesh (see _apply_model_step).
-    "MeshCadSurface": (
-        "TargetSize",
-        "MaxChordalDeviation",
-        "MinPointsPerEdge",
-        "Tolerance",
-        "RecordFaceIds",
-        "Edges",
-        "MatchUnreferencedTrims",
-        "Strict",
-        "MaxPoints",
-        "MinAngle",
-        "SmoothIterations",
-        "SmoothMethod",
-        "Order",
-        "CurvatureDeviation",
-        "CellsAcrossGaps",
-        "Grading",
-        "PoleRings",
-        "FaceSizes",
-        "EdgeSizes",
-        "Background",
-        "BackgroundArray",
-        "Metric",
-        "VirtualEdges",
-        "ReparamConditionNumber",
-        "ModelTolerances",
-        "VirtualFaces",
-        "LopCorners",
-        "MetricBackground",
-        "MetricArray",
-        "MetricError",
-        "Untangle",
-        "Quads",
-        "QuadPairs",
-    ),
-    "IgaSample": ("Subdivisions", "TrimSamples", "Trim", "Edges"),
-    "IgaRefine": (
-        "Subdivisions",
-        "Elevate",
-        "SampleSubdivisions",
-        "TrimSamples",
-        "Trim",
-        "Edges",
-    ),
-    # Back onto the CAD (roadmap 6.10.1): the B-rep at Model, or the one a
-    # CAD Input carries when no step has changed the mesh since.
-    "ProjectToCad": ("Model", "FaceArray", "EdgeArray", "MaxDistance", "TrimSamples"),
-    # Prismatic layers grown from the surface (roadmap 6.9).
-    "BoundaryLayer": (
-        "FirstHeight",
-        "NumLayers",
-        "Growth",
-        "Reverse",
-        "CollisionFraction",
-        "SmoothIterations",
-        "MaxShrink",
-        "Collapse",
-        "NormalSmoothIterations",
-        "FrontCheck",
-    ),
-    # Sweeps (roadmap 3.1.2, 3.1.3) and the reflection (3.2.5).
-    "Extrude": (
-        "Direction",
-        "NumLayers",
-        "Ratio",
-        "Offsets",
-        "RecordLayers",
-        "MaxCells",
-    ),
-    "Revolve": (
-        "Axis",
-        "AxisPoint",
-        "Angle",
-        "NumLayers",
-        "Tolerance",
-        "RecordLayers",
-        "MaxCells",
-    ),
-    "Mirror": ("Point", "Normal", "KeepOriginal", "Weld", "Tolerance", "ReflectData"),
-    # Tetrahedra filling the closed triangle surface (roadmap 6.7).
-    "Tetrahedralize": (
-        "Backend",
-        "MaxSize",
-        "MaxVolume",
-        "Grading",
-        "OptimizeSteps",
-        "MaxCells",
-        "FaceArray",
-    ),
 }
 
 _V2_OP_TABLE = {
@@ -798,52 +447,9 @@ _EXCLUDED_OPS = {
     "`conservative-interpolate` CLI verb",
 }
 
-# The model steps, and the formats whose read carries a model (the C++
-# engine's pipe_is_model_step and pipe_read_with_model).
-_MODEL_OPS = ("MeshCadSurface", "IgaSample", "IgaRefine")
-_MODEL_FORMATS = ("cad_json", "step", "iges", "mfem")
-
 
 def _err(op, what):
     return ValueError(f"meshio++: pipeline: step '{op}': {what}")
-
-
-def _mmg_kwargs(step):
-    """The shared MMG parameters of a step (roadmap 3.2); ``Frozen`` names a point region."""
-
-    def size(key):
-        value = _number(step, key, -1.0)
-        return None if value < 0 else value
-
-    return dict(
-        hmin=size("Hmin"),
-        hmax=size("Hmax"),
-        hausd=size("Hausd"),
-        hgrad=size("Hgrad"),
-        hgradreq=size("Hgradreq"),
-        angle_detection=_number(step, "AngleDetection", 45.0),
-        optim=_flag(step, "Optim", False),
-        noinsert=_flag(step, "NoInsert", False),
-        noswap=_flag(step, "NoSwap", False),
-        nomove=_flag(step, "NoMove", False),
-        nosurf=_flag(step, "NoSurf", False),
-        nreg=_flag(step, "Nreg", False),
-        opnbdy=_flag(step, "Opnbdy", False),
-        frozen=_text(step, "Frozen", "") or None,
-        required=_svec(step, "Required") or None,
-    )
-
-
-def _mmg_entry(entry, warnings, report):
-    """An MMG step's counters, as the core's pipe_mmg_report writes them."""
-    entry["NumPointsIn"] = float(report["num_points_in"])
-    entry["NumPointsOut"] = float(report["num_points_out"])
-    entry["NumElementsIn"] = float(report["num_elements_in"])
-    entry["NumElementsOut"] = float(report["num_elements_out"])
-    entry["LowFailure"] = 1.0 if report["status"] == "low_failure" else 0.0
-    entry["QualityMin"] = float(report["quality"]["min"])
-    entry["QualityMean"] = float(report["quality"]["mean"])
-    warnings.extend(report["warnings"])
 
 
 def _number(step, key, fallback):
@@ -863,36 +469,6 @@ def _flag(step, key, fallback):
     if not isinstance(v, bool):
         raise _err(step["Op"], f"parameter '{key}' must be a boolean")
     return v
-
-
-def _segment_method(step):
-    method = _text(step, "Method", "angle")
-    if method not in ("angle", "primitive"):
-        raise _err(step["Op"], "'Method' must be 'angle' or 'primitive'")
-    return method
-
-
-def _fit_cad_backend(step):
-    backend = _text(step, "Backend", "auto")
-    if backend not in ("auto", "occt", "native"):
-        raise _err(step["Op"], "'Backend' must be 'auto', 'occt' or 'native'")
-    return backend
-
-
-def _seed(step, key, fallback):
-    """A ``RansacSeed``: an integer in ``[0, 2**53]``, the largest a JSON
-    number (a double, in the C++ engine) carries exactly."""
-    v = step.get(key)
-    if v is None:
-        return fallback
-    what = f"parameter '{key}' must be an integer in [0, 2^53] (9007199254740992)"
-    if isinstance(v, bool) or not isinstance(v, (int, float)):
-        raise _err(step["Op"], what)
-    if isinstance(v, float) and not v.is_integer():
-        raise _err(step["Op"], what)
-    if not 0 <= v <= 1 << 53:
-        raise _err(step["Op"], what)
-    return int(v)
 
 
 def _text(step, key, fallback):
@@ -1197,371 +773,6 @@ def _apply_transform(mesh, step):
     )
 
 
-_GENERATE_SHAPES = (
-    "rectangle",
-    "box",
-    "disk",
-    "uv_sphere",
-    "icosa_sphere",
-    "cylinder",
-    "reference_triangle",
-    "ngon",
-    "annulus",
-    "lshape",
-    "plate_with_hole",
-    "honeycomb",
-    "reference_cells",
-    "line",
-    "circle",
-    "helix",
-    "sphere_points",
-    "box_points",
-    "tetra_sphere",
-    "octa_sphere",
-    "cube_sphere",
-    "geo_sphere",
-    "torus",
-    "moebius",
-    "tube",
-    "cone",
-    "capsule",
-    "box_surface",
-    "platonic",
-    "ball",
-    "spherical_shell",
-    "pipe",
-    "fichera",
-    "solid_torus",
-)
-
-_ORIGIN = ("origin", "triple", [0.0, 0.0, 0.0])
-_CENTER = ("center", "triple", [0.0, 0.0, 0.0])
-_QUAD = ("cell_type", "text", "quad")
-_HEX = ("cell_type", "text", "hexahedron")
-_SURFACE = {
-    "Radius": ("radius", "number", 1.0),
-    "Height": ("height", "number", 1.0),
-    "Ntheta": ("ntheta", "count", 16),
-    "Nz": ("nz", "count", 4),
-    "Center": _CENTER,
-    "CellType": _QUAD,
-}
-#: The second tier of shapes: pipeline key -> (keyword, kind, default). The
-#: ``order``, ``complete`` and ``max_cells`` keywords are added by
-#: :func:`_generate` unless the shape is in ``_GENERATE_LINEAR``.
-_GENERATE_SPECS = {
-    "line": {
-        "N": ("n", "count", 8),
-        "Start": ("start", "triple", [0.0, 0.0, 0.0]),
-        "End": ("end", "triple", [1.0, 0.0, 0.0]),
-    },
-    "circle": {
-        "Radius": ("radius", "number", 1.0),
-        "N": ("n", "count", 16),
-        "Center": _CENTER,
-    },
-    "helix": {
-        "Radius": ("radius", "number", 1.0),
-        "Pitch": ("pitch", "number", 1.0),
-        "Turns": ("turns", "number", 2.0),
-        "N": ("n", "count", 32),
-        "Center": _CENTER,
-    },
-    "sphere_points": {
-        "N": ("n", "count", 100),
-        "Radius": ("radius", "number", 1.0),
-        "Center": _CENTER,
-    },
-    "box_points": {
-        "N": ("n", "count", 100),
-        "Size": ("size", "triple", [1.0, 1.0, 1.0]),
-        "Origin": _ORIGIN,
-        "Seed": ("seed", "count", 0),
-    },
-    "tetra_sphere": {
-        "Radius": ("radius", "number", 1.0),
-        "Subdivisions": ("subdivisions", "count", 3),
-        "Center": _CENTER,
-    },
-    "octa_sphere": {
-        "Radius": ("radius", "number", 1.0),
-        "Subdivisions": ("subdivisions", "count", 2),
-        "Center": _CENTER,
-    },
-    "cube_sphere": {
-        "Radius": ("radius", "number", 1.0),
-        "N": ("n", "count", 4),
-        "Center": _CENTER,
-        "CellType": _QUAD,
-    },
-    "geo_sphere": {
-        "Radius": ("radius", "number", 1.0),
-        "N": ("n", "count", 4),
-        "Center": _CENTER,
-    },
-    "torus": {
-        "MajorRadius": ("major_radius", "number", 1.0),
-        "MinorRadius": ("minor_radius", "number", 0.25),
-        "Nu": ("nu", "count", 32),
-        "Nv": ("nv", "count", 16),
-        "Center": _CENTER,
-        "CellType": _QUAD,
-    },
-    "moebius": {
-        "Radius": ("radius", "number", 1.0),
-        "Width": ("width", "number", 0.5),
-        "Nu": ("nu", "count", 32),
-        "Nv": ("nv", "count", 4),
-        "NumTwists": ("num_twists", "count", 1),
-        "Center": _CENTER,
-        "CellType": _QUAD,
-    },
-    "tube": _SURFACE,
-    "cone": _SURFACE,
-    "capsule": dict(
-        _SURFACE, Radius=("radius", "number", 0.5), Ncap=("ncap", "count", 4)
-    ),
-    "box_surface": {
-        "Dims": ("dims", "dims3", 1),
-        "Size": ("size", "triple", [1.0, 1.0, 1.0]),
-        "Origin": _ORIGIN,
-        "CellType": _QUAD,
-    },
-    "platonic": {
-        "Name": ("name", "text", "icosahedron"),
-        "Radius": ("radius", "number", 1.0),
-        "Center": _CENTER,
-    },
-    "ball": {
-        "Radius": ("radius", "number", 1.0),
-        "N": ("n", "count", 4),
-        "Center": _CENTER,
-        "CellType": _HEX,
-    },
-    "spherical_shell": {
-        "InnerRadius": ("inner_radius", "number", 0.5),
-        "OuterRadius": ("outer_radius", "number", 1.0),
-        "N": ("n", "count", 4),
-        "Nr": ("nr", "count", 2),
-        "Ratio": ("ratio", "number", 1.0),
-        "Center": _CENTER,
-    },
-    "pipe": {
-        "InnerRadius": ("inner_radius", "number", 0.5),
-        "OuterRadius": ("outer_radius", "number", 1.0),
-        "Height": ("height", "number", 1.0),
-        "Ntheta": ("ntheta", "count", 16),
-        "Nr": ("nr", "count", 2),
-        "Nz": ("nz", "count", 4),
-        "Ratio": ("ratio", "number", 1.0),
-        "Center": _CENTER,
-    },
-    "fichera": {
-        "N": ("n", "count", 2),
-        "Size": ("size", "number", 2.0),
-        "Center": _CENTER,
-        "CellType": _HEX,
-    },
-    "solid_torus": {
-        "MajorRadius": ("major_radius", "number", 1.0),
-        "MinorRadius": ("minor_radius", "number", 0.25),
-        "N": ("n", "count", 4),
-        "Nu": ("nu", "count", 32),
-        "Center": _CENTER,
-    },
-}
-#: Shapes of the second tier without ``order`` (points and polygon faces).
-_GENERATE_LINEAR = {"sphere_points", "box_points", "platonic"}
-
-
-def _generate(step):
-    """The mesh a ``Generate`` step builds (the engine twin of the C++ branch)."""
-    shape = _text(step, "Shape", "")
-    max_cells = int(_number(step, "MaxCells", 20000000.0))
-    order = int(_number(step, "Order", 1.0))
-    complete = _flag(step, "Complete", False)
-
-    def triple(key, default, pad_zero=False):
-        v = _dvec(step, key)
-        if not v:
-            return default
-        v = list(v)
-        if len(v) == 2 and pad_zero:
-            v.append(0.0)
-        if len(v) != 3:
-            raise _err("Generate", f"'{key}' expects three values")
-        return v
-
-    def count(key, default):
-        return int(_number(step, key, float(default)))
-
-    def dims_of(n, default):
-        v = _dvec(step, "Dims")
-        if not v:
-            return [default] * n
-        if len(v) != n:
-            raise _err("Generate", f"'Dims' expects {n} counts")
-        return [int(x) for x in v]
-
-    zero = [0.0, 0.0, 0.0]
-    if shape == "rectangle":
-        size = _dvec(step, "Size")
-        if size and len(size) != 2:
-            raise _err("Generate", "'Size' expects two values")
-        return rectangle(
-            dims=dims_of(2, 1),
-            size=list(size) if size else [1.0, 1.0],
-            origin=triple("Origin", zero, True),
-            cell_type=_text(step, "CellType", "quad"),
-            split=_text(step, "Split", "zigzag"),
-            order=order,
-            max_cells=max_cells,
-            complete=complete,
-        )
-    if shape == "box":
-        return box(
-            dims=dims_of(3, 1),
-            size=triple("Size", [1.0, 1.0, 1.0]),
-            origin=triple("Origin", zero),
-            cell_type=_text(step, "CellType", "hexahedron"),
-            order=order,
-            max_cells=max_cells,
-            complete=complete,
-        )
-    if shape == "disk":
-        return disk(
-            radius=_number(step, "Radius", 1.0),
-            n=count("N", 8),
-            center=triple("Center", zero),
-            cell_type=_text(step, "CellType", "quad"),
-            order=order,
-            max_cells=max_cells,
-            complete=complete,
-        )
-    if shape == "uv_sphere":
-        return uv_sphere(
-            radius=_number(step, "Radius", 1.0),
-            nu=count("Nu", 16),
-            nv=count("Nv", 8),
-            center=triple("Center", zero),
-            cell_type=_text(step, "CellType", "triangle"),
-            order=order,
-            max_cells=max_cells,
-            complete=complete,
-        )
-    if shape == "icosa_sphere":
-        return icosa_sphere(
-            radius=_number(step, "Radius", 1.0),
-            subdivisions=count("Subdivisions", 2),
-            center=triple("Center", zero),
-            order=order,
-            max_cells=max_cells,
-            complete=complete,
-        )
-    if shape == "cylinder":
-        return cylinder(
-            radius=_number(step, "Radius", 1.0),
-            height=_number(step, "Height", 1.0),
-            nxy=count("Nxy", 8),
-            nz=count("Nz", 8),
-            center=triple("Center", zero),
-            cell_type=_text(step, "CellType", "hexahedron"),
-            order=order,
-            max_cells=max_cells,
-            complete=complete,
-        )
-    if shape == "reference_triangle":
-        size = _dvec(step, "Size")
-        if size and len(size) != 2:
-            raise _err("Generate", "'Size' expects two values")
-        return reference_triangle(
-            n=count("N", 4),
-            size=list(size) if size else [1.0, 1.0],
-            origin=triple("Origin", zero, True),
-            order=order,
-            max_cells=max_cells,
-            complete=complete,
-        )
-    if shape == "ngon":
-        return ngon(
-            sides=count("Sides", 6),
-            radius=_number(step, "Radius", 1.0),
-            rings=count("Rings", 1),
-            center=triple("Center", zero),
-            order=order,
-            max_cells=max_cells,
-            complete=complete,
-        )
-    if shape == "annulus":
-        return annulus(
-            inner_radius=_number(step, "InnerRadius", 0.5),
-            outer_radius=_number(step, "OuterRadius", 1.0),
-            ntheta=count("Ntheta", 16),
-            nr=count("Nr", 4),
-            angle=_number(step, "Angle", 6.283185307179586),
-            center=triple("Center", zero),
-            cell_type=_text(step, "CellType", "quad"),
-            order=order,
-            max_cells=max_cells,
-            complete=complete,
-        )
-    if shape == "lshape":
-        return lshape(
-            n=count("N", 4),
-            size=_number(step, "Size", 2.0),
-            center=triple("Center", zero),
-            cell_type=_text(step, "CellType", "quad"),
-            order=order,
-            max_cells=max_cells,
-            complete=complete,
-        )
-    if shape == "plate_with_hole":
-        return plate_with_hole(
-            radius=_number(step, "Radius", 0.25),
-            size=_number(step, "Size", 1.0),
-            nt=count("Nt", 8),
-            nr=count("Nr", 4),
-            center=triple("Center", zero),
-            cell_type=_text(step, "CellType", "quad"),
-            order=order,
-            max_cells=max_cells,
-            complete=complete,
-        )
-    if shape == "honeycomb":
-        return honeycomb(
-            dims=dims_of(2, 4),
-            edge=_number(step, "Edge", 1.0),
-            origin=triple("Origin", zero, True),
-            max_cells=max_cells,
-        )
-    if shape == "reference_cells":
-        return reference_cells(
-            types=_svec(step, "Types") or None, pairs=_flag(step, "Pairs", False)
-        )
-    if shape in _GENERATE_SPECS:
-        kwargs = {}
-        for key, (name, kind, default) in _GENERATE_SPECS[shape].items():
-            if kind == "number":
-                kwargs[name] = _number(step, key, default)
-            elif kind == "count":
-                kwargs[name] = count(key, default)
-            elif kind == "text":
-                kwargs[name] = _text(step, key, default)
-            elif kind == "dims3":
-                kwargs[name] = dims_of(3, default)
-            else:
-                kwargs[name] = triple(key, default)
-        if shape not in _GENERATE_LINEAR:
-            kwargs["order"] = order
-            kwargs["complete"] = complete
-        kwargs["max_cells"] = max_cells
-        return getattr(_primitives, shape)(**kwargs)
-    raise _err(
-        "Generate",
-        f"'Shape' must be one of {', '.join(_GENERATE_SHAPES)}, not '{shape}'",
-    )
-
-
 def _render_op(step):
     """Renders one step as ``Op(Key=value, Key=value, ...)`` for the
     provenance operation chain -- the Python twin of `pipe_render_op` in
@@ -1580,160 +791,13 @@ def _render_op(step):
     return f"{step['Op']}(" + ", ".join(parts) + ")"
 
 
-def _bl_collapse(step):
-    collapse = _text(step, "Collapse", "points")
-    if collapse not in ("points", "layers"):
-        raise _err(
-            "BoundaryLayer",
-            f"'Collapse' must be 'points' or 'layers', not '{collapse}'",
-        )
-    return collapse
-
-
-def _tetrahedralize_step(mesh, step, entry, warnings):
-    """``Tetrahedralize``: :func:`meshioplusplus.tetrahedralize`, its counters
-    and warnings the C++ engine's."""
-    import warnings as _warnings
-
-    from ._tetrahedralize import tetrahedralize
-
-    backend = _text(step, "Backend", "auto")
-    if backend not in ("auto", "netgen", "octree"):
-        raise _err(
-            "Tetrahedralize",
-            f"'Backend' must be 'auto', 'netgen' or 'octree', not '{backend}'",
-        )
-    with _warnings.catch_warnings():
-        # The report carries them, as the C++ engine's does.
-        _warnings.simplefilter("ignore", RuntimeWarning)
-        mesh, report = tetrahedralize(
-            mesh,
-            backend=backend,
-            max_size=_number(step, "MaxSize", 0.0),
-            max_volume=_number(step, "MaxVolume", 0.0),
-            grading=_number(step, "Grading", 0.3),
-            optimize_steps=int(_number(step, "OptimizeSteps", 3)),
-            max_cells=int(_number(step, "MaxCells", 50_000_000)),
-            face_array=_text(step, "FaceArray", "cad:face"),
-            return_report=True,
-        )
-    warnings.extend("Tetrahedralize: " + w for w in report["warnings"])
-    entry.update(
-        NumTetrahedra=float(report["num_tetrahedra"]),
-        NumPoints=float(report["num_points"]),
-        NumNewPoints=float(report["num_new_points"]),
-        NumRegions=float(report["num_regions"]),
-        NumBoundaryTriangles=float(report["num_boundary_triangles"]),
-        BoundaryPreserved=1.0 if report["boundary_preserved"] else 0.0,
-        HausdorffToSurface=float(report["hausdorff_to_surface"]),
-        MinDihedralDeg=float(report["min_dihedral_deg"]),
-        MaxDihedralDeg=float(report["max_dihedral_deg"]),
-        Volume=float(report["volume"]),
-    )
-    return mesh
-
-
 def _apply_step(mesh, step, steps, warnings):
     """One validated step. Counters and warning strings are the C++ engine's,
     transcribed -- keep the two in lockstep."""
     op = step["Op"]
     entry = {"op": op}
 
-    if op in _MODEL_OPS:
-        raise _err(
-            op,
-            "needs the CAD model a pipeline's Input reads, which only a whole run "
-            "carries (run_pipeline), not a step applied on its own",
-        )
-    if op == "BoundaryLayer":
-        from ._boundary_layer import boundary_layer
-
-        if "FirstHeight" not in step:
-            raise _err(op, "'FirstHeight' is required")
-        mesh, report = boundary_layer(
-            mesh,
-            _number(step, "FirstHeight", 0.0),
-            num_layers=int(_number(step, "NumLayers", 3)),
-            growth=_number(step, "Growth", 1.2),
-            reverse=_flag(step, "Reverse", False),
-            collision_fraction=_number(step, "CollisionFraction", 0.45),
-            smooth_iterations=int(_number(step, "SmoothIterations", 5)),
-            max_shrink=int(_number(step, "MaxShrink", 6)),
-            collapse=_bl_collapse(step),
-            normal_smooth_iterations=int(_number(step, "NormalSmoothIterations", 0)),
-            front_check=_flag(step, "FrontCheck", True),
-            return_report=True,
-        )
-        entry.update(
-            NumCells=float(report["num_cells"]),
-            NumShrunk=float(report["num_shrunk"]),
-            NumCollapsed=float(report["num_collapsed"]),
-            NumFewerLayers=float(report["num_fewer_layers"]),
-            NumFrontCrossings=float(report["num_front_crossings"]),
-            MinScaledJacobian=float(report["min_scaled_jacobian"]),
-        )
-    elif op == "Extrude":
-        from ._extrude import extrude
-
-        mesh, report = extrude(
-            mesh,
-            _vec3(step, "Direction") if "Direction" in step else (0.0, 0.0, 1.0),
-            num_layers=int(_number(step, "NumLayers", 1)),
-            ratio=_number(step, "Ratio", 1.0),
-            offsets=_dvec(step, "Offsets"),
-            record_layers=_flag(step, "RecordLayers", False),
-            max_cells=int(_number(step, "MaxCells", 20_000_000)),
-            return_report=True,
-        )
-        entry.update(
-            NumCells=float(report["num_cells"]),
-            NumFlipped=float(report["num_flipped"]),
-            MinScaledJacobian=float(report["min_scaled_jacobian"]),
-        )
-    elif op == "Revolve":
-        from ._extrude import revolve
-
-        mesh, report = revolve(
-            mesh,
-            _vec3(step, "Axis") if "Axis" in step else (0.0, 1.0, 0.0),
-            axis_point=(
-                _vec3(step, "AxisPoint") if "AxisPoint" in step else (0.0, 0.0, 0.0)
-            ),
-            angle=_number(step, "Angle", 360.0),
-            num_layers=int(_number(step, "NumLayers", 16)),
-            tolerance=_number(step, "Tolerance", 1e-9),
-            record_layers=_flag(step, "RecordLayers", False),
-            max_cells=int(_number(step, "MaxCells", 20_000_000)),
-            return_report=True,
-        )
-        entry.update(
-            NumCells=float(report["num_cells"]),
-            NumOnAxis=float(report["num_on_axis"]),
-            MinScaledJacobian=float(report["min_scaled_jacobian"]),
-        )
-    elif op == "Mirror":
-        from ._mirror import mirror
-
-        mesh, report = mirror(
-            mesh,
-            _vec3(step, "Point") if "Point" in step else (0.0, 0.0, 0.0),
-            _vec3(step, "Normal") if "Normal" in step else (1.0, 0.0, 0.0),
-            keep_original=_flag(step, "KeepOriginal", False),
-            weld=_flag(step, "Weld", True),
-            tolerance=_number(step, "Tolerance", 1e-9),
-            reflect_vector_data=_flag(step, "ReflectData", False),
-            return_report=True,
-        )
-        entry.update(
-            NumFlippedCells=float(report["num_flipped_cells"]),
-            NumPointsOnPlane=float(report["num_points_on_plane"]),
-            NumDroppedCells=float(report["num_dropped_cells"]),
-        )
-    elif op == "Tetrahedralize":
-        mesh = _tetrahedralize_step(mesh, step, entry, warnings)
-    elif op == "ProjectToCad":
-        mesh = _project_to_cad_step(mesh, step, entry, None)
-    elif op == "Quality":
+    if op == "Quality":
         mesh = attach_quality(mesh)
     elif op == "Clean":
         mesh, report = clean(
@@ -1933,8 +997,6 @@ def _apply_step(mesh, step, steps, warnings):
             region=_text(step, "Region", ""),
             prefix=_text(step, "Prefix", "patch"),
             return_report=True,
-            method=_segment_method(step),
-            tolerance=_number(step, "Tolerance", 1e-3),
         )
         entry["NumPatches"] = report["num_patches"]
         entry["NumMerged"] = report["num_merged"]
@@ -1972,7 +1034,6 @@ def _apply_step(mesh, step, steps, warnings):
             raise _err(op, f"unknown primitive type '{bad[0]}' in 'Types'")
         tolerance = _number(step, "Tolerance", 0.0)
         deflection = _number(step, "MeshDeflection", 0.0)
-        refine_seg = _flag(step, "RefineSegmentation", False)
         mesh, report = fit_cad(
             mesh,
             _text(step, "Path", "") or None,
@@ -1988,46 +1049,8 @@ def _apply_step(mesh, step, steps, warnings):
             fillets=_flag(step, "Fillets", True),
             threads=_flag(step, "Threads", True),
             return_report=True,
-            merge_faces=_flag(step, "MergeFaces", True),
-            backend=_fit_cad_backend(step),
-            refine_segmentation=refine_seg,
-            max_refine_iterations=int(_number(step, "MaxRefineIterations", 10.0)),
-            refine_epsilon=_number(step, "RefineEpsilon", 1e-3),
-            normal_weight=_number(step, "NormalWeight", 1.0),
-            allow_merge=_flag(step, "AllowMerge", True),
-            allow_split=_flag(step, "AllowSplit", True),
-            ransac_seed=_seed(step, "RansacSeed", DEFAULT_RANSAC_SEED),
-            refine_tolerance=_number(step, "RefineTolerance", 1e-3),
-            relative_tolerance=_flag(step, "RelativeTolerance", True),
-            freeform_general=_flag(step, "FreeformGeneral", False),
-            freeform_tolerance=_number(step, "FreeformTolerance", 0.0),
-            freeform_smoothing=_number(step, "FreeformSmoothing", 1e-12),
-            max_freeform_poles=int(_number(step, "MaxFreeformPoles", 40.0)),
-            max_freeform_iterations=int(_number(step, "MaxFreeformIterations", 30.0)),
-            max_freeform_splits=int(_number(step, "MaxFreeformSplits", 2.0)),
-            sew_tolerance=_number(step, "SewTolerance", 0.0),
-            extend_surfaces=_flag(step, "ExtendSurfaces", False),
-            snap_junctions=_flag(step, "SnapJunctions", False),
-            face_deviation=_flag(step, "FaceDeviation", False),
-            freeform_mode=_text(step, "FreeformMode", "legacy"),
-            freeform_parameterization=_text(step, "FreeformParameterization", "auto"),
-            extraordinary_vertex=_text(step, "ExtraordinaryVertex", "g1x"),
-            local_refine=_text(step, "LocalRefine", "knots"),
-            freeform_g1_tolerance_deg=_number(step, "FreeformG1ToleranceDeg", 1.0),
-            freeform_max_control_points=int(
-                _number(step, "FreeformMaxControlPoints", 400.0)
-            ),
-            layout_target_patch_size=_number(step, "LayoutTargetPatchSize", 0.1),
-            layout_max_valence_deviation=int(
-                _number(step, "LayoutMaxValenceDeviation", 2.0)
-            ),
-            resegment_rounds=int(_number(step, "ResegmentRounds", 2.0)),
-            layout_snap_to_features=_flag(step, "LayoutSnapToFeatures", True),
-            validate_by_surface_sampling=_flag(step, "ValidateBySurfaceSampling", True),
-            constrain_primitives=_flag(step, "ConstrainPrimitives", False),
         )
         entry["Valid"] = 1.0 if report["valid"] else 0.0
-        entry["Native"] = 1.0 if report["backend"] == "native" else 0.0
         entry["VolumeRatio"] = report["volume_ratio"]
         entry["MaxDeviation"] = report["max_deviation"]
         entry["NumFaces"] = report["num_faces"]
@@ -2045,74 +1068,6 @@ def _apply_step(mesh, step, steps, warnings):
         entry["NumTaperedThread"] = report["num_tapered_thread"]
         entry["NumVariablePitchThread"] = report["num_variable_pitch_thread"]
         entry["NumDemoted"] = report["num_demoted"]
-        entry["Closed"] = 1.0 if report["closed"] else 0.0
-        # Only a run that refined reports the refinement, so a report without
-        # `RefineSegmentation` stays what it was before the option existed.
-        if report.get("refined"):
-            entry["Refined"] = 1.0
-            entry["NumRefineSplits"] = report["num_refine_splits"]
-            entry["NumRefineMerges"] = report["num_refine_merges"]
-            entry["ExplainedAreaFraction"] = report["explained_area_fraction"]
-            entry["RefinementKept"] = 1.0 if report["refinement_kept"] else 0.0
-        # Likewise each Phase 3 option reports only when it is set.
-        if "num_freeform_general" in report:
-            entry["NumFreeformGeneral"] = report["num_freeform_general"]
-            entry["NumFreeformRefinements"] = report["num_freeform_refinements"]
-            entry["AvgFreeformPoles"] = report["avg_freeform_poles"]
-        if "num_extended_edges" in report:
-            entry["NumExtendedEdges"] = report["num_extended_edges"]
-        if "num_snapped_junctions" in report:
-            entry["NumSnappedJunctions"] = report["num_snapped_junctions"]
-        if "hausdorff_max" in report:
-            entry["HausdorffMax"] = report["hausdorff_max"]
-            entry["HausdorffRms"] = report["hausdorff_rms"]
-        if "num_constrained_primitives" in report:
-            entry["NumConstrainedPrimitives"] = report["num_constrained_primitives"]
-            entry["NumConstraintGroups"] = report["num_constraint_groups"]
-        # The freeform modes (v17.12.0) report only outside the legacy mode.
-        if "freeform_mode" in report:
-            entry["BrepChecked"] = 1.0 if report["brep_checked"] else 0.0
-            entry["FacetAreaFraction"] = report["facet_area_fraction"]
-            entry["NumFreeformAdaptive"] = report["num_freeform_adaptive"]
-            entry["NumNetworkPatches"] = report["num_network_patches"]
-            entry["NumNetworkEdges"] = report["num_network_edges"]
-            entry["NumExtraordinaryVertices"] = report["num_extraordinary_vertices"]
-            entry["NumResegmented"] = report["num_resegmented"]
-            entry["NumEscalations"] = report["num_escalations"]
-            entry["MaxG1AngleDeg"] = report["max_g1_angle_deg"]
-    elif op == "RefinePatches":
-        # A data step: the `segment:patch` labels are refined, the cells never move.
-        types = _svec(step, "Types") if "Types" in step else None
-        bad = [t for t in (types or ()) if t not in TYPES[1:]]
-        if bad:
-            raise _err(op, f"unknown primitive type '{bad[0]}' in 'Types'")
-        mesh, report = refine_patches(
-            mesh,
-            tolerance=_number(step, "Tolerance", 1e-3),
-            relative=_flag(step, "Relative", True),
-            normal_weight=_number(step, "NormalWeight", 1.0),
-            epsilon=_number(step, "Epsilon", 1e-3),
-            feature_angle=_number(step, "FeatureAngle", 30.0),
-            max_iterations=int(_number(step, "MaxIterations", 10.0)),
-            min_patch_cells=int(_number(step, "MinPatchCells", 3.0)),
-            ransac_seed=_seed(step, "RansacSeed", DEFAULT_RANSAC_SEED),
-            types=types,
-            allow_split=_flag(step, "AllowSplit", True),
-            allow_merge=_flag(step, "AllowMerge", True),
-            prefix=_text(step, "Prefix", "patch"),
-            return_report=True,
-        )
-        entry["NumPatches"] = report["num_patches"]
-        entry["NumIterations"] = report["num_iterations"]
-        entry["NumSplits"] = report["num_splits"]
-        entry["NumMerges"] = report["num_merges"]
-        entry["NumPrimitive"] = report["num_primitive"]
-        entry["NumFreeform"] = report["num_freeform"]
-        entry["ExplainedAreaFraction"] = report["explained_area_fraction"]
-        entry["HausdorffMax"] = report["hausdorff_max"]
-        # Counters are numbers: the `RefineStop` code, 0 unchanged, 1 small_gain,
-        # 2 iteration_cap, 3 energy_rose.
-        entry["Stop"] = float(REFINE_STOPS.index(report["stop"]))
     elif op == "Snapshot":
         # A side output, not a transform: the mesh passes through untouched and
         # the frame is written to `Path` (.png, .txt, .ansi, .html or .cast).
@@ -2138,31 +1093,6 @@ def _apply_step(mesh, step, steps, warnings):
             )
         entry["NumChecks"] = len(result["checks"])
         entry["NumFailed"] = sum(not c["passed"] for c in result["checks"])
-    elif op == "CheckConformity":
-        # A gate by default: a mesh that is not conforming stops the pipeline;
-        # with Require false it only reports. AttachFlags writes
-        # conformity:hanging onto the mesh that flows on.
-        attach = _flag(step, "AttachFlags", False)
-        flagged, rep = check_conformity(
-            mesh,
-            tolerance=_number(step, "Tolerance", 1e-9),
-            attach_flags=attach,
-            return_report=True,
-        )
-        if _flag(step, "Require", True) and not rep["conforming"]:
-            raise RuntimeError(
-                "meshio++: pipeline: CheckConformity failed: "
-                f"{rep['num_hanging_nodes']} hanging node(s), "
-                f"{rep['num_t_junctions']} T-junction(s), "
-                f"{rep['num_partial_overlaps']} partial overlap(s), "
-                f"{rep['num_unwelded_facets']} unwelded facet pair(s)"
-            )
-        entry["NumHangingNodes"] = float(rep["num_hanging_nodes"])
-        entry["NumTJunctions"] = float(rep["num_t_junctions"])
-        entry["NumPartialOverlaps"] = float(rep["num_partial_overlaps"])
-        entry["NumUnweldedFacets"] = float(rep["num_unwelded_facets"])
-        if attach:
-            mesh = flagged
     elif op == "EditRegions":
         kind = _text(step, "Kind", "") or None
         edit = {
@@ -2313,103 +1243,6 @@ def _apply_step(mesh, step, steps, warnings):
                 f"estimate_error: {report['num_skipped']} cell(s) could not be "
                 "evaluated and are NaN"
             )
-    elif op == "ErrorSize":
-        # A pure data step (roadmap 6.10.2): EstimateError's per-cell
-        # indicator becomes the per-point size a later mesh_cad_surface's
-        # background reads. Geometry is untouched.
-        mesh, report = error_size(
-            mesh,
-            _text(step, "Array", "error:zz"),
-            target_error=_number(step, "TargetError", 0.0),
-            order=_number(step, "Order", 1.0),
-            min_size=_number(step, "MinSize", 0.0),
-            max_size=_number(step, "MaxSize", 0.0),
-            output=_text(step, "Output", "size"),
-            overwrite=True,
-            return_report=True,
-        )
-        entry["NumCells"] = report["num_cells"]
-        entry["NumSkipped"] = report["num_skipped"]
-        entry["NumClamped"] = report["num_clamped"]
-        entry["MinSize"] = report["min_size"]
-        entry["MaxSize"] = report["max_size"]
-        if report["num_skipped"] > 0:
-            warnings.append(
-                f"error_size: {report['num_skipped']} cell(s) have no finite size "
-                "and size no point"
-            )
-    elif op == "Adapt":
-        # MMG (roadmap 3.2.1): new points and connectivity, regions by name.
-        hsiz = _number(step, "Hsiz", -1.0)
-        mesh, report = adapt(
-            mesh,
-            hsiz=hsiz if hsiz > 0 else None,
-            size=_text(step, "Size", "") or None,
-            metric=_text(step, "Metric", "") or None,
-            return_report=True,
-            **_mmg_kwargs(step),
-        )
-        _mmg_entry(entry, warnings, report)
-    elif op == "DiscretizeLevelset":
-        # MMG (roadmap 3.2.2): the level set's isovalue becomes a conformal interface.
-        level_set = _text(step, "LevelSet", "")
-        if not level_set:
-            raise _err(op, "parameter 'LevelSet' is required")
-        mats = _dvec(step, "Materials") or []
-        if len(mats) % 4:
-            raise _err(
-                op,
-                "parameter 'Materials' must hold Ref, Split, RefInside, RefOutside "
-                "per material",
-            )
-        rmc = _number(step, "RemoveSmallComponents", -1.0)
-        mesh, report = discretize_levelset(
-            mesh,
-            level_set,
-            _number(step, "Isovalue", 0.0),
-            materials=[
-                (int(mats[k]), mats[k + 1] != 0, int(mats[k + 2]), int(mats[k + 3]))
-                for k in range(0, len(mats), 4)
-            ],
-            remove_small_components=rmc if rmc > 0 else None,
-            return_report=True,
-            **_mmg_kwargs(step),
-        )
-        _mmg_entry(entry, warnings, report)
-    elif op == "Move":
-        # MMG (roadmap 3.2.4): the Lagrangian mode, with ELAS.
-        displacement = _text(step, "Displacement", "")
-        if not displacement:
-            raise _err(op, "parameter 'Displacement' is required")
-        moving = _svec(step, "Moving")
-        if not moving:
-            raise _err(op, "parameter 'Moving' is required")
-        mesh, report = move(
-            mesh,
-            displacement,
-            moving,
-            lagrangian=int(_number(step, "Lagrangian", 1.0)),
-            return_report=True,
-            **_mmg_kwargs(step),
-        )
-        _mmg_entry(entry, warnings, report)
-    elif op == "MeshDomain":
-        # MMG (roadmap 3.2.3): the planar domain the line cells bound, triangulated.
-        holes = _dvec(step, "Holes") or []
-        if len(holes) % 2:
-            raise _err(op, "parameter 'Holes' must hold x, y per hole")
-        hsiz = _number(step, "Hsiz", -1.0)
-        mesh, report = mesh_domain(
-            mesh,
-            hsiz=hsiz if hsiz > 0 else None,
-            size=_text(step, "Size", "") or None,
-            holes=[(holes[k], holes[k + 1]) for k in range(0, len(holes), 2)],
-            return_report=True,
-            **_mmg_kwargs(step),
-        )
-        _mmg_entry(entry, warnings, report)
-        entry["NumSubdomains"] = float(report["num_subdomains"])
-        entry["NumHoles"] = float(report["num_holes"])
     elif op == "Remesh":
         # Unlike every other step, the output has NO correspondence to the
         # input: new points, new connectivity. point_data/cell_data/regions
@@ -2491,14 +1324,6 @@ def _apply_step(mesh, step, steps, warnings):
         entry["NumTets"] = float(report["num_tets"])
         entry["MinQualityBefore"] = float(report["min_quality_before"])
         entry["MinQualityAfter"] = float(report["min_quality_after"])
-    elif op == "Generate":
-        # A mesh from parameters; like Voxelize it REPLACES the geometry, and it
-        # never reads the incoming mesh, so a document may omit Input when this
-        # is its first step.
-        mesh = _generate(step)
-        entry["NumPoints"] = float(len(mesh.points))
-        entry["NumCells"] = float(_total_cells(mesh))
-
     elif op == "Voxelize":
         resolution = _dvec(step, "Resolution")
         bounds = _dvec(step, "Bounds")
@@ -2514,100 +1339,9 @@ def _apply_step(mesh, step, steps, warnings):
             max_cells=int(_number(step, "MaxCells", 20000000.0)),
             sign=_text(step, "Sign", "pseudonormal"),
             watertight_check="off",
-            plane=_text(step, "Plane", "auto"),
             return_report=True,
         )
         entry["NumOccupied"] = float(rep["num_occupied"])
-
-    elif op == "OctreeMesh":
-        # A volume mesh of the skin's inside: it REPLACES the input's geometry.
-        bounds = _dvec(step, "Bounds")
-        mesh, rep = octree_mesh(
-            mesh,
-            output=_text(step, "Output", "tet"),
-            min_size=_number(step, "MinSize", 0.0),
-            max_size=_number(step, "MaxSize", 0.0),
-            max_level=int(_number(step, "MaxLevel", -1.0)),
-            bounds=None if not bounds else list(bounds),
-            padding=_number(step, "Padding", 0.0),
-            padding_relative=_number(step, "PaddingRelative", 0.1),
-            curvature_angle=_number(step, "CurvatureAngle", 15.0),
-            feature_angle=_number(step, "FeatureAngle", 30.0),
-            corner_angle=_number(step, "CornerAngle", 30.0),
-            feature_size=_number(step, "FeatureSize", 0.0),
-            gap_cells=_number(step, "GapCells", 2.0),
-            gap_outside=_flag(step, "GapOutside", False),
-            size_array=_text(step, "SizeArray", "") or None,
-            surface_region=_text(step, "SurfaceRegion", "") or None,
-            grading_layers=int(_number(step, "GradingLayers", 1.0)),
-            skin_grading=_text(step, "SkinGrading", "graded"),
-            surface_size=_number(step, "SurfaceSize", 0.0),
-            winding_threshold=_number(step, "WindingThreshold", 0.5),
-            winding_beta=_number(step, "WindingBeta", 2.0),
-            conformity=_text(step, "Conformity", "stuffing"),
-            alpha_long=_number(step, "AlphaLong", 0.24799),
-            alpha_short=_number(step, "AlphaShort", 0.40173),
-            preserve_features=_flag(step, "PreserveFeatures", True),
-            fit_iterations=int(_number(step, "FitIterations", 5.0)),
-            dihedral_floor_guard=_flag(step, "DihedralFloorGuard", True),
-            fill=_text(step, "Fill", "inside"),
-            keep_outside=_flag(step, "KeepOutside", False),
-            attach_distance=_flag(step, "AttachDistance", True),
-            attach_quality=_flag(step, "AttachQuality", False),
-            pillow=_flag(step, "Pillow", True),
-            hex_grading=_text(step, "HexGrading", "uniform"),
-            untangle_iterations=int(_number(step, "UntangleIterations", 50.0)),
-            max_cells=int(_number(step, "MaxCells", 20000000.0)),
-            max_tets=int(_number(step, "MaxTets", 100000000.0)),
-            return_report=True,
-        )
-        entry["NumLeaves"] = float(rep["num_leaves"])
-        entry["NumCells"] = float(rep["num_cells"])
-        entry["NumInside"] = float(rep["num_inside"])
-        entry["NumSurrogateFaces"] = float(rep["num_surrogate_faces"])
-        entry["NumHanging"] = float(rep["num_hanging"])
-        entry["NumInverted"] = float(rep["num_inverted"])
-        entry["MinDihedral"] = float(rep["min_dihedral"])
-        entry["MinScaledJacobian"] = float(rep["min_scaled_jacobian"])
-
-    elif op == "Octree":
-        # Voxelize's adaptive sibling: it likewise REPLACES the input's geometry.
-        roots = _dvec(step, "RootCells")
-        bounds = _dvec(step, "Bounds")
-        mesh, rep = octree(
-            mesh,
-            root_cells=[int(v) for v in roots] if roots else (1, 1, 1),
-            min_level=int(_number(step, "MinLevel", 0.0)),
-            max_level=int(_number(step, "MaxLevel", 4.0)),
-            bounds=None if not bounds else list(bounds),
-            padding=_number(step, "Padding", 0.0),
-            padding_relative=_number(step, "PaddingRelative", 0.0),
-            dimension=int(_number(step, "Dimension", 0.0)),
-            sample_distance=_number(step, "SampleDistance", 0.0),
-            balance=_text(step, "Balance", "face"),
-            fill=_text(step, "Fill", "all"),
-            attach_distance=_flag(step, "AttachDistance", False),
-            even_odd=_flag(step, "EvenOdd", False),
-            max_cells=int(_number(step, "MaxCells", 20000000.0)),
-            sign=_text(step, "Sign", "pseudonormal"),
-            watertight_check="off",
-            return_report=True,
-            transition=_text(step, "Transition", "hanging"),
-            snap=_flag(step, "Snap", False),
-            surface_level=(
-                int(_number(step, "SurfaceLevel", -1.0))
-                if "SurfaceLevel" in step
-                else None
-            ),
-            curvature_threshold=_number(step, "CurvatureThreshold", 0.0),
-            feature_angle=_number(step, "FeatureAngle", 0.0),
-            size_array=_text(step, "SizeArray", ""),
-            plane=_text(step, "Plane", "auto"),
-        )
-        entry["NumLeaves"] = float(rep["num_leaves"])
-        entry["NumHanging"] = float(rep["num_hanging"])
-        entry["NumSnapped"] = float(rep["num_snapped"])
-        entry["NumRefused"] = float(rep["num_refused"])
 
     elif op == "ComputeSdf":
         # Voxelize's sibling: it likewise REPLACES the input's geometry, taking a
@@ -2801,48 +1535,6 @@ def _apply_step(mesh, step, steps, warnings):
     return mesh
 
 
-def _project_to_cad_step(mesh, step, entry, model):
-    """``ProjectToCad`` on the B-rep at ``Model``, or else on the run's model
-    (the C++ engine's branch of pipe_apply_step)."""
-    from ._project_to_cad import project_to_cad
-
-    op = step["Op"]
-    if "Model" in step:
-        path = _text(step, "Model", "")
-        fmt = (_filetypes_from_path(pathlib.Path(path)) or [""])[0]
-        if fmt not in ("cad_json", "step", "iges"):
-            raise _err(
-                op, f"'Model' must be a CAD JSON, STEP or IGES file, not '{fmt}'"
-            )
-        brep = read(path, file_format=fmt).info["brep"]
-    elif model is not None and model.kind == "brep":
-        brep = model.data
-    else:
-        why = model.why if model is not None and not model.has() and model.why else ""
-        raise _err(
-            op,
-            "needs 'Model' (a CAD JSON, STEP or IGES file), or the B-rep a CAD Input "
-            "carries while no step has changed the mesh" + (": " + why if why else ""),
-        )
-    mesh, report = project_to_cad(
-        mesh,
-        brep,
-        face_array=_text(step, "FaceArray", "cad:face"),
-        edge_array=_text(step, "EdgeArray", "cad:edge"),
-        max_distance=_number(step, "MaxDistance", 0.0),
-        trim_samples=int(_number(step, "TrimSamples", 16)),
-        return_report=True,
-    )
-    entry.update(
-        NumProjected=float(report["num_projected"]),
-        NumOnEdges=float(report["num_on_edges"]),
-        NumOnCurves=float(report["num_on_curves"]),
-        NumOutsideTrim=float(report["num_outside_trim"]),
-        MaxMove=float(report["max_move"]),
-    )
-    return mesh
-
-
 def _check_keys(obj, where, allowed):
     for key in obj:
         if key not in allowed:
@@ -2947,185 +1639,6 @@ def _resolve_settings(settings):
         return json.loads(settings)
     with open(settings, "r", encoding="utf-8") as handle:
         return json.load(handle)
-
-
-class _Model:
-    """The CAD model a run carries (roadmap 6.1.1): ``kind`` is ``"brep"`` or
-    ``"nurbs"`` and ``data`` the model dict, or both ``None`` and ``why`` the
-    reason a model step raises. The C++ engine's ``PipeModel``."""
-
-    def __init__(self, why):
-        self.kind = None
-        self.data = None
-        self.why = why
-
-    def has(self):
-        return self.kind is not None
-
-    def set(self, kind, data):
-        self.kind, self.data = kind, data
-
-    def drop(self, why):
-        self.kind = self.data = None
-        self.why = why
-
-
-def _sniffed_format(path):
-    """The format the C++ engine resolves an ambiguous extension to (``.mesh``
-    is Medit or MFEM by its content), or ``""`` without the core. Called after
-    the Input was read, so the file exists."""
-    try:
-        from . import _core
-    except ImportError:  # pragma: no cover - the numpy-only install
-        return ""
-    return _core.sniff_format(str(path))
-
-
-def _iga_triple(step, key, default):
-    v = step.get(key)
-    if v is None:
-        return [default] * 3
-    if isinstance(v, (int, float)) and not isinstance(v, bool):
-        return [int(_number(step, key, default))] * 3
-    if (
-        not isinstance(v, (list, tuple))
-        or not 1 <= len(v) <= 3
-        or any(isinstance(x, bool) or not isinstance(x, (int, float)) for x in v)
-        or any(float(x) != int(x) for x in v)
-    ):
-        raise _err(step["Op"], f"'{key}' must be a number or 1 to 3 integers")
-    return [int(x) for x in v] + [default] * (3 - len(v))
-
-
-def _index_size_pairs(step, key):
-    """A flat ``[index, size, index, size, ...]`` list as pairs (the C++
-    engine's settings values are flat lists, so both read the same)."""
-    flat = step.get(key)
-    if flat is None:
-        return None
-    if not isinstance(flat, (list, tuple)) or len(flat) % 2:
-        raise _err(step["Op"], f"'{key}' must list index, size pairs")
-    pairs = []
-    for index, size in zip(flat[0::2], flat[1::2]):
-        if isinstance(index, bool) or float(index) != int(index):
-            raise _err(step["Op"], f"'{key}': an index must be an integer")
-        pairs.append((int(index), float(size)))
-    return pairs
-
-
-def _apply_model_step(step, model, steps, warnings):
-    """A model step on the run's model; returns the mesh it makes."""
-    from ._iga import iga_refine, iga_sample
-    from ._mesh_cad import mesh_cad_surface
-
-    op = step["Op"]
-    entry = {"op": op}
-    if not model.has():
-        raise _err(op, "needs a CAD model, and the pipeline carries none: " + model.why)
-    if op == "MeshCadSurface":
-        if model.kind != "brep":
-            raise _err(
-                op, "meshes a B-rep (CAD JSON, STEP or IGES), not an MFEM NURBS model"
-            )
-        if "TargetSize" not in step:
-            raise _err(op, "'TargetSize' is required")
-        method = _text(step, "SmoothMethod", "laplacian")
-        if method not in ("laplacian", "odt"):
-            raise _err(op, "'SmoothMethod' must be 'laplacian' or 'odt'")
-        metric = _text(step, "Metric", "mean")
-        if metric not in ("mean", "varying"):
-            raise _err(op, "'Metric' must be 'mean' or 'varying'")
-        background = None
-        if "Background" in step:
-            background = read(_text(step, "Background", ""))
-        metric_background = None
-        if "MetricBackground" in step:
-            metric_background = read(_text(step, "MetricBackground", ""))
-        mesh, report = mesh_cad_surface(
-            model.data,
-            _number(step, "TargetSize", 0.0),
-            max_chordal_deviation=_number(step, "MaxChordalDeviation", 0.0),
-            min_points_per_edge=int(_number(step, "MinPointsPerEdge", 0)),
-            tolerance=_number(step, "Tolerance", 0.0),
-            record_face_ids=_flag(step, "RecordFaceIds", True),
-            edges=_flag(step, "Edges", True),
-            match_unreferenced_trims=_flag(step, "MatchUnreferencedTrims", True),
-            strict=_flag(step, "Strict", False),
-            max_points=int(_number(step, "MaxPoints", 50_000_000)),
-            min_angle=_number(step, "MinAngle", 0.0),
-            smooth_iterations=int(_number(step, "SmoothIterations", 0)),
-            smooth_method=method,
-            order=int(_number(step, "Order", 1)),
-            curvature_deviation=_number(step, "CurvatureDeviation", 0.0),
-            cells_across_gaps=_number(step, "CellsAcrossGaps", 0.0),
-            grading=_number(step, "Grading", 0.0),
-            pole_rings=int(_number(step, "PoleRings", 0)),
-            face_sizes=_index_size_pairs(step, "FaceSizes"),
-            edge_sizes=_index_size_pairs(step, "EdgeSizes"),
-            background=background,
-            background_array=_text(step, "BackgroundArray", "size"),
-            metric=metric,
-            virtual_edges=_flag(step, "VirtualEdges", False),
-            reparam_condition_number=_number(step, "ReparamConditionNumber", 0.0),
-            model_tolerances=_flag(step, "ModelTolerances", False),
-            virtual_faces=_flag(step, "VirtualFaces", False),
-            lop_corners=_flag(step, "LopCorners", False),
-            metric_background=metric_background,
-            metric_array=_text(step, "MetricArray", ""),
-            metric_error=_number(step, "MetricError", 0.0),
-            untangle=_flag(step, "Untangle", False),
-            quads=_text(step, "Quads", "none"),
-            quad_pairs=_text(step, "QuadPairs", "matching"),
-            return_report=True,
-        )
-        warnings.extend("MeshCadSurface: " + w for w in report["warnings"])
-        entry.update(
-            NumPoints=float(report["num_points"]),
-            NumTriangles=float(report["num_triangles"]),
-            NumFaces=float(report["num_faces"]),
-            NumFailed=float(report["num_failed"]),
-            NumOpenEdges=float(report["num_open_edges"]),
-            NumNonManifoldEdges=float(report["num_non_manifold_edges"]),
-            NumRefinementPoints=float(report["num_refinement_points"]),
-            NumCurvedStraightened=float(report["num_curved_straightened"]),
-            NumReparametrised=float(sum(r["taken"] for r in report["reparametrised"])),
-            NumMergedFaces=float(sum(m["merged"] for m in report["merged_faces"])),
-            NumLoppedCorners=float(len(report["lopped_corners"])),
-            NumUntangled=float(report["num_untangled"]),
-            NumQuads=float(report["num_quads"]),
-            MinAngleDeg=float(report["min_angle_deg"]),
-            MaxAngleDeg=float(report["max_angle_deg"]),
-        )
-    else:
-        # IgaSample, IgaRefine: the model is sampled (refined first), and the
-        # run carries on the model the sampling describes.
-        sample = dict(
-            trim_samples=int(_number(step, "TrimSamples", 16)),
-            edges=_flag(step, "Edges", True),
-            trim=_flag(step, "Trim", True),
-        )
-        if op == "IgaRefine":
-            mesh = iga_refine(
-                model.data,
-                subdivisions=_iga_triple(step, "Subdivisions", 1),
-                elevate=_iga_triple(step, "Elevate", 0),
-                sample_subdivisions=int(_number(step, "SampleSubdivisions", 0)),
-                **sample,
-            )
-        else:
-            mesh = iga_sample(
-                model.data, subdivisions=int(_number(step, "Subdivisions", 0)), **sample
-            )
-        model.set(model.kind, mesh.info[model.kind])
-        ncells = sum(len(c) for c in mesh.cells)
-        entry.update(
-            NumPatches=float(len(model.data["patches"])),
-            NumPoints=float(len(mesh.points)),
-            NumCells=float(ncells),
-        )
-    steps.append(entry)
-    _prov_add_operation(_render_op(step))
-    return mesh
 
 
 def _apply_v2(mesh, step, steps, warnings):
@@ -3276,17 +1789,6 @@ def run_pipeline(settings, input_path=None, output_path=None):
             f"meshio++: pipeline: unsupported Version {version!r} (this build knows 1 and 2)"
         )
 
-    ops_spec = doc.get("Operations")
-    generated = (
-        "Input" not in doc
-        and isinstance(ops_spec, list)
-        and bool(ops_spec)
-        and isinstance(ops_spec[0], dict)
-        and ops_spec[0].get("Op") == "Generate"
-    )
-    if generated:
-        # The first step builds the mesh from parameters: nothing to read.
-        doc = {**doc, "Input": {}}
     if "Input" not in doc or not isinstance(doc["Input"], dict):
         raise ValueError("meshio++: pipeline: Input is required and must be an object")
     if "Output" not in doc or not isinstance(doc["Output"], dict):
@@ -3310,7 +1812,7 @@ def run_pipeline(settings, input_path=None, output_path=None):
     out_path = (
         output_path if output_path is not None else out.get("Pattern", out.get("Path"))
     )
-    if not in_path and not generated:
+    if not in_path:
         raise ValueError("meshio++: pipeline: Input.Path is required")
     if not out_path:
         raise ValueError("meshio++: pipeline: Output.Path is required")
@@ -3361,62 +1863,20 @@ def run_pipeline(settings, input_path=None, output_path=None):
     # A no-op unless the caller opened a provenance scope around this call
     # (see meshioplusplus._provenance) -- the pipeline never opens one
     # itself, matching the C++ engine's own posture (opt-in everywhere).
-    model = _Model("the pipeline starts from Generate, not a CAD read")
-    if generated:
-        mesh = Mesh(np.zeros((0, 3)), [])
-    else:
-        in_fmt = (
-            inp.get("Format")
-            or (_filetypes_from_path(pathlib.Path(str(in_path))) or [""])[0]
-        )
-        _prov_set_source(str(in_path), in_fmt)
+    in_fmt = (
+        inp.get("Format")
+        or (_filetypes_from_path(pathlib.Path(str(in_path))) or [""])[0]
+    )
+    _prov_set_source(str(in_path), in_fmt)
 
-        mesh = read(in_path, file_format=inp.get("Format") or None, **read_kwargs)
-        info = getattr(mesh, "info", None) or {}
-        model_fmt = inp.get("Format") or _sniffed_format(in_path) or in_fmt
-        if model_fmt not in _MODEL_FORMATS:
-            model.drop(
-                f"Input format '{model_fmt}' carries none (read CAD JSON, STEP, IGES "
-                "or an MFEM NURBS mesh)"
-            )
-        elif model_fmt == "mfem":
-            if info.get("nurbs") is not None and len(info["nurbs"].get("patches", ())):
-                model.set("nurbs", info["nurbs"])
-            else:
-                model.drop(f"Input '{in_path}' is an MFEM mesh with no NURBS patches")
-        else:
-            model.set("brep", info.get("brep"))
+    mesh = read(in_path, file_format=inp.get("Format") or None, **read_kwargs)
 
     steps = []
     for i, step in enumerate(steps_spec):
         if fanout and i + 1 == len(steps_spec):
             steps.append(_fanout(mesh, step, out_path, out, in_path, steps_spec))
             return {"steps": steps, "warnings": warnings}
-        if step["Op"] in _MODEL_OPS:
-            mesh = _apply_model_step(step, model, steps, warnings)
-            continue
-        if step["Op"] == "ProjectToCad":
-            # Projected onto it, the mesh matches the model again: it stays.
-            entry = {"op": "ProjectToCad"}
-            mesh = _project_to_cad_step(mesh, step, entry, model)
-            steps.append(entry)
-            _prov_add_operation(_render_op(step))
-            continue
         mesh = (_apply_v2 if version == 2 else _apply_step)(mesh, step, steps, warnings)
-        if step["Op"] == "FitCad":
-            # The fitted solid is the model the rest of the run carries, when
-            # the backend gave one (the native legacy mode gives none).
-            brep = (getattr(mesh, "info", None) or {}).get("brep")
-            if brep is not None and len(brep.get("faces", ())):
-                model.set("brep", brep)
-            else:
-                model.drop(
-                    "'FitCad' gave no B-rep (its native legacy freeform mode fits none)"
-                )
-        elif model.has():
-            model.drop(
-                f"step {i + 1} '{step['Op']}' changed the mesh, which drops the model"
-            )
 
     out_fmt = out.get("Format") or _write_format_for_path(pathlib.Path(str(out_path)))
     out_encoding = out.get("Encoding", "default")

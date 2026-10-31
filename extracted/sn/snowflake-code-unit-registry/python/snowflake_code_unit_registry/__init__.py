@@ -49,7 +49,7 @@ from snowflake_code_unit_registry.types import CodeUnit
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-__version__ = "0.9.7"
+__version__ = "0.9.10"
 __all__ = [
     "CodeUnitRegistry",
     "ScaiLogger",

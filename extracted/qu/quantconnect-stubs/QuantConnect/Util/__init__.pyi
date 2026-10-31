@@ -55,6 +55,7 @@ QuantConnect_Util_EnumeratorExtensions_Select_T = typing.TypeVar("QuantConnect_U
 QuantConnect_Util_EnumeratorExtensions_Select_TResult = typing.TypeVar("QuantConnect_Util_EnumeratorExtensions_Select_TResult")
 QuantConnect_Util_EnumeratorExtensions_SelectMany_T = typing.TypeVar("QuantConnect_Util_EnumeratorExtensions_SelectMany_T")
 QuantConnect_Util_EnumeratorExtensions_SelectMany_TResult = typing.TypeVar("QuantConnect_Util_EnumeratorExtensions_SelectMany_TResult")
+QuantConnect_Extensions_Compare_T = typing.TypeVar("QuantConnect_Extensions_Compare_T")
 QuantConnect_Util_Composer_Single_T = typing.TypeVar("QuantConnect_Util_Composer_Single_T")
 QuantConnect_Util_Composer_AddPart_T = typing.TypeVar("QuantConnect_Util_Composer_AddPart_T")
 QuantConnect_Util_Composer_GetPart_T = typing.TypeVar("QuantConnect_Util_Composer_GetPart_T")
@@ -389,6 +390,28 @@ class ReferenceWrapper(typing.Generic[QuantConnect_Util_ReferenceWrapper_T], Sys
         ...
 
 
+class _Typed_ComparisonOperatorTypes_Compare(typing.Generic[QuantConnect_Extensions_Compare_T]):
+    """"""
+
+    @overload
+    def __call__(self, arg_1: QuantConnect_Extensions_Compare_T, arg_2: QuantConnect_Extensions_Compare_T) -> bool:
+        """
+        Compares two values using given operator
+        
+        :param arg_1: The first value
+        :param arg_2: The second value
+        :returns: Returns true if its left-hand operand meets the operator value to its right-hand operand, false otherwise.
+        """
+        ...
+
+
+class _ComparisonOperatorTypes_Compare:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Extensions_Compare_T]) -> QuantConnect.Util._Typed_ComparisonOperatorTypes_Compare[QuantConnect_Extensions_Compare_T]:
+        ...
+
+
 class ComparisonOperatorTypes(IntEnum):
     """Comparison operators"""
 
@@ -409,6 +432,10 @@ class ComparisonOperatorTypes(IntEnum):
 
     LESS_OR_EQUAL = 5
     """Checks left-hand operand is less or equal to its right-hand operand"""
+
+    @property
+    def compare(self) -> QuantConnect.Util._ComparisonOperatorTypes_Compare:
+        ...
 
 
 class DateTimeJsonConverter:
@@ -1264,7 +1291,7 @@ class DecimalJsonConverter:
         ...
 
 
-class ReadOnlyExtendedDictionary(typing.Generic[QuantConnect_Util_ReadOnlyExtendedDictionary_TKey, QuantConnect_Util_ReadOnlyExtendedDictionary_TValue], QuantConnect.Util.BaseExtendedDictionary[QuantConnect_Util_ReadOnlyExtendedDictionary_TKey, QuantConnect_Util_ReadOnlyExtendedDictionary_TValue, System.Collections.Generic.Dictionary[QuantConnect_Util_ReadOnlyExtendedDictionary_TKey, QuantConnect_Util_ReadOnlyExtendedDictionary_TValue]], typing.Dict[QuantConnect_Util_ReadOnlyExtendedDictionary_TKey, QuantConnect_Util_ReadOnlyExtendedDictionary_TValue]):
+class ReadOnlyExtendedDictionary(typing.Generic[QuantConnect_Util_ReadOnlyExtendedDictionary_TKey, QuantConnect_Util_ReadOnlyExtendedDictionary_TValue], QuantConnect.Util.BaseExtendedDictionary[QuantConnect_Util_ReadOnlyExtendedDictionary_TKey, QuantConnect_Util_ReadOnlyExtendedDictionary_TValue, System.Collections.Generic.Dictionary[QuantConnect_Util_ReadOnlyExtendedDictionary_TKey, QuantConnect_Util_ReadOnlyExtendedDictionary_TValue]], System.Collections.Generic.IReadOnlyDictionary[QuantConnect_Util_ReadOnlyExtendedDictionary_TKey, QuantConnect_Util_ReadOnlyExtendedDictionary_TValue]):
     """Provides a read-only implementation of ExtendedDictionary"""
 
     @property

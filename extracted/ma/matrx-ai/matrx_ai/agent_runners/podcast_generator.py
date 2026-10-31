@@ -76,6 +76,7 @@ from matrx_ai.agent_runners._checkpoint import (
 from matrx_ai.agents.executor import AgentRunResult
 from matrx_ai.agents.named import NamedAgent
 from matrx_ai.agents.source_tracking import stamp_source_context
+from matrx_ai.config.host_turn import HostTurn
 from matrx_ai.config.name_gender import (
     COMMON_NAME_GENDERS,
     gender_for_name,
@@ -488,9 +489,10 @@ async def refresh_voice_pools(*, force: bool = False) -> None:
 # _VIDEO_AGENTS below — _TARGET_*_COUNT are derived from them after they are
 # defined, so adding a version Mandate automatically lifts the target.
 
-# Default extraction instruction sent as user_input text when calling the
-# content extractor agent. Must always be present to prevent silent failures.
-_EXTRACTION_DEFAULT_USER_TEXT = (
+# The extractor's activation line: a HOST TURN (``HostTurn``, reason ``podcast_extraction``)
+# whose attachments are the person's files. The person typed none of it, so it never rides
+# ``user_input`` (THE USER-INPUT LAW). Byte-identical to the text it sent before.
+_EXTRACTION_HOST_TURN_TEXT = (
     "Extraction Unit: Extract each slide separately and label clearly\n\n"
     "Extract all content in full."
 )
@@ -1269,6 +1271,10 @@ def _aggregate_stage_usage(
     input_tokens = sum(int(u.get("input_tokens") or 0) for u in stage_usages)
     output_tokens = sum(int(u.get("output_tokens") or 0) for u in stage_usages)
     total_tokens = sum(int(u.get("total_tokens") or 0) for u in stage_usages)
+    # Cache reads and writes are billed at their own rates; an aggregate that dropped them
+    # reported every pipeline as uncached (AiUsage gained them 2026-10-27).
+    cached_input_tokens = sum(int(u.get("cached_input_tokens") or 0) for u in stage_usages)
+    cache_write_tokens = sum(int(u.get("cache_write_tokens") or 0) for u in stage_usages)
     cost_usd = sum(float(u.get("cost_usd") or 0.0) for u in stage_usages)
     models: dict[str, dict[str, object]] = {}
     # A stage whose model was SUBSTITUTED carries the reroute notes in its own
@@ -1297,6 +1303,8 @@ def _aggregate_stage_usage(
         input_tokens=input_tokens,
         output_tokens=output_tokens,
         total_tokens=total_tokens,
+        cached_input_tokens=cached_input_tokens,
+        cache_write_tokens=cache_write_tokens,
         cost_usd=cost_usd,
         models=models,
         reroutes=reroutes,
@@ -1441,13 +1449,16 @@ async def _resolve_file_block(url: str) -> dict[str, object]:
     mime_type = getattr(ref, "mime_type", None)
 
     if base64_data:
+        # The source url rides beside the bytes: the provider reads the bytes, and the saved
+        # message names the file by its url (a stored media part needs a url or file_id).
         return {
             "type": "input_file",
+            "url": url,
             "base64_data": base64_data,
             "mime_type": mime_type,
         }
     if file_uri and str(file_uri).startswith("gs://"):
-        return {"type": "input_file", "file_uri": file_uri, "mime_type": mime_type}
+        return {"type": "input_file", "url": url, "file_uri": file_uri, "mime_type": mime_type}
 
     resolver_error = getattr(ref, "resolver_error", None)
     vcprint(
@@ -1459,35 +1470,25 @@ async def _resolve_file_block(url: str) -> dict[str, object]:
     return {"type": "input_file", "url": url, "mime_type": mime_type}
 
 
-async def _build_extraction_user_input(
-    request: PodcastRequest,
-) -> list[dict[str, object]]:
-    """
-    Build the user_input content block list for the content extractor agent.
+def _text_blocks(*texts: str | None) -> list[dict[str, object]]:
+    """One ``input_text`` content block per non-empty text, in order (the first is always kept, even when empty)."""
+    return [{"type": "input_text", "text": t} for k, t in enumerate(texts) if k == 0 or t]
 
-    Always starts with a text block (required to prevent silent executor failures),
-    then appends one resolved input_file block per URL. URLs come from file_urls
-    list; if that is empty, input_data is treated as a single file URL. Each file
-    block is resolved to inline bytes (see ``_resolve_file_block``).
-    """
-    user_text = (
-        request.input_data
-        if request.input_data_type == InputDataType.PARTIAL_CONTENT
-        else _EXTRACTION_DEFAULT_USER_TEXT
-    )
-    blocks: list[dict[str, object]] = [{"type": "input_text", "text": user_text}]
 
-    # Only FILE_URL treats input_data as a file URL. PARTIAL_CONTENT's
-    # input_data is raw text (already in the text block above) and must never
-    # be sent through the file resolver.
+async def _build_extraction_host_turn(request: PodcastRequest) -> HostTurn:
+    """The content extractor's turn: the host's activation line, then the person's files.
+
+    URLs come from ``file_urls``; if that is empty, ``input_data`` is treated as a single file URL
+    (FILE_URL only). Each file block is resolved to inline bytes (see ``_resolve_file_block``) and
+    rides the turn as the person's attachment, in order.
+    """
     urls = list(request.file_urls)
     if not urls and request.input_data_type == InputDataType.FILE_URL and request.input_data:
         urls = [request.input_data]
+    attachments: list[dict[str, Any]] = []
     if urls:
-        resolved = await asyncio.gather(*[_resolve_file_block(u) for u in urls])
-        blocks.extend(resolved)
-
-    return blocks
+        attachments = list(await asyncio.gather(*[_resolve_file_block(u) for u in urls]))
+    return HostTurn(text=_EXTRACTION_HOST_TURN_TEXT, reason="podcast_extraction", attachments=attachments)
 
 
 async def _prepare_content(request: PodcastRequest) -> StageResult:
@@ -1517,11 +1518,7 @@ async def _prepare_content(request: PodcastRequest) -> StageResult:
             # The topic IS the user message. The bound researcher declares no
             # variables and its own prompt ends by asking for the topic, so the
             # topic block goes FIRST and any extra prep instruction follows it.
-            user_input: list[dict[str, object]] = [
-                {"type": "input_text", "text": request.input_data}
-            ]
-            if request.prep_user_message:
-                user_input.append({"type": "input_text", "text": request.prep_user_message})
+            user_input = _text_blocks(request.input_data, request.prep_user_message)
             result = (
                 await get_mandate_runner().run(
                     _ResearchAgent.mandate_key,
@@ -1548,14 +1545,14 @@ async def _prepare_content(request: PodcastRequest) -> StageResult:
 
         case InputDataType.FILE_URL:
             extraction_unit = request.extraction_unit or _EXTRACTION_DEFAULT_UNIT
-            user_input_blocks = await _build_extraction_user_input(request)
+            host_turn = await _build_extraction_host_turn(request)
             result = (
                 await get_mandate_runner().run(
                     _ContentExtractorAgent.mandate_key,
                     Offer.from_inputs(
                         _ContentExtractorAgent,
                         inputs=_ContentExtractorAgent.Inputs(extraction_unit=extraction_unit),
-                        user_input=user_input_blocks,
+                        host_turn=host_turn,
                         label="Podcast Extraction",
                         # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
                         # parent stream — the /podcast/generate endpoint's emitter, or the

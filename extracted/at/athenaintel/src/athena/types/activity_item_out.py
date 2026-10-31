@@ -13,7 +13,7 @@ class ActivityItemOut(UniversalBaseModel):
 
     actor_type: str = pydantic.Field()
     """
-    Who made the edit: 'user', 'agent', 'canvas-ai', 'rollback', or 'version-restore'. Matches the in-app Activity pane.
+    Who made the edit: 'user', 'agent', 'canvas-ai', 'rollback', 'version-restore', or 'system' (an automatic update, such as a query refreshed on open, which is nobody's edit). An edit naming an agent or an agent session is 'agent' whoever signed it. Matches the in-app Activity pane.
     """
 
     attributions: typing.Optional[typing.Dict[str, str]] = pydantic.Field(default=None)
@@ -23,7 +23,7 @@ class ActivityItemOut(UniversalBaseModel):
 
     by: str = pydantic.Field()
     """
-    Raw Keryx author id. 'backend-service' for agent writes; a user id for direct edits. Prefer actor_type for classification.
+    Raw Keryx author id: 'backend-service' for Athena's own writes (most agent writes), otherwise the user id that signed the write, which can be an agent run applied from that user's browser. Prefer actor_type for classification.
     """
 
     from_clock: int = pydantic.Field()

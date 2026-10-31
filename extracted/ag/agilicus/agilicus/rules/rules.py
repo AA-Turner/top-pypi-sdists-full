@@ -48,6 +48,51 @@ ConditionTypes = Enum(
 )
 
 
+def extract_tags_list(tags):
+    if tags is None:
+        return []
+    if hasattr(tags, "value"):
+        return list(tags.value or [])
+    if isinstance(tags, (list, tuple, set)):
+        return list(tags)
+    return [tags]
+
+
+def to_tags_model(tags_list):
+    if tags_list is None:
+        return None
+    if isinstance(tags_list, agilicus.Tags):
+        return tags_list
+    items = extract_tags_list(tags_list)
+    return agilicus.Tags(items)
+
+
+def apply_tag_updates(
+    existing_tags,
+    tags=None,
+    add_tags=None,
+    remove_tags=None,
+    clear_tags=False,
+):
+    if clear_tags:
+        current = []
+    elif tags is not None and len(tags) > 0:
+        current = [t for t in tags if t]
+    else:
+        current = extract_tags_list(existing_tags)
+
+    if remove_tags:
+        remove_set = set(remove_tags)
+        current = [t for t in current if t not in remove_set]
+
+    if add_tags:
+        for t in add_tags:
+            if t and t not in current:
+                current.append(t)
+
+    return current
+
+
 def make_http_condition(path_regex=None, methods=None, roles=None, scopes=None):
     cond = agilicus.HttpRuleCondition(
         condition_type=ConditionTypes.http_rule_condition.name,
@@ -73,6 +118,7 @@ def add_hostprefix_rule(
     prefix=None,
     purpose=None,
     standalone_rule_policy_id=None,
+    tags=None,
     **kwargs,
 ):
     token = context.get_token(ctx)
@@ -98,6 +144,8 @@ def add_hostprefix_rule(
     spec = agilicus.StandaloneRuleSpec(org_id=org_id, rule=rule)
     if purpose is not None:
         spec.purpose = purpose
+    if tags is not None:
+        spec.tags = to_tags_model(tags)
 
     if standalone_rule_policy_id is not None:
         spec.standalone_rule_policy_id = standalone_rule_policy_id
@@ -119,6 +167,7 @@ def add_mfa_proof_rule(
     actions,
     purpose=None,
     standalone_rule_policy_id=None,
+    tags=None,
     **kwargs,
 ):
     token = context.get_token(ctx)
@@ -141,6 +190,8 @@ def add_mfa_proof_rule(
     spec = agilicus.StandaloneRuleSpec(org_id=org_id, rule=rule)
     if purpose is not None:
         spec.purpose = purpose
+    if tags is not None:
+        spec.tags = to_tags_model(tags)
     if standalone_rule_policy_id is not None:
         spec.standalone_rule_policy_id = standalone_rule_policy_id
     req = agilicus.StandaloneRule(spec=spec)
@@ -265,7 +316,17 @@ def add_rules(ctx, rules, **kwargs):
 
 
 def replace_hostprefix_rule(
-    ctx, rule_id, name=None, hostname=None, prefix=None, actions=None, **kwargs
+    ctx,
+    rule_id,
+    name=None,
+    hostname=None,
+    prefix=None,
+    actions=None,
+    tags=None,
+    add_tags=None,
+    remove_tags=None,
+    clear_tags=False,
+    **kwargs,
 ):
     token = context.get_token(ctx)
     apiclient = context.get_apiclient(ctx, token)
@@ -278,27 +339,52 @@ def replace_hostprefix_rule(
     if cond.condition_type != ConditionTypes.host_prefix_rule_condition.name:
         raise ValueError(f"existing rule has condition type {cond.condition_type}")
 
-    if actions is not None and len(actions) > 0:
-        actions = list(actions)
-
     new_values = {
         "prefix": prefix,
         "host": hostname,
-        "actions": actions,
     }
     rule.extended_condition.condition = build_updated_model_validate(
-        agilicus.StandaloneRulesetPrefixRuleCondition, cond, new_values
+        agilicus.HostPrefixRuleCondition, cond, new_values
     )
+
+    if actions:
+        rule.actions = [agilicus.RuleAction(action=action) for action in actions]
 
     if name is not None:
         rule.name = name
+
+    has_tag_update = (
+        clear_tags
+        or (tags is not None and len(tags) > 0)
+        or (add_tags is not None and len(add_tags) > 0)
+        or (remove_tags is not None and len(remove_tags) > 0)
+    )
+    if has_tag_update:
+        updated = apply_tag_updates(
+            getattr(spec, "tags", None),
+            tags=tags,
+            add_tags=add_tags,
+            remove_tags=remove_tags,
+            clear_tags=clear_tags,
+        )
+        spec.tags = to_tags_model(updated)
 
     return apiclient.rules_api.replace_standalone_rule(
         base.metadata.id, standalone_rule=base
     )
 
 
-def replace_standalone_rule(ctx, rule_id, name=None, actions=None, **kwargs):
+def replace_standalone_rule(
+    ctx,
+    rule_id,
+    name=None,
+    actions=None,
+    tags=None,
+    add_tags=None,
+    remove_tags=None,
+    clear_tags=False,
+    **kwargs,
+):
     token = context.get_token(ctx)
     apiclient = context.get_apiclient(ctx, token)
     org_id = get_org_from_input_or_ctx(ctx, **kwargs)
@@ -306,14 +392,27 @@ def replace_standalone_rule(ctx, rule_id, name=None, actions=None, **kwargs):
     spec = base.spec
     rule = spec.rule
 
-    if actions is not None and len(actions) > 0:
-        actions = list(actions)
-
-    if actions is not None:
+    if actions:
         rule.actions = [agilicus.RuleAction(action=action) for action in actions]
 
     if name is not None:
         rule.name = name
+
+    has_tag_update = (
+        clear_tags
+        or (tags is not None and len(tags) > 0)
+        or (add_tags is not None and len(add_tags) > 0)
+        or (remove_tags is not None and len(remove_tags) > 0)
+    )
+    if has_tag_update:
+        updated = apply_tag_updates(
+            getattr(spec, "tags", None),
+            tags=tags,
+            add_tags=add_tags,
+            remove_tags=remove_tags,
+            clear_tags=clear_tags,
+        )
+        spec.tags = to_tags_model(updated)
 
     return apiclient.rules_api.replace_standalone_rule(
         base.metadata.id, standalone_rule=base
@@ -334,11 +433,14 @@ def delete_rule(ctx, rule_id, org_id, **kwargs):
     return apiclient.rules_api.delete_standalone_rule(rule_id=rule_id, org_id=org_id)
 
 
-def list_rules(ctx, standalone_rule_policy_id, **kwargs):
+def list_rules(ctx, standalone_rule_policy_id=None, tag=None, **kwargs):
     token = context.get_token(ctx)
     apiclient = context.get_apiclient(ctx, token)
     kwargs["org_id"] = get_org_from_input_or_ctx(ctx, **kwargs)
-    kwargs["standalone_rule_policy_ids"] = standalone_rule_policy_id
+    if standalone_rule_policy_id:
+        kwargs["standalone_rule_policy_ids"] = standalone_rule_policy_id
+    if tag:
+        kwargs["tag"] = [tag] if isinstance(tag, str) else list(tag)
     kwargs = strip_none(kwargs)
 
     rules_resp = apiclient.rules_api.list_standalone_rules(**kwargs)
@@ -350,6 +452,7 @@ def format_rules(ctx, rules):
         metadata_column("id"),
         spec_column("org_id"),
         spec_column("rule.name", "name"),
+        spec_column("tags"),
         spec_column("rule.extended_condition.condition", "condition"),
         spec_column("rule.extended_condition.negated", "negated"),
         spec_column("rule.actions", "actions"),
@@ -383,7 +486,15 @@ def _child_tree_from_children(children):
 
 
 def add_rule_tree(
-    ctx, name, rules, children, org_id=None, description=None, scopes=None, **kwargs
+    ctx,
+    name,
+    rules,
+    children,
+    org_id=None,
+    description=None,
+    scopes=None,
+    tags=None,
+    **kwargs,
 ):
     token = context.get_token(ctx)
     apiclient = context.get_apiclient(ctx, token)
@@ -404,6 +515,8 @@ def add_rule_tree(
 
     if description is not None:
         spec.description = description
+    if tags is not None:
+        spec.tags = to_tags_model(tags)
 
     req = agilicus.StandaloneRuleTree(spec=spec)
     result, _ = create_or_update(
@@ -445,11 +558,14 @@ def delete_rule_tree(ctx, rule_tree_id, org_id, **kwargs):
     )
 
 
-def list_rule_trees(ctx, standalone_rule_policy_id, **kwargs):
+def list_rule_trees(ctx, standalone_rule_policy_id=None, tag=None, **kwargs):
     token = context.get_token(ctx)
     apiclient = context.get_apiclient(ctx, token)
     kwargs["org_id"] = get_org_from_input_or_ctx(ctx, **kwargs)
-    kwargs["standalone_rule_policy_ids"] = standalone_rule_policy_id
+    if standalone_rule_policy_id:
+        kwargs["standalone_rule_policy_ids"] = standalone_rule_policy_id
+    if tag:
+        kwargs["tag"] = [tag] if isinstance(tag, str) else list(tag)
     kwargs = strip_none(kwargs)
 
     rules_resp = apiclient.rules_api.list_standalone_rule_trees(**kwargs)
@@ -458,27 +574,33 @@ def list_rule_trees(ctx, standalone_rule_policy_id, **kwargs):
 
 def replace_rule_tree(
     ctx,
-    rule_tree_id,
-    org_id,
+    rule_tree_id=None,
+    org_id=None,
     name=None,
     rules=None,
     children=None,
     description=None,
     scopes=None,
     standalone_rule_policy_id=None,
+    tags=None,
+    add_tags=None,
+    remove_tags=None,
+    clear_tags=False,
     **kwargs,
 ):
     token = context.get_token(ctx)
     apiclient = context.get_apiclient(ctx, token)
     org_id = get_org_from_input_or_ctx(ctx, **kwargs)
+    if rule_tree_id is None:
+        rule_tree_id = kwargs.get("rule_tree_id")
     base = apiclient.rules_api.get_standalone_rule_tree(
         standalone_rule_tree_id=rule_tree_id, org_id=org_id
     )
     spec = base.spec
-    if rules is not None:
-        spec.tree.rule = _rules_list_from_rules(rules)
+    if rules is not None and len(rules) > 0:
+        spec.tree.rules = _rules_list_from_rules(rules)
 
-    if children is not None:
+    if children is not None and len(children) > 0:
         spec.tree.children = _child_tree_from_children(children)
 
     if name is not None:
@@ -492,6 +614,22 @@ def replace_rule_tree(
 
     _add_object_conditions(spec, scopes)
 
+    has_tag_update = (
+        clear_tags
+        or (tags is not None and len(tags) > 0)
+        or (add_tags is not None and len(add_tags) > 0)
+        or (remove_tags is not None and len(remove_tags) > 0)
+    )
+    if has_tag_update:
+        updated = apply_tag_updates(
+            getattr(spec, "tags", None),
+            tags=tags,
+            add_tags=add_tags,
+            remove_tags=remove_tags,
+            clear_tags=clear_tags,
+        )
+        spec.tags = to_tags_model(updated)
+
     return apiclient.rules_api.replace_standalone_rule_tree(
         base.metadata.id, standalone_rule_tree=base
     ).to_dict()
@@ -504,6 +642,7 @@ def format_rule_trees(ctx, rule_trees):
         metadata_column("id"),
         spec_column("org_id"),
         spec_column("name"),
+        spec_column("tags"),
         spec_column("object_conditions"),
         subtable(ctx, "spec.tree.rules", rules_table, out_name="rules"),
         subtable(ctx, "spec.tree.children", child_columns, out_name="children"),
@@ -948,6 +1087,7 @@ def add_scope_condition_rule(
     purpose=None,
     scopes=None,
     standalone_rule_policy_id=None,
+    tags=None,
     **kwargs,
 ):
     token = context.get_token(ctx)
@@ -974,6 +1114,8 @@ def add_scope_condition_rule(
     spec = agilicus.StandaloneRuleSpec(org_id=org_id, rule=rule)
     if purpose is not None:
         spec.purpose = purpose
+    if tags is not None:
+        spec.tags = to_tags_model(tags)
 
     if standalone_rule_policy_id is not None:
         spec.standalone_rule_policy_id = standalone_rule_policy_id
@@ -1119,6 +1261,7 @@ def add_rule(
     scope=None,
     standalone_rule_policy_id=None,
     negated=False,
+    tags=None,
     **kwargs,
 ):
     token = context.get_token(ctx)
@@ -1144,6 +1287,8 @@ def add_rule(
         spec.purpose = purpose
     if comments:
         spec.comments = comments
+    if tags is not None:
+        spec.tags = to_tags_model(tags)
 
     if standalone_rule_policy_id is not None:
         spec.standalone_rule_policy_id = standalone_rule_policy_id
@@ -1212,6 +1357,7 @@ def add_timeframe_condition_rule(
     purpose=None,
     standalone_rule_policy_id=None,
     negated=False,
+    tags=None,
     **kwargs,
 ):
     token = context.get_token(ctx)
@@ -1236,6 +1382,8 @@ def add_timeframe_condition_rule(
     spec = agilicus.StandaloneRuleSpec(org_id=org_id, rule=rule)
     if purpose is not None:
         spec.purpose = purpose
+    if tags is not None:
+        spec.tags = to_tags_model(tags)
 
     if standalone_rule_policy_id is not None:
         spec.standalone_rule_policy_id = standalone_rule_policy_id
@@ -1258,6 +1406,7 @@ def add_always_match_condition_rule(
     condition_result,
     purpose=None,
     standalone_rule_policy_id=None,
+    tags=None,
     **kwargs,
 ):
     token = context.get_token(ctx)
@@ -1281,6 +1430,8 @@ def add_always_match_condition_rule(
     spec = agilicus.StandaloneRuleSpec(org_id=org_id, rule=rule)
     if purpose is not None:
         spec.purpose = purpose
+    if tags is not None:
+        spec.tags = to_tags_model(tags)
 
     if standalone_rule_policy_id is not None:
         spec.standalone_rule_policy_id = standalone_rule_policy_id
@@ -1318,6 +1469,7 @@ def add_timeperiod_condition_rule(
     negated,
     purpose=None,
     standalone_rule_policy_id=None,
+    tags=None,
     **kwargs,
 ):
     token = context.get_token(ctx)
@@ -1354,6 +1506,8 @@ def add_timeperiod_condition_rule(
     spec = agilicus.StandaloneRuleSpec(org_id=org_id, rule=rule)
     if purpose is not None:
         spec.purpose = purpose
+    if tags is not None:
+        spec.tags = to_tags_model(tags)
 
     if standalone_rule_policy_id is not None:
         spec.standalone_rule_policy_id = standalone_rule_policy_id

@@ -324,6 +324,8 @@ def test_a_join_becomes_a_visible_join_values_step_fed_what_fed_the_state() -> N
     conv = convert_step(_definition(), "sum", "agent", JOIN_FACTS)
     (join,) = conv.added_nodes
     assert join["type"] == JOIN_STEP and join["id"] == "sum__build_material"
+    # A step label is interface text: words a person reads, never "Build material".
+    assert join["data"]["label"] == "Write material for the AI"
     assert join["data"]["input"]["parts"] == JOIN_FACTS.consumption_map["material"]
     edges = {e["id"]: e for e in conv.added_edges}
     assert edges["e_state__sum__build_material"]["data"]["mappings"] == {"values": "provision_values"}
@@ -435,3 +437,10 @@ def _firewall_from_for_each(definition: dict[str, Any]) -> dict[str, Any]:
                                 "data": {"spec_type": "control.map", "config": {
                                     "target_node_id": "sum", "payload_template": {"no_tools": True}}}})
     return definition
+
+
+def test_a_join_step_label_never_shows_a_snake_case_variable() -> None:
+    from matrx_ai.graph_nodes.step_conversion import join_step_label
+
+    assert join_step_label("person_name") == "Write person name for the AI"
+    assert join_step_label("api_key") == "Write API key for the AI"

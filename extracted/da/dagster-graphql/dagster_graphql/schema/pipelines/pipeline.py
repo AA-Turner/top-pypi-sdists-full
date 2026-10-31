@@ -155,7 +155,7 @@ class GrapheneTimePartitionRange(graphene.ObjectType):
 class GrapheneTimePartitionRangeStatus(GrapheneTimePartitionRange):
     status = graphene.NonNull(GraphenePartitionRangeStatus)
 
-    class Meta:
+    class Meta:  # ty: ignore[invalid-attribute-override]
         name = "TimePartitionRangeStatus"
 
 
@@ -799,7 +799,7 @@ class GrapheneRun(graphene.ObjectType):
             GrapheneExecutionPlan(
                 RemoteExecutionPlan(execution_plan_snapshot=execution_plan_snapshot)
             )
-            if execution_plan_snapshot
+            if execution_plan_snapshot  # ty: ignore[redundant-condition]
             else None
         )
 
@@ -1264,7 +1264,7 @@ class GraphenePipeline(GrapheneIPipelineSnapshotMixin, graphene.ObjectType):
     nodeNames = non_null_list(graphene.String)
     automationCondition = graphene.Field(GrapheneAutomationCondition)
 
-    class Meta:
+    class Meta:  # ty: ignore[invalid-attribute-override]
         interfaces = (GrapheneSolidContainer, GrapheneIPipelineSnapshot)
         name = "Pipeline"
 
@@ -1304,7 +1304,7 @@ class GraphenePipeline(GrapheneIPipelineSnapshotMixin, graphene.ObjectType):
         else:
             automation_condition = job_entry.job.automation_condition
         if automation_condition is not None:
-            return GrapheneAutomationCondition(automation_condition.get_snapshot())
+            return GrapheneAutomationCondition(automation_condition.get_snapshot)
         return None
 
     def resolve_presets(self, _graphene_info: ResolveInfo):
@@ -1386,7 +1386,7 @@ class GraphenePipeline(GrapheneIPipelineSnapshotMixin, graphene.ObjectType):
 
 
 class GrapheneJob(GraphenePipeline):
-    class Meta:
+    class Meta:  # ty: ignore[invalid-attribute-override]
         interfaces = (GrapheneSolidContainer, GrapheneIPipelineSnapshot)
         name = "Job"
 

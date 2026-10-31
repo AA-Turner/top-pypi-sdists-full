@@ -145,3 +145,62 @@ class TestPythonParser:
         param = data["type_params"][0]
         assert param.name == "T"
         assert param.annotation is None
+
+    def test_parses_nested_subclass_of_outer_class(self):
+        """Check a nested class that inherits from its enclosing class is parsed.
+
+        Regression test for https://github.com/readthedocs/sphinx-autoapi/issues/571
+        """
+        source = """
+        class Outer:
+            def method(self):
+                pass
+
+            class Inner(Outer):
+                pass
+        """
+        data = self.parse(source)[0]
+        assert data["name"] == "Outer"
+        children = {child["name"]: child for child in data["children"]}
+        inner = children["Inner"]
+        assert inner["type"] == "class"
+        assert inner["bases"] == ["Outer"]
+        inner_children = {child["name"] for child in inner["children"]}
+        assert "method" in inner_children
+
+    @pytest.mark.parametrize(
+        "guard",
+        [
+            'if __name__ == "__main__":',
+            "if __name__ == '__main__':",
+            'if "__main__" == __name__:',
+        ],
+    )
+    def test_ignores_main_guard(self, guard):
+        """Check code under ``if __name__ == "__main__":`` is not documented.
+
+        Regression test for https://github.com/readthedocs/sphinx-autoapi/issues/429
+        """
+        source = f'''
+def normal_function():
+    """Documented."""
+
+{guard}
+    def new_example():
+        """Only runs as a script."""
+
+    this_variable_is_ignored = 52
+'''
+        data = Parser().parse(astroid.parse(source))
+        assert [child["name"] for child in data["children"]] == ["normal_function"]
+
+    def test_keeps_other_conditional_definitions(self):
+        source = '''
+import sys
+
+if sys.version_info >= (3, 8):
+    def versioned():
+        """Documented."""
+'''
+        data = Parser().parse(astroid.parse(source))
+        assert [child["name"] for child in data["children"]] == ["versioned"]

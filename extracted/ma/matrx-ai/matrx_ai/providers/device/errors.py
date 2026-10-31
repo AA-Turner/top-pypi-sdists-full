@@ -14,6 +14,7 @@ from __future__ import annotations
 from typing import Any
 
 from matrx_ai.catalog.errors import CatalogRoutingError
+from matrx_ai.providers.caller_refusal import register_caller_refusal_code
 from matrx_ai.providers.errors import RetryableError
 
 MODEL_NOT_ON_DEVICE = "model_not_on_device"
@@ -111,6 +112,8 @@ class ModelNotOnDeviceError(DeviceRouteError):
     error_type = MODEL_NOT_ON_DEVICE
     http_status = 404
     is_caller_refusal = True
+    #: The person's state, never retried: registered in the ONE caller-refusal registry.
+    code = register_caller_refusal_code(MODEL_NOT_ON_DEVICE)
 
 
 class DeviceRouteMoveRefusedError(DeviceRouteError):
@@ -147,6 +150,8 @@ class DeviceNotChosenError(DeviceRouteError, CatalogRoutingError):
     error_type = DEVICE_NOT_CHOSEN
     http_status = 409
     is_caller_refusal = True
+    #: The person's state, never retried: registered in the ONE caller-refusal registry.
+    code = register_caller_refusal_code(DEVICE_NOT_CHOSEN)
 
 
 class DeviceOfflineError(DeviceRouteError):
@@ -155,6 +160,8 @@ class DeviceOfflineError(DeviceRouteError):
     error_type = DEVICE_OFFLINE
     http_status = 503
     is_caller_refusal = True
+    #: The person's state, never retried: registered in the ONE caller-refusal registry.
+    code = register_caller_refusal_code(DEVICE_OFFLINE)
 
 
 class DeviceTimeoutError(DeviceRouteError):
@@ -170,6 +177,8 @@ class ModelNotRunningError(DeviceRouteError):
     error_type = MODEL_NOT_RUNNING
     http_status = 404
     is_caller_refusal = True
+    #: The person's state, never retried: registered in the ONE caller-refusal registry.
+    code = register_caller_refusal_code(MODEL_NOT_RUNNING)
 
 
 class ModelBusyError(DeviceRouteError):
@@ -178,6 +187,8 @@ class ModelBusyError(DeviceRouteError):
     error_type = MODEL_BUSY
     http_status = 409
     is_caller_refusal = True
+    #: The person's state, never retried: registered in the ONE caller-refusal registry.
+    code = register_caller_refusal_code(MODEL_BUSY)
 
 
 class DeviceAuthExpiredError(DeviceRouteError):
@@ -186,6 +197,8 @@ class DeviceAuthExpiredError(DeviceRouteError):
     error_type = AUTH_EXPIRED
     http_status = 401
     is_caller_refusal = True
+    #: The person's state, never retried: registered in the ONE caller-refusal registry.
+    code = register_caller_refusal_code(AUTH_EXPIRED)
 
 
 class DeviceAccessDeniedError(DeviceRouteError):
@@ -216,6 +229,8 @@ class DeviceContextTooSmallError(DeviceRouteError):
     error_type = DEVICE_CONTEXT_TOO_SMALL
     http_status = 413
     is_caller_refusal = True
+    #: The person's state, never retried: registered in the ONE caller-refusal registry.
+    code = register_caller_refusal_code(DEVICE_CONTEXT_TOO_SMALL)
 
 
 class DeviceFailedError(DeviceRouteError):

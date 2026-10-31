@@ -2,6 +2,7 @@ import json
 
 import os.path
 
+from concurrent.futures import ThreadPoolExecutor
 from typing import Optional, Union, List
 
 from siliconcompiler.tools.yosys.prepareLib import process_liberty_file
@@ -83,6 +84,9 @@ class _ASICTask(ASICTask, YosysTask):
         super().pre_process()
         self._prepare_synthesis_libraries()
 
+    def _prepare_liberty_file(self, lib_file: str, output_file: str):
+        process_liberty_file(lib_file, logger=self.logger, output_file=output_file)
+
     def _prepare_synthesis_libraries(self):
         """
         mark cells dont use and format liberty files for yosys and abc
@@ -99,17 +103,16 @@ class _ASICTask(ASICTask, YosysTask):
                 for fileset in lib_obj.get("asic", "libcornerfileset", corner, delaymodel):
                     fileset_map.append((lib_obj, fileset))
 
-        lib_file_map = {}
+        files_to_process = []
+        output_files = []
         processed = set()
+        used_output_files = set()
         for lib, fileset in fileset_map:
             if (lib, fileset) in processed:
                 continue
             processed.add((lib, fileset))
-            lib_content = {}
-            lib_map = {}
-            # Mark dont use
+
             for lib_file in lib.find_files("fileset", fileset, "file", "liberty"):
-                # Ensure a unique name is used for library
                 lib_file_name_base = os.path.basename(lib_file)
                 if lib_file_name_base.lower().endswith('.gz'):
                     lib_file_name_base = lib_file_name_base[0:-3]
@@ -117,32 +120,53 @@ class _ASICTask(ASICTask, YosysTask):
                     lib_file_name_base = lib_file_name_base[0:-4]
 
                 lib_file_name = lib_file_name_base
-                unique_ident = 0
-                while lib_file_name in lib_content:
-                    lib_file_name = f'{lib_file_name_base}_{unique_ident}'
-                    unique_ident += 1
-
-                lib_content[lib_file_name] = process_liberty_file(
-                    lib_file,
-                    logger=self.logger
-                )
-                lib_map[lib_file_name] = lib_file
-
-            if not lib_content:
-                continue
-
-            for file, content in lib_content.items():
                 output_file = os.path.join(
                     self.nodeworkdir,
                     'inputs',
-                    f'sc_{lib.name}_{file}.lib'
+                    f'sc_{lib.name}_{lib_file_name}.lib'
                 )
-                lib_file_map[lib_map[file]] = output_file
+                unique_ident = 0
+                while output_file in used_output_files:
+                    lib_file_name = f'{lib_file_name_base}_{unique_ident}'
+                    unique_ident += 1
+                    output_file = os.path.join(
+                        self.nodeworkdir,
+                        'inputs',
+                        f'sc_{lib.name}_{lib_file_name}.lib'
+                    )
 
-                with open(output_file, 'w') as f:
-                    f.write(content)
+                used_output_files.add(output_file)
+                files_to_process.append((lib_file, output_file))
+                output_files.append(output_file)
 
-                self.add("var", 'synthesis_libraries', output_file)
+        if not files_to_process:
+            return
+
+        os.makedirs(os.path.join(self.nodeworkdir, 'inputs'), exist_ok=True)
+
+        threads = self.get_threads()
+        if not threads:
+            if self.project:
+                threads = self.project.option.scheduler.get("maxthreads")
+            if not threads:
+                threads = utils.get_cores()
+        threads = max(1, int(threads))
+
+        max_workers = min(threads, len(files_to_process))
+        if max_workers <= 1:
+            for lib_file, output_file in files_to_process:
+                self._prepare_liberty_file(lib_file, output_file)
+        else:
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = [
+                    executor.submit(self._prepare_liberty_file, lib_file, output_file)
+                    for lib_file, output_file in files_to_process
+                ]
+                for future in futures:
+                    future.result()
+
+        for output_file in output_files:
+            self.add("var", 'synthesis_libraries', output_file)
 
     def add_synthesis_corner(self, corner, step=None, index=None, clobber=True):
         """Deprecated"""
@@ -209,12 +233,12 @@ class ASICSynthesisBase(_ASICTask, YosysTask):
             "use_slang",
             "bool",
             "true/false, if true will attempt to use the slang frontend",
-            False)
+            True)
         self.add_parameter(
             "add_buffers",
             "bool",
             "true/false, flag to indicate whether to add buffers or not.",
-            True)
+            False)
 
         self.__init_techmapping_parameter()
         self.__init_hierarchy_parameter()
@@ -578,22 +602,25 @@ class ASICSynthesisBase(_ASICTask, YosysTask):
         cellarea_report = CellArea()
 
         def get_area_count(module):
-            if f"\\{module}" not in stat["modules"]:
-                return 0.0, 0
             info = stat["modules"][f"\\{module}"]
 
             count = info["num_cells"]
-            area = 0.0
-            if "area" in info:
-                area = info["area"]
+            area = info.get("area", 0.0)
+            # Since yosys 0.57 a module's area already includes its submodules, and
+            # num_cells leaves out the submodule instances. Before that, both covered
+            # only the module's own cells, and num_cells counted each submodule
+            # instance as a cell.
+            rolled_up = "num_submodules" in info
 
             for cell, inst_count in info["num_cells_by_type"].items():
+                if f"\\{cell}" not in stat["modules"]:
+                    continue
                 cell_area, cell_count = get_area_count(cell)
 
                 count += cell_count * inst_count
-                if cell_count > 0:
+                if not rolled_up:
                     count -= inst_count
-                area += cell_area * inst_count
+                    area += cell_area * inst_count
 
             return area, count
 
@@ -649,7 +676,7 @@ class ASICSynthesis(ASICSynthesisBase):
             "add_tieoffs",
             "bool",
             "true/false, flag to indicate add tie high and tie low cells.",
-            True)
+            False)
         self.add_parameter(
             "opt_undriven",
             "bool",
@@ -718,7 +745,7 @@ class ASICSynthesis(ASICSynthesisBase):
             "int<1..>",
             "Maximum rounds of the opt_hier and uniquify convergence loops. Both propagate "
             "across one level of hierarchy per round, so a design needs roughly as many "
-            "rounds as it is deep.",
+            "rounds as it is deep. From yosys 0.71, opt_hier converges without the loop.",
             10)
 
     def __init_abc_parameter(self):

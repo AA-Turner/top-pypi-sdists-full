@@ -68,7 +68,7 @@ class RawDubbingClient:
             One or more target languages to dub into. A single job dubs into all of them.
 
         export_options : typing.Optional[typing.Sequence[DubbingExportOption]]
-            Which formats to auto-produce per target language. When provided, only the listed formats are auto-exported. When omitted, the dubbed video, the isolated audio track, and an MP3 of that track are produced — but never SRT, which must be requested explicitly. Audio-only sources cannot produce a video, so `video` resolves to `audio` for them.
+            Which formats to auto-produce per target language. When provided, only the listed formats are auto-exported. Accepted values: `video` (dubbed MP4), `audio` (dubbed voice over the background, `.wav`), `audio_vocals` (dubbed voice alone, `.wav`), `srt` and `vtt` (subtitles of the dubbed text). When omitted, only the dubbed video (MP4) is produced; request audio and subtitles explicitly. Audio-only sources cannot produce a video, so `video` resolves to `audio` for them.
 
         voice_cloning : typing.Optional[bool]
             Clone the original speaker's voice. Set `false` to use a preset `voice_id` instead.
@@ -454,7 +454,7 @@ class AsyncRawDubbingClient:
             One or more target languages to dub into. A single job dubs into all of them.
 
         export_options : typing.Optional[typing.Sequence[DubbingExportOption]]
-            Which formats to auto-produce per target language. When provided, only the listed formats are auto-exported. When omitted, the dubbed video, the isolated audio track, and an MP3 of that track are produced — but never SRT, which must be requested explicitly. Audio-only sources cannot produce a video, so `video` resolves to `audio` for them.
+            Which formats to auto-produce per target language. When provided, only the listed formats are auto-exported. Accepted values: `video` (dubbed MP4), `audio` (dubbed voice over the background, `.wav`), `audio_vocals` (dubbed voice alone, `.wav`), `srt` and `vtt` (subtitles of the dubbed text). When omitted, only the dubbed video (MP4) is produced; request audio and subtitles explicitly. Audio-only sources cannot produce a video, so `video` resolves to `audio` for them.
 
         voice_cloning : typing.Optional[bool]
             Clone the original speaker's voice. Set `false` to use a preset `voice_id` instead.

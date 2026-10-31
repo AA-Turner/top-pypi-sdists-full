@@ -302,6 +302,36 @@ def test_destination_exists_file(tmp_path, capsys) -> None:
     assert msg in err, err
 
 
+@pytest.mark.parametrize(
+    ("args", "clear_env"),
+    [
+        pytest.param([""], "0", id="empty"),
+        pytest.param(["", "--clear"], "0", id="empty-clear"),
+        pytest.param([""], "1", id="empty-clear-environment"),
+        pytest.param([" ", "--clear"], "0", id="space-clear"),
+        pytest.param(["\t"], "0", id="tab"),
+    ],
+)
+def test_blank_destination_leaves_working_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], args: list[str], clear_env: str
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "keep.txt").write_text("keep", encoding="utf-8")
+    with pytest.raises(SystemExit) as context:
+        cli_run([*args, "--no-seed"], env={**os.environ, "VIRTUALENV_CLEAR": clear_env})
+    assert (
+        context.value.code,
+        [path.name for path in tmp_path.iterdir()],
+        "must not be empty or whitespace; pass . to use the current directory" in capsys.readouterr().err,
+    ) == (2, ["keep.txt"], True)
+
+
+def test_dot_destination_is_working_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    session: Final = session_via_cli([".", "--clear", "--no-seed"])
+    assert (session.creator.dest, session.creator.clear) == (tmp_path.resolve(), True)
+
+
 @pytest.mark.skipif(sys.platform == "win32", reason="Windows only applies R/O to files")
 def test_destination_not_write_able(tmp_path, capsys) -> None:
     if hasattr(os, "geteuid") and os.geteuid() == 0:
@@ -792,6 +822,18 @@ def test_recreate_environment_with_dangling_alias(tmp_path: Path, mode: str) -> 
     cli_run([str(destination), "--creator", "builtin", "--no-seed", mode])
 
     assert (alias.is_symlink(), alias.is_file(), outside.exists()) == (mode == "--symlinks", True, False)
+
+
+@pytest.mark.skipif(not IS_WIN, reason="Windows refuses to delete read-only files")
+def test_recreate_environment_over_read_only_executables(tmp_path: Path) -> None:
+    args: Final = [str(tmp_path / "venv"), "--creator", "builtin", "--no-seed", "--activators=", "--copies"]
+    executables: Final = list(cli_run(args).creator.bin_dir.iterdir())
+    for path in executables:
+        path.chmod(S_IREAD)
+
+    cli_run(args)
+
+    assert [path.name for path in executables if not os.access(path, os.W_OK)] == []
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX only")

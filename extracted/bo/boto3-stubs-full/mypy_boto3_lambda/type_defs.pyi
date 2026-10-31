@@ -40,6 +40,7 @@ from .literals import (
     FunctionUrlAuthTypeType,
     InvocationTypeType,
     InvokeModeType,
+    KafkaEventSourceMappingConsumptionModeType,
     KafkaSchemaRegistryAuthTypeType,
     KafkaSchemaValidationAttributeType,
     LastUpdateStatusReasonCodeType,
@@ -1924,6 +1925,7 @@ class AmazonManagedKafkaEventSourceConfigOutputTypeDef(TypedDict):
 class SelfManagedKafkaEventSourceConfigOutputTypeDef(TypedDict):
     ConsumerGroupId: NotRequired[str]
     SchemaRegistryConfig: NotRequired[KafkaSchemaRegistryConfigOutputTypeDef]
+    ConsumptionMode: NotRequired[KafkaEventSourceMappingConsumptionModeType]
 
 class AmazonManagedKafkaEventSourceConfigTypeDef(TypedDict):
     ConsumerGroupId: NotRequired[str]
@@ -1932,6 +1934,7 @@ class AmazonManagedKafkaEventSourceConfigTypeDef(TypedDict):
 class SelfManagedKafkaEventSourceConfigTypeDef(TypedDict):
     ConsumerGroupId: NotRequired[str]
     SchemaRegistryConfig: NotRequired[KafkaSchemaRegistryConfigTypeDef]
+    ConsumptionMode: NotRequired[KafkaEventSourceMappingConsumptionModeType]
 
 class ListLayersResponseTypeDef(TypedDict):
     NextMarker: str

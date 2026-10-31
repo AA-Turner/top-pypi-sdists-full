@@ -9,7 +9,18 @@ export interface DeltaTurnsOptions {
   expectDelta: boolean;
   /** Cold re-read cadence, in turns. 0 disables. */
   verifyEvery: number;
+  /** Shifts this VU's cold reads off the multiples of `verifyEvery`; see readOffset. */
+  readOffset: number;
+  /** Storage is read on the cold-read turn of every bucket ending on a multiple of this. 0 reads it on every cold read. */
+  storageEvery: number;
   bucketSize: number;
+}
+
+/** One setup the VU turns in rotation, on a thread of its own. */
+export interface DeltaCell {
+  name: string;
+  graphId: string;
+  expectDelta: boolean;
 }
 
 export interface TurnPlan {
@@ -19,6 +30,7 @@ export interface TurnPlan {
   expectDelta: boolean;
   guard: boolean;
   verify: boolean;
+  storage: boolean;
   depthBucket: string;
 }
 
@@ -32,14 +44,38 @@ export function unusableCheckpointSize(checkpointSize: number | undefined): bool
 export function planTurn(turn: number, options: DeltaTurnsOptions): TurnPlan {
   const migrating = options.migrateFromGraphId !== '' && options.migrateAfter > 0;
   const beforeSwitch = migrating && turn <= options.migrateAfter;
+  const verify = options.verifyEvery > 0 && (turn + options.readOffset) % options.verifyEvery === 0;
   return {
     graphId: beforeSwitch ? options.migrateFromGraphId : options.graphId,
     steps: turn,
     expectDelta: beforeSwitch ? false : options.expectDelta,
     guard: isGuardTurn(turn, options, migrating),
-    verify: options.verifyEvery > 0 && turn % options.verifyEvery === 0,
+    verify,
+    storage: verify && (options.storageEvery <= 0 || bucketEnd(turn, options.bucketSize) % options.storageEvery === 0),
     depthBucket: depthBucket(turn, options.bucketSize),
   };
+}
+
+/** `name:graph:expectDelta`, comma-separated. */
+export function parseCells(spec: string): DeltaCell[] {
+  return spec
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const [name, graphId, expectDelta] = part.split(':');
+      return { name, graphId, expectDelta: expectDelta === 'true' };
+    });
+}
+
+/**
+ * A delta snapshot lands on every multiple of its frequency, so reading every
+ * VU on those turns only ever measures the read right after one. Spreading the
+ * VUs across the interval samples the whole climb between snapshots.
+ */
+export function readOffset(vu: number, vus: number, verifyEvery: number): number {
+  if (verifyEvery <= 0 || vus <= 0) return 0;
+  return Math.floor(((vu - 1) * verifyEvery) / vus) % verifyEvery;
 }
 
 /**
@@ -49,6 +85,10 @@ export function planTurn(turn: number, options: DeltaTurnsOptions): TurnPlan {
 function isGuardTurn(turn: number, options: DeltaTurnsOptions, migrating: boolean): boolean {
   if (turn === 2) return true;
   return migrating && turn === options.migrateAfter + 2;
+}
+
+function bucketEnd(turn: number, bucketSize: number): number {
+  return bucketSize <= 0 ? turn : Math.ceil(turn / bucketSize) * bucketSize;
 }
 
 function depthBucket(turn: number, bucketSize: number): string {

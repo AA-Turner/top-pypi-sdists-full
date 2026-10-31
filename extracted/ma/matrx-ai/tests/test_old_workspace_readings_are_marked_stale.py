@@ -195,15 +195,19 @@ def test_the_census_of_perishable_tools() -> None:
 
 @pytest.fixture
 def host_marks_staff(monkeypatch):
-    async def _marker(*, conversation_id: str) -> bool:
-        return conversation_id == STAFF
+    async def _marker(*, conversation_id: str, structure_is_live: bool = False) -> bool:
+        # The host contract (``_ext``): the boundary says whether the conversation is mandate-held.
+        return conversation_id == STAFF and structure_is_live
 
     monkeypatch.setitem(_ext._registry, "perishable_state_marker", _marker)
     return _marker
 
 
 def _config(messages: list[UnifiedMessage]) -> SimpleNamespace:
-    return SimpleNamespace(messages=messages, system_instruction=None, prompt_cache_key=None)
+    # A mandate-held conversation's config carries its responder mandate (``live_structure``).
+    return SimpleNamespace(
+        messages=messages, system_instruction=None, prompt_cache_key=None, responder_mandate_key="personal_staff.front_line"
+    )
 
 
 @pytest.mark.asyncio
@@ -215,6 +219,7 @@ async def test_the_staff_thread_reaches_the_model_with_old_readings_marked(host_
         "blocks_marked": 2,
         "tools": ["fs_list", "shell_execute"],
         "dated_statements_marked": 0,
+        "marked_keys": ["tool:c-list", "tool:c-uname"],
     }
     assert _result(config.messages, "c-list").content.startswith(STALE_MARKER)
 
@@ -237,7 +242,7 @@ async def test_with_no_host_matrx_ai_behaves_exactly_as_before(monkeypatch) -> N
 
 @pytest.mark.asyncio
 async def test_a_host_door_that_raises_costs_the_send_nothing(monkeypatch, caplog) -> None:
-    async def _boom(*, conversation_id: str) -> bool:
+    async def _boom(*, conversation_id: str, structure_is_live: bool = False) -> bool:
         raise RuntimeError("knob table unreachable")
 
     monkeypatch.setitem(_ext._registry, "perishable_state_marker", _boom)

@@ -5,9 +5,13 @@
 Tests for twisted SSL support.
 """
 
+from __future__ import annotations
+
 import os
+from unittest import skipIf
 
 import hamcrest
+from incremental import Version
 
 from twisted.internet import defer, interfaces, protocol, reactor
 from twisted.internet.error import ConnectionDone
@@ -23,17 +27,55 @@ try:
 
     from twisted.internet import ssl
     from twisted.test.ssl_helpers import ClientTLSContext, certPath
-except ImportError:
 
-    def _noSSL():
-        # ugh, make pyflakes happy.
-        global SSL
-        global ssl
-        SSL = ssl = None
-
-    _noSSL()
+    skipSSLReason = ""
+    skipSSL = False
+except ImportError as e:
+    skipSSL = True
+    skipSSLReason = str(e)
 
 from zope.interface import implementer
+
+
+@skipIf(skipSSL, skipSSLReason)
+class DeprecationTests(TestCase):
+    """
+    Deprecations in the public SSL API.
+    """
+
+    def test_protocolNegotiationMechanismsDeprecated(self) -> None:
+        """
+        When ALPN is available on a platform, L{protocolNegotiationMechanisms}
+        includes ALPN in the supported protocols.
+
+        A deprecation warning is raised when L{protocolNegotiationMechanisms} is called.
+        """
+        supportedProtocols = self.callDeprecated(
+            Version("Twisted", 26, 10, 0),
+            ssl.protocolNegotiationMechanisms,
+        )
+        flags = self.getDeprecatedModuleAttribute(
+            "twisted.internet.ssl",
+            "ProtocolNegotiationSupport",
+            Version("Twisted", 26, 10, 0),
+            "All supported TLS backends provide ALPN. There is no need to check for support.",
+        )
+        self.assertTrue(flags.ALPN in supportedProtocols)
+
+    def test_protocolNegotiationSupportDeprecated(self) -> None:
+        """
+        Accessing L{ssl.ProtocolNegotiationSupport} emits a deprecation warning.
+        """
+        ssl.ProtocolNegotiationSupport
+        warnings = self.flushWarnings([self.test_protocolNegotiationSupportDeprecated])
+        self.assertEqual(len(warnings), 1)
+        self.assertIs(warnings[0]["category"], DeprecationWarning)
+        self.assertEqual(
+            warnings[0]["message"],
+            "twisted.internet.ssl.ProtocolNegotiationSupport was deprecated "
+            "in Twisted 26.10.0: All supported TLS backends provide ALPN. "
+            "There is no need to check for support.",
+        )
 
 
 class UnintelligentProtocol(basic.LineReceiver):
@@ -156,30 +198,21 @@ class ImmediatelyDisconnectingProtocol(protocol.Protocol):
         self.factory.connectionDisconnected.callback(None)
 
 
-def generateCertificateObjects(organization, organizationalUnit):
+def generateCertificateObjects(
+    organization: str, organizationalUnit: str
+) -> tuple[ssl.KeyPair, ssl.CertificateRequest, ssl.Certificate]:
     """
     Create a certificate for given C{organization} and C{organizationalUnit}.
 
     @return: a tuple of (key, request, certificate) objects.
     """
-    pkey = crypto.PKey()
-    pkey.generate_key(crypto.TYPE_RSA, 2048)
-    req = crypto.X509Req()
-    subject = req.get_subject()
-    subject.O = organization
-    subject.OU = organizationalUnit
-    req.set_pubkey(pkey)
-    req.sign(pkey, "md5")
-
-    # Here comes the actual certificate
-    cert = crypto.X509()
-    cert.set_serial_number(1)
-    cert.gmtime_adj_notBefore(0)
-    cert.gmtime_adj_notAfter(60)  # Testing certificates need not be long lived
-    cert.set_issuer(req.get_subject())
-    cert.set_subject(req.get_subject())
-    cert.set_pubkey(req.get_pubkey())
-    cert.sign(pkey, "md5")
+    pkey = ssl.KeyPair.generate()
+    distinguishedName = ssl.DistinguishedName(
+        organizationName=organization,
+        organizationalUnitName=organizationalUnit,
+    )
+    req = pkey.requestObject(distinguishedName)
+    cert = pkey.signRequestObject(distinguishedName, req, 1, secondsToExpiry=60)
 
     return pkey, req, cert
 
@@ -191,13 +224,13 @@ def generateCertificateFiles(basename, organization, organizationalUnit):
     """
     pkey, req, cert = generateCertificateObjects(organization, organizationalUnit)
 
-    for ext, obj, dumpFunc in [
-        ("key", pkey, crypto.dump_privatekey),
-        ("req", req, crypto.dump_certificate_request),
-        ("cert", cert, crypto.dump_certificate),
+    for ext, data in [
+        ("key", pkey.dump(crypto.FILETYPE_PEM)),
+        ("req", req.dump(crypto.FILETYPE_PEM)),
+        ("cert", cert.dump(crypto.FILETYPE_PEM)),
     ]:
         fName = os.extsep.join((basename, ext)).encode("utf-8")
-        FilePath(fName).setContent(dumpFunc(crypto.FILETYPE_PEM, obj))
+        FilePath(fName).setContent(data)
 
 
 class ContextGeneratingMixin:
@@ -241,7 +274,7 @@ class ContextGeneratingMixin:
         )
 
 
-if SSL is not None:
+if not skipSSL:
 
     class ServerTLSContext(ssl.DefaultOpenSSLContextFactory):
         """

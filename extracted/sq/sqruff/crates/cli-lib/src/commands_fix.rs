@@ -52,7 +52,7 @@ pub(crate) fn run_fix(
             Format::Human if !quiet => {
                 println!("{} files processed, nothing to fix.", result.len())
             }
-            Format::Json | Format::Sarif | Format::GithubAnnotationNative => {
+            Format::Json | Format::Sarif | Format::GithubAnnotationNative | Format::Gitlab => {
                 linter.formatter().unwrap().completion_message(result.len());
             }
             _ => {}
@@ -100,7 +100,12 @@ pub(crate) fn run_fix_stdin(
             return 1;
         }
     };
-    if crate::stdin::stdin_filename_is_ignored(stdin_filename, !disregard_ignores, ignorer) {
+    if crate::stdin::stdin_filename_is_ignored(
+        stdin_filename,
+        !disregard_ignores,
+        linter.config().ignore_local_config(),
+        ignorer,
+    ) {
         let mut stdout = io::stdout().lock();
         stdout.write_all(read_in.as_bytes()).unwrap();
         stdout.flush().unwrap();

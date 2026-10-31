@@ -148,6 +148,11 @@ class ConnectResource:
         force: bool | None = False,
         ad_account_id: str | None = None,
         ad_account_ids: list[str] | None = None,
+        welcome: bool | None = None,
+        brand_name: str | None = None,
+        logo_url: str | None = None,
+        primary_color: str | None = None,
+        welcome_theme: str | None = None,
     ) -> dict[str, Any]:
         """Connect ads for a platform"""
         params = self._build_params(
@@ -161,6 +166,11 @@ class ConnectResource:
             force=force,
             ad_account_id=ad_account_id,
             ad_account_ids=ad_account_ids,
+            welcome=welcome,
+            brand_name=brand_name,
+            logo_url=logo_url,
+            primary_color=primary_color,
+            welcome_theme=welcome_theme,
         )
         return self._client._get(f"/v1/connect/{platform}/ads", params=params)
 
@@ -461,6 +471,8 @@ class ConnectResource:
         client_id: str,
         client_secret: str,
         *,
+        meta_app_id: str | None = None,
+        meta_app_secret: str | None = None,
         slack_signing_secret: str | None = None,
         scope_areas: list[str] | None = None,
     ) -> dict[str, Any]:
@@ -470,6 +482,8 @@ class ConnectResource:
             label=label,
             client_id=client_id,
             client_secret=client_secret,
+            meta_app_id=meta_app_id,
+            meta_app_secret=meta_app_secret,
             slack_signing_secret=slack_signing_secret,
             scope_areas=scope_areas,
         )
@@ -484,6 +498,8 @@ class ConnectResource:
         *,
         label: str | None = None,
         client_secret: str | None = None,
+        meta_app_id: str | None = None,
+        meta_app_secret: str | None = None,
         slack_signing_secret: str | None = None,
         scope_areas: list[str] | None = None,
     ) -> dict[str, Any]:
@@ -491,6 +507,8 @@ class ConnectResource:
         payload = self._build_payload(
             label=label,
             client_secret=client_secret,
+            meta_app_id=meta_app_id,
+            meta_app_secret=meta_app_secret,
             slack_signing_secret=slack_signing_secret,
             scope_areas=scope_areas,
         )
@@ -1219,6 +1237,11 @@ class ConnectResource:
         force: bool | None = False,
         ad_account_id: str | None = None,
         ad_account_ids: list[str] | None = None,
+        welcome: bool | None = None,
+        brand_name: str | None = None,
+        logo_url: str | None = None,
+        primary_color: str | None = None,
+        welcome_theme: str | None = None,
     ) -> dict[str, Any]:
         """Connect ads for a platform (async)"""
         params = self._build_params(
@@ -1232,6 +1255,11 @@ class ConnectResource:
             force=force,
             ad_account_id=ad_account_id,
             ad_account_ids=ad_account_ids,
+            welcome=welcome,
+            brand_name=brand_name,
+            logo_url=logo_url,
+            primary_color=primary_color,
+            welcome_theme=welcome_theme,
         )
         return await self._client._aget(f"/v1/connect/{platform}/ads", params=params)
 
@@ -1536,6 +1564,8 @@ class ConnectResource:
         client_id: str,
         client_secret: str,
         *,
+        meta_app_id: str | None = None,
+        meta_app_secret: str | None = None,
         slack_signing_secret: str | None = None,
         scope_areas: list[str] | None = None,
     ) -> dict[str, Any]:
@@ -1545,6 +1575,8 @@ class ConnectResource:
             label=label,
             client_id=client_id,
             client_secret=client_secret,
+            meta_app_id=meta_app_id,
+            meta_app_secret=meta_app_secret,
             slack_signing_secret=slack_signing_secret,
             scope_areas=scope_areas,
         )
@@ -1559,6 +1591,8 @@ class ConnectResource:
         *,
         label: str | None = None,
         client_secret: str | None = None,
+        meta_app_id: str | None = None,
+        meta_app_secret: str | None = None,
         slack_signing_secret: str | None = None,
         scope_areas: list[str] | None = None,
     ) -> dict[str, Any]:
@@ -1566,6 +1600,8 @@ class ConnectResource:
         payload = self._build_payload(
             label=label,
             client_secret=client_secret,
+            meta_app_id=meta_app_id,
+            meta_app_secret=meta_app_secret,
             slack_signing_secret=slack_signing_secret,
             scope_areas=scope_areas,
         )

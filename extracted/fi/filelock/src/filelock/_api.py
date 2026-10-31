@@ -1159,6 +1159,7 @@ class BaseFileLock(contextlib.ContextDecorator, metaclass=FileLockMeta):  # ruff
         :returns: a context object that will unlock the file when the context is exited
 
         :raises Timeout: if fails to acquire lock within the timeout period
+        :raises TypeError: if *blocking* is not a :class:`bool`
         :raises ValueError: if a blocking call gets a ``nan`` timeout, or *poll_interval* exceeds
             :data:`threading.TIMEOUT_MAX`
 
@@ -1187,6 +1188,9 @@ class BaseFileLock(contextlib.ContextDecorator, metaclass=FileLockMeta):  # ruff
 
         if blocking is None:
             blocking = self._context.blocking
+
+        # A truthy non-bool such as the string "false" would otherwise turn a single attempt into a blocking wait.
+        _check_blocking(blocking)
 
         if poll_intervall is not None:
             msg = "use poll_interval instead of poll_intervall"
@@ -1412,6 +1416,7 @@ class BaseFileLock(contextlib.ContextDecorator, metaclass=FileLockMeta):  # ruff
         self._context.acquiring = None
         self._context.lock_file_key = None
         self._context.lock_file_registry = None
+        self._context.lease_claim = None
 
     def _descriptors_for_fork(self) -> tuple[tuple[int, tuple[int, int] | None], ...]:  # pragma: needs fork
         descriptors: list[tuple[int, tuple[int, int] | None]] = []
@@ -1465,9 +1470,10 @@ class BaseFileLock(contextlib.ContextDecorator, metaclass=FileLockMeta):  # ruff
         attempt = 0
         self._context.acquiring = inspect.currentframe()
         try:
-            # Created once, so a directory that disappears while the acquisition waits fails it, not builds a second
-            # lock file beside the holder's.
-            ensure_directory_exists(self._lock_path)
+            # Created once, so a directory that disappears while the acquisition waits fails it rather than building a
+            # second lock file beside the holder's, and not on re-entry, which joins a hold whose parent may be renamed.
+            if not self.is_locked:
+                ensure_directory_exists(self._lock_path)
             while True:
                 self._raise_if_inherited()
                 if not self.is_locked:

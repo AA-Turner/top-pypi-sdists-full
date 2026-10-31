@@ -3,13 +3,13 @@ from __future__ import annotations
 import glob
 import tarfile
 from abc import ABC
-from functools import partial
+from functools import cached_property, partial
 from io import TextIOWrapper
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
-from zipfile import ZipFile
+from typing import TYPE_CHECKING, Final, cast
+from zipfile import BadZipFile, ZipFile
 
-from packaging.requirements import Requirement
+from packaging.requirements import InvalidRequirement, Requirement
 
 from tox.execute import Outcome
 from tox.plugin import impl
@@ -26,7 +26,9 @@ from .util import dependencies_with_extras, safe_extractall
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterator
+    from importlib.metadata import PackageMetadata
     from os import PathLike
+    from zipfile import ZipInfo
 
     from tox.config.sets import EnvConfigSet
     from tox.tox_env.api import ToxEnvCreateArgs
@@ -50,7 +52,7 @@ class VenvCmdBuilder(PythonPackageToxEnv, ABC):
         self.conf.add_config(
             keys="deps",
             of_type=PythonDeps,
-            factory=partial(PythonDeps.factory, root),
+            factory=partial(PythonDeps.factory, root, environment_provider=lambda: self.environment_variables),
             default=PythonDeps("", root),
             desc="Name of the python dependencies as specified by PEP-440",
         )
@@ -61,6 +63,7 @@ class VenvCmdBuilder(PythonPackageToxEnv, ABC):
             keys=["package_glob"],
             of_type=str,
             default=str(self.conf["env_tmp_dir"] / "dist" / "*"),
+            post_process=lambda value: str(self._relative_to_tox_root(Path(value))),
             desc="glob used to find the built package to install",
         )
 
@@ -103,28 +106,47 @@ class VenvCmdBuilder(PythonPackageToxEnv, ABC):
     def extract_install_info(self, for_env: EnvConfigSet, path: Path) -> list[Package]:
         extras = for_env.get("extras", set[str])
         if path.suffix == ".whl":
-            wheel_dist = WheelDistribution(path)
-            requires: list[str] = wheel_dist.requires or []
-            available = set(wheel_dist.metadata.get_all("Provides-Extra") or [])
-            deps = dependencies_with_extras(
-                [Requirement(i) for i in requires], extras, wheel_dist.metadata["Name"], available_extras=available
-            )
-            package: Package = WheelPackage(path, deps)
-        else:  # must be source distribution
-            work_dir = self.env_tmp_dir / "sdist-extract"
-            if not work_dir.exists():  # pragma: no branch
-                work_dir.mkdir()
+            try:
+                return [self._wheel_package(path, extras)]
+            except (BadZipFile, InvalidRequirement, OSError, UnicodeDecodeError) as exc:
+                wheel_error: Final[str] = f"could not read the metadata of {path}: {exc}"
+                raise Fail(wheel_error) from exc
+        work_dir = self.env_tmp_dir / "sdist-extract"
+        if not work_dir.exists():  # pragma: no branch
+            work_dir.mkdir()
+        try:
             with tarfile.open(str(path), "r:gz") as tar:
                 safe_extractall(tar, work_dir)
-            # the register run env is guaranteed to be called before this
-            assert self._sdist_meta_tox_env is not None  # ruff:ignore[assert]
-            with self._sdist_meta_tox_env.display_context(self._has_display_suspended):
+        except (EOFError, OSError, tarfile.TarError) as exc:
+            archive_error: Final[str] = f"could not extract {path}: {exc}"
+            raise Fail(archive_error) from exc
+        # the register run env is guaranteed to be called before this
+        assert self._sdist_meta_tox_env is not None  # ruff:ignore[assert]
+        with self._sdist_meta_tox_env.display_context(self._has_display_suspended):
+            try:
                 self._sdist_meta_tox_env.root = next(work_dir.iterdir())  # contains a single egg info folder
-                deps = self._sdist_meta_tox_env.get_package_dependencies(for_env)
-                name = self._sdist_meta_tox_env.get_package_name(for_env)
-                available = self._sdist_meta_tox_env.get_package_extras(for_env)
-            package = SdistPackage(path, dependencies_with_extras(deps, extras, name, available_extras=available))
-        return [package]
+            except StopIteration as exc:
+                empty_archive_error: Final[str] = f"no files inside {path}"
+                raise Fail(empty_archive_error) from exc
+            deps = self._sdist_meta_tox_env.get_package_dependencies(for_env)
+            name = self._sdist_meta_tox_env.get_package_name(for_env)
+            available = self._sdist_meta_tox_env.get_package_extras(for_env)
+        return [SdistPackage(path, dependencies_with_extras(deps, extras, name, available_extras=available))]
+
+    @staticmethod
+    def _wheel_package(path: Path, extras: set[str]) -> WheelPackage:
+        wheel_dist: Final[WheelDistribution] = WheelDistribution(path)
+        metadata: Final[PackageMetadata] = wheel_dist.metadata
+        if "Name" not in metadata:
+            missing_name_error: Final[str] = f"no Name in the metadata of {path}"
+            raise Fail(missing_name_error)
+        deps: Final[list[Requirement]] = dependencies_with_extras(
+            [Requirement(requirement) for requirement in wheel_dist.requires or []],
+            extras,
+            metadata["Name"],
+            available_extras=set(metadata.get_all("Provides-Extra") or []),
+        )
+        return WheelPackage(path, deps)
 
     @override
     def register_run_env(self, run_env: RunToxEnv) -> Generator[tuple[str, str], PackageToxEnv, None]:
@@ -165,14 +187,27 @@ class WheelDistribution(Distribution):  # cannot subclass has type Any
                     raise Fail(msg)
         return self._dist_name
 
+    @cached_property
+    @override
+    def metadata(self) -> PackageMetadata:
+        return super().metadata
+
     @override
     def read_text(self, filename: str) -> str | None:
+        member: Final[str] = f"{self.dist_name}/{filename}"
         with ZipFile(self._wheel) as zip_file:
             try:
-                with TextIOWrapper(zip_file.open(f"{self.dist_name}/{filename}"), encoding="utf-8") as file_handler:
-                    return file_handler.read()
+                info: Final[ZipInfo] = zip_file.getinfo(member)
             except KeyError:
                 return None
+            limit: Final[int] = 8 * 1024 * 1024
+            if info.file_size > limit:
+                msg: Final[str] = (
+                    f"{member} inside {self._wheel} is {info.file_size} bytes, exceeds the {limit} byte limit"
+                )
+                raise Fail(msg)
+            with TextIOWrapper(zip_file.open(info), encoding="utf-8") as file_handler:
+                return file_handler.read()
 
     @override
     def locate_file(self, path: str | PathLike[str]) -> Path:

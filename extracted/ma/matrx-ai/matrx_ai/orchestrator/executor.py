@@ -1838,18 +1838,14 @@ async def _flush_assistant_message_mid_loop(
                         )
                     )
                 else:
-                    from matrx_ai.persistence.sealed import keep_inline_media_on_server
+                    from matrx_ai.persistence.sealed import stored_message_content
 
-                    user_content = validate_message_content(
-                        await keep_inline_media_on_server(user_storage.get("content", [])) or []
-                    )
+                    user_content = await stored_message_content(user_storage.get("content", []))
                 pristine_user_content = user_storage.get("user_content")
                 if pristine_user_content is not None:
-                    from matrx_ai.persistence.sealed import keep_inline_media_on_server
+                    from matrx_ai.persistence.sealed import stored_message_content
 
-                    pristine_user_content = validate_message_content(
-                        await keep_inline_media_on_server(pristine_user_content) or []
-                    )
+                    pristine_user_content = await stored_message_content(pristine_user_content)
                 # This mid-loop flush bypasses persist_completed_request, so it
                 # must itself lift the per-turn call-record keys (model_context /
                 # tools_on_call) out of the stamped metadata into their columns —
@@ -1894,6 +1890,15 @@ async def _flush_assistant_message_mid_loop(
                     color="yellow",
                 )
 
+    # THE ROW'S TIME IS STAMPED HERE AND SENT ON THE WIRE — the same instant the row stores, exactly
+    # as `persist_completed_request` does for the rows it writes. Before, this checkpoint wrote its
+    # rows with the database's own `now()` and announced none of it, so a live client kept its own
+    # receipt clock for them: "Worked for 11s" live and "7.9s" after a reload of the same turn (live
+    # walk 4, 2026-10-29, conversation 70f79d6e — the turn's first row read 28.07 live, 31.25 stored).
+    from datetime import UTC, datetime
+
+    _row_created_at = datetime.now(UTC).isoformat()
+
     try:
         if reserved_id:
             # Mid-loop transition for a row already INSERTed as a reservation
@@ -1903,8 +1908,15 @@ async def _flush_assistant_message_mid_loop(
                 reserved_id,
                 status="active",
                 content=content_blocks,
+                created_at=_row_created_at,
                 **_control_fields,
             )
+            try:
+                await tracker.mark_active(
+                    exec_ctx.emitter, "message", reserved_id, created_at=_row_created_at
+                )
+            except Exception:
+                pass
             return reserved_id
 
         message_id = str(uuid4())
@@ -1921,6 +1933,7 @@ async def _flush_assistant_message_mid_loop(
             status="active",
             content=content_blocks,
             created_by=exec_ctx.user_id or None,
+            created_at=_row_created_at,
             **_control_fields,
         )
         reserved_messages[position] = message_id
@@ -1937,6 +1950,10 @@ async def _flush_assistant_message_mid_loop(
                     "source": "mid_loop_flush",
                 },
                 record_id=message_id,
+                created_at=_row_created_at,
+            )
+            await tracker.mark_active(
+                exec_ctx.emitter, "message", message_id, created_at=_row_created_at
             )
         except Exception:
             pass
@@ -2287,13 +2304,12 @@ def _assistant_text_from_response(response: UnifiedResponse | None) -> str:
     messages = response.messages
     if isinstance(messages, UnifiedMessage):
         messages = [messages]
-    parts: list[str] = []
-    for message in messages or []:
-        for content in getattr(message, "content", None) or []:
-            text = getattr(content, "text", None)
-            if isinstance(text, str) and text:
-                parts.append(text)
-    return "\n".join(parts)
+    # Text blocks only: a directive fence inside the model's REASONING was never said to anyone and
+    # must not run (a ``thinking`` block keeps its words under ``text``).
+    from matrx_ai.config.message_config import content_text
+
+    parts = [content_text(getattr(message, "content", None)) for message in messages or []]
+    return "\n".join(p for p in parts if p)
 
 
 async def _apply_turn_directives(
@@ -2613,6 +2629,26 @@ async def _answer_check_gate(
     return decide_answer_check_action(report, corrections_used=state.answer_check_corrections), report
 
 
+def _hide_handoff_plumbing(window: Any) -> None:
+    """Hide a handoff turn's tool rows and textless assistant rows from the USER view (newest first,
+    a user message is a hard stop, the first assistant WITH text stays visible).
+
+    "With text" means reply text: a ``thinking`` block keeps the model's reasoning under ``text``, so
+    a reasoning-plus-tool-call message has NO text and is hidden like any other plumbing."""
+    from matrx_ai.config.message_config import content_text
+
+    for msg in reversed(list(window)):
+        role = str(getattr(getattr(msg, "role", None), "value", getattr(msg, "role", None)) or "")
+        if role == "user":
+            break
+        if role == "tool":
+            msg.metadata["is_visible_to_user"] = False
+        elif role == "assistant":
+            if content_text(msg.content or []).strip():
+                break
+            msg.metadata["is_visible_to_user"] = False
+
+
 async def _finalize_handoff(
     *,
     handoff_outcome: Any,
@@ -2649,20 +2685,7 @@ async def _finalize_handoff(
     # turn; a user message is a hard stop; the first assistant WITH text stays
     # visible (the preamble — one coherent voice).
     _turn_window = len(getattr(response, "messages", None) or []) + 1
-    for msg in reversed(config.messages[-_turn_window:]):
-        role = str(getattr(getattr(msg, "role", None), "value", getattr(msg, "role", None)) or "")
-        if role == "user":
-            break
-        if role == "tool":
-            msg.metadata["is_visible_to_user"] = False
-        elif role == "assistant":
-            has_text = any(
-                isinstance(getattr(block, "text", None), str) and block.text.strip()
-                for block in (msg.content or [])
-            )
-            if has_text:
-                break
-            msg.metadata["is_visible_to_user"] = False
+    _hide_handoff_plumbing(config.messages[-_turn_window:])
 
     # The synthetic response row — the conversation's own answer. Pre-set id so
     # the client learns the durable anchor BEFORE persist (rebind).
@@ -5657,12 +5680,14 @@ async def _execute_until_complete_inner(
             if _trigger_role_str == "user" and not getattr(_trigger_msg, "id", None):
                 _reserve_user_row = True
                 _trigger_storage = _trigger_msg.to_storage_dict()
-                _trigger_user_content = validate_message_content(
+                from matrx_ai.persistence.sealed import stored_message_content
+
+                _trigger_user_content = await stored_message_content(
                     _trigger_storage.get("content") or []
                 )
                 _trigger_pristine_user_content = _trigger_storage.get("user_content")
                 if _trigger_pristine_user_content is not None:
-                    _trigger_pristine_user_content = validate_message_content(
+                    _trigger_pristine_user_content = await stored_message_content(
                         _trigger_pristine_user_content
                     )
                 # Only flip to 'active' when we actually have content blocks
@@ -5686,10 +5711,12 @@ async def _execute_until_complete_inner(
             _authored_storage = _authored.to_storage_dict()
             _authored_role = _authored_storage.get("role", "user")
             _authored_role = getattr(_authored_role, "value", _authored_role)
-            _authored_content = validate_message_content(_authored_storage.get("content") or [])
+            from matrx_ai.persistence.sealed import stored_message_content
+
+            _authored_content = await stored_message_content(_authored_storage.get("content") or [])
             _authored_extra: dict[str, Any] = {}
             if _authored_storage.get("user_content") is not None:
-                _authored_extra["user_content"] = validate_message_content(
+                _authored_extra["user_content"] = await stored_message_content(
                     _authored_storage["user_content"]
                 )
             if _authored_storage.get("metadata"):

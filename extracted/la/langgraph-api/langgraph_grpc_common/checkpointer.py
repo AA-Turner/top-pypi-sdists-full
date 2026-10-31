@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import random
 from collections.abc import (
     AsyncIterator,
     Awaitable,
     Callable,
+    Collection,
     Coroutine,
     Iterator,
     Mapping,
@@ -77,8 +79,8 @@ class GrpcCheckpointer(BaseCheckpointSaver):
                 ``langgraph_grpc_common.conversion.*`` keep using the
                 process-wide default
             encryption_context_provider: Optional callable returning the
-                request-scoped encryption context, sent with writes so the
-                server can encrypt blobs with the caller's context. Injected
+                request-scoped encryption context, sent with reads and writes
+                so the server can encrypt blobs with the caller's context. Injected
                 rather than read directly because the context lives in a
                 ``ContextVar`` owned by ``langgraph_api``, which this package
                 does not depend on.
@@ -89,11 +91,25 @@ class GrpcCheckpointer(BaseCheckpointSaver):
         self._retry_context_prefix = retry_context_prefix or type(self).__name__
         self._serializer = serializer
         self._encryption_context_provider = encryption_context_provider
+        # Channels whose stored values `alist` and delta-channel history load;
+        # None loads every channel. See `with_load_channels`.
+        self._load_channels: frozenset[str] | None = None
         self.latest_iter = None
         try:
             self._loop: asyncio.AbstractEventLoop | None = asyncio.get_running_loop()
         except RuntimeError:
             self._loop = None
+
+    def with_load_channels(self, channels: Collection[str]) -> GrpcCheckpointer:
+        """Return a shallow clone that loads stored values only for ``channels``.
+
+        The clone's ``alist`` and delta-channel history skip the values of
+        other channels, which keep their versions. An empty collection loads
+        every channel.
+        """
+        clone = copy.copy(self)
+        clone._load_channels = frozenset(channels)
+        return clone
 
     def _encryption_context_json(self) -> dict[str, bytes]:
         """Return encryption context as JSON-encoded proto map values."""
@@ -146,7 +162,8 @@ class GrpcCheckpointer(BaseCheckpointSaver):
     async def aget_tuple(self, config: RunnableConfig) -> CheckpointTuple | None:
         with self._scoped():
             request = checkpointer_pb2.GetTupleRequest(
-                config=ckpt_conv.checkpoint_config_to_proto(config)
+                config=ckpt_conv.checkpoint_config_to_proto(config),
+                encryption_context_json=self._encryption_context_json(),
             )
 
         async def _request() -> CheckpointTuple | None:
@@ -276,9 +293,12 @@ class GrpcCheckpointer(BaseCheckpointSaver):
                 config=ckpt_conv.checkpoint_config_to_proto(config),
                 filter_json=convert_dict_to_json_bytes(filter) or b"",
                 before=ckpt_conv.checkpoint_config_to_proto(before),
+                encryption_context_json=self._encryption_context_json(),
             )
         if limit is not None:
             request.limit = limit
+        if self._load_channels:
+            request.channels.extend(sorted(self._load_channels))
 
         async def _request() -> checkpointer_pb2.ListResponse:
             return await (await self._stub()).List(request)
@@ -384,6 +404,8 @@ class GrpcCheckpointer(BaseCheckpointSaver):
         config: RunnableConfig,
         channels: Sequence[str],
     ) -> Mapping[str, DeltaChannelHistory]:
+        if self._load_channels:
+            channels = [c for c in channels if c in self._load_channels]
         if not channels:
             return {}
         configurable = config.get("configurable", {}) if config else {}
@@ -393,6 +415,7 @@ class GrpcCheckpointer(BaseCheckpointSaver):
             # Empty checkpoint_id => server resolves the latest checkpoint.
             checkpoint_id=configurable.get("checkpoint_id", "") or "",
             channels=list(channels),
+            encryption_context_json=self._encryption_context_json(),
         )
 
         async def _request() -> checkpointer_pb2.GetDeltaChannelHistoryResponse:

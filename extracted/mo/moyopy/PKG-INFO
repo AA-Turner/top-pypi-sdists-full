@@ -1,20 +1,18 @@
 Metadata-Version: 2.4
 Name: moyopy
-Version: 0.21.0
+Version: 0.22.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Classifier: Topic :: Scientific/Engineering :: Physics
-Requires-Dist: typing-extensions
-Requires-Dist: matbench-discovery==1.3.1 ; python_full_version >= '3.11' and extra == 'bench'
+Requires-Dist: matbench-discovery==1.3.1 ; extra == 'bench'
 Requires-Dist: mp-api ; extra == 'bench'
 Requires-Dist: moyopy[testing] ; extra == 'dev'
 Requires-Dist: moyopy[docs] ; extra == 'dev'
@@ -42,7 +40,7 @@ Provides-Extra: testing
 Summary: Python binding of Moyo
 Author-email: Kohei Shinohara <kshinohara0508@gmail.com>
 License-Expression: MIT OR Apache-2.0
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 
 # moyopy

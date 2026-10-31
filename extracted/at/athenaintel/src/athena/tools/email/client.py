@@ -5,6 +5,7 @@ import typing
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.request_options import RequestOptions
 from ...types.email_draft_response_out import EmailDraftResponseOut
+from ...types.email_message_response_out import EmailMessageResponseOut
 from ...types.email_search_response_out import EmailSearchResponseOut
 from .raw_client import AsyncRawEmailClient, RawEmailClient
 
@@ -108,6 +109,51 @@ class EmailClient:
             reply_to_message_id=reply_to_message_id,
             request_options=request_options,
         )
+        return _response.data
+
+    def get_message(
+        self,
+        message_id: str,
+        *,
+        catalog_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> EmailMessageResponseOut:
+        """
+        Read one message from the caller's connected Gmail or Outlook mailbox.
+
+        Returns its headers and its body as plain text, so an agent can keep the
+        whole email (in a CRM timeline, for example) rather than the search
+        snippet. Read-only; attachments are not returned.
+
+        Parameters
+        ----------
+        message_id : str
+            Provider message id, as `GET /tools/email/search` returns it in `results[].id`.
+
+        catalog_id : typing.Optional[str]
+            Connected email account to use, as the catalog asset id returned by the Athena UI or the assets API. Defaults to the caller's default email account. An id that is not one of the caller's own connected accounts in the current workspace is a 404.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        EmailMessageResponseOut
+            Successful Response
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+        client.tools.email.get_message(
+            message_id="18f2a7c3b9d4e5f6",
+        )
+        """
+        _response = self._raw_client.get_message(message_id, catalog_id=catalog_id, request_options=request_options)
         return _response.data
 
     def search(
@@ -266,6 +312,61 @@ class AsyncEmailClient:
             include_signature=include_signature,
             reply_to_message_id=reply_to_message_id,
             request_options=request_options,
+        )
+        return _response.data
+
+    async def get_message(
+        self,
+        message_id: str,
+        *,
+        catalog_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> EmailMessageResponseOut:
+        """
+        Read one message from the caller's connected Gmail or Outlook mailbox.
+
+        Returns its headers and its body as plain text, so an agent can keep the
+        whole email (in a CRM timeline, for example) rather than the search
+        snippet. Read-only; attachments are not returned.
+
+        Parameters
+        ----------
+        message_id : str
+            Provider message id, as `GET /tools/email/search` returns it in `results[].id`.
+
+        catalog_id : typing.Optional[str]
+            Connected email account to use, as the catalog asset id returned by the Athena UI or the assets API. Defaults to the caller's default email account. An id that is not one of the caller's own connected accounts in the current workspace is a 404.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        EmailMessageResponseOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.tools.email.get_message(
+                message_id="18f2a7c3b9d4e5f6",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.get_message(
+            message_id, catalog_id=catalog_id, request_options=request_options
         )
         return _response.data
 

@@ -82,11 +82,7 @@ with open(cop_file, 'r') as cop:
             else:
                 msg = 'Duplicate SDO name:  \n'
                 msg += f'{name}\n'
-                # Spelled out rather than using the f-string '=' form,
-                # which needs Python 3.8.  This module is the only file
-                # in the package that is not 3.7-clean, and
-                # python_requires says >= 3.7.
-                msg += f'n = {n}, i = {i}, s = {s}, v_t = {v_t}'
+                msg += f'{n = }, {i = }, {s = }, {v_t = }'
                 print(msg)
 
 # create the python file name

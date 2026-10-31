@@ -141,6 +141,7 @@ from .literals import (
     PhoneNumberWorkflowStatusType,
     PhoneTypeType,
     PolicyType,
+    PreEvaluationFilterResourceTypeType,
     QuestionRuleCategoryAutomationConditionType,
     QueueStatusType,
     QueueTypeType,
@@ -326,6 +327,8 @@ __all__ = (
     "CaseSlaConfigurationOutputTypeDef",
     "CaseSlaConfigurationTypeDef",
     "CaseSlaConfigurationUnionTypeDef",
+    "CategoriesAttributeAndConditionTypeDef",
+    "CategoriesAttributeFilterTypeDef",
     "ChatContactMetricsTypeDef",
     "ChatEntryPointParametersTypeDef",
     "ChatEventTypeDef",
@@ -1261,6 +1264,7 @@ __all__ = (
     "RealTimeContactAnalysisSegmentIssuesTypeDef",
     "RealTimeContactAnalysisSegmentPostContactSummaryTypeDef",
     "RealTimeContactAnalysisSegmentTranscriptTypeDef",
+    "RealTimeContactAnalysisSegmentsFilterTypeDef",
     "RealTimeContactAnalysisTimeDataTypeDef",
     "RealTimeContactAnalysisTranscriptItemRedactionTypeDef",
     "RealTimeContactAnalysisTranscriptItemWithCharacterOffsetsTypeDef",
@@ -3931,14 +3935,6 @@ class ListQuickConnectsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     QuickConnectTypes: NotRequired[Sequence[QuickConnectTypeType]]
 
-class ListRealtimeContactAnalysisSegmentsV2RequestTypeDef(TypedDict):
-    InstanceId: str
-    ContactId: str
-    OutputType: RealTimeContactAnalysisOutputTypeType
-    SegmentTypes: Sequence[RealTimeContactAnalysisSegmentTypeType]
-    MaxResults: NotRequired[int]
-    NextToken: NotRequired[str]
-
 class ListReplicationFindingsRequestTypeDef(TypedDict):
     InstanceId: str
     ResourceType: str
@@ -4416,7 +4412,7 @@ class PostAcceptTimeoutConfigTypeDef(TypedDict):
     DurationInSeconds: int
 
 class PreEvaluationFilterTypeDef(TypedDict):
-    ResourceType: Literal["CONTACT"]
+    ResourceType: PreEvaluationFilterResourceTypeType
     FilterType: Literal["TAG"]
     FilterKey: str
     FilterValue: str
@@ -5846,6 +5842,9 @@ class StartAttachedFileUploadRequestTypeDef(TypedDict):
 class AttributeAndConditionTypeDef(TypedDict):
     TagConditions: NotRequired[Sequence[TagConditionTypeDef]]
     HierarchyGroupCondition: NotRequired[HierarchyGroupConditionTypeDef]
+
+class CategoriesAttributeAndConditionTypeDef(TypedDict):
+    TagConditions: NotRequired[Sequence[TagConditionTypeDef]]
 
 class CommonAttributeAndConditionTypeDef(TypedDict):
     TagConditions: NotRequired[Sequence[TagConditionTypeDef]]
@@ -7865,6 +7864,11 @@ class ControlPlaneUserAttributeFilterTypeDef(TypedDict):
     TagCondition: NotRequired[TagConditionTypeDef]
     HierarchyGroupCondition: NotRequired[HierarchyGroupConditionTypeDef]
 
+class CategoriesAttributeFilterTypeDef(TypedDict):
+    OrConditions: NotRequired[Sequence[CategoriesAttributeAndConditionTypeDef]]
+    AndCondition: NotRequired[CategoriesAttributeAndConditionTypeDef]
+    TagCondition: NotRequired[TagConditionTypeDef]
+
 class ControlPlaneAttributeFilterTypeDef(TypedDict):
     OrConditions: NotRequired[Sequence[CommonAttributeAndConditionTypeDef]]
     AndCondition: NotRequired[CommonAttributeAndConditionTypeDef]
@@ -8813,6 +8817,9 @@ class UserSearchFilterTypeDef(TypedDict):
     TagFilter: NotRequired[ControlPlaneTagFilterTypeDef]
     UserAttributeFilter: NotRequired[ControlPlaneUserAttributeFilterTypeDef]
 
+class RealTimeContactAnalysisSegmentsFilterTypeDef(TypedDict):
+    CategoriesAttributeFilter: NotRequired[CategoriesAttributeFilterTypeDef]
+
 class AgentStatusSearchFilterTypeDef(TypedDict):
     AttributeFilter: NotRequired[ControlPlaneAttributeFilterTypeDef]
 
@@ -9291,6 +9298,7 @@ class RealTimeContactAnalysisSegmentExtractedInformationTypeDef(TypedDict):
 
 class RealTimeContactAnalysisCategoryDetailsTypeDef(TypedDict):
     PointsOfInterest: list[RealTimeContactAnalysisPointOfInterestTypeDef]
+    RuleId: NotRequired[str]
 
 class RealTimeContactAnalysisSegmentIssuesTypeDef(TypedDict):
     IssuesDetected: list[RealTimeContactAnalysisIssueDetectedTypeDef]
@@ -9415,6 +9423,15 @@ class AttributeConditionTypeDef(TypedDict):
     Range: NotRequired[RangeTypeDef]
     MatchCriteria: NotRequired[MatchCriteriaUnionTypeDef]
     ComparisonOperator: NotRequired[str]
+
+class ListRealtimeContactAnalysisSegmentsV2RequestTypeDef(TypedDict):
+    InstanceId: str
+    ContactId: str
+    OutputType: RealTimeContactAnalysisOutputTypeType
+    SegmentTypes: Sequence[RealTimeContactAnalysisSegmentTypeType]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    ListFilter: NotRequired[RealTimeContactAnalysisSegmentsFilterTypeDef]
 
 class SearchAgentStatusesRequestPaginateTypeDef(TypedDict):
     InstanceId: str

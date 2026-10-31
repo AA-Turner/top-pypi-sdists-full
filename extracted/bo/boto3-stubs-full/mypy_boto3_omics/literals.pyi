@@ -92,6 +92,7 @@ __all__ = (
     "RunCompletedWaiterName",
     "RunExportType",
     "RunLogLevelType",
+    "RunOutputUriPrefixModeType",
     "RunRetentionModeType",
     "RunRunningWaiterName",
     "RunStatusType",
@@ -255,6 +256,7 @@ RunCacheStatusType = Literal["ACTIVE", "DELETED", "FAILED"]
 RunCompletedWaiterName = Literal["run_completed"]
 RunExportType = Literal["DEFINITION"]
 RunLogLevelType = Literal["ALL", "ERROR", "FATAL", "OFF"]
+RunOutputUriPrefixModeType = Literal["NONE_WITH_OVERWRITE", "SERVICE_DEFINED"]
 RunRetentionModeType = Literal["REMOVE", "RETAIN"]
 RunRunningWaiterName = Literal["run_running"]
 RunStatusType = Literal[

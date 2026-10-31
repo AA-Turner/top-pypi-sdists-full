@@ -22,7 +22,7 @@ ComponentType = typing.Union[
 
 class Spoiler(Component):
     """A Spoiler component.
-Spoiler
+Hide long sections of content under a spoiler
 
 Keyword arguments:
 
@@ -88,6 +88,11 @@ Keyword arguments:
 - data-* (string; optional):
     Wild card data attributes.
 
+- defaultExpanded (boolean; optional):
+    Initial expanded state in uncontrolled mode. If `True`, content
+    starts expanded. If `False`, content starts collapsed default
+    False.
+
 - display (dict; optional):
     Display – Accepts CSS values or a dict for responsive styles.
 
@@ -118,12 +123,13 @@ Keyword arguments:
     Breakpoint above which the component is hidden with `display:
     none`.
 
-- hideLabel (a list of or a singular dash component, string or number; required):
-    Label for close spoiler action.
+- hideAriaLabel (string; optional):
+    Accessible label for the toggle button when expanded. If not set,
+    `hideLabel` is used.
 
-- initialState (boolean; optional):
-    Initial spoiler state, True to wrap content in spoiler, False to
-    show content without spoiler, opened state is updated on mount.
+- hideLabel (a list of or a singular dash component, string or number; required):
+    Content displayed in the toggle button when content is expanded
+    (to collapse).
 
 - inset (string | number | dict; optional):
     Inset – Accepts CSS values or a dict for responsive styles.
@@ -171,8 +177,8 @@ Keyword arguments:
     for responsive styles.
 
 - maxHeight (number; optional):
-    Maximum height of the visible content, when this point is reached
-    spoiler appears, `100` by default.
+    Maximum height of visible content in px. When content exceeds this
+    height, the toggle control appears default 100.
 
 - mb (string | number | dict; optional):
     Margin bottom – Accepts theme spacing keys, CSS values, or a dict
@@ -182,9 +188,15 @@ Keyword arguments:
     Margin inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- mie (number; optional):
+    MarginInlineEnd, theme key: theme.spacing.
+
 - mih (string | number | dict; optional):
     Minimum height – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
+
+- mis (number; optional):
+    MarginInlineStart, theme key: theme.spacing.
 
 - miw (string | number | dict; optional):
     Minimum width – Accepts theme spacing keys, CSS values, or a dict
@@ -234,6 +246,12 @@ Keyword arguments:
     Padding inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- pie (number; optional):
+    PaddingInlineEnd, theme key: theme.spacing.
+
+- pis (number; optional):
+    PaddingInlineStart, theme key: theme.spacing.
+
 - pl (string | number | dict; optional):
     Padding left – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
@@ -264,8 +282,13 @@ Keyword arguments:
 - right (string | number | dict; optional):
     Right offset – Accepts CSS values or a dict for responsive styles.
 
+- showAriaLabel (string; optional):
+    Accessible label for the toggle button when collapsed. If not set,
+    `showLabel` is used.
+
 - showLabel (a list of or a singular dash component, string or number; required):
-    Label for open spoiler action.
+    Content displayed in the toggle button when content is collapsed
+    (to expand).
 
 - styles (boolean | number | string | dict | list; optional):
     Adds inline styles directly to inner elements of a component.  See
@@ -285,8 +308,8 @@ Keyword arguments:
     Top offset – Accepts CSS values or a dict for responsive styles.
 
 - transitionDuration (number; optional):
-    Spoiler reveal transition duration in ms, set 0 or None to turn
-    off animation, `200` by default.
+    Spoiler reveal transition duration in ms. Set to 0 to disable
+    animation default 200.
 
 - tt (dict; optional):
     Text transform – Accepts CSS values or a dict for responsive
@@ -305,8 +328,8 @@ Keyword arguments:
 - w (string | number | dict; optional):
     Width – Accepts theme spacing keys, CSS values, or a dict for
     responsive styles."""
-    _children_props: typing.List[str] = ['hideLabel', 'showLabel']
-    _base_nodes = ['hideLabel', 'showLabel', 'children']
+    _children_props: typing.List[str] = ['showLabel', 'hideLabel']
+    _base_nodes = ['showLabel', 'hideLabel', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'Spoiler'
     LoadingState = TypedDict(
@@ -323,11 +346,13 @@ Keyword arguments:
         self,
         children: typing.Optional[ComponentType] = None,
         maxHeight: typing.Optional[NumberType] = None,
-        hideLabel: typing.Optional[ComponentType] = None,
         showLabel: typing.Optional[ComponentType] = None,
-        initialState: typing.Optional[bool] = None,
-        transitionDuration: typing.Optional[NumberType] = None,
+        hideLabel: typing.Optional[ComponentType] = None,
+        defaultExpanded: typing.Optional[bool] = None,
         expanded: typing.Optional[bool] = None,
+        transitionDuration: typing.Optional[NumberType] = None,
+        showAriaLabel: typing.Optional[str] = None,
+        hideAriaLabel: typing.Optional[str] = None,
         hiddenFrom: typing.Optional[str] = None,
         visibleFrom: typing.Optional[str] = None,
         mod: typing.Optional[typing.Union[str, dict, typing.Sequence[typing.Union[str, dict]]]] = None,
@@ -385,6 +410,10 @@ Keyword arguments:
         style: typing.Optional[typing.Any] = None,
         lightHidden: typing.Optional[bool] = None,
         darkHidden: typing.Optional[bool] = None,
+        mis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        mie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         classNames: typing.Optional[dict] = None,
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
@@ -395,9 +424,9 @@ Keyword arguments:
         loading_state: typing.Optional["LoadingState"] = None,
         **kwargs
     ):
-        self._prop_names = ['children', 'id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'display', 'expanded', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'hideLabel', 'initialState', 'inset', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxHeight', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'showLabel', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'transitionDuration', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w']
+        self._prop_names = ['children', 'id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'defaultExpanded', 'display', 'expanded', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'hideAriaLabel', 'hideLabel', 'inset', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxHeight', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pie', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'showAriaLabel', 'showLabel', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'transitionDuration', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['children', 'id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'display', 'expanded', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'hideLabel', 'initialState', 'inset', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxHeight', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'showLabel', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'transitionDuration', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w']
+        self.available_properties = ['children', 'id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'defaultExpanded', 'display', 'expanded', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'hideAriaLabel', 'hideLabel', 'inset', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxHeight', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pie', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'showAriaLabel', 'showLabel', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'transitionDuration', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

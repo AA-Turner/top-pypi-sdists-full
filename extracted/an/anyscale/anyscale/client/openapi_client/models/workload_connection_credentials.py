@@ -35,16 +35,18 @@ class WorkloadConnectionCredentials(object):
     openapi_types = {
         'workload_connection': 'DecoratedWorkloadConnectionInfo',
         'file_credentials': 'list[FileCredential]',
-        'expires_at': 'int'
+        'expires_at': 'int',
+        'federated': 'FederatedConnectionDescriptor'
     }
 
     attribute_map = {
         'workload_connection': 'workload_connection',
         'file_credentials': 'file_credentials',
-        'expires_at': 'expires_at'
+        'expires_at': 'expires_at',
+        'federated': 'federated'
     }
 
-    def __init__(self, workload_connection=None, file_credentials=None, expires_at=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, workload_connection=None, file_credentials=None, expires_at=None, federated=None, local_vars_configuration=None):  # noqa: E501
         """WorkloadConnectionCredentials - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -53,12 +55,15 @@ class WorkloadConnectionCredentials(object):
         self._workload_connection = None
         self._file_credentials = None
         self._expires_at = None
+        self._federated = None
         self.discriminator = None
 
         self.workload_connection = workload_connection
         self.file_credentials = file_credentials
         if expires_at is not None:
             self.expires_at = expires_at
+        if federated is not None:
+            self.federated = federated
 
     @property
     def workload_connection(self):
@@ -132,6 +137,29 @@ class WorkloadConnectionCredentials(object):
         """
 
         self._expires_at = expires_at
+
+    @property
+    def federated(self):
+        """Gets the federated of this WorkloadConnectionCredentials.  # noqa: E501
+
+        Present instead of file_credentials for federated connections  # noqa: E501
+
+        :return: The federated of this WorkloadConnectionCredentials.  # noqa: E501
+        :rtype: FederatedConnectionDescriptor
+        """
+        return self._federated
+
+    @federated.setter
+    def federated(self, federated):
+        """Sets the federated of this WorkloadConnectionCredentials.
+
+        Present instead of file_credentials for federated connections  # noqa: E501
+
+        :param federated: The federated of this WorkloadConnectionCredentials.  # noqa: E501
+        :type: FederatedConnectionDescriptor
+        """
+
+        self._federated = federated
 
     def to_dict(self):
         """Returns the model properties as a dict"""

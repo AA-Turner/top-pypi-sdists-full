@@ -128,7 +128,7 @@ async def test_legacy_controller_without_the_endpoint_keeps_the_report() -> None
         }
     )
 
-    assert await manager.get_network_stats(duration_hours=1) == [{"time": 1, "rx_bytes": 5}]
+    assert await manager.get_network_stats(duration_hours=1) == [{"time": 1, "rx_bytes": 5, "bytes": 5}]
     assert _paths(connection) == ["/source", "/stat/report/hourly.site"]
 
 
@@ -243,7 +243,18 @@ async def test_gateway_stats_read_the_gateway_device_series() -> None:
         device_manager.return_value.get_devices = AsyncMock(return_value=[{"mac": GW_MAC, "type": "udm"}])
         rows = await manager.get_gateway_stats(duration_hours=1, granularity="hourly")
 
-    assert rows == [{"time": END - HOUR, "gw": GW_MAC, "wan-rx_bytes": 14, "wan-tx_bytes": 6, "cpu": 20}]
+    assert rows == [
+        {
+            "time": END - HOUR,
+            "gw": GW_MAC,
+            "wan-rx_bytes": 14,
+            "wan-tx_bytes": 6,
+            "cpu": 20,
+            "rx_bytes": 14,
+            "tx_bytes": 6,
+            "bytes": 20,
+        }
+    ]
     assert all(f"deviceMac.eq('{GW_MAC}')" in path for path in _series_paths(connection))
 
 
@@ -363,3 +374,54 @@ async def test_top_clients_for_a_duration_name_the_role_when_forbidden() -> None
 
     with pytest.raises(RequestError, match="Full Admin"):
         await manager.get_top_clients(duration_hours=24)
+
+
+# --- speedtest history ------------------------------------------------------------------
+
+NOT_FOUND = ResponseError("Call https://h/proxy/network/v2/api/site/default/speedtest received 404 Not Found")
+
+
+def _speedtest(time: int, wan: str) -> Dict[str, Any]:
+    return {"time": time, "download_mbps": 500, "upload_mbps": 50, "latency_ms": 9, "wan_networkgroup": wan}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("wrapped", [True, False], ids=["data_envelope", "bare_rows"])
+async def test_network_11_speedtests_come_from_the_site_history_in_the_window(wrapped: bool) -> None:
+    """The v2 history ignores the window, so rows outside it are dropped here."""
+    history = [_speedtest(END - HOUR, "WAN2"), _speedtest(END - 48 * HOUR, "WAN"), _speedtest(END - 2 * HOUR, "WAN")]
+    response = [{"data": history}] if wrapped else history
+    manager, connection = _manager({"/source": ["MODERN"], "/speedtest": response})
+
+    rows = await manager.get_speedtest_results(duration_hours=24)
+
+    assert [(row["time"], row["wan_networkgroup"]) for row in rows] == [(END - 2 * HOUR, "WAN"), (END - HOUR, "WAN2")]
+    assert "/stat/report/archive.speedtest" not in _paths(connection)
+
+
+@pytest.mark.asyncio
+async def test_without_the_site_history_speedtests_come_from_the_archive() -> None:
+    archive = [{"time": END - HOUR, "xput_download": 300.0}]
+    manager, connection = _manager(
+        {"/source": ["MODERN"], "/speedtest": NOT_FOUND, "/stat/report/archive.speedtest": archive}
+    )
+
+    assert await manager.get_speedtest_results(duration_hours=24) == archive
+    assert _paths(connection)[-1] == "/stat/report/archive.speedtest"
+
+
+@pytest.mark.asyncio
+async def test_a_legacy_controller_reads_the_speedtest_archive_only() -> None:
+    archive = [{"time": END - HOUR, "xput_download": 300.0}]
+    manager, connection = _manager({"/source": NOT_FOUND, "/stat/report/archive.speedtest": archive})
+
+    assert await manager.get_speedtest_results(duration_hours=24) == archive
+    assert "/speedtest" not in _paths(connection)
+
+
+@pytest.mark.asyncio
+async def test_a_failing_site_history_is_not_hidden_behind_the_empty_archive() -> None:
+    manager, _ = _manager({"/source": ["MODERN"], "/speedtest": RequestError("boom")})
+
+    with pytest.raises(RequestError):
+        await manager.get_speedtest_results(duration_hours=24)

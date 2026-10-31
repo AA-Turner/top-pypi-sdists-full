@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: groundx
-Version: 4.1.7
+Version: 4.1.9
 Summary: 
 License: MIT
 Requires-Python: >=3.10,<4.0
@@ -28,6 +28,7 @@ Requires-Dist: aiohttp (>=3.8.0) ; extra == "aiohttp"
 Requires-Dist: boto3 ; extra == "extract"
 Requires-Dist: celery ; extra == "extract"
 Requires-Dist: celery-types ; extra == "extract"
+Requires-Dist: certifi (>=2026.10.19)
 Requires-Dist: dateparser ; extra == "extract"
 Requires-Dist: fastapi ; extra == "extract"
 Requires-Dist: google-api-python-client ; extra == "extract"

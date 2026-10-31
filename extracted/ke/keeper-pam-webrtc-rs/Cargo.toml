@@ -3,7 +3,7 @@ members = ["crates/webrtc-bindings", "crates/keeper-pam-webrtc-rs", "crates/guac
 resolver = "2"
 
 [workspace.package]
-version = "2.2.9"
+version = "2.2.10"
 edition = "2021"
 license = "MIT"
 authors = ["Keeper Security Engineering <pam@keepersecurity.com>"]
@@ -123,7 +123,7 @@ libsodium-sys = { version = "0.2" }
 subtle = "2.5"
 tracing-log = "0.2"
 tokio-rustls = "0.26"
-zstd = { version = "0.13", features = ["zstdmt"] }
+zstd = { version = "0.14", features = ["zstdmt"] }
 rustls-pemfile = "2"
 webpki-roots = "1.0"
 pyo3-log = "0.13.4"

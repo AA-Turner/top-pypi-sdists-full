@@ -16,8 +16,6 @@
 //
 
 // System includes
-#include <algorithm>
-#include <cmath>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -30,13 +28,9 @@
 #include <gtest/gtest.h>
 
 // Project includes
-#include "meshioplusplus/detail/data_ops.hpp"
 #include "meshioplusplus/exceptions.hpp"
 #include "meshioplusplus/operations/pipeline.hpp"
-#include "meshioplusplus/operations/primitives.hpp"
-#include "meshioplusplus/operations/tetrahedralize.hpp"
 #include "meshioplusplus/registry.hpp"
-#include "analytic_surfaces.hpp"
 #include "mesh_fixtures.hpp"
 
 namespace {
@@ -45,8 +39,6 @@ using meshioplusplus::Mesh;
 using meshioplusplus::Pipeline;
 using meshioplusplus::PipelineReport;
 using meshioplusplus::PipelineStep;
-// KRATOS meshes are not copy-constructible: a copy goes through clone_mesh.
-using meshioplusplus::detail::clone_mesh;
 
 PipelineStep step(std::string op,
                   std::map<std::string, meshioplusplus::PipelineValue> params = {}) {
@@ -108,120 +100,6 @@ TEST(Pipeline, VersionTwoTypedMergeAndFanoutWorkWithoutJson) {
     EXPECT_EQ(cells, 2 * total_cells(mt::tet_mesh()));
     std::filesystem::remove(input);
     std::filesystem::remove(extra);
-}
-
-TEST(Pipeline, ErrorSizeTurnsTheIndicatorIntoSizes) {
-    // Roadmap 6.10.2: a hand-made indicator on the tet mesh, then the step.
-    Mesh in = mt::tet_mesh();
-    std::vector<meshioplusplus::NDArray> blocks;
-    for (const auto& block : in.CellRange()) {
-        meshioplusplus::NDArray e(meshioplusplus::DType::Float64, {block.NumCells()});
-        for (std::size_t i = 0; i < block.NumCells(); ++i)
-            e.As<double>()[i] = 0.1 * static_cast<double>(i + 1);
-        blocks.push_back(std::move(e));
-    }
-    in.AddCellData("error:zz", std::move(blocks));
-    PipelineReport report;
-    Mesh out = meshioplusplus::apply_pipeline_step(
-        std::move(in),
-        step("ErrorSize", {{"TargetError", 0.01}, {"MinSize", 1e-3}, {"Output", std::string("h")}}),
-        report);
-    ASSERT_TRUE(out.HasPointData("h"));
-    ASSERT_EQ(report.mSteps.size(), 1u);
-    const auto& counters = report.mSteps[0].mCounters;
-    ASSERT_EQ(counters.size(), 5u);
-    EXPECT_EQ(counters[0].first, "NumCells");
-    EXPECT_EQ(counters[0].second, static_cast<double>(total_cells(out)));
-    EXPECT_EQ(counters[3].first, "MinSize");
-    EXPECT_GE(counters[3].second, 1e-3);
-    EXPECT_EQ(counters[4].first, "MaxSize");
-    // The output is replaced, never refused, and a missing target error is.
-    Mesh again = meshioplusplus::apply_pipeline_step(
-        std::move(out), step("ErrorSize", {{"TargetError", 0.01}, {"Output", std::string("h")}}),
-        report);
-    EXPECT_TRUE(again.HasPointData("h"));
-    EXPECT_THROW(meshioplusplus::apply_pipeline_step(std::move(again), step("ErrorSize"), report),
-                 std::invalid_argument);
-}
-
-// Roadmap 6.9.1: the BoundaryLayer step takes Collapse, NormalSmoothIterations
-// and FrontCheck, and reports the two new counters.
-TEST(Pipeline, BoundaryLayerTakesCollapseAndFrontCheck) {
-    const Mesh sphere = meshioplusplus::icosa_sphere(1.0, 2);
-    PipelineReport report;
-    Mesh out = meshioplusplus::apply_pipeline_step(
-        clone_mesh(sphere),
-        step("BoundaryLayer", {{"FirstHeight", 0.01},
-                               {"NumLayers", std::int64_t{2}},
-                               {"Collapse", std::string("layers")},
-                               {"NormalSmoothIterations", std::int64_t{2}},
-                               {"FrontCheck", false}}),
-        report);
-    ASSERT_EQ(report.mSteps.size(), 1u);
-    const auto& counters = report.mSteps[0].mCounters;
-    ASSERT_EQ(counters.size(), 6u);
-    EXPECT_EQ(counters[0].first, "NumCells");
-    EXPECT_GT(counters[0].second, 0.0);
-    EXPECT_EQ(counters[3].first, "NumFewerLayers");
-    EXPECT_EQ(counters[4].first, "NumFrontCrossings");
-    EXPECT_EQ(counters[4].second, 0.0);
-    EXPECT_EQ(counters[5].first, "MinScaledJacobian");
-    EXPECT_THROW(
-        meshioplusplus::apply_pipeline_step(
-            clone_mesh(sphere),
-            step("BoundaryLayer", {{"FirstHeight", 0.01}, {"Collapse", std::string("rows")}}),
-            report),
-        std::invalid_argument);
-}
-
-// Roadmap 6.7: the Tetrahedralize step fills the sphere's skin through the
-// octree backend and Netgen, or names the build flag for Netgen without it.
-TEST(Pipeline, TetrahedralizeFillsTheSurface) {
-    const Mesh sphere = meshioplusplus::icosa_sphere(1.0, 2);
-    PipelineReport report;
-    EXPECT_THROW(
-        meshioplusplus::apply_pipeline_step(
-            clone_mesh(sphere), step("Tetrahedralize", {{"Backend", std::string("tetgen")}}), report),
-        std::invalid_argument);
-    EXPECT_THROW(meshioplusplus::apply_pipeline_step(
-                     clone_mesh(sphere), step("Tetrahedralize", {{"Grading", 2.0}}), report),
-                 std::invalid_argument);
-    {
-        // The native octree backend, always built: the boundary fitted.
-        PipelineReport fitted;
-        Mesh out = meshioplusplus::apply_pipeline_step(
-            clone_mesh(sphere), step("Tetrahedralize", {{"Backend", std::string("octree")}}), fitted);
-        ASSERT_EQ(fitted.mSteps.size(), 1u);
-        const auto& c = fitted.mSteps[0].mCounters;
-        EXPECT_GT(c[0].second, 0.0);
-        EXPECT_EQ(c[5].first, "BoundaryPreserved");
-        EXPECT_EQ(c[5].second, 0.0);
-        EXPECT_TRUE(out.HasCellData(meshioplusplus::kTetrahedralizeRegion));
-    }
-    if (!meshioplusplus::tetrahedralize_has_netgen()) {
-        EXPECT_THROW(
-            meshioplusplus::apply_pipeline_step(
-                clone_mesh(sphere), step("Tetrahedralize", {{"Backend", std::string("netgen")}}), report),
-            meshioplusplus::Unsupported);
-        return;
-    }
-    Mesh out = meshioplusplus::apply_pipeline_step(
-        clone_mesh(sphere), step("Tetrahedralize", {{"MaxSize", 0.3}}), report);
-    ASSERT_EQ(report.mSteps.size(), 1u);
-    const auto& counters = report.mSteps[0].mCounters;
-    ASSERT_EQ(counters.size(), 10u);
-    EXPECT_EQ(counters[0].first, "NumTetrahedra");
-    EXPECT_GT(counters[0].second, 0.0);
-    EXPECT_EQ(counters[3].first, "NumRegions");
-    EXPECT_EQ(counters[3].second, 1.0);
-    EXPECT_EQ(counters[4].first, "NumBoundaryTriangles");
-    EXPECT_EQ(counters[4].second, 320.0);
-    EXPECT_EQ(counters[5].first, "BoundaryPreserved");
-    EXPECT_EQ(counters[5].second, 1.0);
-    EXPECT_EQ(counters[9].first, "Volume");
-    EXPECT_GT(counters[9].second, 3.9);
-    EXPECT_TRUE(out.HasCellData(meshioplusplus::kTetrahedralizeRegion));
-    EXPECT_EQ(out.NumPoints() - sphere.NumPoints(), static_cast<std::size_t>(counters[2].second));
 }
 
 TEST(Pipeline, TransformRotatesAboutZ) {
@@ -473,165 +351,6 @@ TEST(Pipeline, OpTableExposesTheVocabulary) {
     EXPECT_TRUE(has_transform);
 }
 
-// The counter `rName` of a step report, or nullptr when the step has none.
-const double* pipeline_counter(const meshioplusplus::PipelineStepReport& rStep,
-                               const std::string& rName) {
-    for (const auto& [name, value] : rStep.mCounters)
-        if (name == rName)
-            return &value;
-    return nullptr;
-}
-
-TEST(Pipeline, RefinePatchesStep) {
-    // A feature angle above the box's 90 degrees leaves one patch no primitive
-    // explains; RefinePatches splits the six sides back out of it.
-    PipelineReport report;
-    const Mesh out = meshioplusplus::run_pipeline_steps(
-        analytic::box_skin(3),
-        {step("Segment", {{"FeatureAngle", 100.0}}),
-         step("RefinePatches", {{"FeatureAngle", 100.0}, {"MaxIterations", std::int64_t{20}}})},
-        report);
-    ASSERT_EQ(report.mSteps.size(), 2u);
-    const auto& refined = report.mSteps[1];
-    EXPECT_EQ(refined.mOp, "RefinePatches");
-    for (const char* key : {"NumPatches", "NumIterations", "NumSplits", "NumMerges", "NumPrimitive",
-                            "NumFreeform", "ExplainedAreaFraction", "HausdorffMax", "Stop"})
-        EXPECT_NE(pipeline_counter(refined, key), nullptr) << key;
-    EXPECT_EQ(*pipeline_counter(refined, "NumPatches"), 6.0);
-    EXPECT_EQ(*pipeline_counter(refined, "NumPrimitive"), 6.0);
-    EXPECT_GT(*pipeline_counter(refined, "NumSplits"), 0.0);
-    EXPECT_NEAR(*pipeline_counter(refined, "ExplainedAreaFraction"), 1.0, 1e-12);
-    const double stop = *pipeline_counter(refined, "Stop");
-    EXPECT_GE(stop, 0.0);
-    EXPECT_LE(stop, 3.0);
-    EXPECT_TRUE(out.HasCellData("segment:patch"));
-    EXPECT_TRUE(out.HasFieldData("refine:explained_area_fraction"));
-
-    // The seed must be a JSON-exact integer: in [0, 2^53].
-    for (const meshioplusplus::PipelineValue& bad :
-         {meshioplusplus::PipelineValue{std::int64_t{-1}},
-          meshioplusplus::PipelineValue{std::int64_t{9007199254740993}},
-          meshioplusplus::PipelineValue{1.5}, meshioplusplus::PipelineValue{std::string("7")}}) {
-        PipelineReport r;
-        try {
-            meshioplusplus::run_pipeline_steps(
-                analytic::box_skin(2),
-                {step("Segment"), step("RefinePatches", {{"RansacSeed", bad}})}, r);
-            ADD_FAILURE() << "a bad RansacSeed was accepted";
-        } catch (const std::invalid_argument& e) {
-            EXPECT_NE(std::string(e.what()).find("2^53"), std::string::npos) << e.what();
-        }
-    }
-    PipelineReport ok;
-    EXPECT_NO_THROW(meshioplusplus::run_pipeline_steps(
-        analytic::box_skin(2),
-        {step("Segment"), step("RefinePatches", {{"RansacSeed", std::int64_t{9007199254740992}}})},
-        ok));
-    // Without `segment:patch` there is nothing to refine.
-    PipelineReport none;
-    EXPECT_THROW(
-        meshioplusplus::run_pipeline_steps(analytic::box_skin(2), {step("RefinePatches")}, none),
-        std::invalid_argument);
-}
-
-TEST(Pipeline, FitCadRefineKeys) {
-    // Only a run that refined reports it, so an existing report stays as it was.
-    PipelineReport plain;
-    meshioplusplus::run_pipeline_steps(
-        analytic::box_skin(2), {step("FitCad", {{"Backend", std::string("native")}})}, plain);
-    ASSERT_EQ(plain.mSteps.size(), 1u);
-    EXPECT_EQ(pipeline_counter(plain.mSteps[0], "Refined"), nullptr);
-    EXPECT_EQ(pipeline_counter(plain.mSteps[0], "ExplainedAreaFraction"), nullptr);
-
-    PipelineReport refined;
-    meshioplusplus::run_pipeline_steps(analytic::box_skin(2),
-                                       {step("FitCad", {{"Backend", std::string("native")},
-                                                        {"RefineSegmentation", true},
-                                                        {"MaxRefineIterations", std::int64_t{5}},
-                                                        {"RefineEpsilon", 1e-3},
-                                                        {"NormalWeight", 1.0},
-                                                        {"AllowMerge", true},
-                                                        {"AllowSplit", true},
-                                                        {"RansacSeed", std::int64_t{42}},
-                                                        {"RefineTolerance", 1e-3},
-                                                        {"RelativeTolerance", true}})},
-                                       refined);
-    ASSERT_EQ(refined.mSteps.size(), 1u);
-    const auto& entry = refined.mSteps[0];
-    ASSERT_NE(pipeline_counter(entry, "Refined"), nullptr);
-    EXPECT_EQ(*pipeline_counter(entry, "Refined"), 1.0);
-    EXPECT_NE(pipeline_counter(entry, "NumRefineSplits"), nullptr);
-    EXPECT_NE(pipeline_counter(entry, "NumRefineMerges"), nullptr);
-    ASSERT_NE(pipeline_counter(entry, "ExplainedAreaFraction"), nullptr);
-    EXPECT_NEAR(*pipeline_counter(entry, "ExplainedAreaFraction"), 1.0, 1e-12);
-    // The existing counters come first, in their old order.
-    EXPECT_EQ(entry.mCounters.front().first, "Valid");
-    ASSERT_NE(pipeline_counter(entry, "RefinementKept"), nullptr);
-    EXPECT_EQ(entry.mCounters.size(), plain.mSteps[0].mCounters.size() + 5);
-
-    PipelineReport bad;
-    EXPECT_THROW(
-        meshioplusplus::run_pipeline_steps(analytic::box_skin(2),
-                                           {step("FitCad", {{"Backend", std::string("native")},
-                                                            {"RansacSeed", std::int64_t{-3}}})},
-                                           bad),
-        std::invalid_argument);
-}
-
-TEST(Pipeline, FitCadPhaseThreeKeys) {
-    // `Closed` is always reported; each Phase 3 option adds its counters only
-    // when it is set, so an existing report gains just the one key.
-    PipelineReport plain;
-    meshioplusplus::run_pipeline_steps(
-        analytic::box_skin(2), {step("FitCad", {{"Backend", std::string("native")}})}, plain);
-    ASSERT_EQ(plain.mSteps.size(), 1u);
-    ASSERT_NE(pipeline_counter(plain.mSteps[0], "Closed"), nullptr);
-    EXPECT_EQ(*pipeline_counter(plain.mSteps[0], "Closed"), 1.0);
-    EXPECT_EQ(plain.mSteps[0].mCounters.back().first, "Closed");
-    for (const char* key :
-         {"NumFreeformGeneral", "NumFreeformRefinements", "AvgFreeformPoles", "NumExtendedEdges",
-          "NumSnappedJunctions", "HausdorffMax", "HausdorffRms"})
-        EXPECT_EQ(pipeline_counter(plain.mSteps[0], key), nullptr) << key;
-
-    PipelineReport all;
-    meshioplusplus::run_pipeline_steps(analytic::box_skin(2),
-                                       {step("FitCad", {{"Backend", std::string("native")},
-                                                        {"FreeformGeneral", true},
-                                                        {"FreeformTolerance", 0.0},
-                                                        {"FreeformSmoothing", 1e-10},
-                                                        {"MaxFreeformPoles", std::int64_t{20}},
-                                                        {"MaxFreeformIterations", std::int64_t{5}},
-                                                        {"MaxFreeformSplits", std::int64_t{1}},
-                                                        {"SewTolerance", 0.0},
-                                                        {"ExtendSurfaces", true},
-                                                        {"SnapJunctions", true},
-                                                        {"FaceDeviation", true}})},
-                                       all);
-    ASSERT_EQ(all.mSteps.size(), 1u);
-    const auto& entry = all.mSteps[0];
-    for (const char* key :
-         {"NumFreeformGeneral", "NumFreeformRefinements", "AvgFreeformPoles", "NumExtendedEdges",
-          "NumSnappedJunctions", "HausdorffMax", "HausdorffRms"})
-        EXPECT_NE(pipeline_counter(entry, key), nullptr) << key;
-    EXPECT_EQ(entry.mCounters.size(), plain.mSteps[0].mCounters.size() + 7);
-    // The native backend builds no freeform faces and measures nothing.
-    EXPECT_EQ(*pipeline_counter(entry, "NumFreeformGeneral"), 0.0);
-    EXPECT_TRUE(std::isnan(*pipeline_counter(entry, "HausdorffMax")));
-
-    PipelineReport bad;
-    EXPECT_THROW(meshioplusplus::run_pipeline_steps(
-                     analytic::box_skin(2),
-                     {step("FitCad", {{"Backend", std::string("native")},
-                                      {"MaxFreeformPoles", std::int64_t{3}}})},
-                     bad),
-                 std::invalid_argument);
-    EXPECT_THROW(
-        meshioplusplus::run_pipeline_steps(
-            analytic::box_skin(2),
-            {step("FitCad", {{"Backend", std::string("native")}, {"SewTolerance", -1.0}})}, bad),
-        std::invalid_argument);
-}
-
 TEST(Pipeline, RunPipelineEndToEndTyped) {
     const std::string in_path = mt::temp_path("_pipe_in.vtk");
     const std::string out_path = mt::temp_path("_pipe_out.vtk");
@@ -865,31 +584,6 @@ TEST(PipelineJson, MissingSettingsFileFailsByPath) {
     } catch (const meshioplusplus::ReadError& e) {
         EXPECT_NE(std::string(e.what()).find("/no/such/settings.json"), std::string::npos);
     }
-}
-
-TEST(PipelineJson, GenerateNeedsNoInput) {
-    const std::string out_path = mt::temp_path("_pipe_generate.vtk");
-    const std::string text = R"({
-        "Version": 1,
-        "Operations": [{"Op": "Generate", "Shape": "box", "Dims": [2, 2, 2],
-                        "CellType": "tetra", "Order": 2}],
-        "Output": {"Path": ")" + out_path + R"("}
-    })";
-    const PipelineReport report = meshioplusplus::run_pipeline_json(text);
-    ASSERT_EQ(report.mSteps.size(), 1u);
-    EXPECT_EQ(report.mSteps[0].mOp, "Generate");
-    ASSERT_FALSE(report.mSteps[0].mCounters.empty());
-    EXPECT_EQ(report.mSteps[0].mCounters[0].first, "NumPoints");
-    EXPECT_TRUE(std::filesystem::exists(out_path));
-    std::filesystem::remove(out_path);
-
-    // Input stays required unless the first step generates the mesh.
-    EXPECT_THROW(meshioplusplus::run_pipeline_json(R"({"Version": 1,
-        "Operations": [{"Op": "Quality"}], "Output": {"Path": "x.vtk"}})"),
-                 std::exception);
-    EXPECT_THROW(meshioplusplus::run_pipeline_json(R"({"Version": 1,
-        "Operations": [{"Op": "Generate", "Shape": "blob"}], "Output": {"Path": "x.vtk"}})"),
-                 std::invalid_argument);
 }
 
 #else  // !MESHIOPLUSPLUS_HAS_JSON

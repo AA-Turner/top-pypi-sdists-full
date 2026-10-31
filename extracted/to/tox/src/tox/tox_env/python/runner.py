@@ -6,11 +6,12 @@ import logging
 from abc import ABC
 from functools import partial
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, TypeAlias, get_args
+from typing import TYPE_CHECKING, Final, Literal, TypeAlias, get_args
 
+from packaging.markers import default_environment
 from packaging.utils import canonicalize_name
+from python_discovery import PythonInfo as DiscoveredPythonInfo
 
-from tox.config.loader.str_convert import StrConvert
 from tox.config.types import Command
 from tox.execute import Outcome
 from tox.report import HandledError
@@ -21,7 +22,7 @@ from tox.tox_env.python.pylock import Pylock
 from tox.tox_env.runner import RunToxEnv
 from tox.util.typing_compat import override
 
-from .api import Python
+from .api import Python, add_skip_missing_interpreters_to_core, add_skip_missing_interpreters_to_env
 from .dependency_groups import resolve as resolve_dependency_groups
 from .extras import resolve_extras_static
 
@@ -32,9 +33,9 @@ PackageType: TypeAlias = Literal[
 
 
 if TYPE_CHECKING:
-    from tox.config.cli.parser import Parsed
-    from tox.config.main import Config
-    from tox.config.sets import CoreConfigSet, EnvConfigSet
+    from typing_extensions import TypeIs
+
+    from tox.config.sets import EnvConfigSet
     from tox.tox_env.api import ToxEnvCreateArgs
     from tox.tox_env.package import Package
 
@@ -50,7 +51,7 @@ class PythonRun(Python, RunToxEnv, ABC):
         self.conf.add_config(
             keys=["deps"],
             of_type=PythonDeps,
-            factory=partial(PythonDeps.factory, root),
+            factory=partial(PythonDeps.factory, root, environment_provider=lambda: self.environment_variables),
             default=PythonDeps("", root),
             desc="python dependencies with optional version specifiers, as specified by PEP-440",
         )
@@ -171,34 +172,42 @@ class PythonRun(Python, RunToxEnv, ABC):
         groups = self.conf.get("dependency_groups", set[str])
         if not groups:
             return
-        try:
-            root = self.core.get("package_root", Path)
-        except KeyError:
-            root = self.core["tox_root"]
-        requirements = resolve_dependency_groups(root, groups)
+        requirements = resolve_dependency_groups(self.core.get("package_root", Path), groups)
         self._install(list(requirements), PythonRun.__name__, "dependency-groups")
 
     def _install_pylock(self) -> None:
         pylock_path = self.conf.get("pylock", str)
-        try:
-            root = self.core.get("package_root", Path)
-        except KeyError:
-            root = self.core["tox_root"]
-        if not (path := root / pylock_path).exists():
+        if not (path := self.core.get("package_root", Path) / pylock_path).exists():
             msg = f"pylock file {pylock_path!r} not found at {path}"
             raise Fail(msg)
-        info = self.base_python
-        marker_env = {
-            "implementation_name": info.impl_lower,
-            "platform_python_implementation": info.implementation,
-            "python_version": info.version_dot,
-            "python_full_version": f"{info.version_info.major}.{info.version_info.minor}.{info.version_info.micro}",
-            "sys_platform": info.platform,
-        }
+        marker_env: Final[dict[str, str]] = self._target_marker_environment()
         extras = self.conf.get("extras", set[str])
         groups = self.conf.get("dependency_groups", set[str])
         pylock = Pylock(path=path, extras=frozenset(extras), groups=frozenset(groups), marker_env=marker_env)
         self._install(pylock, PythonRun.__name__, "pylock")
+
+    def _target_marker_environment(self) -> dict[str, str]:
+        if (discovered := self.base_python.marker_environment) is None:
+            python: Final[Path] = self.env_python()
+            interpreter: Final[DiscoveredPythonInfo | None] = DiscoveredPythonInfo.from_exe(
+                str(python), raise_on_error=False, resolve_to_host=False, env=self.environment_variables
+            )
+            if interpreter is None:
+                msg = f"failed to determine the marker environment of {python}"
+                raise Fail(msg)
+            discovered = interpreter.marker_environment
+        if not self._is_marker_environment(discovered):
+            msg = f"failed to determine the marker environment of {self.env_python()}: incomplete or invalid data"
+            raise Fail(msg)
+        return discovered
+
+    @staticmethod
+    def _is_marker_environment(value: object) -> TypeIs[dict[str, str]]:
+        return (
+            isinstance(value, dict)
+            and value.keys() == default_environment().keys()
+            and all(isinstance(item, str) for item in value.values())
+        )
 
     @override
     def _setup_with_env(self) -> None:
@@ -229,35 +238,6 @@ class PythonRun(Python, RunToxEnv, ABC):
                 msg = f"{exception.args[0]} for package environment {package_env.conf['env_name']}"
                 raise Skip(msg) from exception
         return packages
-
-
-def _skip_missing_interpreters_post_process(options: Parsed, value: bool) -> bool:  # ruff:ignore[boolean-type-hint-positional-argument]
-    if getattr(options, "skip_missing_interpreters", "config") != "config":
-        return StrConvert().to_bool(str(options.skip_missing_interpreters))
-    return value
-
-
-def add_skip_missing_interpreters_to_core(core: CoreConfigSet, options: Parsed) -> None:
-    core.add_config(
-        keys=["skip_missing_interpreters"],
-        default=False,
-        of_type=bool,
-        post_process=partial(_skip_missing_interpreters_post_process, options),
-        desc="skip running missing interpreters",
-    )
-
-
-def add_skip_missing_interpreters_to_env(conf: EnvConfigSet, core: CoreConfigSet, options: Parsed) -> None:
-    def _default_skip_missing(conf: Config, env_name: str | None) -> bool:  # ruff:ignore[unused-function-argument]
-        return core.get("skip_missing_interpreters", bool)
-
-    conf.add_config(
-        keys=["skip_missing_interpreters"],
-        default=_default_skip_missing,
-        of_type=bool,
-        post_process=partial(_skip_missing_interpreters_post_process, options),
-        desc="override core skip_missing_interpreters for this environment",
-    )
 
 
 def add_extras_to_env(conf: EnvConfigSet) -> None:

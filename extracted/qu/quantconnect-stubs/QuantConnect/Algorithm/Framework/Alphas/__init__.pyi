@@ -544,6 +544,10 @@ class Insight(System.Object):
 class IAlphaModel(QuantConnect.Algorithm.Framework.INotifiedSecurityChanges, metaclass=abc.ABCMeta):
     """Algorithm framework model that produces insights"""
 
+    def get_model_name(self) -> str:
+        """Gets the name of the alpha model"""
+        ...
+
     def update(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: QuantConnect.Data.Slice) -> typing.Sequence[QuantConnect.Algorithm.Framework.Alphas.Insight]:
         """
         Updates this alpha model with the latest data from the algorithm.

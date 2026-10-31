@@ -10,7 +10,7 @@ commands = [
 
 [project]
 name = "monocle_apptrace"
-version = "0.8.15"
+version = "0.8.16"
 authors = [
   { name="Okahu Inc.", email="okahu-pypi@okahu.ai" },
 ]
@@ -88,6 +88,7 @@ dev = [
   'langchain==1.2.15',
   'datasets==4.3.0',
   'numpy==1.26.4',
+  'pyarrow<26',  # 26.0.0 (2026-10-09) requires NumPy 2; keep it compatible with the numpy pin above
   'types-requests==2.31.0.20240106',
   'InstructorEmbedding==1.0.1',
   'faiss-cpu==1.8.0',
@@ -172,6 +173,8 @@ dev_msagent = [
   # Replaces agent-framework-azure-ai, which imports BaseContextProvider — a
   # symbol no agent-framework-core release exports — so it fails at import.
   'agent-framework-foundry==1.11.0',
+  # Multi-agent orchestration builders (Sequential/Concurrent/GroupChat/Magentic/Handoff).
+  'agent-framework-orchestrations==1.1.1',
   'openai>=2.8.0',
 ]
 

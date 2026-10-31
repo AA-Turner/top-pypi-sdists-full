@@ -2169,6 +2169,15 @@ def test_blocking_setter_rejects_non_bool(tmp_path: Path) -> None:
     assert lock.blocking is True
 
 
+@pytest.mark.parametrize("blocking", [pytest.param("false", id="str"), pytest.param(0, id="int")])
+@pytest.mark.parametrize("lock_type", [FileLock, SoftFileLock])
+def test_acquire_rejects_non_bool_blocking(lock_type: type[BaseFileLock], blocking: str | int, tmp_path: Path) -> None:
+    lock: Final = lock_type(tmp_path / "a")
+    with pytest.raises(TypeError, match="blocking must be a bool"):
+        lock.acquire(blocking=blocking)  # ty: ignore[invalid-argument-type]  # the rejected type is the contract
+    assert (lock.lock_counter, lock.is_locked) == (0, False)
+
+
 @pytest.mark.parametrize("lock_type", [FileLock, SoftFileLock])
 @pytest.mark.parametrize("nan", _NANS)
 def test_non_blocking_acquire_ignores_nan_timeout(lock_type: type[BaseFileLock], nan: float, tmp_path: Path) -> None:
@@ -2440,9 +2449,16 @@ def test_contender_does_not_fchmod(held_lock_path: Path, mocker: MockerFixture) 
 @NEEDS_FCNTL  # pragma: needs fcntl
 @pytest.mark.parametrize("failing", [pytest.param("fchmod", id="fchmod"), pytest.param("fstat", id="fstat")])
 def test_post_open_failure_closes_fd(tmp_path: Path, mocker: MockerFixture, failing: str) -> None:
-    mocker.patch(f"os.{failing}", side_effect=OSError(EIO, "Input/output error"))
     open_spy = mocker.spy(os, "open")
     close_spy = mocker.spy(os, "close")
+    real: Final = getattr(os, failing)
+
+    def fail_for_the_lock_file(fd: int, *args: int) -> os.stat_result | None:
+        if fd == open_spy.spy_return:
+            raise OSError(EIO, "Input/output error")
+        return real(fd, *args)
+
+    mocker.patch(f"os.{failing}", side_effect=fail_for_the_lock_file)
 
     with pytest.raises(OSError, match="Input/output error"):
         FileLock(tmp_path / "resource.lock", timeout=0, mode=0o644).acquire()
@@ -3199,6 +3215,32 @@ def test_waiter_after_directory_rename_does_not_lock_a_new_file(
         holder.release(force=True)
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="Windows refuses to rename a directory holding an open file"
+)  # pragma: win32 no cover
+@pytest.mark.parametrize("lock_type", [FileLock, SoftFileLock])
+@pytest.mark.parametrize(
+    "occupy_old_name",
+    [
+        pytest.param(lambda _parent: None, id="old-name-absent"),
+        pytest.param(lambda parent: parent.write_text("replacement", encoding="utf-8"), id="old-name-is-a-file"),
+    ],
+)
+def test_reentrant_acquire_after_directory_rename(
+    lock_type: type[BaseFileLock], occupy_old_name: Callable[[Path], object], tmp_path: Path
+) -> None:
+    parent = tmp_path / "original"
+    lock = lock_type(parent / "resource.lock")
+    with lock:
+        parent.rename(tmp_path / "renamed")
+        occupy_old_name(parent)
+        with lock:
+            assert lock.lock_counter == 2
+        assert lock.lock_counter == 1
+        assert not parent.is_dir()
+    assert not lock.is_locked
+
+
 @pytest.mark.parametrize("lock_type", _RELATIVE_LOCK_TYPES)
 def test_each_acquisition_resolves_the_working_directory(
     lock_type: type[BaseFileLock], working_directories: tuple[Path, Path]
@@ -3302,8 +3344,10 @@ def test_final_symlink_backend_refuses_to_lock(tmp_path: Path) -> None:
     (tmp_path / "target").write_text("")
     (tmp_path / "link").symlink_to(tmp_path / "target")
     # Keeping the final symlink a distinct key is safe because the backend still refuses to lock through it. O_NOFOLLOW
-    # reports the refusal as ELOOP on Linux and macOS, and as EFTYPE ("inappropriate file type") on NetBSD.
-    with pytest.raises(OSError, check=lambda error: error.errno in {errno.ELOOP, getattr(errno, "EFTYPE", None)}):
+    # reports ELOOP on Linux/macOS, EFTYPE on NetBSD, and EMLINK on FreeBSD.
+    with pytest.raises(
+        OSError, check=lambda error: error.errno in {errno.ELOOP, errno.EMLINK, getattr(errno, "EFTYPE", None)}
+    ):
         FileLock(str(tmp_path / "link")).acquire()
 
 

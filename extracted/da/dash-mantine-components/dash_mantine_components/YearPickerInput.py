@@ -139,6 +139,10 @@ Keyword arguments:
     - ButtonProps (dict; optional):
         props passed down to `Button` component *.
 
+- clearSectionMode (a value equal to: 'rightSection', 'both', 'clear'; optional):
+    Determines how the clear button and rightSection are rendered
+    default 'both'.
+
 - clearable (boolean; optional):
     Determines whether input value can be cleared, adds clear button
     to right section, False by default.
@@ -199,6 +203,10 @@ Keyword arguments:
 
 - fs (dict; optional):
     Font style – Accepts CSS values or a dict for responsive styles.
+
+- fullWidth (boolean; optional):
+    Determines whether the calendar should take the full width of its
+    container default False.
 
 - fw (number | dict; optional):
     Font weight – Accepts CSS values or a dict for responsive styles.
@@ -265,6 +273,13 @@ Keyword arguments:
     Determines whether component should be hidden in light color
     scheme with `display: none`.
 
+- loading (boolean; optional):
+    Displays loading indicator in the left or right section default
+    False.
+
+- loadingPosition (a value equal to: 'left', 'right'; optional):
+    Position of the loading indicator default 'right'.
+
 - loading_state (dict; optional):
     Object that holds the loading state object coming from
     dash-renderer. For use with dash<3.
@@ -307,12 +322,18 @@ Keyword arguments:
     Margin inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- mie (number; optional):
+    MarginInlineEnd, theme key: theme.spacing.
+
 - mih (string | number | dict; optional):
     Minimum height – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
 
 - minDate (string; optional):
     Minimum possible date.
+
+- mis (number; optional):
+    MarginInlineStart, theme key: theme.spacing.
 
 - miw (string | number | dict; optional):
     Minimum width – Accepts theme spacing keys, CSS values, or a dict
@@ -389,6 +410,12 @@ Keyword arguments:
         Margin inline end – Accepts theme spacing keys, CSS values, or
         a dict for responsive styles.
 
+    - mis (number; optional):
+        MarginInlineStart, theme key: theme.spacing.
+
+    - mie (number; optional):
+        MarginInlineEnd, theme key: theme.spacing.
+
     - ml (string | number | dict; optional):
         Margin left – Accepts theme spacing keys, CSS values, or a
         dict for responsive styles.
@@ -424,6 +451,12 @@ Keyword arguments:
     - pe (string | number | dict; optional):
         Padding inline end – Accepts theme spacing keys, CSS values,
         or a dict for responsive styles.
+
+    - pis (number; optional):
+        PaddingInlineStart, theme key: theme.spacing.
+
+    - pie (number; optional):
+        PaddingInlineEnd, theme key: theme.spacing.
 
     - pl (string | number | dict; optional):
         Padding left – Accepts theme spacing keys, CSS values, or a
@@ -717,6 +750,12 @@ Keyword arguments:
             Margin inline end – Accepts theme spacing keys, CSS
             values, or a dict for responsive styles.
 
+        - mis (number; optional):
+            MarginInlineStart, theme key: theme.spacing.
+
+        - mie (number; optional):
+            MarginInlineEnd, theme key: theme.spacing.
+
         - ml (string | number | dict; optional):
             Margin left – Accepts theme spacing keys, CSS values, or a
             dict for responsive styles.
@@ -752,6 +791,12 @@ Keyword arguments:
         - pe (string | number | dict; optional):
             Padding inline end – Accepts theme spacing keys, CSS
             values, or a dict for responsive styles.
+
+        - pis (number; optional):
+            PaddingInlineStart, theme key: theme.spacing.
+
+        - pie (number; optional):
+            PaddingInlineEnd, theme key: theme.spacing.
 
         - pl (string | number | dict; optional):
             Padding left – Accepts theme spacing keys, CSS values, or
@@ -905,13 +950,13 @@ Keyword arguments:
         - zIndex (string | number; optional):
             Overlay z-index, `200` by default.
 
-        - center (boolean; optional):
-            Determines whether content inside overlay should be
-            vertically and horizontally centered, `False` by default.
-
         - fixed (boolean; optional):
             Determines whether overlay should have fixed position
             instead of absolute, `False` by default.
+
+        - center (boolean; optional):
+            Determines whether content inside overlay should be
+            vertically and horizontally centered, `False` by default.
 
         - backgroundOpacity (number; optional):
             Controls overlay `background-color` opacity 0–1,
@@ -1202,6 +1247,18 @@ Keyword arguments:
             Determines whether component should be hidden in dark
             color scheme with `display: none`.
 
+        - mis (number; optional):
+            MarginInlineStart, theme key: theme.spacing.
+
+        - mie (number; optional):
+            MarginInlineEnd, theme key: theme.spacing.
+
+        - pis (number; optional):
+            PaddingInlineStart, theme key: theme.spacing.
+
+        - pie (number; optional):
+            PaddingInlineEnd, theme key: theme.spacing.
+
     - yOffset (string | number; optional):
         Top/bottom modal offset, `5dvh` by default.
 
@@ -1289,6 +1346,12 @@ Keyword arguments:
     kept after the browser quit. session: window.sessionStorage, data
     is cleared once the browser quit.
 
+- pie (number; optional):
+    PaddingInlineEnd, theme key: theme.spacing.
+
+- pis (number; optional):
+    PaddingInlineStart, theme key: theme.spacing.
+
 - pl (string | number | dict; optional):
     Padding left – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
@@ -1352,20 +1415,12 @@ Keyword arguments:
         Determines whether dropdown and target elements should have
         accessible roles, `True` by default.
 
-    - hideDetached (boolean; optional):
-        If set, the dropdown is hidden when the element is hidden with
-        styles or not visible on the screen, `True` by default.
-
     - position (a value equal to: 'top', 'left', 'bottom', 'right', 'top-end', 'top-start', 'left-end', 'left-start', 'bottom-end', 'bottom-start', 'right-end', 'right-start'; optional):
         Dropdown position relative to the target element, `'bottom'`
         by default.
 
     - offset (number; optional):
         Offset of the dropdown element, `8` by default.
-
-    - positionDependencies (list of boolean | number | string | dict | lists; optional):
-        `useEffect` dependencies to force update dropdown position,
-        `[]` by default.
 
     - keepMounted (boolean; optional):
         If set dropdown will not be unmounted from the DOM when it is
@@ -1516,7 +1571,7 @@ Keyword arguments:
     - arrowRadius (number; optional):
         Arrow `border-radius` in px, `0` by default.
 
-    - arrowPosition (a value equal to: 'center', 'side'; optional):
+    - arrowPosition (a value equal to: 'center', 'side', 'merge'; optional):
         Arrow position.
 
     - withinPortal (boolean; optional):
@@ -1550,12 +1605,38 @@ Keyword arguments:
         Determines whether the overlay should be displayed when the
         dropdown is opened, `False` by default.
 
+    - hideDetached (boolean; optional):
+        If set, the dropdown is hidden when the element is hidden with
+        styles or not visible on the screen default True.
+
+    - preventPositionChangeWhenVisible (boolean; optional):
+        If `True`, the dropdown picks its side on open (flip runs
+        once, preferring the `position` prop) and then never changes
+        side — scrolling, resizing, and content size changes will not
+        flip the dropdown. The side is recalculated fresh on the next
+        open. Does not affect the `shift` middleware. Set to `False`
+        to keep flip active and allow the dropdown to re-flip on every
+        change. default True.
+
+    - clickOutsideCapture (boolean; optional):
+        If set, outside click listeners are registered in the capture
+        phase default False.
+
 - pos (dict; optional):
     Position – Accepts CSS values or a dict for responsive styles.
 
 - pr (string | number | dict; optional):
     Padding right – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
+
+- presets (list of dicts; optional):
+    Predefined values to pick from.
+
+    `presets` is a list of dicts with keys:
+
+    - value (string | list of strings; required)
+
+    - label (string; required)
 
 - ps (string | number | dict; optional):
     Padding inline start – Accepts theme spacing keys, CSS values, or
@@ -1613,6 +1694,12 @@ Keyword arguments:
     Adds inline styles directly to inner elements of a component.  See
     Styles API docs.
 
+- success (a list of or a singular dash component, string or number; optional):
+    Determines whether the input should have success styles.
+
+- successProps (dict with strings as keys and values of type boolean | number | string | dict | list; optional):
+    Props passed down to the `Input.Success` component.
+
 - ta (dict; optional):
     Text align – Accepts CSS values or a dict for responsive styles.
 
@@ -1642,6 +1729,10 @@ Keyword arguments:
 - valueFormat (string; optional):
     Dayjs format to display input value, \"MMMM D, YYYY\" by default.
 
+- valueFormatter (boolean | number | string | dict | list; optional):
+    A function to format selected dates values into a string. By
+    default, date is formatted based on the input type.
+
 - variant (string; optional):
     variant.
 
@@ -1666,13 +1757,21 @@ Keyword arguments:
     Determines whether the input should have red border and red text
     color when the `error` prop is set, `True` by default.
 
+- withNativeLevelSelect (boolean; optional):
+    Determines whether level select controls should be rendered as
+    native `<select>` elements @,default,False.
+
+- withSuccessStyles (boolean; optional):
+    Determines whether the input should have green border when the
+    `success` prop is set @,default,True.
+
 - wrapperProps (dict with strings as keys and values of type boolean | number | string | dict | list; optional):
     Props passed down to the root element.
 
 - yearsListFormat (string; optional):
     dayjs format for years list, `'YYYY'` by default."""
-    _children_props: typing.List[str] = ['popoverProps.middlewares.flip.boundary', 'modalProps.overlayProps.children', 'modalProps.title', 'modalProps.closeButtonProps.children', 'modalProps.closeButtonProps.icon', 'clearButtonProps.children', 'clearButtonProps.icon', 'leftSection', 'rightSection', 'label', 'description', 'error']
-    _base_nodes = ['leftSection', 'rightSection', 'label', 'description', 'error', 'children']
+    _children_props: typing.List[str] = ['popoverProps.middlewares.flip.boundary', 'modalProps.overlayProps.children', 'modalProps.title', 'modalProps.closeButtonProps.children', 'modalProps.closeButtonProps.icon', 'clearButtonProps.children', 'clearButtonProps.icon', 'leftSection', 'rightSection', 'label', 'description', 'error', 'success']
+    _base_nodes = ['leftSection', 'rightSection', 'label', 'description', 'error', 'success', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'YearPickerInput'
     LoadingState = TypedDict(
@@ -1731,7 +1830,7 @@ Keyword arguments:
             {
             "mainAxis": NotRequired[bool],
             "crossAxis": NotRequired[typing.Union[bool, Literal["alignment"]]],
-            "rootBoundary": NotRequired[typing.Union[Literal["viewport"], Literal["document"], "PopoverPropsMiddlewaresFlipRootBoundary"]],
+            "rootBoundary": NotRequired[typing.Union[Literal["viewport"], Literal["layoutViewport"], Literal["document"], "PopoverPropsMiddlewaresFlipRootBoundary"]],
             "elementContext": NotRequired[Literal["reference", "floating"]],
             "altBoundary": NotRequired[bool],
             "padding": NotRequired[typing.Union[NumberType, "PopoverPropsMiddlewaresFlipPadding"]],
@@ -1769,10 +1868,8 @@ Keyword arguments:
             "trapFocus": NotRequired[bool],
             "closeOnEscape": NotRequired[bool],
             "withRoles": NotRequired[bool],
-            "hideDetached": NotRequired[bool],
             "position": NotRequired[Literal["top", "left", "bottom", "right", "top-end", "top-start", "left-end", "left-start", "bottom-end", "bottom-start", "right-end", "right-start"]],
             "offset": NotRequired[typing.Union[NumberType]],
-            "positionDependencies": NotRequired[typing.Sequence[typing.Any]],
             "keepMounted": NotRequired[bool],
             "transitionProps": NotRequired["PopoverPropsTransitionProps"],
             "width": NotRequired[typing.Union[str, NumberType]],
@@ -1781,7 +1878,7 @@ Keyword arguments:
             "arrowSize": NotRequired[NumberType],
             "arrowOffset": NotRequired[NumberType],
             "arrowRadius": NotRequired[NumberType],
-            "arrowPosition": NotRequired[Literal["center", "side"]],
+            "arrowPosition": NotRequired[Literal["center", "side", "merge"]],
             "withinPortal": NotRequired[bool],
             "portalProps": NotRequired[dict],
             "zIndex": NotRequired[typing.Union[str, NumberType]],
@@ -1789,7 +1886,10 @@ Keyword arguments:
             "returnFocus": NotRequired[bool],
             "floatingStrategy": NotRequired[Literal["absolute", "fixed"]],
             "overlayProps": NotRequired[dict],
-            "withOverlay": NotRequired[bool]
+            "withOverlay": NotRequired[bool],
+            "hideDetached": NotRequired[bool],
+            "preventPositionChangeWhenVisible": NotRequired[bool],
+            "clickOutsideCapture": NotRequired[bool]
         }
     )
 
@@ -1835,6 +1935,8 @@ Keyword arguments:
             "mb": NotRequired[typing.Union[str, NumberType, dict]],
             "ms": NotRequired[typing.Union[str, NumberType, dict]],
             "me": NotRequired[typing.Union[str, NumberType, dict]],
+            "mis": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
+            "mie": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
             "ml": NotRequired[typing.Union[str, NumberType, dict]],
             "mr": NotRequired[typing.Union[str, NumberType, dict]],
             "p": NotRequired[typing.Union[str, NumberType, dict]],
@@ -1844,6 +1946,8 @@ Keyword arguments:
             "pb": NotRequired[typing.Union[str, NumberType, dict]],
             "ps": NotRequired[typing.Union[str, NumberType, dict]],
             "pe": NotRequired[typing.Union[str, NumberType, dict]],
+            "pis": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
+            "pie": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
             "pl": NotRequired[typing.Union[str, NumberType, dict]],
             "pr": NotRequired[typing.Union[str, NumberType, dict]],
             "bd": NotRequired[typing.Union[str, NumberType, dict]],
@@ -1883,8 +1987,8 @@ Keyword arguments:
             "attributes": NotRequired[typing.Any],
             "children": NotRequired[ComponentType],
             "zIndex": NotRequired[typing.Union[str, NumberType]],
-            "center": NotRequired[bool],
             "fixed": NotRequired[bool],
+            "center": NotRequired[bool],
             "backgroundOpacity": NotRequired[NumberType],
             "color": NotRequired[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["aliceblue"], Literal["antiquewhite"], Literal["aqua"], Literal["aquamarine"], Literal["azure"], Literal["beige"], Literal["bisque"], Literal["black"], Literal["blanchedalmond"], Literal["blue"], Literal["blueviolet"], Literal["brown"], Literal["burlywood"], Literal["cadetblue"], Literal["chartreuse"], Literal["chocolate"], Literal["coral"], Literal["cornflowerblue"], Literal["cornsilk"], Literal["crimson"], Literal["cyan"], Literal["darkblue"], Literal["darkcyan"], Literal["darkgoldenrod"], Literal["darkgray"], Literal["darkgreen"], Literal["darkgrey"], Literal["darkkhaki"], Literal["darkmagenta"], Literal["darkolivegreen"], Literal["darkorange"], Literal["darkorchid"], Literal["darkred"], Literal["darksalmon"], Literal["darkseagreen"], Literal["darkslateblue"], Literal["darkslategray"], Literal["darkslategrey"], Literal["darkturquoise"], Literal["darkviolet"], Literal["deeppink"], Literal["deepskyblue"], Literal["dimgray"], Literal["dimgrey"], Literal["dodgerblue"], Literal["firebrick"], Literal["floralwhite"], Literal["forestgreen"], Literal["fuchsia"], Literal["gainsboro"], Literal["ghostwhite"], Literal["gold"], Literal["goldenrod"], Literal["gray"], Literal["green"], Literal["greenyellow"], Literal["grey"], Literal["honeydew"], Literal["hotpink"], Literal["indianred"], Literal["indigo"], Literal["ivory"], Literal["khaki"], Literal["lavender"], Literal["lavenderblush"], Literal["lawngreen"], Literal["lemonchiffon"], Literal["lightblue"], Literal["lightcoral"], Literal["lightcyan"], Literal["lightgoldenrodyellow"], Literal["lightgray"], Literal["lightgreen"], Literal["lightgrey"], Literal["lightpink"], Literal["lightsalmon"], Literal["lightseagreen"], Literal["lightskyblue"], Literal["lightslategray"], Literal["lightslategrey"], Literal["lightsteelblue"], Literal["lightyellow"], Literal["lime"], Literal["limegreen"], Literal["linen"], Literal["magenta"], Literal["maroon"], Literal["mediumaquamarine"], Literal["mediumblue"], Literal["mediumorchid"], Literal["mediumpurple"], Literal["mediumseagreen"], Literal["mediumslateblue"], Literal["mediumspringgreen"], Literal["mediumturquoise"], Literal["mediumvioletred"], Literal["midnightblue"], Literal["mintcream"], Literal["mistyrose"], Literal["moccasin"], Literal["navajowhite"], Literal["navy"], Literal["oldlace"], Literal["olive"], Literal["olivedrab"], Literal["orange"], Literal["orangered"], Literal["orchid"], Literal["palegoldenrod"], Literal["palegreen"], Literal["paleturquoise"], Literal["palevioletred"], Literal["papayawhip"], Literal["peachpuff"], Literal["peru"], Literal["pink"], Literal["plum"], Literal["powderblue"], Literal["purple"], Literal["rebeccapurple"], Literal["red"], Literal["rosybrown"], Literal["royalblue"], Literal["saddlebrown"], Literal["salmon"], Literal["sandybrown"], Literal["seagreen"], Literal["seashell"], Literal["sienna"], Literal["silver"], Literal["skyblue"], Literal["slateblue"], Literal["slategray"], Literal["slategrey"], Literal["snow"], Literal["springgreen"], Literal["steelblue"], Literal["tan"], Literal["teal"], Literal["thistle"], Literal["tomato"], Literal["transparent"], Literal["turquoise"], Literal["violet"], Literal["wheat"], Literal["white"], Literal["whitesmoke"], Literal["yellow"], Literal["yellowgreen"], Literal["ActiveBorder"], Literal["ActiveCaption"], Literal["AppWorkspace"], Literal["Background"], Literal["ButtonFace"], Literal["ButtonHighlight"], Literal["ButtonShadow"], Literal["ButtonText"], Literal["CaptionText"], Literal["GrayText"], Literal["Highlight"], Literal["HighlightText"], Literal["InactiveBorder"], Literal["InactiveCaption"], Literal["InactiveCaptionText"], Literal["InfoBackground"], Literal["InfoText"], Literal["Menu"], Literal["MenuText"], Literal["Scrollbar"], Literal["ThreeDDarkShadow"], Literal["ThreeDFace"], Literal["ThreeDHighlight"], Literal["ThreeDLightShadow"], Literal["ThreeDShadow"], Literal["Window"], Literal["WindowFrame"], Literal["WindowText"], Literal["currentcolor"]]],
             "blur": NotRequired[typing.Union[str, NumberType]],
@@ -1958,7 +2062,11 @@ Keyword arguments:
             "className": NotRequired[str],
             "style": NotRequired[typing.Union[typing.Any]],
             "lightHidden": NotRequired[bool],
-            "darkHidden": NotRequired[bool]
+            "darkHidden": NotRequired[bool],
+            "mis": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
+            "mie": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
+            "pis": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
+            "pie": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]]
         }
     )
 
@@ -1979,6 +2087,8 @@ Keyword arguments:
             "mb": NotRequired[typing.Union[str, NumberType, dict]],
             "ms": NotRequired[typing.Union[str, NumberType, dict]],
             "me": NotRequired[typing.Union[str, NumberType, dict]],
+            "mis": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
+            "mie": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
             "ml": NotRequired[typing.Union[str, NumberType, dict]],
             "mr": NotRequired[typing.Union[str, NumberType, dict]],
             "p": NotRequired[typing.Union[str, NumberType, dict]],
@@ -1988,6 +2098,8 @@ Keyword arguments:
             "pb": NotRequired[typing.Union[str, NumberType, dict]],
             "ps": NotRequired[typing.Union[str, NumberType, dict]],
             "pe": NotRequired[typing.Union[str, NumberType, dict]],
+            "pis": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
+            "pie": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
             "pl": NotRequired[typing.Union[str, NumberType, dict]],
             "pr": NotRequired[typing.Union[str, NumberType, dict]],
             "bd": NotRequired[typing.Union[str, NumberType, dict]],
@@ -2060,6 +2172,14 @@ Keyword arguments:
             "children": NotRequired[ComponentType],
             "icon": NotRequired[ComponentType],
             "ButtonProps": NotRequired[dict]
+        }
+    )
+
+    Presets = TypedDict(
+        "Presets",
+            {
+            "value": typing.Union[str, typing.Sequence[str]],
+            "label": str
         }
     )
 
@@ -2146,6 +2266,10 @@ Keyword arguments:
         style: typing.Optional[typing.Any] = None,
         lightHidden: typing.Optional[bool] = None,
         darkHidden: typing.Optional[bool] = None,
+        mis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        mie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         closeOnChange: typing.Optional[bool] = None,
         dropdownType: typing.Optional[Literal["popover", "modal"]] = None,
         popoverProps: typing.Optional["PopoverProps"] = None,
@@ -2156,6 +2280,8 @@ Keyword arguments:
         sortDates: typing.Optional[bool] = None,
         labelSeparator: typing.Optional[str] = None,
         placeholder: typing.Optional[str] = None,
+        clearSectionMode: typing.Optional[Literal["rightSection", "both", "clear"]] = None,
+        valueFormatter: typing.Optional[typing.Any] = None,
         wrapperProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
         leftSection: typing.Optional[ComponentType] = None,
         leftSectionWidth: typing.Optional[typing.Union[str, NumberType]] = None,
@@ -2170,16 +2296,23 @@ Keyword arguments:
         disabled: typing.Optional[bool] = None,
         pointer: typing.Optional[bool] = None,
         withErrorStyles: typing.Optional[bool] = None,
+        withSuccessStyles: typing.Optional[bool] = None,
         name: typing.Optional[str] = None,
         inputProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
+        loading: typing.Optional[bool] = None,
+        loadingPosition: typing.Optional[Literal["left", "right"]] = None,
         label: typing.Optional[ComponentType] = None,
         description: typing.Optional[ComponentType] = None,
         error: typing.Optional[ComponentType] = None,
+        success: typing.Optional[ComponentType] = None,
         withAsterisk: typing.Optional[bool] = None,
         labelProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
         descriptionProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
         errorProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
+        successProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
         inputWrapperOrder: typing.Optional[typing.Sequence[Literal["label", "description", "error", "input"]]] = None,
+        withNativeLevelSelect: typing.Optional[bool] = None,
+        presets: typing.Optional[typing.Sequence["Presets"]] = None,
         type: typing.Optional[Literal["default", "multiple", "range"]] = None,
         value: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         allowDeselect: typing.Optional[bool] = None,
@@ -2195,6 +2328,7 @@ Keyword arguments:
         numberOfColumns: typing.Optional[NumberType] = None,
         columnsToScroll: typing.Optional[NumberType] = None,
         ariaLabels: typing.Optional["AriaLabels"] = None,
+        fullWidth: typing.Optional[bool] = None,
         classNames: typing.Optional[dict] = None,
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
@@ -2202,9 +2336,9 @@ Keyword arguments:
         attributes: typing.Optional[typing.Any] = None,
         **kwargs
     ):
-        self._prop_names = ['id', 'allowDeselect', 'allowSingleDateInRange', 'aria-*', 'ariaLabels', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clearButtonProps', 'clearable', 'closeOnChange', 'columnsToScroll', 'darkHidden', 'data-*', 'debounce', 'decadeLabelFormat', 'defaultDate', 'description', 'descriptionProps', 'disabled', 'display', 'dropdownType', 'error', 'errorProps', 'ff', 'flex', 'fs', 'fw', 'fz', 'getYearControlProps', 'h', 'hiddenFrom', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'labelSeparator', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxDate', 'mb', 'me', 'mih', 'minDate', 'miw', 'ml', 'mod', 'modalProps', 'mr', 'ms', 'mt', 'mx', 'my', 'n_submit', 'name', 'numberOfColumns', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'popoverProps', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'size', 'sortDates', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'type', 'unstyled', 'value', 'valueFormat', 'variant', 'visibleFrom', 'w', 'withAsterisk', 'withCellSpacing', 'withErrorStyles', 'wrapperProps', 'yearsListFormat']
+        self._prop_names = ['id', 'allowDeselect', 'allowSingleDateInRange', 'aria-*', 'ariaLabels', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clearButtonProps', 'clearSectionMode', 'clearable', 'closeOnChange', 'columnsToScroll', 'darkHidden', 'data-*', 'debounce', 'decadeLabelFormat', 'defaultDate', 'description', 'descriptionProps', 'disabled', 'display', 'dropdownType', 'error', 'errorProps', 'ff', 'flex', 'fs', 'fullWidth', 'fw', 'fz', 'getYearControlProps', 'h', 'hiddenFrom', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'labelSeparator', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'loading', 'loadingPosition', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxDate', 'mb', 'me', 'mie', 'mih', 'minDate', 'mis', 'miw', 'ml', 'mod', 'modalProps', 'mr', 'ms', 'mt', 'mx', 'my', 'n_submit', 'name', 'numberOfColumns', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pie', 'pis', 'pl', 'placeholder', 'pointer', 'popoverProps', 'pos', 'pr', 'presets', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'size', 'sortDates', 'style', 'styles', 'success', 'successProps', 'ta', 'tabIndex', 'td', 'top', 'tt', 'type', 'unstyled', 'value', 'valueFormat', 'valueFormatter', 'variant', 'visibleFrom', 'w', 'withAsterisk', 'withCellSpacing', 'withErrorStyles', 'withNativeLevelSelect', 'withSuccessStyles', 'wrapperProps', 'yearsListFormat']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['id', 'allowDeselect', 'allowSingleDateInRange', 'aria-*', 'ariaLabels', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clearButtonProps', 'clearable', 'closeOnChange', 'columnsToScroll', 'darkHidden', 'data-*', 'debounce', 'decadeLabelFormat', 'defaultDate', 'description', 'descriptionProps', 'disabled', 'display', 'dropdownType', 'error', 'errorProps', 'ff', 'flex', 'fs', 'fw', 'fz', 'getYearControlProps', 'h', 'hiddenFrom', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'labelSeparator', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxDate', 'mb', 'me', 'mih', 'minDate', 'miw', 'ml', 'mod', 'modalProps', 'mr', 'ms', 'mt', 'mx', 'my', 'n_submit', 'name', 'numberOfColumns', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'popoverProps', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'size', 'sortDates', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'type', 'unstyled', 'value', 'valueFormat', 'variant', 'visibleFrom', 'w', 'withAsterisk', 'withCellSpacing', 'withErrorStyles', 'wrapperProps', 'yearsListFormat']
+        self.available_properties = ['id', 'allowDeselect', 'allowSingleDateInRange', 'aria-*', 'ariaLabels', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clearButtonProps', 'clearSectionMode', 'clearable', 'closeOnChange', 'columnsToScroll', 'darkHidden', 'data-*', 'debounce', 'decadeLabelFormat', 'defaultDate', 'description', 'descriptionProps', 'disabled', 'display', 'dropdownType', 'error', 'errorProps', 'ff', 'flex', 'fs', 'fullWidth', 'fw', 'fz', 'getYearControlProps', 'h', 'hiddenFrom', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'labelSeparator', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'loading', 'loadingPosition', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxDate', 'mb', 'me', 'mie', 'mih', 'minDate', 'mis', 'miw', 'ml', 'mod', 'modalProps', 'mr', 'ms', 'mt', 'mx', 'my', 'n_submit', 'name', 'numberOfColumns', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pie', 'pis', 'pl', 'placeholder', 'pointer', 'popoverProps', 'pos', 'pr', 'presets', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'size', 'sortDates', 'style', 'styles', 'success', 'successProps', 'ta', 'tabIndex', 'td', 'top', 'tt', 'type', 'unstyled', 'value', 'valueFormat', 'valueFormatter', 'variant', 'visibleFrom', 'w', 'withAsterisk', 'withCellSpacing', 'withErrorStyles', 'withNativeLevelSelect', 'withSuccessStyles', 'wrapperProps', 'yearsListFormat']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

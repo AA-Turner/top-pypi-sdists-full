@@ -431,6 +431,9 @@ __all__ = (
     "AIWorkloadInputDataConfigTypeDef",
     "AIWorkloadS3DataSourceTypeDef",
     "AcceleratorPartitionConfigTypeDef",
+    "AcceleratorPartitionLayoutOutputTypeDef",
+    "AcceleratorPartitionLayoutTypeDef",
+    "AcceleratorPartitionLayoutUnionTypeDef",
     "ActionSourceTypeDef",
     "ActionSummaryTypeDef",
     "AddAssociationRequestTypeDef",
@@ -2407,6 +2410,14 @@ AcceleratorPartitionConfigTypeDef = TypedDict(
         "Count": int,
     },
 )
+
+
+class AcceleratorPartitionLayoutOutputTypeDef(TypedDict):
+    AcceleratorPartitionTypes: NotRequired[list[str]]
+
+
+class AcceleratorPartitionLayoutTypeDef(TypedDict):
+    AcceleratorPartitionTypes: NotRequired[Sequence[str]]
 
 
 class ActionSourceTypeDef(TypedDict):
@@ -5234,6 +5245,7 @@ class InferenceComponentComputeResourceRequirementsTypeDef(TypedDict):
     NumberOfCpuCoresRequired: NotRequired[float]
     NumberOfAcceleratorDevicesRequired: NotRequired[float]
     MaxMemoryRequiredInMb: NotRequired[int]
+    AcceleratorPartitionType: NotRequired[str]
 
 
 class InferenceComponentDataCacheConfigSummaryTypeDef(TypedDict):
@@ -6757,6 +6769,11 @@ class ComputeQuotaResourceConfigTypeDef(TypedDict):
     VCpu: NotRequired[float]
     MemoryInGiB: NotRequired[float]
     AcceleratorPartition: NotRequired[AcceleratorPartitionConfigTypeDef]
+
+
+AcceleratorPartitionLayoutUnionTypeDef = Union[
+    AcceleratorPartitionLayoutTypeDef, AcceleratorPartitionLayoutOutputTypeDef
+]
 
 
 class ActionSummaryTypeDef(TypedDict):
@@ -13221,6 +13238,7 @@ class PendingProductionVariantSummaryTypeDef(TypedDict):
     DesiredServerlessConfig: NotRequired[ProductionVariantServerlessConfigTypeDef]
     ManagedInstanceScaling: NotRequired[ProductionVariantManagedInstanceScalingTypeDef]
     RoutingConfig: NotRequired[ProductionVariantRoutingConfigTypeDef]
+    AcceleratorPartitionLayouts: NotRequired[list[AcceleratorPartitionLayoutOutputTypeDef]]
 
 
 class ProductionVariantOutputTypeDef(TypedDict):
@@ -13242,6 +13260,7 @@ class ProductionVariantOutputTypeDef(TypedDict):
     RoutingConfig: NotRequired[ProductionVariantRoutingConfigTypeDef]
     InferenceAmiVersion: NotRequired[ProductionVariantInferenceAmiVersionType]
     CapacityReservationConfig: NotRequired[ProductionVariantCapacityReservationConfigTypeDef]
+    AcceleratorPartitionLayouts: NotRequired[list[AcceleratorPartitionLayoutOutputTypeDef]]
 
 
 class ProductionVariantSummaryTypeDef(TypedDict):
@@ -13258,6 +13277,7 @@ class ProductionVariantSummaryTypeDef(TypedDict):
     ManagedInstanceScaling: NotRequired[ProductionVariantManagedInstanceScalingTypeDef]
     RoutingConfig: NotRequired[ProductionVariantRoutingConfigTypeDef]
     CapacityReservationConfig: NotRequired[ProductionVariantCapacityReservationSummaryTypeDef]
+    AcceleratorPartitionLayouts: NotRequired[list[AcceleratorPartitionLayoutOutputTypeDef]]
 
 
 class ProductionVariantTypeDef(TypedDict):
@@ -13279,6 +13299,7 @@ class ProductionVariantTypeDef(TypedDict):
     RoutingConfig: NotRequired[ProductionVariantRoutingConfigTypeDef]
     InferenceAmiVersion: NotRequired[ProductionVariantInferenceAmiVersionType]
     CapacityReservationConfig: NotRequired[ProductionVariantCapacityReservationConfigTypeDef]
+    AcceleratorPartitionLayouts: NotRequired[Sequence[AcceleratorPartitionLayoutUnionTypeDef]]
 
 
 class UpdateTrainingJobRequestTypeDef(TypedDict):

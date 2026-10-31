@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: freqtrade
-Version: 2026.9
+Version: 2026.10
 Summary: Freqtrade - Crypto Trading Bot
 Author: Freqtrade Team
 Author-email: Freqtrade Team <freqtrade@protonmail.com>
@@ -11,14 +11,13 @@ Project-URL: Bug Tracker, https://github.com/freqtrade/freqtrade/issues
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Unix
 Classifier: Topic :: Office/Business :: Financial :: Investment
-Requires-Python: >=3.11
+Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: ccxt>=4.5.76
@@ -188,7 +187,7 @@ Please find the complete documentation on the [freqtrade website](https://www.fr
 
 ## Features
 
-- [x] **Based on Python 3.11+**: For botting on any operating system - Windows, macOS and Linux.
+- [x] **Based on Python 3.12+**: For botting on any operating system - Windows, macOS and Linux.
 - [x] **Persistence**: Persistence is achieved through sqlite.
 - [x] **Dry-run**: Run the bot without paying money.
 - [x] **Backtesting**: Run a simulation of your buy/sell strategy.
@@ -346,7 +345,7 @@ To run this bot we recommend you a cloud instance with a minimum of:
 
 ### Software requirements
 
-- [Python >= 3.11](http://docs.python-guide.org/en/latest/starting/installation/)
+- [Python >= 3.12](http://docs.python-guide.org/en/latest/starting/installation/)
 - [pip](https://pip.pypa.io/en/stable/installing/)
 - [git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
 - [TA-Lib](https://ta-lib.github.io/ta-lib-python/)

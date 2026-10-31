@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlframe
-Version: 4.9.0
+Version: 4.9.1
 Summary: Turning PySpark Into a Universal DataFrame API
 Author-email: Ryan Eakman <eakmanrq@gmail.com>
 License: MIT
@@ -16,7 +16,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: prettytable<4
-Requires-Dist: sqlglot<30.26,>=30.0.0
+Requires-Dist: sqlglot<30.28,>=30.0.0
 Requires-Dist: typing_extensions
 Requires-Dist: more-itertools
 Provides-Extra: bigquery
@@ -37,8 +37,8 @@ Requires-Dist: pandas<4,>=2; extra == "dev"
 Requires-Dist: pandas-stubs<4,>=2; extra == "dev"
 Requires-Dist: psycopg<4,>=3.1; extra == "dev"
 Requires-Dist: pyarrow<27,>=10; extra == "dev"
-Requires-Dist: pyspark<4.3,>=4; extra == "dev"
-Requires-Dist: pytest<9.2,>=8.2.0; extra == "dev"
+Requires-Dist: pyspark<4.4,>=4; extra == "dev"
+Requires-Dist: pytest<9.3,>=8.2.0; extra == "dev"
 Requires-Dist: pytest-forked; extra == "dev"
 Requires-Dist: pytest-postgresql<10,>=6; extra == "dev"
 Requires-Dist: pytest-rerunfailures; extra == "dev"
@@ -66,7 +66,7 @@ Requires-Dist: redshift_connector<2.3.0,>=2.1.14; extra == "redshift"
 Provides-Extra: snowflake
 Requires-Dist: snowflake-connector-python[secure-local-storage]<6,>=4.7.3; extra == "snowflake"
 Provides-Extra: spark
-Requires-Dist: pyspark<4.3,>=4; extra == "spark"
+Requires-Dist: pyspark<4.4,>=4; extra == "spark"
 Provides-Extra: standalone
 Requires-Dist: pyarrow<27,>=10; extra == "standalone"
 Provides-Extra: trino

@@ -43,6 +43,9 @@ async fn loopback_listener_forwards_both_directions() -> Result<()> {
         client_version: "test".to_string(),
         capabilities: crate::tube_protocol::Capabilities::NONE,
         python_handler_tx: None,
+        handler_registry: None,
+        spawned_task_completion_tx: Arc::new(mpsc::unbounded_channel().0),
+        video_output: None,
     })
     .await?;
 
@@ -73,11 +76,8 @@ async fn loopback_listener_forwards_both_directions() -> Result<()> {
     assert_eq!(data.connection_no, conn_no);
     assert_eq!(&data.payload[..], outbound);
 
-    let inbound = Frame::new_data_with_pool(
-        conn_no,
-        b"WebRTC back to loopback",
-        &BufferPool::default(),
-    );
+    let inbound =
+        Frame::new_data_with_pool(conn_no, b"WebRTC back to loopback", &BufferPool::default());
     input_sender
         .send(inbound.encode_with_pool(&BufferPool::default()))
         .expect("channel run loop is active");

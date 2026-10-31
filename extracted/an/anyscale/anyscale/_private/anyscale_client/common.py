@@ -25,8 +25,10 @@ from anyscale.client.openapi_client.models import (
     DecoratedproductionjobListResponse,
     DecoratedProductionServiceV2APIModel,
     DecoratedProductionServiceV2VersionAPIModel,
+    GpuDetail,
     InternalProductionJob,
     JobQueueSortDirective,
+    NodeGpusResponse,
     OrganizationCollaborator,
     OrganizationcollaboratorListResponse,
     OrganizationInvitation,
@@ -97,6 +99,7 @@ from anyscale.sdk.anyscale_client.models import (
     ClusterCompute,
     ClusterEnvironment,
     ProductionServiceV2VersionModel,
+    TrafficPolicy,
 )
 from anyscale.sdk.anyscale_client.models.cluster_environment_build import (
     ClusterEnvironmentBuild,
@@ -108,7 +111,7 @@ from anyscale.utils.workspace_notification import WorkspaceNotification
 # Maybe just make it part of the release process to update it, or fetch the
 # default builds and get the latest one. The best thing to do is probably
 # to populate this in the backend.
-DEFAULT_RAY_VERSION = "2.59.0"  # RAY_RELEASE_UPDATE: update to latest version
+DEFAULT_RAY_VERSION = "2.60.0"  # RAY_RELEASE_UPDATE: update to latest version
 DEFAULT_PYTHON_VERSION = "py311"
 RUNTIME_ENV_PACKAGE_FORMAT = "pkg_{content_hash}.zip"
 
@@ -301,9 +304,13 @@ class AnyscaleClientInterface(ABC):
         compute_config_name: Optional[str] = None,
         cloud: Optional[str] = None,
         *,
+        cloud_id: Optional[str] = None,
         include_archived=False,
     ) -> Optional[str]:
         """Get the compute config ID for the provided name.
+
+        A lookup by name is limited to one cloud by `cloud` (a name) or `cloud_id`;
+        pass at most one. With neither, it searches every cloud the caller can read.
 
         If compute_config_name is None:
             - if running in a workspace, get the workspace's compute config ID.
@@ -470,6 +477,14 @@ class AnyscaleClientInterface(ABC):
         """Archive an image (cluster environment) by ID.
 
         Once archived, the image name will no longer be usable in the organization.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def unarchive_image(self, *, image_id: str) -> None:
+        """Unarchive an image (cluster environment) by ID.
+
+        Job queues that were sealed when the image was archived stay sealed.
         """
         raise NotImplementedError
 
@@ -717,6 +732,20 @@ class AnyscaleClientInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def update_service_traffic_policy(
+        self,
+        service_id: str,
+        traffic_policy: TrafficPolicy,
+        version_names: Optional[List[str]] = None,
+    ):
+        """Set the traffic policy of the named versions of the service, or of
+        every version when `version_names` is None.
+
+        This also applies during a rollout.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
     def terminate_service(self, service_id: str) -> DecoratedProductionServiceV2APIModel:
         """Mark the service to be terminated asynchronously."""
         raise NotImplementedError
@@ -928,6 +957,11 @@ class AnyscaleClientInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def delete_workspace(self, workspace_id: str) -> None:
+        """Delete a workspace."""
+        raise NotImplementedError
+
+    @abstractmethod
     def update_workspace_dependencies_offline_only(
         self, workspace_id: Optional[str], requirements: List[str]
     ):
@@ -998,6 +1032,78 @@ class AnyscaleClientInterface(ABC):
         hide_progress_bar: bool = False,
     ) -> str:
         """Download the aggregated instance usage csv."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_metric_names(
+        self,
+        *,
+        resource: Dict[str, str],
+        start: Optional[float] = None,
+        end: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        """Metric names with series for one resource.
+
+        `resource` holds exactly one of cluster_id / workspace_id / ha_job_id /
+        service_id. `start` / `end` are Unix seconds. Returns the Prometheus
+        label-values body: {"status": "success", "data": [names...]}.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def query_metrics(
+        self,
+        *,
+        promql_query: str,
+        resource: Dict[str, str],
+        time: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        """Instant PromQL query, restricted by the backend to `resource`.
+
+        Returns the Prometheus body: {"status": ..., "data": {"resultType": ..., "result": ...}}.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def query_metrics_range(
+        self,
+        *,
+        promql_query: str,
+        resource: Dict[str, str],
+        start: float,
+        end: float,
+        step: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Range PromQL query over [start, end] Unix seconds at `step` (e.g. "15s")."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_node_gpus(
+        self,
+        *,
+        cluster_id: str,
+        node_id: str,
+        time: Optional[float] = None,
+    ) -> NodeGpusResponse:
+        """DCGM telemetry of every GPU on a node, as of `time` (Unix seconds; now when None).
+
+        The backend looks back over the cluster's lifetime (capped), so a terminated or
+        dead node still answers, with its GPUs marked offline.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_gpu(
+        self,
+        *,
+        cluster_id: str,
+        gpu_uuid: str,
+        time: Optional[float] = None,
+    ) -> GpuDetail:
+        """One GPU of a cluster by UUID, as of `time` (Unix seconds; now when None).
+
+        Raises on a UUID the cluster never reported in the look-back window.
+        """
         raise NotImplementedError
 
     @abstractmethod
@@ -1255,7 +1361,12 @@ class AnyscaleClientInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def migrate_scim_permissions(self, *, dry_run: bool = True) -> Dict:
+    def migrate_scim_permissions(
+        self,
+        *,
+        dry_run: bool = True,
+        acknowledge_user_removal_count: Optional[int] = None,
+    ) -> Dict:
         """Migrate organization permissions to SCIM-based user group permissions.
 
         This removes ALL direct user permissions so that users only have permissions
@@ -1264,6 +1375,8 @@ class AnyscaleClientInterface(ABC):
         Args:
             dry_run: If True (default), only simulate the migration without making changes.
                      Pass False to actually apply the changes.
+            acknowledge_user_removal_count: The exact number of users the caller intends
+                     to remove. Required when the run exceeds the server-side removal cap.
         """
         raise NotImplementedError
 

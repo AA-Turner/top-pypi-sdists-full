@@ -6,6 +6,7 @@ import re
 from importlib import resources
 from typing import Literal, TypedDict
 
+from ._whitespace import trim_javascript_whitespace
 from .errors import SuperDocError
 
 _SKILL_NAME_RE = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_-]*$')
@@ -25,7 +26,7 @@ class InstalledSkillResult(TypedDict):
 
 
 def _normalize_skill_name(name: str) -> str:
-    normalized = name.strip()
+    normalized = trim_javascript_whitespace(name)
     if not normalized or _SKILL_NAME_RE.fullmatch(normalized) is None:
         raise SuperDocError('Skill name is required.', code='INVALID_ARGUMENT', details={'name': name})
     return normalized

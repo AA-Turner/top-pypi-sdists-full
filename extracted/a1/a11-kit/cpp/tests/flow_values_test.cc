@@ -37,8 +37,8 @@ namespace {
 absl::StatusOr<Value> EvaluatedIn(std::string_view expression,
                                   const Value& it = Value::Null()) {
   static std::unique_ptr<HostBridge> bridge = NativeHostBridge();
-  const std::string source =
-      absl::StrCat("flow f {\n  out o: json\n  ", expression, " -> o\n}\n");
+  const std::string source = absl::StrCat("flow f {\n  out o: std::json\n  ",
+                                          expression, " -> o\n}\n");
   auto parsed = std::make_shared<ParseResult>(Parse(source));
   if (!parsed->diagnostics.empty()) {
     return absl::InvalidArgumentError(parsed->diagnostics.front().message);
@@ -233,6 +233,36 @@ TEST(FlowValues, EvaluatesComparisonsWithoutDyingOnMixedTypes) {
   EXPECT_EQ(TextOf(R"("here" and "there")"), "there");
 }
 
+TEST(FlowValues, OptionDefaultsTestPresenceAndEvaluateTheFallbackLazily) {
+  for (const Value& payload :
+       {Value::Null(), Value::Bool(false), Value::Integer(0), Value::String(""),
+        Value::List({}), Value::Object({})}) {
+    const auto result =
+        EvaluatedIn("it or b64decode(\"!\")", Value::Option(payload));
+    ASSERT_TRUE(result.ok()) << result.status();
+    EXPECT_EQ(*result, payload);
+    EXPECT_FALSE(result->is_option());
+  }
+  EXPECT_EQ(TextOf("it or 42", Value::Option(std::nullopt)), "42");
+  EXPECT_FALSE(
+      EvaluatedIn("it or b64decode(\"!\")", Value::Option(std::nullopt)).ok());
+  const auto record = EvaluatedIn("{has_value: false} or 42");
+  ASSERT_TRUE(record.ok()) << record.status();
+  EXPECT_EQ(record->kind(), Value::Kind::kObject);
+  const Value nested = Value::Option(Value::Integer(7));
+  const auto result = EvaluatedIn("it or 42", Value::Option(nested));
+  ASSERT_TRUE(result.ok()) << result.status();
+  EXPECT_TRUE(result->is_option());
+  EXPECT_EQ(*result, nested);
+}
+
+TEST(FlowValues, StringEscapesPreserveNulThroughEvaluation) {
+  const auto value = EvaluatedIn(R"("before\0after")");
+  ASSERT_TRUE(value.ok()) << value.status();
+  EXPECT_EQ(*value, Value::String(std::string("before\0after", 12)));
+  EXPECT_EQ(TextOf(R"(len("\0\a\b\f\n\r\t\v"))"), "8");
+}
+
 TEST(FlowValues, ArithmeticIsThereForTimes) {
   EXPECT_EQ(TextOf("1 + 2"), "3");
   EXPECT_EQ(TextOf("1.5 + 1"), "2.5");
@@ -264,8 +294,8 @@ TEST(FlowValues, CallsTheFixedFunctionSet) {
   EXPECT_EQ(TextOf(R"(get({"a": 1}, "b", "fallback"))"), "fallback");
   EXPECT_EQ(TextOf(R"(merge({"a": 1}, {"b": 2}))"), R"({"a": 1, "b": 2})");
   EXPECT_EQ(TextOf(R"(contains("hello", "ell"))"), "true");
-  EXPECT_EQ(TextOf(R"(starts-with("hello", ["x", "he"]))"), "true");
-  EXPECT_EQ(TextOf(R"(ends-with("done.", [".", "?"]))"), "true");
+  EXPECT_EQ(TextOf(R"(startswith("hello", ["x", "he"]))"), "true");
+  EXPECT_EQ(TextOf(R"(endswith("done.", [".", "?"]))"), "true");
   EXPECT_EQ(TextOf(R"(replace("a-b-c", "-", "+"))"), "a+b+c");
   EXPECT_EQ(TextOf(R"(slice("abcdef", 1, 3))"), "bc");
   EXPECT_EQ(TextOf(R"(slice("abcdef", -2))"), "ef");
@@ -355,17 +385,18 @@ TEST(FlowValues, CoercesToTheBuiltInTypes) {
   // A tag is the host's, and a host that does not know it says which type and
   // why rather than failing anonymously.
   const absl::StatusOr<Value> unknown =
-      EvaluatedIn(R"({"a": 1} as some.unknown.Type)");
+      EvaluatedIn(R"({"a": 1} as some::unknown::Type)");
   ASSERT_FALSE(unknown.ok());
-  EXPECT_NE(unknown.status().message().find("some.unknown.Type"),
+  EXPECT_NE(unknown.status().message().find("some::unknown::Type"),
             std::string::npos);
 }
 
 TEST(FlowValues, StatusesAreData) {
   const Value record = StatusRecord(absl::NotFoundError("gone"));
-  EXPECT_EQ(AsText(record),
-            R"({"code": "NOT_FOUND", "message": "gone", "number": 5,)"
-            R"( "ok": false})");
+  EXPECT_EQ(
+      AsText(record),
+      R"({"code": "NOT_FOUND", "details": [], "message": "gone", "number": 5,)"
+      R"( "ok": false})");
   EXPECT_EQ(StatusCodeOf(Value::String("not_found")),
             absl::StatusCode::kNotFound);
   EXPECT_EQ(StatusCodeOf(Value::String("NOT_FOUND")),
@@ -391,4 +422,14 @@ TEST(FlowValues, ChunksTravelWholeUntilSomethingLooksInside) {
 }
 
 }  // namespace
+
+TEST(FlowValues, CheckedTimeParsersAndIntegerAssignmentsRejectInvalidValues) {
+  EXPECT_FALSE(EvaluatedIn(R"(parse_duration("not a duration"))").ok());
+  EXPECT_FALSE(EvaluatedIn(R"(parse_time("not a time"))").ok());
+  EXPECT_EQ(TextOf(R"(parse_duration("1m30s"))"), "1m30s");
+  EXPECT_EQ(TextOf(R"(parse_time("2026-10-30"))"), "2026-10-30T00:00:00Z");
+  EXPECT_FALSE(EvaluatedIn(R"flow(int(number("1e100")))flow").ok());
+  EXPECT_EQ(TextOf("int(9223372036854775807)"), "9223372036854775807");
+}
+
 }  // namespace a11::flow

@@ -18,11 +18,22 @@ from ..output.table import output_entry
 @click.option("--action", required=True, multiple=True, type=click.Choice(rules.ACTIONS))
 @click.option("--prefix", default=None)
 @click.option("--purpose", default=None)
+@click.option(
+    "--tag",
+    default=None,
+    multiple=True,
+    help="Tag to attach to the rule (multiple allowed)",
+)
 @click.option("--org-id", default=None)
 @click.option("--standalone-rule-policy-id", default=None)
 @click.pass_context
-def cli_command_add_host_prefix_rule(ctx, action, **kwargs):
-    output_entry(ctx, rules.add_hostprefix_rule(ctx, actions=action, **kwargs))
+def cli_command_add_host_prefix_rule(ctx, action, tag, **kwargs):
+    output_entry(
+        ctx,
+        rules.add_hostprefix_rule(
+            ctx, actions=action, tags=list(tag) if tag else None, **kwargs
+        ),
+    )
 
 
 @click.command(name="add-mfa-proof-rule")
@@ -30,11 +41,22 @@ def cli_command_add_host_prefix_rule(ctx, action, **kwargs):
 @click.option("--max-seconds", required=True, type=int)
 @click.option("--org-id", default=None)
 @click.option("--purpose", default=None)
+@click.option(
+    "--tag",
+    default=None,
+    multiple=True,
+    help="Tag to attach to the rule (multiple allowed)",
+)
 @click.option("--action", required=True, multiple=True, type=click.Choice(rules.ACTIONS))
 @click.option("--standalone-rule-policy-id", default=None)
 @click.pass_context
-def cli_command_add_mfa_proof_rule(ctx, action, **kwargs):
-    output_entry(ctx, rules.add_mfa_proof_rule(ctx, actions=action, **kwargs))
+def cli_command_add_mfa_proof_rule(ctx, action, tag, **kwargs):
+    output_entry(
+        ctx,
+        rules.add_mfa_proof_rule(
+            ctx, actions=action, tags=list(tag) if tag else None, **kwargs
+        ),
+    )
 
 
 @click.command(name="add-standalone-rules-from-file")
@@ -52,10 +74,13 @@ def cli_command_add_rules_from_file(ctx, rule_json_file, **kwargs):
 @click.option("--page-at-id", default=None)
 @click.option("--limit", type=int, default=None)
 @click.option("--rule-id", default=None)
+@click.option(
+    "--tag", default=None, multiple=True, help="Filter rules by tag (multiple allowed)"
+)
 @click.option("--standalone-rule-policy-id", multiple=True, default=None)
 @click.pass_context
-def cli_command_list_rules(ctx, **kwargs):
-    result = rules.list_rules(ctx, **kwargs)
+def cli_command_list_rules(ctx, tag=None, **kwargs):
+    result = rules.list_rules(ctx, tag=list(tag) if tag else None, **kwargs)
     print(rules.format_rules(ctx, result))
 
 
@@ -81,11 +106,30 @@ def cli_command_delete_rule(ctx, **kwargs):
 @click.option("--name", default=None)
 @click.option("--action", default=None, multiple=True, type=click.Choice(rules.ACTIONS))
 @click.option("--prefix", default=None)
+@click.option(
+    "--tag", default=None, multiple=True, help="Set tags (replaces existing tags)"
+)
+@click.option("--add-tag", default=None, multiple=True, help="Add tags to existing tags")
+@click.option(
+    "--remove-tag", default=None, multiple=True, help="Remove tags from existing tags"
+)
+@click.option("--clear-tags", is_flag=True, default=False, help="Clear all tags")
 @click.option("--org-id", default=None)
 @click.pass_context
-def cli_command_replace_host_prefix_rule(ctx, action, **kwargs):
+def cli_command_replace_host_prefix_rule(
+    ctx, action, tag, add_tag, remove_tag, clear_tags, **kwargs
+):
     output_entry(
-        ctx, rules.replace_hostprefix_rule(ctx, actions=action, **kwargs).to_dict()
+        ctx,
+        rules.replace_hostprefix_rule(
+            ctx,
+            actions=action,
+            tags=list(tag) if tag else None,
+            add_tags=list(add_tag) if add_tag else None,
+            remove_tags=list(remove_tag) if remove_tag else None,
+            clear_tags=clear_tags,
+            **kwargs,
+        ).to_dict(),
     )
 
 
@@ -93,12 +137,31 @@ def cli_command_replace_host_prefix_rule(ctx, action, **kwargs):
 @click.option("--rule-id", required=True)
 @click.option("--name", default=None)
 @click.option("--action", default=None, multiple=True, type=click.Choice(rules.ACTIONS))
+@click.option(
+    "--tag", default=None, multiple=True, help="Set tags (replaces existing tags)"
+)
+@click.option("--add-tag", default=None, multiple=True, help="Add tags to existing tags")
+@click.option(
+    "--remove-tag", default=None, multiple=True, help="Remove tags from existing tags"
+)
+@click.option("--clear-tags", is_flag=True, default=False, help="Clear all tags")
 @click.option("--org-id", default=None)
 @click.pass_context
-def cli_command_replace_standalone_rule(ctx, rule_id, action, **kwargs):
+def cli_command_replace_standalone_rule(
+    ctx, rule_id, action, tag, add_tag, remove_tag, clear_tags, **kwargs
+):
     output_entry(
         ctx,
-        rules.replace_standalone_rule(ctx, rule_id, actions=action, **kwargs).to_dict(),
+        rules.replace_standalone_rule(
+            ctx,
+            rule_id,
+            actions=action,
+            tags=list(tag) if tag else None,
+            add_tags=list(add_tag) if add_tag else None,
+            remove_tags=list(remove_tag) if remove_tag else None,
+            clear_tags=clear_tags,
+            **kwargs,
+        ).to_dict(),
     )
 
 
@@ -107,17 +170,28 @@ def cli_command_replace_standalone_rule(ctx, rule_id, action, **kwargs):
 @click.option("--rule-name", default=None, multiple=True)
 @click.option("--child-tree-name", default=None, multiple=True)
 @click.option("--description", default=None)
+@click.option(
+    "--tag",
+    default=None,
+    multiple=True,
+    help="Tag to attach to the rule tree (multiple allowed)",
+)
 @click.option("--org-id", default=None)
 @click.option("--scope", default=None, multiple=True)
 @click.option("--standalone-rule-policy-id", default=None)
 @click.pass_context
-def cli_command_add_rule_tree(ctx, rule_name, child_tree_name, scope, **kwargs):
+def cli_command_add_rule_tree(ctx, rule_name, child_tree_name, scope, tag, **kwargs):
     if len(rule_name) == 0 and len(child_tree_name) == 0:
         raise ValueError("must provide at least one tree-name or child-tree-name")
     output_entry(
         ctx,
         rules.add_rule_tree(
-            ctx, rules=rule_name, children=child_tree_name, scopes=scope, **kwargs
+            ctx,
+            rules=rule_name,
+            children=child_tree_name,
+            scopes=scope,
+            tags=list(tag) if tag else None,
+            **kwargs,
         ),
     )
 
@@ -136,10 +210,16 @@ def cli_command_add_rule_trees_from_file(ctx, rule_tree_json_file, **kwargs):
 @click.option("--page-at-id", default=None)
 @click.option("--limit", type=int, default=None)
 @click.option("--rule-tree-id", default=None)
+@click.option(
+    "--tag",
+    default=None,
+    multiple=True,
+    help="Filter rule trees by tag (multiple allowed)",
+)
 @click.option("--standalone-rule-policy-id", multiple=True, default=None)
 @click.pass_context
-def cli_command_list_rule_trees(ctx, **kwargs):
-    result = rules.list_rule_trees(ctx, **kwargs)
+def cli_command_list_rule_trees(ctx, tag=None, **kwargs):
+    result = rules.list_rule_trees(ctx, tag=list(tag) if tag else None, **kwargs)
     print(rules.format_rule_trees(ctx, result))
 
 
@@ -157,15 +237,41 @@ def cli_command_get_rule_tree(ctx, **kwargs):
 @click.option("--rule-name", default=None, multiple=True)
 @click.option("--child-tree-name", default=None, multiple=True)
 @click.option("--description", default=None)
+@click.option(
+    "--tag", default=None, multiple=True, help="Set tags (replaces existing tags)"
+)
+@click.option("--add-tag", default=None, multiple=True, help="Add tags to existing tags")
+@click.option(
+    "--remove-tag", default=None, multiple=True, help="Remove tags from existing tags"
+)
+@click.option("--clear-tags", is_flag=True, default=False, help="Clear all tags")
 @click.option("--org-id", default=None)
 @click.option("--scope", default=None, multiple=True)
 @click.option("--standalone-rule-policy-id", default=None)
 @click.pass_context
-def cli_command_update_rule_tree(ctx, rule_name, child_tree_name, scope, **kwargs):
+def cli_command_update_rule_tree(
+    ctx,
+    rule_name,
+    child_tree_name,
+    scope,
+    tag,
+    add_tag,
+    remove_tag,
+    clear_tags,
+    **kwargs,
+):
     output_entry(
         ctx,
         rules.replace_rule_tree(
-            ctx, rules=rule_name, children=child_tree_name, scopes=scope, **kwargs
+            ctx,
+            rules=rule_name,
+            children=child_tree_name,
+            scopes=scope,
+            tags=list(tag) if tag else None,
+            add_tags=list(add_tag) if add_tag else None,
+            remove_tags=list(remove_tag) if remove_tag else None,
+            clear_tags=clear_tags,
+            **kwargs,
         ),
     )
 
@@ -426,13 +532,26 @@ def cli_command_add_agilicus_default_policy(ctx, **kwargs):
 @click.option("--name", required=True)
 @click.option("--action", required=True, multiple=True, type=click.Choice(rules.ACTIONS))
 @click.option("--purpose", default=None)
+@click.option(
+    "--tag",
+    default=None,
+    multiple=True,
+    help="Tag to attach to the rule (multiple allowed)",
+)
 @click.option("--org-id", default=None)
 @click.option("--standalone-rule-policy-id", default=None)
 @click.option("--scope", default=None, multiple=True)
 @click.pass_context
-def cli_command_add_scope_condition_rule(ctx, action, scope, **kwargs):
+def cli_command_add_scope_condition_rule(ctx, action, scope, tag, **kwargs):
     output_entry(
-        ctx, rules.add_scope_condition_rule(ctx, actions=action, scopes=scope, **kwargs)
+        ctx,
+        rules.add_scope_condition_rule(
+            ctx,
+            actions=action,
+            scopes=scope,
+            tags=list(tag) if tag else None,
+            **kwargs,
+        ),
     )
 
 
@@ -443,12 +562,18 @@ def cli_command_add_scope_condition_rule(ctx, action, scope, **kwargs):
 @click.option("--timezone", default="UTC")
 @click.option("--action", required=True, multiple=True, type=click.Choice(rules.ACTIONS))
 @click.option("--purpose", default=None)
+@click.option(
+    "--tag",
+    default=None,
+    multiple=True,
+    help="Tag to attach to the rule (multiple allowed)",
+)
 @click.option("--org-id", default=None)
 @click.option("--standalone-rule-policy-id", default=None)
 @click.option("--negated", type=bool, default=False)
 @click.pass_context
 def cli_command_add_timeframe_condition_rule(
-    ctx, action, start_time, end_time, timezone, **kwargs
+    ctx, action, start_time, end_time, timezone, tag, **kwargs
 ):
 
     # the click DateTime does not support timezone aware strings
@@ -463,7 +588,12 @@ def cli_command_add_timeframe_condition_rule(
     output_entry(
         ctx,
         rules.add_timeframe_condition_rule(
-            ctx, start_time=start_time, end_time=end_time, actions=action, **kwargs
+            ctx,
+            start_time=start_time,
+            end_time=end_time,
+            actions=action,
+            tags=list(tag) if tag else None,
+            **kwargs,
         ),
     )
 
@@ -479,17 +609,27 @@ def cli_command_add_timeframe_condition_rule(
 @click.option("--name", required=True)
 @click.option("--action", required=True, multiple=True, type=click.Choice(rules.ACTIONS))
 @click.option("--purpose", default=None)
+@click.option(
+    "--tag",
+    default=None,
+    multiple=True,
+    help="Tag to attach to the rule (multiple allowed)",
+)
 @click.option("--org-id", default=None)
 @click.option("--negated", type=bool, default=False)
 @click.option("--standalone-rule-policy-id", default=None)
 @click.pass_context
-def cli_command_add_timeperiod_condition_rule(ctx, action, day, **kwargs):
+def cli_command_add_timeperiod_condition_rule(ctx, action, day, tag, **kwargs):
     if not day:
         raise Exception("at least one day is required")
     output_entry(
         ctx,
         rules.add_timeperiod_condition_rule(
-            ctx, actions=action, days=list(day or []), **kwargs
+            ctx,
+            actions=action,
+            days=list(day or []),
+            tags=list(tag) if tag else None,
+            **kwargs,
         ),
     )
 
@@ -498,13 +638,22 @@ def cli_command_add_timeperiod_condition_rule(ctx, action, day, **kwargs):
 @click.option("--name", required=True)
 @click.option("--action", required=True, multiple=True, type=click.Choice(rules.ACTIONS))
 @click.option("--purpose", default=None)
+@click.option(
+    "--tag",
+    default=None,
+    multiple=True,
+    help="Tag to attach to the rule (multiple allowed)",
+)
 @click.option("--org-id", default=None)
 @click.option("--standalone-rule-policy-id", default=None)
 @click.option("--condition-result", default=True)
 @click.pass_context
-def cli_command_add_always_match_condition_rule(ctx, action, **kwargs):
+def cli_command_add_always_match_condition_rule(ctx, action, tag, **kwargs):
     output_entry(
-        ctx, rules.add_always_match_condition_rule(ctx, actions=action, **kwargs)
+        ctx,
+        rules.add_always_match_condition_rule(
+            ctx, actions=action, tags=list(tag) if tag else None, **kwargs
+        ),
     )
 
 
@@ -513,15 +662,25 @@ def cli_command_add_always_match_condition_rule(ctx, action, **kwargs):
 @click.option("--action", required=True, multiple=True, type=click.Choice(rules.ACTIONS))
 @click.option("--org-id", default=None)
 @click.option("--standalone-rule-policy-id", default=None)
+@click.option(
+    "--tag",
+    default=None,
+    multiple=True,
+    help="Tag to attach to the rule (multiple allowed)",
+)
 @click.option("--resource-type", multiple=True, type=resource_type_enum)
 @click.pass_context
 def cli_command_add_has_resource_permission_condition_rule(
-    ctx, action, resource_type, **kwargs
+    ctx, action, resource_type, tag, **kwargs
 ):
     output_entry(
         ctx,
         rules.add_has_resource_permission_condition_rule(
-            ctx, actions=action, resource_types=list(resource_type) or None, **kwargs
+            ctx,
+            actions=action,
+            resource_types=list(resource_type) or None,
+            tags=list(tag) if tag else None,
+            **kwargs,
         ),
     )
 

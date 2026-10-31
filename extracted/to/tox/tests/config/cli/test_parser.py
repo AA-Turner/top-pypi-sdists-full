@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import sys
-from argparse import Action
-from typing import TYPE_CHECKING, Literal, get_args
+from argparse import Action, Namespace
+from typing import TYPE_CHECKING, Final, Literal, get_args
 
 import pytest
 
@@ -10,7 +10,6 @@ from tox.config.cli.parser import Parsed, ToxParser
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import Final
 
     from pytest_mock import MockerFixture
 
@@ -41,6 +40,33 @@ def test_parser_command_without_core_inherit() -> None:
     result = parser.parse_args(["noop"])
     assert result.command == "noop"
     assert result.work_dir is None
+
+
+@pytest.mark.parametrize(
+    ("nargs", "args", "command", "values"),
+    [
+        pytest.param("+", ("--values", "one", "list"), "legacy", ["one", "list"], id="one-or-more"),
+        pytest.param("*", ("--values", "one", "list"), "legacy", ["one", "list"], id="zero-or-more-values"),
+        pytest.param("*", ("--values", "list"), "list", [], id="zero-or-more-before-command"),
+        pytest.param("?", ("--values", "list"), "list", None, id="optional-before-command"),
+        pytest.param("?", ("--values", "one", "list"), "list", "one", id="optional-value"),
+        pytest.param(2, ("--values", "one", "list", "legacy"), "legacy", ["one", "list"], id="exact-count"),
+        pytest.param(
+            "+", ("--values", "one", "-2", "list"), "legacy", ["one", "-2", "list"], id="negative-number-value"
+        ),
+        pytest.param(2, ("--values", "one", "-2", "list"), "list", ["one", "-2"], id="negative-number-exact-count"),
+    ],
+)
+def test_parser_command_scan_respects_option_values(
+    nargs: str | int, args: tuple[str, ...], command: str, values: str | list[str] | None
+) -> None:
+    parser: Final[ToxParser] = ToxParser.core()
+    parser.add_argument("--values", nargs=nargs)
+    parser.add_command("legacy", [], "run", lambda _state: 0)
+    parser.add_command("list", [], "list", lambda _state: 0)
+
+    result: Final[Namespace] = parser.parse_args(args)
+    assert (result.command, result.values) == (command, values)
 
 
 def test_parser_help_shows_default_source(monkeypatch: MonkeyPatch) -> None:
@@ -212,3 +238,11 @@ def test_parser_hint(capsys: CaptureFixture) -> None:
         parser.parse_args("foo")
     _out, err = capsys.readouterr()
     assert err.endswith("hint: if you tried to pass arguments to a command use -- to separate them from tox ones\n")
+
+
+def test_parser_unknown_secret_flag_masked(capsys: CaptureFixture) -> None:
+    with pytest.raises(SystemExit):
+        ToxParser.base().parse_args(["--api-token=hunter2"])
+    err: Final = capsys.readouterr().err
+    assert "--api-token=*******" in err
+    assert "hunter2" not in err

@@ -1,6 +1,6 @@
 [project]
 name = "thetadata"
-version = "1.0.16"
+version = "1.0.17"
 description = "Python client library for ThetaData market data APIs"
 readme = "README.md"
 license = "Apache-2.0"

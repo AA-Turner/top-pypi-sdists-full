@@ -297,6 +297,33 @@ CLI_OPTIONS: List[Dict[str, Any]] = [
         "default": None,
         "description": "Path to a JSON file of sanitization rules. Only the rules of the file run, in place of the built-in rules. Turns on --sanitize",
     },
+    {
+        "name": "include-links",
+        "python_name": "include_links",
+        "short_name": None,
+        "type": "boolean",
+        "required": False,
+        "default": False,
+        "description": "Write the URI links of the PDF (http, https, mailto) as links in Markdown and HTML output. No links with --sanitize, or when the hybrid backend makes the text",
+    },
+    {
+        "name": "hybrid-availability-timeout",
+        "python_name": "hybrid_availability_timeout",
+        "short_name": None,
+        "type": "string",
+        "required": False,
+        "default": "3000",
+        "description": "Time in milliseconds that the availability check of the hybrid backend waits to connect, and then again for the answer. Raise it for a backend with a slow start, such as a serverless one. Default: 3000",
+    },
+    {
+        "name": "hybrid-triage-log",
+        "python_name": "hybrid_triage_log",
+        "short_name": None,
+        "type": "boolean",
+        "required": False,
+        "default": False,
+        "description": "With --hybrid, write the triage decision of each page (Java or backend, the confidence, and the signals) to triage/<name>.json in the output folder",
+    },
 ]
 
 

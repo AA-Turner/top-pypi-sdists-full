@@ -7,8 +7,6 @@ import structlog
 
 from langgraph_api import config
 from langgraph_api.encryption.context import set_encryption_context
-from langgraph_api.encryption.middleware import decrypt_response
-from langgraph_api.encryption.shared import BLOB_ENCRYPTION_CONTEXT_KEY
 from langgraph_api.feature_flags import IS_POSTGRES_OR_GRPC_BACKEND
 from langgraph_api.models.run import create_valid_run
 from langgraph_api.schema import Cron
@@ -61,16 +59,8 @@ async def cron_scheduler():
         try:
             claimed = 0
             async with connect() as conn:
-                async for item in Crons.next(conn):
+                async for cron, enc_ctx in Crons.next(conn):
                     claimed += 1
-                    # gRPC path yields (cron, enc_ctx) tuples;
-                    # non-gRPC path yields plain Cron dicts.
-                    if isinstance(item, tuple):
-                        cron, enc_ctx = item
-                    else:
-                        cron = item
-                        enc_ctx = None
-
                     on_run_completed = cron.get("on_run_completed")
 
                     run_payload = cron["payload"]
@@ -78,23 +68,7 @@ async def cron_scheduler():
                         run_payload = json_loads(run_payload)
                     run_payload = cast("dict", run_payload)
 
-                    # Restore the encryption context so runs created by crons
-                    # inherit the same context used when the cron was created.
-                    # gRPC path: Go extracts it before decryption and returns
-                    # it as a separate value from next().
-                    # Non-gRPC path: it lives inside the payload blob.
-                    if enc_ctx is None:
-                        enc_ctx = run_payload.get(BLOB_ENCRYPTION_CONTEXT_KEY)
-                    # Always set (even if empty) to avoid leaking context from
-                    # a previous cron iteration.
                     set_encryption_context(enc_ctx or {})
-
-                    run_payload = await decrypt_response(
-                        run_payload,
-                        "cron",
-                        ["metadata", "context", "input", "config"],
-                        plaintext_from_core=False,
-                    )
 
                     if on_run_completed == "keep":
                         run_payload.setdefault("on_completion", "keep")

@@ -228,8 +228,8 @@ class EventStreamingSession:
     ) -> None:
         if max_buffer_size is None:
             max_buffer_size = LSD_PROTOCOL_V2_BUFFER_SIZE
-        if max_buffer_size < 1:
-            raise ValueError("max_buffer_size must be a positive integer")
+        if max_buffer_size < 0:
+            raise ValueError("max_buffer_size must be zero or a positive integer")
         self._run_id = run_id
         self._thread_id = thread_id
         self._initial_run = initial_run
@@ -251,6 +251,7 @@ class EventStreamingSession:
         self._buffer: list[dict[str, Any]] = []
         self._source_task: asyncio.Task[None] | None = None
         self._next_seq = 0
+        # 0 keeps no replay buffer, for transports that never replay from it.
         self._max_buffer_size = max_buffer_size
         self._root_graph_name = "root"
         self._terminal_lifecycle_emitted = False
@@ -971,7 +972,8 @@ class EventStreamingSession:
         return _synth_event_id(self._run_id, str(self._next_seq))
 
     async def _push_event(self, event: dict[str, Any]) -> None:
-        self._buffer.append(event)
+        if self._max_buffer_size:
+            self._buffer.append(event)
         reporter = get_otlp_metrics_reporter()
         if len(self._buffer) > self._max_buffer_size:
             evicted = len(self._buffer) - self._max_buffer_size
@@ -1036,9 +1038,10 @@ class EventStreamingSession:
         callback for events with ``seq > since`` that match the filter,
         then the subscription is activated so live events flow.
 
-        Returns the number of events replayed. Used by both the WebSocket
-        ``subscription.subscribe`` command and the SSE event stream, which
-        accept a body ``since`` cursor to resume after a reconnect.
+        Returns the number of events replayed. Used by the WebSocket
+        ``subscription.subscribe`` and ``subscription.reconnect`` commands;
+        ``since`` resumes after a reconnect. SSE streams replay from the
+        thread's event stream instead.
 
         Raises :class:`ResumeGap` when *since* is older than the
         session's retained buffer head. This lets callers surface a

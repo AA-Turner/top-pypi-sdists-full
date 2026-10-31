@@ -51,7 +51,7 @@ constexpr std::array kOwnRule = {
 constexpr std::array kBindingVerbs = {
     std::string_view("run"),  std::string_view("call"),
     std::string_view("try"),  std::string_view("node"),
-    std::string_view("wait"), std::string_view("drain"),
+    std::string_view("wait"), std::string_view("close"),
 };
 
 /// `else` opens a block and so is written with the statements; `it` is a value
@@ -59,6 +59,8 @@ constexpr std::array kBindingVerbs = {
 /// *out* of a table below.
 constexpr std::string_view kElse = "else";
 constexpr std::string_view kIt = "it";
+constexpr std::array kWaitModes{std::string_view("all"),
+                                std::string_view("first")};
 
 /// A word in upper case, which is the other spelling of every keyword.
 std::string Shout(std::string_view word) {
@@ -118,8 +120,6 @@ std::string Inline(absl::Span<const std::string_view> words) {
   return absl::StrJoin(WithShouted(words), "|");
 }
 
-// The same alternation wrapped over lines, each continuation starting with the
-// `|` -- which is how a long list of words stays readable in a YAML pattern.
 /// The same alternation wrapped over lines, each continuation starting with the
 /// `|` -- which is how a long list of words stays readable in a YAML pattern.
 ///
@@ -432,7 +432,7 @@ contexts:
     # A type a serialisation registry knows by tag, written unquoted and dotted
     # exactly as it was registered: `a11.sdk.AudioBuffer`. First, so a tag whose
     # first part happens to be a built-in name is still read as one tag.
-    - match: '{{name}}(?:\.{{name}})+'
+    - match: '{{name}}(?:::{{name}})+'
       scope: storage.type.tag.a11flow
     - match: |-
         (?x) \b (
@@ -493,6 +493,10 @@ contexts:
         2: keyword.operator.assignment.carry.a11flow
 
   statement-keywords:
+    - match: '\b(@WAIT@)\s+(@WAIT_MODES@){{kw_boundary}}'
+      captures:
+        1: keyword.control.a11flow
+        2: keyword.control.a11flow
     - match: |-
         (?x) \b (
           @STATEMENTS@
@@ -523,7 +527,7 @@ contexts:
     - match: '\b(@VERBS@){{kw_boundary}}'
       scope: keyword.other.call.a11flow
       push:
-        - match: '({{name}})(?:(\.)({{name}}))*'
+        - match: '({{name}})(?:(::)({{name}}))*'
           scope: entity.name.function.action.a11flow
           pop: true
         - match: '"'
@@ -605,14 +609,14 @@ contexts:
     - match: '\b(@AS@){{kw_boundary}}'
       scope: keyword.operator.cast.a11flow
       push:
-        - match: '{{name}}(?:\.{{name}})*(?:\s*\[[^\]\n]*\])?'
+        - match: '{{name}}(?:::{{name}})*(?:\s*\[[^\]\n]*\])?'
           scope: storage.type.a11flow
           pop: true
         - include: strings
         - match: '(?=\S)'
           pop: true
     # `a11.sdk.Interaction{...}`: a value of a named type.
-    - match: '{{name}}(?:\.{{name}})+(?=\s*\{)'
+    - match: '{{name}}(?:::{{name}})+(?=\s*\{)'
       scope: storage.type.a11flow
     - match: '\b(@SOURCE_WORDS@){{kw_boundary}}'
       scope: keyword.other.status.a11flow
@@ -781,6 +785,8 @@ std::string Sublime() {
           {"@DESCRIBE@", One("describe")},
           {"@BINDING_VERBS@", Inline(absl::MakeConstSpan(
                                   kBindingVerbs.data(), kBindingVerbs.size()))},
+          {"@WAIT@", One("wait")},
+          {"@WAIT_MODES@", Inline(kWaitModes)},
           {"@STATEMENTS@", Wrapped(statements, "          ")},
           {"@CLAUSES@", Inline(clauses)},
           {"@NODES@", One("nodes")},
@@ -869,7 +875,7 @@ BOUNDARY = r"(?![A-Za-z0-9_$-])"
 
 #: A dotted name -- a tag a serialisation registry knows a type by, or the type
 #: of a value being built: ``a11.sdk.AudioBuffer``.
-DOTTED = NAME + r"(?:\." + NAME + r")"
+DOTTED = NAME + r"(?:::" + NAME + r")"
 
 
 def _keywords(*names):
@@ -1012,6 +1018,10 @@ class A11FlowLexer(RegexLexer):
                 bygroups(Keyword.Reserved, Whitespace, Name.Namespace),
             ),
             (_group(MODIFIERS), Keyword.Reserved),
+            (
+                _word(@WAIT@) + r"(\s+)(" + _keywords(@WAIT_MODES@) + r")" + BOUNDARY,
+                bygroups(Keyword, Whitespace, Keyword),
+            ),
             (_group(STATEMENTS), Keyword),
             (_group(CLAUSES), Keyword),
             # A stage, which is what a word after a `|` is. The gap may hold a
@@ -1227,6 +1237,8 @@ std::string Pygments() {
           {"@BINDING_VERBS@",
            Call(absl::MakeConstSpan(kBindingVerbs.data(), kBindingVerbs.size()),
                 "BINDING_VERBS = ")},
+          {"@WAIT@", QuotedOne("wait")},
+          {"@WAIT_MODES@", Quoted(kWaitModes, "")},
           {"@STATEMENTS@", Call(statements, "STATEMENTS = ")},
           {"@CLAUSES@", Call(clauses, "CLAUSES = ")},
           {"@NODES@", QuotedOne("nodes")},
@@ -1273,6 +1285,7 @@ constexpr std::string_view kVsCodeTemplate = R"JSON({
         {"include": "#builtin"},
         {"include": "#port-type"},
         {"include": "#declaration"},
+        {"include": "#wait-mode"},
         {"include": "#statement"},
         {"include": "#modifier"},
         {"include": "#status-code"},
@@ -1295,7 +1308,8 @@ constexpr std::string_view kVsCodeTemplate = R"JSON({
           "//": "A tripled quote holds line breaks and gives back its indentation, which is how every description longer than a line is written.",
           "name": "string.quoted.triple.a11flow",
           "begin": "\"\"\"",
-          "end": "\"\"\""
+          "end": "\"\"\"",
+          "patterns": [{"name": "constant.character.escape.a11flow", "match": "\\\\."}]
         },
         {
           "name": "string.quoted.double.a11flow",
@@ -1360,6 +1374,13 @@ constexpr std::string_view kVsCodeTemplate = R"JSON({
     "declaration": {
       "match": "\\b(@DECLARATIONS@)\\b",
       "name": "keyword.declaration.a11flow"
+    },
+    "wait-mode": {
+      "match": "\\b(@WAIT@)\\b(\\s+)(@WAIT_MODES@)\\b",
+      "captures": {
+        "1": {"name": "keyword.control.a11flow"},
+        "3": {"name": "keyword.control.a11flow"}
+      }
     },
     "statement": {
       "match": "\\b(@STATEMENTS@)\\b",
@@ -1507,6 +1528,8 @@ std::string VsCode() {
           {"@BUILTINS@", Inline(vocabulary::OrderedBuiltins())},
           {"@PORT_AND_FIELD_MODIFIERS@", Inline(port_and_field)},
           {"@DECLARATIONS@", Inline(declarations)},
+          {"@WAIT@", One("wait")},
+          {"@WAIT_MODES@", Inline(kWaitModes)},
           {"@STATEMENTS@", Inline(statements)},
           {"@MODIFIERS@", Inline(modifiers)},
           {"@STATUS_CODES@", Inline(vocabulary::StatusCodes())},
@@ -1516,22 +1539,29 @@ std::string VsCode() {
       });
 }
 
-std::string VsCodeInjection() {
+std::string FragmentPattern() {
   const auto keyword = [](std::string_view word) {
     return absl::StrCat("(?:", One(word), ")");
   };
   const std::string bare = "[A-Za-z_$][A-Za-z0-9_$-]*";
-  const std::string qualified = absl::StrCat(bare, "(?:\\.", bare, ")*");
+  const std::string qualified =
+      absl::StrCat(bare, R"((?:\s*::\s*)", bare, ")*");
   const std::string name =
       absl::StrCat("(?:", qualified, R"re(|"(?:\\.|[^"\\\n])+")re", ")");
   const std::string attribute = absl::StrCat(R"(\s+)", keyword("exported"));
-  const std::string fragment = absl::StrCat(
+  return absl::StrCat(
       "(?:(?:", keyword("declare"), R"(\s+)?(?:)", keyword("flow"), ")",
-      R"((?:\s+)", name, ")?(?:", attribute, R"()?\s*\{|)", keyword("struct"),
-      R"(\s+)", bare, "(?:", attribute, R"()?\s*\{|)", keyword("import"),
-      R"re(\s+"[^"\n]+"\s+)re", keyword("as"), R"(\s+)", bare, "|",
-      keyword("from"), R"re(\s+"[^"\n]+"\s+)re", keyword("import"), R"(\s+)",
+      R"((?:\s+)", name, ")?(?:", attribute, R"()?\s*\{|(?:)",
+      keyword("declare"), R"(\s+)?(?:)", keyword("mod"), "|", keyword("struct"),
+      R"()\s+)", qualified, "(?:", attribute, R"()?\s*\{|)", keyword("import"),
+      R"re(\s+"[^"\n]+"(?:\s+)re", keyword("as"), R"(\s+)", bare, ")?|",
+      keyword("from"), R"(\s+)", qualified, R"(\s+)", keyword("import"),
+      R"(\s+(?:)", qualified, R"(|\*)|)", keyword("export"), R"(\s+)",
       qualified, ")");
+}
+
+std::string VsCodeInjection() {
+  const std::string fragment = FragmentPattern();
   const std::string escaped = nlohmann::json(fragment).dump();
   return absl::StrReplaceAll(
       kVsCodeInjectionTemplate,
@@ -1579,6 +1609,21 @@ std::string BrowserVocabulary() {
                     "export const FLOW_", name,
                     ": readonly string[] = ", values.dump(2), ";\n\n");
   };
+  absl::StrAppend(
+      &source,
+      "/** Native pattern for a Flow document inside a host string. */\n",
+      "export const FLOW_FRAGMENT_PATTERN: string = ",
+      nlohmann::json(FragmentPattern()).dump(), ";\n\n");
+  absl::StrAppend(
+      &source,
+      "/** Native string ranges, including incomplete editor input. */\n",
+      "export const FLOW_STRING_PATTERN: string = ",
+      nlohmann::json(
+          R"pattern("""(?:\\(?:[\s\S]|$)|(?!""")[^\\])*(?:"""|$)|"(?:\\(?:[^\n]|(?=\n|$))|[^"\\\n])*(?:"|(?=\n|$)))pattern")
+          .dump(),
+      ";\n\n/** Escape spans inside a native string range. */\n",
+      "export const FLOW_STRING_ESCAPE_PATTERN: string = ",
+      nlohmann::json(R"pattern(\\[\s\S])pattern").dump(), ";\n\n");
   emit("KEYWORDS", keywords);
   emit("TYPES", vocabulary::OrderedTypeNames());
   emit("STAGES", vocabulary::Stages());
@@ -1594,6 +1639,10 @@ std::string BrowserVocabulary() {
 }
 
 }  // namespace
+
+std::string FragmentStartPattern() {
+  return FragmentPattern();
+}
 
 absl::Span<const SyntaxTarget> SyntaxTargets() {
   static constexpr std::array kTargets = {

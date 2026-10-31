@@ -1,7 +1,8 @@
 """Checkpointer gRPC servicer implementation.
 
-This module implements the Checkpointer gRPC service, exposing the Python
-checkpointer implementation to the Go server.
+This permanent bridge lets Go persistence use configured custom Python
+checkpointers. It is separate from the removable built-in Python Postgres
+checkpointer.
 """
 
 from __future__ import annotations

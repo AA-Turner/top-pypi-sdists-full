@@ -32,8 +32,6 @@ vcpkg_check_features(
         bzip2   MESHIOPLUSPLUS_WITH_BZIP2
         adios2  MESHIOPLUSPLUS_WITH_ADIOS2
         kahip   MESHIOPLUSPLUS_WITH_KAHIP
-        netgen  MESHIOPLUSPLUS_WITH_NETGEN
-        mmg     MESHIOPLUSPLUS_WITH_MMG
         occt    MESHIOPLUSPLUS_WITH_OCCT
         cgnslib MESHIOPLUSPLUS_WITH_CGNSLIB
         gidpost MESHIOPLUSPLUS_WITH_GIDPOST
@@ -77,6 +75,4 @@ file(REMOVE_RECURSE "${CURRENT_PACKAGES_DIR}/debug/include")
 
 file(INSTALL "${CMAKE_CURRENT_LIST_DIR}/usage"
      DESTINATION "${CURRENT_PACKAGES_DIR}/share/${PORT}")
-vcpkg_install_copyright(FILE_LIST "${SOURCE_PATH}/LICENSE"
-                        "${SOURCE_PATH}/LICENSE-BINARIES.md"
-                        "${SOURCE_PATH}/THIRD_PARTY_NOTICES.md")
+vcpkg_install_copyright(FILE_LIST "${SOURCE_PATH}/LICENSE")

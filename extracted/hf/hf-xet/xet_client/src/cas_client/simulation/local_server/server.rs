@@ -41,7 +41,7 @@ use std::time::Duration;
 #[cfg(test)]
 use async_trait::async_trait;
 use axum::Router;
-use axum::routing::{get, head, post};
+use axum::routing::{get, head, post, put};
 #[cfg(test)]
 use reqwest::header::{self, HeaderMap, HeaderValue};
 use tokio::net::TcpListener;
@@ -104,8 +104,11 @@ pub struct LocalServer {
     latency_simulation: Arc<LatencySimulation>,
     /// Telemetry documents received on `POST /v1/telemetry`. See [`Self::telemetry_docs`].
     telemetry_docs: Arc<Mutex<Vec<serde_json::Value>>>,
+    v1_reconstruction_ranges: Arc<Mutex<Vec<Option<String>>>>,
     /// `/v2/shards` in-stream Error frame mode (see [`handlers::ShardUploadErrorFrame`]).
     shard_upload_error_frame: Arc<AtomicU8>,
+    /// Upload grants issued by `POST /v1/xorb-grants`.
+    xorb_upload_grants: Arc<handlers::XorbUploadGrants>,
 }
 
 impl LocalServer {
@@ -131,7 +134,9 @@ impl LocalServer {
             deletion_client,
             latency_simulation,
             telemetry_docs: Arc::default(),
+            v1_reconstruction_ranges: Arc::default(),
             shard_upload_error_frame: Arc::new(AtomicU8::new(handlers::ShardUploadErrorFrame::Off as u8)),
+            xorb_upload_grants: Arc::default(),
         })
     }
 
@@ -158,7 +163,9 @@ impl LocalServer {
             deletion_client,
             latency_simulation,
             telemetry_docs: Arc::default(),
+            v1_reconstruction_ranges: Arc::default(),
             shard_upload_error_frame: Arc::new(AtomicU8::new(handlers::ShardUploadErrorFrame::Off as u8)),
+            xorb_upload_grants: Arc::default(),
         }
     }
 
@@ -186,6 +193,10 @@ impl LocalServer {
         format!("{}:{}", self.config.host, self.config.port)
     }
 
+    pub(crate) fn v1_reconstruction_ranges_handle(&self) -> Arc<Mutex<Vec<Option<String>>>> {
+        self.v1_reconstruction_ranges.clone()
+    }
+
     /// Builds the Axum router with all CAS API routes.
     ///
     /// Routes follow the pattern used by RemoteClient:
@@ -202,6 +213,8 @@ impl LocalServer {
                     .route("/reconstructions/{file_id}", get(handlers::get_reconstruction))
                     .route("/chunks/{prefix}/{hash}", get(handlers::get_dedup_info_by_chunk))
                     .route("/xorbs/{prefix}/{hash}", head(handlers::head_xorb).post(handlers::post_xorb))
+                    .route("/xorb-grants/{prefix}/{hash}", post(handlers::post_xorb_grant))
+                    .route("/xorb-commits/{prefix}/{hash}/grant/{grant_id}", post(handlers::post_xorb_commit))
                     .route("/shards", post(handlers::post_shard))
                     .route("/files/{file_id}", head(handlers::head_file))
                     .route("/get_xorb/{prefix}/{hash}/", get(handlers::get_file_term_data))
@@ -219,7 +232,8 @@ impl LocalServer {
                 super::simulation_handlers::simulation_routes()
                     .route("/ping", get(handlers::ping))
                     .route("/set_config", post(handlers::set_config))
-                    .route("/dummy_upload", post(handlers::dummy_upload)),
+                    .route("/dummy_upload", post(handlers::dummy_upload))
+                    .route("/xorb-uploads/{grant_id}", put(handlers::put_xorb_upload)),
             )
             .layer(CorsLayer::very_permissive())
             .with_state(handlers::ServerState {
@@ -227,7 +241,9 @@ impl LocalServer {
                 latency_simulation: self.latency_simulation.clone(),
                 deletion_client: self.deletion_client.clone(),
                 telemetry_docs: self.telemetry_docs.clone(),
+                v1_reconstruction_ranges: self.v1_reconstruction_ranges.clone(),
                 shard_upload_error_frame: self.shard_upload_error_frame.clone(),
+                xorb_upload_grants: self.xorb_upload_grants.clone(),
             })
     }
 

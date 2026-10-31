@@ -745,6 +745,34 @@ def patch_packages_distributions() -> None:
     importlib.metadata.packages_distributions = _cached
 
 
+def _module_name_for_path(path: str) -> str:
+    """Return the ``sys.modules`` name a graph file given by path is loaded under."""
+    return path.replace("/", "__").replace(".py", "").replace(" ", "_").lstrip(".")
+
+
+def graph_file_module_names() -> set[str]:
+    """Return the module names of the graph files configured in ``LANGSERVE_GRAPHS``."""
+    paths_str = os.getenv("LANGSERVE_GRAPHS")
+    if not paths_str:
+        return {_module_name_for_path(p) for p in glob.glob("/graphs/*.py")}
+    try:
+        graphs = orjson.loads(paths_str)
+    except orjson.JSONDecodeError:
+        return set()
+    if not isinstance(graphs, dict):
+        return set()
+
+    names = set()
+    for value in graphs.values():
+        source = value.get("path") if isinstance(value, dict) else value
+        if not isinstance(source, str) or ":" not in source:
+            continue
+        path = source.rsplit(":", maxsplit=1)[0]
+        if "/" in path:
+            names.add(_module_name_for_path(path))
+    return names
+
+
 @timing.timer(
     message="Importing graph profiling",
     metadata_fn=_metadata_fn,
@@ -765,12 +793,7 @@ def _graph_from_spec(spec: GraphSpec) -> GraphValue:
             module = importlib.import_module(spec.module)
         elif spec.path:
             try:
-                modname = (
-                    spec.path.replace("/", "__")
-                    .replace(".py", "")
-                    .replace(" ", "_")
-                    .lstrip(".")
-                )
+                modname = _module_name_for_path(spec.path)
                 modspec = importlib.util.spec_from_file_location(modname, spec.path)
                 if modspec is None:
                     raise ValueError(f"Could not find python file for graph: {spec}")

@@ -1,12 +1,7 @@
-import dominate
-from dominate.tags import *
 import pytest
-from dominate.util import raw
 
-try:
-  xrange = xrange
-except NameError:
-  xrange = range
+from dominate.tags import *
+from dominate.util import raw
 
 
 def test_arguments():
@@ -43,7 +38,7 @@ def test_add():
   with pytest.raises(ValueError):
     d += None
   d += 1
-  d += xrange(2,3)
+  d += range(2,3)
   d += {'id': 'foo'}
   assert d.render() == '<div id="foo">12</div>'
   assert len(d) == 2
@@ -208,6 +203,9 @@ def test_attributes():
   with pytest.raises(AttributeError):
     x = d['id']
 
+  with div(_foo='a', _='b') as d:
+    assert d.attributes.keys() == {'foo', '_'}
+
   with div() as d:
     attr(data_test=False)
   assert d['data-test'] is False
@@ -224,6 +222,14 @@ def test_attributes():
 def test_attribute_none():
   d = div(foo=1, bar=None)
   assert d.render() == '<div foo="1"></div>'
+
+
+@pytest.mark.parametrize('value, expected', [
+  (0, '<input min="0" type="number" value="0">'),
+  (0.0, '<input min="0.0" type="number" value="0.0">'),
+])
+def test_numeric_zero_attributes(value, expected):
+  assert input_(type='number', min=value, value=value).render() == expected
 
 
 def test_attribute_dashes():
@@ -246,6 +252,27 @@ def test_lazy():
   assert executed[0] == False
   assert d.render() == '<div>\n  <span>Hi</span>\n</div>'
   assert executed[0] == True
+
+
+def test_lazy_render_directly():
+  from dominate import util
+  calls = []
+
+  def deferred(value, suffix):
+    calls.append(value)
+    return span(value + suffix)
+
+  node = util.lazy(deferred, 'Hi', suffix='!')
+  assert calls == []
+  assert node.render() == '<span>Hi!</span>'
+  assert calls == ['Hi']
+  assert str(node) == '<span>Hi!</span>'
+  assert calls == ['Hi', 'Hi']
+
+
+def test_lazy_render_empty_string():
+  from dominate import util
+  assert util.lazy(lambda: '').render() == ''
 
 
 def test_keyword_attributes():
@@ -330,6 +357,9 @@ def test_pretty():
   assert p('goodbye ', i('cruel'), ' world').render() == \
     '''<p>goodbye <i>cruel</i> world</p>'''
 
+  assert p('my 1', sup('st'), ' PR').render() == \
+    '''<p>my 1<sup>st</sup> PR</p>'''
+
 
 def test_xhtml():
   assert head(script('foo'), style('bar')).render(xhtml=True) == '''<head>
@@ -352,3 +382,21 @@ def test_verbatim_attributes():
       '''<div attr="{&lt;div&gt;&lt;/div&gt;}"></div>'''
   assert div(attr = raw('{<div></div>}')).render() == \
       '''<div attr="{<div></div>}"></div>'''
+
+
+@pytest.mark.parametrize('tag, expected', [
+  (a, '<p>(<a>some</a>)</p>'),
+  (span, '<p>(<span>some</span>)</p>'),
+])
+def test_inline_text_semantics_preserve_adjacent_text(tag, expected):
+  assert p('(', tag('some'), ')').render() == expected
+
+
+def test_nested_inline_link_preserves_adjacent_text():
+  assert span('(', a('some', href='/'), ')').render() == \
+      '<span>(<a href="/">some</a>)</span>'
+
+
+def test_inline_text_semantics_allow_pretty_override():
+  assert p('(', a('some', href='/', __inline=False), ')').render() == \
+      '<p>(\n  <a href="/">some</a>)\n</p>'

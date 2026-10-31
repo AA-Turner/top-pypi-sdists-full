@@ -4,6 +4,11 @@ This is the low-level, non-agentic entry point: caller supplies the model,
 the full message list, and any tools / system instruction directly. No
 agent definition is loaded; the request is treated as an ephemeral turn.
 
+It is the complete raw-model step: tools + an iteration cap make it a tool
+loop, ``reasoning_effort`` sets thinking depth, and ``output_schema`` forces
+strict JSON through the same builder Ask AI uses. (It replaced the retired
+``ai.agent.tool_calling`` / ``ai.agent.react`` loop steps, 2026-10-29.)
+
 Most workflows should prefer ``ai.agent.start`` (use a saved agent) or
 ``ai.conversation.continue`` (continue an existing thread). Reach for
 ``chat.manual`` when you need full control of the config — sweeping model
@@ -24,12 +29,14 @@ from matrx_graph.types.result import NodeResult
 from matrx_graph.types.usl import field_extras
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
+from matrx_ai.config.llm_params import LLMParams
 from matrx_ai.graph_nodes.class_pin import model_class_extras, offering_id_field
 from matrx_ai.graph_nodes.iteration_limit import (
     AGENT_MAX_ITERATIONS_CEILING,
     MAX_ITERATIONS_DESCRIPTION,
     resolve_step_iteration_limit,
 )
+from matrx_ai.graph_nodes.llm_action import _build_response_format
 from matrx_ai.graph_nodes.mandates import (
     WORKFLOW_STEP_INTELLIGENCE_MANDATE,
     assemble_held_step_skills,
@@ -40,6 +47,10 @@ from matrx_ai.graph_nodes.shared import (
     AiMessage,
     normalize_completed_result,
 )
+
+#: The platform's ONE reasoning-depth vocabulary (``LLMParams.reasoning_effort``),
+#: read from the model itself so this step can never drift from it.
+ReasoningEffort = LLMParams.model_fields["reasoning_effort"].annotation
 
 
 class ChatManualInput(BaseModel):
@@ -80,6 +91,23 @@ class ChatManualInput(BaseModel):
         default=None, ge=0.0, le=1.0, json_schema_extra=field_extras(widget="slider")
     )
     max_tokens: int | None = Field(default=None, ge=1)
+    reasoning_effort: ReasoningEffort = Field(  # type: ignore[valid-type]
+        default=None,
+        description=(
+            "How hard the model thinks before answering. Leave unset for the "
+            "platform default, which is lower than the provider's own."
+        ),
+    )
+    # Author-supplied JSON Schema — arbitrary JSON by definition.
+    output_schema: dict[str, JsonValue] | None = Field(
+        default=None,
+        description=(
+            "Optional JSON Schema. When set, the model must return strict JSON "
+            "matching it — the same structured-output path Ask AI (ai.llm.chat) "
+            "uses. An unenforceable schema fails the step loudly."
+        ),
+        json_schema_extra=field_extras(widget="code"),
+    )
     max_iterations: int | None = Field(
         default=None,
         ge=1,
@@ -138,6 +166,12 @@ async def chat_manual(
         overrides["top_p"] = inputs.top_p
     if inputs.max_tokens is not None:
         overrides["max_tokens"] = inputs.max_tokens
+    if inputs.reasoning_effort is not None:
+        overrides["reasoning_effort"] = inputs.reasoning_effort
+    if inputs.output_schema is not None:
+        overrides["response_format"] = _build_response_format(
+            inputs.output_schema, step_type="ai.chat.manual"
+        )
 
     # The Holder of workflow.step_intelligence is resolved on EVERY run and
     # fills only what the author left unset; an unbound mandate REFUSES here.

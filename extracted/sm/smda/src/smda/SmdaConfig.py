@@ -9,9 +9,10 @@ class SmdaConfig:
     # Bump this whenever any architecture's InstructionEscaper changes its
     # output (mnemonic groups or escaped operands). Downstream indexes such as
     # MCRIT treat reports whose smda_version is below this value as stale.
-    # Last output change: 4.4.5 (segment-qualified memory operands, AVX-512
-    # registers, six mnemonic groups).
-    ESCAPER_DOWNWARD_COMPATIBILITY = "4.4.5"
+    # The value names the release that ships the change, so it leads the
+    # package version until that release is cut.
+    # Last output change: 5.0.2 (operand-aware ARM NEON mnemonic groups).
+    ESCAPER_DOWNWARD_COMPATIBILITY = "5.0.2"
     CONFIG_FILE_PATH = str(os.path.abspath(__file__))
     PROJECT_ROOT = str(os.path.abspath(os.sep.join([CONFIG_FILE_PATH, "..", "..", ".."])))
 
@@ -263,6 +264,7 @@ class SmdaConfig:
     # backstops against memory usage explosion during candidate identification on pathological/junk samples
     # maximum number of function candidates to track; 0 == unlimited. Normal binaries have orders of magnitude fewer.
     MAX_FUNCTION_CANDIDATES = 200000
+    MAX_DELPHI_METADATA_ENTRIES = 1000000
     # maximum number of inbound call references tracked per candidate; 0 == unlimited. Bounds set growth and rescoring.
     MAX_CALL_REFS_PER_CANDIDATE = 2000
     # backstops for batch mode, where peak worker RSS scales with input size. The factor is

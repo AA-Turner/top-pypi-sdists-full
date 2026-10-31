@@ -13,9 +13,11 @@ import {
   planTurn,
   deltaGuardFailure,
   digestDrift,
+  parseCells,
+  readOffset,
   unusableCheckpointSize,
 } from './delta-turns-lib.js';
-import type { DeltaTurnsOptions, TurnPlan } from './delta-turns-lib.js';
+import type { DeltaCell, DeltaTurnsOptions, TurnPlan } from './delta-turns-lib.js';
 
 const PAYLOAD_CHANNELS = [
   'cumulative_checkpoint',
@@ -35,20 +37,30 @@ const stateReadDuration = new Trend('state_read_duration', true);
 const checkpointSaveDuration = new Trend('checkpoint_save', true);
 const threadStorageBytes = new Trend('thread_storage_bytes', false);
 
-const TURN_CONFIG: Omit<DeltaTurnsOptions, 'graphId'> = {
+const TURN_CONFIG: Omit<DeltaTurnsOptions, 'graphId' | 'readOffset'> = {
   migrateFromGraphId: __ENV.MIGRATE_FROM_GRAPH_ID || '',
   migrateAfter: parseInt(__ENV.MIGRATE_AFTER || '0', 10),
   expectDelta: (__ENV.EXPECT_DELTA || 'true') === 'true',
   verifyEvery: parseInt(__ENV.VERIFY_EVERY || '50', 10),
+  storageEvery: parseInt(__ENV.STORAGE_EVERY || '0', 10),
   // One bucket per cold read, so every row of the report is one sample per thread.
   bucketSize: parseInt(__ENV.DEPTH_BUCKET || __ENV.VERIFY_EVERY || '50', 10),
 };
 
+/**
+ * Every VU turns these in rotation, one thread each, so the cells are measured
+ * at the same depth seconds apart. Empty runs GRAPH_ID alone.
+ */
+const CELLS = parseCells(__ENV.DELTA_CELLS || '');
+
 // Each k6 VU runs this module in its own context, so these are per VU.
-let threadId: string | null = null;
-let turn = 0;
+const threads: Record<string, { threadId: string | null; turn: number }> = {};
+let iteration = 0;
 
 interface DeltaTurnsData {
+  cell: string;
+  turnMs: number;
+  tags: { depth: string; cell: string };
   rawResponse: ReturnType<typeof http.post>;
   plan: TurnPlan;
   guardFailure: string | null;
@@ -69,18 +81,31 @@ export class DeltaTurns extends BenchmarkRunner {
       return failResult('checkpoint_size', responses) as BenchmarkResult<DeltaTurnsData>;
     }
 
-    if (threadId === null) {
-      const thread = http.post(`${baseUrl}/threads`, '{}', requestParams);
+    const cell: DeltaCell = CELLS.length > 0
+      ? CELLS[iteration++ % CELLS.length]
+      : { name: benchmarkGraphOptions.graph_id, graphId: benchmarkGraphOptions.graph_id, expectDelta: TURN_CONFIG.expectDelta };
+    const own = (threads[cell.name] ??= { threadId: null, turn: 0 });
+    if (own.threadId === null) {
+      const ttlMinutes = parseInt(__ENV.THREAD_TTL_MINUTES || '0', 10);
+      const body = ttlMinutes > 0 ? { ttl: { strategy: 'delete', ttl: ttlMinutes } } : {};
+      const thread = http.post(`${baseUrl}/threads`, JSON.stringify(body), requestParams);
       addResponse(responses, 'create_thread', thread);
       if (thread.status !== 200) {
         return failResult('create_thread', responses) as BenchmarkResult<DeltaTurnsData>;
       }
-      threadId = (thread.json() as { thread_id: string }).thread_id;
-      turn = 0;
+      own.threadId = (thread.json() as { thread_id: string }).thread_id;
+      own.turn = 0;
     }
+    const threadId = own.threadId;
 
-    turn += 1;
-    const plan = planTurn(turn, { ...TURN_CONFIG, graphId: benchmarkGraphOptions.graph_id });
+    own.turn += 1;
+    const plan = planTurn(own.turn, {
+      ...TURN_CONFIG,
+      graphId: cell.graphId,
+      expectDelta: cell.expectDelta,
+      readOffset: readOffset(__VU, parseInt(__ENV.LOAD_SIZE || '1', 10), TURN_CONFIG.verifyEvery),
+    });
+    const tags = { depth: plan.depthBucket, cell: cell.name };
     const payload = JSON.stringify({
       assistant_id: plan.graphId,
       input: {},
@@ -97,14 +122,11 @@ export class DeltaTurns extends BenchmarkRunner {
       payload,
       requestParams
     );
-    turnDuration.add(Date.now() - startedAt, { depth: plan.depthBucket });
+    const turnMs = Date.now() - startedAt;
     addResponse(responses, 'wait', response);
     const saveMs = response.status === 200 ? safeJson(response.body)?.save_ms : null;
     if (typeof saveMs === 'number' && saveMs > 0) {
-      // Snapshots land on multiples of the bucket width, so the bucket's last
-      // turn is where a snapshot save shows; a percentile over the bucket hides it.
-      const rowTurn = plan.steps % TURN_CONFIG.bucketSize === 0 ? '1' : '0';
-      checkpointSaveDuration.add(saveMs, { depth: plan.depthBucket, row_turn: rowTurn });
+      checkpointSaveDuration.add(saveMs, tags);
     }
 
     let guardFailure: string | null = null;
@@ -120,7 +142,7 @@ export class DeltaTurns extends BenchmarkRunner {
       // a plain-channel read cost as much as a whole turn. The turn-2 guard
       // read is at depth 2, not the bucket's end, so it is not timed.
       if (state.status === 200 && plan.verify) {
-        stateReadDuration.add(state.timings.waiting, { depth: plan.depthBucket });
+        stateReadDuration.add(state.timings.waiting, tags);
       }
       addResponse(responses, 'state', state);
       const body = state.status === 200 ? safeJson(state.body) : null;
@@ -137,7 +159,7 @@ export class DeltaTurns extends BenchmarkRunner {
           drift = digestDrift(safeJson(response.body)?.payload_sha256, coldDigest(body.values));
         }
       }
-      if (plan.verify) {
+      if (plan.storage) {
         // Servers before 0.16 have no storage endpoint. A 404 there is a missing
         // sample, not a failed request: without this, one 404 per 50 turns is
         // about 2% and trips the 1% error budget on every cell.
@@ -148,12 +170,12 @@ export class DeltaTurns extends BenchmarkRunner {
         addResponse(responses, 'storage', storage);
         const total = storage.status === 200 ? safeJson(storage.body)?.total_bytes : null;
         if (typeof total === 'number') {
-          threadStorageBytes.add(total, { depth: plan.depthBucket, graph: plan.graphId });
+          threadStorageBytes.add(total, { ...tags, graph: plan.graphId });
         }
       }
     }
 
-    return okResult(responses, { rawResponse: response, plan, guardFailure, drift, stateStatus });
+    return okResult(responses, { cell: cell.name, turnMs, tags, rawResponse: response, plan, guardFailure, drift, stateStatus });
   }
 
   static validate(
@@ -203,7 +225,12 @@ export class DeltaTurns extends BenchmarkRunner {
       );
       // The thread is now at an unknown depth, so later turns would be tagged
       // with a depth they do not have.
-      threadId = null;
+      const cell = result.data?.cell;
+      if (cell && threads[cell]) threads[cell].threadId = null;
+    } else if (result.data) {
+      // The report counts these per bucket to tell which depth every user
+      // finished, so only a turn that passed every check counts.
+      turnDuration.add(result.data.turnMs, result.data.tags);
     }
     return success;
   }

@@ -17,12 +17,10 @@
 
 // System includes
 #include <algorithm>
-#include <array>
 #include <cmath>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
-#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <type_traits>
@@ -51,25 +49,12 @@
 #include "meshioplusplus/operations/curvature.hpp"
 #include "meshioplusplus/operations/feature_edges.hpp"
 #include "meshioplusplus/operations/fit_cad.hpp"
-#include "meshioplusplus/operations/iga.hpp"
-#include "meshioplusplus/operations/mesh_cad.hpp"
-#include "meshioplusplus/operations/boundary_layer.hpp"
-#include "meshioplusplus/operations/extrude.hpp"
-#include "meshioplusplus/operations/mirror.hpp"
-#include "meshioplusplus/operations/tetrahedralize.hpp"
-#include "meshioplusplus/operations/project_to_cad.hpp"
-#include "meshioplusplus/formats/cad_json.hpp"
-#include "meshioplusplus/formats/iges.hpp"
-#include "meshioplusplus/formats/mfem.hpp"
-#include "meshioplusplus/formats/step.hpp"
 #include "meshioplusplus/operations/fit_primitives.hpp"
-#include "meshioplusplus/operations/refine_patches.hpp"
 #include "meshioplusplus/operations/segment.hpp"
 #include "meshioplusplus/operations/tessellate.hpp"
 #include "meshioplusplus/operations/interfaces.hpp"
 #include "meshioplusplus/operations/normals.hpp"
 #include "meshioplusplus/operations/quality_gate.hpp"
-#include "meshioplusplus/operations/check_conformity.hpp"
 #include "meshioplusplus/operations/region_ops.hpp"
 #include "meshioplusplus/operations/repair.hpp"
 #include "meshioplusplus/operations/sobolev_deform.hpp"
@@ -83,15 +68,11 @@
 #include "meshioplusplus/operations/decimate.hpp"
 #include "meshioplusplus/operations/decimate_volume.hpp"
 #include "meshioplusplus/operations/error.hpp"
-#include "meshioplusplus/operations/error_size.hpp"
 #include "meshioplusplus/operations/gradient.hpp"
 #include "meshioplusplus/operations/hessian.hpp"
 #include "meshioplusplus/operations/isosurface.hpp"
 #include "meshioplusplus/operations/sdf.hpp"
 #include "meshioplusplus/operations/voxelize.hpp"
-#include "meshioplusplus/operations/primitives.hpp"
-#include "meshioplusplus/operations/octree.hpp"
-#include "meshioplusplus/operations/octree_mesh.hpp"
 #include "meshioplusplus/operations/partition.hpp"
 #include "meshioplusplus/operations/merge.hpp"
 #include "meshioplusplus/operations/interpolate.hpp"
@@ -107,7 +88,6 @@
 #include "meshioplusplus/operations/subdivide.hpp"
 #include "meshioplusplus/operations/surface.hpp"
 #include "meshioplusplus/operations/transform.hpp"
-#include "meshioplusplus/operations/mmg.hpp"
 #include "meshioplusplus/operations/remesh.hpp"
 #include "meshioplusplus/operations/remesh_volume.hpp"
 #include "meshioplusplus/operations/optimize_volume.hpp"
@@ -250,34 +230,6 @@ std::uint32_t pipe_fit_types(const PipelineStep& rStep) {
     return mask;
 }
 
-/// A `RansacSeed`: a non-negative integer no larger than 2^53, the largest a
-/// JSON number (a double) carries exactly; absent, `fallback`.
-std::uint64_t pipe_seed(const PipelineStep& rStep, const char* pKey, std::uint64_t fallback) {
-    const PipelineValue* v = pipe_find(rStep, pKey);
-    if (!v)
-        return fallback;
-    constexpr double kMaxSeed = 9007199254740992.0;  // 2^53
-    const std::string what =
-        std::string("parameter '") + pKey + "' must be an integer in [0, 2^53] (9007199254740992)";
-    if (const auto* i = std::get_if<std::int64_t>(v)) {
-        if (*i < 0 || *i > (std::int64_t{1} << 53))
-            throw std::invalid_argument(pipe_err(rStep, what));
-        return static_cast<std::uint64_t>(*i);
-    }
-    if (const auto* d = std::get_if<double>(v)) {
-        if (!(*d >= 0.0 && *d <= kMaxSeed) || *d != std::floor(*d))
-            throw std::invalid_argument(pipe_err(rStep, what));
-        return static_cast<std::uint64_t>(*d);
-    }
-    throw std::invalid_argument(pipe_err(rStep, what));
-}
-
-/// The `RefineStop` code a report carries as `Stop` (counters are numbers):
-/// 0 unchanged, 1 small_gain, 2 iteration_cap, 3 energy_rose.
-double pipe_refine_stop(RefineStop stop) {
-    return static_cast<double>(static_cast<std::int32_t>(stop));
-}
-
 /// A required 3-vector (`Point`, `Normal`, `Translate`, ...).
 void pipe_vec3(const PipelineStep& rStep, const char* pKey, double* pOut) {
     std::vector<double> v = pipe_dvec(rStep, pKey);
@@ -346,58 +298,13 @@ const std::vector<PipeOpSpec>& pipe_op_table() {
          {"FeatureAngle", "Feature", "Boundary", "NonManifold", "Inconsistent", "Region"}},
         {"Segment",
          {"FeatureAngle", "NormalTolerance", "CurvatureTolerance", "MinPatchCells", "Region",
-          "Prefix", "Method", "Tolerance"}},
+          "Prefix"}},
         {"FitPrimitives",
          {"PatchData", "Tolerance", "Relative", "MinInlierFraction", "Types", "MaxIterations"}},
         {"FitCad",
-         {"Path",
-          "Tolerance",
-          "ExactEdges",
-          "Types",
-          "MeshDeflection",
-          "MaxDemotionRounds",
-          "Freeform",
-          "FreeformDegree",
-          "FreeformMaxControl",
-          "FreeformSplit",
-          "Fillets",
-          "Threads",
-          "MergeFaces",
-          "Backend",
-          "RefineSegmentation",
-          "MaxRefineIterations",
-          "RefineEpsilon",
-          "NormalWeight",
-          "AllowMerge",
-          "AllowSplit",
-          "RansacSeed",
-          "RefineTolerance",
-          "RelativeTolerance",
-          "FreeformGeneral",
-          "FreeformTolerance",
-          "FreeformSmoothing",
-          "MaxFreeformPoles",
-          "MaxFreeformIterations",
-          "MaxFreeformSplits",
-          "SewTolerance",
-          "ExtendSurfaces",
-          "SnapJunctions",
-          "FaceDeviation",
-          "FreeformMode",
-          "FreeformParameterization",
-          "ExtraordinaryVertex",
-          "LocalRefine",
-          "FreeformG1ToleranceDeg",
-          "FreeformMaxControlPoints",
-          "LayoutTargetPatchSize",
-          "LayoutMaxValenceDeviation",
-          "ResegmentRounds",
-          "LayoutSnapToFeatures",
-          "ValidateBySurfaceSampling",
-          "ConstrainPrimitives"}},
-        {"RefinePatches",
-         {"Tolerance", "Relative", "NormalWeight", "Epsilon", "FeatureAngle", "MaxIterations",
-          "MinPatchCells", "RansacSeed", "Types", "AllowSplit", "AllowMerge", "Prefix"}},
+         {"Path", "Tolerance", "ExactEdges", "Types", "MeshDeflection", "MaxDemotionRounds",
+          "Freeform", "FreeformDegree", "FreeformMaxControl", "FreeformSplit", "Fillets",
+          "Threads"}},
         {"EditRegions", {"Edit", "Inputs", "Output", "Kind", "Dim", "Tag", "KeepInputs"}},
         {"RegionAdjacency", {"Regions"}},
         {"FindInterface",
@@ -405,20 +312,19 @@ const std::vector<PipeOpSpec>& pipe_op_table() {
           "OverlapTolerance"}},
         {"SplitInterface", {"Region", "AddCohesive"}},
         {"QualityGate", {"Require", "MaxInverted", "MaxDegenerate"}},
-        {"CheckConformity", {"Tolerance", "Require", "AttachFlags"}},
         {"Snapshot",
-         {"Path",           "Width",       "Height",        "Supersample",   "Cols",
-          "Rows",           "Encoding",    "ColorDepth",    "PngCompress",   "View",
-          "Azimuth",        "Elevation",   "Roll",          "Perspective",   "Fov",
-          "Zoom",           "Shading",     "Edges",         "FeatureAngle",  "Background",
-          "FillColor",      "ColorBy",     "Component",     "Cmap",          "VMin",
-          "VMax",           "Colorbar",    "Axes",          "ScaleBar",      "Reduce",
-          "Expr",           "ClipLow",     "ClipHigh",      "Symmetric",     "Scale",
-          "ScaleThreshold", "Categorical", "ColorRegions",  "CategoryEdges", "Isolines",
-          "IsoLevels",      "Vectors",     "VectorCount",   "Warp",          "WarpScale",
-          "WarpOutline",    "Diagnostic",  "QualityMetric", "Cutaway",       "CutawayTint",
-          "Streamlines",    "StreamSeeds", "StreamLength",  "StreamColor",   "Theme",
-          "Scanlines",      "Bloom",       "Fringe",        "GridFloor"}},
+         {"Path",           "Width",       "Height",       "Supersample",   "Cols",
+          "Rows",           "Encoding",    "ColorDepth",   "PngCompress",   "View",
+          "Azimuth",        "Elevation",   "Roll",         "Perspective",   "Fov",
+          "Zoom",           "Shading",     "Edges",        "FeatureAngle",  "Background",
+          "FillColor",      "ColorBy",     "Component",    "Cmap",          "VMin",
+          "VMax",           "Colorbar",    "Axes",         "ScaleBar",      "Reduce",
+          "Expr",           "ClipLow",     "ClipHigh",     "Symmetric",     "Scale",
+          "ScaleThreshold", "Categorical", "ColorRegions", "CategoryEdges", "Isolines",
+          "IsoLevels",      "Vectors",     "VectorCount",  "Warp",          "WarpScale",
+          "WarpOutline",    "Diagnostic",  "QualityMetric", "Cutaway",
+          "CutawayTint",    "Streamlines", "StreamSeeds",   "StreamLength", "StreamColor",
+          "Theme",          "Scanlines",   "Bloom",         "Fringe",       "GridFloor"}},
         {"Repair",
          {"FixOrientation", "OrientOutward", "FillHoles", "SplitNonManifold", "MaxHoleEdges",
           "WeldTolerance", "RecordProvenance"}},
@@ -426,23 +332,6 @@ const std::vector<PipeOpSpec>& pipe_op_table() {
          {"Array", "LengthScale", "FixedPointsArray", "FixBoundary", "RecordFiltered",
           "MaxIterations", "Tolerance"}},
         {"EstimateError", {"Array", "Method", "Marking", "MarkingValue", "Output", "Marked"}},
-        {"ErrorSize", {"Array", "TargetError", "Order", "MinSize", "MaxSize", "Output"}},
-        {"Adapt",
-         {"Hsiz", "Size", "Metric", "Hmin", "Hmax", "Hausd", "Hgrad", "Hgradreq", "AngleDetection",
-          "Optim", "NoInsert", "NoSwap", "NoMove", "NoSurf", "Nreg", "Opnbdy", "Frozen",
-          "Required"}},
-        {"DiscretizeLevelset",
-         {"LevelSet", "Isovalue", "RemoveSmallComponents", "Materials", "Hmin", "Hmax", "Hausd",
-          "Hgrad", "Hgradreq", "AngleDetection", "Optim", "NoInsert", "NoSwap", "NoMove", "NoSurf",
-          "Nreg", "Opnbdy", "Frozen", "Required"}},
-        {"MeshDomain",
-         {"Hsiz", "Size", "Holes", "Hmin", "Hmax", "Hausd", "Hgrad", "Hgradreq", "AngleDetection",
-          "Optim", "NoInsert", "NoSwap", "NoMove", "NoSurf", "Nreg", "Opnbdy", "Frozen",
-          "Required"}},
-        {"Move",
-         {"Displacement", "Moving", "Lagrangian", "Hmin", "Hmax", "Hausd", "Hgrad", "Hgradreq",
-          "AngleDetection", "Optim", "NoInsert", "NoSwap", "NoMove", "NoSurf", "Nreg", "Opnbdy",
-          "Frozen", "Required"}},
         {"Remesh",
          {"NumClusters", "Subdivide", "SubsampleRatio", "MaxSubdivide", "MaxIterations",
           "MaxRepairPasses", "Metric", "Gradation", "PreserveBoundary", "MaxAnisotropy"}},
@@ -454,58 +343,7 @@ const std::vector<PipeOpSpec>& pipe_op_table() {
         {"Isosurface", {"Array", "Isovalue", "Isovalues", "Component", "RecordParentIds"}},
         {"Voxelize",
          {"Resolution", "CellSize", "Bounds", "Padding", "PaddingRelative", "Fill",
-          "AttachOccupancy", "MaxCells", "Sign", "Plane"}},
-        {"Generate",
-         {"Shape",        "Dims",      "Size",  "Origin",      "Center",      "Radius",
-          "Height",       "N",         "Nu",    "Nv",          "Nxy",         "Nz",
-          "Subdivisions", "Sides",     "Rings", "InnerRadius", "OuterRadius", "Ntheta",
-          "Nr",           "Nt",        "Angle", "Edge",        "CellType",    "Split",
-          "Order",        "MaxCells",  "Types", "Pairs",       "Complete",    "Start",
-          "End",          "Pitch",     "Turns", "Seed",        "MajorRadius", "MinorRadius",
-          "Width",        "NumTwists", "Ncap",  "Ratio",       "Name"}},
-        {"Octree", {"RootCells",    "MinLevel",       "MaxLevel",
-                    "Bounds",       "Padding",        "PaddingRelative",
-                    "Dimension",    "SampleDistance", "Balance",
-                    "Fill",         "AttachDistance", "EvenOdd",
-                    "MaxCells",     "Sign",           "Transition",
-                    "Snap",         "SurfaceLevel",   "CurvatureThreshold",
-                    "FeatureAngle", "SizeArray",      "Plane"}},
-        {"OctreeMesh",
-         {"Output",
-          "MinSize",
-          "MaxSize",
-          "MaxLevel",
-          "Bounds",
-          "Padding",
-          "PaddingRelative",
-          "CurvatureAngle",
-          "FeatureAngle",
-          "CornerAngle",
-          "FeatureSize",
-          "GapCells",
-          "GapOutside",
-          "SizeArray",
-          "SurfaceRegion",
-          "GradingLayers",
-          "SkinGrading",
-          "SurfaceSize",
-          "WindingThreshold",
-          "WindingBeta",
-          "Conformity",
-          "AlphaLong",
-          "AlphaShort",
-          "PreserveFeatures",
-          "FitIterations",
-          "DihedralFloorGuard",
-          "Fill",
-          "KeepOutside",
-          "AttachDistance",
-          "AttachQuality",
-          "Pillow",
-          "HexGrading",
-          "UntangleIterations",
-          "MaxCells",
-          "MaxTets"}},
+          "AttachOccupancy", "MaxCells", "Sign"}},
         {"ComputeSdf",
          {"Structure", "Resolution", "CellSize", "Bounds", "Padding", "PaddingRelative",
           "RootResolution", "MaxDepth", "BandCells", "RecordLevels", "MaxCells", "Sign", "Location",
@@ -534,60 +372,6 @@ const std::vector<PipeOpSpec>& pipe_op_table() {
         {"TensorInvariants", {"Location", "Names", "Outputs", "Prefix", "Suffix", "Overwrite"}},
         {"ToCell", {"Names"}},
         {"ToPoint", {"Names", "Weight"}},
-        // The model steps (roadmap 6.1.1): they act on the CAD model the
-        // Input read carries beside its mesh (see PipeModel below).
-        {"MeshCadSurface",
-         {"TargetSize",
-          "MaxChordalDeviation",
-          "MinPointsPerEdge",
-          "Tolerance",
-          "RecordFaceIds",
-          "Edges",
-          "MatchUnreferencedTrims",
-          "Strict",
-          "MaxPoints",
-          "MinAngle",
-          "SmoothIterations",
-          "SmoothMethod",
-          "Order",
-          "CurvatureDeviation",
-          "CellsAcrossGaps",
-          "Grading",
-          "PoleRings",
-          "FaceSizes",
-          "EdgeSizes",
-          "Background",
-          "BackgroundArray",
-          "Metric",
-          "VirtualEdges",
-          "ReparamConditionNumber",
-          "ModelTolerances",
-          "VirtualFaces",
-          "LopCorners",
-          "MetricBackground",
-          "MetricArray",
-          "MetricError",
-          "Untangle",
-          "Quads",
-          "QuadPairs"}},
-        {"IgaSample", {"Subdivisions", "TrimSamples", "Trim", "Edges"}},
-        // Back onto the CAD (roadmap 6.10.1): the B-rep at `Model`, or the
-        // one a CAD Input carries when no step has changed the mesh since.
-        {"ProjectToCad", {"Model", "FaceArray", "EdgeArray", "MaxDistance", "TrimSamples"}},
-        // Prismatic layers grown from the surface (roadmap 6.9).
-        {"BoundaryLayer",
-         {"FirstHeight", "NumLayers", "Growth", "Reverse", "CollisionFraction", "SmoothIterations",
-          "MaxShrink", "Collapse", "NormalSmoothIterations", "FrontCheck"}},
-        // Sweeps (roadmap 3.1.2, 3.1.3) and the reflection (3.2.5).
-        {"Extrude", {"Direction", "NumLayers", "Ratio", "Offsets", "RecordLayers", "MaxCells"}},
-        {"Revolve",
-         {"Axis", "AxisPoint", "Angle", "NumLayers", "Tolerance", "RecordLayers", "MaxCells"}},
-        {"Mirror", {"Point", "Normal", "KeepOriginal", "Weld", "Tolerance", "ReflectData"}},
-        // Tetrahedra filling the closed triangle surface (roadmap 6.7).
-        {"Tetrahedralize",
-         {"Backend", "MaxSize", "MaxVolume", "Grading", "OptimizeSteps", "MaxCells", "FaceArray"}},
-        {"IgaRefine",
-         {"Subdivisions", "Elevate", "SampleSubdivisions", "TrimSamples", "Trim", "Edges"}},
     };
     return table;
 }
@@ -672,55 +456,6 @@ void pipe_push_step(PipelineReport& rReport, const PipelineStep& rStep,
     // is, this is what lets a written file's "Operation:" lines match the
     // pipeline's own report instead of drifting from it.
     detail::provenance_add_operation(pipe_render_op(rStep));
-}
-
-/// The shared MMG parameters of a step (roadmap 3.2); `Frozen` names a point region.
-MmgParameters pipe_mmg_parameters(const PipelineStep& rStep, const Mesh& rMesh) {
-    MmgParameters o;
-    o.mHmin = pipe_number(rStep, "Hmin", -1.0);
-    o.mHmax = pipe_number(rStep, "Hmax", -1.0);
-    o.mHausd = pipe_number(rStep, "Hausd", -1.0);
-    o.mHgrad = pipe_number(rStep, "Hgrad", -1.0);
-    o.mHgradreq = pipe_number(rStep, "Hgradreq", -1.0);
-    o.mAngleDetection = pipe_number(rStep, "AngleDetection", 45.0);
-    o.mOptim = pipe_flag(rStep, "Optim", false);
-    o.mNoInsert = pipe_flag(rStep, "NoInsert", false);
-    o.mNoSwap = pipe_flag(rStep, "NoSwap", false);
-    o.mNoMove = pipe_flag(rStep, "NoMove", false);
-    o.mNoSurf = pipe_flag(rStep, "NoSurf", false);
-    o.mNreg = pipe_flag(rStep, "Nreg", false);
-    o.mOpnbdy = pipe_flag(rStep, "Opnbdy", false);
-    o.mRequired = pipe_svec(rStep, "Required");
-    const std::string frozen = pipe_text(rStep, "Frozen", "");
-    if (!frozen.empty()) {
-        const std::size_t r = rMesh.FindRegion(frozen, RegionKind::Point);
-        if (r == Mesh::npos)
-            throw std::invalid_argument(
-                pipe_err(rStep, "parameter 'Frozen' names no point region '" + frozen + "'"));
-        const meshioplusplus::Region& region = rMesh.Region(r);
-        o.mFrozen.assign(rMesh.NumPoints(), 0);
-        for (std::size_t k = 0; k < region.NumEntries(); ++k)
-            o.mFrozen[static_cast<std::size_t>(region.Entries()[k])] = 1;
-    }
-    return o;
-}
-
-/// An MMG step's counters, and its warnings into the run's.
-void pipe_mmg_report(PipelineReport& rReport, const PipelineStep& rStep, const MmgReport& rR,
-                     std::vector<std::pair<std::string, double>> extra = {}) {
-    std::vector<std::pair<std::string, double>> counters{
-        {"NumPointsIn", static_cast<double>(rR.mNumPointsIn)},
-        {"NumPointsOut", static_cast<double>(rR.mNumPointsOut)},
-        {"NumElementsIn", static_cast<double>(rR.mNumElementsIn)},
-        {"NumElementsOut", static_cast<double>(rR.mNumElementsOut)},
-        {"LowFailure", rR.mStatus == MmgStatus::LowFailure ? 1.0 : 0.0},
-        {"QualityMin", rR.mQuality.mMin},
-        {"QualityMean", rR.mQuality.mMean}};
-    for (auto& rCounter : extra)
-        counters.push_back(std::move(rCounter));
-    pipe_push_step(rReport, rStep, std::move(counters));
-    for (const std::string& w : rR.mWarnings)
-        rReport.mWarnings.push_back(w);
 }
 
 // --------------------------------------------------------------------------
@@ -896,8 +631,7 @@ RenderOptions pipe_snap_render_options(const PipelineStep& rStep) {
         o.mComponent = static_cast<int>(pipe_number(rStep, "Component", 0.0));
     o.mTheme = static_cast<RenderTheme>(pipe_snap_choice(rStep, "Theme", {"none", "synthwave"}, 0));
     // The theme brings its own colormap unless one is named.
-    o.mCmap =
-        pipe_text(rStep, "Cmap", o.mTheme == RenderTheme::Synthwave ? "synthwave" : "viridis");
+    o.mCmap = pipe_text(rStep, "Cmap", o.mTheme == RenderTheme::Synthwave ? "synthwave" : "viridis");
     o.mScanlines = pipe_flag(rStep, "Scanlines", false);
     o.mBloom = pipe_flag(rStep, "Bloom", false);
     o.mFringe = pipe_flag(rStep, "Fringe", false);
@@ -938,10 +672,9 @@ RenderOptions pipe_snap_render_options(const PipelineStep& rStep) {
     // normal of the side kept).
     const std::vector<double> cut = pipe_dvec(rStep, "Cutaway");
     if (cut.size() % 6 != 0 || cut.size() > 12)
-        throw std::invalid_argument(
-            pipe_err(rStep,
-                     "parameter 'Cutaway' must be one or two planes of six numbers each "
-                     "(a point, then the normal of the side kept)"));
+        throw std::invalid_argument(pipe_err(
+            rStep, "parameter 'Cutaway' must be one or two planes of six numbers each "
+                   "(a point, then the normal of the side kept)"));
     for (std::size_t i = 0; i + 6 <= cut.size(); i += 6) {
         RenderCutaway plane;
         plane.mPoint = {cut[i], cut[i + 1], cut[i + 2]};
@@ -965,263 +698,6 @@ TextOptions pipe_snap_text_options(const PipelineStep& rStep) {
     t.mDepth = static_cast<ColorDepth>(
         pipe_snap_choice(rStep, "ColorDepth", {"truecolor", "256", "16", "mono"}, 0));
     return t;
-}
-
-// --------------------------------------------------------------------------
-// The CAD model a run carries (roadmap 6.1.1). A CAD read returns a B-rep
-// (CAD JSON, STEP, IGES) or a NURBS model (MFEM) beside the mesh it samples;
-// `run_pipeline` keeps it from Input to the model steps that use it
-// (`MeshCadSurface`, `IgaSample`, `IgaRefine`), and `FitCad` hands on the solid
-// it fits. Any other step drops it: nothing else keeps a model in step with
-// the mesh it changes, so a model step after one fails by name rather than
-// meshing a model the mesh no longer matches.
-// --------------------------------------------------------------------------
-
-struct PipeModel {
-    std::optional<NurbsInfo> mNurbs;
-    std::optional<BrepInfo> mBrep;
-    /// Why there is no model, for the error a model step raises without one.
-    std::string mWhy;
-
-    bool Has() const { return mNurbs.has_value() || mBrep.has_value(); }
-    void Drop(std::string Why) {
-        mNurbs.reset();
-        mBrep.reset();
-        mWhy = std::move(Why);
-    }
-};
-
-bool pipe_is_model_step(const std::string& rOp) {
-    return rOp == "MeshCadSurface" || rOp == "IgaSample" || rOp == "IgaRefine";
-}
-
-/// Read the Input as `registry_read` would, keeping the model a CAD read
-/// returns beside the mesh (the same readers the CLI's iga and mesh-cad verbs
-/// and `mio_read_with_info` use).
-Mesh pipe_read_extra(const std::string& rPath);
-
-Mesh pipe_read_with_model(const std::string& rPath, const std::string& rFormat,
-                          const ReadOptions& rOptions, PipeModel& rModel) {
-    if (rFormat == "mfem") {
-        NurbsInfo nurbs;
-        Mesh mesh = read_mfem(rPath, {}, rOptions, nurbs);
-        if (nurbs.mPatches.empty())
-            rModel.Drop("Input '" + rPath + "' is an MFEM mesh with no NURBS patches");
-        else
-            rModel.mNurbs = std::move(nurbs);
-        return mesh;
-    }
-    if (rFormat == "cad_json" || rFormat == "step" || rFormat == "iges") {
-        BrepInfo brep;
-        Mesh mesh = rFormat == "cad_json" ? read_cad_json(rPath, brep)
-                    : rFormat == "step"   ? read_step(rPath, brep)
-                                          : read_iges(rPath, brep);
-        rModel.mBrep = std::move(brep);
-        return mesh;
-    }
-    rModel.Drop("Input format '" + rFormat +
-                "' carries none (read CAD JSON, STEP, IGES or an MFEM NURBS mesh)");
-    return registry_read(rPath, rFormat, rOptions);
-}
-
-/// `Subdivisions` / `Elevate`: a number for every direction, or one to three
-/// integers with the missing directions at @p Default (`iga_refine`'s rule).
-std::array<std::int32_t, 3> pipe_iga_triple(const PipelineStep& rStep, const char* pKey,
-                                            std::int32_t Default) {
-    const PipelineValue* v = pipe_find(rStep, pKey);
-    if (!v)
-        return {Default, Default, Default};
-    if (std::holds_alternative<double>(*v) || std::holds_alternative<std::int64_t>(*v)) {
-        const auto n = static_cast<std::int32_t>(pipe_number(rStep, pKey, Default));
-        return {n, n, n};
-    }
-    const std::vector<std::int64_t> values = pipe_ivec(rStep, pKey);
-    if (values.empty() || values.size() > 3)
-        throw std::invalid_argument(
-            pipe_err(rStep, std::string("'") + pKey + "' must be a number or 1 to 3 integers"));
-    std::array<std::int32_t, 3> out{Default, Default, Default};
-    for (std::size_t i = 0; i < values.size(); ++i)
-        out[i] = static_cast<std::int32_t>(values[i]);
-    return out;
-}
-
-Mesh pipe_apply_model_step(const PipelineStep& rStep, PipelineReport& rReport, PipeModel& rModel) {
-    const std::string& op = rStep.mOp;
-    if (!rModel.Has())
-        throw std::invalid_argument(pipe_err(rStep,
-                                             "needs a CAD model, and the pipeline carries "
-                                             "none: " +
-                                                 rModel.mWhy));
-    if (op == "MeshCadSurface") {
-        if (!rModel.mBrep)
-            throw std::invalid_argument(pipe_err(
-                rStep, "meshes a B-rep (CAD JSON, STEP or IGES), not an MFEM NURBS model"));
-        if (!pipe_find(rStep, "TargetSize"))
-            throw std::invalid_argument(pipe_err(rStep, "'TargetSize' is required"));
-        MeshCadSurfaceOptions o;
-        o.mTargetSize = pipe_number(rStep, "TargetSize", 0.0);
-        o.mMaxChordalDeviation = pipe_number(rStep, "MaxChordalDeviation", o.mMaxChordalDeviation);
-        o.mMinPointsPerEdge = static_cast<std::int64_t>(
-            pipe_number(rStep, "MinPointsPerEdge", static_cast<double>(o.mMinPointsPerEdge)));
-        o.mGeometricTolerance = pipe_number(rStep, "Tolerance", o.mGeometricTolerance);
-        o.mRecordFaceIds = pipe_flag(rStep, "RecordFaceIds", o.mRecordFaceIds);
-        o.mEdges = pipe_flag(rStep, "Edges", o.mEdges);
-        o.mMatchUnreferencedTrims =
-            pipe_flag(rStep, "MatchUnreferencedTrims", o.mMatchUnreferencedTrims);
-        o.mStrict = pipe_flag(rStep, "Strict", o.mStrict);
-        o.mMaxPoints = static_cast<std::int64_t>(
-            pipe_number(rStep, "MaxPoints", static_cast<double>(o.mMaxPoints)));
-        o.mMinAngleDeg = pipe_number(rStep, "MinAngle", o.mMinAngleDeg);
-        o.mSmoothIterations = static_cast<std::int64_t>(
-            pipe_number(rStep, "SmoothIterations", static_cast<double>(o.mSmoothIterations)));
-        const std::string method = pipe_text(rStep, "SmoothMethod", "laplacian");
-        if (method == "laplacian")
-            o.mSmoothMethod = MeshCadSmoothing::Laplacian;
-        else if (method == "odt")
-            o.mSmoothMethod = MeshCadSmoothing::Odt;
-        else
-            throw std::invalid_argument(
-                pipe_err(rStep, "'SmoothMethod' must be 'laplacian' or 'odt'"));
-        o.mOrder =
-            static_cast<std::int32_t>(pipe_number(rStep, "Order", static_cast<double>(o.mOrder)));
-        o.mCurvatureDeviation = pipe_number(rStep, "CurvatureDeviation", o.mCurvatureDeviation);
-        o.mCellsAcrossGaps = pipe_number(rStep, "CellsAcrossGaps", o.mCellsAcrossGaps);
-        o.mGrading = pipe_number(rStep, "Grading", o.mGrading);
-        o.mPoleRings = static_cast<std::int32_t>(
-            pipe_number(rStep, "PoleRings", static_cast<double>(o.mPoleRings)));
-        const std::string metric = pipe_text(rStep, "Metric", "mean");
-        if (metric == "mean")
-            o.mMetric = MeshCadMetric::Mean;
-        else if (metric == "varying")
-            o.mMetric = MeshCadMetric::Varying;
-        else
-            throw std::invalid_argument(pipe_err(rStep, "'Metric' must be 'mean' or 'varying'"));
-        // Given sizes (v17.19.0): a flat list of index, size pairs.
-        MeshCadSizeSources sources;
-        const auto pairs = [&](const char* pKey) {
-            const std::vector<double> flat = pipe_dvec(rStep, pKey);
-            if (flat.size() % 2 != 0)
-                throw std::invalid_argument(
-                    pipe_err(rStep, std::string("'") + pKey + "' must list index, size pairs"));
-            std::vector<std::pair<std::int64_t, double>> v;
-            for (std::size_t i = 0; i < flat.size(); i += 2) {
-                if (flat[i] != std::floor(flat[i]))
-                    throw std::invalid_argument(pipe_err(
-                        rStep, std::string("'") + pKey + "': an index must be an integer"));
-                v.emplace_back(static_cast<std::int64_t>(flat[i]), flat[i + 1]);
-            }
-            return v;
-        };
-        sources.mFaceSizes = pairs("FaceSizes");
-        sources.mEdgeSizes = pairs("EdgeSizes");
-        sources.mVirtualEdges = pipe_flag(rStep, "VirtualEdges", false);
-        Mesh background;
-        if (pipe_find(rStep, "Background")) {
-            background = pipe_read_extra(pipe_text(rStep, "Background", ""));
-            sources.pBackground = &background;
-            sources.mBackgroundArray = pipe_text(rStep, "BackgroundArray", "size");
-        }
-        // A metric from a field's Hessian (roadmap 6.10.2).
-        Mesh metric_background;
-        if (pipe_find(rStep, "MetricBackground")) {
-            metric_background = pipe_read_extra(pipe_text(rStep, "MetricBackground", ""));
-            sources.pMetricBackground = &metric_background;
-        }
-        sources.mMetricArray = pipe_text(rStep, "MetricArray", "");
-        sources.mMetricError = pipe_number(rStep, "MetricError", 0.0);
-        // v17.20.0: the reparametrisation, model tolerances, virtual faces and
-        // corner lopping.
-        o.mReparamConditionNumber =
-            pipe_number(rStep, "ReparamConditionNumber", o.mReparamConditionNumber);
-        MeshCadSurfaceExtras extras;
-        extras.mModelTolerances = pipe_flag(rStep, "ModelTolerances", false);
-        extras.mVirtualFaces = pipe_flag(rStep, "VirtualFaces", false);
-        extras.mLopCorners = pipe_flag(rStep, "LopCorners", false);
-        // Roadmap 6.6.3 and 6.8.
-        extras.mUntangle = pipe_flag(rStep, "Untangle", false);
-        const std::string quads = pipe_text(rStep, "Quads", "none");
-        if (quads == "none")
-            extras.mQuads = MeshCadQuads::None;
-        else if (quads == "dominant")
-            extras.mQuads = MeshCadQuads::Dominant;
-        else if (quads == "all")
-            extras.mQuads = MeshCadQuads::All;
-        else
-            throw std::invalid_argument(
-                pipe_err(rStep, "'Quads' must be 'none', 'dominant' or 'all'"));
-        const std::string quad_pairs = pipe_text(rStep, "QuadPairs", "matching");
-        if (quad_pairs == "matching")
-            extras.mQuadPairs = MeshCadQuadPairs::Matching;
-        else if (quad_pairs == "greedy")
-            extras.mQuadPairs = MeshCadQuadPairs::Greedy;
-        else
-            throw std::invalid_argument(
-                pipe_err(rStep, "'QuadPairs' must be 'matching' or 'greedy'"));
-        MeshCadSurfaceExtrasReport extras_report;
-        MeshCadSurfaceResult r =
-            mesh_cad_surface(*rModel.mBrep, o, sources, extras, nullptr, &extras_report);
-        const auto count = [](const auto& rRecords, auto Pred) {
-            return static_cast<double>(std::count_if(rRecords.begin(), rRecords.end(), Pred));
-        };
-        for (const std::string& w : r.mWarnings)
-            rReport.mWarnings.push_back("MeshCadSurface: " + w);
-        pipe_push_step(
-            rReport, rStep,
-            {{"NumPoints", static_cast<double>(r.mNumPoints)},
-             {"NumTriangles", static_cast<double>(r.mNumTriangles)},
-             {"NumFaces", static_cast<double>(r.mNumFaces)},
-             {"NumFailed", static_cast<double>(r.mNumFailed)},
-             {"NumOpenEdges", static_cast<double>(r.mNumOpenEdges)},
-             {"NumNonManifoldEdges", static_cast<double>(r.mNumNonManifoldEdges)},
-             {"NumRefinementPoints", static_cast<double>(r.mNumRefinementPoints)},
-             {"NumCurvedStraightened", static_cast<double>(r.mNumCurvedStraightened)},
-             {"NumReparametrised",
-              count(extras_report.mReparametrised, [](const auto& rF) { return rF.mTaken; })},
-             {"NumMergedFaces",
-              count(extras_report.mMergedFaces, [](const auto& rM) { return rM.mMerged; })},
-             {"NumLoppedCorners", static_cast<double>(extras_report.mLoppedCorners.size())},
-             {"NumUntangled", static_cast<double>(extras_report.mNumUntangled)},
-             {"NumQuads", static_cast<double>(extras_report.mNumQuads)},
-             {"MinAngleDeg", r.mMinAngleDeg},
-             {"MaxAngleDeg", r.mMaxAngleDeg}});
-        return std::move(r.mMesh);
-    }
-    // IgaSample, IgaRefine: the model is sampled (refined first), and the run
-    // carries the model the sampling describes on.
-    IgaSampleOptions so;
-    so.mSubdivisions = static_cast<std::int32_t>(
-        pipe_number(rStep, op == "IgaRefine" ? "SampleSubdivisions" : "Subdivisions", 0.0));
-    so.mTrimSamples = static_cast<std::int32_t>(pipe_number(rStep, "TrimSamples", 16.0));
-    so.mTrim = pipe_flag(rStep, "Trim", true);
-    so.mEdges = pipe_flag(rStep, "Edges", true);
-    Mesh out;
-    if (op == "IgaRefine") {
-        IgaRefineOptions ro;
-        ro.mSubdivisions = pipe_iga_triple(rStep, "Subdivisions", 1);
-        ro.mElevate = pipe_iga_triple(rStep, "Elevate", 0);
-        if (rModel.mNurbs) {
-            const NurbsInfo refined = iga_refine(*rModel.mNurbs, ro);
-            NurbsInfo mapped;
-            out = iga_sample(refined, so, &mapped);
-            rModel.mNurbs = std::move(mapped);
-        } else {
-            rModel.mBrep = iga_refine(*rModel.mBrep, ro);
-            out = iga_sample(*rModel.mBrep, so);
-        }
-    } else if (rModel.mNurbs) {
-        NurbsInfo mapped;
-        out = iga_sample(*rModel.mNurbs, so, &mapped);
-        rModel.mNurbs = std::move(mapped);
-    } else {
-        out = iga_sample(*rModel.mBrep, so);
-    }
-    pipe_push_step(
-        rReport, rStep,
-        {{"NumPatches", static_cast<double>(rModel.mNurbs ? rModel.mNurbs->mPatches.size()
-                                                          : rModel.mBrep->mPatches.size())},
-         {"NumPoints", static_cast<double>(out.NumPoints())},
-         {"NumCells", static_cast<double>(pipe_total_cells(out))}});
-    return out;
 }
 
 }  // namespace
@@ -1267,195 +743,8 @@ void validate_pipeline_step(const PipelineStep& rStep) {
     }
 }
 
-namespace {
-
-/// The body of `apply_pipeline_step`; @p pModel is the run's model when the
-/// caller is `run_pipeline` (null from every other caller, which carries none).
-Mesh pipe_apply_step(Mesh mesh, const PipelineStep& rStep, PipelineReport& rReport,
-                     PipeModel* pModel) {
+Mesh apply_pipeline_step(Mesh mesh, const PipelineStep& rStep, PipelineReport& rReport) {
     const std::string& op = rStep.mOp;
-
-    if (pipe_is_model_step(op)) {
-        if (!pModel)
-            throw std::invalid_argument(
-                pipe_err(rStep,
-                         "needs the CAD model a pipeline's Input reads, which only a whole run "
-                         "carries (run_pipeline), not a step applied on its own"));
-        return pipe_apply_model_step(rStep, rReport, *pModel);
-    }
-
-    if (op == "BoundaryLayer") {
-        if (!pipe_find(rStep, "FirstHeight"))
-            throw std::invalid_argument(pipe_err(rStep, "'FirstHeight' is required"));
-        BoundaryLayerOptions o;
-        o.mFirstHeight = pipe_number(rStep, "FirstHeight", 0.0);
-        o.mNumLayers = static_cast<std::int32_t>(
-            pipe_number(rStep, "NumLayers", static_cast<double>(o.mNumLayers)));
-        o.mGrowth = pipe_number(rStep, "Growth", o.mGrowth);
-        o.mReverse = pipe_flag(rStep, "Reverse", o.mReverse);
-        o.mCollisionFraction = pipe_number(rStep, "CollisionFraction", o.mCollisionFraction);
-        o.mSmoothIterations = static_cast<std::int32_t>(
-            pipe_number(rStep, "SmoothIterations", static_cast<double>(o.mSmoothIterations)));
-        o.mMaxShrink = static_cast<std::int32_t>(
-            pipe_number(rStep, "MaxShrink", static_cast<double>(o.mMaxShrink)));
-        const std::string collapse = pipe_text(rStep, "Collapse", "points");
-        if (collapse == "points")
-            o.mCollapse = BoundaryLayerCollapse::Points;
-        else if (collapse == "layers")
-            o.mCollapse = BoundaryLayerCollapse::Layers;
-        else
-            throw std::invalid_argument(
-                pipe_err(rStep, "'Collapse' must be 'points' or 'layers', not '" + collapse + "'"));
-        o.mNormalSmoothIterations = static_cast<std::int32_t>(pipe_number(
-            rStep, "NormalSmoothIterations", static_cast<double>(o.mNormalSmoothIterations)));
-        o.mFrontCheck = pipe_flag(rStep, "FrontCheck", o.mFrontCheck);
-        BoundaryLayerResult r = boundary_layer(mesh, o);
-        pipe_push_step(rReport, rStep,
-                       {{"NumCells", static_cast<double>(r.mNumCells)},
-                        {"NumShrunk", static_cast<double>(r.mNumShrunk)},
-                        {"NumCollapsed", static_cast<double>(r.mNumCollapsed)},
-                        {"NumFewerLayers", static_cast<double>(r.mNumFewerLayers)},
-                        {"NumFrontCrossings", static_cast<double>(r.mNumFrontCrossings)},
-                        {"MinScaledJacobian", r.mMinScaledJacobian}});
-        return std::move(r.mMesh);
-    }
-
-    if (op == "Extrude") {
-        ExtrudeOptions o;
-        if (pipe_find(rStep, "Direction"))
-            pipe_vec3(rStep, "Direction", o.mDirection.data());
-        o.mNumLayers = static_cast<std::int32_t>(
-            pipe_number(rStep, "NumLayers", static_cast<double>(o.mNumLayers)));
-        o.mRatio = pipe_number(rStep, "Ratio", o.mRatio);
-        if (pipe_find(rStep, "Offsets"))
-            o.mOffsets = pipe_dvec(rStep, "Offsets");
-        o.mRecordLayers = pipe_flag(rStep, "RecordLayers", o.mRecordLayers);
-        o.mMaxCells = static_cast<std::int64_t>(
-            pipe_number(rStep, "MaxCells", static_cast<double>(o.mMaxCells)));
-        SweepResult r = extrude(mesh, o);
-        pipe_push_step(rReport, rStep,
-                       {{"NumCells", static_cast<double>(r.mNumCells)},
-                        {"NumFlipped", static_cast<double>(r.mNumFlipped)},
-                        {"MinScaledJacobian", r.mMinScaledJacobian}});
-        return std::move(r.mMesh);
-    }
-
-    if (op == "Revolve") {
-        RevolveOptions o;
-        if (pipe_find(rStep, "Axis"))
-            pipe_vec3(rStep, "Axis", o.mAxis.data());
-        if (pipe_find(rStep, "AxisPoint"))
-            pipe_vec3(rStep, "AxisPoint", o.mAxisPoint.data());
-        o.mAngle = pipe_number(rStep, "Angle", o.mAngle);
-        o.mNumLayers = static_cast<std::int32_t>(
-            pipe_number(rStep, "NumLayers", static_cast<double>(o.mNumLayers)));
-        o.mTolerance = pipe_number(rStep, "Tolerance", o.mTolerance);
-        o.mRecordLayers = pipe_flag(rStep, "RecordLayers", o.mRecordLayers);
-        o.mMaxCells = static_cast<std::int64_t>(
-            pipe_number(rStep, "MaxCells", static_cast<double>(o.mMaxCells)));
-        SweepResult r = revolve(mesh, o);
-        pipe_push_step(rReport, rStep,
-                       {{"NumCells", static_cast<double>(r.mNumCells)},
-                        {"NumOnAxis", static_cast<double>(r.mNumOnAxis)},
-                        {"MinScaledJacobian", r.mMinScaledJacobian}});
-        return std::move(r.mMesh);
-    }
-
-    if (op == "Mirror") {
-        MirrorOptions o;
-        if (pipe_find(rStep, "Point"))
-            pipe_vec3(rStep, "Point", o.mOrigin.data());
-        if (pipe_find(rStep, "Normal"))
-            pipe_vec3(rStep, "Normal", o.mNormal.data());
-        o.mKeepOriginal = pipe_flag(rStep, "KeepOriginal", o.mKeepOriginal);
-        o.mWeld = pipe_flag(rStep, "Weld", o.mWeld);
-        o.mTolerance = pipe_number(rStep, "Tolerance", o.mTolerance);
-        o.mReflectVectorData = pipe_flag(rStep, "ReflectData", o.mReflectVectorData);
-        MirrorResult r = mirror(mesh, o);
-        pipe_push_step(rReport, rStep,
-                       {{"NumFlippedCells", static_cast<double>(r.mNumFlippedCells)},
-                        {"NumPointsOnPlane", static_cast<double>(r.mNumPointsOnPlane)},
-                        {"NumDroppedCells", static_cast<double>(r.mNumDroppedCells)}});
-        return std::move(r.mMesh);
-    }
-
-    if (op == "Tetrahedralize") {
-        TetrahedralizeOptions o;
-        const std::string backend = pipe_text(rStep, "Backend", "auto");
-        if (backend == "auto")
-            o.mBackend = TetrahedralizeBackend::Auto;
-        else if (backend == "netgen")
-            o.mBackend = TetrahedralizeBackend::Netgen;
-        else if (backend == "octree")
-            o.mBackend = TetrahedralizeBackend::Octree;
-        else
-            throw std::invalid_argument(pipe_err(
-                rStep, "'Backend' must be 'auto', 'netgen' or 'octree', not '" + backend + "'"));
-        o.mMaxSize = pipe_number(rStep, "MaxSize", o.mMaxSize);
-        o.mMaxVolume = pipe_number(rStep, "MaxVolume", o.mMaxVolume);
-        o.mGrading = pipe_number(rStep, "Grading", o.mGrading);
-        o.mOptimizeSteps = static_cast<std::int32_t>(
-            pipe_number(rStep, "OptimizeSteps", static_cast<double>(o.mOptimizeSteps)));
-        o.mMaxCells = static_cast<std::int64_t>(
-            pipe_number(rStep, "MaxCells", static_cast<double>(o.mMaxCells)));
-        o.mFaceArray = pipe_text(rStep, "FaceArray", o.mFaceArray.c_str());
-        TetrahedralizeResult r = tetrahedralize(mesh, o);
-        for (const std::string& w : r.mWarnings)
-            rReport.mWarnings.push_back("Tetrahedralize: " + w);
-        pipe_push_step(rReport, rStep,
-                       {{"NumTetrahedra", static_cast<double>(r.mNumTetrahedra)},
-                        {"NumPoints", static_cast<double>(r.mNumPoints)},
-                        {"NumNewPoints", static_cast<double>(r.mNumNewPoints)},
-                        {"NumRegions", static_cast<double>(r.mNumRegions)},
-                        {"NumBoundaryTriangles", static_cast<double>(r.mNumBoundaryTriangles)},
-                        {"BoundaryPreserved", r.mBoundaryPreserved ? 1.0 : 0.0},
-                        {"HausdorffToSurface", r.mHausdorffToSurface},
-                        {"MinDihedralDeg", r.mMinDihedralDeg},
-                        {"MaxDihedralDeg", r.mMaxDihedralDeg},
-                        {"Volume", r.mVolume}});
-        return std::move(r.mMesh);
-    }
-
-    if (op == "ProjectToCad") {
-        BrepInfo owned;
-        const BrepInfo* p_brep = nullptr;
-        if (pipe_find(rStep, "Model")) {
-            const std::string path = pipe_text(rStep, "Model", "");
-            const std::string fmt = resolve_format(path, "");
-            if (fmt == "cad_json")
-                (void)read_cad_json(path, owned);
-            else if (fmt == "step")
-                (void)read_step(path, owned);
-            else if (fmt == "iges")
-                (void)read_iges(path, owned);
-            else
-                throw std::invalid_argument(pipe_err(
-                    rStep, "'Model' must be a CAD JSON, STEP or IGES file, not '" + fmt + "'"));
-            p_brep = &owned;
-        } else if (pModel && pModel->mBrep) {
-            p_brep = &*pModel->mBrep;
-        } else {
-            throw std::invalid_argument(pipe_err(
-                rStep,
-                "needs 'Model' (a CAD JSON, STEP or IGES file), or the B-rep a CAD Input "
-                "carries while no step has changed the mesh" +
-                    std::string(pModel && !pModel->mWhy.empty() ? ": " + pModel->mWhy : "")));
-        }
-        ProjectToCadOptions o;
-        o.mFaceArray = pipe_text(rStep, "FaceArray", o.mFaceArray.c_str());
-        o.mEdgeArray = pipe_text(rStep, "EdgeArray", o.mEdgeArray.c_str());
-        o.mMaxDistance = pipe_number(rStep, "MaxDistance", o.mMaxDistance);
-        o.mTrimSamples = static_cast<std::int32_t>(
-            pipe_number(rStep, "TrimSamples", static_cast<double>(o.mTrimSamples)));
-        ProjectToCadResult r = project_to_cad(mesh, *p_brep, o);
-        pipe_push_step(rReport, rStep,
-                       {{"NumProjected", static_cast<double>(r.mNumProjected)},
-                        {"NumOnEdges", static_cast<double>(r.mNumOnEdges)},
-                        {"NumOnCurves", static_cast<double>(r.mNumOnCurves)},
-                        {"NumOutsideTrim", static_cast<double>(r.mNumOutsideTrim)},
-                        {"MaxMove", r.mMaxMove}});
-        return std::move(r.mMesh);
-    }
 
     if (op == "Quality") {
         Mesh out = attach_quality(mesh);
@@ -1675,12 +964,6 @@ Mesh pipe_apply_step(Mesh mesh, const PipelineStep& rStep, PipelineReport& rRepo
         opts.mMinPatchCells = static_cast<std::int64_t>(pipe_number(rStep, "MinPatchCells", 1.0));
         opts.mRegion = pipe_text(rStep, "Region", "");
         opts.mPrefix = pipe_text(rStep, "Prefix", "patch");
-        const std::string method = pipe_text(rStep, "Method", "angle");
-        if (method == "primitive")
-            opts.mMethod = SegmentMethod::Primitive;
-        else if (method != "angle")
-            throw std::invalid_argument(pipe_err(rStep, "'Method' must be 'angle' or 'primitive'"));
-        opts.mTolerance = pipe_number(rStep, "Tolerance", 1e-3);
         SegmentResult sr = segment(mesh, opts);
         pipe_push_step(rReport, rStep,
                        {{"NumPatches", static_cast<double>(sr.mNumPatches)},
@@ -1727,179 +1010,27 @@ Mesh pipe_apply_step(Mesh mesh, const PipelineStep& rStep, PipelineReport& rRepo
         opts.mFreeformSplit = pipe_flag(rStep, "FreeformSplit", true);
         opts.mFillets = pipe_flag(rStep, "Fillets", true);
         opts.mThreads = pipe_flag(rStep, "Threads", true);
-        opts.mMergeFaces = pipe_flag(rStep, "MergeFaces", true);
-        const std::string backend = pipe_text(rStep, "Backend", "auto");
-        if (backend == "occt")
-            opts.mBackend = FitCadBackend::Occt;
-        else if (backend == "native")
-            opts.mBackend = FitCadBackend::Native;
-        else if (backend != "auto")
-            throw std::invalid_argument(
-                pipe_err(rStep, "'Backend' must be 'auto', 'occt' or 'native'"));
-        opts.mRefineSegmentation = pipe_flag(rStep, "RefineSegmentation", false);
-        opts.mRefine.mMaxIterations =
-            static_cast<std::int64_t>(pipe_number(rStep, "MaxRefineIterations", 10.0));
-        opts.mRefine.mEpsilon = pipe_number(rStep, "RefineEpsilon", 1e-3);
-        opts.mRefine.mNormalWeight = pipe_number(rStep, "NormalWeight", 1.0);
-        opts.mRefine.mAllowMerge = pipe_flag(rStep, "AllowMerge", true);
-        opts.mRefine.mAllowSplit = pipe_flag(rStep, "AllowSplit", true);
-        opts.mRefine.mRansacSeed = pipe_seed(rStep, "RansacSeed", kRefineDefaultSeed);
-        opts.mRefine.mTolerance = pipe_number(rStep, "RefineTolerance", 1e-3);
-        opts.mRefine.mRelative = pipe_flag(rStep, "RelativeTolerance", true);
-        opts.mFreeformGeneral = pipe_flag(rStep, "FreeformGeneral", false);
-        opts.mFreeformTolerance = pipe_number(rStep, "FreeformTolerance", 0.0);
-        opts.mFreeformSmoothing = pipe_number(rStep, "FreeformSmoothing", 1e-12);
-        opts.mMaxFreeformPoles =
-            static_cast<std::int64_t>(pipe_number(rStep, "MaxFreeformPoles", 40.0));
-        opts.mMaxFreeformIterations =
-            static_cast<std::int64_t>(pipe_number(rStep, "MaxFreeformIterations", 30.0));
-        opts.mMaxFreeformSplits =
-            static_cast<std::int64_t>(pipe_number(rStep, "MaxFreeformSplits", 2.0));
-        opts.mSewTolerance = pipe_number(rStep, "SewTolerance", 0.0);
-        opts.mExtendSurfaces = pipe_flag(rStep, "ExtendSurfaces", false);
-        opts.mSnapJunctions = pipe_flag(rStep, "SnapJunctions", false);
-        opts.mFaceDeviation = pipe_flag(rStep, "FaceDeviation", false);
-        // The freeform modes (v17.12.0): a keyword's position in its list.
-        const auto keyword = [&](const char* pKey, const char* pDefault,
-                                 std::initializer_list<const char*> Words) {
-            const std::string v = pipe_text(rStep, pKey, pDefault);
-            std::int32_t i = 0;
-            for (const char* w : Words) {
-                if (v == w)
-                    return i;
-                ++i;
-            }
-            throw std::invalid_argument(
-                pipe_err(rStep, std::string("unknown '") + pKey + "' '" + v + "'"));
-        };
-        opts.mFreeformMode = static_cast<FitCadFreeformMode>(
-            keyword("FreeformMode", "legacy", {"legacy", "adaptive", "network", "auto"}));
-        opts.mFreeformParameterization = static_cast<FitCadParameterization>(keyword(
-            "FreeformParameterization", "auto", {"auto", "projection", "lscm", "harmonic"}));
-        opts.mExtraordinaryVertex = static_cast<FitCadExtraordinaryVertex>(
-            keyword("ExtraordinaryVertex", "g1x", {"g0", "g1", "g1x", "g1xx"}));
-        opts.mLocalRefine =
-            static_cast<FitCadLocalRefine>(keyword("LocalRefine", "knots", {"knots", "thb"}));
-        opts.mFreeformG1ToleranceDeg = pipe_number(rStep, "FreeformG1ToleranceDeg", 1.0);
-        opts.mFreeformMaxControlPoints =
-            static_cast<std::int64_t>(pipe_number(rStep, "FreeformMaxControlPoints", 400.0));
-        opts.mLayoutTargetPatchSize = pipe_number(rStep, "LayoutTargetPatchSize", 0.1);
-        opts.mLayoutMaxValenceDeviation =
-            static_cast<std::int64_t>(pipe_number(rStep, "LayoutMaxValenceDeviation", 2.0));
-        opts.mResegmentRounds =
-            static_cast<std::int64_t>(pipe_number(rStep, "ResegmentRounds", 2.0));
-        opts.mLayoutSnapToFeatures = pipe_flag(rStep, "LayoutSnapToFeatures", true);
-        opts.mValidateBySurfaceSampling = pipe_flag(rStep, "ValidateBySurfaceSampling", true);
-        opts.mConstrainPrimitives = pipe_flag(rStep, "ConstrainPrimitives", false);
         FitCadResult cr = fit_cad(mesh, pipe_text(rStep, "Path", ""), opts);
-        std::vector<std::pair<std::string, double>> counters = {
-            {"Valid", cr.mValid ? 1.0 : 0.0},
-            {"Native", cr.mBackend == FitCadBackend::Native ? 1.0 : 0.0},
-            {"VolumeRatio", cr.mVolumeRatio},
-            {"MaxDeviation", cr.mMaxDeviation},
-            {"NumFaces", static_cast<double>(cr.mNumFaces)},
-            {"NumFacetedFaces", static_cast<double>(cr.mNumFacetedFaces)},
-            {"NumBspline", static_cast<double>(cr.mNumBspline)},
-            {"NumSplitPatches", static_cast<double>(cr.mNumSplitPatches)},
-            {"NumFillet", static_cast<double>(cr.mNumFillet)},
-            {"NumHelical", static_cast<double>(cr.mNumHelical)},
-            {"NumVariableFillet", static_cast<double>(cr.mNumVariableFillet)},
-            {"NumBlend", static_cast<double>(cr.mNumBlend)},
-            {"NumRoundedThread", static_cast<double>(cr.mNumRoundedThread)},
-            {"NumVertexBlend", static_cast<double>(cr.mNumVertexBlend)},
-            {"NumChamfer", static_cast<double>(cr.mNumChamfer)},
-            {"NumConicBlend", static_cast<double>(cr.mNumConicBlend)},
-            {"NumTaperedThread", static_cast<double>(cr.mNumTaperedThread)},
-            {"NumVariablePitchThread", static_cast<double>(cr.mNumVariablePitchThread)},
-            {"NumDemoted", static_cast<double>(cr.mNumDemoted)},
-            {"Closed", cr.mClosed ? 1.0 : 0.0}};
-        // Only a run that refined reports the refinement, so a report without
-        // `RefineSegmentation` stays what it was before the option existed.
-        if (cr.mRefined) {
-            counters.emplace_back("Refined", 1.0);
-            counters.emplace_back("NumRefineSplits", static_cast<double>(cr.mNumRefineSplits));
-            counters.emplace_back("NumRefineMerges", static_cast<double>(cr.mNumRefineMerges));
-            counters.emplace_back("ExplainedAreaFraction", cr.mExplainedAreaFraction);
-            counters.emplace_back("RefinementKept", cr.mRefinementKept ? 1.0 : 0.0);
-        }
-        // Likewise each Phase 3 option reports only when it is set.
-        if (opts.mFreeformGeneral) {
-            counters.emplace_back("NumFreeformGeneral",
-                                  static_cast<double>(cr.mNumFreeformGeneral));
-            counters.emplace_back("NumFreeformRefinements",
-                                  static_cast<double>(cr.mNumFreeformRefinements));
-            counters.emplace_back("AvgFreeformPoles", cr.mAvgFreeformPoles);
-        }
-        if (opts.mExtendSurfaces)
-            counters.emplace_back("NumExtendedEdges", static_cast<double>(cr.mNumExtendedEdges));
-        if (opts.mSnapJunctions)
-            counters.emplace_back("NumSnappedJunctions",
-                                  static_cast<double>(cr.mNumSnappedJunctions));
-        if (opts.mFaceDeviation) {
-            counters.emplace_back("HausdorffMax", cr.mHausdorffMax);
-            counters.emplace_back("HausdorffRms", cr.mHausdorffRms);
-        }
-        if (opts.mConstrainPrimitives) {
-            counters.emplace_back("NumConstrainedPrimitives",
-                                  static_cast<double>(cr.mNumConstrainedPrimitives));
-            counters.emplace_back("NumConstraintGroups",
-                                  static_cast<double>(cr.mNumConstraintGroups));
-        }
-        // The freeform modes (v17.12.0) report only outside the legacy mode.
-        if (opts.mFreeformMode != FitCadFreeformMode::Legacy) {
-            counters.emplace_back("BrepChecked", cr.mBrepChecked ? 1.0 : 0.0);
-            counters.emplace_back("FacetAreaFraction", cr.mFacetAreaFraction);
-            counters.emplace_back("NumFreeformAdaptive",
-                                  static_cast<double>(cr.mNumFreeformAdaptive));
-            counters.emplace_back("NumNetworkPatches", static_cast<double>(cr.mNumNetworkPatches));
-            counters.emplace_back("NumNetworkEdges", static_cast<double>(cr.mNumNetworkEdges));
-            counters.emplace_back("NumExtraordinaryVertices",
-                                  static_cast<double>(cr.mNumExtraordinaryVertices));
-            counters.emplace_back("NumResegmented", static_cast<double>(cr.mNumResegmented));
-            counters.emplace_back("NumEscalations", static_cast<double>(cr.mNumEscalations));
-            counters.emplace_back("MaxG1AngleDeg", cr.mMaxG1AngleDeg);
-        }
-        pipe_push_step(rReport, rStep, std::move(counters));
-        // The fitted solid is the model the rest of the run carries, when the
-        // backend gave one (the native legacy mode gives none).
-        if (pModel) {
-            if (!cr.mBrep.mFaces.empty()) {
-                pModel->mNurbs.reset();
-                pModel->mBrep = std::move(cr.mBrep);
-            } else {
-                pModel->Drop("'FitCad' gave no B-rep (its native legacy freeform mode fits none)");
-            }
-        }
-        return std::move(cr.mMesh);
-    }
-    if (op == "RefinePatches") {
-        // A data step: the `segment:patch` labels are refined, the cells never move.
-        RefinePatchesOptions opts;
-        opts.mTolerance = pipe_number(rStep, "Tolerance", 1e-3);
-        opts.mRelative = pipe_flag(rStep, "Relative", true);
-        opts.mNormalWeight = pipe_number(rStep, "NormalWeight", 1.0);
-        opts.mEpsilon = pipe_number(rStep, "Epsilon", 1e-3);
-        opts.mFeatureAngleDeg = pipe_number(rStep, "FeatureAngle", 30.0);
-        opts.mMaxIterations = static_cast<std::int64_t>(pipe_number(rStep, "MaxIterations", 10.0));
-        opts.mMinPatchCells = static_cast<std::int64_t>(pipe_number(rStep, "MinPatchCells", 3.0));
-        opts.mRansacSeed = pipe_seed(rStep, "RansacSeed", kRefineDefaultSeed);
-        if (pipe_find(rStep, "Types"))
-            opts.mTypes = pipe_fit_types(rStep);
-        opts.mAllowSplit = pipe_flag(rStep, "AllowSplit", true);
-        opts.mAllowMerge = pipe_flag(rStep, "AllowMerge", true);
-        opts.mPrefix = pipe_text(rStep, "Prefix", "patch");
-        RefinePatchesResult rr = refine_patches(mesh, opts);
         pipe_push_step(rReport, rStep,
-                       {{"NumPatches", static_cast<double>(rr.mNumPatches)},
-                        {"NumIterations", static_cast<double>(rr.mNumIterations)},
-                        {"NumSplits", static_cast<double>(rr.mNumSplits)},
-                        {"NumMerges", static_cast<double>(rr.mNumMerges)},
-                        {"NumPrimitive", static_cast<double>(rr.mNumPrimitive)},
-                        {"NumFreeform", static_cast<double>(rr.mNumFreeform)},
-                        {"ExplainedAreaFraction", rr.mExplainedAreaFraction},
-                        {"HausdorffMax", rr.mHausdorffMax},
-                        {"Stop", pipe_refine_stop(rr.mStop)}});
-        return std::move(rr.mMesh);
+                       {{"Valid", cr.mValid ? 1.0 : 0.0},
+                        {"VolumeRatio", cr.mVolumeRatio},
+                        {"MaxDeviation", cr.mMaxDeviation},
+                        {"NumFaces", static_cast<double>(cr.mNumFaces)},
+                        {"NumFacetedFaces", static_cast<double>(cr.mNumFacetedFaces)},
+                        {"NumBspline", static_cast<double>(cr.mNumBspline)},
+                        {"NumSplitPatches", static_cast<double>(cr.mNumSplitPatches)},
+                        {"NumFillet", static_cast<double>(cr.mNumFillet)},
+                        {"NumHelical", static_cast<double>(cr.mNumHelical)},
+                        {"NumVariableFillet", static_cast<double>(cr.mNumVariableFillet)},
+                        {"NumBlend", static_cast<double>(cr.mNumBlend)},
+                        {"NumRoundedThread", static_cast<double>(cr.mNumRoundedThread)},
+                        {"NumVertexBlend", static_cast<double>(cr.mNumVertexBlend)},
+                        {"NumChamfer", static_cast<double>(cr.mNumChamfer)},
+                        {"NumConicBlend", static_cast<double>(cr.mNumConicBlend)},
+                        {"NumTaperedThread", static_cast<double>(cr.mNumTaperedThread)},
+                        {"NumVariablePitchThread", static_cast<double>(cr.mNumVariablePitchThread)},
+                        {"NumDemoted", static_cast<double>(cr.mNumDemoted)}});
+        return std::move(cr.mMesh);
     }
     if (op == "Snapshot") {
         // A side output, not a transform: the mesh passes through untouched and
@@ -1936,30 +1067,6 @@ Mesh pipe_apply_step(Mesh mesh, const PipelineStep& rStep, PipelineReport& rRepo
         pipe_push_step(rReport, rStep,
                        {{"NumChecks", static_cast<double>(qr.mChecks.size())},
                         {"NumFailed", static_cast<double>(failed)}});
-        return mesh;
-    }
-    if (op == "CheckConformity") {
-        // A gate by default: a mesh that is not conforming stops the pipeline;
-        // with Require false it only reports. AttachFlags writes
-        // conformity:hanging onto the mesh that flows on.
-        ConformityOptions opts;
-        opts.mTolerance = pipe_number(rStep, "Tolerance", 1e-9);
-        opts.mAttachFlags = pipe_flag(rStep, "AttachFlags", false);
-        ConformityResult cr = check_conformity(mesh, opts);
-        if (pipe_flag(rStep, "Require", true) && !cr.mConforming)
-            throw std::runtime_error(
-                "meshio++: pipeline: CheckConformity failed: " +
-                std::to_string(cr.mNumHangingNodes) + " hanging node(s), " +
-                std::to_string(cr.mNumTJunctions) + " T-junction(s), " +
-                std::to_string(cr.mNumPartialOverlaps) + " partial overlap(s), " +
-                std::to_string(cr.mNumUnweldedFacets) + " unwelded facet pair(s)");
-        pipe_push_step(rReport, rStep,
-                       {{"NumHangingNodes", static_cast<double>(cr.mNumHangingNodes)},
-                        {"NumTJunctions", static_cast<double>(cr.mNumTJunctions)},
-                        {"NumPartialOverlaps", static_cast<double>(cr.mNumPartialOverlaps)},
-                        {"NumUnweldedFacets", static_cast<double>(cr.mNumUnweldedFacets)}});
-        if (opts.mAttachFlags)
-            return std::move(cr.mMesh);
         return mesh;
     }
     if (op == "EditRegions") {
@@ -2156,95 +1263,6 @@ Mesh pipe_apply_step(Mesh mesh, const PipelineStep& rStep, PipelineReport& rRepo
                                         " cell(s) could not be evaluated and are NaN");
         return std::move(er.mMesh);
     }
-    if (op == "ErrorSize") {
-        // A pure data step (roadmap 6.10.2): EstimateError's per-cell
-        // indicator becomes the per-point size a later mesh_cad_surface's
-        // background reads. Geometry is untouched.
-        ErrorSizeOptions opts;
-        opts.mErrorArray = pipe_text(rStep, "Array", "error:zz");
-        opts.mTargetError = pipe_number(rStep, "TargetError", 0.0);
-        opts.mOrder = pipe_number(rStep, "Order", 1.0);
-        opts.mMinSize = pipe_number(rStep, "MinSize", 0.0);
-        opts.mMaxSize = pipe_number(rStep, "MaxSize", 0.0);
-        opts.mOutputName = pipe_text(rStep, "Output", kErrorSizeName);
-        opts.mOverwrite = true;
-        ErrorSizeResult sr = error_size(mesh, opts);
-        pipe_push_step(rReport, rStep,
-                       {{"NumCells", static_cast<double>(sr.mNumCells)},
-                        {"NumSkipped", static_cast<double>(sr.mNumSkipped)},
-                        {"NumClamped", static_cast<double>(sr.mNumClamped)},
-                        {"MinSize", sr.mMinSize},
-                        {"MaxSize", sr.mMaxSize}});
-        if (sr.mNumSkipped > 0)
-            rReport.mWarnings.push_back("error_size: " + std::to_string(sr.mNumSkipped) +
-                                        " cell(s) have no finite size and size no point");
-        return std::move(sr.mMesh);
-    }
-    if (op == "Adapt") {
-        // MMG (roadmap 3.2.1): new points and connectivity, regions by name.
-        AdaptOptions opts;
-        opts.mParameters = pipe_mmg_parameters(rStep, mesh);
-        opts.mHsiz = pipe_number(rStep, "Hsiz", -1.0);
-        opts.mSize = pipe_text(rStep, "Size", "");
-        opts.mMetric = pipe_text(rStep, "Metric", "");
-        AdaptResult ar = adapt(mesh, opts);
-        pipe_mmg_report(rReport, rStep, ar.mReport);
-        return std::move(ar.mMesh);
-    }
-    if (op == "DiscretizeLevelset") {
-        // MMG (roadmap 3.2.2): the level set's isovalue becomes a conformal interface.
-        DiscretizeLevelsetOptions opts;
-        opts.mParameters = pipe_mmg_parameters(rStep, mesh);
-        opts.mLevelSet = pipe_text(rStep, "LevelSet", "");
-        if (opts.mLevelSet.empty())
-            throw std::invalid_argument(pipe_err(rStep, "parameter 'LevelSet' is required"));
-        opts.mIsovalue = pipe_number(rStep, "Isovalue", 0.0);
-        opts.mRemoveSmallComponents = pipe_number(rStep, "RemoveSmallComponents", -1.0);
-        const std::vector<double> mats = pipe_dvec(rStep, "Materials");
-        if (mats.size() % 4 != 0)
-            throw std::invalid_argument(
-                pipe_err(rStep,
-                         "parameter 'Materials' must hold Ref, Split, RefInside, RefOutside "
-                         "per material"));
-        for (std::size_t k = 0; k < mats.size(); k += 4)
-            opts.mMaterials.push_back(MmgMaterial{
-                static_cast<std::int64_t>(mats[k]), mats[k + 1] != 0.0,
-                static_cast<std::int64_t>(mats[k + 2]), static_cast<std::int64_t>(mats[k + 3])});
-        DiscretizeLevelsetResult lr = discretize_levelset(mesh, opts);
-        pipe_mmg_report(rReport, rStep, lr.mReport);
-        return std::move(lr.mMesh);
-    }
-    if (op == "Move") {
-        // MMG (roadmap 3.2.4): the Lagrangian mode, with ELAS.
-        MoveOptions opts;
-        opts.mParameters = pipe_mmg_parameters(rStep, mesh);
-        opts.mDisplacement = pipe_text(rStep, "Displacement", "");
-        if (opts.mDisplacement.empty())
-            throw std::invalid_argument(pipe_err(rStep, "parameter 'Displacement' is required"));
-        opts.mMoving = pipe_svec(rStep, "Moving");
-        if (opts.mMoving.empty())
-            throw std::invalid_argument(pipe_err(rStep, "parameter 'Moving' is required"));
-        opts.mLagrangian = static_cast<int>(pipe_number(rStep, "Lagrangian", 1.0));
-        AdaptResult mr = meshioplusplus::move(mesh, opts);
-        pipe_mmg_report(rReport, rStep, mr.mReport);
-        return std::move(mr.mMesh);
-    }
-    if (op == "MeshDomain") {
-        // MMG (roadmap 3.2.3): the planar domain the line cells bound, triangulated.
-        MeshDomainOptions opts;
-        opts.mParameters = pipe_mmg_parameters(rStep, mesh);
-        opts.mHsiz = pipe_number(rStep, "Hsiz", -1.0);
-        opts.mSize = pipe_text(rStep, "Size", "");
-        opts.mHoles = pipe_dvec(rStep, "Holes");
-        if (opts.mHoles.size() % 2 != 0)
-            throw std::invalid_argument(
-                pipe_err(rStep, "parameter 'Holes' must hold x, y per hole"));
-        MeshDomainResult dr = mesh_domain(mesh, opts);
-        pipe_mmg_report(rReport, rStep, dr.mReport,
-                        {{"NumSubdomains", static_cast<double>(dr.mNumSubdomains)},
-                         {"NumHoles", static_cast<double>(dr.mNumHoles)}});
-        return std::move(dr.mMesh);
-    }
     if (op == "Remesh") {
         // Unlike every other step, the output has NO correspondence to the
         // input: new points, new connectivity. point_data/cell_data/regions
@@ -2332,208 +1350,6 @@ Mesh pipe_apply_step(Mesh mesh, const PipelineStep& rStep, PipelineReport& rRepo
                         {"MinQualityAfter", ov.mMinQualityAfter}});
         return std::move(ov.mMesh);
     }
-    if (op == "Generate") {
-        // A mesh from parameters (operations/primitives.hpp). Like Voxelize it
-        // REPLACES the geometry rather than transforming it; unlike Voxelize it
-        // does not read the incoming mesh at all, which is what lets a document
-        // omit Input when this is its first step.
-        const std::string shape = pipe_text(rStep, "Shape", "");
-        const std::int64_t max_cells =
-            static_cast<std::int64_t>(pipe_number(rStep, "MaxCells", 20000000.0));
-        const int order = static_cast<int>(pipe_number(rStep, "Order", 1.0));
-        const bool complete = pipe_flag(rStep, "Complete", false);
-        auto triple = [&](const char* pKey, std::array<double, 3> Default, bool PadZero) {
-            std::vector<double> v = pipe_dvec(rStep, pKey);
-            if (v.empty())
-                return Default;
-            if (v.size() == 2 && PadZero)
-                v.push_back(0.0);
-            if (v.size() != 3)
-                throw std::invalid_argument(
-                    pipe_err(rStep, std::string("'") + pKey + "' expects three values"));
-            return std::array<double, 3>{{v[0], v[1], v[2]}};
-        };
-        auto count = [&](const char* pKey, std::int64_t Default) {
-            return static_cast<std::int64_t>(
-                pipe_number(rStep, pKey, static_cast<double>(Default)));
-        };
-        auto dims_of = [&](std::size_t N, std::int64_t Default) {
-            std::vector<std::int64_t> v = pipe_ivec(rStep, "Dims");
-            if (v.empty())
-                return std::vector<std::int64_t>(N, Default);
-            if (v.size() != N)
-                throw std::invalid_argument(
-                    pipe_err(rStep, "'Dims' expects " + std::to_string(N) + " counts"));
-            return v;
-        };
-        const std::array<double, 3> zero = {{0.0, 0.0, 0.0}};
-        const std::array<double, 3> ones = {{1.0, 1.0, 1.0}};
-        Mesh out;
-        if (shape == "rectangle") {
-            const auto d = dims_of(2, 1);
-            const std::vector<double> size = pipe_dvec(rStep, "Size");
-            if (!size.empty() && size.size() != 2)
-                throw std::invalid_argument(pipe_err(rStep, "'Size' expects two values"));
-            out = rectangle({{d[0], d[1]}},
-                            size.empty() ? std::array<double, 2>{{1.0, 1.0}}
-                                         : std::array<double, 2>{{size[0], size[1]}},
-                            triple("Origin", zero, true), pipe_text(rStep, "CellType", "quad"),
-                            pipe_text(rStep, "Split", "zigzag"), order, max_cells, complete);
-        } else if (shape == "box") {
-            const auto d = dims_of(3, 1);
-            out = box({{d[0], d[1], d[2]}}, triple("Size", {{1.0, 1.0, 1.0}}, false),
-                      triple("Origin", zero, false), pipe_text(rStep, "CellType", "hexahedron"),
-                      order, max_cells, complete);
-        } else if (shape == "disk") {
-            out = disk(pipe_number(rStep, "Radius", 1.0), count("N", 8),
-                       triple("Center", zero, false), pipe_text(rStep, "CellType", "quad"), order,
-                       max_cells, complete);
-        } else if (shape == "uv_sphere") {
-            out = uv_sphere(pipe_number(rStep, "Radius", 1.0), count("Nu", 16), count("Nv", 8),
-                            triple("Center", zero, false), pipe_text(rStep, "CellType", "triangle"),
-                            order, max_cells, complete);
-        } else if (shape == "icosa_sphere") {
-            out = icosa_sphere(pipe_number(rStep, "Radius", 1.0), count("Subdivisions", 2),
-                               triple("Center", zero, false), order, max_cells, complete);
-        } else if (shape == "cylinder") {
-            out = cylinder(pipe_number(rStep, "Radius", 1.0), pipe_number(rStep, "Height", 1.0),
-                           count("Nxy", 8), count("Nz", 8), triple("Center", zero, false),
-                           pipe_text(rStep, "CellType", "hexahedron"), order, max_cells, complete);
-        } else if (shape == "reference_triangle") {
-            const std::vector<double> size = pipe_dvec(rStep, "Size");
-            if (!size.empty() && size.size() != 2)
-                throw std::invalid_argument(pipe_err(rStep, "'Size' expects two values"));
-            out = reference_triangle(count("N", 4),
-                                     size.empty() ? std::array<double, 2>{{1.0, 1.0}}
-                                                  : std::array<double, 2>{{size[0], size[1]}},
-                                     triple("Origin", zero, true), order, max_cells, complete);
-        } else if (shape == "ngon") {
-            out = ngon(count("Sides", 6), pipe_number(rStep, "Radius", 1.0), count("Rings", 1),
-                       triple("Center", zero, false), order, max_cells, complete);
-        } else if (shape == "annulus") {
-            out = annulus(pipe_number(rStep, "InnerRadius", 0.5),
-                          pipe_number(rStep, "OuterRadius", 1.0), count("Ntheta", 16),
-                          count("Nr", 4), pipe_number(rStep, "Angle", 6.283185307179586),
-                          triple("Center", zero, false), pipe_text(rStep, "CellType", "quad"),
-                          order, max_cells, complete);
-        } else if (shape == "lshape") {
-            out = lshape(count("N", 4), pipe_number(rStep, "Size", 2.0),
-                         triple("Center", zero, false), pipe_text(rStep, "CellType", "quad"), order,
-                         max_cells, complete);
-        } else if (shape == "plate_with_hole") {
-            out =
-                plate_with_hole(pipe_number(rStep, "Radius", 0.25), pipe_number(rStep, "Size", 1.0),
-                                count("Nt", 8), count("Nr", 4), triple("Center", zero, false),
-                                pipe_text(rStep, "CellType", "quad"), order, max_cells, complete);
-        } else if (shape == "line") {
-            out = line(count("N", 8), triple("Start", zero, false),
-                       triple("End", {{1.0, 0.0, 0.0}}, false), order, max_cells, complete);
-        } else if (shape == "circle") {
-            out = circle(pipe_number(rStep, "Radius", 1.0), count("N", 16),
-                         triple("Center", zero, false), order, max_cells, complete);
-        } else if (shape == "helix") {
-            out = helix(pipe_number(rStep, "Radius", 1.0), pipe_number(rStep, "Pitch", 1.0),
-                        pipe_number(rStep, "Turns", 2.0), count("N", 32),
-                        triple("Center", zero, false), order, max_cells, complete);
-        } else if (shape == "sphere_points") {
-            out = sphere_points(count("N", 100), pipe_number(rStep, "Radius", 1.0),
-                                triple("Center", zero, false), max_cells);
-        } else if (shape == "box_points") {
-            out = box_points(
-                count("N", 100), triple("Size", ones, false), triple("Origin", zero, false),
-                static_cast<std::uint64_t>(pipe_number(rStep, "Seed", 0.0)), max_cells);
-        } else if (shape == "tetra_sphere") {
-            out = tetra_sphere(pipe_number(rStep, "Radius", 1.0), count("Subdivisions", 3),
-                               triple("Center", zero, false), order, max_cells, complete);
-        } else if (shape == "octa_sphere") {
-            out = octa_sphere(pipe_number(rStep, "Radius", 1.0), count("Subdivisions", 2),
-                              triple("Center", zero, false), order, max_cells, complete);
-        } else if (shape == "cube_sphere") {
-            out = cube_sphere(pipe_number(rStep, "Radius", 1.0), count("N", 4),
-                              triple("Center", zero, false), pipe_text(rStep, "CellType", "quad"),
-                              order, max_cells, complete);
-        } else if (shape == "geo_sphere") {
-            out = geo_sphere(pipe_number(rStep, "Radius", 1.0), count("N", 4),
-                             triple("Center", zero, false), order, max_cells, complete);
-        } else if (shape == "torus") {
-            out = torus(pipe_number(rStep, "MajorRadius", 1.0),
-                        pipe_number(rStep, "MinorRadius", 0.25), count("Nu", 32), count("Nv", 16),
-                        triple("Center", zero, false), pipe_text(rStep, "CellType", "quad"), order,
-                        max_cells, complete);
-        } else if (shape == "moebius") {
-            out = moebius(pipe_number(rStep, "Radius", 1.0), pipe_number(rStep, "Width", 0.5),
-                          count("Nu", 32), count("Nv", 4), count("NumTwists", 1),
-                          triple("Center", zero, false), pipe_text(rStep, "CellType", "quad"),
-                          order, max_cells, complete);
-        } else if (shape == "tube" || shape == "cone") {
-            out = (shape == "tube" ? &tube : &cone)(
-                pipe_number(rStep, "Radius", 1.0), pipe_number(rStep, "Height", 1.0),
-                count("Ntheta", 16), count("Nz", 4), triple("Center", zero, false),
-                pipe_text(rStep, "CellType", "quad"), order, max_cells, complete);
-        } else if (shape == "capsule") {
-            out = capsule(pipe_number(rStep, "Radius", 0.5), pipe_number(rStep, "Height", 1.0),
-                          count("Ntheta", 16), count("Nz", 4), count("Ncap", 4),
-                          triple("Center", zero, false), pipe_text(rStep, "CellType", "quad"),
-                          order, max_cells, complete);
-        } else if (shape == "box_surface") {
-            const auto d = dims_of(3, 1);
-            out = box_surface({{d[0], d[1], d[2]}}, triple("Size", ones, false),
-                              triple("Origin", zero, false), pipe_text(rStep, "CellType", "quad"),
-                              order, max_cells, complete);
-        } else if (shape == "platonic") {
-            out =
-                platonic(pipe_text(rStep, "Name", "icosahedron"), pipe_number(rStep, "Radius", 1.0),
-                         triple("Center", zero, false), max_cells);
-        } else if (shape == "ball") {
-            out = ball(pipe_number(rStep, "Radius", 1.0), count("N", 4),
-                       triple("Center", zero, false), pipe_text(rStep, "CellType", "hexahedron"),
-                       order, max_cells, complete);
-        } else if (shape == "spherical_shell") {
-            out = spherical_shell(pipe_number(rStep, "InnerRadius", 0.5),
-                                  pipe_number(rStep, "OuterRadius", 1.0), count("N", 4),
-                                  count("Nr", 2), pipe_number(rStep, "Ratio", 1.0),
-                                  triple("Center", zero, false), order, max_cells, complete);
-        } else if (shape == "pipe") {
-            out =
-                pipe(pipe_number(rStep, "InnerRadius", 0.5), pipe_number(rStep, "OuterRadius", 1.0),
-                     pipe_number(rStep, "Height", 1.0), count("Ntheta", 16), count("Nr", 2),
-                     count("Nz", 4), pipe_number(rStep, "Ratio", 1.0),
-                     triple("Center", zero, false), order, max_cells, complete);
-        } else if (shape == "fichera") {
-            out = fichera(count("N", 2), pipe_number(rStep, "Size", 2.0),
-                          triple("Center", zero, false), pipe_text(rStep, "CellType", "hexahedron"),
-                          order, max_cells, complete);
-        } else if (shape == "solid_torus") {
-            out =
-                solid_torus(pipe_number(rStep, "MajorRadius", 1.0),
-                            pipe_number(rStep, "MinorRadius", 0.25), count("N", 4), count("Nu", 32),
-                            triple("Center", zero, false), order, max_cells, complete);
-        } else if (shape == "honeycomb") {
-            const auto d = dims_of(2, 4);
-            out = honeycomb({{d[0], d[1]}}, pipe_number(rStep, "Edge", 1.0),
-                            triple("Origin", zero, true), max_cells);
-        } else if (shape == "reference_cells") {
-            out = reference_cells(pipe_svec(rStep, "Types"), pipe_flag(rStep, "Pairs", false));
-        } else {
-            throw std::invalid_argument(
-                pipe_err(rStep,
-                         "'Shape' must be one of rectangle, box, disk, uv_sphere, icosa_sphere, "
-                         "cylinder, reference_triangle, ngon, annulus, lshape, plate_with_hole, "
-                         "honeycomb, reference_cells, line, circle, helix, sphere_points, "
-                         "box_points, tetra_sphere, octa_sphere, cube_sphere, geo_sphere, torus, "
-                         "moebius, tube, cone, capsule, box_surface, platonic, ball, "
-                         "spherical_shell, pipe, fichera, solid_torus, not '" +
-                             shape + "'"));
-        }
-        std::size_t cells = 0;
-        for (std::size_t b = 0; b < out.NumCellBlocks(); ++b)
-            cells += out.Cells(b).NumCells();
-        pipe_push_step(rReport, rStep,
-                       {{"NumPoints", static_cast<double>(out.NumPoints())},
-                        {"NumCells", static_cast<double>(cells)}});
-        return out;
-    }
-
     if (op == "Voxelize") {
         // A regular grid around the mesh. Unlike every other step this one does
         // not transform its input's geometry -- it replaces it -- which is
@@ -2544,8 +1360,6 @@ Mesh pipe_apply_step(Mesh mesh, const PipelineStep& rStep, PipelineReport& rRepo
         if (resolution.size() == 3)
             opts.mResolution =
                 std::array<std::int64_t, 3>{{resolution[0], resolution[1], resolution[2]}};
-        else if (resolution.size() == 2)  // 2-D pixels, as `[nx, ny, 0]` is
-            opts.mResolution = std::array<std::int64_t, 3>{{resolution[0], resolution[1], 0}};
         if (pipe_find(rStep, "CellSize") != nullptr)
             opts.mCellSize = pipe_number(rStep, "CellSize", 0.0);
         const std::vector<double> bounds = pipe_dvec(rStep, "Bounds");
@@ -2558,104 +1372,8 @@ Mesh pipe_apply_step(Mesh mesh, const PipelineStep& rStep, PipelineReport& rRepo
         opts.mAttachOccupancy = pipe_flag(rStep, "AttachOccupancy", false);
         opts.mMaxCells = static_cast<std::int64_t>(pipe_number(rStep, "MaxCells", 20000000.0));
         opts.mDistance.mSign = sdf_sign_from_name(pipe_text(rStep, "Sign", "pseudonormal"));
-        opts.mPlane = detail::planar_plane_from_name(pipe_text(rStep, "Plane", "auto"));
         VoxelResult r = voxelize(mesh, opts);
         pipe_push_step(rReport, rStep, {{"NumOccupied", static_cast<double>(r.mNumOccupied)}});
-        return std::move(r.mMesh);
-    }
-
-    if (op == "OctreeMesh") {
-        // A volume mesh of the skin's inside: it replaces its input's geometry.
-        OctreeMeshOptions opts;
-        opts.mOutput = octree_mesh_output_from_name(pipe_text(rStep, "Output", "tet"));
-        opts.mMinSize = pipe_number(rStep, "MinSize", 0.0);
-        opts.mMaxSize = pipe_number(rStep, "MaxSize", 0.0);
-        opts.mMaxLevel = static_cast<std::int64_t>(pipe_number(rStep, "MaxLevel", -1.0));
-        const std::vector<double> bounds = pipe_dvec(rStep, "Bounds");
-        if (bounds.size() == 6)
-            opts.mBounds = std::array<double, 6>{
-                {bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]}};
-        opts.mPadding = pipe_number(rStep, "Padding", 0.0);
-        opts.mPaddingRelative = pipe_number(rStep, "PaddingRelative", 0.1);
-        opts.mCurvatureAngle = pipe_number(rStep, "CurvatureAngle", 15.0);
-        opts.mFeatureAngle = pipe_number(rStep, "FeatureAngle", 30.0);
-        opts.mCornerAngle = pipe_number(rStep, "CornerAngle", 30.0);
-        opts.mFeatureSize = pipe_number(rStep, "FeatureSize", 0.0);
-        opts.mGapCells = pipe_number(rStep, "GapCells", 2.0);
-        opts.mGapOutside = pipe_flag(rStep, "GapOutside", false);
-        opts.mSizeArray = pipe_text(rStep, "SizeArray", "");
-        opts.mSurfaceRegion = pipe_text(rStep, "SurfaceRegion", "");
-        opts.mGradingLayers = static_cast<std::int64_t>(pipe_number(rStep, "GradingLayers", 1.0));
-        opts.mSkinGrading =
-            octree_mesh_skin_grading_from_name(pipe_text(rStep, "SkinGrading", "graded"));
-        opts.mSurfaceSize = pipe_number(rStep, "SurfaceSize", 0.0);
-        opts.mWindingThreshold = pipe_number(rStep, "WindingThreshold", 0.5);
-        opts.mWindingBeta = pipe_number(rStep, "WindingBeta", 2.0);
-        opts.mConformity =
-            octree_mesh_conformity_from_name(pipe_text(rStep, "Conformity", "stuffing"));
-        opts.mAlphaLong = pipe_number(rStep, "AlphaLong", 0.24799);
-        opts.mAlphaShort = pipe_number(rStep, "AlphaShort", 0.40173);
-        opts.mPreserveFeatures = pipe_flag(rStep, "PreserveFeatures", true);
-        opts.mFitIterations = static_cast<std::int64_t>(pipe_number(rStep, "FitIterations", 5.0));
-        opts.mDihedralFloorGuard = pipe_flag(rStep, "DihedralFloorGuard", true);
-        opts.mFill = octree_mesh_fill_from_name(pipe_text(rStep, "Fill", "inside"));
-        opts.mKeepOutside = pipe_flag(rStep, "KeepOutside", false);
-        opts.mAttachDistance = pipe_flag(rStep, "AttachDistance", true);
-        opts.mAttachQuality = pipe_flag(rStep, "AttachQuality", false);
-        opts.mPillow = pipe_flag(rStep, "Pillow", true);
-        opts.mHexGrading =
-            octree_mesh_hex_grading_from_name(pipe_text(rStep, "HexGrading", "uniform"));
-        opts.mUntangleIterations =
-            static_cast<std::int64_t>(pipe_number(rStep, "UntangleIterations", 50.0));
-        opts.mMaxCells = static_cast<std::int64_t>(pipe_number(rStep, "MaxCells", 20000000.0));
-        opts.mMaxTets = static_cast<std::int64_t>(pipe_number(rStep, "MaxTets", 100000000.0));
-        OctreeMeshResult r = octree_mesh(mesh, opts);
-        pipe_push_step(rReport, rStep,
-                       {{"NumLeaves", static_cast<double>(r.mNumLeaves)},
-                        {"NumCells", static_cast<double>(r.mNumCells)},
-                        {"NumInside", static_cast<double>(r.mNumInside)},
-                        {"NumSurrogateFaces", static_cast<double>(r.mNumSurrogateFaces)},
-                        {"NumHanging", static_cast<double>(r.mNumHanging)},
-                        {"NumInverted", static_cast<double>(r.mNumInverted)},
-                        {"MinDihedral", r.mMinDihedral},
-                        {"MinScaledJacobian", r.mMinScaledJacobian}});
-        return std::move(r.mMesh);
-    }
-    if (op == "Octree") {
-        // Voxelize's adaptive sibling: it likewise replaces its input's geometry.
-        OctreeOptions opts;
-        const std::vector<std::int64_t> roots = pipe_ivec(rStep, "RootCells");
-        if (roots.size() == 3)
-            opts.mRootCells = std::array<std::int64_t, 3>{{roots[0], roots[1], roots[2]}};
-        opts.mMinLevel = static_cast<std::int64_t>(pipe_number(rStep, "MinLevel", 0.0));
-        opts.mMaxLevel = static_cast<std::int64_t>(pipe_number(rStep, "MaxLevel", 4.0));
-        const std::vector<double> bounds = pipe_dvec(rStep, "Bounds");
-        if (bounds.size() == 6)
-            opts.mBounds = std::array<double, 6>{
-                {bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]}};
-        opts.mPadding = pipe_number(rStep, "Padding", 0.0);
-        opts.mPaddingRelative = pipe_number(rStep, "PaddingRelative", 0.0);
-        opts.mDimension = static_cast<std::int64_t>(pipe_number(rStep, "Dimension", 0.0));
-        opts.mSampleDistance = pipe_number(rStep, "SampleDistance", 0.0);
-        opts.mBalance = octree_balance_from_name(pipe_text(rStep, "Balance", "face"));
-        opts.mFill = voxel_fill_from_name(pipe_text(rStep, "Fill", "all"));
-        opts.mAttachDistance = pipe_flag(rStep, "AttachDistance", false);
-        opts.mEvenOdd = pipe_flag(rStep, "EvenOdd", false);
-        opts.mMaxCells = static_cast<std::int64_t>(pipe_number(rStep, "MaxCells", 20000000.0));
-        opts.mDistance.mSign = sdf_sign_from_name(pipe_text(rStep, "Sign", "pseudonormal"));
-        opts.mTransition = octree_transition_from_name(pipe_text(rStep, "Transition", "hanging"));
-        opts.mSnap = pipe_flag(rStep, "Snap", false);
-        opts.mSurfaceLevel = static_cast<std::int64_t>(pipe_number(rStep, "SurfaceLevel", -1.0));
-        opts.mCurvatureThreshold = pipe_number(rStep, "CurvatureThreshold", 0.0);
-        opts.mFeatureAngle = pipe_number(rStep, "FeatureAngle", 0.0);
-        opts.mSizeArray = pipe_text(rStep, "SizeArray", "");
-        opts.mPlane = detail::planar_plane_from_name(pipe_text(rStep, "Plane", "auto"));
-        OctreeResult r = octree(mesh, opts);
-        pipe_push_step(rReport, rStep,
-                       {{"NumLeaves", static_cast<double>(r.mNumLeaves)},
-                        {"NumHanging", static_cast<double>(r.mNumHanging)},
-                        {"NumSnapped", static_cast<double>(r.mNumSnapped)},
-                        {"NumRefused", static_cast<double>(r.mNumRefused)}});
         return std::move(r.mMesh);
     }
 
@@ -2902,12 +1620,6 @@ Mesh pipe_apply_step(Mesh mesh, const PipelineStep& rStep, PipelineReport& rRepo
     throw std::invalid_argument("meshio++: pipeline: unknown operation '" + op + "'");
 }
 
-}  // namespace
-
-Mesh apply_pipeline_step(Mesh mesh, const PipelineStep& rStep, PipelineReport& rReport) {
-    return pipe_apply_step(std::move(mesh), rStep, rReport, nullptr);
-}
-
 Mesh run_pipeline_steps(Mesh mesh, const std::vector<PipelineStep>& rSteps,
                         PipelineReport& rReport) {
     for (const PipelineStep& step : rSteps) {
@@ -2973,8 +1685,7 @@ Mesh pipe_read_extra(const std::string& rPath) {
     return registry_read(rPath, fmt, ReadOptions{});
 }
 
-Mesh pipe_apply_v2(Mesh mesh, const PipelineStep& rStep, PipelineReport& rReport,
-                   PipeModel* pModel) {
+Mesh pipe_apply_v2(Mesh mesh, const PipelineStep& rStep, PipelineReport& rReport) {
     const auto& op = rStep.mOp;
     if (op == "Merge") {
         std::vector<Mesh> owned;
@@ -3018,7 +1729,7 @@ Mesh pipe_apply_v2(Mesh mesh, const PipelineStep& rStep, PipelineReport& rReport
         pipe_push_step(rReport, rStep);
         return result;
     }
-    return pipe_apply_step(std::move(mesh), rStep, rReport, pModel);
+    return apply_pipeline_step(std::move(mesh), rStep, rReport);
 }
 
 std::string pipe_piece_path(const std::string& rPattern, const std::string& rKey, bool Part) {
@@ -3080,9 +1791,7 @@ PipelineReport run_pipeline(const Pipeline& rPipeline) {
         throw std::invalid_argument("meshio++: pipeline: unsupported Version " +
                                     std::to_string(rPipeline.mVersion) +
                                     " (this build knows 1 and 2)");
-    const bool generated = !rPipeline.mSteps.empty() && rPipeline.mSteps[0].mOp == "Generate" &&
-                           rPipeline.mInput.mPath.empty();
-    if (rPipeline.mInput.mPath.empty() && !generated)
+    if (rPipeline.mInput.mPath.empty())
         throw std::invalid_argument("meshio++: pipeline: Input.Path is required");
     if (rPipeline.mOutput.mPath.empty())
         throw std::invalid_argument("meshio++: pipeline: Output.Path is required");
@@ -3092,20 +1801,14 @@ PipelineReport run_pipeline(const Pipeline& rPipeline) {
     const bool fanout = rPipeline.mOutput.mPath.find("{key}") != std::string::npos ||
                         rPipeline.mOutput.mPath.find("{part}") != std::string::npos;
     if (rPipeline.mVersion == 2 && !fanout &&
-        (rPipeline.mOutput.mPath.find('{') != std::string::npos ||
-         rPipeline.mOutput.mPath.find('}') != std::string::npos))
-        throw std::invalid_argument(
-            "meshio++: pipeline: unsupported Version 2 output token; transient sequence schemas "
-            "remain Version 1");
-    bool wants_model = false;
+        (rPipeline.mOutput.mPath.find('{') != std::string::npos || rPipeline.mOutput.mPath.find('}') != std::string::npos))
+        throw std::invalid_argument("meshio++: pipeline: unsupported Version 2 output token; transient sequence schemas remain Version 1");
     for (std::size_t i = 0; i < rPipeline.mSteps.size(); ++i) {
         const auto& step = rPipeline.mSteps[i];
         if (rPipeline.mVersion == 1)
             validate_pipeline_step(step);
         else
             pipe_validate_v2(step);
-        wants_model = wants_model || pipe_is_model_step(step.mOp) ||
-                      (step.mOp == "ProjectToCad" && !pipe_find(step, "Model"));
         if (step.mOp == "Split" && (!fanout || i + 1 != rPipeline.mSteps.size()))
             throw std::invalid_argument(
                 "meshio++: pipeline: Split must be terminal and requires Output.Pattern with "
@@ -3130,19 +1833,16 @@ PipelineReport run_pipeline(const Pipeline& rPipeline) {
     }
 
     // Read: resolve_format with the sniff_format fallback, the read-path rule
-    // everywhere (the CLI, mio_read, the wasm read_mesh). A generated document
-    // has nothing to read.
+    // everywhere (the CLI, mio_read, the wasm read_mesh).
     std::string rfmt;
-    if (!generated) {
-        try {
-            rfmt = resolve_format(rPipeline.mInput.mPath, rPipeline.mInput.mFormat);
-        } catch (const ReadError&) {
-            rfmt = sniff_format(rPipeline.mInput.mPath);
-            if (rfmt.empty())
-                throw;
-        }
+    try {
+        rfmt = resolve_format(rPipeline.mInput.mPath, rPipeline.mInput.mFormat);
+    } catch (const ReadError&) {
+        rfmt = sniff_format(rPipeline.mInput.mPath);
+        if (rfmt.empty())
+            throw;
     }
-    if (!generated && !registry_readers().count(rfmt) && !registry_reader_supports_options(rfmt)) {
+    if (!registry_readers().count(rfmt) && !registry_reader_supports_options(rfmt)) {
         std::string hint;
         if (const char* dep = registry_compiled_out(rfmt))
             hint = " (format '" + rfmt + "' is not available in this build; requires " +
@@ -3153,19 +1853,10 @@ PipelineReport run_pipeline(const Pipeline& rPipeline) {
     // A no-op unless the caller opened a provenance scope around this call
     // (see detail/provenance.hpp) -- the pipeline never opens one itself,
     // consistent with the record being opt-in everywhere.
-    if (!generated)
-        detail::provenance_set_source(rPipeline.mInput.mPath, rfmt);
+    detail::provenance_set_source(rPipeline.mInput.mPath, rfmt);
 
     PipelineReport report;
-    // The model is read only for a chain that uses it, so every other run
-    // reads exactly as before.
-    PipeModel model;
-    model.mWhy = "the pipeline starts from Generate, not a CAD read";
-    Mesh mesh;
-    if (!generated)
-        mesh = wants_model ? pipe_read_with_model(rPipeline.mInput.mPath, rfmt,
-                                                  rPipeline.mInput.mOptions, model)
-                           : registry_read(rPipeline.mInput.mPath, rfmt, rPipeline.mInput.mOptions);
+    Mesh mesh = registry_read(rPipeline.mInput.mPath, rfmt, rPipeline.mInput.mOptions);
     for (std::size_t i = 0; i < rPipeline.mSteps.size(); ++i) {
         const auto& step = rPipeline.mSteps[i];
         if (fanout && i + 1 == rPipeline.mSteps.size()) {
@@ -3193,13 +1884,8 @@ PipelineReport run_pipeline(const Pipeline& rPipeline) {
             pipe_write_pieces(rPipeline, pieces, step.mOp == "Partition");
             return report;
         }
-        mesh = rPipeline.mVersion == 2 ? pipe_apply_v2(std::move(mesh), step, report, &model)
-                                       : pipe_apply_step(std::move(mesh), step, report, &model);
-        // Projected onto it, the mesh matches the model again.
-        if (model.Has() && !pipe_is_model_step(step.mOp) && step.mOp != "FitCad" &&
-            step.mOp != "ProjectToCad")
-            model.Drop("step " + std::to_string(i + 1) + " '" + step.mOp +
-                       "' changed the mesh, which drops the model");
+        mesh = rPipeline.mVersion == 2 ? pipe_apply_v2(std::move(mesh), step, report)
+                                       : apply_pipeline_step(std::move(mesh), step, report);
     }
 
     const std::string out_fmt =
@@ -3635,19 +2321,9 @@ PipeDocument pipe_document_from_json(const std::string& rText) {
     }
 
     const pipe_json* input = pipe_get(doc, "Input");
-    if (input) {
-        pipeline.mInput = pipe_sequence_input_from_json(*input, parsed.mSequenceKeys);
-    } else {
-        // A document whose first step is Generate builds its mesh from
-        // parameters and needs no Input.
-        const pipe_json* first_ops = pipe_get(doc, "Operations");
-        const bool generated = first_ops && first_ops->is_array() && !first_ops->empty() &&
-                               (*first_ops)[0].is_object() && (*first_ops)[0].contains("Op") &&
-                               (*first_ops)[0]["Op"].is_string() &&
-                               (*first_ops)[0]["Op"].get<std::string>() == "Generate";
-        if (!generated)
-            pipe_schema_error("Input is required");
-    }
+    if (!input)
+        pipe_schema_error("Input is required");
+    pipeline.mInput = pipe_sequence_input_from_json(*input, parsed.mSequenceKeys);
 
     const pipe_json* output = pipe_get(doc, "Output");
     if (!output)

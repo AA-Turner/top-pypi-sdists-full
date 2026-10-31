@@ -23,7 +23,7 @@ class ChoiceParams(typing_extensions.TypedDict):
 
     logprobs: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]
     """
-    Token log probabilities when supported (`sarvam-105b`, `gemma4`). Always `null` on `glm5.3` and `deepseekv4.1-flash`, which don't support this field.
+    Token log probabilities when supported (`sarvam-105b`, `gemma4`, `glm5.3-flash`, `deepseekv4.1-flash-1017`, `deepseekv4-pro`, `kimi-k3`, `mimo-v2.6-flash`, `mimo-v2.6-pro`). Always `null` on `glm5.3`, which doesn't support this field.
     """
 
     message: ChatCompletionResponseMessageParams

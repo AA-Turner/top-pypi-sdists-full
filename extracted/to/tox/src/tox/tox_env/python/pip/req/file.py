@@ -10,20 +10,24 @@ import shlex
 import sys
 import urllib.parse
 from argparse import ArgumentParser, Namespace
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from pathlib import Path
-from typing import IO, Any, Final, cast
+from time import monotonic
+from typing import TYPE_CHECKING, Any, Final, Protocol, cast
 from urllib.request import urlopen
 
 from packaging.requirements import InvalidRequirement, Requirement
 
+from tox.util.redact import redact_argv, redact_value
 from tox.util.typing_compat import override
 
 from .args import build_parser
 from .util import VCS, get_url_scheme, handle_binary_option, is_url, url_to_path
 
-# Matches environment variable-style values in '${MY_VARIABLE_1}' with the variable name consisting of only uppercase
-# letters, digits or the '_' (underscore). This follows the POSIX standard defined in IEEE Std 1003.1, 2013 Edition.
+if TYPE_CHECKING:
+    from io import BufferedIOBase
+
+# Restrict ``${NAME}`` to uppercase letters, digits, and ``_`` to avoid partial expansion and platform differences.
 _ENV_VAR_RE = re.compile(
     r"""
     (?P<var>
@@ -49,9 +53,10 @@ _BOMS: tuple[tuple[bytes, str], ...] = (
     (codecs.BOM_UTF16_BE, "utf-16-be"),
     (codecs.BOM_UTF16_LE, "utf-16-le"),
 )
-_COMMENT_RE = re.compile(
+_COMMENT_RE: Final[re.Pattern[str]] = re.compile(
     r"""
-    ( ^ | \s+ )    # start of string or whitespace
+    # A requirement-file path can contain an escaped space before #.
+    ( ^ | (?<! \\ ) \s+ )
     \# .* $        # hash followed by anything to end
     """,
     re.VERBOSE,
@@ -83,7 +88,7 @@ _VERSION_SPECIFIER = re.compile(
 ReqFileLines = Iterator[tuple[int, str]]
 
 DEFAULT_INDEX_URL = "https://pypi.org/simple"
-_HTTP_TIMEOUT: Final[int] = 30  # seconds; bound on remote requirement file fetches to avoid hangs
+_HTTP_BODY_TIMEOUT: Final[int] = 120
 
 
 class ParsedRequirement:
@@ -117,8 +122,7 @@ class ParsedRequirement:
                 extra_part = f"[{','.join(sorted(extras))}]" if extras else ""
                 try:
                     rel_path = str(path.resolve().relative_to(root))
-                    # prefix paths in cwd to not convert them to requirement
-                    if rel_path != "." and os.sep not in rel_path:
+                    if rel_path != "." and (os.sep not in rel_path or rel_path.startswith("-")):
                         rel_path = f".{os.sep}{rel_path}"
                 except ValueError:
                     rel_path = str(path.resolve())
@@ -196,13 +200,20 @@ class ParsedLine:
 
 
 class RequirementsFile:
-    def __init__(self, path: Path, constraint: bool) -> None:  # ruff:ignore[boolean-type-hint-positional-argument]
+    def __init__(
+        self,
+        path: Path,
+        constraint: bool,  # ruff:ignore[boolean-type-hint-positional-argument]
+        environment_provider: EnvironmentProvider | None = None,
+    ) -> None:
         self._path = path
+        self._environment_provider: Final[EnvironmentProvider | None] = environment_provider
         self._is_constraint: bool = constraint
         self._opt = Namespace()
         self._requirements: list[ParsedRequirement] | None = None
         self._as_root_args: list[str] | None = None
         self._parser_private: ArgumentParser | None = None
+        self._secrets: Final[dict[str, str]] = {}
 
     @property
     def _req_parser(self) -> RequirementsFile:
@@ -308,22 +319,20 @@ class RequirementsFile:
         """
         scheme = get_url_scheme(url)
         if scheme in {"http", "https"}:
-            with urlopen(url, timeout=_HTTP_TIMEOUT) as response:  # ruff:ignore[suspicious-url-open-usage]
-                return self._read_decode(response)
+            with urlopen(url, timeout=30) as response:  # ruff:ignore[suspicious-url-open-usage]
+                return self._read_decode(response, self._strip_url_credentials(url), monotonic() + _HTTP_BODY_TIMEOUT)
         elif scheme == "file":
             url = url_to_path(url)
         try:
             with Path(url).open("rb") as file_handler:
-                text = self._read_decode(file_handler)
+                return self._read_decode(file_handler, url)
         except OSError as exc:
             msg = f"Could not open requirements file {url}: {exc}"
             raise ValueError(msg) from exc
-        return text
 
     @staticmethod
-    def _read_decode(file_handler: IO[bytes]) -> str:
-        raw = file_handler.read()
-        if not raw:
+    def _read_decode(file_handler: BufferedIOBase, source: str, deadline: float | None = None) -> str:
+        if not (raw := RequirementsFile._read_bounded(file_handler, source, deadline)):
             return ""
         for bom, encoding in _BOMS:
             if raw.startswith(bom):
@@ -332,6 +341,32 @@ class RequirementsFile:
             return raw.decode("utf-8")
         except UnicodeDecodeError:
             return raw.decode(locale.getpreferredencoding(do_setlocale=False) or sys.getdefaultencoding())
+
+    @staticmethod
+    def _read_bounded(file_handler: BufferedIOBase, source: str, deadline: float | None) -> bytes:
+        chunks: Final[list[bytes]] = []
+        size: int = 0
+        max_bytes: Final[int] = 10 * 1024 * 1024
+        while True:
+            chunk = file_handler.read1(64 * 1024)
+            if deadline is not None and monotonic() > deadline:
+                msg = f"requirements file {source} took longer than {_HTTP_BODY_TIMEOUT} seconds to download"
+                raise ValueError(msg)
+            if not chunk:
+                break
+            size += len(chunk)
+            if size > max_bytes:
+                msg = f"requirements file {source} exceeds the {max_bytes} byte limit"
+                raise ValueError(msg)
+            chunks.append(chunk)
+        return b"".join(chunks)
+
+    @staticmethod
+    def _strip_url_credentials(url: str) -> str:
+        parts: Final[urllib.parse.SplitResult] = urllib.parse.urlsplit(url)
+        if parts.username is None and parts.password is None:
+            return url
+        return urllib.parse.urlunsplit(parts._replace(netloc=parts.netloc.rpartition("@")[2]))
 
     def _pre_process(self, content: str) -> ReqFileLines:
         """Split, filter, and join lines, and return a line iterator.
@@ -347,7 +382,10 @@ class RequirementsFile:
     def _parse_line(self, line: str) -> tuple[str, Namespace]:
         args_str, options_str = self._break_args_options(line)
         args = shlex.split(options_str, posix=sys.platform != "win32")
-        opts = self._parser.parse_args(args)
+        opts, unknown = self._parser.parse_known_args(args)
+        if unknown:
+            msg = f"unrecognized arguments: {' '.join(redact_argv(unknown))}"
+            raise ValueError(msg)
         return args_str, opts
 
     @staticmethod
@@ -494,29 +532,26 @@ class RequirementsFile:
             if processed_line:
                 yield line_number, processed_line
 
-    @staticmethod
-    def _expand_env_variables(lines_enum: ReqFileLines) -> ReqFileLines:
-        """Replace all environment variables that can be retrieved via `os.getenv`.
-
-        The only allowed format for environment variables defined in the requirement file is `${MY_VARIABLE_1}` to
-        ensure two things:
-
-        1. Strings that contain a `$` aren't accidentally (partially) expanded.
-        2. Ensure consistency across platforms for requirement files.
-
-        These points are the result of a discussion on the `github pull request #3514
-        <https://github.com/pypa/pip/pull/3514>`_. Valid characters in variable names follow the `POSIX standard
-        <http://pubs.opengroup.org/onlinepubs/9699919799/>`_ and are limited to uppercase letter, digits and the `_`.
-
-        """
+    def _expand_env_variables(self, lines_enum: ReqFileLines) -> ReqFileLines:
+        environment: Mapping[str, str] | None = None
         for line_number, line in lines_enum:
             expanded_line = line
             for env_var, var_name in _ENV_VAR_RE.findall(expanded_line):
-                value = os.getenv(var_name)
+                if environment is None:
+                    environment = os.environ if self._environment_provider is None else self._environment_provider()
+                value = environment.get(var_name)
                 if not value:
                     continue
                 expanded_line = expanded_line.replace(env_var, value)
-            yield line_number, expanded_line
+                if (redacted := redact_value(var_name, value)) != value:
+                    self._secrets[value] = redacted
+            yield line_number, unprotect_env_variables(expanded_line)
+
+    def redact(self, text: str) -> str:
+        secrets: Final = self._secrets | self._req_parser._secrets  # ruff:ignore[private-member-access]  # nested files
+        for value in sorted(secrets, key=len, reverse=True):  # longest first, as a value may contain another one
+            text = text.replace(value, secrets[value])
+        return text
 
     @property
     def as_root_args(self) -> list[str]:
@@ -562,8 +597,27 @@ class RequirementsFile:
                 yield f"--{name.replace('_', '-')}", ",".join(sorted(getattr(opt, name)))
 
 
-__all__ = (
+class EnvironmentProvider(Protocol):
+    def __call__(self) -> Mapping[str, str]: ...
+
+
+def protect_env_variables(text: str) -> str:
+    return text.replace("${", f"${_ENV_LITERAL_MARK}{{")
+
+
+def unprotect_env_variables(text: str) -> str:
+    return text.replace(f"${_ENV_LITERAL_MARK}{{", "${")
+
+
+# Defer pip-style expansion of host values until the inline parser finishes.
+_ENV_LITERAL_MARK: Final[str] = "\x00"
+
+
+__all__ = [
+    "EnvironmentProvider",
     "ParsedRequirement",
     "ReqFileLines",
     "RequirementsFile",
-)
+    "protect_env_variables",
+    "unprotect_env_variables",
+]

@@ -33,41 +33,24 @@ class ApplyGroupSuggestionResult(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'group_id': 'str',
-        'members_added': 'int',
-        'role_bindings_created': 'int',
-        'role_bindings_deleted': 'int',
-        'deleted_group_ids': 'list[str]'
+        'group_id': 'str'
     }
 
     attribute_map = {
-        'group_id': 'group_id',
-        'members_added': 'members_added',
-        'role_bindings_created': 'role_bindings_created',
-        'role_bindings_deleted': 'role_bindings_deleted',
-        'deleted_group_ids': 'deleted_group_ids'
+        'group_id': 'group_id'
     }
 
-    def __init__(self, group_id=None, members_added=None, role_bindings_created=None, role_bindings_deleted=None, deleted_group_ids=[], local_vars_configuration=None):  # noqa: E501
+    def __init__(self, group_id=None, local_vars_configuration=None):  # noqa: E501
         """ApplyGroupSuggestionResult - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._group_id = None
-        self._members_added = None
-        self._role_bindings_created = None
-        self._role_bindings_deleted = None
-        self._deleted_group_ids = None
         self.discriminator = None
 
         if group_id is not None:
             self.group_id = group_id
-        self.members_added = members_added
-        self.role_bindings_created = role_bindings_created
-        self.role_bindings_deleted = role_bindings_deleted
-        if deleted_group_ids is not None:
-            self.deleted_group_ids = deleted_group_ids
 
     @property
     def group_id(self):
@@ -91,104 +74,6 @@ class ApplyGroupSuggestionResult(object):
         """
 
         self._group_id = group_id
-
-    @property
-    def members_added(self):
-        """Gets the members_added of this ApplyGroupSuggestionResult.  # noqa: E501
-
-        How many users it holds, or joined it.  # noqa: E501
-
-        :return: The members_added of this ApplyGroupSuggestionResult.  # noqa: E501
-        :rtype: int
-        """
-        return self._members_added
-
-    @members_added.setter
-    def members_added(self, members_added):
-        """Sets the members_added of this ApplyGroupSuggestionResult.
-
-        How many users it holds, or joined it.  # noqa: E501
-
-        :param members_added: The members_added of this ApplyGroupSuggestionResult.  # noqa: E501
-        :type: int
-        """
-        if self.local_vars_configuration.client_side_validation and members_added is None:  # noqa: E501
-            raise ValueError("Invalid value for `members_added`, must not be `None`")  # noqa: E501
-
-        self._members_added = members_added
-
-    @property
-    def role_bindings_created(self):
-        """Gets the role_bindings_created of this ApplyGroupSuggestionResult.  # noqa: E501
-
-        How many role bindings it holds, or for a single-member group how many its member was granted directly.  # noqa: E501
-
-        :return: The role_bindings_created of this ApplyGroupSuggestionResult.  # noqa: E501
-        :rtype: int
-        """
-        return self._role_bindings_created
-
-    @role_bindings_created.setter
-    def role_bindings_created(self, role_bindings_created):
-        """Sets the role_bindings_created of this ApplyGroupSuggestionResult.
-
-        How many role bindings it holds, or for a single-member group how many its member was granted directly.  # noqa: E501
-
-        :param role_bindings_created: The role_bindings_created of this ApplyGroupSuggestionResult.  # noqa: E501
-        :type: int
-        """
-        if self.local_vars_configuration.client_side_validation and role_bindings_created is None:  # noqa: E501
-            raise ValueError("Invalid value for `role_bindings_created`, must not be `None`")  # noqa: E501
-
-        self._role_bindings_created = role_bindings_created
-
-    @property
-    def role_bindings_deleted(self):
-        """Gets the role_bindings_deleted of this ApplyGroupSuggestionResult.  # noqa: E501
-
-        How many role bindings it replaced or removed: its members' direct ones for a cluster, the replaced groups' for a merge, the direct ones removed for the other kinds, and the deleted group's for an empty group or a single-member group.  # noqa: E501
-
-        :return: The role_bindings_deleted of this ApplyGroupSuggestionResult.  # noqa: E501
-        :rtype: int
-        """
-        return self._role_bindings_deleted
-
-    @role_bindings_deleted.setter
-    def role_bindings_deleted(self, role_bindings_deleted):
-        """Sets the role_bindings_deleted of this ApplyGroupSuggestionResult.
-
-        How many role bindings it replaced or removed: its members' direct ones for a cluster, the replaced groups' for a merge, the direct ones removed for the other kinds, and the deleted group's for an empty group or a single-member group.  # noqa: E501
-
-        :param role_bindings_deleted: The role_bindings_deleted of this ApplyGroupSuggestionResult.  # noqa: E501
-        :type: int
-        """
-        if self.local_vars_configuration.client_side_validation and role_bindings_deleted is None:  # noqa: E501
-            raise ValueError("Invalid value for `role_bindings_deleted`, must not be `None`")  # noqa: E501
-
-        self._role_bindings_deleted = role_bindings_deleted
-
-    @property
-    def deleted_group_ids(self):
-        """Gets the deleted_group_ids of this ApplyGroupSuggestionResult.  # noqa: E501
-
-        The user groups a merge replaced, or the empty or single-member group, deleted.  # noqa: E501
-
-        :return: The deleted_group_ids of this ApplyGroupSuggestionResult.  # noqa: E501
-        :rtype: list[str]
-        """
-        return self._deleted_group_ids
-
-    @deleted_group_ids.setter
-    def deleted_group_ids(self, deleted_group_ids):
-        """Sets the deleted_group_ids of this ApplyGroupSuggestionResult.
-
-        The user groups a merge replaced, or the empty or single-member group, deleted.  # noqa: E501
-
-        :param deleted_group_ids: The deleted_group_ids of this ApplyGroupSuggestionResult.  # noqa: E501
-        :type: list[str]
-        """
-
-        self._deleted_group_ids = deleted_group_ids
 
     def to_dict(self):
         """Returns the model properties as a dict"""

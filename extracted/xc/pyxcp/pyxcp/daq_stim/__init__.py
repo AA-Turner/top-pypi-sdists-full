@@ -11,6 +11,7 @@ from pyxcp.config import get_application
 from pyxcp.cpp_ext.cpp_ext import DaqList, PredefinedDaqList
 from pyxcp.daq_stim.optimize import make_continuous_blocks
 from pyxcp.daq_stim.optimize.binpacking import first_fit_decreasing
+from pyxcp.daq_stim.stim import StimParameters
 from pyxcp.recorder import DaqOnlinePolicy as _DaqOnlinePolicy
 from pyxcp.recorder import DaqRecorderPolicy as _DaqRecorderPolicy
 from pyxcp.recorder import EventInfo, MeasurementParameters
@@ -46,12 +47,19 @@ EVENT_CHANNEL_TIME_UNIT_TO_NS = {
 }
 
 
-def event_channel_cycle_to_ns(cycle: int, unit: int) -> int:
+def event_channel_cycle_to_ns(cycle: int, unit: int | str) -> int:
     """Convert XCP event channel time cycle/unit to nanoseconds."""
-    unit_value = int(unit)
-    if unit_value not in EVENT_CHANNEL_TIME_UNIT_TO_NS:
-        raise ValueError(f"Unsupported event channel time unit: {unit}")
-    value = Fraction(int(cycle), 1) * EVENT_CHANNEL_TIME_UNIT_TO_NS[unit_value]
+    if isinstance(unit, str):
+        try:
+            unit_exponent = types.EVENT_CHANNEL_TIME_UNIT_TO_EXP[unit]
+        except KeyError as e:
+            raise ValueError(f"Unsupported event channel time unit: {unit}") from e
+        unit_value = Fraction(10) ** (unit_exponent + 9)
+    else:
+        unit_value = EVENT_CHANNEL_TIME_UNIT_TO_NS.get(int(unit))
+        if unit_value is None:
+            raise ValueError(f"Unsupported event channel time unit: {unit}")
+    value = Fraction(int(cycle), 1) * unit_value
     return max(1, (value.numerator + value.denominator - 1) // value.denominator) if value else 0
 
 
@@ -168,16 +176,20 @@ class DaqProcessor:
         # Flag indicating a fatal OS-level error occurred during DAQ (e.g., disk full, out-of-memory)
         self._fatal_os_error: bool = False
 
+    def set_master(self, xcp_master):
+        self.xcp_master = xcp_master
+
     def setup(
         self,
         start_datetime: CurrentDatetime | None = None,
         write_multiple: bool = True,
         daq_info_override: dict[str, Any] | None = None,
+        min_st_stim: int = 0,
     ):
         if not self.xcp_master.slaveProperties.supportsDaq:
             raise RuntimeError("DAQ functionality is not supported.")
 
-        self.daq_info = self.xcp_master.getDaqInfo(include_event_lists=False)
+        self.daq_info = self.xcp_master.getDaqInfo(include_event_lists=True)
         validity = self.daq_info.get("valid", {})
         processor_valid = validity.get("processor", True)
         resolution_valid = validity.get("resolution", True)
@@ -300,10 +312,17 @@ class DaqProcessor:
                     container_first = max_odt_container_size
             # Per-entry merge cap uses max_entry_size (unaffected by timestamp/PID_OFF); the ODT
             # bin capacity uses the container size.
-            ttt = make_continuous_blocks(daq_list.measurements, max_entry_size, max_entry_size)
+            list_entry_size = max_entry_size
+            if daq_list.stim:
+                stim_entry_size = resolution.get("maxOdtEntrySizeStim") or max_entry_size
+                list_entry_size = min(max_entry_size, stim_entry_size)
+            ttt = make_continuous_blocks(daq_list.measurements, list_entry_size, list_entry_size)
             daq_list.measurements_opt = first_fit_decreasing(ttt, max_odt_container_size, container_first)
         byte_order = 0 if self.xcp_master.slaveProperties.byteOrder == "INTEL" else 1
         self._first_pids = []
+        self.stim_lists = [i for i, d in enumerate(self.daq_lists, self.min_daq) if d.stim]
+        if self.stim_lists:
+            self._configure_stim(key_byte, byte_order, max_dto, min_st_stim)
         daq_count = len(self.daq_lists)
 
         # Decide whether DAQ allocation must be performed.
@@ -352,7 +371,9 @@ class DaqProcessor:
                 mode = 0x10
             if daq_list.stim:
                 mode |= 0x02
-            if switch_pid_off:
+                if (i - first_daq_list) in self.dto_ctr_lists:
+                    mode |= 0x08
+            if switch_pid_off and not daq_list.stim:
                 mode |= 0x20
             self.xcp_master.setDaqListMode(
                 daq_list_number=i,
@@ -361,30 +382,30 @@ class DaqProcessor:
                 prescaler=daq_list.prescaler,
                 priority=daq_list.priority,
             )
-
             # Packed DAQ support
             if hasattr(daq_list, "packed_mode") and daq_list.packed_mode != types.DaqPackedModeType.NOT_PACKED:
                 self.log.debug("Packed DAQ support enabled for DAQ list %s", i)
-                self.xcp_master.setDaqPackedMode(
+                status, result = self.xcp_master.try_command(
+                    self.xcp_master.setDaqPackedMode,
                     daq_list_number=i,
                     daq_packed_mode=daq_list.packed_mode,
                     dpm_timestamp_mode=daq_list.packed_ts_mode,
                     dpm_sample_count=daq_list.packed_sample_count,
+                    extra_msg="slave does not support packed DAQ, continuing without it",
                 )
-                # Fetch event cycle for timestamp reconstruction if not already done
-                if event_cycle_ns == 0:
-                    ev_info = self.xcp_master.getEventChannelInfo(daq_list.event_num)
-                    # Convert to ns. XCP 1.4 spec says unit is in 'eventChannelTimeCycleUnit'
-                    # For simplicity, we assume the master knows how to convert or we use a default.
-                    # In pyXCP, we might need to parse the unit.
-                    # For now, let's assume it's in the unit specified in ASAM.
-                    # TODO: Implement proper unit conversion.
-                    event_cycle_ns = ev_info.eventChannelTimeCycle * (
-                        10 ** (ev_info.eventChannelTimeUnit + 6)
-                    )  # Rough estimate: unit 6 = ms? No.
-                    # Actually, let's just use 1ms as default if we can't determine it, or let user specify.
+                packed_ok = status == types.TryCommandResult.OK
+                if status not in (types.TryCommandResult.OK, types.TryCommandResult.NOT_IMPLEMENTED):
+                    raise result
+                # Read the event cycle for timestamp reconstruction if not already set.
+                if packed_ok and event_cycle_ns == 0:
+                    channels = self.daq_info.get("channels", [])
+                    if 0 <= daq_list.event_num < len(channels):
+                        event_channel = channels[daq_list.event_num]
+                        event_cycle_ns = event_channel_cycle_to_ns(event_channel["cycle"], event_channel["unit"])
             res = self.xcp_master.startStopDaqList(0x02, i)
             self._first_pids.append(res.firstPid)
+            if daq_list.stim and not isinstance(daq_list, PredefinedDaqList):
+                self.xcp_master.stim.setFieldTypes(i, [t for _, t in daq_list.headers])
 
         self.measurement_params = MeasurementParameters(
             byte_order,
@@ -402,6 +423,28 @@ class DaqProcessor:
             self._first_pids,
         )
         self.set_parameters(self.measurement_params)
+
+    dto_ctr_lists: frozenset = frozenset()
+
+    def _configure_stim(self, key_byte, byte_order, max_dto, min_st_stim):
+        """Check STIM capabilities and configure the STIM mirror (frame layout, limits)."""
+        if not any(ch.get("stim") for ch in self.daq_info.get("channels", [])):
+            raise RuntimeError("STIM DAQ lists configured, but no event channel supports STIM.")
+        stim = self.xcp_master.stim
+        stim.activate(True)
+        params = StimParameters()
+        params.id_field = {
+            "IDF_ABS_ODT_NUMBER": 0,
+            "IDF_REL_ODT_NUMBER_ABS_DAQ_LIST_NUMBER_BYTE": 1,
+            "IDF_REL_ODT_NUMBER_ABS_DAQ_LIST_NUMBER_WORD": 2,
+            "IDF_REL_ODT_NUMBER_ABS_DAQ_LIST_NUMBER_WORD_ALIGNED": 3,
+        }.get(str(key_byte["identificationField"]), 0)
+        params.timestamp_size = self.ts_size
+        params.max_dto = max_dto
+        params.min_st_stim = min_st_stim
+        params.min_daq = self.min_daq
+        params.big_endian = bool(byte_order)
+        stim.setParameters(params)
 
     def start(self):
         self.xcp_master.startStopSynch(0x01)

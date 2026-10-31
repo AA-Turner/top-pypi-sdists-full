@@ -51,6 +51,7 @@ from .literals import (
     ResourceOwnerType,
     RunCacheStatusType,
     RunLogLevelType,
+    RunOutputUriPrefixModeType,
     RunRetentionModeType,
     RunStatusType,
     SchemaValueTypeType,
@@ -1363,6 +1364,7 @@ class StartRunRequestTypeDef(TypedDict):
     configurationName: NotRequired[str]
     sessionPolicy: NotRequired[str]
     engineSettings: NotRequired[Mapping[str, Any]]
+    outputUriPrefixMode: NotRequired[RunOutputUriPrefixModeType]
 
 class VariantImportItemSourceTypeDef(TypedDict):
     source: str
@@ -2314,6 +2316,7 @@ GetRunResponseTypeDef = TypedDict(
         "vpcConfig": VpcConfigResponseTypeDef,
         "engineSettings": dict[str, Any],
         "sessionPolicy": str,
+        "outputUriPrefixMode": RunOutputUriPrefixModeType,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )

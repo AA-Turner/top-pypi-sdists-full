@@ -202,9 +202,15 @@ Keyword arguments:
     Margin inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- mie (number; optional):
+    MarginInlineEnd, theme key: theme.spacing.
+
 - mih (string | number | dict; optional):
     Minimum height – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
+
+- mis (number; optional):
+    MarginInlineStart, theme key: theme.spacing.
 
 - miw (string | number | dict; optional):
     Minimum width – Accepts theme spacing keys, CSS values, or a dict
@@ -254,6 +260,12 @@ Keyword arguments:
     Padding inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- pie (number; optional):
+    PaddingInlineEnd, theme key: theme.spacing.
+
+- pis (number; optional):
+    PaddingInlineStart, theme key: theme.spacing.
+
 - pl (string | number | dict; optional):
     Padding left – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
@@ -296,6 +308,12 @@ Keyword arguments:
     Adds inline styles directly to inner elements of a component.  See
     Styles API docs.
 
+- success (a list of or a singular dash component, string or number; optional):
+    Determines whether the input should have success styles.
+
+- successProps (dict with strings as keys and values of type boolean | number | string | dict | list; optional):
+    Props passed down to the `Input.Success` component.
+
 - ta (dict; optional):
     Text align – Accepts CSS values or a dict for responsive styles.
 
@@ -331,8 +349,8 @@ Keyword arguments:
     Determines whether the required asterisk should be displayed.
     Overrides `required` prop. Does not add required attribute to the
     input. `False` by default."""
-    _children_props: typing.List[str] = ['label', 'description', 'error']
-    _base_nodes = ['label', 'description', 'error', 'children']
+    _children_props: typing.List[str] = ['label', 'description', 'error', 'success']
+    _base_nodes = ['label', 'description', 'error', 'success', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'InputWrapper'
     LabelProps = TypedDict(
@@ -361,11 +379,13 @@ Keyword arguments:
         label: typing.Optional[ComponentType] = None,
         description: typing.Optional[ComponentType] = None,
         error: typing.Optional[ComponentType] = None,
+        success: typing.Optional[ComponentType] = None,
         required: typing.Optional[bool] = None,
         withAsterisk: typing.Optional[bool] = None,
         labelProps: typing.Optional["LabelProps"] = None,
         descriptionProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
         errorProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
+        successProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
         inputWrapperOrder: typing.Optional[typing.Sequence[Literal["label", "input", "description", "error"]]] = None,
         hiddenFrom: typing.Optional[str] = None,
         visibleFrom: typing.Optional[str] = None,
@@ -424,6 +444,10 @@ Keyword arguments:
         style: typing.Optional[typing.Any] = None,
         lightHidden: typing.Optional[bool] = None,
         darkHidden: typing.Optional[bool] = None,
+        mis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        mie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         classNames: typing.Optional[dict] = None,
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
@@ -434,9 +458,9 @@ Keyword arguments:
         loading_state: typing.Optional["LoadingState"] = None,
         **kwargs
     ):
-        self._prop_names = ['children', 'id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'description', 'descriptionProps', 'display', 'error', 'errorProps', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'htmlFor', 'inputWrapperOrder', 'inset', 'label', 'labelElement', 'labelProps', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'required', 'right', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withAsterisk']
+        self._prop_names = ['children', 'id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'description', 'descriptionProps', 'display', 'error', 'errorProps', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'htmlFor', 'inputWrapperOrder', 'inset', 'label', 'labelElement', 'labelProps', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pie', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'required', 'right', 'size', 'style', 'styles', 'success', 'successProps', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withAsterisk']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['children', 'id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'description', 'descriptionProps', 'display', 'error', 'errorProps', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'htmlFor', 'inputWrapperOrder', 'inset', 'label', 'labelElement', 'labelProps', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'required', 'right', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withAsterisk']
+        self.available_properties = ['children', 'id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'description', 'descriptionProps', 'display', 'error', 'errorProps', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'htmlFor', 'inputWrapperOrder', 'inset', 'label', 'labelElement', 'labelProps', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pie', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'required', 'right', 'size', 'style', 'styles', 'success', 'successProps', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withAsterisk']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

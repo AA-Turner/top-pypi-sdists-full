@@ -185,9 +185,15 @@ Keyword arguments:
     Margin inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- mie (number; optional):
+    MarginInlineEnd, theme key: theme.spacing.
+
 - mih (string | number | dict; optional):
     Minimum height – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
+
+- mis (number; optional):
+    MarginInlineStart, theme key: theme.spacing.
 
 - miw (string | number | dict; optional):
     Minimum width – Accepts theme spacing keys, CSS values, or a dict
@@ -324,6 +330,12 @@ Keyword arguments:
         Margin inline end – Accepts theme spacing keys, CSS values, or
         a dict for responsive styles.
 
+    - mis (number; optional):
+        MarginInlineStart, theme key: theme.spacing.
+
+    - mie (number; optional):
+        MarginInlineEnd, theme key: theme.spacing.
+
     - ml (string | number | dict; optional):
         Margin left – Accepts theme spacing keys, CSS values, or a
         dict for responsive styles.
@@ -359,6 +371,12 @@ Keyword arguments:
     - pe (string | number | dict; optional):
         Padding inline end – Accepts theme spacing keys, CSS values,
         or a dict for responsive styles.
+
+    - pis (number; optional):
+        PaddingInlineStart, theme key: theme.spacing.
+
+    - pie (number; optional):
+        PaddingInlineEnd, theme key: theme.spacing.
 
     - pl (string | number | dict; optional):
         Padding left – Accepts theme spacing keys, CSS values, or a
@@ -537,6 +555,12 @@ Keyword arguments:
     Padding inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- pie (number; optional):
+    PaddingInlineEnd, theme key: theme.spacing.
+
+- pis (number; optional):
+    PaddingInlineStart, theme key: theme.spacing.
+
 - pl (string | number | dict; optional):
     Padding left – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
@@ -712,6 +736,8 @@ Keyword arguments:
             "mb": NotRequired[typing.Union[str, NumberType, dict]],
             "ms": NotRequired[typing.Union[str, NumberType, dict]],
             "me": NotRequired[typing.Union[str, NumberType, dict]],
+            "mis": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
+            "mie": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
             "ml": NotRequired[typing.Union[str, NumberType, dict]],
             "mr": NotRequired[typing.Union[str, NumberType, dict]],
             "p": NotRequired[typing.Union[str, NumberType, dict]],
@@ -721,6 +747,8 @@ Keyword arguments:
             "pb": NotRequired[typing.Union[str, NumberType, dict]],
             "ps": NotRequired[typing.Union[str, NumberType, dict]],
             "pe": NotRequired[typing.Union[str, NumberType, dict]],
+            "pis": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
+            "pie": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
             "pl": NotRequired[typing.Union[str, NumberType, dict]],
             "pr": NotRequired[typing.Union[str, NumberType, dict]],
             "bd": NotRequired[typing.Union[str, NumberType, dict]],
@@ -819,6 +847,8 @@ Keyword arguments:
         mb: typing.Optional[typing.Union[str, NumberType, dict]] = None,
         ms: typing.Optional[typing.Union[str, NumberType, dict]] = None,
         me: typing.Optional[typing.Union[str, NumberType, dict]] = None,
+        mis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        mie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         ml: typing.Optional[typing.Union[str, NumberType, dict]] = None,
         mr: typing.Optional[typing.Union[str, NumberType, dict]] = None,
         p: typing.Optional[typing.Union[str, NumberType, dict]] = None,
@@ -828,6 +858,8 @@ Keyword arguments:
         pb: typing.Optional[typing.Union[str, NumberType, dict]] = None,
         ps: typing.Optional[typing.Union[str, NumberType, dict]] = None,
         pe: typing.Optional[typing.Union[str, NumberType, dict]] = None,
+        pis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         pl: typing.Optional[typing.Union[str, NumberType, dict]] = None,
         pr: typing.Optional[typing.Union[str, NumberType, dict]] = None,
         bd: typing.Optional[typing.Union[str, NumberType, dict]] = None,
@@ -880,9 +912,9 @@ Keyword arguments:
         tabIndex: typing.Optional[NumberType] = None,
         **kwargs
     ):
-        self._prop_names = ['children', 'id', 'aria-*', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'closeButtonProps', 'closeOnClickOutside', 'closeOnEscape', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inset', 'keepMounted', 'left', 'lh', 'lightHidden', 'loading_state', 'lockScroll', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'offset', 'opacity', 'overlayProps', 'p', 'padding', 'pb', 'pe', 'pl', 'portalProps', 'pos', 'position', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'removeScrollProps', 'returnFocus', 'right', 'shadow', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'title', 'top', 'transitionProps', 'trapFocus', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withCloseButton', 'withOverlay', 'withinPortal', 'zIndex']
+        self._prop_names = ['children', 'id', 'aria-*', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'closeButtonProps', 'closeOnClickOutside', 'closeOnEscape', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inset', 'keepMounted', 'left', 'lh', 'lightHidden', 'loading_state', 'lockScroll', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'offset', 'opacity', 'overlayProps', 'p', 'padding', 'pb', 'pe', 'pie', 'pis', 'pl', 'portalProps', 'pos', 'position', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'removeScrollProps', 'returnFocus', 'right', 'shadow', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'title', 'top', 'transitionProps', 'trapFocus', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withCloseButton', 'withOverlay', 'withinPortal', 'zIndex']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['children', 'id', 'aria-*', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'closeButtonProps', 'closeOnClickOutside', 'closeOnEscape', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inset', 'keepMounted', 'left', 'lh', 'lightHidden', 'loading_state', 'lockScroll', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'offset', 'opacity', 'overlayProps', 'p', 'padding', 'pb', 'pe', 'pl', 'portalProps', 'pos', 'position', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'removeScrollProps', 'returnFocus', 'right', 'shadow', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'title', 'top', 'transitionProps', 'trapFocus', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withCloseButton', 'withOverlay', 'withinPortal', 'zIndex']
+        self.available_properties = ['children', 'id', 'aria-*', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'closeButtonProps', 'closeOnClickOutside', 'closeOnEscape', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inset', 'keepMounted', 'left', 'lh', 'lightHidden', 'loading_state', 'lockScroll', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'offset', 'opacity', 'overlayProps', 'p', 'padding', 'pb', 'pe', 'pie', 'pis', 'pl', 'portalProps', 'pos', 'position', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'removeScrollProps', 'returnFocus', 'right', 'shadow', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'title', 'top', 'transitionProps', 'trapFocus', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withCloseButton', 'withOverlay', 'withinPortal', 'zIndex']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

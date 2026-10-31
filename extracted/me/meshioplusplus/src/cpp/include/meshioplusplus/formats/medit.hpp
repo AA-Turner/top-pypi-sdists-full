@@ -25,13 +25,8 @@
  * tokenized, `MeshVersionFormatted`/`Dimension` header, then `Vertices`
  * (`x1 x2 [x3] ref` rows, 1-based) and element keyword sections
  * (`Edges`/`Triangles`/`Quadrilaterals`/`Tetrahedra`/`Prisms`/`Pyramids`/
- * `Hexahedra`/`Hexaedra`, and the high-order `EdgesP2`/`EdgesP3`/
- * `TrianglesP2`/`TrianglesP3`/`TetrahedraP2` as `line3`/`line4`/
- * `triangle6`/`triangle10`/`tetra10`), each a count followed by that many
- * `<node ids> ref` rows. libMeshb defines no node order for the high-order
- * sections: a file states its own in a `<Keyword>Ordering` section (one
- * integer tuple per node), which the readers apply and the writers emit
- * (doc/formats/medit.md). The trailing per-row integer becomes
+ * `Hexahedra`/`Hexaedra`), each a count followed by that many
+ * `<node ids> ref` rows. The trailing per-row integer becomes
  * `point_data["medit:ref"]`/`cell_data["medit:ref"]`; Medit stores at most
  * one such integer column, so only the first int-dtype point/cell data
  * array is kept on write (extras are dropped with a warning).
@@ -57,18 +52,16 @@ namespace meshioplusplus {
  * Emits `MeshVersionFormatted 2` (float64 coordinates) and `Dimension`,
  * then one keyword section per cell type present (`Vertices` is always
  * written; `Edges`/`Triangles`/`Quadrilaterals`/`Tetrahedra`/`Prisms`/
- * `Pyramids`/`Hexahedra` and the high-order sections, each after its
- * `<Keyword>Ordering`, as applicable), each row 1-based node ids
+ * `Pyramids`/`Hexahedra` as applicable), each row 1-based node ids
  * followed by a trailing reference integer. At most one int-dtype
  * point_data array and one int-dtype cell_data array are used to populate
  * the `ref` columns (Medit's single-reference-column limitation); if
  * `point_data`/`cell_data` contain more than one integer candidate, the
  * first is used and the rest are dropped with a warning. Ends with `End`.
  *
- * A cell type Medit has no keyword for is skipped with a warning.
- *
  * @param path filesystem path to the .mesh file to create/overwrite
  * @param mesh the mesh to write
+ * @throws WriteError on an unsupported cell type
  * @note reads `point_data`/`cell_data` key `"medit:ref"` if present
  *       (preferred over other int-dtype arrays for the ref column)
  */
@@ -82,12 +75,8 @@ MESHIOPLUSPLUS_API void write_medit_ascii(const std::string& rPath, const Mesh& 
  * 1-based node ids to 0-based. Sections such as `Corners`, `Normals`,
  * `NormalAtVertices`, `SubDomainFromMesh`, `VertexOnGeometricVertex`/
  * `Edge`, `EdgeOnGeometricEdge`, `Identifier`, `Geometry`,
- * `TangentAtVertices`, `Tangents` are recognized only enough to be
- * token-skipped, and are otherwise discarded; `Corners`,
- * `RequiredVertices`, `Ridges`, `RequiredEdges` and `RequiredTriangles`
- * become regions. A high-order section is put in meshio's node order by
- * the file's `<Keyword>Ordering` (meshio's order without one); an ordering
- * that is not a permutation of meshio++'s tuples throws.
+ * `RequiredVertices`, `TangentAtVertices`, `Tangents`, `Ridges` are
+ * recognized only enough to be token-skipped, and are otherwise discarded.
  *
  * @param path filesystem path to the .mesh file to read
  * @return the read Mesh, with `point_data["medit:ref"]` and
@@ -118,46 +107,6 @@ MESHIOPLUSPLUS_API Mesh read_medit_binary(const std::string& rPath);
  * @throws WriteError for points that are not 2-D or 3-D
  */
 MESHIOPLUSPLUS_API void write_medit_binary(const std::string& rPath, const Mesh& rMesh);
-
-/**
- * @brief Read a Medit solution: ascii `.sol`, or binary `.solb` when the path
- *        ends in `b` (libMeshb's `SolAt*` keywords, MMG's size maps and metrics).
- *
- * The result has no geometry: `NumPoints()` rows of zero-width points carrying
- * the `SolAtVertices` fields as `point_data["medit:sol:<i>"]` (`(n,)` for a
- * scalar, `(n, components)` otherwise; a symmetric matrix keeps the file's
- * lower-triangle order) and the dimension as `field_data["medit:dimension"]`.
- * Element sections need their mesh: they are skipped with a warning, and
- * `read_medit_sol_into` attaches them.
- *
- * @throws ReadError on a malformed or truncated file.
- */
-MESHIOPLUSPLUS_API Mesh read_medit_sol(const std::string& rPath);
-
-/**
- * @brief Attach the fields of a Medit solution to `rMesh`: `SolAtVertices`
- *        fields as `point_data["medit:sol:<i>"]`, `SolAt<Elements>` fields as
- *        `cell_data["medit:sol:<i>"]` (NaN on the blocks of other types; a name
- *        two types give different shapes gets a `:<cell type>` suffix).
- *
- * @throws ReadError when the file is malformed, or its dimension or row counts
- *         disagree with the mesh.
- */
-MESHIOPLUSPLUS_API void read_medit_sol_into(const std::string& rPath, Mesh& rMesh);
-
-/**
- * @brief Write a mesh's floating-point point and cell data as a Medit solution:
- *        ascii `.sol`, or little-endian binary `.solb` when the path ends in `b`.
- *
- * Each array becomes one field of the type its component count names in the
- * mesh's dimension (1: scalar, `dim`: vector, `dim*(dim+1)/2`: symmetric
- * matrix, `dim*dim`: full matrix); integer arrays and other widths are skipped
- * with a warning. A geometry-less mesh takes its dimension from
- * `field_data["medit:dimension"]`.
- *
- * @throws WriteError when there is nothing to write or no 2-D/3-D dimension.
- */
-MESHIOPLUSPLUS_API void write_medit_sol(const std::string& rPath, const Mesh& rMesh);
 
 /// `read_medit_binary` for a path ending in `b`, else `read_medit_ascii`.
 MESHIOPLUSPLUS_API Mesh read_medit(const std::string& rPath);

@@ -389,7 +389,9 @@ def prompt_diagnostics(
 
 # ── Patches ────────────────────────────────────────────────────────────────────
 
-PATCH_INSTRUCTIONS = (
+#: The tail of the registered host turn ``visual_map_repair`` (``matrx_ai.config.platform_parts``):
+#: sent ``authored_by: host`` inside ``repair_notice``, never a Holder's prompt.
+REPAIR_TURN_PATCH_TEXT = (
     "Answer with ONLY a patch: the items you change, never the whole diagram. Format:\n"
     '{"changes": [\n'
     '  {"list": "<list name, e.g. nodes>", "id": "<item id>", "set": {"<field>": <new value>}, "unset": ["<field>"]},\n'

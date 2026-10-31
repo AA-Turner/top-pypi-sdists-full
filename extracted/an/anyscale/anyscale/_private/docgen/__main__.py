@@ -33,12 +33,15 @@ from anyscale.commands import (
     cloud_commands,
     compute_config_commands,
     events_commands,
+    gpu_commands,
     image_commands,
     job_commands,
     job_queue_commands,
     login_commands,
     logs_commands,
     machine_pool_commands,
+    metrics_commands,
+    node_commands,
     organization_invitation_commands,
     policy_commands,
     project_commands,
@@ -58,12 +61,22 @@ from anyscale.compute_config.models import (
     ComputeConfigListResult,
     ComputeConfigVersion,
     HeadNodeConfig,
+    HeadNodeOptionConfig,
     MarketType,
     MultiResourceComputeConfig,
     PhysicalResources,
     WorkerNodeGroupConfig,
 )
 from anyscale.events.models import Event, EventsFilter
+from anyscale.gpus.models import (
+    Gpu,
+    GpuPlacement,
+    GpuState,
+    GpuTelemetry,
+    GpuWorkload,
+    GpuXid,
+    NodeGpus,
+)
 from anyscale.image.models import ImageBuild, ImageBuildStatus
 from anyscale.job.models import (
     ConnectionConfig,
@@ -90,6 +103,7 @@ from anyscale.job_queue.models import (
     SessionState,
     SortOrder,
 )
+from anyscale.metrics.models import MetricSample, MetricSeries, MetricsResource
 from anyscale.organization_invitation.models import OrganizationInvitation
 from anyscale.policy.models import (
     Policy,
@@ -141,8 +155,11 @@ from anyscale.service.models import (
     ServiceStatusChecklist,
     ServiceVersionState,
     ServiceVersionStatus,
+    StaticTrafficPolicy,
     StatusChecklistItem,
     TracingConfig,
+    TrafficPolicy,
+    TrafficPolicyType,
     VersionChecklist,
 )
 from anyscale.service_account.models import OrganizationPermissionLevel, ServiceAccount
@@ -377,6 +394,7 @@ ALL_MODULES = [
             service_commands.status,
             service_commands.wait,
             service_commands.rollback,
+            service_commands.update_traffic_policy,
             service_commands.terminate,
             service_commands.archive,
             service_commands.delete,
@@ -391,17 +409,23 @@ ALL_MODULES = [
             anyscale.service.status,
             anyscale.service.wait,
             anyscale.service.rollback,
+            anyscale.service.update_traffic_policy,
             anyscale.service.terminate,
             anyscale.service.archive,
             anyscale.service.delete,
             anyscale.service.add_tags,
             anyscale.service.remove_tags,
             anyscale.service.list_tags,
+            anyscale.service.token_add,
+            anyscale.service.token_delete,
         ],
         models=[
             ServiceConfig,
             RayGCSExternalStorageConfig,
             TracingConfig,
+            TrafficPolicy,
+            TrafficPolicyType,
+            StaticTrafficPolicy,
             ServiceStatus,
             ServiceState,
             ServiceVersionStatus,
@@ -443,6 +467,7 @@ ALL_MODULES = [
             ComputeConfigListResult,
             MultiResourceComputeConfig,
             HeadNodeConfig,
+            HeadNodeOptionConfig,
             WorkerNodeGroupConfig,
             MarketType,
             CloudDeploymentSelector,
@@ -482,6 +507,7 @@ ALL_MODULES = [
             image_commands.list,
             image_commands.register,
             image_commands.archive,
+            image_commands.unarchive,
         ],
         sdk_prefix="anyscale.image",
         sdk_commands=[
@@ -490,6 +516,7 @@ ALL_MODULES = [
             anyscale.image.list,
             anyscale.image.register,
             anyscale.image.archive,
+            anyscale.image.unarchive,
         ],
         models=[ImageBuildStatus, ImageBuild],
     ),
@@ -588,6 +615,41 @@ ALL_MODULES = [
         hidden=True,
     ),
     Module(
+        title="Metrics",
+        filename="metrics.md",
+        cli_prefix="anyscale metrics",
+        cli_commands=[
+            metrics_commands.names,
+            metrics_commands.query,
+            metrics_commands.query_range,
+        ],
+        sdk_prefix="anyscale.metrics",
+        sdk_commands=[
+            anyscale.metrics.names,
+            anyscale.metrics.query,
+            anyscale.metrics.query_range,
+        ],
+        models=[MetricsResource, MetricSeries, MetricSample],
+        # Not published yet: skips the whole page (CLI, SDK and models). The SDK stays
+        # importable and callable; see the note in commands/metrics_commands.py.
+        hidden=True,
+    ),
+    Module(
+        title="GPUs",
+        filename="gpus.md",
+        # The two commands hang under two groups; the group prefix map renders them as
+        # `anyscale node gpus` and `anyscale gpu get`.
+        cli_prefix="anyscale",
+        cli_commands=[node_commands.gpus, gpu_commands.get],
+        cli_command_group_prefix={node_commands.gpus: "node", gpu_commands.get: "gpu"},
+        sdk_prefix="anyscale.gpus",
+        sdk_commands=[anyscale.gpus.node_gpus, anyscale.gpus.get],
+        models=[NodeGpus, Gpu, GpuPlacement, GpuTelemetry, GpuState, GpuXid, GpuWorkload],
+        # Not published yet: skips the whole page (CLI, SDK and models). The SDK stays
+        # importable and callable; see the notes in commands/{node,gpu}_commands.py.
+        hidden=True,
+    ),
+    Module(
         title="Workspaces",
         filename="workspaces.md",
         cli_prefix="anyscale workspace_v2",
@@ -595,6 +657,7 @@ ALL_MODULES = [
             workspace_commands_v2.create,
             workspace_commands_v2.start,
             workspace_commands_v2.terminate,
+            workspace_commands_v2.delete,
             workspace_commands_v2.status,
             workspace_commands_v2.wait,
             workspace_commands_v2.ssh,
@@ -613,6 +676,7 @@ ALL_MODULES = [
             anyscale.workspace.create,
             anyscale.workspace.start,
             anyscale.workspace.terminate,
+            anyscale.workspace.delete,
             anyscale.workspace.status,
             anyscale.workspace.wait,
             anyscale.workspace.generate_ssh_config_file,

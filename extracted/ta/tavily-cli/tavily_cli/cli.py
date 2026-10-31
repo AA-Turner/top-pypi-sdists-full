@@ -7,6 +7,7 @@ import click
 from tavily_cli import __version__
 from tavily_cli.commands.auth import auth_status, login, logout
 from tavily_cli.commands.crawl import crawl
+from tavily_cli.commands.defaults import set_default, unset_default
 from tavily_cli.commands.extract import extract
 from tavily_cli.commands.init import init_command
 from tavily_cli.commands.map_cmd import map_urls
@@ -167,6 +168,8 @@ cli.add_command(crawl)
 cli.add_command(map_urls)
 cli.add_command(research)
 cli.add_command(update_command)
+cli.add_command(set_default)
+cli.add_command(unset_default)
 
 
 def main() -> None:

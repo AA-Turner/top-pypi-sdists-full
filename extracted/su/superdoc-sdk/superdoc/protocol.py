@@ -11,6 +11,7 @@ import math
 from dataclasses import dataclass
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
+from ._whitespace import trim_json_whitespace
 from .errors import (
     HOST_HANDSHAKE_FAILED,
     HOST_PROTOCOL_ERROR,
@@ -77,14 +78,18 @@ def encode_jsonrpc_request(
     return json.dumps(payload, separators=(',', ':')) + '\n'
 
 
+def _reject_nonfinite_json_constant(value: str) -> None:
+    raise ValueError(f'Invalid JSON constant: {value}')
+
+
 def parse_jsonrpc_line(line: str) -> ParsedMessage:
     """Parse a single line of JSON-RPC stdout into a typed message."""
-    stripped = line.strip()
+    stripped = trim_json_whitespace(line)
     if not stripped:
         return InvalidFrame(raw=line)
 
     try:
-        parsed = json.loads(stripped)
+        parsed = json.loads(stripped, parse_constant=_reject_nonfinite_json_constant)
     except (json.JSONDecodeError, ValueError):
         return InvalidFrame(raw=line)
 
@@ -96,7 +101,9 @@ def parse_jsonrpc_line(line: str) -> ParsedMessage:
         return JsonRpcNotification(method=parsed['method'], params=parsed.get('params'))
 
     raw_id = parsed.get('id')
-    if not isinstance(raw_id, int):
+    if type(raw_id) is not int:
+        return InvalidFrame(raw=line)
+    if ('result' in parsed) == ('error' in parsed):
         return InvalidFrame(raw=line)
 
     if 'error' in parsed:

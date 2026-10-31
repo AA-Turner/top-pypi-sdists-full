@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
      name='fyers_apiv3',  
-     version='3.2.0',
+     version='3.2.1',
      author="Fyers-Tech",
      author_email="support@fyers.in",
      description="Fyers trading APIs.",

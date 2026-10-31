@@ -29,9 +29,8 @@ Keyword arguments:
 - children (a list of or a singular dash component, string or number; optional):
     SplitterPane components must be direct children of Splitter. Put
     containers, content, or nested splitters inside a pane.
-    SplitterPane is not a standalone layout component: its parent
-    creates the underlying Mantine pane and applies its sizing and
-    styling props.
+    SplitterPane defines the pane's size   and behavior within
+    Splitter.
 
 - id (string; optional):
     Unique ID to identify this component in Dash callbacks.
@@ -120,7 +119,7 @@ Keyword arguments:
     Height – Accepts theme spacing keys, CSS values, or a dict for
     responsive styles.
 
-- handleColor (optional):
+- handleColor (string; optional):
     Key of theme.colors or any valid CSS color for the separator line.
 
 - handleIcon (a list of or a singular dash component, string or number; optional):
@@ -145,7 +144,8 @@ Keyword arguments:
     scheme with `display: none`.
 
 - lineSize (string | number; optional):
-    Separator line thickness.
+    CSS value for separator line thickness between panes Default
+    value: 2.
 
 - loading_state (dict; optional):
     Object that holds the loading state object coming from
@@ -232,7 +232,7 @@ Keyword arguments:
 - opacity (string | number | dict; optional):
     Opacity – Accepts CSS values or a dict for responsive styles.
 
-- orientation (a value equal to: 'vertical', 'horizontal'; optional):
+- orientation (a value equal to: 'horizontal', 'vertical'; optional):
     Layout direction, 'horizontal' by default.
 
 - p (string | number | dict; optional):
@@ -246,6 +246,26 @@ Keyword arguments:
 - pe (string | number | dict; optional):
     Padding inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
+
+- persisted_props (list of strings; optional):
+    Properties whose user interactions will persist after refreshing
+    the component or the page. Since only `value` is allowed this prop
+    can normally be ignored.
+
+- persistence (string | number | boolean; optional):
+    Used to allow user interactions in this component to be persisted
+    when the component - or the page - is refreshed. If `persisted` is
+    truthy and hasn't changed from its previous value, a `value` that
+    the user has changed while using the app will keep that change, as
+    long as the new `value` also matches what was given originally.
+    Used in conjunction with `persistence_type`. Note:  The component
+    must have an `id` for persistence to work.
+
+- persistence_type (a value equal to: 'local', 'session', 'memory'; optional):
+    Where persisted user changes will be stored: memory: only kept in
+    memory, reset on page refresh. local: window.localStorage, data is
+    kept after the browser quit. session: window.sessionStorage, data
+    is cleared once the browser quit.
 
 - pie (number; optional):
     PaddingInlineEnd, theme key: theme.spacing.
@@ -292,16 +312,18 @@ Keyword arguments:
     Right offset – Accepts CSS values or a dict for responsive styles.
 
 - shiftStep (number; optional):
-    Keyboard step when Shift is held.
+    Keyboard step when Shift is held. A number or a CSS value with
+    units, such as \"50%\", \"200px\", or \"10rem\". Default 10.
 
 - sizes (list of numbers; optional):
-    Controlled pane sizes. Updates continuously during resizing, not
-    just on release. Hence, server-side callbacks should preferably
-    not use this as a trigger.
+    Pane sizes. Updated on release after dragging and immediately for
+    keyboard resizing, collapse/expand, and double-click reset. Each
+    value keeps the unit it was declared in (number/`%` flexible,
+    `px`/`rem` fixed).
 
 - step (number; optional):
     Keyboard arrow step. Numbers and percentages are relative; px and
-    rem are fixed.
+    rem are fixed. default 1.
 
 - styles (boolean | number | string | dict | list; optional):
     Adds inline styles directly to inner elements of a component.  See
@@ -357,14 +379,14 @@ Keyword arguments:
     def __init__(
         self,
         children: typing.Optional[ComponentType] = None,
-        sizes: typing.Optional[typing.Sequence[typing.Union[NumberType]]] = None,
+        sizes: typing.Optional[typing.Sequence[typing.Union[str, NumberType]]] = None,
         collapsed: typing.Optional[typing.Sequence[NumberType]] = None,
-        orientation: typing.Optional[Literal["vertical", "horizontal"]] = None,
+        orientation: typing.Optional[Literal["horizontal", "vertical"]] = None,
         redistribute: typing.Optional[Literal["nearest", "equal"]] = None,
         resetOnDoubleClick: typing.Optional[bool] = None,
-        step: typing.Optional[typing.Union[NumberType]] = None,
-        shiftStep: typing.Optional[typing.Union[NumberType]] = None,
-        handleColor: typing.Optional[typing.Union[Literal["blue"], Literal["cyan"], Literal["gray"], Literal["green"], Literal["indigo"], Literal["lime"], Literal["orange"], Literal["pink"], Literal["red"], Literal["teal"], Literal["violet"], Literal["yellow"], Literal["dark"], Literal["grape"]]] = None,
+        step: typing.Optional[typing.Union[str, NumberType]] = None,
+        shiftStep: typing.Optional[typing.Union[str, NumberType]] = None,
+        handleColor: typing.Optional[str] = None,
         handleIcon: typing.Optional[ComponentType] = None,
         lineSize: typing.Optional[typing.Union[str, NumberType]] = None,
         withHandle: typing.Optional[bool] = None,
@@ -412,7 +434,7 @@ Keyword arguments:
         bgsz: typing.Optional[typing.Union[str, NumberType, dict]] = None,
         bgp: typing.Optional[typing.Union[str, NumberType, dict]] = None,
         bgr: typing.Optional[typing.Union[dict, Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["no-repeat"], Literal["repeat"], Literal["repeat-x"], Literal["repeat-y"], Literal["round"], Literal["space"]]] = None,
-        bga: typing.Optional[typing.Union[dict, Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["fixed"], Literal["local"], Literal["scroll"]]] = None,
+        bga: typing.Optional[typing.Union[dict, Literal["local"], Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["fixed"], Literal["scroll"]]] = None,
         pos: typing.Optional[typing.Union[dict, Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["fixed"], Literal["-webkit-sticky"], Literal["absolute"], Literal["relative"], Literal["static"], Literal["sticky"]]] = None,
         top: typing.Optional[typing.Union[str, NumberType, dict]] = None,
         left: typing.Optional[typing.Union[str, NumberType, dict]] = None,
@@ -437,11 +459,14 @@ Keyword arguments:
         id: typing.Optional[typing.Union[str, dict]] = None,
         tabIndex: typing.Optional[NumberType] = None,
         loading_state: typing.Optional["LoadingState"] = None,
+        persistence: typing.Optional[typing.Union[str, NumberType, bool]] = None,
+        persisted_props: typing.Optional[typing.Sequence[str]] = None,
+        persistence_type: typing.Optional[Literal["local", "session", "memory"]] = None,
         **kwargs
     ):
-        self._prop_names = ['children', 'id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'collapsed', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'handleColor', 'handleIcon', 'hiddenFrom', 'inset', 'left', 'lh', 'lightHidden', 'lineSize', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'orientation', 'p', 'pb', 'pe', 'pie', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'redistribute', 'resetOnDoubleClick', 'right', 'shiftStep', 'sizes', 'step', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withHandle']
+        self._prop_names = ['children', 'id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'collapsed', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'handleColor', 'handleIcon', 'hiddenFrom', 'inset', 'left', 'lh', 'lightHidden', 'lineSize', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'orientation', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pie', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'redistribute', 'resetOnDoubleClick', 'right', 'shiftStep', 'sizes', 'step', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withHandle']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['children', 'id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'collapsed', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'handleColor', 'handleIcon', 'hiddenFrom', 'inset', 'left', 'lh', 'lightHidden', 'lineSize', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'orientation', 'p', 'pb', 'pe', 'pie', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'redistribute', 'resetOnDoubleClick', 'right', 'shiftStep', 'sizes', 'step', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withHandle']
+        self.available_properties = ['children', 'id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'collapsed', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'handleColor', 'handleIcon', 'hiddenFrom', 'inset', 'left', 'lh', 'lightHidden', 'lineSize', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'orientation', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pie', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'redistribute', 'resetOnDoubleClick', 'right', 'shiftStep', 'sizes', 'step', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withHandle']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

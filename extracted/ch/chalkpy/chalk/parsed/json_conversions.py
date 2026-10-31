@@ -123,6 +123,7 @@ def _get_pseudofeature_id(s: Feature):
 
 
 def _convert_df(df: Type[DataFrame]) -> UpsertDataFrameGQL:
+    # The legacy graph has no field for `for_relationship(...)`; resolvers are planned from the proto graph, which does.
     return UpsertDataFrameGQL(
         columns=[
             _get_feature_id(f, root_fqn=True)

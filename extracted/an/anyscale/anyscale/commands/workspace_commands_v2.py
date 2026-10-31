@@ -47,6 +47,7 @@ from anyscale.commands.util import (
 )
 from anyscale.util import (
     AnyscaleJSONEncoder,
+    confirm,
     get_endpoint,
     validate_non_negative_arg,
     validate_workspace_state_filter,
@@ -792,6 +793,72 @@ def terminate(
     output_formats=[OutputFormat.TEXT],
     examples=[
         CommandExample(
+            description="Delete a workspace by name.",
+            command="anyscale workspace_v2 delete --name my-workspace --cloud my-cloud --project my-project",
+            output_raw=command_examples.WORKSPACE_DELETE_EXAMPLE,
+        ),
+    ],
+)
+@workspace_cli.command(
+    name="delete",
+    short_help="Delete a workspace.",
+    cls=AnyscaleCommand,
+)
+@click.option("--workspace-id", "--id", "id", required=False, help="Unique ID of the workspace.")
+@click.option("--name", "-n", required=False, help="Name of the workspace.")
+@click.option(
+    "--cloud",
+    required=False,
+    default=None,
+    type=str,
+    help="The Anyscale Cloud of the workspace (required with --name).",
+)
+@click.option(
+    "--project",
+    required=False,
+    default=None,
+    type=str,
+    help="Named project of the workspace (required with --name).",
+)
+@click.option("--yes", "-y", is_flag=True, default=False, help="Don't ask for confirmation.")
+def delete(
+    id: Optional[str],  # noqa: A002
+    name: Optional[str],
+    cloud: Optional[str],
+    project: Optional[str],
+    yes: bool,
+) -> None:
+    """Delete a workspace.
+
+    Only a terminated workspace, or one that failed to start, can be deleted. Terminate a running workspace first. Deleting cannot be undone.
+
+    To specify the workspace by name, use the --name flag along with --cloud and --project. To specify it by id, use the --id flag. Pass exactly one of --name and --id. If several workspaces in the project share the name, use --id to pick one.
+    """
+    _validate_workspace_name_and_id(name=name, id=id)
+    # The SDK rejects both of these too, but only after the user has answered the prompt.
+    if id is not None and (cloud is not None or project is not None):
+        raise click.ClickException("'--cloud' and '--project' should only be used with '--name'.")
+    if name is not None and (cloud is None or project is None):
+        raise click.ClickException("'--cloud' and '--project' are required when using '--name'.")
+    target = f"'{id}'" if name is None else f"'{name}' in project '{project}' on cloud '{cloud}'"
+    # Only a KubeRay delete reclaims the workspace's volume, so the file warning names it.
+    confirm(
+        f"Deleting workspace {target} cannot be undone. "
+        "If it is a KubeRay workspace, its files are deleted too. Continue?",
+        yes,
+    )
+    try:
+        anyscale.workspace.delete(name=name, id=id, cloud=cloud, project=project)
+    except ValueError as e:
+        raise click.ClickException(str(e)) from None
+
+
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
             description="Get the status of a workspace by name.",
             command="anyscale workspace_v2 status --name my-workspace",
             output_raw=command_examples.WORKSPACE_STATUS_EXAMPLE,
@@ -1267,9 +1334,8 @@ def ssh(  # noqa: PLR0912
             if not legacy:
                 # Try HTTPS first (unless legacy flag is set)
                 try:
-                    # include_config=False: the config fetch needs a cluster build id and a
-                    # compute config, neither of which a KubeRay workspace has, so it raises
-                    # before the tunnel is ever tried. Only the id is used below anyway.
+                    # include_config=False: only the id is used below, and the config costs
+                    # several further requests.
                     workspace_obj = anyscale.workspace.get(
                         name=name, id=id, cloud=cloud, project=project, include_config=False
                     )

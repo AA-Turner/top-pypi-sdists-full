@@ -9,11 +9,6 @@ nothing, so the host can read the keys without loading the modules that use them
 
 from __future__ import annotations
 
-#: ai.image.concept_generate / prompt_write / qc_judge.
-IMAGE_CONCEPT_MANDATE = "image_pipeline.concept"
-IMAGE_PROMPT_WRITE_MANDATE = "image_pipeline.prompt_write"
-IMAGE_QC_JUDGE_MANDATE = "image_pipeline.qc_judge"
-
 #: ``AIJudge`` — bound to the existing Proof Run Judge mandate (declared in
 #: aidream ``services/proof_runs/judge.py``).
 AI_JUDGE_MANDATE = "proof_runs.judge"
@@ -21,10 +16,6 @@ AI_JUDGE_MANDATE = "proof_runs.judge"
 #: The Judge harness's funnel lane, for a contract that names no mandate.
 RUBRIC_JUDGE_MANDATE = "evaluators.rubric_judge"
 COMPARATIVE_JUDGE_MANDATE = "evaluators.comparative_judge"
-
-#: ``ai.judge.resolve`` — picks the best of N gathered arms of one job, or merges
-#: them. Declared seedless: no agent is bound until one is built and agreed.
-ARM_RESOLVER_MANDATE = "evaluators.arm_resolver"
 
 #: The conversation labeler — title, description and keywords for a chat, and for
 #: a conversation an agent started (its prompt weighs the user's variables).

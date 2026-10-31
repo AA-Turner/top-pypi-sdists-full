@@ -274,7 +274,7 @@ class _FakeContinueRequest:
         self.kwargs = kwargs
 
     @classmethod
-    def model_validate(cls, payload: dict[str, Any]) -> "_FakeContinueRequest":
+    def model_validate(cls, payload: dict[str, Any]) -> _FakeContinueRequest:
         return cls(**payload)
 
 
@@ -290,9 +290,10 @@ async def test_conversation_continue_executes_through_the_host_seam():
     ``conversation_continuer`` seam (mirroring ``ai.agent.start``'s
     ``agent_runner``), and normalized the result.
     """
+    from matrx_connect.context.app_context import AppContext, clear_app_context, set_app_context
+
     import matrx_ai
     from matrx_ai._ext import _registry
-    from matrx_connect.context.app_context import AppContext, clear_app_context, set_app_context
     from matrx_ai.graph_nodes.conversation_action import (
         ConversationContinueInput,
         conversation_continue,
@@ -353,8 +354,9 @@ async def test_conversation_continue_requires_the_host_seam():
     """Without the host wiring, the node fails LOUDLY (RuntimeError naming the
     missing extensions) instead of the old silent AttributeError deep inside
     a package."""
-    from matrx_ai._ext import _registry
     from matrx_connect.context.app_context import AppContext, clear_app_context, set_app_context
+
+    from matrx_ai._ext import _registry
     from matrx_ai.graph_nodes.conversation_action import (
         ConversationContinueInput,
         conversation_continue,

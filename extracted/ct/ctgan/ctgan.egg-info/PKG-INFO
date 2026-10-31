@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ctgan
-Version: 0.12.1
+Version: 0.13.0
 Summary: Create tabular synthetic data using a conditional GAN
 Author-email: "DataCebo, Inc." <info@sdv.dev>
 License-Expression: BUSL-1.1
@@ -14,18 +14,16 @@ Classifier: Development Status :: 2 - Pre-Alpha
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: <3.15,>=3.9
+Requires-Python: <3.15,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: numpy>=1.21.0; python_version < "3.10"
-Requires-Dist: numpy>=1.23.3; python_version >= "3.10" and python_version < "3.12"
+Requires-Dist: numpy>=1.23.3; python_version < "3.12"
 Requires-Dist: numpy>=1.26.0; python_version >= "3.12" and python_version < "3.13"
 Requires-Dist: numpy>=2.1.0; python_version >= "3.13" and python_version < "3.14"
 Requires-Dist: numpy>=2.3.2; python_version >= "3.14"
@@ -160,7 +158,7 @@ discrete_columns = [
     'race',
     'sex',
     'native-country',
-    'income'
+    'income',
 ]
 
 ctgan = CTGAN(epochs=10)

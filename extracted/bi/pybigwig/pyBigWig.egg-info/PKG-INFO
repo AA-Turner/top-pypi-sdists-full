@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyBigWig
-Version: 0.3.26
+Version: 0.3.29
 Summary: A package for accessing bigWig files using libBigWig
 Author-email: "Devon P. Ryan" <dryan79@gmail.com>
 License: MIT

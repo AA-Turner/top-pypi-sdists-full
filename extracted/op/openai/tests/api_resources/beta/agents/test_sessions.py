@@ -30,6 +30,8 @@ class TestSessions:
         session = client.beta.agents.sessions.create(
             environment={"type": "none"},
             agent={
+                "compaction": {"async_": True},
+                "experimental": {"time_awareness": True},
                 "instructions": "instructions",
                 "model": "model",
                 "multi_agent": {
@@ -58,6 +60,7 @@ class TestSessions:
             agent_id="agent_id",
             input="x",
             metadata={"foo": "string"},
+            review="none",
             spend_control={"limit": 1},
             stream=False,
             vault_ids=["string"],
@@ -102,6 +105,8 @@ class TestSessions:
             environment={"type": "none"},
             stream=True,
             agent={
+                "compaction": {"async_": True},
+                "experimental": {"time_awareness": True},
                 "instructions": "instructions",
                 "model": "model",
                 "multi_agent": {
@@ -130,6 +135,7 @@ class TestSessions:
             agent_id="agent_id",
             input="x",
             metadata={"foo": "string"},
+            review="none",
             spend_control={"limit": 1},
             vault_ids=["string"],
         )
@@ -215,8 +221,18 @@ class TestSessions:
                 "model": "model",
                 "reasoning": {"effort": "none"},
                 "service_tier": "auto",
+                "tools": [
+                    {
+                        "description": "description",
+                        "name": "name",
+                        "parameters": {"foo": "bar"},
+                        "type": "function",
+                        "defer_loading": True,
+                    }
+                ],
             },
             metadata={"foo": "string"},
+            review="none",
             spend_control={"limit": 1},
         )
         assert_matches_type(AgentSession, session, path=["response"])
@@ -344,6 +360,8 @@ class TestAsyncSessions:
         session = await async_client.beta.agents.sessions.create(
             environment={"type": "none"},
             agent={
+                "compaction": {"async_": True},
+                "experimental": {"time_awareness": True},
                 "instructions": "instructions",
                 "model": "model",
                 "multi_agent": {
@@ -372,6 +390,7 @@ class TestAsyncSessions:
             agent_id="agent_id",
             input="x",
             metadata={"foo": "string"},
+            review="none",
             spend_control={"limit": 1},
             stream=False,
             vault_ids=["string"],
@@ -416,6 +435,8 @@ class TestAsyncSessions:
             environment={"type": "none"},
             stream=True,
             agent={
+                "compaction": {"async_": True},
+                "experimental": {"time_awareness": True},
                 "instructions": "instructions",
                 "model": "model",
                 "multi_agent": {
@@ -444,6 +465,7 @@ class TestAsyncSessions:
             agent_id="agent_id",
             input="x",
             metadata={"foo": "string"},
+            review="none",
             spend_control={"limit": 1},
             vault_ids=["string"],
         )
@@ -529,8 +551,18 @@ class TestAsyncSessions:
                 "model": "model",
                 "reasoning": {"effort": "none"},
                 "service_tier": "auto",
+                "tools": [
+                    {
+                        "description": "description",
+                        "name": "name",
+                        "parameters": {"foo": "bar"},
+                        "type": "function",
+                        "defer_loading": True,
+                    }
+                ],
             },
             metadata={"foo": "string"},
+            review="none",
             spend_control={"limit": 1},
         )
         assert_matches_type(AgentSession, session, path=["response"])

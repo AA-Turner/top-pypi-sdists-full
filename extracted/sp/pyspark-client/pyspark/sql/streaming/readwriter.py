@@ -207,6 +207,8 @@ class DataStreamReader(OptionUtils):
         >>> time.sleep(3)
         >>> q.stop()
         """
+        if value is None:
+            return self
         self._jreader = self._jreader.option(key, to_str(value))
         return self
 
@@ -242,8 +244,9 @@ class DataStreamReader(OptionUtils):
         >>> time.sleep(3)
         >>> q.stop()
         """
-        for k in options:
-            self._jreader = self._jreader.option(k, to_str(options[k]))
+        for k, v in options.items():
+            if v is not None:
+                self._jreader = self._jreader.option(k, to_str(v))
         return self
 
     def name(self, source_name: str) -> "DataStreamReader":
@@ -984,8 +987,12 @@ class DataStreamReader(OptionUtils):
             return self._df(self._jreader.changes(tableName))
         else:
             raise PySparkTypeError(
-                errorClass="NOT_STR",
-                messageParameters={"arg_name": "tableName", "arg_type": type(tableName).__name__},
+                errorClass="NOT_EXPECTED_TYPE",
+                messageParameters={
+                    "arg_name": "tableName",
+                    "expected_type": "str",
+                    "arg_type": type(tableName).__name__,
+                },
             )
 
 
@@ -1143,6 +1150,8 @@ class DataStreamWriter:
         >>> time.sleep(3)
         >>> q.stop()
         """
+        if value is None:
+            return self
         self._jwrite = self._jwrite.option(key, to_str(value))
         return self
 
@@ -1179,8 +1188,9 @@ class DataStreamWriter:
         >>> time.sleep(3)
         >>> q.stop()
         """
-        for k in options:
-            self._jwrite = self._jwrite.option(k, to_str(options[k]))
+        for k, v in options.items():
+            if v is not None:
+                self._jwrite = self._jwrite.option(k, to_str(v))
         return self
 
     @overload
@@ -1442,8 +1452,8 @@ class DataStreamWriter:
         elif once is not None:
             if once is not True:
                 raise PySparkValueError(
-                    errorClass="VALUE_NOT_TRUE",
-                    messageParameters={"arg_name": "once", "arg_value": str(once)},
+                    errorClass="VALUE_NOT_ALLOWED",
+                    messageParameters={"arg_name": "once", "allowed_values": "[True]"},
                 )
 
             jTrigger = getattr(
@@ -1473,8 +1483,8 @@ class DataStreamWriter:
         else:
             if availableNow is not True:
                 raise PySparkValueError(
-                    errorClass="VALUE_NOT_TRUE",
-                    messageParameters={"arg_name": "availableNow", "arg_value": str(availableNow)},
+                    errorClass="VALUE_NOT_ALLOWED",
+                    messageParameters={"arg_name": "availableNow", "allowed_values": "[True]"},
                 )
             jTrigger = getattr(
                 self._spark._sc._jvm, "org.apache.spark.sql.streaming.Trigger"

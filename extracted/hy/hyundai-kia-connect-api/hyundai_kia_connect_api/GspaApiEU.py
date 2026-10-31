@@ -2230,6 +2230,14 @@ class GspaApiEU(CciAuthMixin, ApiImpl):
         door state reflecting it in the fresh server data afterwards.
         The shared legacy "door" + close/open shape stays accepted by
         the backend, but the EU apps no longer send it.
+
+        When the vehicle reports SafeMode the apps dispatch lock/unlock
+        to the sibling .../door-lock-safety and .../door-unlock-safety
+        endpoints instead (door lock/unlock only; same
+        {"command": "set"} body, and unrecognized safe states fall back
+        to door-lock-safety). The endpoints are accepted by the backend
+        (202 on a PV5) but the behavioral difference is unverified, so
+        the library keeps the plain door-lock/door-unlock surface.
         """
         endpoint = "door-lock" if action == VEHICLE_LOCK_ACTION.LOCK else "door-unlock"
         return self._gspa_control_command(token, vehicle, endpoint, {"command": "set"})
@@ -2338,7 +2346,11 @@ class GspaApiEU(CciAuthMixin, ApiImpl):
         if options.defrost is not None:
             body["windshieldFrontDefogState"] = options.defrost
         if options.heating is not None:
-            body["heating1"] = options.heating
+            # heating1 is acked but has no effect on GSPA (PV5, #1398); one
+            # sideRearMirrorHeating flag covers the rear window and the
+            # mirrors, engaged by heating 1/2/4 — same mapping as the CCS2
+            # path. An explicit side_rear_mirror_heating option overrides.
+            body["sideRearMirrorHeating"] = 1 if options.heating in (1, 2, 4) else 0
         if options.temp_unit is not None:
             # tempUnit is a string on the wire ("C"/"F"); the 0/1 int form is
             # rejected with 400-002 (live-proven on a PV5, 2026-09-19).
@@ -2389,7 +2401,8 @@ class GspaApiEU(CciAuthMixin, ApiImpl):
             if options.climate is not None:
                 body["hvacCtrl"] = 1 if options.climate else 0
             if options.heating is not None:
-                body["heating1"] = options.heating
+                # Same mapping as start_climate (see there for rationale).
+                body["sideRearMirrorHeating"] = 1 if options.heating in (1, 2, 4) else 0
             if options.temp_unit is not None:
                 # tempUnit is a string on the wire ("C"/"F"); the 0/1 int
                 # form is rejected with 400-002 (live-proven on a PV5,
@@ -2612,7 +2625,11 @@ class GspaApiEU(CciAuthMixin, ApiImpl):
         vehicle: Vehicle,
         options: ScheduleChargingClimateRequestOptions,
     ) -> str:
-        """Schedule standalone HVAC reservation (reservedHVACInfo1/2 shape)."""
+        """Schedule standalone HVAC reservation (reservedHVACInfo1/2 shape).
+
+        reservInfo carries the app DTO: day list + time object only;
+        the schedule on/off is reservHVACflag and climate options live
+        in reservHVACSet. Live-proven on a Kia PV5 (2026-10-22)."""
         if options.first_departure is None:
             options.first_departure = (
                 ScheduleChargingClimateRequestOptions.DepartureOptions()
@@ -2638,17 +2655,20 @@ class GspaApiEU(CciAuthMixin, ApiImpl):
         def _make_reserv_info(
             dep: ScheduleChargingClimateRequestOptions.DepartureOptions,
         ) -> dict[str, Any]:
+            # App-confirmed reservInfo DTO (Kia EU 1.4.0
+            # ReservationInfoApiRequest): day list plus the time object
+            # only. The previous nested shape (scheduleEnable, hvacTemp,
+            # drvSeatLoc, ...) failed server-side with 500-000 on a PV5
+            # twice; with this app form the call returned 202 and
+            # applied, four runs. On/off travels in reservHVACflag, the
+            # climate options in reservHVACSet; 12:00 and later is
+            # afternoon (timeSection 1), matching reservation-charge.
             return {
-                "scheduleEnable": dep.enabled if dep.enabled is not None else False,
                 "day": dep.days or [0],
-                "time": dep.time.strftime("%I%M") if dep.time else "1200",
-                "windshieldFrontDefogState": options.defrost or False,
-                "ignitionDuration": 10,
-                "hvacCtrl": 1 if options.climate_enabled else 0,
-                "hvacTempType": 1,
-                "hvacTemp": f"{temperature:.1f}",
-                "tempUnit": options.temperature_unit,
-                "drvSeatLoc": "L",
+                "time": {
+                    "time": dep.time.strftime("%I%M") if dep.time else "1200",
+                    "timeSection": 1 if dep.time and dep.time >= dt.time(12, 0) else 0,
+                },
             }
 
         def _make_hvac_set() -> dict[str, Any]:

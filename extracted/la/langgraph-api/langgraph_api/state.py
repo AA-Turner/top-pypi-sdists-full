@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 import typing
+from contextlib import aclosing
 
+from langgraph.constants import TASKS
+from langgraph.pregel import Pregel
 from langgraph.types import Interrupt, StateSnapshot
 
 from langgraph_api.feature_flags import USE_NEW_INTERRUPTS
 from langgraph_api.js.base import RemoteInterrupt
 
 if typing.TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Iterable
+
     from langchain_core.runnables.config import RunnableConfig
 
     from langgraph_api.schema import Checkpoint, DeprecatedInterrupt, ThreadState
@@ -126,3 +131,89 @@ def state_snapshot_to_thread_state(state: StateSnapshot) -> ThreadState:
         if state.parent_config
         else None,
     }
+
+
+async def iter_state_history(
+    graph: Pregel,
+    config: RunnableConfig,
+    *,
+    limit: int,
+    filter: dict[str, typing.Any] | None = None,
+    before: RunnableConfig | None = None,
+) -> AsyncIterator[StateSnapshot]:
+    """Yield up to ``limit`` history entries, loading checkpoints in doubling pages.
+
+    ``aget_state_history`` loads every checkpoint it was asked for before it
+    yields the first. Asking for 1, 2, 4, ... checkpoints at a time means a
+    caller that stops early has loaded at most about twice what it consumed.
+    A non-positive ``limit`` reads the whole history, as the server's
+    checkpointer does, still in pages.
+    """
+    remaining = limit if limit > 0 else None
+    page_size = 1
+    while remaining is None or remaining > 0:
+        page = page_size if remaining is None else min(page_size, remaining)
+        loaded = 0
+        async with aclosing(
+            graph.aget_state_history(config, limit=page, filter=filter, before=before)
+        ) as states:
+            async for state in states:
+                loaded += 1
+                before = state.config
+                yield state
+                # Drop the entry before the next page loads.
+                del state
+        if loaded < page:
+            return
+        if remaining is not None:
+            remaining -= loaded
+        page_size *= 2
+
+
+def history_channels(graph: Pregel, value_keys: Iterable[str]) -> frozenset[str] | None:
+    """Channels a history read must load to return ``value_keys`` of each entry.
+
+    Returns None when the graph needs every channel. Rebuilding each entry's
+    ``next`` and ``tasks`` needs every trigger channel, since LangGraph only
+    counts a trigger as fired when its value is loaded, plus the tasks channel
+    and the input of each node that reads a single channel. Nodes with a
+    mapper (Pydantic or dataclass state) validate their whole input, and a
+    cache policy computes its key from the whole input when tasks are rebuilt,
+    so those graphs aren't narrowed.
+    """
+    nodes = graph.nodes.values()
+    if graph.cache_policy is not None or any(
+        node.mapper is not None or node.cache_policy is not None for node in nodes
+    ):
+        return None
+    triggers = [channel for node in nodes for channel in node.triggers]
+    single_inputs = [node.channels for node in nodes if isinstance(node.channels, str)]
+    return frozenset((*value_keys, *triggers, *single_inputs, TASKS))
+
+
+_GraphT = typing.TypeVar("_GraphT")
+
+
+def narrow_history_reads(
+    graph: _GraphT, config: RunnableConfig, value_keys: Iterable[str] | None
+) -> _GraphT:
+    """``graph``, set to load only what history needs to return ``value_keys``.
+
+    Applies to root history of Python graphs whose checkpointer can load part
+    of each checkpoint (``with_load_channels``). Subgraph namespaces have their
+    own triggers, so they load every channel. Returns ``graph`` unchanged when
+    it doesn't apply.
+    """
+    if (
+        value_keys is None
+        or not isinstance(graph, Pregel)
+        or config["configurable"].get("checkpoint_ns")
+    ):
+        return graph
+    with_load_channels = getattr(graph.checkpointer, "with_load_channels", None)
+    if with_load_channels is None:
+        return graph
+    channels = history_channels(graph, value_keys)
+    if channels is None:
+        return graph
+    return graph.copy(update={"checkpointer": with_load_channels(channels)})

@@ -9,7 +9,7 @@ lineage-related cross product, the unconditioned retry), never a re-search.
 
 from __future__ import annotations
 
-from collections import deque
+from collections import defaultdict, deque
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import cast
@@ -29,6 +29,7 @@ from trilogy.core.models.build_environment import BuildEnvironment
 from trilogy.core.processing import plan_trace
 from trilogy.core.processing.aggregate_rollup import (
     _is_rollable_aggregate,
+    at_own_grain,
     filter_finer_row_args,
     get_rollup_concepts,
     merge_rollup_concepts,
@@ -52,6 +53,7 @@ from trilogy.core.processing.node_generators.presence_probe import (
 from trilogy.core.processing.node_generators.select_helpers.datasource_nodes import (
     create_select_node,
     create_select_node_candidate,
+    datasource_regroups,
     finalize_select_node,
     subgraph_concepts,
 )
@@ -367,6 +369,47 @@ def _inject_rollup_edges(
             drawn.add(concept_node)
     graph.add_edges_from(edges)
     return drawn
+
+
+def scan_regroups(request: SourceRequest) -> bool:
+    """Whether the scan this request plans groups its rows: a source the
+    search picks is finer than what it is read for, the columns it provides
+    and the keys it joins on (`datasource_regroups`). Read off the search
+    alone, so it is known before any node is built."""
+    concepts = _search_concepts_for_bridge(request)
+    network = build_source_network(
+        concepts,
+        request.environment,
+        request.graph,
+        request.conditions,
+        request.deferred_conditions,
+        request.arm_local,
+        partial_ok=_undemanded_reach_keys(request, concepts),
+    )
+    solution = _memoized_search(network, request.history).solution
+    if solution is None:
+        return False
+    named: dict[str, list[BuildConcept]] = defaultdict(list)
+    for concept in concepts:
+        named[network.equivalence.get(concept.address, concept.address)].append(concept)
+    for node in solution.sources:
+        datasource = network.candidates[node].datasource
+        if not isinstance(datasource, BuildDatasource):
+            continue
+        read = set(solution.assignments.get(node, ())).union(
+            *(keys for pair, keys in solution.join_keys.items() if node in pair)
+        )
+        # a class is read as the request names it, as the scan is built;
+        # else as the column the source binds for its representative
+        read_concepts = [
+            concept
+            for a in sorted(read)
+            for concept in named.get(a)
+            or _chosen_source_concepts(request.environment, network, [node], a)
+        ]
+        if datasource_regroups(datasource, read_concepts, request.environment):
+            return True
+    return False
 
 
 def _memoized_search(network: SourceNetwork, history: V4History) -> SearchResult:
@@ -1275,6 +1318,29 @@ def _scan_renders_root(
     )
 
 
+def _summary_partials(
+    parents: list[StrategyNode], targets: list[BuildConcept]
+) -> list[BuildConcept]:
+    """Rollable aggregates a parent scans off a summary finer than their own
+    grain. A merge that keeps the summary's keys (a join handle a later group
+    needs) cannot sum them yet; it carries them as partials, so the group that
+    drops those keys re-sums them instead of deduplicating them."""
+    scanned = {
+        concept.address: parent.datasource
+        for parent in parents
+        if isinstance(parent, SelectNode) and parent.datasource is not None
+        for concept in parent.output_concepts
+    }
+    return [
+        concept
+        for concept in targets
+        if concept.is_aggregate
+        and _is_rollable_aggregate(concept)
+        and (ds := scanned.get(concept.address)) is not None
+        and not at_own_grain(concept, ds.grain)
+    ]
+
+
 def _merge_component_sources(
     request: SourceRequest,
     parents: list[StrategyNode],
@@ -1330,7 +1396,7 @@ def _merge_component_sources(
             request.conditions.conditional if request.conditions is not None else None
         ),
         force_group=True if rollup else None,
-        rollup_concepts=rollup or None,
+        rollup_concepts=rollup or _summary_partials(parents, targets) or None,
         preserve_parents=preserve_parents,
     )
 
@@ -1453,11 +1519,14 @@ def _finer_filter_rollup_source(
         for c in conditions.row_arguments
         if c.granularity != Granularity.SINGLE_ROW
     }
+    target_canonicals = {
+        environment.concepts[c].canonical_address if c in environment.concepts else c
+        for c in target_components
+    }
     matches: list[tuple[BuildDatasource, bool]] = []
     for ds in request.graph.scope.datasources:
         ds_canonicals = {c.canonical_address for c in ds.output_concepts}
-        ds_addresses = {c.address for c in ds.output_concepts}
-        if not target_components.issubset(ds_addresses):
+        if not target_canonicals.issubset(ds_canonicals):
             continue
         rolled = get_rollup_concepts(
             datasource=ds,

@@ -18,6 +18,7 @@ from coord.board_doctor import (
     ALERT_SKIPPED,
     CAUSE_BASELINE_RED,
     CAUSE_CEILING_BLOCKED_MERGEABLE,
+    CAUSE_SMOKE_NO_VERDICT,
     CONVERGENCE_LIMIT,
     TIER_ALERT,
     TIER_AUTO,
@@ -37,6 +38,7 @@ from coord.board_doctor_policy import (
     policy_tier_of,
 )
 from coord.config import Config
+from coord.drive_queue import parse_key
 from coord.models import Assignment, Board, Repo
 
 _IN_FLIGHT_DETAIL = (
@@ -50,28 +52,44 @@ _UNPINNABLE_DETAIL = (
 
 
 def _row(
-    key: str, cause: str, queue: str = "drive-queue", evidence: tuple[str, ...] = ()
+    key: str,
+    cause: str,
+    queue: str = "drive-queue",
+    evidence: tuple[str, ...] = (),
+    *,
+    fresh: bool = True,
 ) -> StuckRow:
     return StuckRow(
         queue=queue,
         key=key,
         state="stuck",
         cause=cause,
-        confidence="high",
+        confidence=queue_diagnose.CONFIDENCE_HIGH,
         evidence=evidence or (f"cause={cause}",),
+        fresh=fresh,
     )
 
 
+def test_parse_row_key_is_the_one_shared_parser() -> None:
+    # #3807: this module's private row-key splitter must be the same
+    # function as coord.drive_queue.parse_key, not a second
+    # implementation that happens to agree with it today.
+    assert board_doctor_policy._parse_row_key is parse_key
+
+
 class TestPolicyTierOf:
-    def test_allowlist_holds_exactly_the_two_3760_entries(self) -> None:
+    def test_allowlist_holds_exactly_the_3760_entries(self) -> None:
         # No cause is pre-approved for auto-action without a reviewed,
-        # known-safe fix behind it. #3760 (C3) names exactly two: a
+        # known-safe fix behind it. #3760 names three: a
         # ceiling-blocked-but-mergeable row gets a fresh fix-round budget,
-        # and a row whose PR already merged gets cleared. Every other
-        # cause stays alert-tier.
+        # a row whose PR already merged gets cleared, and a row whose smoke
+        # leg produced no parseable verdict gets its Test verdict cleared so
+        # it re-dispatches (Action 5, #2244). Every other cause stays
+        # alert-tier.
         assert ALLOWLIST == {
             CAUSE_CEILING_BLOCKED_MERGEABLE: "drive_queue_requeue",
             queue_diagnose.CAUSE_PR_MERGED: "drive_queue_remove",
+            CAUSE_SMOKE_NO_VERDICT: "smoke_requeue",
         }
 
     def test_every_other_cause_is_alert_tier_today(self) -> None:
@@ -221,6 +239,18 @@ class TestEscalationAlertDispatcher:
         # A key like "#12" rpartitions to an empty repo_name — must not
         # write an escalation keyed on an empty repo.
         row = _row("#12", "ci_red")
+
+        assert escalation_alert_dispatcher(row) is False
+
+        assert state.list_drive_escalations() == []
+
+    def test_negative_issue_number_is_rejected_without_writing(self) -> None:
+        # #3807: a key like "repo#-5" must parse the same way everywhere —
+        # the shared parser (coord.drive_queue.parse_key) requires a bare
+        # digit string after the last "#", so a leading "-" is rejected
+        # here exactly as it is by dismiss_resolved_escalation, instead of
+        # one accepting it via int() and the other rejecting it.
+        row = _row("acme/widgets#-5", "ci_red")
 
         assert escalation_alert_dispatcher(row) is False
 
@@ -382,6 +412,23 @@ class TestDismissResolvedEscalation:
         dismiss_resolved_escalation("drive-queue", "no-hash-separator")
         dismiss_resolved_escalation("drive-queue", "#12")
 
+    def test_negative_issue_number_does_not_raise_or_dismiss(self) -> None:
+        # #3807: "repo#-5" must be rejected here exactly as it is by
+        # escalation_alert_dispatcher — both now route through the same
+        # coord.drive_queue.parse_key, which requires a bare digit tail.
+        state.record_drive_escalation(
+            "acme/widgets",
+            5,
+            stage="board-doctor:drive-queue",
+            reason="ci_red",
+            gate_readings="",
+            proposed_command="coord status",
+        )
+
+        dismiss_resolved_escalation("drive-queue", "acme/widgets#-5")
+
+        assert state.get_drive_escalation("acme/widgets", 5) is not None
+
     def test_missing_escalation_does_not_raise(self) -> None:
         dismiss_resolved_escalation("drive-queue", "acme/widgets#404")
 
@@ -511,6 +558,124 @@ class TestInvestigate:
         assert _investigate(row) is False
         assert calls == [("acme/widgets", 40)]
 
+        escalation = state.get_drive_escalation("acme/widgets", 40)
+        assert escalation is not None
+        assert escalation["stage"] == "board-doctor:drive-queue"
+
+    def test_ceiling_bypass_dispatches_a_fixit_leg_for_a_high_confidence_merge_conflict(
+        self, monkeypatch
+    ) -> None:
+        # #3777: the ceiling exists to stop a BLIND relaunch loop, not to
+        # suppress a fix-it leg a fresh, high-confidence diagnosis
+        # specifically calls for — a merge-conflict row still dispatches
+        # even though the drive-queue row already gave up on the #2972
+        # ceiling.
+        monkeypatch.setattr(
+            "coord.drive_queue.fix_round_ceiling_blocked_for_issue",
+            lambda repo_name, issue_number: True,
+        )
+        monkeypatch.setattr(common, "resolve_and_load_config", lambda path, **k: object())
+        monkeypatch.setattr(board_doctor_policy, "_investigate_tier_enabled", lambda *a, **k: True)
+        monkeypatch.setattr(state, "build_board", lambda: object())
+        monkeypatch.setattr(
+            board_doctor_policy,
+            "dispatch_sweep_action",
+            lambda *a, **k: {
+                "dispatched": True,
+                "assignment_id": "asn-1",
+                "machine": "mac1",
+                "detail": "acme/widgets#40 fix-it leg dispatched to mac1 (iteration 1)",
+            },
+        )
+        row = _row("acme/widgets#40", queue_diagnose.CAUSE_MERGE_CONFLICT)
+
+        assert _investigate(row) is True
+        assert state.list_drive_escalations() == []
+
+    def test_ceiling_still_blocks_a_merge_conflict_row_below_high_confidence(
+        self, monkeypatch
+    ) -> None:
+        # The bypass is HIGH-confidence only — a merge-conflict diagnosis
+        # that is not the fleet's strongest signal still falls back to the
+        # alert tier exactly like any other ceiling-blocked row.
+        monkeypatch.setattr(
+            "coord.drive_queue.fix_round_ceiling_blocked_for_issue",
+            lambda repo_name, issue_number: True,
+        )
+
+        def boom_if_called(path, **kwargs):
+            raise AssertionError(
+                "config must not be resolved once the ceiling check blocks"
+            )
+
+        monkeypatch.setattr(common, "resolve_and_load_config", boom_if_called)
+
+        def dispatch_must_not_be_called(*args, **kwargs):
+            raise AssertionError(
+                "dispatch_sweep_action must not run once the ceiling check blocks"
+            )
+
+        monkeypatch.setattr(
+            board_doctor_policy, "dispatch_sweep_action", dispatch_must_not_be_called
+        )
+
+        row = StuckRow(
+            queue="drive-queue",
+            key="acme/widgets#40",
+            state="stuck",
+            cause=queue_diagnose.CAUSE_MERGE_CONFLICT,
+            confidence=queue_diagnose.CONFIDENCE_MEDIUM,
+            evidence=("cause=merge-conflict",),
+            fresh=True,
+        )
+
+        assert _investigate(row) is False
+        escalation = state.get_drive_escalation("acme/widgets", 40)
+        assert escalation is not None
+        assert escalation["stage"] == "board-doctor:drive-queue"
+
+    def test_ceiling_still_blocks_a_stale_high_confidence_merge_conflict_row(
+        self, monkeypatch
+    ) -> None:
+        # #3777: a HIGH-confidence merge-conflict row is only new evidence
+        # when it is this sweep's own live verdict (`StuckRow.fresh`) — a
+        # row reconstructed from a possibly arbitrarily-old stored
+        # `block_log` diagnosis (`fresh=False`, e.g. via
+        # `coord.board_doctor._episode_stuck_row`) must not bypass the
+        # ceiling just because it happens to carry a stale high-confidence
+        # cause/confidence pair.
+        monkeypatch.setattr(
+            "coord.drive_queue.fix_round_ceiling_blocked_for_issue",
+            lambda repo_name, issue_number: True,
+        )
+
+        def boom_if_called(path, **kwargs):
+            raise AssertionError(
+                "config must not be resolved once the ceiling check blocks"
+            )
+
+        monkeypatch.setattr(common, "resolve_and_load_config", boom_if_called)
+
+        def dispatch_must_not_be_called(*args, **kwargs):
+            raise AssertionError(
+                "dispatch_sweep_action must not run once the ceiling check blocks"
+            )
+
+        monkeypatch.setattr(
+            board_doctor_policy, "dispatch_sweep_action", dispatch_must_not_be_called
+        )
+
+        row = StuckRow(
+            queue="drive-queue",
+            key="acme/widgets#40",
+            state="stuck",
+            cause=queue_diagnose.CAUSE_MERGE_CONFLICT,
+            confidence=queue_diagnose.CONFIDENCE_HIGH,
+            evidence=("cause=merge-conflict",),
+            fresh=False,
+        )
+
+        assert _investigate(row) is False
         escalation = state.get_drive_escalation("acme/widgets", 40)
         assert escalation is not None
         assert escalation["stage"] == "board-doctor:drive-queue"

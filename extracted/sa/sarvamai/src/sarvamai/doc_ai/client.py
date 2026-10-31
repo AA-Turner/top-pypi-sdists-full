@@ -104,7 +104,7 @@ class DocAiClient:
             Comma-separated upload IDs returned by `POST /doc-ai/v1/job/upload`. Exactly one of `file` and `upload_ids` must be provided.
 
         language : typing.Optional[str]
-            Language of the document in BCP-47 format (e.g. `hi-IN`, `en-IN`). Defaults to Indic: when omitted, the document is processed as an Indic-language document. To process an English document, set `language` to `en-IN`. Sarvam Vision supports 22 Indian languages plus English; see the [Sarvam Vision model page](/api/getting-started/models/sarvam-vision) for the full list.
+            Language of the document in BCP-47 format (e.g. `hi-IN`, `en-IN`). Defaults to Indic: when omitted, the document is processed as an Indic-language document. To process an English document, set `language` to `en-IN`. Sarvam Vision supports 22 Indian languages plus English; see the [Sarvam Vision model page](/api/api-guides-tutorials/models/sarvam-vision) for the full list.
 
         content_type : typing.Optional[DocAiParseRequestContentType]
             Nature of the document content.
@@ -572,7 +572,7 @@ class AsyncDocAiClient:
             Comma-separated upload IDs returned by `POST /doc-ai/v1/job/upload`. Exactly one of `file` and `upload_ids` must be provided.
 
         language : typing.Optional[str]
-            Language of the document in BCP-47 format (e.g. `hi-IN`, `en-IN`). Defaults to Indic: when omitted, the document is processed as an Indic-language document. To process an English document, set `language` to `en-IN`. Sarvam Vision supports 22 Indian languages plus English; see the [Sarvam Vision model page](/api/getting-started/models/sarvam-vision) for the full list.
+            Language of the document in BCP-47 format (e.g. `hi-IN`, `en-IN`). Defaults to Indic: when omitted, the document is processed as an Indic-language document. To process an English document, set `language` to `en-IN`. Sarvam Vision supports 22 Indian languages plus English; see the [Sarvam Vision model page](/api/api-guides-tutorials/models/sarvam-vision) for the full list.
 
         content_type : typing.Optional[DocAiParseRequestContentType]
             Nature of the document content.

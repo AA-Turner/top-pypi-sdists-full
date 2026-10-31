@@ -1101,6 +1101,64 @@ head_node:
 """
 
 
+@dataclass(frozen=True)
+class HeadNodeOptionConfig(HeadNodeConfig):
+    """One of the head node options of a cluster, of which one runs as the head."""
+
+    __doc_py_example__ = """
+from anyscale.compute_config.models import ComputeConfig, HeadNodeOptionConfig
+
+config = ComputeConfig(
+    head_nodes=[
+        HeadNodeOptionConfig(
+            name="reserved",
+            instance_type="m5.8xlarge",
+            advanced_instance_config={
+                "CapacityReservationSpecification": {
+                    "CapacityReservationTarget": {"CapacityReservationId": "cr-0abc123"}
+                }
+            },
+        ),
+        HeadNodeOptionConfig(name="on-demand", instance_type="m5.8xlarge"),
+    ],
+)
+"""
+
+    __doc_yaml_example__ = """
+head_nodes:
+  - name: reserved
+    instance_type: m5.8xlarge
+    advanced_instance_config:
+      CapacityReservationSpecification:
+        CapacityReservationTarget:
+          CapacityReservationId: cr-0abc123
+  - name: on-demand
+    instance_type: m5.8xlarge
+"""
+
+    name: Optional[str] = field(
+        default=None,
+        metadata={
+            "docstring": "A name for this option, unique among the head node options. An instance ranking strategy with `ray_node_type: head` orders the options by name."
+        },
+    )
+
+    def _validate_name(self, name: Optional[str]):
+        if not name or not isinstance(name, str):
+            raise ValueError("'name' must be a non-empty string")
+        if "/" in name:
+            raise ValueError("'name' must not contain '/'")
+
+    def _validate_required_labels(self, required_labels: Optional[LabelDict]):
+        _validate_label_dict(required_labels)
+        if self.required_resources is None:
+            # An instance type option gets its accelerator from the instance type, so the accelerator
+            # label shared with the free pod shape options doesn't apply to it.
+            return
+        self._validate_gpu_accelerator_consistency(required_labels)
+        self._validate_tpu_accelerator_consistency(required_labels)
+
+
 class MarketType(ModelEnum):
     """Market type of instances to use (on-demand vs. spot)."""
 
@@ -1380,6 +1438,55 @@ advanced_instance_config: # (Optional) Defaults to no advanced configurations.
             raise TypeError("'head_node' must be a HeadNodeConfig or corresponding dict")
 
         return head_node
+
+    head_nodes: Optional[List[Union[HeadNodeOptionConfig, Dict]]] = field(
+        default=None,
+        repr=False,
+        metadata={
+            "docstring": "Options for the head node of the cluster, one of which runs as the head. Each option sets its own instance type or required resources and advanced instance config, and the options must match on everything else. An instance ranking strategy with `ray_node_type: head` orders them by name. Cannot be set together with `head_node`."
+        },
+    )
+
+    def _validate_head_nodes(
+        self, head_nodes: Optional[List[Union[HeadNodeOptionConfig, Dict]]]
+    ) -> Optional[List[HeadNodeOptionConfig]]:
+        if head_nodes is None:
+            return None
+
+        if self.head_node is not None:
+            raise ValueError("Set 'head_node' or 'head_nodes', not both.")
+
+        if not isinstance(head_nodes, list) or not all(
+            isinstance(c, (dict, HeadNodeOptionConfig)) for c in head_nodes
+        ):
+            raise TypeError(
+                "'head_nodes' must be a list of HeadNodeOptionConfigs or corresponding dicts"
+            )
+        if not head_nodes:
+            raise ValueError("'head_nodes' must have at least one option")
+
+        options: List[HeadNodeOptionConfig] = []
+        for option in head_nodes:
+            parsed = HeadNodeOptionConfig.from_dict(option) if isinstance(option, dict) else option
+            assert isinstance(parsed, HeadNodeOptionConfig)
+            options.append(parsed)
+
+        names = [option.name for option in options]
+        duplicate_names = {name for name in names if names.count(name) > 1}
+        if duplicate_names:
+            raise ValueError(
+                f"'head_nodes' names must be unique, but got duplicate names: {duplicate_names}"
+            )
+
+        first = options[0]
+        for option in options[1:]:
+            for shared in ("resources", "labels", "required_labels", "flags", "cloud_deployment"):
+                if getattr(option, shared) != getattr(first, shared):
+                    raise ValueError(
+                        f"'head_nodes' options must match on '{shared}', but '{option.name}' differs from '{first.name}'."
+                    )
+
+        return options
 
     worker_nodes: Optional[List[Union[WorkerNodeGroupConfig, Dict]]] = field(
         default=None,

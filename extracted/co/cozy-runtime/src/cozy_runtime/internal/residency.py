@@ -10,7 +10,6 @@ from __future__ import annotations
 import hashlib
 import inspect
 import math
-import queue
 import sys
 import threading
 import time
@@ -60,6 +59,9 @@ __all__ = [
     "TensorLayout",
     "Weights",
     "blocks_of",
+    "paging",
+    "split",
+    "unpaged",
 ]
 
 progress = 0
@@ -212,6 +214,8 @@ class BindingLayout(Protocol):
 class Declared:
     weights: Weights
     blocks: Sequence[str] | None = None
+    #: The `paging` rule that found `blocks` (`+split` when `split` made units smaller).
+    rule: str = ""
     fill: Filling | None = None
     bind: Callable[[str, Mapping[str, Tensor]], Mapping[str, Tensor]] | None = None
     finals: BindingLayout | None = None
@@ -255,16 +259,121 @@ def _readable(value: Any) -> Any:
 
 
 def blocks_of(module: nn.Module) -> list[str]:
+    return paging(module)[1]
+
+
+def paging(module: nn.Module) -> tuple[str, list[str]]:
+    """A component's paging blocks and the rule that found them, so no package has to name them:
+    its declaration (`declared`), else its root's `_no_split_modules` (`root`), else those of the
+    models inside it (`submodules`: a wrapper around a Transformers or Diffusers model takes that
+    model's units), else its largest list of repeated same-class children (`repeated`: a model's
+    layers). MOSS-Image's 9B text encoder and 5B DiT each named none and were one block."""
     declared = vars(module).get("_cozy_weights")
     if isinstance(declared, Declared) and declared.blocks is not None:
-        return list(declared.blocks)
-    names = set(getattr(module, "_no_split_modules", None) or ())
+        return declared.rule or "declared", list(declared.blocks)
+    rule, names = "root", set(getattr(module, "_no_split_modules", None) or ())
+    if not names:
+        rule = "submodules"
+        names = {n for sub in module.modules() for n in getattr(sub, "_no_split_modules", None) or ()}
     found = [
         path
         for path, sub in module.named_modules()
         if path and any(kind.__name__ in names for kind in type(sub).__mro__)
     ]
-    return [a for a in found if not any(b.startswith(a + ".") for b in found)]
+    found = [a for a in found if not any(b.startswith(a + ".") for b in found)]
+    if found:
+        return rule, found
+    best, most = [], 0
+    for path, sub in module.named_modules():
+        children = list(sub.named_children()) if isinstance(sub, nn.ModuleList | nn.Sequential) else []
+        if len(children) < 2 or len({type(child) for _, child in children}) > 1:
+            continue
+        size = sum(t.numel() * t.element_size() for t in sub.parameters())
+        if size > most:
+            best, most = [f"{path}.{name}" if path else name for name, _ in children], size
+    return ("repeated", best) if best else ("none", [])
+
+
+#: A paging unit larger than this is a warning: a quarter of an 8 GB card.
+_LARGEST_UNIT = 2 << 30
+#: A paging unit holding more than this splits (`split`), the same on every card.
+_SPLIT_UNIT = 1 << 30
+
+
+def _unit(name: str, blocks: Collection[str]) -> str:
+    """The block holding tensor `name` (its longest dotted prefix that is a block), "" for common."""
+    while name:
+        name = name.rpartition(".")[0]
+        if name in blocks:
+            return name
+    return ""
+
+
+def split(module: nn.Module, paths: Sequence[str], sizes: Mapping[str, int]) -> list[str]:
+    """`paths` with each unit over `_SPLIT_UNIT` split where child modules allow: a block gives way to
+    its weighted children (its own tensors join the common weights), and the common weights give their
+    largest children that hold no block, one at a time, until under. A new block over the bound splits
+    the same way, down to single layers; one tensor over it stays whole. `sizes` are the stored bytes
+    by module-relative tensor name. Hunyuan-Image-3 kept 10 GB of attention and dense layers in common
+    beside its expert blocks."""
+    modules = dict(module.named_modules())
+    blocks = set(paths)
+
+    def held() -> dict[str, int]:
+        units: dict[str, int] = {}
+        for name, n in sizes.items():
+            unit = _unit(name, blocks)
+            units[unit] = units.get(unit, 0) + n
+        return units
+
+    def free(path: str) -> list[tuple[int, str]]:
+        """`path`'s weighted child modules that hold no block, through children that hold one."""
+        found, stack = [], [path]
+        while stack:
+            parent = stack.pop()
+            for name, _ in modules[parent].named_children():
+                child = f"{parent}.{name}" if parent else name
+                if any(b == child or b.startswith(child + ".") for b in blocks):
+                    if child not in blocks:
+                        stack.append(child)
+                elif size := sum(n for t, n in sizes.items() if t.startswith(child + ".")):
+                    found.append((size, child))
+        return sorted(found, reverse=True)
+
+    units = held()
+    queue = [unit for unit, n in units.items() if n > _SPLIT_UNIT]
+    while queue:
+        unit = queue.pop()
+        if held().get(unit, 0) <= _SPLIT_UNIT:
+            continue
+        if unit:
+            children = free(unit)
+            if not children:
+                continue
+            blocks.discard(unit)
+            blocks.update(child for _, child in children)
+            queue += ["", *(child for size, child in children if size > _SPLIT_UNIT)]
+            continue
+        for size, child in free(""):
+            if held().get("", 0) <= _SPLIT_UNIT:
+                break
+            blocks.add(child)
+            if size > _SPLIT_UNIT:
+                queue.append(child)
+    order = {path: i for i, path in enumerate(modules)}
+    return sorted(blocks, key=order.__getitem__)
+
+
+def unpaged(module: nn.Module, rule: str, groups: Mapping[str, int]) -> str | None:
+    """Why this component cannot page on a small card, or None: a unit over `_LARGEST_UNIT` (the
+    whole component, when it has no blocks). `groups` are the bytes by block path ("" common, its
+    embedding tables excluded: one row per token is read, and they are not what pages)."""
+    path, size = max(groups.items(), key=lambda item: item[1], default=("", 0))
+    if size <= _LARGEST_UNIT:
+        return None
+    unit = f"block {path}" if path else "its common weights"
+    return (f"{type(module).__name__} pages by rule '{rule}' and {unit} is {size / (1 << 30):.2f} GiB: "
+            f"a card with less free memory cannot run it; name its paging units (`_no_split_modules`)")
 
 
 @dataclass(frozen=True, slots=True)
@@ -389,28 +498,24 @@ class _Prefetch:
     identity: str
     request: Request | None
     queued: QueuedPrefetch | None = None
-    #: the host page this store read also fills (TensorFS's `prepare_read(host=)`), kept once
-    #: the read completes
-    staged: _HostPage | None = None
+    #: the fill overlay its page holds, and whether it fills the final (cast) region
+    overlay: Hashable = None
+    final: bool = False
 
 
 class _HostPage:
     """A page's bytes in host RAM, registered with CUDA (pinned) so its refill is one DMA, and
-    unregistered when the page goes, after its last copy (`event`) completed."""
+    unregistered when the page goes, after its last copy (`event`) completed. Registered once
+    filled: registering touched memory runs at about twice the rate of untouched memory."""
 
     __slots__ = ("event", "tensor")
 
-    def __init__(self, nbytes: int) -> None:
-        self.tensor = torch.zeros(nbytes, dtype=torch.uint8)
+    def __init__(self, tensor: Tensor) -> None:
+        self.tensor = tensor
         self.event: Any = None
-        code = torch.cuda.cudart().cudaHostRegister(self.tensor.data_ptr(), nbytes, 0)
+        code = torch.cuda.cudart().cudaHostRegister(tensor.data_ptr(), tensor.numel(), 0)
         if int(code) != 0:
             raise RuntimeError(f"cudaHostRegister returned {code}")
-
-    def window(self, offset: int, nbytes: int) -> Any:
-        """`nbytes` of the page from `offset`, as a CPU array for TensorFS to read into: Torch
-        exports registered memory as CUDA host memory, which TensorFS does not take."""
-        return self.tensor.numpy()[offset : offset + nbytes]
 
     def release(self) -> None:
         if self.event is not None:
@@ -1249,27 +1354,27 @@ class Memory:
         self._baked_bytes = 0
         #: resident pages baked once: kept from their first refill
         self._baked_once: set[tuple[object, ...]] = set()
+        #: a hooked block's pages whose fill wrote nothing: their stored bytes are the page, so a
+        #: store read prefetches and the idle tier pins them as it does a plain block's
+        self._plain: set[tuple[object, ...]] = set()
         #: host RAM this process could still take at the cache's last look; -1 unreadable
         self._baked_room = -1
         #: The host tier holds every streamed page (baked or stored) pinned, within half of the
         #: host's RAM. Off for the process once pinning fails (then pages stream from the store).
         self._host_tier = True
         self._host_cap = max(physical_memory(), 0) // 2
-        #: stored pages being read into host pages off the request thread, and their bytes
-        self._populating: dict[tuple[object, ...], _HostPage] = {}
-        self._populating_bytes = 0
-        self._host_jobs: queue.SimpleQueue[tuple[Any, ...]] = queue.SimpleQueue()
-        self._populator: threading.Thread | None = None
-        #: pages the populator could not keep, released (unregistered) on the request thread
-        self._host_dropped: list[_HostPage] = []
-        #: stored pages read from the store once: only a second read pins a host page for it
+        #: stored pages to pin once the executor is idle (`pin_idle`), never on a request's path
+        self._wanted: OrderedDict[tuple[object, ...], _Block] = OrderedDict()
+        #: each stored page's refills in the running request, and in the last request that
+        #: refilled it: the bytes a kept page saves per request, per byte of host RAM it holds
+        self._refills: dict[tuple[object, ...], int] = {}
+        self._rate: dict[tuple[object, ...], int] = {}
+        #: stored pages whose store read completed: a resident block's page is wanted on its second
         self._read_once: set[tuple[object, ...]] = set()
         self._h2d_stream: Any = None
         self._host_looked = 0.0
         admission = inspect.signature(varena.Region.prepare).parameters
         self._host_prepare = "evict_completed" in admission  # TensorFS 0.17.4
-        # A prefetch's one store read lands in its host page, then one DMA (TensorFS 0.17.7).
-        self._host_prefetch = bool(getattr(varena, "supports_host_prefetch", bool)())
         if self.cuda:
             try:
                 if budget_bytes is not None:
@@ -1391,8 +1496,10 @@ class Memory:
 
     def _register(self, module: nn.Module, declared: Declared) -> Model:
         model = Model(self, module, declared)
-        w, paths = declared.weights, blocks_of(module)
+        w, (rule, paths) = declared.weights, paging(module)
         tensors = w.ck.components[w.component].tensors
+        tables = [p for p, sub in module.named_modules() if p and isinstance(sub, nn.Embedding)]
+        sizes: dict[str, int] = {}
         by_path: dict[str, dict[str, dict[str, _Part]]] = {}
         for key in tensors:
             if w.keys is not None and key not in w.keys:
@@ -1410,6 +1517,8 @@ class Memory:
             for role, part in stored_parts(w.ck, w.component, key).items():
                 parts[role or "value"] = _Part(part.dtype, tuple(part.shape), part.length, role)
             by_path.setdefault(path, {})[key] = parts
+            if path or not any(bound.startswith(t + ".") for t in tables):
+                sizes[path] = sizes.get(path, 0) + sum(part.nbytes for part in parts.values())
         for index, path in enumerate(p for p in ("", *paths) if p in by_path):
             block = _Block(model, path, index, by_path[path])
             if path:
@@ -1430,6 +1539,9 @@ class Memory:
                 [self.window_bytes, *(_STREAMED * b.allocation_bytes for b in model.groups())]
             )
             self.native.set_streaming_limit(self.window_bytes)
+        why = unpaged(module, rule, sizes)
+        if why is not None:
+            warnings.warn(f"{w.component}: {why}", RuntimeWarning, stacklevel=2)
         _placeholders(model)
         _hooks(model)
         self.models[module] = model
@@ -1675,36 +1787,157 @@ class Memory:
         if not streams and page not in self._baked_once:
             self._baked_once.add(page)
             return
-        kept = self._host_page(tensor.numel())
+        if not self._host_room(tensor.numel()):
+            return
+        kept = self._pin(torch.zeros(tensor.numel(), dtype=torch.uint8))
         if kept is not None:
             kept.tensor.copy_(tensor)  # complete when this returns
             self._baked[page] = kept
             self._baked_bytes += tensor.numel()
 
-    def _read_before(self, page: tuple[object, ...]) -> bool:
-        """Whether a read of this stored page from the store completed before. A page read once
-        (a cold request's, a resident model's) never pays for pinning: pinning runs at about the
-        copy's own rate (5.5 GiB/s on an RTX 3070 host), on the request path. A read that was
-        canceled or refused does not count (krea-2's cold request cancels one prefetch a step)."""
-        return page in self._read_once
+    def _final_from_host(self, block: _Block, overlay: Hashable) -> None:
+        """A cast block's refill from its kept final bytes: one DMA into the final region, with
+        no store read, raw region or cast (`_host_final`)."""
+        use = block.final_use
+        page = _page(block, block.model.identity, overlay, final=True)
+        found = self._baked.get(page)
+        if found is None or found.tensor.numel() != use.tensor.numel():
+            return
+        began = time.perf_counter_ns()
+        use.tensor.copy_(found.tensor)  # complete when this returns
+        use.commit()
+        self._baked.move_to_end(page)
+        self._refills[page] = self._refills.get(page, 0) + 1
+        block.overlay = overlay
+        if (request := _REQUEST.get()) is not None:
+            ns = time.perf_counter_ns() - began
+            request.read(block, ns, found.tensor.numel(), origin="baked")
 
-    def _host_page(self, nbytes: int) -> _HostPage | None:
-        """A zeroed, pinned host page for the tier: process lifetime, never on disk, each page
-        once. Only into room beyond the headroom and within half of the host's RAM, evicting
+    def _keep_final(self, block: _Block, tensor: Tensor) -> None:
+        """A cast block's final bytes, just written from its stored ones: kept in the host tier
+        as a baked page is (`_keep_baked`), so its refills move the cast bytes, not the stored."""
+        if not _host_final(block):
+            return
+        page = _page(block, block.model.identity, block.overlay, final=True)
+        self._refills[page] = self._refills.get(page, 0) + 1
+        self._keep_baked(page, tensor, streams=not block.preferred)
+
+    def _want(self, block: _Block, page: tuple[object, ...]) -> None:
+        """A store read of `page` completed: the page is pinned once the executor is idle
+        (`pin_idle`), a streamed one's after this read, a resident one's after its second (another
+        phase's room evicted it). Pinning runs at about the copy's own rate (5.5 GiB/s on an RTX
+        3070 host), so it is never on a request's path: Qwen-Image int8 at 8 GB paid 5.4 s of it
+        in its first warm request (Runtime 0.35.6). A canceled or refused read does not count.
+        A hooked block's page is wanted only when its fill wrote nothing (`_ensure`), and a block
+        the tier keeps cast keeps its final bytes instead (`_host_final`)."""
+        if (
+            not _host_final(block)
+            and page not in self._baked
+            and (not block.preferred or page in self._read_once)
+        ):
+            self._wanted[page] = block
+        self._read_once.add(page)
+
+    def host_pending(self) -> bool:
+        """Whether pages wait for an idle executor to pin them (`pin_idle`)."""
+        return bool(self._wanted) and self._host_tier and self.cuda
+
+    def pin_idle(self, waiting: Callable[[], bool]) -> None:
+        """Pin the wanted pages while the executor is idle, each read again from the store into
+        host RAM and registered once filled, until a command arrives (`waiting`). A command waits
+        at most one staging window's read: the page it interrupted is wanted first at the next
+        idle."""
+        while self.host_pending() and not waiting():
+            with self.lock:
+                # The page refilled most often per request first: it saves the most bytes per
+                # byte of host RAM (an H3 DiT block refilled 8 times a call before a text
+                # encoder's read once).
+                page = max(self._wanted, key=lambda p: self._rate.get(p, 1))
+                block = self._wanted.pop(page)
+            model = block.model
+            if page in self._baked or model.closed or model.identity != page[2]:
+                continue
+            if not self._host_room(block.storage_bytes) and not self._displace(page, block):
+                continue  # kept pages are worth at least as much; a smaller wanted one may fit
+            tensors = model.source.ck.components[model.source.component].tensors
+            tensor = torch.zeros(block.storage_bytes, dtype=torch.uint8)  # gaps included
+            offset = 0
+            try:
+                for key, roles in block.parts.items():
+                    for part in roles.values():
+                        for start in range(0, part.nbytes, _HOST_STAGING):
+                            if waiting():
+                                with self.lock:
+                                    self._wanted[page] = block
+                                    self._wanted.move_to_end(page, last=False)
+                                return
+                            stop = min(start + _HOST_STAGING, part.nbytes)
+                            into = tensor[offset + start : offset + stop]
+                            tensors.read_into(key, into, role=part.role or None, offset=start)
+                        offset += (part.nbytes + 255) // 256 * 256
+            except Exception:  # a store or fetch failure only leaves this page unpinned
+                continue
+            kept = self._pin(tensor)
+            if kept is None:
+                return
+            with self.lock:
+                if page not in self._baked and not model.closed and model.identity == page[2]:
+                    self._baked[page] = kept
+                    self._baked_bytes += block.storage_bytes
+                else:
+                    kept.release()
+
+    def _displace(self, page: tuple[object, ...], block: _Block) -> bool:
+        """Room for `page` from kept pages refilled less often per request, least often and then
+        least recently used first; none go unless together they make the room. The tier follows
+        use, not arrival: a pod's first construction no longer keeps its pages while a later
+        one's most refilled blocks stream from the store (H3 LoRA'd calls on an RTX PRO 4000:
+        177 against 216 s by load order, cl-683)."""
+        rate = self._rate.get(page, 1)
+        with self.lock:
+            cheaper = sorted(
+                (p for p in self._baked if self._rate.get(p, 1) < rate),
+                key=lambda p: self._rate.get(p, 1),
+            )
+            freed, chosen = 0, []
+            for kept in cheaper:
+                if self._host_fits(block.storage_bytes - freed):
+                    break
+                chosen.append(kept)
+                freed += self._baked[kept].tensor.numel()
+            if not self._host_fits(block.storage_bytes - freed):
+                return False
+            for kept in chosen:
+                gone = self._baked.pop(kept)
+                self._baked_bytes -= gone.tensor.numel()
+                self._baked_room += gone.tensor.numel()
+                gone.release()
+        return True
+
+    def _host_fits(self, nbytes: int) -> bool:
+        """Whether `nbytes` more fit the tier as last measured (`_host_room` measures)."""
+        return (
+            self._baked_bytes + nbytes <= self._host_cap
+            and self._baked_room - nbytes >= _BAKED_HEADROOM
+        )
+
+    def _host_room(self, nbytes: int) -> bool:
+        """Whether a host page of `nbytes` fits the tier: process lifetime, never on disk, each
+        page once. Only into room beyond the headroom and within half of the host's RAM, evicting
         nothing for it: blocks refill in a fixed order, so replacing the least recently used
-        would miss every refill. A failed pin turns the tier off, with a warning."""
+        would miss every refill."""
         if not self._host_tier or not self.cuda or self.capturing():
-            return None
-        if self._baked_bytes + self._populating_bytes + nbytes > self._host_cap:
-            return None
+            return False
         now = time.monotonic()
         if now - self._host_looked >= 1.0:  # host RAM is re-read at most once a second
             self._host_looked = now
             self._trim_baked()
-        if self._baked_room - nbytes < _BAKED_HEADROOM:
-            return None
+        return self._host_fits(nbytes)
+
+    def _pin(self, tensor: Tensor) -> _HostPage | None:
+        """`tensor` registered as a host page; a failed pin turns the tier off, with a warning."""
         try:
-            return _HostPage(nbytes)
+            return _HostPage(tensor)
         except (RuntimeError, OSError) as error:
             self._host_tier = False
             warnings.warn(
@@ -1716,20 +1949,22 @@ class Memory:
 
     def _trim_baked(self) -> int:
         """The host RAM this process can still take (its tightest cgroup's, on Linux), after kept
-        pages go, least recently used first, while it is under the headroom; -1 unreadable, and
-        then they all go."""
-        for dropped in self._host_dropped:
-            dropped.release()
-        self._host_dropped.clear()
+        pages go, those refilled least often per request first and then the least recently used,
+        while it is under the headroom; -1 unreadable, and then they all go."""
         room = self._baked_room = (
             proctree.available_host_bytes() if sys.platform == "linux" else host_memory().free_bytes
         )
-        while self._baked and room < _BAKED_HEADROOM:
-            page = self._baked.popitem(last=False)[1]
+        if room >= _BAKED_HEADROOM or not self._baked:
+            return room
+        for key in sorted(self._baked, key=lambda p: self._rate.get(p, 1)):
+            page = self._baked.pop(key)
             self._baked_bytes -= page.tensor.numel()
             page.release()
             if room >= 0:
                 room += page.tensor.numel()
+                if room >= _BAKED_HEADROOM:
+                    break
+        self._baked_room = room
         return room
 
     def _forget_baked(self, model: Model) -> None:
@@ -1739,68 +1974,30 @@ class Memory:
             self._baked_bytes -= kept.tensor.numel()
             kept.release()
         self._baked_once = {page for page in self._baked_once if page[0] != model.name}
-
-    def _populate(self, block: _Block) -> None:
-        """A store page the native prefetch just filled is read once more, off the request thread,
-        into a host page: its later refills are one DMA instead of a store read."""
-        model, region = block.model, block.region
-        if model.fill is not None or block.preferred or block.finals or region is None:
-            return
-        page = (model.name, block.path, model.identity, None)
-        if page in self._baked or page in self._populating or not self._read_before(page):
-            return
-        kept = self._host_page(block.storage_bytes)  # the fill's bytes; the region rounds up
-        if kept is None:
-            return
-        reads, offset = [], 0
-        for key, roles in block.parts.items():
-            for part in roles.values():
-                reads.append((key, part.role or None, offset, part.nbytes))
-                offset += (part.nbytes + 255) // 256 * 256
-        self._populating[page] = kept
-        self._populating_bytes += kept.tensor.numel()
-        tensors = model.source.ck.components[model.source.component].tensors
-        self._host_jobs.put((model, page, kept, tensors, reads))
-        if self._populator is None:
-            self._populator = threading.Thread(
-                target=self._populate_pages, name="cozy-host-pages", daemon=True
-            )
-            self._populator.start()
-
-    def _populate_pages(self) -> None:
-        """Host reads only, no CUDA call: safe beside a capture on the request thread."""
-        while True:
-            model, page, kept, tensors, reads = self._host_jobs.get()
-            try:
-                for key, role, offset, nbytes in reads:
-                    tensors.read_into(key, kept.window(offset, nbytes), role=role)
-                read = True
-            except Exception:  # a store or fetch failure only leaves this page unkept
-                read = False
-            with self.lock:
-                self._populating.pop(page, None)
-                self._populating_bytes -= kept.tensor.numel()
-                if read and model.identity == page[2] and not model.closed:
-                    self._baked[page] = kept
-                    self._baked_bytes += kept.tensor.numel()
-                else:
-                    self._host_dropped.append(kept)
+        self._plain = {page for page in self._plain if page[0] != model.name}
 
     def _host_read(
         self, region: Any, kept: _HostPage, *, evict_completed: bool
     ) -> _HostRead | None:
         """A refill from a host page: the region's fill under the native prefetch's admission,
-        one async DMA; None when the region is resident already."""
+        one async DMA; None when the region is resident already. The copy stream exists before
+        admission, and a fill admitted here that fails is released before its error leaves: a
+        traceback holding it kept the region `already being filled` for the retry (cr-225)."""
+        if self._h2d_stream is None:
+            self._h2d_stream = torch.cuda.Stream(self.device)
+        stream = self._h2d_stream
         use = region.prepare(reclaim=False, evict_completed=evict_completed)
         if not use.needs_fill:
             return None
-        if self._h2d_stream is None:
-            self._h2d_stream = torch.cuda.Stream(self.device)
-        with torch.cuda.stream(self._h2d_stream):
-            use.tensor.copy_(kept.tensor, non_blocking=True)
-            event = torch.cuda.Event()
-            event.record(self._h2d_stream)
-        use.consume_on(self._h2d_stream.cuda_stream)
+        try:
+            use.consume_on(stream.cuda_stream)  # its release fences on the copy
+            with torch.cuda.stream(stream):
+                use.tensor.copy_(kept.tensor, non_blocking=True)
+                event = torch.cuda.Event()
+                event.record(stream)
+        except BaseException:
+            use = None  # the fill and its tensor go now, not with the traceback
+            raise
         kept.event = event
         return _HostRead(use, event, kept.tensor.numel())
 
@@ -1978,13 +2175,25 @@ class Memory:
         return max(before_allocated - allocated, before_reserved - reserved, free - before_free, 0)
 
     def trim(self) -> int:
-        """Idle offload: release eligible owners and return actual reserved-byte reduction."""
+        """Idle offload: release eligible owners and return actual reserved-byte reduction.
+
+        The host tier goes too. Its pages are pinned, so no other process can reclaim them, and
+        the call the machine offloads this executor for needs host RAM as well: beside an idle
+        H3 executor's 42 GB of pages, SeedVR2's 2160p decode on a 4090 pod was killed by the
+        kernel (gate 40991023097). Its pages refill from the store on this executor's next call."""
         if self.capturing():
             raise ResidencyError("idle offload cannot run during graph capture")
         before = self._figures()[1]
         for model in list(self.models.values()):
             self._retire(model)
         self.reclaim()
+        with self.lock:
+            pages = list(self._baked.values())
+            self._baked.clear()
+            self._baked_bytes = 0
+            self._wanted.clear()
+        for page in pages:
+            page.release()
         return max(before - self._figures()[1], 0)
 
     def region(
@@ -2334,17 +2543,28 @@ class Memory:
         queued: QueuedPrefetch | None = None,
         released: bool = False,
     ) -> None:
-        """Admit one immutable raw read, without eviction or Python fill callbacks."""
+        """Admit one immutable read, without eviction or Python fill callbacks: a page the host
+        tier keeps (stored, baked or cast) by one DMA, else the stored bytes, and for a hooked
+        block only when its fill writes nothing under the overlay this forward arms. A cast block
+        the tier keeps cast (`_host_final`) prefetches only its kept final bytes."""
         if (
             not self.prefetch_supported
             or self.capturing()
             or (request is not None and request.idle)
-            or block.model.fill is not None
             or block.aliases is None
-            or block.finals
             or not block.storage_bytes
         ):
             return
+        overlay = None
+        if block.model.fill is not None:
+            if queued is not None:
+                return  # another request's hooks are armed by its own code, not yet run
+            overlay = block.model.fill.overlay(block.path, block.parts)
+            if overlay != block.overlay:
+                return  # demand parks or refills a page of another overlay (`_switch_overlay`)
+        final = _host_final(block)
+        page = _page(block, block.model.identity, overlay, final=final)
+        size = block.final_bytes if final else block.storage_bytes
         with self.lock:
             if (
                 self._prefetch is not None
@@ -2354,6 +2574,14 @@ class Memory:
                 or block.cached()
             ):
                 return
+            if block.finals and not final and block.region is not None and block.region.resident:
+                return  # its stored bytes are resident; demand writes the final ones
+            kept = self._baked.get(page) if self._host_prepare else None
+            if kept is not None and kept.tensor.numel() != size:
+                kept = None
+            hooked = block.model.fill is not None and page not in self._plain
+            if kept is None and (final or hooked):
+                return  # only a kept page, or a hooked one whose fill writes nothing, is read
             # A queued request's read is admitted only into free room. Demand's next block may
             # also take the room of the oldest streamed block whose consumers completed: Varena
             # evicts it on its last-consumer events and refuses rather than wait or join.
@@ -2377,9 +2605,9 @@ class Memory:
                     name = f"{block.model.component}/{key}#{part.role or 'value'}"
                     parts.append((name, offset, part.nbytes))
                     offset += (part.nbytes + 255) // 256 * 256
-            staged: _HostPage | None = None
+            retry = False
             try:
-                region = self._native_region(block, speculative=True)
+                region = self._native_region(block, final=final, speculative=True)
                 # Outgoing cached weights may already fill the nonpreferred window even
                 # when the active phase has ample resident-prefix room. Admit its next
                 # block under that same soft preference without growing a cut prefix.
@@ -2394,86 +2622,62 @@ class Memory:
                 try:
                     if provisional:
                         region.set_preferred(True)  # native end-of-prefix watermark still wins
-                    kept = (
-                        self._baked.get((block.model.name, block.path, block.model.identity, None))
-                        if self._host_prepare and block.model.fill is None
-                        else None
-                    )
-                    if kept is not None and kept.tensor.numel() == block.storage_bytes:
+                    if kept is not None:
                         read = self._host_read(region, kept, evict_completed=queued is None)
                         if read is None:
                             return  # resident already
                     else:
-                        page = (block.model.name, block.path, block.model.identity, None)
-                        if (
-                            self._host_prefetch
-                            and block.model.fill is None
-                            and not block.preferred
-                            and page not in self._populating
-                            and self._read_before(page)
-                        ):
-                            staged = self._host_page(block.storage_bytes)
-                        host = (
-                            {}
-                            if staged is None
-                            else {"host": staged.window(0, block.storage_bytes)}
-                        )
                         read = region.prepare_read(
                             block.model.source.ck,
                             parts,
                             reclaim=False,
                             evict_completed=queued is None,
-                            **host,
                         )
-                        if staged is not None:
-                            self._populating[page] = staged
-                            self._populating_bytes += block.storage_bytes
                 finally:
                     if provisional:
                         # The prepared Fill owns its pin. Only demand may assign a lasting
                         # preference, so cancellation/failure cannot leave this one behind.
                         region.set_preferred(preferred)
             except (torch.OutOfMemoryError, torch.AcceleratorError) as error:
-                self._unstage(staged)
                 if fault(error) is not Fault.OOM:
                     raise
                 free = int(torch.cuda.mem_get_info(self.device)[0])
                 allocated, reserved, _ = _torch_bytes(self.device)
-                if (
+                retry = (
                     not released
                     and queued is None
                     and free < block.allocation_bytes <= (free + reserved - allocated)
-                ):
-                    # Demand's next read takes Torch's idle cache before it is refused. Refused,
-                    # it is read on the request path instead (Qwen-Image int8 on 8 GB: the last
-                    # streamed block, every step, 9 s per request).
-                    release_cached(torch, self.device.type)
+                )
+                if not retry:
                     if request is not None:
-                        request.prefetch_released += 1
-                    return self._prefetch_block(block, request, released=True)
-                if request is not None:
-                    request.prefetch_skipped += 1
-                return
+                        request.prefetch_skipped += 1
+                    return
             except tensorfs.Error as error:
-                self._unstage(staged)
                 if fault(error) is not Fault.OTHER:
                     raise
                 if request is not None:
                     request.prefetch_failed += 1
                 return
             except (RuntimeError, ValueError) as error:
-                self._unstage(staged)
                 if queued is None or fault(error) not in (Fault.OTHER, Fault.OOM):
                     raise
                 if request is not None:
                     request.prefetch_failed += 1
                 return
-            except BaseException:
-                self._unstage(staged)
-                raise
+            if retry:
+                # Demand's next read takes Torch's idle cache before it is refused. Refused, it
+                # is read on the request path instead (Qwen-Image int8 on 8 GB: the last streamed
+                # block, every step, 9 s per request). Out of the handler, so nothing the refused
+                # attempt admitted lives on in its traceback (cr-225).
+                release_cached(torch, self.device.type)
+                if request is not None:
+                    request.prefetch_released += 1
+                return self._prefetch_block(block, request, released=True)
             identity = block.model.identity
             assert identity is not None  # eligibility excludes mutable/undeclared fills
-            self._prefetch = _Prefetch(block, region, read, identity, request, queued, staged)
+            self._prefetch = _Prefetch(
+                block, region, read, identity, request, queued, overlay=overlay, final=final
+            )
             try:
                 # Publication precedes the last validity check, so a concurrent discard either
                 # cancels this exact read or is observed here before any I/O starts.
@@ -2521,7 +2725,7 @@ class Memory:
             if cancel:
                 read.cancel()
             began = time.perf_counter_ns()
-            complete = filled = False
+            complete = False
             try:
                 context = CURRENT.get()
                 try:
@@ -2550,8 +2754,6 @@ class Memory:
                             request.prefetch_canceled += int(drained["canceled"])
                     raise
                 complete = not row["canceled"]
-                # A region resident already fills no host page (host_bytes 0).
-                filled = complete and int(row.get("host_bytes", 0)) == block.storage_bytes
                 if request is not None:
                     if pending.queued is not None:
                         request.queued_prefetch.append(
@@ -2575,10 +2777,11 @@ class Memory:
                             speculative=True,
                             origin="baked" if row.get("host") else "store",
                         )
-                if complete and not row.get("host") and not self._host_prefetch:
-                    self._populate(block)  # a TensorFS without prepare_read(host=)
-                if complete and not row.get("host") and pending.staged is None:
-                    self._read_once.add((block.model.name, block.path, pending.identity, None))
+                if complete:
+                    page = _page(block, pending.identity, pending.overlay, final=pending.final)
+                    self._refills[page] = self._refills.get(page, 0) + 1
+                    if not row.get("host"):
+                        self._want(block, page)
             except (tensorfs.Error, torch.OutOfMemoryError, torch.AcceleratorError) as error:
                 if fault(error) not in (Fault.OTHER, Fault.OOM):
                     raise
@@ -2589,31 +2792,12 @@ class Memory:
             finally:
                 if request is not None:
                     request.prefetch_wait_ns += time.perf_counter_ns() - began
-                if not complete and block.region is pending.region:
-                    block.region = None
+                field = "final_region" if pending.final else "region"
+                if not complete and getattr(block, field) is pending.region:
+                    setattr(block, field, None)
                     block.preferred = False
                     block.preference_set = False
-                if (staged := pending.staged) is not None:
-                    self._keep_staged(block, pending.identity, staged, filled)
                 self._prefetch = None
-
-    @staticmethod
-    def _unstage(staged: _HostPage | None) -> None:
-        """A host page whose read was never admitted: no copy ever used it."""
-        if staged is not None:
-            staged.release()
-
-    def _keep_staged(self, block: _Block, identity: str, staged: _HostPage, read: bool) -> None:
-        """A prefetch's host page joins the tier once its store read completed; else it is
-        released with the next trim."""
-        page = (block.model.name, block.path, identity, None)
-        self._populating.pop(page, None)
-        self._populating_bytes -= staged.tensor.numel()
-        if read and block.model.identity == identity and not block.model.closed:
-            self._baked[page] = staged
-            self._baked_bytes += staged.tensor.numel()
-        else:
-            self._host_dropped.append(staged)
 
     def _final_views(self, block: _Block, reclaim: bool) -> None:
         if not block.finals:
@@ -2652,7 +2836,7 @@ class Memory:
             block.loading = True
         data: dict[str, dict[str, Tensor]] = {}
         read_bytes = read_ns = 0
-        use = kept = staged = None
+        use = kept = None
         kept_ns = 0
         try:
             with self.lock:
@@ -2662,6 +2846,9 @@ class Memory:
             tensors = source.ck.components[source.component].tensors
             if self.native is not None:
                 self._final_views(block, reclaim)
+                final = block.final_use
+                if _host_final(block) and final is not None and final.needs_fill:
+                    self._final_from_host(block, overlay)
                 if block.final_only() and (
                     block.final_use is None or not block.final_use.needs_fill
                 ):
@@ -2686,7 +2873,8 @@ class Memory:
                 block.native_storage = int(use.tensor.untyped_storage().data_ptr())
             page: tuple[object, ...] | None = None
             if use is not None and use.needs_fill:
-                page = (block.model.name, block.path, block.model.identity, overlay)
+                page = _page(block, block.model.identity, overlay)
+                self._refills[page] = self._refills.get(page, 0) + 1
                 if self._baked:
                     self._trim_baked()  # host pressure gives kept pages back here
                 found = self._baked.get(page)
@@ -2696,14 +2884,6 @@ class Memory:
                     use.tensor.copy_(kept)  # complete when this returns
                     kept_ns = time.perf_counter_ns() - began
                     self._baked.move_to_end(page)
-                elif (
-                    block.model.fill is None
-                    and not block.preferred
-                    and not block.finals
-                    and self._read_before(page)
-                ):
-                    # A streamed page read again lands in its host page, then one DMA.
-                    staged = self._host_page(use.tensor.numel())
             offset = 0
             for key, parts in block.parts.items():
                 views = data[key] = {}
@@ -2713,12 +2893,11 @@ class Memory:
                         if use is not None
                         else self._empty(part.nbytes, reclaim)
                     )
-                    start, offset = offset, offset + (part.nbytes + 255) // 256 * 256
+                    offset += (part.nbytes + 255) // 256 * 256
                     if (use is None or use.needs_fill) and kept is None:
                         began = time.perf_counter_ns()
-                        into = raw if staged is None else staged.window(start, part.nbytes)
                         try:
-                            self._read_into(tensors, key, into, part.role or None)
+                            self._read_into(tensors, key, raw, part.role or None)
                         except tensorfs.Error:
                             # A failed destination completion must retain its native owner.
                             # Preserve the existing sticky CUDA failure classification.
@@ -2737,19 +2916,18 @@ class Memory:
                     if view.numel() != math.prod(shape):
                         raise ResidencyError(f"stored geometry does not match {key}#{role}")
                     views[role] = view.view(shape)
-            if page is not None and use is not None and use.needs_fill and kept is None:
-                self._read_once.add(page)  # this store read completed
-            if staged is not None and use is not None and page is not None:
-                use.tensor.copy_(staged.tensor)  # complete when this returns
-                with self.lock:
-                    self._baked[page] = staged
-                    self._baked_bytes += staged.tensor.numel()
+            changed = False
             if block.model.fill is not None and (use is None or use.needs_fill):
                 # `overlay` was read on this thread just before; no package code ran since.
                 changed = kept is None and block.model.fill(block.path, data)
                 if changed and page is not None and use is not None:
                     self._keep_baked(page, use.tensor, streams=not block.preferred)
                 block.overlay = overlay
+            if page is not None and kept is None and not changed:
+                with self.lock:  # this store read completed, and its bytes are the page
+                    if block.model.fill is not None:
+                        self._plain.add(page)
+                    self._want(block, page)
             if use is not None:
                 use.commit()
             ready = None
@@ -2760,8 +2938,6 @@ class Memory:
                 block.data, block.ready = data, ready
                 block.generation += 1
         except BaseException:
-            if staged is not None and staged not in self._baked.values():
-                staged.release()  # a host page whose read failed was never kept
             # A failed fill may have exported storage to a transform. Retire this region
             # identity; those exports keep their own pins, never a future fill's bytes.
             if use is not None and use.needs_fill:
@@ -2914,18 +3090,17 @@ class Memory:
             ):
                 # The atomic ready-only pin never fills or reclaims. Its ordinary storage
                 # alias owns the bytes until the consumer dies, without binding other sites.
+                offset, part = raw_view
+                stored = getattr(torch, _DTYPES[part.dtype])
+                widen = _widened(model, site.name, site.table[site.name], stored)
                 with torch.inference_mode(False):
                     use = pin()
                     if use is not None:
-                        offset, part = raw_view
                         value = (
-                            use.tensor[offset : offset + part.nbytes]
-                            .view(getattr(torch, _DTYPES[part.dtype]))
-                            .view(part.shape)
+                            use.tensor[offset : offset + part.nbytes].view(stored).view(part.shape)
                         )
-                        old = site.table[site.name]
-                        if old is not None and old.dtype != value.dtype:
-                            value = value.to(old.dtype)
+                        if widen is not None:
+                            value = value.to(widen)
                         block.last = time.monotonic_ns()
                         progress += 1
                         return nn.Parameter(value, requires_grad=False) if site.parameter else value
@@ -2933,7 +3108,12 @@ class Memory:
             try:
                 value = site.table[site.name]
                 if isinstance(value, Placeholder):
-                    raise ResidencyError("the declared binder did not supply this weight")
+                    raise ResidencyError(
+                        f"{model.name}: {site.name} has no value: no stored tensor binds it. A "
+                        "buffer no checkpoint stores keeps its constructed value only when "
+                        "construction computed one (from config or a constant), not from a "
+                        "weightless parameter"
+                    )
                 return value
             finally:
                 self._exit(block)
@@ -3028,6 +3208,9 @@ class Memory:
                         # Cancel/drain unfinished speculation. An already completed read
                         # keeps valid immutable bytes as ordinary unpinned cache for B.
                         self._settle_prefetch(cancel=True)
+                with self.lock:
+                    self._rate.update(self._refills)  # the pages this request refilled
+                    self._refills.clear()
                 request.sample()
                 request.ended = request.stats()
                 self.last = request.ended
@@ -3215,7 +3398,7 @@ class Request:
                 "room": self.memory._baked_room,
                 "cap": self.memory._host_cap,
                 "pinned": self.memory._host_tier,
-                "populating": len(self.memory._populating),
+                "wanted": len(self.memory._wanted),
             },
             "trace": list(self.trace),
             "trace_scope": "fills",
@@ -3423,6 +3606,41 @@ def _placeholders(model: Model) -> None:
             site.table[site.name] = held
 
 
+def _page(
+    block: _Block, identity: object, overlay: Hashable, *, final: bool = False
+) -> tuple[object, ...]:
+    """A block's host-tier page key: its set, path, fill identity and overlay, and `final` for
+    its cast bytes."""
+    page: tuple[object, ...] = (block.model.name, block.path, identity, overlay)
+    return (*page, "final") if final else page
+
+
+def _host_final(block: _Block) -> bool:
+    """Whether the host tier keeps `block`'s final bytes rather than its stored ones: a block
+    bound only from final buffers that are no larger than its stored bytes (an F32 VAE held in
+    bf16 moves half). A decoded block's finals are larger, so its stored bytes are kept."""
+    return block.final_only() and block.final_bytes <= block.storage_bytes
+
+
+def _widened(
+    model: Model, name: str, site: Tensor | None, served: torch.dtype
+) -> torch.dtype | None:
+    """The dtype a site widens `served` bytes to on each bind, or None. A placed component
+    serves its binding's dtype (stored, or `hold_dtype`'s cast copy); only a CPU executor widens,
+    to float32 (`weights._float32`). Any other mismatch is a `module.to(dtype)`, `.half()` or
+    `.float()` after placement, which would cast every weight on every forward, unaccounted."""
+    if site is None or site.dtype == served:
+        return None
+    if model.memory.device.type == "cpu" and site.dtype == torch.float32:
+        return site.dtype
+    raise ResidencyError(
+        f"{model.name}: {name} serves {served} and the module was changed to {site.dtype} "
+        "after placement: serve a placed component in another dtype with "
+        "`cozy_runtime.author.hold_dtype(module, dtype)`, never `module.to(dtype)`, "
+        "`.half()` or `.float()`"
+    )
+
+
 def _assign(block: _Block) -> list[tuple[_Site, Tensor]]:
     model = block.model
     if block.data is None:
@@ -3440,6 +3658,7 @@ def _assign(block: _Block) -> list[tuple[_Site, Tensor]]:
                     for destination in destinations.values():
                         destination.copy_(parts["value"])
             use.commit()
+            model.memory._keep_final(block, use.tensor)
             block.final_fills += 1
             if (request := _REQUEST.get()) is not None:
                 request.final_fills += 1
@@ -3484,10 +3703,8 @@ def _assign(block: _Block) -> list[tuple[_Site, Tensor]]:
                 and (block.retained or model.memory.capturing())
             ):
                 raise StaleBinding(f"{name}: graph capture needs a matching destination dtype")
-            # An eager module may temporarily widen weights (SDXL's VAE does this).
-            # Keep the declared cached bytes immutable; this conversion is ordinary
-            # owning Torch storage, not a hit for a different prepared representation.
-            tensor = value if old is None or old.dtype == value.dtype else value.to(old.dtype)
+            widen = _widened(model, name, old, value.dtype)
+            tensor = value if widen is None else value.to(widen)
             if any(site.parameter for site in sites):
                 tensor = nn.Parameter(tensor, requires_grad=False)
             for site in sites:

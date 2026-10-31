@@ -28,6 +28,7 @@ from tox.util.typing_compat import override
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from typing import Final
 
     from python_discovery import PyInfoCache
     from virtualenv.create.creator import Creator
@@ -173,32 +174,33 @@ class VirtualEnv(Python, ABC):
             resolved = get_interpreter(base_python, try_first_with=try_first_with, cache=cache, env=env)
             if resolved is None or (executable := resolved.system_executable) is None:
                 continue
-            if (interpreter := probe_python(executable)) is not None:
+            if (interpreter := probe_python(executable, resolved.marker_environment)) is not None:
                 break
         # only pay the bootstrap cost once an interpreter is found; a missing one skips without it
         bootstrap = ensure_bootstrap(self.core.get("work_dir", Path), spec) if interpreter is not None else None
         return SubprocessSession(self.env_dir, bootstrap, env, interpreter)
 
     def _create_imported_session(self, env: dict[str, str]) -> Session:
-        env_dir = [str(self.env_dir)]
+        # virtualenv splits list environment variables on comma and os.pathsep, then rotates the first Python candidate.
+        args: Final = [str(self.env_dir), *(f"--python={spec}" for spec in self.conf.get("base_python", list[str]))]
         try:
             with redirect_stderr(StringIO()):
-                return session_via_cli(env_dir, options=None, setup_logging=False, env=env)
+                return session_via_cli(args, options=None, setup_logging=False, env=env)
         except SystemExit as exc:
-            msg = f"virtualenv session creation failed for {env_dir[0]}"
+            msg = f"virtualenv session creation failed for {self.env_dir}"
             raise RuntimeError(msg) from exc
 
     def virtualenv_env_vars(self) -> dict[str, str]:
         env = self.environment_variables.copy()
-        base_python = self.conf.get("base_python", list[str])
         if "VIRTUALENV_NO_PERIODIC_UPDATE" not in env:
             env["VIRTUALENV_NO_PERIODIC_UPDATE"] = "True"
         env["VIRTUALENV_CLEAR"] = "False"
         env["VIRTUALENV_SYSTEM_SITE_PACKAGES"] = str(self.conf["system_site_packages"])
         env["VIRTUALENV_COPIES"] = str(self.conf["always_copy"])
         env["VIRTUALENV_DOWNLOAD"] = str(self.conf["download"])
-        env["VIRTUALENV_PYTHON"] = "\n".join(base_python)
         env["VIRTUALENV_NO_VENV_REDIRECT"] = "True"  # tox manages the PEP 832 .venv redirect itself
+        # Override virtualenv.ini's Python default; 21.15.1 tries <0 last, and 21.15.2 drops it for CLI specs.
+        env["VIRTUALENV_PYTHON"] = "<0"
         if hasattr(self.options, "discover"):
             env["VIRTUALENV_TRY_FIRST_WITH"] = os.pathsep.join(self.options.discover)
         return env
@@ -213,7 +215,7 @@ class VirtualEnv(Python, ABC):
 
     @override
     def _get_python(self, base_python: list[str]) -> PythonInfo | None:
-        # the base pythons are injected into the virtualenv_env_vars, so we don't need to use it here
+        # the base pythons are passed to virtualenv when the session is created, so we don't need to use it here
         try:
             interpreter = self.creator.interpreter
         except HandledError:  # a configuration error, e.g. in set_env, is a RuntimeError but not a missing interpreter
@@ -233,6 +235,7 @@ class VirtualEnv(Python, ABC):
             free_threaded=interpreter.free_threaded,
             debug=interpreter.debug_build,
             machine=getattr(interpreter, "machine", None),
+            marker_environment=interpreter.marker_environment,
         )
 
     @override
@@ -367,3 +370,8 @@ _VIRTUALENV_DROPS: tuple[_VirtualenvDrop, ...] = (
     _VirtualenvDrop(newest_unsupported=_PyVersion(major=3, minor=8), dropped_in=Version("21.5.0")),
     _VirtualenvDrop(newest_unsupported=_PyVersion(major=3, minor=6), dropped_in=Version("20.22.0")),
 )
+
+
+__all__ = [
+    "VirtualEnv",
+]

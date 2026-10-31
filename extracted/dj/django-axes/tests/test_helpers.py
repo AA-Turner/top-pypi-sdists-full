@@ -7,6 +7,7 @@ from django.http import HttpRequest, HttpResponse, HttpResponseRedirect, JsonRes
 from django.test import RequestFactory, override_settings
 
 from axes.apps import AppConfig
+from axes.conf import LockoutTier
 from axes.helpers import (
     cleanse_parameters,
     get_cache_timeout,
@@ -18,15 +19,18 @@ from axes.helpers import (
     get_cool_off,
     get_cool_off_iso8601,
     get_lockout_response,
+    get_username_from_data,
+    get_lockout_tier,
     is_client_ip_address_blacklisted,
     is_client_ip_address_whitelisted,
     is_client_method_whitelisted,
     is_ip_address_in_blacklist,
     is_ip_address_in_whitelist,
     is_user_attempt_whitelisted,
+    set_retry_after_header,
     toggleable,
 )
-from axes.models import AccessAttempt
+from axes.models import AccessAttempt, AccessBase
 from tests.base import AxesTestCase
 
 
@@ -690,6 +694,66 @@ class ClientCacheKeyTestCase(AxesTestCase):
 
 
 class UsernameTestCase(AxesTestCase):
+    def test_get_client_username_respects_field_length_for_all_sources(self):
+        max_length = AccessBase._meta.get_field("username").max_length
+        for source in ("post", "data", "credentials", "callable", "import_string"):
+            for username in (
+                None,
+                "",
+                "short",
+                "x" * max_length,
+                "é" * (max_length + 1),
+            ):
+                with self.subTest(source=source, username=username):
+                    request = HttpRequest()
+                    credentials = None
+                    username_callable = None
+                    if source == "post":
+                        request.POST["username"] = username
+                    elif source == "data":
+                        request.data = {"username": username}
+                    elif source == "credentials":
+                        request.POST["username"] = "ignored"
+                        credentials = {"username": username}
+                    elif source == "callable":
+                        username_callable = lambda request, credentials: username
+                    else:
+                        username_callable = "tests.test_helpers.get_username"
+
+                    expected = username[:max_length] if username else username
+                    with (
+                        override_settings(AXES_USERNAME_CALLABLE=username_callable),
+                        patch("tests.test_helpers.get_username", return_value=username),
+                        patch("axes.helpers.log.warning") as warning,
+                    ):
+                        self.assertEqual(
+                            expected, get_client_username(request, credentials)
+                        )
+                    if username and len(username) > max_length:
+                        warning.assert_called_once_with(
+                            "AXES: Truncating username of length %s to %s characters to fit the database field.",
+                            len(username),
+                            max_length,
+                        )
+                    else:
+                        warning.assert_not_called()
+
+    def test_get_client_username_uses_dynamic_field_length(self):
+        field = AccessBase._meta.get_field("username")
+        with patch.object(field, "max_length", 8):
+            self.assertEqual(
+                "long-use",
+                get_client_username(HttpRequest(), {"username": "long-username"}),
+            )
+
+    @override_settings(AXES_USERNAME_FORM_FIELD="auth-username")
+    def test_get_client_username_truncates_fallback_field(self):
+        max_length = AccessBase._meta.get_field("username").max_length
+        self.assertEqual(
+            "x" * max_length,
+            get_client_username(HttpRequest(), {"username": "x" * (max_length + 1)}),
+        )
+
     @override_settings(AXES_USERNAME_FORM_FIELD="username")
     def test_default_get_client_username(self):
         expected = "test-username"
@@ -791,6 +855,101 @@ class UsernameTestCase(AxesTestCase):
     @override_settings(AXES_USERNAME_CALLABLE="tests.test_helpers.get_username")
     def test_get_client_username_str(self):
         self.assertEqual(get_client_username(HttpRequest(), {}), "username")
+
+    @override_settings(AXES_USERNAME_FORM_FIELD="auth-username")
+    def test_get_client_username_fallback_to_username_field_from_credentials(self):
+        """
+        Test that when AXES_USERNAME_FORM_FIELD is set to a custom value that
+        doesn't exist in credentials, we fallback to Django's USERNAME_FIELD.
+
+        This fixes https://github.com/jazzband/django-axes/issues/1159
+        """
+        expected = "test-username"
+
+        request = HttpRequest()
+        # Credentials from Django's user_login_failed signal use USERNAME_FIELD (e.g., "username")
+        # not the custom AXES_USERNAME_FORM_FIELD value
+        credentials = {"username": expected}
+
+        actual = get_client_username(request, credentials)
+
+        self.assertEqual(expected, actual)
+
+    @override_settings(AXES_USERNAME_FORM_FIELD="auth-username")
+    def test_get_client_username_fallback_to_username_field_from_request(self):
+        """
+        Test that when AXES_USERNAME_FORM_FIELD is set to a custom value that
+        doesn't exist in request.POST, we fallback to Django's USERNAME_FIELD.
+
+        This fixes https://github.com/jazzband/django-axes/issues/1159
+        """
+        expected = "test-username"
+
+        request = HttpRequest()
+        # POST data might use Django's USERNAME_FIELD instead of custom form field
+        request.POST["username"] = expected
+
+        actual = get_client_username(request)
+
+        self.assertEqual(expected, actual)
+
+    @override_settings(AXES_USERNAME_FORM_FIELD="auth-username")
+    def test_get_client_username_custom_field_takes_priority(self):
+        """
+        Test that AXES_USERNAME_FORM_FIELD takes priority when it exists in credentials.
+        """
+        expected = "custom-field-username"
+        fallback = "username-field-value"
+
+        request = HttpRequest()
+        credentials = {
+            "auth-username": expected,  # Custom field - should be used
+            "username": fallback,  # Django's USERNAME_FIELD - should be ignored
+        }
+
+        actual = get_client_username(request, credentials)
+
+        self.assertEqual(expected, actual)
+
+
+class GetUsernameFromDataTestCase(AxesTestCase):
+    """Unit tests for the get_username_from_data helper function."""
+
+    @override_settings(AXES_USERNAME_FORM_FIELD="username")
+    def test_get_username_from_data_with_matching_field(self):
+        """Test that username is returned when AXES_USERNAME_FORM_FIELD matches."""
+        data = {"username": "test-user"}
+        self.assertEqual(get_username_from_data(data), "test-user")
+
+    @override_settings(AXES_USERNAME_FORM_FIELD="custom-field")
+    def test_get_username_from_data_fallback_to_username_field(self):
+        """
+        Test that when AXES_USERNAME_FORM_FIELD doesn't exist in data,
+        we fallback to Django's USERNAME_FIELD.
+        """
+        # Django's default USERNAME_FIELD is "username"
+        data = {"username": "fallback-user"}
+        self.assertEqual(get_username_from_data(data), "fallback-user")
+
+    @override_settings(AXES_USERNAME_FORM_FIELD="custom-field")
+    def test_get_username_from_data_custom_field_takes_priority(self):
+        """Test that AXES_USERNAME_FORM_FIELD takes priority over USERNAME_FIELD."""
+        data = {
+            "custom-field": "custom-user",
+            "username": "fallback-user",
+        }
+        self.assertEqual(get_username_from_data(data), "custom-user")
+
+    @override_settings(AXES_USERNAME_FORM_FIELD="nonexistent")
+    def test_get_username_from_data_returns_none_when_not_found(self):
+        """Test that None is returned when username is not found in any field."""
+        data = {"other-field": "some-value"}
+        self.assertIsNone(get_username_from_data(data))
+
+    @override_settings(AXES_USERNAME_FORM_FIELD="username")
+    def test_get_username_from_data_with_empty_dict(self):
+        """Test that None is returned for empty dict."""
+        self.assertIsNone(get_username_from_data({}))
 
 
 def get_username(request, credentials: dict) -> str:
@@ -945,6 +1104,48 @@ class LockoutResponseTestCase(AxesTestCase):
     def test_get_lockout_response_lockout_response(self):
         response = get_lockout_response(request=self.request)
         self.assertEqual(type(response), HttpResponse)
+
+    @override_settings(
+        AXES_COOLOFF_TIME=timedelta(seconds=120),
+        AXES_ENABLE_RETRY_AFTER_HEADER=True,
+    )
+    def test_lockout_response_sets_retry_after_header(self):
+        response = get_lockout_response(request=self.request)
+        self.assertEqual(response["Retry-After"], "120")
+
+    @override_settings(
+        AXES_COOLOFF_TIME=timedelta(seconds=120),
+        AXES_ENABLE_RETRY_AFTER_HEADER=False,
+    )
+    def test_lockout_response_omits_retry_after_header_when_disabled(self):
+        response = get_lockout_response(request=self.request)
+        self.assertFalse(response.has_header("Retry-After"))
+
+    @override_settings(
+        AXES_COOLOFF_TIME=None,
+        AXES_ENABLE_RETRY_AFTER_HEADER=True,
+    )
+    def test_lockout_response_omits_retry_after_header_without_cool_off(self):
+        response = get_lockout_response(request=self.request)
+        self.assertFalse(response.has_header("Retry-After"))
+
+    @override_settings(
+        AXES_COOLOFF_TIME=timedelta(seconds=120),
+        AXES_ENABLE_RETRY_AFTER_HEADER=True,
+        AXES_LOCKOUT_URL="https://example.com",
+    )
+    def test_retry_after_header_set_on_redirect_lockout_response(self):
+        response = get_lockout_response(request=self.request)
+        self.assertEqual(response["Retry-After"], "120")
+
+    @override_settings(
+        AXES_COOLOFF_TIME=timedelta(seconds=90),
+        AXES_ENABLE_RETRY_AFTER_HEADER=True,
+    )
+    def test_set_retry_after_header_writes_cool_off_seconds(self):
+        response = HttpResponse()
+        set_retry_after_header(self.request, response)
+        self.assertEqual(response["Retry-After"], "90")
 
 
 def mock_get_cool_off_str(req):
@@ -1103,3 +1304,138 @@ class AxesCleanseParamsTestCase(AxesTestCase):
         self.assertEqual("test_user", cleansed["username"])
         self.assertEqual("********************", cleansed["password"])
         self.assertEqual("sensitive", cleansed["other_sensitive_data"])
+
+    @override_settings(AXES_PASSWORD_FORM_FIELD="pword")
+    def test_cleanse_parameters_form_prefix(self):
+        # A form initialized with prefix="login" submits its password field
+        # as "login-pword", not "pword". This used to be left in cleartext.
+        prefixed_parameters = {
+            "login-uname": "test_user",
+            "login-pword": "test_password",
+        }
+        cleansed = cleanse_parameters(prefixed_parameters)
+        self.assertEqual("test_user", cleansed["login-uname"])
+        self.assertEqual("********************", cleansed["login-pword"])
+
+    @override_settings(AXES_SENSITIVE_PARAMETERS=["other_sensitive_data"])
+    def test_cleanse_parameters_form_prefix_sensitive_parameters(self):
+        prefixed_parameters = {
+            "form-username": "test_user",
+            "form-other_sensitive_data": "sensitive",
+        }
+        cleansed = cleanse_parameters(prefixed_parameters)
+        self.assertEqual("test_user", cleansed["form-username"])
+        self.assertEqual("********************", cleansed["form-other_sensitive_data"])
+
+
+class AxesLockoutTiersTestCase(AxesTestCase):
+    SAMPLE_TIERS = [
+        LockoutTier(failures=3, cooloff=timedelta(minutes=15)),
+        LockoutTier(failures=6, cooloff=timedelta(hours=2)),
+        LockoutTier(failures=10, cooloff=timedelta(days=1)),
+    ]
+
+    # -- get_lockout_tier --
+
+    def test_get_lockout_tier_none_when_not_configured(self):
+        self.assertIsNone(get_lockout_tier(5))
+
+    @override_settings(AXES_LOCKOUT_TIERS=SAMPLE_TIERS)
+    def test_get_lockout_tier_below_threshold(self):
+        self.assertIsNone(get_lockout_tier(2))
+
+    @override_settings(AXES_LOCKOUT_TIERS=SAMPLE_TIERS)
+    def test_get_lockout_tier_first_tier(self):
+        tier = get_lockout_tier(3)
+        self.assertEqual(tier, LockoutTier(failures=3, cooloff=timedelta(minutes=15)))
+
+    @override_settings(AXES_LOCKOUT_TIERS=SAMPLE_TIERS)
+    def test_get_lockout_tier_between_tiers(self):
+        tier = get_lockout_tier(5)
+        self.assertEqual(tier, LockoutTier(failures=3, cooloff=timedelta(minutes=15)))
+
+    @override_settings(AXES_LOCKOUT_TIERS=SAMPLE_TIERS)
+    def test_get_lockout_tier_second_tier(self):
+        tier = get_lockout_tier(6)
+        self.assertEqual(tier, LockoutTier(failures=6, cooloff=timedelta(hours=2)))
+
+    @override_settings(AXES_LOCKOUT_TIERS=SAMPLE_TIERS)
+    def test_get_lockout_tier_seven_failures(self):
+        tier = get_lockout_tier(7)
+        self.assertEqual(tier, LockoutTier(failures=6, cooloff=timedelta(hours=2)))
+
+    @override_settings(AXES_LOCKOUT_TIERS=SAMPLE_TIERS)
+    def test_get_lockout_tier_highest_tier(self):
+        tier = get_lockout_tier(10)
+        self.assertEqual(tier, LockoutTier(failures=10, cooloff=timedelta(days=1)))
+
+    @override_settings(AXES_LOCKOUT_TIERS=SAMPLE_TIERS)
+    def test_get_lockout_tier_above_highest(self):
+        tier = get_lockout_tier(100)
+        self.assertEqual(tier, LockoutTier(failures=10, cooloff=timedelta(days=1)))
+
+    # -- get_cool_off with tiers --
+
+    @override_settings(AXES_LOCKOUT_TIERS=SAMPLE_TIERS)
+    def test_get_cool_off_with_tiers(self):
+        self.request.axes_failures_since_start = 6
+        self.assertEqual(get_cool_off(self.request), timedelta(hours=2))
+
+    @override_settings(AXES_LOCKOUT_TIERS=SAMPLE_TIERS)
+    def test_get_cool_off_tiers_no_failures_attr(self):
+        """When request has no failures attribute, returns None (no tier matched)."""
+        request = HttpRequest()
+        self.assertIsNone(get_cool_off(request))
+
+    @override_settings(AXES_LOCKOUT_TIERS=SAMPLE_TIERS)
+    def test_get_cool_off_tiers_below_first_threshold(self):
+        self.request.axes_failures_since_start = 1
+        self.assertIsNone(get_cool_off(self.request))
+
+    # -- get_failure_limit with tiers --
+
+    @override_settings(AXES_LOCKOUT_TIERS=SAMPLE_TIERS)
+    def test_get_failure_limit_returns_lowest_tier(self):
+        from axes.helpers import get_failure_limit
+
+        self.assertEqual(get_failure_limit(self.request, self.credentials), 3)
+
+    @override_settings(
+        AXES_LOCKOUT_TIERS=[
+            LockoutTier(failures=10, cooloff=timedelta(days=1)),
+            LockoutTier(failures=5, cooloff=timedelta(hours=1)),
+        ]
+    )
+    def test_get_failure_limit_sorts_tiers(self):
+        from axes.helpers import get_failure_limit
+
+        self.assertEqual(get_failure_limit(self.request, self.credentials), 5)
+
+    # -- get_lockout_message with tiers --
+
+    @override_settings(AXES_LOCKOUT_TIERS=SAMPLE_TIERS, AXES_COOLOFF_TIME=None)
+    def test_get_lockout_message_with_tiers(self):
+        from axes.conf import settings
+        from axes.helpers import get_lockout_message
+
+        self.assertEqual(get_lockout_message(), settings.AXES_COOLOFF_MESSAGE)
+
+    # -- get_lockout_response with tiers --
+
+    @override_settings(AXES_LOCKOUT_TIERS=SAMPLE_TIERS, AXES_COOLOFF_TIME=None)
+    def test_get_lockout_response_includes_failure_count(self):
+        self.request.axes_failures_since_start = 6
+        response = get_lockout_response(request=self.request)
+        self.assertEqual(response.status_code, 429)
+
+    @override_settings(AXES_LOCKOUT_TIERS=SAMPLE_TIERS, AXES_COOLOFF_TIME=None)
+    def test_get_lockout_response_json_with_tiers(self):
+        self.request.axes_failures_since_start = 3
+        self.request.META["HTTP_X_REQUESTED_WITH"] = "XMLHttpRequest"
+        response = get_lockout_response(request=self.request)
+        self.assertEqual(type(response), JsonResponse)
+        import json
+
+        data = json.loads(response.content)
+        self.assertEqual(data["failure_count"], 3)
+        self.assertIn("cooloff_time", data)

@@ -1,8 +1,8 @@
 use polars::prelude::*;
 use pyo3_polars::derive::polars_expr;
 
-fn kaplan_meier_prob(_: &[Field]) -> PolarsResult<Field> {
-    let t = Field::new("t".into(), DataType::Float64);
+fn kaplan_meier_prob(fields: &[Field]) -> PolarsResult<Field> {
+    let t = Field::new("t".into(), fields[1].dtype().clone());
     let p = Field::new("prob".into(), DataType::Float64);
     let v: Vec<Field> = vec![t, p];
     Ok(Field::new("kaplan_meier".into(), DataType::Struct(v)))
@@ -15,13 +15,13 @@ fn pl_kaplan_meier(inputs: &[Series]) -> PolarsResult<Series> {
 
     if n1 != n2 {
         return Err(PolarsError::ShapeMismatch(
-            "Length of status column is not the same as the length of survival time column.".into(),
+            "inputs must have the same length".into(),
         ));
     }
 
     if !inputs.iter().all(|s| s.dtype().is_numeric()) {
         return Err(PolarsError::ComputeError(
-            "All columns must be numeric.".into(),
+            "all columns must be of numeric type".into(),
         ));
     }
 

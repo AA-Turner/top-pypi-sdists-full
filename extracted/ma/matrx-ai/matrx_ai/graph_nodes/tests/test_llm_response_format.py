@@ -60,3 +60,14 @@ def test_wired_into_input_forces_structured_output():
     )
     rf = _build_response_format(inp.output_schema)
     assert rf["json_schema"]["schema"]["properties"]["summary"]["type"] == "string"
+
+
+def test_refusal_names_the_calling_step():
+    """Custom AI Call reuses this builder; its author must see Custom AI Call named."""
+    with pytest.raises(ExecutionError) as empty:
+        _build_response_format({}, step_type="ai.chat.manual")
+    assert str(empty.value).startswith("ai.chat.manual:")
+    assert "ai.llm.chat" not in str(empty.value)
+    with pytest.raises(ExecutionError) as default:
+        _build_response_format({})
+    assert str(default.value).startswith("ai.llm.chat:")

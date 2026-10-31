@@ -1,6 +1,6 @@
 [package]
 name = "dupekit-native"
-version = "0.1.12-dev.39325146809"
+version = "0.1.13-dev.41128635892"
 edition = "2021"
 
 # Keep in sync with `module-name` in the sibling pyproject.toml. See
@@ -21,7 +21,7 @@ pyo3 = { version = "0.29", features = [
 ] } # stable ABI with minimum Python version 3.12
 rand = "0.8"
 rand_pcg = "0.3"
-xxhash-rust = { version = "0.8", features = ["xxh3"] }
+xxhash-rust = { version = "0.8.16", features = ["xxh3"] }
 
 # thin-LTO: within ~1% of fat-LTO runtime at a fraction of the link time.
 [profile.release]

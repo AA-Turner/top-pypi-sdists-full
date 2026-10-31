@@ -39,6 +39,7 @@ __all__ = (
     "DescribeGlobalClustersPaginatorName",
     "DescribeOrderableDBInstanceOptionsPaginatorName",
     "DescribePendingMaintenanceActionsPaginatorName",
+    "DescribeServerlessV2PlatformVersionsPaginatorName",
     "DocDBServiceName",
     "FailoverStatusType",
     "GlobalClusterMemberSynchronizationStatusType",
@@ -67,6 +68,9 @@ DescribeEventsPaginatorName = Literal["describe_events"]
 DescribeGlobalClustersPaginatorName = Literal["describe_global_clusters"]
 DescribeOrderableDBInstanceOptionsPaginatorName = Literal["describe_orderable_db_instance_options"]
 DescribePendingMaintenanceActionsPaginatorName = Literal["describe_pending_maintenance_actions"]
+DescribeServerlessV2PlatformVersionsPaginatorName = Literal[
+    "describe_serverless_v2_platform_versions"
+]
 FailoverStatusType = Literal["cancelling", "failing-over", "pending"]
 GlobalClusterMemberSynchronizationStatusType = Literal["connected", "pending-resync"]
 SourceTypeType = Literal[
@@ -531,6 +535,7 @@ PaginatorName = Literal[
     "describe_global_clusters",
     "describe_orderable_db_instance_options",
     "describe_pending_maintenance_actions",
+    "describe_serverless_v2_platform_versions",
 ]
 WaiterName = Literal["db_instance_available", "db_instance_deleted"]
 RegionName = Literal[

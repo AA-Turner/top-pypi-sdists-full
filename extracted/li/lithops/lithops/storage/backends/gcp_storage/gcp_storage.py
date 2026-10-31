@@ -14,7 +14,6 @@
 # limitations under the License.
 #
 
-import re
 import os
 import shutil
 import time
@@ -109,12 +108,15 @@ class GCPStorageBackend:
         if not blob.exists():
             raise StorageNoSuchKeyError(bucket_name, key)
 
-        if extra_get_args and 'Range' in extra_get_args:
-            start, end = re.findall(r'\d+', extra_get_args['Range'])
-            start = int(start)
-            end = int(end)
-        else:
-            start, end = None, None
+        start, end = None, None
+        if 'Range' in extra_get_args:
+            # 'bytes=a-b', 'bytes=a-' (to the end) or 'bytes=-n' (the last n bytes)
+            start, end = extra_get_args['Range'].replace('bytes=', '').split('-')
+            start, end = int(start) if start else None, int(end) if end else None
+            if start is None:
+                # The last bytes of the object
+                blob.reload()
+                start, end = max(blob.size - end, 0), None
 
         if stream:
             stream = BytesIO()
@@ -207,7 +209,10 @@ class GCPStorageBackend:
             pass
 
     def head_bucket(self, bucket_name):
-        bucket = self.client.get_bucket(bucket_name, timeout=TIMEOUT)
+        try:
+            bucket = self.client.get_bucket(bucket_name, timeout=TIMEOUT)
+        except google_exceptions.NotFound:
+            raise StorageNoSuchKeyError(bucket_name, '')
         response = {
             'ResponseMetadata':
                 {'HTTPStatusCode': 200,
@@ -221,7 +226,7 @@ class GCPStorageBackend:
         try:
             bucket = self.client.get_bucket(bucket_name, timeout=TIMEOUT)
             page = bucket.list_blobs(prefix=prefix)
-        except google_exceptions.ClientError:
+        except google_exceptions.NotFound:
             raise StorageNoSuchKeyError(bucket_name, '')
         return [{'Key': blob.name, 'Size': blob.size, 'LastModified': blob.updated} for blob in page]
 
@@ -229,6 +234,6 @@ class GCPStorageBackend:
         try:
             bucket = self.client.get_bucket(bucket_name, timeout=TIMEOUT)
             page = bucket.list_blobs(prefix=prefix)
-        except google_exceptions.ClientError:
+        except google_exceptions.NotFound:
             raise StorageNoSuchKeyError(bucket_name, '')
         return [blob.name for blob in page]

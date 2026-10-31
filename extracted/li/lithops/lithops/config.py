@@ -19,7 +19,9 @@ import os
 import copy
 import json
 import importlib
+import ipaddress
 import logging
+from urllib.parse import urlsplit
 
 from lithops import constants as c
 from lithops.version import __version__
@@ -177,7 +179,7 @@ def _resolve_mode_and_backend(config_data):
     mode = lithops_cfg.get('mode')
 
     if mode and not backend:
-        if mode in config_data and 'backend' in config_data[mode]:
+        if 'backend' in (config_data.get(mode) or {}):
             lithops_cfg['backend'] = config_data[mode]['backend']
         else:
             lithops_cfg['backend'] = get_default_backend(mode)
@@ -191,7 +193,10 @@ def _resolve_mode_and_backend(config_data):
 
 
 def _load_compute_backend_config(config_data, mode, backend):
-    """Lets the config module of the compute backend fill in its own defaults"""
+    """
+    Lets the config module of the compute backend fill in its own defaults,
+    and returns that module
+    """
     if mode == c.LOCALHOST:
         logger.debug("Loading compute backend module: localhost")
         module_name = 'lithops.localhost.config'
@@ -204,11 +209,14 @@ def _load_compute_backend_config(config_data, mode, backend):
     else:
         return
 
-    importlib.import_module(module_name).load_config(config_data)
+    module = importlib.import_module(module_name)
+    module.load_config(config_data)
 
     if mode == c.STANDALONE:
         # Standalone always runs one call per worker; user chunksize is ignored.
         config_data['lithops']['chunksize'] = 0
+
+    return module
 
 
 def default_config(
@@ -243,7 +251,7 @@ def default_config(
     if 'backend' in config_overwrite and config_overwrite['backend']:
         config_data[backend].update(config_overwrite['backend'])
 
-    _load_compute_backend_config(config_data, mode, backend)
+    backend_config = _load_compute_backend_config(config_data, mode, backend)
 
     if 'chunksize' not in config_data['lithops']:
         config_data['lithops']['chunksize'] = (
@@ -263,8 +271,62 @@ def default_config(
 
     _load_monitoring_backend_config(config_data)
     _load_telemetry_backend_config(config_data)
+    _check_loopback_addresses(
+        config_data, getattr(backend_config, 'SHARES_HOST_NETWORK', False)
+    )
 
     return config_data
+
+
+# The keys of a storage or monitoring section that hold the address workers connect to
+_ADDRESS_KEYS = ('host', 'endpoint', 'amqp_url')
+
+
+def _is_loopback(address):
+    """Whether a host, host:port or URL names this machine"""
+    try:
+        return ipaddress.ip_address(address).is_loopback
+    except ValueError:
+        pass
+    host = urlsplit(address if '://' in address else '//' + address).hostname
+    if host == 'localhost':
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def _check_loopback_addresses(config_data, shares_host_network=False):
+    """
+    Refuses a storage or monitoring service at a loopback address for
+    serverless workers, which run in containers of their own where that
+    address is the worker itself. The others only get a warning: an SSH
+    tunnel can bring the service to the loopback address of a standalone VM,
+    and the containers of a backend whose config module sets
+    SHARES_HOST_NETWORK, run on this machine, reach its services
+    """
+    lithops_cfg = config_data['lithops']
+    mode = lithops_cfg.get('mode')
+    if mode == c.LOCALHOST:
+        return
+    backend = lithops_cfg['backend']
+    refused = mode == c.SERVERLESS and not shares_host_network
+    for section in (lithops_cfg.get('storage'), lithops_cfg.get('monitoring')):
+        for key in _ADDRESS_KEYS:
+            address = (config_data.get(section) or {}).get(key)
+            if not isinstance(address, str) or not _is_loopback(address):
+                continue
+            if refused:
+                raise Exception(
+                    f"{section}.{key} '{address}' is a loopback address, which the "
+                    f"{backend} workers cannot reach. Set it to an address they can reach"
+                )
+            logger.warning(
+                f"{section}.{key} '{address}' is a loopback address, which the "
+                f"{backend} workers only reach if the service runs on, or is tunnelled "
+                "to, the machine they run on. Set it to an address they can reach otherwise"
+            )
 
 
 def _load_monitoring_backend_config(config_data):
@@ -293,16 +355,21 @@ def _load_telemetry_backend_config(config_data):
     defaults. A no-op when telemetry is off, which is the default: the
     client library of a backend nobody asked for is never imported
     """
-    from lithops.telemetry import load_backend_config, resolve_backend
+    from lithops.telemetry.backends import (
+        import_backend_module,
+        resolve_backend,
+    )
 
     telemetry = resolve_backend(config_data)
     config_data['lithops']['telemetry'] = telemetry or False
     if telemetry is None:
         return
+    logger.debug(f"Loading Telemetry backend module: {telemetry}")
     try:
-        load_backend_config(config_data)
+        module = import_backend_module(telemetry, 'config')
     except ValueError as exc:
         raise Exception(str(exc)) from exc
+    module.load_config(config_data)
 
 
 def default_storage_config(config_file=None, config_data=None, backend=None):

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: pamqp
-Version: 4.0.1
+Version: 5.0.0
 Summary: RabbitMQ Focused AMQP low-level library
 Project-URL: Homepage, https://github.com/gmr/pamqp
 Project-URL: Documentation, https://gmr.github.io/pamqp/

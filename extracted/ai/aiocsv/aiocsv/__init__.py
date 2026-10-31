@@ -3,7 +3,7 @@
 
 __title__ = "aiocsv"
 __description__ = "Asynchronous CSV reading/writing"
-__version__ = "1.4.1"
+__version__ = "1.4.2"
 
 __url__ = "https://github.com/MKuranowski/aiocsv"
 __author__ = "Mikołaj Kuranowski"
@@ -15,4 +15,4 @@ __license__ = "MIT"
 from .readers import AsyncDictReader, AsyncReader
 from .writers import AsyncDictWriter, AsyncWriter
 
-__all__ = ["AsyncReader", "AsyncDictReader", "AsyncWriter", "AsyncDictWriter"]
+__all__ = ["AsyncDictReader", "AsyncDictWriter", "AsyncReader", "AsyncWriter"]

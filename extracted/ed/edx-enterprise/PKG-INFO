@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx-enterprise
-Version: 8.18.0
+Version: 9.0.0
 Summary: Your project description goes here
 Home-page: https://github.com/openedx/edx-enterprise
 Author: edX
@@ -44,6 +44,7 @@ Requires-Dist: edx-toggles
 Requires-Dist: jsondiff
 Requires-Dist: jsonfield
 Requires-Dist: lxml
+Requires-Dist: markupsafe
 Requires-Dist: openedx-atlas
 Requires-Dist: openedx-events
 Requires-Dist: openedx-filters
@@ -165,6 +166,12 @@ Change Log
 Unreleased
 ----------
 * nothing unreleased
+
+[9.0.0] - 2026-10-30
+---------------------
+* feat!: Moves openedx-platform's ``openedx.features.enterprise_support`` module into this
+  repo as ``enterprise.platform_support``, so the platform copy can be deleted and
+  edx-enterprise is closer to being an optional platform dependency (ENT-11576)
 
 [8.18.0] - 2026-10-08
 ----------------------

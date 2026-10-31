@@ -3,7 +3,7 @@ from os.path import getsize
 
 from bsdiff4 import __version__
 from bsdiff4.format import (file_diff, file_patch, read_patch,
-                            unpack_control_block)
+                            unpack_header, unpack_control_block)
 
 
 def human_bytes(n):
@@ -48,27 +48,34 @@ def main_bsdiff4():
 
 
 def show_patch(patch_path, verbose=False):
-    s_total = getsize(patch_path)
+    total_len = getsize(patch_path)
     with open(patch_path, 'rb') as fi:
-        s_control, s_diff, s_dst, bcontrol = read_patch(fi, header_only=True)
+        control_len, diff_len, dst_len = unpack_header(fi.read(32))
+        print("sizes:")
+        for name, size in [
+            ('total', total_len),
+            ('control', control_len),
+            ('diff', diff_len),
+            ('extra', total_len - 32 - control_len - diff_len),
+            ('dst', dst_len),
+        ]:
+            print('%10s: %10d (%s)' % (name, size, human_bytes(size)))
 
-    for name, size in [
-            ('total', s_total),
-            ('control', s_control),
-            ('diff', s_diff),
-            ('extra', s_total - 32 - s_control - s_diff),
-            ('dst', s_dst),
-    ]:
-        print('%s size: %d (%s)' % (name, size, human_bytes(size)))
+        fi.seek(0)
+        _, control_block, diff_block, extra_block = read_patch(fi)
+        print("\nuncompressed block sizes:")
+        for name, size in [
+            ('control', len(control_block)),
+            ('diff', len(diff_block)),
+            ('extra', len(extra_block)),
+        ]:
+            print('%10s: %10d (%s)' % (name, size, human_bytes(size)))
 
-    if s_dst:
-        print('total / dst = %.2f%%' % (100.0 * s_total / s_dst))
-
-    print('number of control tuples: %d' % (len(bcontrol) // 24))
-    if verbose:
-        print('%20s %10s %10s' % ('x', 'y', 'z'))
-        for ct in unpack_control_block(bcontrol):
-            print('%20d %10d %10d' % ct)
+        print('\nnumber of control tuples: %d' % (len(control_block) // 24))
+        if verbose:
+            print('%10s %10s %10s' % ('x', 'y', 'z'))
+            for ct in unpack_control_block(control_block):
+                print('%10d %10d %10d' % ct)
 
 
 def main_bspatch4():

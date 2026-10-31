@@ -204,7 +204,11 @@ class SemanticMessageHistory(BaseMessageHistory):
 
     @property
     def messages(self) -> list[str] | list[dict[str, str]]:
-        """Returns the full message history."""
+        """Returns every message in the current session, oldest first.
+
+        The result is not bounded. For a bounded read of the latest messages,
+        use ``get_recent(top_k=...)``.
+        """
         # TODO raw or as_text?
         # TODO refactor method to use get_recent and support other session tags
         return_fields = [
@@ -220,6 +224,7 @@ class SemanticMessageHistory(BaseMessageHistory):
         query = FilterQuery(
             filter_expression=self._default_session_filter,
             return_fields=return_fields,
+            num_results=self.count(),
         )
         query.sort_by(TIMESTAMP_FIELD_NAME, asc=True)
         messages = self._index.query(query)
@@ -325,7 +330,13 @@ class SemanticMessageHistory(BaseMessageHistory):
 
         # if we don't find semantic matches fallback to returning recent context
         if not messages and fall_back:
-            return self.get_recent(as_text=as_text, top_k=top_k, raw=raw, role=role)
+            return self.get_recent(
+                as_text=as_text,
+                top_k=top_k,
+                raw=raw,
+                session_tag=session_tag,
+                role=role,
+            )
         if raw:
             return messages
         return self._format_context(messages, as_text)

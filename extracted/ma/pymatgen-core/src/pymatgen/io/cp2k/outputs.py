@@ -242,11 +242,12 @@ class Cp2kOutput:
         self.filenames["chi_tensor"] = glob(os.path.join(self.dir, "*CHI*data*"))
         self.filenames["nmr_shift"] = glob(os.path.join(self.dir, "*SHIFT*data*"))
         self.filenames["raman"] = glob(os.path.join(self.dir, "*raman*data*"))
-        restart = glob(os.path.join(self.dir, "*restart*"))
+        # glob is case-insensitive on Windows, so filter by basename to avoid matching *-RESTART.wfn
+        restart = [r for r in glob(os.path.join(self.dir, "*restart*")) if "restart" in os.path.basename(r)]
         self.filenames["restart.bak"] = []
         self.filenames["restart"] = []
         for r in restart:
-            if "bak" in r.split("/")[-1]:
+            if "bak" in os.path.basename(r):
                 self.filenames["restart.bak"].append(r)
             else:
                 self.filenames["restart"].append(r)
@@ -254,7 +255,7 @@ class Cp2kOutput:
         wfn = glob(os.path.join(self.dir, "*.wfn*")) + glob(os.path.join(self.dir, "*.kp*"))
         self.filenames["wfn.bak"] = []
         for w in wfn:
-            if "bak" in w.split("/")[-1]:
+            if "bak" in os.path.basename(w):
                 self.filenames["wfn.bak"].append(w)
             else:
                 self.filenames["wfn"] = w
@@ -293,7 +294,11 @@ class Cp2kOutput:
                 raise FileNotFoundError("Unable to automatically determine lattice file. More than one exist.")
         else:
             latt_file = np.loadtxt(lattice_file)
-            lattices = [latt[2:].reshape(3, 3) for latt in latt_file]
+            lattices = (
+                [latt[2:11].reshape(3, 3) for latt in latt_file]
+                if len(latt_file.shape) > 1
+                else [latt_file[2:11].reshape(3, 3)]
+            )
 
         if not trajectory_file:
             self.structures = [self.initial_structure]
@@ -688,7 +693,7 @@ class Cp2kOutput:
         the convergence cutoff for scf (eps_scf),.
         """
         max_scf = re.compile(r"max_scf:\s+(\d+)")
-        eps_scf = re.compile(r"eps_scf:\s+(\d+)")
+        eps_scf = re.compile(r"eps_scf:\s+(\d+\.?\d*(?:[eE][+\-]?\d+)?)")
         self.read_pattern(
             {"max_scf": max_scf, "eps_scf": eps_scf},
             terminate_on_match=True,
@@ -990,7 +995,7 @@ class Cp2kOutput:
                 net_charge = []
                 spin_moment = []
                 for site in ionic_step:
-                    population.append(tuple(site[4:5]))
+                    population.append(tuple(site[4:6]))
                     spin_moment.append(site[6])
                     net_charge.append(site[7])
                 hirshfeld = [
@@ -1148,7 +1153,7 @@ class Cp2kOutput:
         n_unocc = len(eigenvalues[-1]["unoccupied"][Spin.up])
         self.data["tdos"] = Dos(
             efermi=self.vbm + 1e-6,
-            energies=list(eigenvalues[-1]["occupied"][Spin.up]) + list(eigenvalues[-1]["unoccupied"][Spin.down]),
+            energies=list(eigenvalues[-1]["occupied"][Spin.up]) + list(eigenvalues[-1]["unoccupied"][Spin.up]),
             densities={
                 Spin.up: [1 for _ in range(n_occ)] + [0 for _ in range(n_unocc)],
                 Spin.down: [1 for _ in range(n_occ)] + [0 for _ in range(n_unocc)],
@@ -1160,16 +1165,17 @@ class Cp2kOutput:
         by spin up/spin down channel and over many ionic steps, see parse_mo_eigenvalues().
         """
         pattern = re.compile(r"HOMO.*-.*LUMO.*gap.*\s(-?\d+.\d+)")
+        # Read forwards so the per-spin lists are chronological and [-1] is the final gap
         self.read_pattern(
             patterns={"band_gap": pattern},
-            reverse=True,
+            reverse=False,
             terminate_on_match=False,
             postprocess=float,
         )
         bg = {Spin.up: [], Spin.down: []}
         for i in range(len(self.data["band_gap"])):
             if self.spin_polarized:
-                if i % 2:
+                if i % 2 == 0:
                     bg[Spin.up].append(self.data["band_gap"][i][0])
                 else:
                     bg[Spin.down].append(self.data["band_gap"][i][0])
@@ -1298,7 +1304,7 @@ class Cp2kOutput:
             if not line.startswith("#"):
                 continue
             if line.split()[1] == "Set":
-                nkpts += int(lines[0].split()[6])
+                nkpts += int(line.split()[6])
             elif line.split()[1] == "Point":
                 kpts.append(list(map(float, line.split()[-4:-1])))
             elif line.split()[1] == "Special":
@@ -1322,7 +1328,7 @@ class Cp2kOutput:
                 Spin.down: down[:, 1].reshape((nkpts, nbands)).T.tolist(),
             }
         else:
-            eigenvals = {Spin.up: bands_data.reshape((nbands, nkpts))}
+            eigenvals = {Spin.up: bands_data[:, 1].reshape((nkpts, nbands)).T.tolist()}
 
         # Filter out occupied and unoccupied states
         occupied_mask = ~np.isclose(bands_data[:, -1], 0.0)

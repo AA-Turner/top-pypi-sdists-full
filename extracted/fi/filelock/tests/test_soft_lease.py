@@ -13,7 +13,7 @@ from decimal import Decimal
 from errno import EIO, ENOENT
 from threading import Event, Thread
 from types import FrameType, SimpleNamespace
-from typing import TYPE_CHECKING, Final, Literal, TypedDict, cast
+from typing import TYPE_CHECKING, Final, Literal, NoReturn, TypedDict, cast
 
 import pytest
 
@@ -31,11 +31,13 @@ from filelock._soft import MALFORMED_LOCK_AGE_THRESHOLD
 from filelock._util import exchange_names
 from tests.capability_marks import (
     NEEDS_COLLECTED_FINALIZATION,
+    NEEDS_FORK,
     NEEDS_PROMPT_FINALIZATION,
     NEEDS_STALE_RECLAIM,
     NEEDS_UNLINK_OPEN_FILE,
 )
 from tests.conftest import held_after_reclaim
+from tests.fork_helpers import exit_child, fork_process
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -104,6 +106,38 @@ def test_lease_token_names_no_claim_after_a_contended_acquire(marker: Path) -> N
         with pytest.raises(Timeout):
             contender.acquire()
         assert contender.token is None
+
+
+_FORK_WARNING: Final[pytest.MarkDecorator] = pytest.mark.filterwarnings(
+    "ignore:.*multi-threaded, use of fork.*:DeprecationWarning"
+)
+
+
+@NEEDS_FORK  # pragma: needs fork
+@_FORK_WARNING
+@pytest.mark.parametrize("thread_local", [True, False], ids=["thread-local", "shared"])
+def test_lease_claim_does_not_survive_fork(marker: Path, *, thread_local: bool) -> None:
+    # fork copies the parent's claim, token, compromise and heartbeat included, into a child that holds nothing.
+    lease = SoftFileLease(
+        str(marker),
+        lease_duration=_DURATION,
+        heartbeat_interval=_HEARTBEAT,
+        thread_local=thread_local,
+        is_singleton=False,
+    )
+    lease.acquire()
+    assert lease.token is not None
+
+    def child() -> NoReturn:
+        unheld = lease.token is None and not lease.is_locked and lease.compromise is None
+        exit_child(0 if unheld else 1)
+
+    child_pid = fork_process(child)
+    _, status = os.waitpid(child_pid, 0)
+
+    assert os.waitstatus_to_exitcode(status) == 0
+    assert lease.token is not None
+    lease.release()
 
 
 def test_lease_token_names_no_claim_after_an_acquire_that_raises(tmp_path: Path) -> None:
@@ -926,9 +960,12 @@ def test_lease_dropped_while_its_heartbeat_finds_the_claim_lost_reports_nothing(
         )
     ]
     before: Final = _lease_heartbeats()
+    open_spy: Final = mocker.spy(os, "open")
     leases[0].acquire()
     heartbeats: Final = _lease_heartbeats() - before
+    lease_fd: Final = open_spy.spy_return
     real_lstat: Final = os.lstat
+    real_fstat: Final = os.fstat
     misses: Final = itertools.count()
 
     def lstat(path: str) -> os.stat_result:
@@ -940,8 +977,9 @@ def test_lease_dropped_while_its_heartbeat_finds_the_claim_lost_reports_nothing(
             raise FileNotFoundError(ENOENT, "No such file or directory", marker.name)
         return real_lstat(path)
 
-    def fstat(_fd: int) -> SimpleNamespace:
-        return SimpleNamespace(st_nlink=0, st_dev=0, st_ino=0)
+    def fstat(fd: int) -> os.stat_result | SimpleNamespace:
+        # The collected lease has closed its descriptor by the time the heartbeat inspects it.
+        return SimpleNamespace(st_nlink=0, st_dev=0, st_ino=0) if fd == lease_fd else real_fstat(fd)
 
     mocker.patch("filelock._lease.os.lstat", autospec=True, side_effect=lstat)
     mocker.patch("filelock._lease.os.fstat", autospec=True, side_effect=fstat)

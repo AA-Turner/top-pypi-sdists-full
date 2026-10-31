@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import shlex
 import subprocess
 import sys
 import types
@@ -264,7 +265,10 @@ def test_the_files_step_is_the_verified_fetch_every_variant_shares() -> None:
         "curl -fsSL https://signed.example/notes.md -o /home/datalayer/content/notes.md"
         in commands[0]
     )
-    assert f'echo "{SHA}  /home/datalayer/content/notes.md" | sha256sum -c' in commands[0]
+    assert (
+        f"echo {shlex.quote(f'{SHA}  /home/datalayer/content/notes.md')} | sha256sum -c"
+        in commands[0]
+    )
     assert "environment-contents.json" in commands[-1]
     assert files_step(environment(files=[]), variant="datalayer") == []
 
@@ -300,7 +304,9 @@ def test_the_files_step_bakes_a_contents_build_manifest_from_an_external_source(
         "curl -fsSL https://data.example/iris.csv -o /opt/datalayer/contents/iris.csv"
         in commands[0]
     )
-    assert f'echo "{CONTENTS_SHA}  /opt/datalayer/contents/iris.csv" | sha256sum -c' in commands[0]
+    # The checksum line is shell-quoted as a whole (the path is user-controlled).
+    check_line = shlex.quote(f"{CONTENTS_SHA}  /opt/datalayer/contents/iris.csv")
+    assert f"echo {check_line} | sha256sum -c" in commands[0]
     assert "environment-contents.json" in commands[-1]
 
 

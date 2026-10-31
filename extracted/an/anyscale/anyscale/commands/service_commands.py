@@ -53,6 +53,9 @@ from anyscale.service.models import (
     ServiceState,
     ServiceStatus,
     ServiceVersionStatus,
+    StaticTrafficPolicy,
+    TrafficPolicy,
+    TrafficPolicyType,
 )
 from anyscale.util import (
     AnyscaleJSONEncoder,
@@ -1382,6 +1385,143 @@ def rollback(
         project_id=project_id,
     )
     service_controller.rollback(service_id, max_surge_percent)
+
+
+def _parse_traffic_weights(weights: Tuple[str, ...]) -> Dict[str, int]:
+    """Parses `--weight` values of the form RESOURCE=WEIGHT into weights by cloud
+    resource name."""
+    parsed: Dict[str, int] = {}
+    for resource, weight in convert_kv_strings_to_dict(weights).items():  # type: ignore[arg-type]
+        try:
+            parsed[resource] = int(weight)
+        except ValueError:
+            raise click.BadParameter(
+                f"The weight of cloud resource '{resource}' must be an integer, not '{weight}'.",
+                param_hint="--weight",
+            ) from None
+    return parsed
+
+
+@command_metadata(
+    status=ReleaseStatus.BETA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Send three times as much traffic to one cloud resource as to the other.",
+            command=(
+                "anyscale service update-traffic-policy -n my-service --type static "
+                "--weight vm-aws-us-west-2=3 --weight k8s-aws-us-east-2=1"
+            ),
+            output_raw=command_examples.SERVICE_UPDATE_TRAFFIC_POLICY_EXAMPLE,
+        ),
+        CommandExample(
+            description="Split traffic evenly across the cloud resources again.",
+            command="anyscale service update-traffic-policy -n my-service --type equal",
+            output_raw=command_examples.SERVICE_UPDATE_TRAFFIC_POLICY_EXAMPLE,
+        ),
+        CommandExample(
+            description="Change only the policy of version v2, leaving the other versions unchanged.",
+            command=(
+                "anyscale service update-traffic-policy -n my-service --version-name v2 "
+                "--type static --weight vm-aws-us-west-2=1 --weight k8s-aws-us-east-2=1"
+            ),
+            output_raw=command_examples.SERVICE_UPDATE_TRAFFIC_POLICY_EXAMPLE,
+        ),
+    ],
+)
+@service_cli.command(
+    name="update-traffic-policy",
+    short_help="Update how a service splits traffic across its cloud resources.",
+    help=(
+        "Update how a service splits its traffic and capacity across the cloud resources "
+        "it runs on, without deploying it.\n\n"
+        "The new policy replaces the policy of each version named by --version-name, or "
+        "of every version of the service when no --version-name is given, including a "
+        "version that is rolling out. An equal policy splits evenly. A static policy "
+        "splits in proportion to the --weight values, which must name every cloud "
+        "resource those versions run on."
+    ),
+    cls=AnyscaleCommand,
+)
+@click.option("-n", "--name", required=False, default=None, type=str, help="Name of the service.")
+@click.option(
+    "-t",
+    "--type",
+    "policy_type",
+    required=True,
+    type=click.Choice([t.value.lower() for t in TrafficPolicyType], case_sensitive=False),
+    help="How to split the traffic: evenly, or by the --weight values.",
+)
+@click.option(
+    "-w",
+    "--weight",
+    "weights",
+    multiple=True,
+    help=(
+        "Relative weight of one cloud resource, as RESOURCE=WEIGHT with the cloud "
+        "resource's name and an integer of at least 1. Repeat it for each cloud "
+        "resource. Requires --type static."
+    ),
+)
+@click.option(
+    "-v",
+    "--version-name",
+    "version_names",
+    multiple=True,
+    help=(
+        "Name of a version whose policy to replace. Repeat it for each version. If not "
+        "provided, the policy of every version of the service is replaced."
+    ),
+)
+@click.option(
+    "-c",
+    "--cloud",
+    required=False,
+    default=None,
+    type=str,
+    help="The Anyscale Cloud of this workload. If not provided, the organization default will be used (or, if running in a workspace, the cloud of the workspace).",
+)
+@click.option(
+    "-p",
+    "--project",
+    required=False,
+    default=None,
+    type=str,
+    help="Named project to use for the service. If not provided, the default project for the cloud will be used (or, if running in a workspace, the project of the workspace).",
+)
+def update_traffic_policy(
+    name: Optional[str],
+    policy_type: str,
+    weights: Tuple[str, ...],
+    version_names: Tuple[str, ...],
+    cloud: Optional[str],
+    project: Optional[str],
+):
+    policy_type = TrafficPolicyType.validate(policy_type)
+    if policy_type == TrafficPolicyType.STATIC and not weights:
+        raise click.UsageError("--type static requires a --weight for each cloud resource.")
+    if policy_type != TrafficPolicyType.STATIC and weights:
+        raise click.UsageError("--weight is only allowed with --type static.")
+
+    static = (
+        StaticTrafficPolicy(weights=_parse_traffic_weights(weights))
+        if policy_type == TrafficPolicyType.STATIC
+        else None
+    )
+    try:
+        service_id = anyscale.service.update_traffic_policy(
+            name=name,
+            traffic_policy=TrafficPolicy(type=policy_type, static=static),
+            version_names=[*version_names] or None,
+            cloud=cloud,
+            project=project,
+        )
+    except Exception as e:  # noqa: BLE001
+        raise from_command_exception(e, "Error updating the traffic policy") from None
+
+    log.info(f"Updated the traffic policy of service {service_id}.")
+    log.info(f"View the service in the UI at {get_endpoint(f'/services/{service_id}')}")
 
 
 @command_metadata(

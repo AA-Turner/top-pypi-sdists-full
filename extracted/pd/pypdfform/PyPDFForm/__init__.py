@@ -16,15 +16,14 @@ PyPDFForm aims to make PDF form automation straightforward whether it is used
 from Python code or from the command line.
 """
 
-__version__ = "6.0.2"
+__version__ = "6.1.0"
 
 from .lib.annotations import Annotations
 from .lib.assets.blank import BlankPage
 from .lib.middleware import Widgets
 from .lib.raw import RawElements
-from .lib.types import PdfArray
 from .lib.widgets import Fields
-from .lib.wrapper import PdfWrapper
+from .lib.wrapper import PdfArray, PdfWrapper
 
 __all__ = [
     "PdfWrapper",

@@ -37,6 +37,7 @@ namespace a11::flow {
 enum class SemanticKind {
   kComment,
   kString,
+  kStringEscape,
   kNumber,
   kDuration,
   /// `flow`, `in`, `out`, `header`, `node`, `nodes`, `as`, `default`.
@@ -51,6 +52,8 @@ enum class SemanticKind {
   kBuiltin,
   /// A port type: `string`, `list`, `a11.sdk.AudioBuffer`.
   kType,
+  /// A standard type, using the primitive-type keyword palette.
+  kBuiltinType,
   /// A canonical status code: `not_found`, `NOT_FOUND`.
   kStatusCode,
   /// A log level a `log` or `logf` named: `warning`, `DEBUG`.
@@ -65,6 +68,8 @@ enum class SemanticKind {
   kActionName,
   /// The name a `nodes` declaration, or a `via`, gives a node map.
   kNodeMapName,
+  /// A module declaration, alias, or qualifier before `::`.
+  kNamespaceName,
   /// What follows a `.`: a port, a field, a node's id.
   kMember,
   /// A port of the flow: its declaration, and every mention of it.
@@ -75,7 +80,7 @@ enum class SemanticKind {
   /// are the outside world and which are local plumbing. Deciding it needs the
   /// resolver, so it is [RefinePorts] rather than [Highlight] that says so.
   kPortName,
-  /// Any other word: a node, a step, a loop variable, a `let` value.
+  /// Any other word: a node, a step, a loop variable, a `value` value.
   kIdentifier,
   /// `->`, `<-`, `|`: where a stream is going.
   kFlowOperator,
@@ -90,7 +95,7 @@ enum class SemanticKind {
   kBad,
 };
 
-/// One token, and what it means.
+/// One nonoverlapping semantic span; string escapes have their own spans.
 struct SemanticToken {
   SemanticKind kind = SemanticKind::kIdentifier;
   size_t start = 0;
@@ -117,20 +122,15 @@ SemanticKind SemanticKindFromName(std::string_view name);
 /// cheap and exact.
 ///
 /// The tokens are expected to include comments (`LexOptions::keep_comments`),
-/// and the result is one entry per input token except the final `end`.
+/// and each string token is split around its escape ranges. Other tokens keep
+/// one entry each, except the final `end`.
 std::vector<SemanticToken> Highlight(absl::Span<const Token> tokens);
 
-/// Mark the identifiers that are ports of the flow they stand in.
+/// Refine lexical tokens using parsed type positions and resolved bindings.
 ///
-/// The second pass, and it is a second pass because it is the only part of
-/// classification that needs **name resolution**: whether `sources` is a port
-/// or a node of the flow's own is not a fact about the token stream, and no
-/// amount of looking at neighbouring words will settle it. [Highlight] stays
-/// lexical -- it is what an editor's lexer runs on every keystroke -- and this
-/// is applied on top by the surfaces that publish meanings.
-///
-/// Only `kIdentifier` tokens are touched, so a member after a `.`, a string
-/// that happens to spell a port's name, and a keyword all stay as they were.
+/// Ports include declarations, references, argument labels and called ports.
+/// Resolved locals retain identifier styling when shadowing a port or keyword.
+/// Parsing recovers from incomplete source, without reading imported files.
 void RefinePorts(std::string_view source, std::vector<SemanticToken>& semantic);
 
 }  // namespace a11::flow

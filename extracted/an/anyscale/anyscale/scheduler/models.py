@@ -383,8 +383,8 @@ quota = ResourceQuotaSpec(name="gpu", nominal_quota=64)
         default=None,
         metadata={
             "docstring": "How much of the nominal quota cohort peers may borrow while this queue "
-            "is not using it. Must be <= nominal_quota. Omit to lend all unused nominal quota. "
-            "Only valid on a queue with a cohort_name."
+            "is not using it. Must not exceed `nominal_quota`. Omit to lend all unused "
+            "nominal quota. Only valid on a queue with a `cohort_name`."
         },
     )
 
@@ -403,7 +403,8 @@ quota = ResourceQuotaSpec(name="gpu", nominal_quota=64)
         default=None,
         metadata={
             "docstring": "How far above the nominal quota this queue may go by borrowing unused "
-            "quota from cohort peers. Omit for no limit. Only valid on a queue with a cohort_name."
+            "quota from cohort peers. Omit for no limit. "
+            "Only valid on a queue with a `cohort_name`."
         },
     )
 
@@ -559,7 +560,7 @@ policy = PreemptionPolicy(
         metadata={
             "docstring": "Whether this queue may preempt workloads on cohort peers that are above "
             "their nominal quota, to take back its own nominal. Only meaningful on a queue with "
-            "a cohort_name."
+            "a `cohort_name`."
         },
     )
 
@@ -575,8 +576,8 @@ policy = PreemptionPolicy(
         metadata={
             "docstring": "Whether this queue may preempt lower-priority workloads on cohort peers "
             "that are above their nominal quota, in order to borrow. Requires "
-            "reclaim_within_cohort to be lower_priority or any. Only meaningful on a queue with "
-            "a cohort_name."
+            "`reclaim_within_cohort` to be `lower_priority` or `any`. Only meaningful on a "
+            "queue with a `cohort_name`."
         },
     )
 

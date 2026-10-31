@@ -6,6 +6,7 @@ type ErrorCode = Literal[
     "git_operation_not_granted",
     "git_provider_not_supported",
     "git_remote_not_https",
+    "git_remote_refused",
     "git_repository_not_granted",
     "git_route_not_supported",
     "git_token_rejected",
@@ -53,6 +54,7 @@ ERROR_CODES: dict[ErrorCode, str] = {
     "git_operation_not_granted": "The git grant does not allow this operation.",
     "git_provider_not_supported": "The repository's provider has no git remote.",
     "git_remote_not_https": "The repository's git remote is not an https URL.",
+    "git_remote_refused": "The repository's git remote is at an address Sentry does not connect to.",
     "git_repository_not_granted": "The git grant does not cover this repository.",
     "git_route_not_supported": "The request is not a git fetch or push.",
     "git_token_rejected": "The provider rejected Sentry's credentials for the repository.",
@@ -145,6 +147,17 @@ class SCMCodedError(SCMError):
         return error_cls(detail=detail)
 
 
+class GitGrantKeyError(SCMError, ValueError):
+    """A git grant key is missing or unusable: the signer's private key, or one of the verifier's public keys.
+
+    The key is the server's configuration, so a bad one is the server's fault rather than the client's. Unlike the
+    git endpoint's refusals it is not an :class:`SCMCodedError`: ``verify_grant`` raises it instead of refusing the
+    grant, and ``GitServer`` raises it when it is built instead of answering requests with it. It is a
+    ``ValueError``, so code that catches one still catches it. Its message names a key by its role or by its place in
+    the list, and never quotes it.
+    """
+
+
 class GitSCMCodedError(SCMCodedError):
     """Base class for the errors of the git endpoint (``scm.git``), so a caller can catch them all at once."""
 
@@ -167,6 +180,10 @@ class GitProviderNotSupported(GitSCMCodedError):
 
 class GitRemoteNotHttps(GitSCMCodedError):
     code = "git_remote_not_https"
+
+
+class GitRemoteRefused(GitSCMCodedError):
+    code = "git_remote_refused"
 
 
 class GitRepositoryNotGranted(GitSCMCodedError):

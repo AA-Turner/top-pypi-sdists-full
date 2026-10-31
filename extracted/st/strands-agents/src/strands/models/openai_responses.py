@@ -22,6 +22,7 @@ import base64
 import json
 import logging
 import mimetypes
+from collections import Counter
 from collections.abc import AsyncGenerator
 from importlib.metadata import version as get_package_version
 from types import SimpleNamespace
@@ -61,10 +62,11 @@ from ..types.exceptions import ContextWindowOverflowException, ModelThrottledExc
 from ..types.streaming import StreamEvent  # noqa: E402
 from ..types.tools import ToolChoice, ToolResult, ToolSpec, ToolUse  # noqa: E402
 from ._defaults import resolve_config_metadata  # noqa: E402
+from ._model_info import ModelCapabilities, ModelInfo  # noqa: E402
 from ._openai_bedrock import BedrockMantleConfig, resolve_bedrock_client_args  # noqa: E402
 from ._openai_cache import apply_cache_config  # noqa: E402
 from ._openai_errors import classify_openai_error  # noqa: E402
-from ._validation import _has_location_source, validate_config_keys  # noqa: E402
+from ._validation import _has_location_source, _log_skipped_blocks, validate_config_keys  # noqa: E402
 from .model import BaseModelConfig, CacheConfig, Model  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -212,12 +214,16 @@ class OpenAIResponsesModel(Model):
 
     @property
     @override
-    def stateful(self) -> bool:
-        """Whether server-side conversation storage is enabled.
+    def model_info(self) -> ModelInfo:
+        """Adds whether server-side conversation storage is enabled.
 
-        Derived from the ``stateful`` configuration option.
+        Taken from the ``stateful`` configuration option, which a ``model_info`` override still wins over.
         """
-        return bool(self.config.get("stateful"))
+        return ModelInfo.merge(
+            super().model_info,
+            ModelInfo(capabilities=ModelCapabilities(stateful=bool(self.config.get("stateful")))),
+            cast(ModelInfo | None, self.config.get("model_info")),
+        )
 
     @override
     def update_config(self, **model_config: Unpack[OpenAIResponsesConfig]) -> None:  # type: ignore[override]
@@ -572,16 +578,17 @@ class OpenAIResponsesModel(Model):
                 format.
         """
         input_items = self._format_request_messages(messages)
+        stateful = self.stateful
         request: dict[str, Any] = {
             "model": self.config["model_id"],
             "input": input_items,
             "stream": True,
             **cast(dict[str, Any], self.config.get("params", {})),
-            "store": self.stateful,
+            "store": stateful,
         }
 
         response_id = model_state.get("response_id") if model_state else None
-        if response_id and self.stateful:
+        if response_id and stateful:
             request["previous_response_id"] = response_id
 
         if system_prompt:
@@ -646,27 +653,26 @@ class OpenAIResponsesModel(Model):
             An OpenAI compatible messages array.
         """
         formatted_messages: list[dict[str, Any]] = []
+        skipped: Counter[str] = Counter()
 
         for message in messages:
             role = message["role"]
             contents = message["content"]
 
-            if any("reasoningContent" in content for content in contents):
-                logger.warning(
-                    "reasoningContent is not yet supported in multi-turn conversations with the Responses API"
-                )
-
-            if any("cachePoint" in content for content in contents):
-                logger.warning("cachePoint content block is not supported by OpenAI Responses | skipping")
-
             filtered_contents = []
             for content in contents:
-                if any(
-                    block_type in content for block_type in ["toolResult", "toolUse", "reasoningContent", "cachePoint"]
-                ):
+                if "reasoningContent" in content:
+                    skipped[
+                        "reasoningContent is not yet supported in multi-turn conversations with the Responses API"
+                    ] += 1
+                    continue
+                if "cachePoint" in content:
+                    skipped["cachePoint content block is not supported by OpenAI Responses | skipping"] += 1
+                    continue
+                if "toolResult" in content or "toolUse" in content:
                     continue
                 if _has_location_source(content):
-                    logger.warning("Location sources are not supported by OpenAI Responses | skipping content block")
+                    skipped["Location sources are not supported by OpenAI Responses | skipping content block"] += 1
                     continue
                 filtered_contents.append(content)
 
@@ -714,6 +720,8 @@ class OpenAIResponsesModel(Model):
 
             formatted_messages.extend(formatted_tool_calls)
             formatted_messages.extend(formatted_tool_messages)
+
+        _log_skipped_blocks(logger, skipped)
 
         return [
             message

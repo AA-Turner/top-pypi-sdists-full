@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2017 Free Software Foundation Europe e.V. <https://fsfe.org>
 # SPDX-FileCopyrightText: 2021 Alliander N.V.
 # SPDX-FileCopyrightText: 2023 Carmen Bianca BAKKER <carmenbianca@fsfe.org>
+# SPDX-FileCopyrightText: 2025 Martijn Saelens <https://github.com/MartenBE>
+# SPDX-FileCopyrightText: 2026 Lily A.N. <minekpo1@murena.io>
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -89,7 +91,7 @@ YEAR_RANGE_PATTERN = re.compile(
     r"(?P<start>\d{4})"
     r"(?:"
     r"(?:(?P<separator_nonspaced>" + _ANY_SEPARATOR + r")"
-    r"(?P<end_nonspaced>\S+)?)"
+    r"(?P<end_nonspaced>[^\s,]+)?)"  # Non-whitespace AND no commas.
     r"|"
     r"(?:\s+(?P<separator_spaced>" + _ANY_SEPARATOR + r")"
     r"\s+(?P<end_spaced>\d{4}))"
@@ -125,15 +127,15 @@ _YEARS_PATTERN = re.compile(
     + _YEAR_RANGE_PATTERN_ANONYMISED
     + r"((\s*,\s*|\s+)"
     + _YEAR_RANGE_PATTERN_ANONYMISED
-    + r")*)(?P<suffix>,?(\s+|$))"
+    + r")*)(?P<suffix>(,|\s+|$))"
 )
-_COMMA_SPACE_PATTERN = re.compile(r"^,?\s+")
+_COMMA_SPACE_PATTERN = re.compile(r"^,?\s*")
 
 _LOOKBEHINDS = "".join(
     rf"(?<!\s{separator})"
     for separator in YearRangeSeparator.__args__  # type: ignore
 )
-_YEAR_RANGE_SPLIT_REGEX = re.compile(
+_YEAR_RANGE_SPLIT_PATTERN = re.compile(
     # Separated by comma (plus any whitespace)
     r",\s*|" +
     # Separated by whitespace only. However, we cannot split on
@@ -144,6 +146,7 @@ _YEAR_RANGE_SPLIT_REGEX = re.compile(
     _LOOKBEHINDS + r"\s+"
     rf"(?!{_ANY_SEPARATOR}\s)"
 )
+_WHITESPACE_PATTERN = re.compile(r"\s+")
 
 
 # TODO: In Python 3.11, turn this into a StrEnum
@@ -153,18 +156,23 @@ class CopyrightPrefix(Enum):
 
     SPDX = "SPDX-FileCopyrightText:"
     SPDX_C = "SPDX-FileCopyrightText: (C)"
+    SPDX_C_LOWER = "SPDX-FileCopyrightText: (c)"
     SPDX_SYMBOL = "SPDX-FileCopyrightText: ©"
     SPDX_STRING = "SPDX-FileCopyrightText: Copyright"
     SPDX_STRING_C = "SPDX-FileCopyrightText: Copyright (C)"
+    SPDX_STRING_C_LOWER = "SPDX-FileCopyrightText: Copyright (c)"
     SPDX_STRING_SYMBOL = "SPDX-FileCopyrightText: Copyright ©"
     SNIPPET = "SPDX-SnippetCopyrightText:"
     SNIPPET_C = "SPDX-SnippetCopyrightText: (C)"
+    SNIPPET_C_LOWER = "SPDX-SnippetCopyrightText: (c)"
     SNIPPET_SYMBOL = "SPDX-SnippetCopyrightText: ©"
     SNIPPET_STRING = "SPDX-SnippetCopyrightText: Copyright"
     SNIPPET_STRING_C = "SPDX-SnippetCopyrightText: Copyright (C)"
+    SNIPPET_STRING_C_LOWER = "SPDX-SnippetCopyrightText: Copyright (c)"
     SNIPPET_STRING_SYMBOL = "SPDX-SnippetCopyrightText: Copyright ©"
     STRING = "Copyright"
     STRING_C = "Copyright (C)"
+    STRING_C_LOWER = "Copyright (c)"
     STRING_SYMBOL = "Copyright ©"
     SYMBOL = "©"
 
@@ -249,7 +257,12 @@ class YearRange:
             YearRangeParseError: The substring is not a valid year range.
         """
         years: list[YearRange] = []
-        for year in _YEAR_RANGE_SPLIT_REGEX.split(value):
+        # Convert all spaces to single spaces. The regex cannot handle anything
+        # else. This technically results in year ranges with 'original' values
+        # that aren't quite right, but it's the best we can do without complex
+        # logic.
+        value = _WHITESPACE_PATTERN.sub(" ", value)
+        for year in _YEAR_RANGE_SPLIT_PATTERN.split(value):
             if not year:
                 continue
             years.append(YearRange.from_string(year))
@@ -490,13 +503,11 @@ class CopyrightNotice:
         """Given a matched prefix from :const:`COPYRIGHT_NOTICE_PATTERN`, detect
         the associated prefix.
         """
-        prefix_lower = prefix.lower()
         # String-match the prefix.
         for prefix_enum in (
             cast(CopyrightPrefix, item) for item in reversed(CopyrightPrefix)
         ):
-            # lower() is used to match (C) as well as (c).
-            if prefix_lower == prefix_enum.value.lower():
+            if prefix == prefix_enum.value:
                 return prefix_enum
         # The prefix could not be string-matched, most likely because there
         # was unexpected spacing in the prefix. Get a close match using
@@ -540,12 +551,16 @@ class CopyrightNotice:
         name = _COMMA_SPACE_PATTERN.sub("", name)
         years: tuple[YearRange, ...] = tuple()
         if year_ranges_substrings:
-            years = tuple(
-                chain.from_iterable(
-                    YearRange.tuple_from_string(match.group("years"))
-                    for match in year_ranges_substrings
+            # Corner case where the notice only contains year ranges.
+            if not name:
+                name = re_text
+            else:
+                years = tuple(
+                    chain.from_iterable(
+                        YearRange.tuple_from_string(match.group("years"))
+                        for match in year_ranges_substrings
+                    )
                 )
-            )
         result = cls(
             name=name,
             prefix=prefix,

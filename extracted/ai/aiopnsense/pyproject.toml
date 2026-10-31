@@ -59,6 +59,7 @@ dev = [
 [tool.uv]
 required-version = ">=0.11.0"
 constraint-dependencies = [
+    "certifi>=2026.10.19",
     "multidict>=6.9.1",
     "urllib3>=2.8.0",
 ]
@@ -183,7 +184,9 @@ ignore_missing_imports = true
 
 [tool.pydoclint]
 style = "google"
-should-document-private-class-attributes = true
+ignore-private-class-attributes = false
+ignore-underscore-only-class-attributes = false
+ignore-special-dunder-class-attributes = false
 skip-checking-short-docstrings = false
 arg-type-hints-in-docstring = true
 check-return-types = true

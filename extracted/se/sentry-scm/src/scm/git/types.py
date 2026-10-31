@@ -3,6 +3,7 @@ from typing import Literal, Protocol
 
 import msgspec
 
+from scm.secret import Secret
 from scm.types import Referrer, Repository, RepositoryId
 
 type GitOperation = Literal["fetch", "push"]
@@ -16,7 +17,7 @@ GRANT_HEADER = "X-Scm-Git-Grant"
 GRANT_MAX_LENGTH = 4096
 """The longest signed grant, in characters. The grant travels in a request header, and sandbox-router's
 ``PUT /grant/{sandbox_id}`` refuses a longer one, so a change here must change the router too. A grant grows with
-its repositories: a grant for one is under 400 characters, and the claims are base64-encoded, so each repository
+its repositories: a grant for one is under 450 characters, and the claims are base64-encoded, so each repository
 named as ``(provider, path)`` adds about 4/3 of its path's length plus 20, e.g. 52 for a 25-character path. The
 limit is a conservative pick rather than a measured ceiling: header limits further along the path are typically
 around 8 KiB."""
@@ -48,8 +49,15 @@ class Grant(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=Tru
     """The format version. A verifier refuses a version it does not know."""
 
 
-type GetToken = Callable[[Repository, GitOperation], str | None]
-"""Return a provider token that can run ``operation`` on ``repository``, or None if there is none."""
+type GetToken = Callable[[Repository, GitOperation], Secret | None]
+"""Return a provider token that can run ``operation`` on ``repository``, or None if there is none.
+
+Wrap the token in a ``Secret`` where you read it. GitServer and the relay hold it in their frames' local variables,
+which an error report sends.
+
+It may raise an ``SCMCodedError`` to say why there is no token. GitServer answers it as it answers its own
+refusals, with the status for its code, or a 500 for a code it has none for. A ``ResourceServiceUnavailable`` for a
+failure that may pass becomes a 503, which the client retries. Any other exception reaches GitServer's caller."""
 
 
 class Readable(Protocol):

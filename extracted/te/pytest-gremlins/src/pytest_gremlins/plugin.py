@@ -10,7 +10,10 @@ import argparse
 import ast
 import base64
 import collections.abc
-from concurrent.futures import as_completed
+from concurrent.futures import (
+    ThreadPoolExecutor,
+    as_completed,
+)
 from dataclasses import (
     dataclass,
     field,
@@ -21,6 +24,7 @@ from enum import Enum
 import functools
 import importlib.util
 import inspect
+from itertools import pairwise
 import json
 import logging
 import os
@@ -148,6 +152,7 @@ from pytest_gremlins.rerun_options import (
 )
 from pytest_gremlins.xdist_options import (
     addopts_without_xdist,
+    env_with_stripped_addopts,
     env_without_xdist_addopts,
 )
 
@@ -372,6 +377,7 @@ class GremlinSession:
     preserved_addopts: str = ''
     doctest_ini_overrides: list[str] = field(default_factory=list)
     rerun_options: list[str] = field(default_factory=list)
+    pytest_cov_options: list[str] = field(default_factory=list)
     rerun_ini_warnings: list[str] = field(default_factory=list)
     baseline_rerun_test_ids: set[str] = field(default_factory=set)
     coverage_timeout: int = DEFAULT_COVERAGE_TIMEOUT_SECONDS
@@ -718,7 +724,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         action='store_true',
         default=False,
         dest='gremlin_batch',
-        help='Enable batch execution to reduce subprocess overhead',
+        help='Group gremlins into worker tasks; does not reduce subprocesses (one per gremlin)',
     )
     group.addoption(
         '--gremlin-batch-size',
@@ -726,7 +732,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         type=int,
         default=None,
         dest='gremlin_batch_size',
-        help='Number of gremlins per batch (default: 10)',
+        help='Number of gremlins per worker task in batch mode (default: 10)',
     )
     group.addoption(
         '--gremlin-coverage-timeout',
@@ -825,6 +831,7 @@ def _init_cache(
     cache_enabled: bool,
     clear_cache: bool,
     operators: Sequence[GremlinOperator],
+    pytester_loaded: Callable[[], bool] = lambda: False,
 ) -> IncrementalCache | None:
     """Initialise the incremental cache when enabled, optionally clearing it first.
 
@@ -834,6 +841,7 @@ def _init_cache(
         clear_cache: Whether to wipe the cache before use.
         operators: The operators registered for the run, after conftest registration; their owning
             distributions are part of the cache key.
+        pytester_loaded: Reports whether the session loads the pytester plugin; such sessions get their own key part.
 
     Returns:
         An open IncrementalCache, or None when caching is disabled.
@@ -841,7 +849,7 @@ def _init_cache(
     if not cache_enabled:
         return None
     cache_dir = rootdir / '.gremlins_cache'
-    cache = IncrementalCache(cache_dir, operators, project_root=rootdir)
+    cache = IncrementalCache(cache_dir, operators, project_root=rootdir, pytester_loaded=pytester_loaded)
     if clear_cache:
         cache.clear()
         print('pytest-gremlins: cache cleared')
@@ -1009,6 +1017,23 @@ def _reject_disabled_executor(executor: str) -> None:
         )
 
 
+# pytester registers under its entry-point name when loaded by name, and under its module path when loaded
+# with ``-p _pytest.pytester`` or ``pytest_plugins = ['_pytest.pytester']`` (#891).
+PYTESTER_PLUGIN_NAMES = ('pytester', '_pytest.pytester')
+
+
+def _pytester_loaded(config: pytest.Config) -> bool:
+    """Report whether the session loads the pytester plugin under any registration name (#891).
+
+    Args:
+        config: The pytest config whose plugin manager is asked.
+
+    Returns:
+        True when pytester is registered under any name in ``PYTESTER_PLUGIN_NAMES``.
+    """
+    return any(config.pluginmanager.has_plugin(name) for name in PYTESTER_PLUGIN_NAMES)
+
+
 def pytest_configure(config: pytest.Config) -> None:
     """Configure pytest-gremlins based on command-line options.
 
@@ -1085,9 +1110,16 @@ def pytest_configure(config: pytest.Config) -> None:
 
     # Cache: merge_configs already resolved CLI-beats-TOML; default False
     cache_enabled: bool = bool(toml_cache)
-    cache: IncrementalCache | None = _init_cache(rootdir, cache_enabled, config.option.gremlin_clear_cache, operators)
+    cache: IncrementalCache | None = _init_cache(
+        rootdir,
+        cache_enabled,
+        config.option.gremlin_clear_cache,
+        operators,
+        pytester_loaded=lambda: _pytester_loaded(config),
+    )
 
     xdist_worker_int: int | None = xdist_numprocesses if isinstance(xdist_numprocesses, int) else None
+    rerun_options = _rerun_options_for(config)
     xdist_workers_for_parallel = xdist_worker_int if xdist_active else None
     parallel_enabled, parallel_workers = _read_parallel_config(config, xdist_workers=xdist_workers_for_parallel)
     merged_workers = toml_workers if isinstance(toml_workers, int) else None
@@ -1129,7 +1161,8 @@ def pytest_configure(config: pytest.Config) -> None:
             xdist_workers=xdist_worker_int if xdist_active else None,
             preserved_addopts=_addopts_for_gremlin_runs(config),
             doctest_ini_overrides=_doctest_ini_overrides(config),
-            rerun_options=_rerun_options_for(config),
+            rerun_options=rerun_options,
+            pytest_cov_options=_pytest_cov_options_for(config, rerun_options),
             rerun_ini_warnings=_rerun_ini_warnings_for(config),
             coverage_timeout=_rerun_scaled_timeout(config, coverage_timeout, label='Coverage pre-scan'),
             coverage_attempt_timeout=coverage_timeout,
@@ -1222,6 +1255,28 @@ if _XDIST_AVAILABLE:
             )
         else:
             logger.debug('pytest_xdist_node_collection_finished: captured %d item IDs from first worker', len(ids))
+
+
+def _is_gremlin_finder(finder: object) -> bool:
+    """Report whether a ``sys.meta_path`` entry is a gremlin finder; a hostile ``__getattr__`` counts as no."""
+    try:
+        return bool(getattr(finder, 'is_gremlin_finder', False))
+    except Exception:
+        return False
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_load_initial_conftests() -> collections.abc.Generator[None, None, None]:
+    """Keep an installed gremlin finder ahead of the assertion-rewrite hook this session just installed.
+
+    An in-process pytester session (``runpytest()``, ``inline_run()``) runs ``pytest.main`` inside a gremlin
+    subprocess; its rewrite hook lands at the front of ``sys.meta_path`` and would serve, uninstrumented, every
+    target it claims that is first imported in that session (#615).
+    """
+    for finder in [finder for finder in sys.meta_path if _is_gremlin_finder(finder)]:
+        sys.meta_path.remove(finder)
+        sys.meta_path.insert(0, finder)
+    yield
 
 
 def pytest_collection_finish(session: pytest.Session) -> None:
@@ -1905,8 +1960,8 @@ import unittest
 __ORIGIN_FINDER_SOURCE__
 
 
-def setup_import_hooks():
-    """Register the gremlin import hooks from sources.json."""
+def install_origin_finder():
+    """Install the origin finder from sources.json."""
     sources_file = os.environ.get('PYTEST_GREMLINS_SOURCES_FILE')
     if not sources_file:
         return
@@ -2054,7 +2109,7 @@ def setup_pythonpath(rootdir):
 def main():
     rootdir = os.environ.get('GREMLIN_ROOTDIR', os.getcwd())
     setup_pythonpath(rootdir)
-    setup_import_hooks()
+    install_origin_finder()
 
     unverifiable = False
     for spec in sys.argv[1:]:
@@ -2211,6 +2266,7 @@ def _unmutated_command_and_env(gremlin_session: GremlinSession, rootdir: Path) -
         xdist_loaded=gremlin_session.xdist_loaded,
         doctest_ini_overrides=gremlin_session.doctest_ini_overrides,
         rerun_options=gremlin_session.rerun_options,
+        pytest_cov_options=gremlin_session.pytest_cov_options,
     )
     env = env_without_xdist_addopts(os.environ)
     env.pop(ACTIVE_GREMLIN_ENV_VAR, None)
@@ -2269,6 +2325,40 @@ def _confirm_collection_kill(
         killing_test=None,
         error_output=f'{SELECTION_FAILS_TO_LOAD_PREFIX}\n{outcome.output[-MAX_SELECTION_FAILURE_OUTPUT_CHARS:]}',
     )
+
+
+def _prefill_collection_kill_confirmations(
+    pending: Sequence[tuple[GremlinResult, Sequence[str]]],
+    gremlin_session: GremlinSession,
+    rootdir: Path,
+) -> None:
+    """Fill the unmutated-load memo for every collection kill in ``pending``, running distinct selections concurrently.
+
+    Collection confirmations measure no time, so they can overlap; timeout confirmations compare
+    durations and must stay solo, so they are not touched here. Worker threads only run the
+    subprocess; the memo is written from the calling thread, so it needs no lock. Concurrency is
+    bounded by the configured worker count. :func:`_confirm_collection_kill` then reads the warm memo
+    and decides each verdict exactly as before.
+
+    Args:
+        pending: Each result paired with the node ids its subprocess was asked to run.
+        gremlin_session: The current gremlin session, holding the memo and the worker count.
+        rootdir: Root directory of the project.
+    """
+    selections = {
+        tuple(node_ids): node_ids
+        for result, node_ids in pending
+        if result.status == GremlinResultStatus.ZAPPED and result.killing_test == COLLECTION_KILLING_TEST
+    }
+    unchecked = [selection for selection in selections if selection not in gremlin_session.unmutated_load_checks]
+    if not unchecked:
+        return
+    worker_count = min(len(unchecked), gremlin_session.parallel_workers or os.cpu_count() or 4)
+    with ThreadPoolExecutor(max_workers=worker_count) as executor:
+        outcomes = executor.map(
+            lambda selection: _collect_unmutated(gremlin_session, rootdir, selections[selection]), unchecked
+        )
+        gremlin_session.unmutated_load_checks.update(zip(unchecked, outcomes, strict=True))
 
 
 def _confirm_kill(
@@ -2824,9 +2914,12 @@ def _is_cov_addopt(token: str) -> bool:
 # Registered as ``rerunfailures`` when found through its entry point (autoload, or ``-p rerunfailures``, which
 # pytest resolves even with autoload disabled), as ``pytest_rerunfailures`` when loaded by module name
 # (``-p pytest_rerunfailures``, ``pytest_plugins`` or ``PYTEST_PLUGINS``).
-_RERUNFAILURES_PLUGIN_NAMES = ('rerunfailures', 'pytest_rerunfailures')
+_RERUNFAILURES_ENTRY_POINT_NAME = 'rerunfailures'
+_RERUNFAILURES_MODULE_NAME = 'pytest_rerunfailures'
+_RERUNFAILURES_PLUGIN_NAMES = (_RERUNFAILURES_ENTRY_POINT_NAME, _RERUNFAILURES_MODULE_NAME)
 # Blocking by the entry-point name also blocks the plugin when it is loaded by module name.
 _BLOCK_RERUNFAILURES_OPTION = ('-p', 'no:rerunfailures')
+_CONFTEST_FILE_NAME = 'conftest.py'  # pytest registers a conftest under its file path
 _DISABLE_PLUGIN_AUTOLOAD_ENV_VAR = 'PYTEST_DISABLE_PLUGIN_AUTOLOAD'
 _DISABLE_PLUGIN_AUTOLOAD_FLAG = '--disable-plugin-autoload'
 
@@ -2859,6 +2952,79 @@ def _gremlin_runs_have_autoload_disabled(config: pytest.Config) -> bool:
     )
 
 
+def _plugin_names_loaded_by(tokens: Sequence[str]) -> set[str]:
+    """Return the names ``-p <name>`` and ``-p<name>`` in ``tokens`` load (``-p no:<name>`` blocks)."""
+    names = {value for flag, value in pairwise(tokens) if flag == '-p'}
+    names |= {argument.removeprefix('-p') for argument in tokens if argument.startswith('-p') and argument != '-p'}
+    return {name.strip() for name in names if not name.startswith('no:')}
+
+
+def _command_line_loads_module(config: pytest.Config) -> bool:
+    """Return whether the session's own command line names pytest-rerunfailures by module name."""
+    arguments = expand_argument_files(list(config.invocation_params.args), base_dir=config.invocation_params.dir)
+    return _RERUNFAILURES_MODULE_NAME in _plugin_names_loaded_by(arguments)
+
+
+def _plugins_declared_by(module: object) -> set[str]:
+    """Return the names a module lists in its ``pytest_plugins``, read the way pytest reads it.
+
+    Pytest treats ``None`` (or any non-iterable) as empty and splits a string on commas.
+    """
+    declared = getattr(module, 'pytest_plugins', None)
+    if isinstance(declared, str):
+        return {name.strip() for name in declared.split(',')}
+    if isinstance(declared, (list, tuple, set, frozenset)):
+        return {name for name in declared if isinstance(name, str)}
+    return set()
+
+
+def _with_plugins_they_load(names: set[str]) -> set[str]:
+    """Return ``names`` plus every plugin that those already imported modules load through ``pytest_plugins``."""
+    pending = list(names)
+    reached = set(names)
+    while pending:
+        for declared in _plugins_declared_by(sys.modules.get(pending.pop())):
+            if declared not in reached:
+                reached.add(declared)
+                pending.append(declared)
+    return reached
+
+
+def _inherited_source_loads_module(config: pytest.Config) -> bool:
+    """Return whether ``addopts``, ``PYTEST_ADDOPTS``, ``PYTEST_PLUGINS`` or a conftest loads the module by name.
+
+    The load may be indirect: a plugin such as one of these names can itself list the module in its own
+    ``pytest_plugins``.  Only conftests count: a plugin loaded on the command line is not inherited, whatever
+    it declares.
+    """
+    names = _plugin_names_loaded_by(_arguments_gremlin_runs_inherit(config))
+    names |= {name.strip() for name in os.environ.get('PYTEST_PLUGINS', '').split(',')}
+    for name, plugin in config.pluginmanager.list_name_plugin():
+        if name.endswith(_CONFTEST_FILE_NAME):
+            names |= _plugins_declared_by(plugin)
+    return _RERUNFAILURES_MODULE_NAME in _with_plugins_they_load(names)
+
+
+def _gremlin_runs_would_load_the_module_twice(config: pytest.Config) -> bool:
+    """Return whether gremlin runs would register pytest-rerunfailures under both of its names (issue #684).
+
+    The session turned autoload off on its command line only, which gremlin runs never see, and loaded the
+    plugin by module name through a source they inherit (conftest ``pytest_plugins``, ``PYTEST_PLUGINS`` or ini
+    ``addopts``).  A gremlin run that autoloads would register the ``rerunfailures`` entry point and then load
+    the module again as ``pytest_rerunfailures``, which pluggy rejects.  Blocking ``rerunfailures`` is no answer:
+    pytest then blocks the module name too and nothing reruns.  When only the command line names the module,
+    nothing is inherited that could load it twice, so gremlin runs keep autoload (and the other plugins the
+    command line loaded) and reach the plugin through its entry point (issue #679 covers the rest).
+    """
+    return (
+        bool(getattr(config.option, 'disable_plugin_autoload', False))
+        and not _gremlin_runs_have_autoload_disabled(config)
+        and config.pluginmanager.hasplugin(_RERUNFAILURES_MODULE_NAME)
+        and not config.pluginmanager.hasplugin(_RERUNFAILURES_ENTRY_POINT_NAME)
+        and (not _command_line_loads_module(config) or _inherited_source_loads_module(config))
+    )
+
+
 def _loader_options_for_gremlin_runs(config: pytest.Config, plugin_names: tuple[str, ...]) -> list[str]:
     """Return the ``-p`` option that makes gremlin runs load the plugin this session registered.
 
@@ -2873,8 +3039,76 @@ def _loader_options_for_gremlin_runs(config: pytest.Config, plugin_names: tuple[
     """
     if not _gremlin_runs_have_autoload_disabled(config):
         return []
+    return _loader_options_for(config, plugin_names)
+
+
+def _loader_options_for(config: pytest.Config, plugin_names: tuple[str, ...]) -> list[str]:
+    """Return ``-p`` and the first of ``plugin_names`` that this session registered, or nothing."""
     registered_name = next((name for name in plugin_names if config.pluginmanager.hasplugin(name)), None)
     return [] if registered_name is None else ['-p', registered_name]
+
+
+# The entry-point name (``-p pytest_cov``, autoload) or the module name (``-p pytest_cov.plugin``, ``pytest_plugins``).
+# The module name goes first: bare ``pytest_cov`` can also be the hookless package that ``PYTEST_PLUGINS`` registers.
+_PYTEST_COV_PLUGIN_NAMES: tuple[str, ...] = ('pytest_cov.plugin', 'pytest_cov')
+_PYTEST_COV_ENTRY_POINT_NAMES: tuple[str, ...] = _PYTEST_COV_PLUGIN_NAMES[1:]
+_PYTEST_COV_BLOCKS = frozenset({'no:pytest_cov', 'no:cov'})
+_NO_COV_OPTION = '--no-cov'
+
+
+def _gremlin_runs_inherit_a_pytest_cov_block(config: pytest.Config) -> bool:
+    """Return whether ``addopts`` or ``PYTEST_ADDOPTS`` hold ``-p no:pytest_cov`` (or ``-p no:cov``, ``-pno:...``)."""
+    tokens = _arguments_gremlin_runs_inherit(config)
+    blocked = {value for flag, value in pairwise(tokens) if flag == '-p'}
+    blocked |= {argument.removeprefix('-p') for argument in tokens if argument.startswith('-p')}
+    return not _PYTEST_COV_BLOCKS.isdisjoint(name.strip() for name in blocked)
+
+
+def _pytest_cov_options_for(config: pytest.Config, rerun_options: Sequence[str]) -> list[str]:
+    """Return the pytest-cov options for gremlin runs: ``--no-cov``, and a loader when they need one (issue #654).
+
+    ``--no-cov`` exists only where pytest-cov is registered, so it is forwarded only when this session has the option
+    (``config.option.no_cov``), never merely because the package is importable.  Gremlin runs get a ``-p`` loader
+    for the name this session registered it under, so the flag always has a plugin to parse it.  Repeating that name
+    is a no-op where an inherited source loaded it as well, while a different name would register it twice.
+
+    The loader matters in two setups:
+
+    * Gremlin runs that start with autoload disabled (the environment, a flag in ``addopts`` or ``PYTEST_ADDOPTS``,
+      or the ``--disable-plugin-autoload`` the rerun options forward, issue #684) do not register pytest-cov
+      themselves.
+    * Gremlin runs that autoload still do not when the inherited ``addopts`` or ``PYTEST_ADDOPTS`` hold
+      ``-p no:pytest_cov`` and only the session's own command line (not passed on) loaded it again.  The later
+      ``-p`` overrides the inherited block.
+
+    With autoload on, only the entry-point name is forwarded, because the module name would register the autoloaded
+    plugin a second time.  The exception is an inherited ``-p no:pytest_cov`` (or ``no:cov``): the gremlin run then
+    does not autoload pytest-cov, so a session that registered only the module name gets that name forwarded too.  A
+    block typed only on the session's command line is not inherited, so it changes nothing.
+
+    If the session registered pytest-cov under a name this does not know, autoloading runs still get the bare flag,
+    which they can parse where nothing blocks the plugin, and runs without autoload get nothing, which errs toward a
+    missed kill.
+
+    Args:
+        config: The session's pytest config, read for the registered plugins, ``no_cov`` and the inherited
+            ``addopts``.
+        rerun_options: The options forwarded to gremlin runs by :func:`_rerun_options_for`, checked for
+            ``--disable-plugin-autoload``.
+
+    Returns:
+        The options to append to every gremlin run command: ``[]``, ``['--no-cov']`` or
+        ``['-p', <plugin name>, '--no-cov']``.
+    """
+    if not hasattr(config.option, 'no_cov'):
+        return []
+    if _gremlin_runs_have_autoload_disabled(config) or _DISABLE_PLUGIN_AUTOLOAD_FLAG in rerun_options:
+        loader_options = _loader_options_for(config, _PYTEST_COV_PLUGIN_NAMES)
+        return [*loader_options, _NO_COV_OPTION] if loader_options else []
+    autoloaded_names = (
+        _PYTEST_COV_PLUGIN_NAMES if _gremlin_runs_inherit_a_pytest_cov_block(config) else _PYTEST_COV_ENTRY_POINT_NAMES
+    )
+    return [*_loader_options_for(config, autoloaded_names), _NO_COV_OPTION]
 
 
 def _rerun_ini_settings_are_forwarded(config: pytest.Config) -> bool:
@@ -2971,10 +3205,15 @@ def _rerun_options_for(config: pytest.Config) -> list[str]:
     runs start with autoload disabled, by the environment or by a flag in ``addopts`` or ``PYTEST_ADDOPTS``
     (see :func:`_loader_options_for_gremlin_runs`): without it they would not load a plugin the session got from its
     command line, and would not rerun while the budget assumes they do (issue #679).
+    When the session disabled autoload on its command line only and registered the plugin under its module name,
+    gremlin runs get ``--disable-plugin-autoload`` and the module loader instead, so an inherited module-name
+    load registers it once (issue #684).
     """
     if not _rerunfailures_is_loaded(config):
         return list(_BLOCK_RERUNFAILURES_OPTION)
     loader_options = _loader_options_for_gremlin_runs(config, _RERUNFAILURES_PLUGIN_NAMES)
+    if _gremlin_runs_would_load_the_module_twice(config):
+        loader_options = [_DISABLE_PLUGIN_AUTOLOAD_FLAG, '-p', _RERUNFAILURES_MODULE_NAME]
     return [*loader_options, *_rerun_settings_for(config)]
 
 
@@ -3153,13 +3392,10 @@ def _prescan_env() -> dict[str, str]:
     Both are stripped from it, as are ``--cov*`` options, which would make pytest-cov fight the pre-scan's
     own collection (issue #669).  The variable is dropped if empty.
     """
-    env = env_without_xdist_addopts(
-        {key: value for key, value in os.environ.items() if key not in _PRESCAN_OVERRIDING_ENV_VARS}
+    return env_with_stripped_addopts(
+        {key: value for key, value in os.environ.items() if key not in _PRESCAN_OVERRIDING_ENV_VARS},
+        lambda addopts: _addopts_without_cov(shlex.split(addopts_without_gremlins(addopts_without_xdist(addopts)))),
     )
-    remaining = _addopts_without_cov(shlex.split(addopts_without_gremlins(env.pop('PYTEST_ADDOPTS', ''))))
-    if remaining:
-        env['PYTEST_ADDOPTS'] = remaining
-    return env
 
 
 def _launch_prescan(command: list[str], node_ids: list[str], rootdir: Path, timeout: int) -> None:
@@ -3355,11 +3591,10 @@ def _run_batch_mutation_testing(  # pragma: no cover
     session: pytest.Session,
     gremlin_session: GremlinSession,
 ) -> list[GremlinResult]:
-    """Run mutation testing using batch execution for reduced overhead.
+    """Run mutation testing by grouping gremlins into batches handed to workers.
 
-    Batch execution reduces subprocess overhead by testing multiple gremlins
-    in each subprocess call. Instead of 1 subprocess per gremlin (with ~600ms
-    overhead each), we batch gremlins and spawn fewer subprocesses.
+    Batching groups gremlins into worker tasks. It does not reduce subprocesses:
+    each gremlin in a batch still gets its own bootstrap subprocess.
 
     Args:
         session: The pytest session.
@@ -3375,6 +3610,7 @@ def _run_batch_mutation_testing(  # pragma: no cover
         xdist_loaded=gremlin_session.xdist_loaded,
         doctest_ini_overrides=gremlin_session.doctest_ini_overrides,
         rerun_options=gremlin_session.rerun_options,
+        pytest_cov_options=gremlin_session.pytest_cov_options,
     )
     gremlins = gremlin_session.gremlins
 
@@ -3452,33 +3688,34 @@ def _run_batch_mutation_testing(  # pragma: no cover
     # Convert WorkerResults to GremlinResults
     results: list[GremlinResult] = list(cached_results)
 
+    batch_node_ids = _node_ids_for_tests(all_covering_tests, gremlin_session)
+    unconfirmed: list[GremlinResult] = []
     for worker_result in worker_results:
         gremlin_id = worker_result.gremlin_id
         if gremlin_id not in gremlin_by_id:
             continue
 
-        gremlin = gremlin_by_id[gremlin_id]
-        selected_tests = gremlin_tests[gremlin_id]
-        gremlin_result = GremlinResult(
-            gremlin=gremlin,
-            status=worker_result.status,
-            killing_test=worker_result.killing_test,
-            execution_time_ms=worker_result.execution_time_ms,
-            error_output=worker_result.error_output,
-            selected_tests=selected_tests,
+        unconfirmed.append(
+            GremlinResult(
+                gremlin=gremlin_by_id[gremlin_id],
+                status=worker_result.status,
+                killing_test=worker_result.killing_test,
+                execution_time_ms=worker_result.execution_time_ms,
+                error_output=worker_result.error_output,
+                selected_tests=gremlin_tests[gremlin_id],
+            )
         )
-        # Batch runs every gremlin with the one unified command, so that is the selection to confirm.
+
+    # Batch runs every gremlin with the one unified command, so that is the selection to confirm.
+    _prefill_collection_kill_confirmations([(r, batch_node_ids) for r in unconfirmed], gremlin_session, rootdir)
+    for unconfirmed_result in unconfirmed:
         gremlin_result = _confirm_pooled_result(
-            gremlin_result,
-            test_command,
-            _node_ids_for_tests(all_covering_tests, gremlin_session),
-            gremlin_session,
-            rootdir,
+            unconfirmed_result, test_command, batch_node_ids, gremlin_session, rootdir
         )
         results.append(gremlin_result)
-
-        # Cache the result
-        _cache_gremlin_result(gremlin, selected_tests, gremlin_result, gremlin_session)
+        _cache_gremlin_result(
+            unconfirmed_result.gremlin, unconfirmed_result.selected_tests, gremlin_result, gremlin_session
+        )
 
     return results
 
@@ -3506,6 +3743,7 @@ def _run_parallel_mutation_testing(  # pragma: no cover
         xdist_loaded=gremlin_session.xdist_loaded,
         doctest_ini_overrides=gremlin_session.doctest_ini_overrides,
         rerun_options=gremlin_session.rerun_options,
+        pytest_cov_options=gremlin_session.pytest_cov_options,
     )
     gremlins = gremlin_session.gremlins
 
@@ -3581,37 +3819,54 @@ def _run_parallel_mutation_testing(  # pragma: no cover
 
     # Convert WorkerResults to GremlinResults and cache them
     results: list[GremlinResult] = list(cached_results)
+    unconfirmed: list[GremlinResult] = []
     for worker_result in aggregator.get_results():
         gremlin_id = worker_result.gremlin_id
         if gremlin_id not in gremlin_by_id:
             continue
 
-        gremlin = gremlin_by_id[gremlin_id]
-        selected_tests = gremlin_tests[gremlin_id]
         gremlin_result = GremlinResult(
-            gremlin=gremlin,
+            gremlin=gremlin_by_id[gremlin_id],
             status=worker_result.status,
             killing_test=worker_result.killing_test,
             execution_time_ms=worker_result.execution_time_ms,
             error_output=worker_result.error_output,
-            selected_tests=selected_tests,
+            selected_tests=gremlin_tests[gremlin_id],
         )
         if gremlin_id in launch_failed_ids:
             results.append(gremlin_result)
             continue
-        gremlin_result = _confirm_pooled_result(
-            gremlin_result,
-            test_commands[gremlin_id],
-            _node_ids_for_tests(selected_tests, gremlin_session),
+        unconfirmed.append(gremlin_result)
+
+    results.extend(_confirm_and_cache_pooled_results(unconfirmed, test_commands, gremlin_session, rootdir))
+
+    return results
+
+
+def _confirm_and_cache_pooled_results(
+    unconfirmed: list[GremlinResult],
+    test_commands: dict[str, list[str]],
+    gremlin_session: GremlinSession,
+    rootdir: Path,
+) -> list[GremlinResult]:
+    """Confirm pooled results (collection-kill confirmations prefilled concurrently), then cache them."""
+    _prefill_collection_kill_confirmations(
+        [(r, _node_ids_for_tests(r.selected_tests, gremlin_session)) for r in unconfirmed], gremlin_session, rootdir
+    )
+    confirmed: list[GremlinResult] = []
+    for unconfirmed_result in unconfirmed:
+        confirmed_result = _confirm_pooled_result(
+            unconfirmed_result,
+            test_commands[unconfirmed_result.gremlin.gremlin_id],
+            _node_ids_for_tests(unconfirmed_result.selected_tests, gremlin_session),
             gremlin_session,
             rootdir,
         )
-        results.append(gremlin_result)
-
-        # Cache the result
-        _cache_gremlin_result(gremlin, selected_tests, gremlin_result, gremlin_session)
-
-    return results
+        confirmed.append(confirmed_result)
+        _cache_gremlin_result(
+            unconfirmed_result.gremlin, unconfirmed_result.selected_tests, confirmed_result, gremlin_session
+        )
+    return confirmed
 
 
 def _emit_selection_explainer(gremlin_session: GremlinSession) -> None:
@@ -3856,6 +4111,7 @@ def _run_mutation_testing(
         xdist_loaded=gremlin_session.xdist_loaded,
         doctest_ini_overrides=gremlin_session.doctest_ini_overrides,
         rerun_options=gremlin_session.rerun_options,
+        pytest_cov_options=gremlin_session.pytest_cov_options,
     )
 
     for i, gremlin in enumerate(gremlin_session.gremlins, 1):
@@ -4299,24 +4555,6 @@ def _build_filtered_test_command(
     )
 
 
-def _pytest_cov_available() -> bool:
-    """Check if pytest-cov is available in the current environment.
-
-    The check runs in the parent process (where gremlins is running),
-    not the subprocess.  This is correct because gremlins and the target
-    project share the same venv.
-
-    Returns:
-        True when ``pytest-cov`` is importable, False otherwise.
-    """
-    try:
-        import pytest_cov  # type: ignore  # noqa: F401, PLC0415
-    except ImportError:
-        return False
-    else:
-        return True
-
-
 def _build_test_command(
     instrumented_dir: Path | None,
     preserved_addopts: str = '',
@@ -4324,6 +4562,7 @@ def _build_test_command(
     xdist_loaded: bool = False,
     doctest_ini_overrides: Sequence[str] = (),
     rerun_options: Sequence[str] = (),
+    pytest_cov_options: Sequence[str] = (),
 ) -> list[str]:
     """Build the command to run tests.
 
@@ -4331,9 +4570,9 @@ def _build_test_command(
     to register import hooks before running pytest. Otherwise, runs
     pytest directly.
 
-    ``--no-cov`` is only appended when ``pytest-cov`` is installed so
-    that projects without the plugin do not receive an unknown CLI flag
-    (which causes pytest exit-code 4).
+    ``--no-cov`` arrives through ``pytest_cov_options`` and only when gremlin runs have pytest-cov
+    loaded, so that runs without the plugin do not receive an unknown CLI flag (which causes pytest
+    exit-code 4).
 
     Args:
         instrumented_dir: Directory containing bootstrap infrastructure, or None.
@@ -4356,6 +4595,8 @@ def _build_test_command(
             :func:`~pytest_gremlins.rerun_options.rerun_options_in`), appended last so they win over
             ``addopts`` as they do in the baseline run.  A flaky test then has to fail on every
             attempt before it can zap a gremlin (issue #546).
+        pytest_cov_options: The ``--no-cov`` flag, preceded by a ``-p`` loader when gremlin runs start with
+            autoload disabled (see :func:`_pytest_cov_options_for`); empty when they do not load pytest-cov.
 
     Returns:
         Command list to run tests.
@@ -4386,8 +4627,7 @@ def _build_test_command(
             *doctest_ini_overrides,
         ]
 
-    if _pytest_cov_available():
-        command.append('--no-cov')
+    command.extend(pytest_cov_options)
 
     if xdist_loaded:
         command.extend(['-n', '0'])
@@ -4608,30 +4848,13 @@ def _write_empty_run_report(terminalreporter: pytest.TerminalReporter, gremlin_s
     terminalreporter.write_sep('=', '')
 
 
-def pytest_terminal_summary(  # noqa: C901, PLR0912, PLR0915
+def _write_file_reports(
     terminalreporter: pytest.TerminalReporter,
-    exitstatus: int,  # noqa: ARG001
+    gremlin_session: GremlinSession,
     config: pytest.Config,
+    score: MutationScore,
 ) -> None:
-    """Add mutation testing results to terminal output."""
-    gremlin_session = _get_session()
-    if gremlin_session is None or not gremlin_session.enabled:
-        return
-
-    for notice in gremlin_session.terminal_notices:
-        terminalreporter.write_line(notice)
-
-    if not gremlin_session.gremlins:
-        _write_empty_run_report(terminalreporter, gremlin_session)
-        return
-
-    score = MutationScore.from_results(
-        gremlin_session.results,
-        mutant_timeout=gremlin_session.mutant_timeout,
-        mutant_attempt_timeout=gremlin_session.mutant_attempt_timeout,
-    )
-
-    # Write file-based reports as requested
+    """Write the HTML and JSON reports the session asked for and say where they went."""
     rootdir = _get_rootdir(config)
 
     if 'html' in gremlin_session.report_formats:
@@ -4653,6 +4876,36 @@ def pytest_terminal_summary(  # noqa: C901, PLR0912, PLR0915
         except OSError as exc:
             logger.warning('Failed to write JSON report: %s', exc)
             terminalreporter.write_line(f'JSON report write failed: {exc}')
+
+
+def pytest_terminal_summary(  # noqa: C901, PLR0912, PLR0915
+    terminalreporter: pytest.TerminalReporter,
+    exitstatus: int,  # noqa: ARG001
+    config: pytest.Config,
+) -> None:
+    """Add mutation testing results to terminal output."""
+    gremlin_session = _get_session()
+    if gremlin_session is None or not gremlin_session.enabled:
+        return
+
+    for notice in gremlin_session.terminal_notices:
+        terminalreporter.write_line(notice)
+
+    score = MutationScore.from_results(
+        gremlin_session.results,
+        mutant_timeout=gremlin_session.mutant_timeout,
+        mutant_attempt_timeout=gremlin_session.mutant_attempt_timeout,
+    )
+
+    if not gremlin_session.gremlins:
+        if gremlin_session.skipped_files:
+            # Skipped files still get reports, so a stale score is overwritten. Write them first so
+            # their locations print before the empty-run report's closing separator.
+            _write_file_reports(terminalreporter, gremlin_session, config, score)
+        _write_empty_run_report(terminalreporter, gremlin_session)
+        return
+
+    _write_file_reports(terminalreporter, gremlin_session, config, score)
 
     terminalreporter.write_sep('=', 'pytest-gremlins mutation report')
     terminalreporter.write_line('')

@@ -76,6 +76,9 @@ class TransactionCode(IntEnum):
     TENDER_DISPOSITION = 19
     """U - Disposition pursuant to a tender of shares in a change of control transaction"""
 
+    def to_csv(self) -> str:
+        ...
+
 
 class OwnershipType(IntEnum):
     """SEC Form 4 direct or indirect ownership classification"""
@@ -89,6 +92,9 @@ class OwnershipType(IntEnum):
     INDIRECT = 2
     """I - Indirect ownership of the security (e.g., through a trust or family member)"""
 
+    def to_csv(self) -> str:
+        ...
+
 
 class AcquiredDisposedCode(IntEnum):
     """SEC Form 4 indicator of whether the transaction was an acquisition or a disposal"""
@@ -101,6 +107,9 @@ class AcquiredDisposedCode(IntEnum):
 
     DISPOSED = 2
     """D - Share disposal"""
+
+    def to_csv(self) -> str:
+        ...
 
 
 class QuiverQuantCsvExtensions(System.Object):

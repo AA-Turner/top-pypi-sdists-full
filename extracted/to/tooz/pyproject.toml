@@ -9,23 +9,23 @@ authors = [
     {name = "OpenStack", email = "openstack-discuss@lists.openstack.org"},
 ]
 readme = {file = "README.rst", content-type = "text/x-rst"}
-license = {text = "Apache-2.0"}
+license = "Apache-2.0"
 dynamic = ["version", "dependencies"]
 requires-python = ">=3.11"
 classifiers = [
-  "Development Status :: 5 - Production/Stable",
-  "Environment :: Console",
-  "Intended Audience :: Developers",
-  "License :: OSI Approved :: Apache Software License",
-  "Operating System :: POSIX :: Linux",
-  "Programming Language :: Python",
-  "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python :: 3.13",
-  "Programming Language :: Python :: 3.14",
-  "Topic :: System :: Distributed Computing",
-  "Typing :: Typed",
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Topic :: System :: Distributed Computing",
+    "Typing :: Typed",
 ]
 
 [project.urls]
@@ -47,35 +47,47 @@ Repository = "https://opendev.org/openstack/tooz"
 
 [project.optional-dependencies]
 etcd3gw = [
-  "etcd3gw>=2.3.0", # Apache-2.0
+    "etcd3gw>=2.3.0", # Apache-2.0
 ]
 redis = [
-  "redis>=4.0.0", # MIT
+    "redis>=6.0.0", # MIT
 ]
 postgresql = [
-  "psycopg2>=2.5", # LGPL/ZPL
+    "psycopg2>=2.5", # LGPL/ZPL
 ]
 mysql = [
-  "PyMySQL>=0.6.2", # MIT License
+    "PyMySQL>=0.6.2", # MIT License
 ]
 zookeeper = [
-  "kazoo>=2.6", # Apache-2.0
+    "kazoo>=2.6", # Apache-2.0
 ]
 memcached = [
-  "pymemcache>=1.2.9", # Apache 2.0 License
+    "pymemcache>=1.2.9", # Apache 2.0 License
 ]
 ipc = [
-  "sysv-ipc>=0.6.8", # BSD License
+    "sysv-ipc>=0.6.8", # BSD License
 ]
 kubernetes = [
-  "kubernetes>=2.8.1", # Apache-2.0
-  "sherlock>=0.4.1", # MIT License
+    "kubernetes>=2.8.1", # Apache-2.0
+    "sherlock>=0.4.1", # MIT License
 ]
 
-[tool.setuptools]
-packages = [
+[tool.setuptools.packages.find]
+include = ["tooz*"]
+
+[tool.coverage.run]
+source = [
     "tooz"
 ]
+branch = true
+parallel = true
+omit = [
+    "tooz/tests/*"
+]
+
+[tool.coverage.report]
+ignore_errors = true
+show_missing = true
 
 [tool.mypy]
 python_version = "3.11"
@@ -112,9 +124,9 @@ quote-style = "preserve"
 docstring-code-format = true
 
 [tool.ruff.lint]
-select = ["E4", "E5", "E7", "E9", "F", "G", "LOG", "S", "UP"]
+select = ["E", "F", "G", "LOG", "RUF", "S", "UP", "W"]
 external = ["H"]
 ignore = [
-    # asserts are only used for type narrowing
-    "S101",
+    "S101",   # asserts are only used for type narrowing
+    "RUF012", # low value
 ]

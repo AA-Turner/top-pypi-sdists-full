@@ -123,6 +123,8 @@ Keyword arguments:
 
     - children (list of boolean | number | string | dict | lists; optional)
 
+    - hasChildren (boolean; optional)
+
 - data-* (string; optional):
     Wild card data attributes.
 
@@ -175,6 +177,10 @@ Keyword arguments:
 
 - inset (string | number | dict; optional):
     Inset – Accepts CSS values or a dict for responsive styles.
+
+- keepMounted (boolean; optional):
+    If set, subtree content is kept mounted when collapsed. React 19
+    `Activity` is used to preserve state. default False.
 
 - left (string | number | dict; optional):
     Left offset – Accepts CSS values or a dict for responsive styles.
@@ -230,9 +236,15 @@ Keyword arguments:
     Margin inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- mie (number; optional):
+    MarginInlineEnd, theme key: theme.spacing.
+
 - mih (string | number | dict; optional):
     Minimum height – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
+
+- mis (number; optional):
+    MarginInlineStart, theme key: theme.spacing.
 
 - miw (string | number | dict; optional):
     Minimum width – Accepts theme spacing keys, CSS values, or a dict
@@ -281,6 +293,12 @@ Keyword arguments:
 - pe (string | number | dict; optional):
     Padding inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
+
+- pie (number; optional):
+    PaddingInlineEnd, theme key: theme.spacing.
+
+- pis (number; optional):
+    PaddingInlineStart, theme key: theme.spacing.
 
 - pl (string | number | dict; optional):
     Padding left – Accepts theme spacing keys, CSS values, or a dict
@@ -357,7 +375,11 @@ Keyword arguments:
 
 - w (string | number | dict; optional):
     Width – Accepts theme spacing keys, CSS values, or a dict for
-    responsive styles."""
+    responsive styles.
+
+- withLines (boolean; optional):
+    If set, connecting lines are rendered showing parent-child
+    relationships default False."""
     _children_props: typing.List[str] = ['data[].label', 'expandedIcon', 'collapsedIcon']
     _base_nodes = ['expandedIcon', 'collapsedIcon', 'children']
     _namespace = 'dash_mantine_components'
@@ -368,7 +390,8 @@ Keyword arguments:
             "label": ComponentType,
             "value": str,
             "nodeProps": NotRequired[typing.Dict[typing.Union[str, float, int], typing.Any]],
-            "children": NotRequired[typing.Sequence[typing.Any]]
+            "children": NotRequired[typing.Sequence[typing.Any]],
+            "hasChildren": NotRequired[bool]
         }
     )
 
@@ -401,6 +424,8 @@ Keyword arguments:
         collapsedIcon: typing.Optional[ComponentType] = None,
         iconSide: typing.Optional[Literal["left", "right", "none"]] = None,
         renderNode: typing.Optional[typing.Any] = None,
+        keepMounted: typing.Optional[bool] = None,
+        withLines: typing.Optional[bool] = None,
         hiddenFrom: typing.Optional[str] = None,
         visibleFrom: typing.Optional[str] = None,
         mod: typing.Optional[typing.Union[str, dict, typing.Sequence[typing.Union[str, dict]]]] = None,
@@ -458,6 +483,10 @@ Keyword arguments:
         style: typing.Optional[typing.Any] = None,
         lightHidden: typing.Optional[bool] = None,
         darkHidden: typing.Optional[bool] = None,
+        mis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        mie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         classNames: typing.Optional[dict] = None,
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
@@ -468,9 +497,9 @@ Keyword arguments:
         loading_state: typing.Optional["LoadingState"] = None,
         **kwargs
     ):
-        self._prop_names = ['id', 'allowRangeSelection', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'checkOnSpace', 'checkboxes', 'checked', 'checkedDebounce', 'className', 'classNames', 'clearSelectionOnOutsideClick', 'collapsedIcon', 'darkHidden', 'data', 'data-*', 'display', 'expandOnClick', 'expandOnSpace', 'expanded', 'expandedIcon', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'iconSide', 'inset', 'left', 'levelOffset', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'renderNode', 'right', 'selectOnClick', 'selected', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w']
+        self._prop_names = ['id', 'allowRangeSelection', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'checkOnSpace', 'checkboxes', 'checked', 'checkedDebounce', 'className', 'classNames', 'clearSelectionOnOutsideClick', 'collapsedIcon', 'darkHidden', 'data', 'data-*', 'display', 'expandOnClick', 'expandOnSpace', 'expanded', 'expandedIcon', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'iconSide', 'inset', 'keepMounted', 'left', 'levelOffset', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pie', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'renderNode', 'right', 'selectOnClick', 'selected', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withLines']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['id', 'allowRangeSelection', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'checkOnSpace', 'checkboxes', 'checked', 'checkedDebounce', 'className', 'classNames', 'clearSelectionOnOutsideClick', 'collapsedIcon', 'darkHidden', 'data', 'data-*', 'display', 'expandOnClick', 'expandOnSpace', 'expanded', 'expandedIcon', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'iconSide', 'inset', 'left', 'levelOffset', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'renderNode', 'right', 'selectOnClick', 'selected', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w']
+        self.available_properties = ['id', 'allowRangeSelection', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'checkOnSpace', 'checkboxes', 'checked', 'checkedDebounce', 'className', 'classNames', 'clearSelectionOnOutsideClick', 'collapsedIcon', 'darkHidden', 'data', 'data-*', 'display', 'expandOnClick', 'expandOnSpace', 'expanded', 'expandedIcon', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'iconSide', 'inset', 'keepMounted', 'left', 'levelOffset', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pie', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'renderNode', 'right', 'selectOnClick', 'selected', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withLines']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

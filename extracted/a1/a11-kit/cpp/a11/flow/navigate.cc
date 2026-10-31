@@ -26,8 +26,10 @@
 #include <absl/strings/str_join.h>
 #include <absl/types/span.h>
 
+#include "a11/flow/contract.h"
 #include "a11/flow/highlight.h"
 #include "a11/flow/lexer.h"
+#include "a11/flow/module.h"
 #include "a11/flow/parser.h"
 #include "a11/flow/resolve.h"
 #include "a11/flow/vocabulary.h"
@@ -49,6 +51,7 @@ SymbolClass ClassOf(SymbolKind kind) {
       return SymbolClass::kNode;
     case SymbolKind::kNodeMap:
       return SymbolClass::kNodeMap;
+    case SymbolKind::kSink:
     case SymbolKind::kBarrier:
       return SymbolClass::kBarrier;
     case SymbolKind::kLoopVariable:
@@ -229,12 +232,13 @@ const SemanticToken* absl_nullable TokenAt(
 std::pair<std::string, size_t> DottedAround(const std::vector<Token>& tokens,
                                             size_t index) {
   size_t first = index;
-  while (first >= 2 && tokens[first - 1].kind == TokenKind::kDot &&
+  while (first >= 2 && tokens[first - 1].kind == TokenKind::kScope &&
          tokens[first - 2].IsWord()) {
     first -= 2;
   }
   size_t last = index;
-  while (last + 2 < tokens.size() && tokens[last + 1].kind == TokenKind::kDot &&
+  while (last + 2 < tokens.size() &&
+         tokens[last + 1].kind == TokenKind::kScope &&
          tokens[last + 2].IsWord()) {
     last += 2;
   }
@@ -245,8 +249,6 @@ std::pair<std::string, size_t> DottedAround(const std::vector<Token>& tokens,
   return {name, first};
 }
 
-// Formats docstrings in Markdown using bold text, code spans, and paragraph
-// breaks for compatibility across editor renderers.
 /// Formats docstrings in Markdown using bold text, code spans, and paragraph
 /// breaks for compatibility across editor renderers.
 ///
@@ -484,6 +486,8 @@ std::string ShapeMarkdown(const DtoPlan& shape) {
 
 std::string_view SymbolClassName(SymbolClass kind) {
   switch (kind) {
+    case SymbolClass::kModule:
+      return "module";
     case SymbolClass::kFlow:
       return "flow";
     case SymbolClass::kDto:
@@ -510,8 +514,6 @@ std::string_view SymbolClassName(SymbolClass kind) {
   return "external";
 }
 
-// The whole construct a declaration opens: its first token through the `}` that
-// closes its block.
 /// The whole construct a declaration opens: its first token through the `}`
 /// that closes its block.
 ///
@@ -567,14 +569,21 @@ Range ConstructRange(const LineIndex& lines, absl::Span<const Token> tokens,
   return lines.Between(std::min(opened.start, selection.start.offset), end);
 }
 
-std::vector<DocumentSymbol> Symbols(std::string_view source) {
+std::vector<DocumentSymbol> Symbols(std::string_view source,
+                                    CompilationLimits limits,
+                                    CompilationBudget* budget) {
+  CompilationBudget local_budget(limits);
+  if (budget == nullptr) {
+    budget = &local_budget;
+  }
   const LineIndex lines(source);
-  const ParseResult parsed = Parse(source);
-  const ResolveResult resolved = Resolve(source, parsed);
-  // Lexed again rather than threaded through: finding a construct's end is
-  // brace matching, and the tokens are what that reads. Cheap next to the
-  // resolve above.
-  const LexResult lexed = Lex(source);
+  const auto lexed = Lex(
+      source,
+      LexOptions{.keep_comments = true, .limits = limits, .budget = budget});
+  const auto parsed =
+      ParseTokens(source, lexed.tokens, lexed.diagnostics, limits, budget);
+  const ResolveResult resolved =
+      Resolve(source, parsed, false, nullptr, limits, budget);
   std::vector<DocumentSymbol> found;
 
   // The shapes first, as they are written: a file that declares one usually
@@ -675,14 +684,62 @@ std::vector<DocumentSymbol> Symbols(std::string_view source) {
     }
     found.push_back(std::move(one));
   }
+  std::vector<const syntax::ModuleDeclaration*> modules;
+  for (const auto& module : parsed.modules) {
+    const auto text = source.substr(module.extent.start,
+                                    module.extent.end - module.extent.start);
+    if (text.starts_with("mod") || text.starts_with("MOD")) {
+      modules.push_back(&module);
+    }
+  }
+  std::sort(modules.begin(), modules.end(),
+            [](const auto* left, const auto* right) {
+              return left->extent.end - left->extent.start <
+                     right->extent.end - right->extent.start;
+            });
+  for (const auto* module : modules) {
+    DocumentSymbol symbol;
+    symbol.name = module->name.text;
+    symbol.kind = SymbolClass::kModule;
+    symbol.detail = module->interface_only ? "declared module" : "module";
+    symbol.range = RangeOf(lines, module->extent);
+    symbol.selection = RangeOf(lines, module->name.location);
+    std::vector<DocumentSymbol> remaining;
+    for (auto& child : found) {
+      if (child.range.start.offset >= module->extent.start &&
+          child.range.end.offset <= module->extent.end) {
+        const auto prefix = absl::StrCat(module->name.text, "::");
+        if (child.name.starts_with(prefix)) {
+          child.name.erase(0, prefix.size());
+        }
+        symbol.children.push_back(std::move(child));
+      } else {
+        remaining.push_back(std::move(child));
+      }
+    }
+    found = std::move(remaining);
+    found.push_back(std::move(symbol));
+  }
+  std::sort(found.begin(), found.end(),
+            [](const auto& left, const auto& right) {
+              return left.range.start.offset < right.range.start.offset;
+            });
   return found;
 }
 
 Description Describe(std::string_view source, size_t offset,
-                     const catalogue::Catalogue& known) {
+                     const catalogue::Catalogue& known,
+                     CompilationLimits limits, CompilationBudget* budget,
+                     const LinkedModule* linked) {
+  CompilationBudget local_budget(limits);
+  if (budget == nullptr) {
+    budget = &local_budget;
+  }
   Description about;
   const LineIndex lines(source);
-  const LexResult lexed = Lex(source, LexOptions{.keep_comments = true});
+  const LexResult lexed = Lex(
+      source,
+      LexOptions{.keep_comments = true, .limits = limits, .budget = budget});
   const std::vector<SemanticToken> semantic = Highlight(lexed.tokens);
   const SemanticToken* here = TokenAt(semantic, offset);
   if (here == nullptr) {
@@ -706,10 +763,97 @@ Description Describe(std::string_view source, size_t offset,
   about.text = std::string(source.substr(here->start, here->end - here->start));
   about.range = lines.Between(here->start, here->end);
 
-  const ParseResult parsed = Parse(source);
+  LinkedModule owned_linked;
+  if (linked == nullptr) {
+    owned_linked =
+        LinkModules(std::string(source), "<editor>", {}, {}, limits, budget);
+    linked = &owned_linked;
+  }
+  const auto& parsed = linked->parsed;
   const auto evidence = known.SchemaProgram();
-  const ResolveResult resolved = Resolve(source, parsed, false, &evidence);
+  const ResolveResult resolved =
+      Resolve(linked->source, parsed, false, &evidence, limits, budget);
   const std::string word = vocabulary::Canonical(about.text);
+
+  if (index < lexed.tokens.size() && lexed.tokens[index].IsWord()) {
+    const auto [qualified, first] = DottedAround(lexed.tokens, index);
+    size_t last = first;
+    while (last + 2 < lexed.tokens.size() &&
+           lexed.tokens[last + 1].kind == TokenKind::kScope &&
+           lexed.tokens[last + 2].IsWord()) {
+      last += 2;
+    }
+    std::string canonical;
+    if (qualified.starts_with("std::")) {
+      canonical = qualified.substr(5);
+    } else if (const auto alias = known.intrinsics().find(qualified);
+               alias != known.intrinsics().end()) {
+      canonical = alias->second;
+    }
+    if (!canonical.empty() && last + 1 < lexed.tokens.size() &&
+        lexed.tokens[last + 1].kind == TokenKind::kLeftParen &&
+        (vocabulary::Builtins().contains(canonical) ||
+         vocabulary::TypeNames().contains(canonical))) {
+      about.text = qualified;
+      about.range =
+          lines.Between(lexed.tokens[first].start, lexed.tokens[last].end);
+      about.kind = SymbolClass::kExternal;
+      about.markdown = BuiltinMarkdown(canonical);
+      about.summary = about.markdown.substr(0, about.markdown.find('\n'));
+      return about;
+    }
+  }
+
+  for (const auto& flow : parsed.flows) {
+    bool barrier_here = false;
+    syntax::VisitSubtree(*flow, [&](const syntax::Node& node) {
+      const auto* wait = syntax::As<syntax::Wait>(&node);
+      barrier_here |= wait != nullptr && wait->scope_barrier &&
+                      wait->location.start <= offset &&
+                      offset < wait->extent.end;
+    });
+    if (barrier_here) {
+      about.summary = "wait all — scope-local execution barrier";
+      about.detail =
+          "Wait for all preceding work in this scope before activating "
+          "following statements.";
+      about.markdown = about.summary + "\n\n" + about.detail;
+      return about;
+    }
+  }
+
+  std::string pipeline_note;
+  for (const auto& flow : parsed.flows) {
+    syntax::VisitSubtree(*flow, [&](const syntax::Node& node) {
+      const auto* stage = syntax::As<syntax::Stage>(&node);
+      if (stage == nullptr || (stage->name != "run" && stage->name != "call")) {
+        return;
+      }
+      const auto* call =
+          syntax::As<syntax::CallExpression>(stage->argument.get());
+      if (call == nullptr || offset < call->action_location.start ||
+          offset >= call->action_location.end) {
+        return;
+      }
+      const auto* target = resolved.program.Flow(call->action);
+      if (target == nullptr) {
+        return;
+      }
+      std::vector<std::string> supplied;
+      for (const auto& argument : call->args) {
+        supplied.push_back(argument.port.text);
+      }
+      const auto ports = SelectPipelinePorts(*target, supplied);
+      if (!ports.ok()) {
+        return;
+      }
+      pipeline_note =
+          absl::StrCat("\n\n**Whole-stream invocation** (", call->mode, "): `",
+                       ports->input->name, "` → `", ports->output->name,
+                       "`. One invocation per pipeline activation; ordinary "
+                       "action failure and cleanup semantics apply.");
+    });
+  }
 
   const std::vector<size_t> starts = DeclarationStarts(parsed);
 
@@ -792,7 +936,10 @@ Description Describe(std::string_view source, size_t offset,
       continue;
     }
     for (const Symbol& symbol : flow.symbols) {
-      if (symbol.name != about.text || symbol.implicit) {
+      if (symbol.name != about.text || symbol.implicit ||
+          (!symbol.VisibleAt(here->start) &&
+           !(here->start >= symbol.location.start &&
+             here->start < symbol.location.end))) {
         continue;
       }
       about.kind = ClassOf(symbol.kind);
@@ -803,6 +950,15 @@ Description Describe(std::string_view source, size_t offset,
       about.definition = RangeOf(lines, symbol.location);
       if (symbol.kind == SymbolKind::kCall) {
         absl::StrAppend(&about.summary, ", running `", symbol.action, "`");
+      }
+      if (symbol.kind == SymbolKind::kValue && symbol.value_type.has_value()) {
+        absl::StrAppend(&about.summary, ": ", symbol.value_type->ToString());
+      }
+      if (symbol.kind == SymbolKind::kSink) {
+        about.detail =
+            "Appending waits for this operation, then independent writers "
+            "interleave. Completion waits for the operation and all attached "
+            "writers. Aliases share the same sink; it cannot carry payload.";
       }
       if (const PortPlan* port =
               flow.plan.Port(symbol.name, symbol.kind == SymbolKind::kInputPort
@@ -882,7 +1038,7 @@ Description Describe(std::string_view source, size_t offset,
           about.origin = action->origin;
         }
       }
-      about.markdown = FlowMarkdown(*sibling);
+      about.markdown = FlowMarkdown(*sibling) + pipeline_note;
       size_t count = 0;
       for (const auto& declaration : parsed.flows) {
         if (declaration->name.text == sibling->name) {
@@ -908,11 +1064,25 @@ Description Describe(std::string_view source, size_t offset,
       about.kind = SymbolClass::kExternal;
       about.summary = absl::StrCat("`", about.text, "` — an action");
       about.detail = action->description;
-      about.markdown = ActionMarkdown(*action);
+      about.markdown = ActionMarkdown(*action) + pipeline_note;
       // An action declared in a file something read has somewhere to go, which
       // is new: before a scan there was nothing to point at and hovering one of
       // these said "action name".
       about.origin = action->origin;
+      if (about.origin.has_value() && !linked->documents.empty() &&
+          about.origin->file == linked->documents.front().identity) {
+        about.kind = SymbolClass::kFlow;
+        for (const auto& member : linked->members) {
+          if (member.name == about.text &&
+              member.source == about.origin->file &&
+              member.scope_start <= offset && offset <= member.scope_end) {
+            about.has_definition = true;
+            about.definition = RangeOf(lines, member.location);
+            about.origin.reset();
+            break;
+          }
+        }
+      }
       return about;
     }
   }

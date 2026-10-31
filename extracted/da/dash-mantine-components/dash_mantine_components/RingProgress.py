@@ -168,9 +168,15 @@ Keyword arguments:
     Margin inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- mie (number; optional):
+    MarginInlineEnd, theme key: theme.spacing.
+
 - mih (string | number | dict; optional):
     Minimum height – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
+
+- mis (number; optional):
+    MarginInlineStart, theme key: theme.spacing.
 
 - miw (string | number | dict; optional):
     Minimum width – Accepts theme spacing keys, CSS values, or a dict
@@ -220,6 +226,12 @@ Keyword arguments:
     Padding inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- pie (number; optional):
+    PaddingInlineEnd, theme key: theme.spacing.
+
+- pis (number; optional):
+    PaddingInlineStart, theme key: theme.spacing.
+
 - pl (string | number | dict; optional):
     Padding left – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
@@ -256,19 +268,19 @@ Keyword arguments:
 - roundCaps (boolean; optional):
     Sets whether the edges of the progress circle are rounded.
 
-- sections (list of dicts; required):
+- sectionGap (number; optional):
+    Gap between sections in degrees. Reduces the visual size of each
+    section default 0.
+
+- sections (boolean | number | string | dict | list; required):
     Ring sections.
-
-    `sections` is a list of dicts with keys:
-
-    - value (number; required)
-
-    - color (string; required)
-
-    - tooltip (a list of or a singular dash component, string or number; optional)
 
 - size (number; optional):
     Width and height of the progress ring.
+
+- startAngle (number; optional):
+    Starting angle in degrees. 0 = right, 90 = bottom, 180 = left, 270
+    = top default 270.
 
 - styles (boolean | number | string | dict | list; optional):
     Adds inline styles directly to inner elements of a component.  See
@@ -290,6 +302,10 @@ Keyword arguments:
 - top (string | number | dict; optional):
     Top offset – Accepts CSS values or a dict for responsive styles.
 
+- transitionDuration (number; optional):
+    Transition duration in milliseconds for section value and color
+    changes default 0.
+
 - tt (dict; optional):
     Text transform – Accepts CSS values or a dict for responsive
     styles.
@@ -307,19 +323,10 @@ Keyword arguments:
 - w (string | number | dict; optional):
     Width – Accepts theme spacing keys, CSS values, or a dict for
     responsive styles."""
-    _children_props: typing.List[str] = ['label', 'sections[].tooltip']
+    _children_props: typing.List[str] = ['label']
     _base_nodes = ['label', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'RingProgress'
-    Sections = TypedDict(
-        "Sections",
-            {
-            "value": NumberType,
-            "color": str,
-            "tooltip": NotRequired[ComponentType]
-        }
-    )
-
     LoadingState = TypedDict(
         "LoadingState",
             {
@@ -336,8 +343,11 @@ Keyword arguments:
         thickness: typing.Optional[NumberType] = None,
         size: typing.Optional[typing.Optional[NumberType]] = None,
         roundCaps: typing.Optional[bool] = None,
-        sections: typing.Optional[typing.Sequence["Sections"]] = None,
+        sections: typing.Optional[typing.Any] = None,
         rootColor: typing.Optional[typing.Optional[str]] = None,
+        transitionDuration: typing.Optional[NumberType] = None,
+        sectionGap: typing.Optional[NumberType] = None,
+        startAngle: typing.Optional[NumberType] = None,
         hiddenFrom: typing.Optional[str] = None,
         visibleFrom: typing.Optional[str] = None,
         mod: typing.Optional[typing.Union[str, dict, typing.Sequence[typing.Union[str, dict]]]] = None,
@@ -395,6 +405,10 @@ Keyword arguments:
         style: typing.Optional[typing.Any] = None,
         lightHidden: typing.Optional[bool] = None,
         darkHidden: typing.Optional[bool] = None,
+        mis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        mie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         classNames: typing.Optional[dict] = None,
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
@@ -405,9 +419,9 @@ Keyword arguments:
         loading_state: typing.Optional["LoadingState"] = None,
         **kwargs
     ):
-        self._prop_names = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inset', 'label', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'rootColor', 'roundCaps', 'sections', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'thickness', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w']
+        self._prop_names = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inset', 'label', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pie', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'rootColor', 'roundCaps', 'sectionGap', 'sections', 'size', 'startAngle', 'style', 'styles', 'ta', 'tabIndex', 'td', 'thickness', 'top', 'transitionDuration', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inset', 'label', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'rootColor', 'roundCaps', 'sections', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'thickness', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w']
+        self.available_properties = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inset', 'label', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pie', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'rootColor', 'roundCaps', 'sectionGap', 'sections', 'size', 'startAngle', 'style', 'styles', 'ta', 'tabIndex', 'td', 'thickness', 'top', 'transitionDuration', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

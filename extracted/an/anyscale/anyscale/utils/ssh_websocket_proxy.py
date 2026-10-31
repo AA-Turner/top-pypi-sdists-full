@@ -19,30 +19,36 @@ LOG_LEVEL = logging.DEBUG if DEBUG_ENABLED else logging.INFO
 logging.basicConfig(level=LOG_LEVEL, format=LOG_FORMAT, stream=sys.stderr)
 logger = logging.getLogger(__name__)
 
-# websockets v14 renamed the rejected-handshake exception from InvalidStatusCode
-# (legacy) to InvalidStatus (asyncio impl); recognize whichever exists (CI-1744).
+
+def _is_asyncio_impl() -> bool:
+    """Whether connect() is bound to the asyncio impl rather than legacy (CI-1744).
+
+    13.x ships the asyncio module but still binds legacy, so the version decides, not
+    which names exist. Read per call, not cached: the tests patch `__version__`.
+    """
+    try:
+        return version.parse(websockets.__version__) >= version.parse("14.0")
+    except Exception:  # noqa: BLE001
+        # An unparseable version string shouldn't crash the proxy; assume modern.
+        return True
+
+
+# The rejected-handshake exception the bound impl actually raises: InvalidStatus on the
+# asyncio impl, InvalidStatusCode on legacy. Catching the other one would never match,
+# and merely reading the legacy name on >=14 warns onto the user's terminal.
 # `websockets.exceptions` is imported explicitly above because websockets<14 lazily
 # exposes submodules -- without that import this lookup raises AttributeError at
 # module load on the very old versions this fix is meant to support.
-_INVALID_STATUS_EXC_CANDIDATES = (
-    getattr(websockets.exceptions, "InvalidStatus", None),
-    getattr(websockets.exceptions, "InvalidStatusCode", None),
+_INVALID_STATUS_EXC = getattr(
+    websockets.exceptions,
+    "InvalidStatus" if _is_asyncio_impl() else "InvalidStatusCode",
+    None,
 )
-_INVALID_STATUS_EXCEPTIONS = tuple(
-    exc for exc in _INVALID_STATUS_EXC_CANDIDATES if exc is not None
-)
+_INVALID_STATUS_EXCEPTIONS = (_INVALID_STATUS_EXC,) if _INVALID_STATUS_EXC is not None else ()
 
 
 def _additional_headers_kwarg() -> str:
-    # websockets>=14 binds connect() to the asyncio impl (additional_headers);
-    # older binds legacy (extra_headers) and raises TypeError otherwise (CI-1744).
-    # 13.x ships the asyncio module but still binds legacy, so gate on version.
-    try:
-        use_new = version.parse(websockets.__version__) >= version.parse("14.0")
-    except Exception:  # noqa: BLE001
-        # An unparseable version string shouldn't crash the proxy; assume modern.
-        use_new = True
-    return "additional_headers" if use_new else "extra_headers"
+    return "additional_headers" if _is_asyncio_impl() else "extra_headers"
 
 
 async def pump(stream_reader: asyncio.StreamReader, send_func):

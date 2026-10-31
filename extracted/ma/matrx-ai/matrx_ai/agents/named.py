@@ -77,6 +77,7 @@ from matrx_ai.agents.definition import Agent
 from matrx_ai.agents.executor import AgentRunResult, run_agent
 from matrx_ai.agents.variables import AgentVariable
 from matrx_ai.config.llm_params import LLMParams
+from matrx_ai.config.host_turn import HostTurn
 from matrx_ai.tools.models import CustomTool
 
 InputsT = TypeVar("InputsT", bound=BaseModel)
@@ -959,6 +960,7 @@ class NamedAgent(Generic[InputsT, OutputT], ABC):
         source_override: AgentSource | None = None,
         config_overrides: LLMParams | dict[str, Any] | None = None,
         user_input: str | list[dict[str, Any]] | None = None,
+        host_turn: HostTurn | None = None,
         custom_tools: list[CustomTool | dict[str, Any]] | None = None,
         client_tools: list[str] | None = None,
         request_metadata: dict[str, Any] | None = None,
@@ -1109,12 +1111,16 @@ class NamedAgent(Generic[InputsT, OutputT], ABC):
             caller=f"{cls.__name__}.run",
         )
 
+        if isinstance(host_turn, dict):
+            # A candidate re-entering this door carries the host turn as its JSON dump.
+            host_turn = HostTurn.model_validate(host_turn)
         result = await run_agent(
             agent,
             label=label or cls.name,
             source_app=resolved_app,
             source_feature=resolved_feature,
             user_input=user_input,
+            host_turn=host_turn,
             json_schema=cls.Output,
             extra_client_tools=extra_client_tools or None,
             suppress_stream=suppress_stream,

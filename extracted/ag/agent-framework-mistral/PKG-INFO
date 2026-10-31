@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-mistral
-Version: 1.0.0b261015
+Version: 1.0.0b261030
 Summary: Mistral AI integration for Microsoft Agent Framework.
 Author: Microsoft
 Author-email: Microsoft <af-support@microsoft.com>
@@ -9,7 +9,6 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -17,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Framework :: Pydantic :: 2
 Classifier: Typing :: Typed
-Requires-Dist: agent-framework-core>=1.22.0,<2
+Requires-Dist: agent-framework-core>=1.24.0,<2
 Requires-Dist: mistralai>=2.9.2,<3
 Requires-Python: >=3.10
 Project-URL: homepage, https://learn.microsoft.com/en-us/agent-framework/

@@ -4668,6 +4668,9 @@ class CloudController(BaseController):
             self.delete_all_managed_aws_resources(cloud, cloud_resources)
             self.delete_all_managed_gcp_resources(cloud, cloud_resources)
         except Exception as e:  # noqa: BLE001
+            # confirm() prints nothing when skip_confirmation is set, so log the
+            # error or the cloud is deleted with no trace of what was left behind.
+            self.log.error(f"Failed to clean up {cloud_provider} resources: {e}")
             confirm(
                 f"Error while trying to clean up {cloud_provider} resources:\n{e}\n"
                 f"Please check your {cloud_provider} account for relevant errors.\n"
@@ -4775,6 +4778,65 @@ class CloudController(BaseController):
         key_name = cloud.id
 
         cfn_client = _client("cloudformation", cloud.region)
+        start = time.time()
+        try:
+            resources_to_cleanup, scanned = self._find_tagged_stacks(
+                cfn_client, tag_name, key_name
+            )
+        except Exception as e:  # noqa: BLE001
+            # Any failure falls back to the per-stack lookup this replaced, so
+            # this is never worse than before. One such failure is AccessDenied:
+            # AWS documents a Deny on DescribeStacks without a StackName.
+            self.log.warning(
+                f"Listing stacks with their tags failed ({e}), so looking up each stack instead."
+            )
+            resources_to_cleanup, scanned = self._find_tagged_stacks_one_by_one(
+                cfn_client, tag_name, key_name
+            )
+
+        self.log.info(
+            f"Found {len(resources_to_cleanup)} load balancing stack(s) for cloud {cloud.id} "
+            f"after scanning {scanned} stacks in {time.time() - start:.1f}s."
+        )
+
+        resource_delete_status = []
+        for cfn_stack_arn in resources_to_cleanup:
+            resource_delete_status.append(
+                self.delete_aws_cloudformation_stack(cfn_stack_arn=cfn_stack_arn, cloud=cloud)
+            )
+
+        return all(resource_delete_status)
+
+    def _find_tagged_stacks(
+        self, cfn_client: Any, tag_name: str, key_name: str
+    ) -> Tuple[List[str], int]:
+        """The ids of the stacks whose tag `tag_name` is `key_name`, and how
+        many stacks were scanned.
+
+        DescribeStacks without a StackName pages through every stack that is
+        not yet deleted, tags included, so this costs one call per page rather
+        than one per stack. A per-stack lookup gets throttled in accounts with
+        many stacks, and the throttling error aborts the cloud's cleanup.
+        """
+        stacks = _unroll_resources_for_aws_list_call(cfn_client.describe_stacks, "Stacks")
+
+        resources_to_cleanup = []
+
+        for stack in stacks:
+            for tag in stack.get("Tags", []):
+                if tag.get("Key") == tag_name and tag.get("Value") == key_name:
+                    resources_to_cleanup.append(stack["StackId"])
+
+        return resources_to_cleanup, len(stacks)
+
+    def _find_tagged_stacks_one_by_one(
+        self, cfn_client: Any, tag_name: str, key_name: str
+    ) -> Tuple[List[str], int]:
+        """`_find_tagged_stacks` with one DescribeStacks per stack.
+
+        This is the lookup `_find_tagged_stacks` replaced, kept unchanged as its
+        fallback.
+        """
         # Get a list of all the CloudFormation stacks with the specified tag
         stacks = cfn_client.list_stacks()
 
@@ -4803,13 +4865,7 @@ class CloudController(BaseController):
                         ):
                             resources_to_cleanup.append(cfn_stack_arn)
 
-        resource_delete_status = []
-        for cfn_stack_arn in resources_to_cleanup:
-            resource_delete_status.append(
-                self.delete_aws_cloudformation_stack(cfn_stack_arn=cfn_stack_arn, cloud=cloud)
-            )
-
-        return all(resource_delete_status)
+        return resources_to_cleanup, len(stacks)
 
     def delete_aws_tls_certificates(self, cloud: Cloud) -> bool:
         tag_name = "anyscale-cloud-id"
@@ -4817,6 +4873,7 @@ class CloudController(BaseController):
 
         acm = boto3.client("acm", cloud.region, config=_apn_config())
 
+        start = time.time()
         certificates = _unroll_resources_for_aws_list_call(
             acm.list_certificates, "CertificateSummaryList"
         )
@@ -4838,6 +4895,11 @@ class CloudController(BaseController):
                             and tag["Value"] == key_name
                         ):
                             matching_certs.append(certificate_arn)
+
+        self.log.info(
+            f"Found {len(matching_certs)} TLS certificate(s) for cloud {cloud.id} "
+            f"after scanning {len(certificates)} certificates in {time.time() - start:.1f}s."
+        )
 
         resource_delete_status = []
         for certificate_arn in matching_certs:

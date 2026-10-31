@@ -1,0 +1,328 @@
+# Moves the SaaS Sandbox pin to saas-sandbox `main` weekly, merging only once
+# every case still reproduces there (see "SaaS Sandbox pin bump" in
+# docs/regression-tests.md). `plan` resolves the target and lists the cases,
+# `cases` runs each with goal `reproduced` at the target, and `pr` moves the pin
+# and every case's `sandbox_ref` on `automation/saas-sandbox-pin`, as the
+# Octavia app's bot user. Auto-merge is enabled only when every case passed,
+# `vars.SANDBOX_PIN_AUTOBUMP_ENABLED` is `true` and both smokes passed on the
+# pushed commit; anything else fails the run. `alert` reports how it ended.
+name: SaaS Sandbox Pin Bump
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: saas-sandbox-pin-bump
+  cancel-in-progress: false
+
+env:
+  GH_REPO: ${{ github.repository }}
+  BRANCH: automation/saas-sandbox-pin
+
+jobs:
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      pin: ${{ steps.plan.outputs.pin }}
+      target: ${{ steps.plan.outputs.target }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - name: Preflight
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          [ "$REF" = "refs/heads/main" ] || { echo "::error::run this workflow from main, not $REF"; exit 1; }
+
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Get SaaS Sandbox read token
+        id: sandbox-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.OCTAVIA_BOT_APP_ID }}
+          private-key: ${{ secrets.OCTAVIA_BOT_PRIVATE_KEY }}
+          owner: airbytehq
+          repositories: saas-sandbox
+          permission-contents: read
+
+      - name: Plan the bump
+        id: plan
+        env:
+          GH_TOKEN: ${{ steps.sandbox-token.outputs.token }}
+        run: |
+          PIN="$(tr -d '[:space:]' < .github/saas-sandbox-ref)"
+          TARGET="$(gh api repos/airbytehq/saas-sandbox/commits/main --jq .sha)"
+          [[ "$TARGET" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::saas-sandbox main is not a commit SHA"; exit 1; }
+          echo "pin=$PIN" >> "$GITHUB_OUTPUT"
+          if [ "$TARGET" = "$PIN" ]; then
+            echo "SaaS Sandbox pin already at \`$PIN\`; nothing to do." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # Artifact names are indexed: connector/case names can exceed 64 characters.
+          MATRIX="$(jq -cn '[inputs | (input_filename | split("/")) as $p | {
+              connector_name: $p[-3], case: $p[-2], case_root: ($p[:-3] | join("/")),
+              control_image: .affected_image, connector_ref: .affected_ref
+            }] | to_entries | map(.value + {result_artifact_name: "pin-case-\(.key)"})
+            | {include: .}' regression_cases/*/*/origin.json tests/fixtures/regression_cases/*/*/origin.json)"
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+
+  cases:
+    name: ${{ matrix.connector_name }}/${{ matrix.case }}
+    needs: plan
+    if: needs.plan.outputs.target != ''
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    uses: ./.github/workflows/sandbox-case-run.yml
+    with:
+      connector_name: ${{ matrix.connector_name }}
+      case: ${{ matrix.case }}
+      case_root: ${{ matrix.case_root }}
+      goal: reproduced
+      control_image: ${{ matrix.control_image }}
+      connector_ref: ${{ matrix.connector_ref }}
+      sandbox_ref: ${{ needs.plan.outputs.target }}
+      result_artifact_name: ${{ matrix.result_artifact_name }}
+    secrets:
+      OCTAVIA_BOT_APP_ID: ${{ secrets.OCTAVIA_BOT_APP_ID }}
+      OCTAVIA_BOT_PRIVATE_KEY: ${{ secrets.OCTAVIA_BOT_PRIVATE_KEY }}
+
+  pr:
+    name: Open the bump PR
+    needs: [plan, cases]
+    # Whatever the cases returned: the PR reports them, and a failure keeps it open.
+    if: ${{ !cancelled() && needs.plan.outputs.target != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      pr_url: ${{ steps.push.outputs.pr_url }}
+      failed: ${{ steps.bump.outputs.failed }}
+      failed_cases: ${{ steps.bump.outputs.failed_cases }}
+      smoke_failure: ${{ steps.smokes.outputs.failure }}
+      auto_merge: ${{ steps.automerge.outputs.enabled }}
+    env:
+      PIN: ${{ needs.plan.outputs.pin }}
+      TARGET: ${{ needs.plan.outputs.target }}
+      MATRIX: ${{ needs.plan.outputs.matrix }}
+    steps:
+      # This run's `main` commit; nothing from a case is executed in this job.
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Download the results
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          pattern: pin-case-*
+          path: ${{ runner.temp }}/results
+
+      - name: Move the pin and the cases
+        id: bump
+        run: |
+          echo "$TARGET" > .github/saas-sandbox-ref
+          BODY="$RUNNER_TEMP/body.md" FAILED=0 FAILED_CASES=""
+          printf '%s\n\n| Case | Verdict |\n|---|---|\n' \
+            "Moves the SaaS Sandbox pin to saas-sandbox \`$TARGET\` ([changes](https://github.com/airbytehq/saas-sandbox/compare/$PIN...$TARGET)); every case was rerun there with goal \`reproduced\`." > "$BODY"
+          while read -r ENTRY; do
+            DIR="$(jq -r '"\(.case_root)/\(.connector_name)/\(.case)"' <<< "$ENTRY")"
+            RESULT="$RUNNER_TEMP/results/$(jq -r .result_artifact_name <<< "$ENTRY")/result.json"
+            jq --arg ref "$TARGET" '.sandbox_ref = $ref' "$DIR/origin.json" > "$DIR/origin.json.tmp"
+            mv "$DIR/origin.json.tmp" "$DIR/origin.json"
+            # A missing result, or one from another sandbox commit, is a failure.
+            VERDICT="$(jq -r .verdict "$RESULT" 2>/dev/null || echo "no result")"
+            if ! jq -e --arg ref "$TARGET" '.passed == true and (.verdict | startswith("PASS")) and .sandbox_ref == $ref' "$RESULT" > /dev/null 2>&1; then
+              FAILED=$((FAILED + 1)) VERDICT="❌ $VERDICT"
+              FAILED_CASES="$FAILED_CASES $(jq -r '"\(.connector_name)/\(.case)"' <<< "$ENTRY")"
+            fi
+            echo "| \`$DIR\` | $VERDICT |" >> "$BODY"
+          done < <(jq -c '.include[]' <<< "$MATRIX")
+          printf '\nFrom %s\n' "$GITHUB_SERVER_URL/$GH_REPO/actions/runs/$GITHUB_RUN_ID" >> "$BODY"
+          cat "$BODY" >> "$GITHUB_STEP_SUMMARY"
+          echo "failed=$FAILED" >> "$GITHUB_OUTPUT"
+          echo "failed_cases=${FAILED_CASES# }" >> "$GITHUB_OUTPUT"
+
+      # The only write token, minted after every case has run and in a job
+      # that runs no case code. It lasts an hour, which bounds the smoke wait.
+      - name: Get PR token
+        id: token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.OCTAVIA_BOT_APP_ID }}
+          private-key: ${{ secrets.OCTAVIA_BOT_PRIVATE_KEY }}
+          owner: airbytehq
+          repositories: airbyte-ops-mcp
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Push and open the PR
+        id: push
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          APP_SLUG: ${{ steps.token.outputs.app-slug }}
+        run: |
+          BOT="${APP_SLUG}[bot]"
+          BOT_ID="$(gh api "/users/$BOT" --jq .id)"
+          TITLE="chore(saas-sandbox): bump the pin to ${TARGET:0:8}"
+          git add .github/saas-sandbox-ref regression_cases tests/fixtures/regression_cases
+          git -c user.name="$BOT" -c user.email="$BOT_ID+$BOT@users.noreply.github.com" \
+            commit --quiet -m "$TITLE"
+          HEAD_SHA="$(git rev-parse HEAD)"
+          # `--head` matches the branch name only, so a fork's PR could match too.
+          PR_NUMBER="$(gh pr list --head "$BRANCH" --base main --state open --json number,isCrossRepository \
+            --jq '[.[] | select(.isCrossRepository | not)][0].number // empty')"
+          # A previous run may have armed auto-merge; never let it carry over to a new head.
+          if [ -n "$PR_NUMBER" ] && [ "$(gh pr view "$PR_NUMBER" --json autoMergeRequest --jq '.autoMergeRequest != null')" = "true" ]; then
+            gh pr merge "$PR_NUMBER" --disable-auto
+          fi
+          AUTH="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          echo "::add-mask::$AUTH"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $AUTH" \
+            push --quiet --force "https://github.com/$GH_REPO.git" "HEAD:refs/heads/$BRANCH"
+          if [ -n "$PR_NUMBER" ]; then
+            gh pr edit "$PR_NUMBER" --title "$TITLE" --body-file "$RUNNER_TEMP/body.md"
+          else
+            PR_URL="$(gh pr create --base main --head "$BRANCH" --title "$TITLE" --body-file "$RUNNER_TEMP/body.md")"
+            PR_NUMBER="${PR_URL##*/}"
+          fi
+          echo "PR: $GITHUB_SERVER_URL/$GH_REPO/pull/$PR_NUMBER at \`$HEAD_SHA\`" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "number=$PR_NUMBER"
+            echo "pr_url=$GITHUB_SERVER_URL/$GH_REPO/pull/$PR_NUMBER"
+            echo "head_sha=$HEAD_SHA"
+          } >> "$GITHUB_OUTPUT"
+
+      # Neither smoke is a required check, so auto-merge would not wait for
+      # them. Both always run on a bump PR, which changes .github/saas-sandbox-ref.
+      - name: Wait for the smokes
+        id: smokes
+        if: steps.bump.outputs.failed == '0' && vars.SANDBOX_PIN_AUTOBUMP_ENABLED == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ steps.push.outputs.head_sha }}
+          SMOKE_TIMEOUT_SECONDS: "2400"
+          SMOKE_GRACE_SECONDS: "300"
+          SMOKE_POLL_SECONDS: "30"
+        run: |
+          fail() {
+            echo "failure=$1" >> "$GITHUB_OUTPUT"
+            echo "::error::$1"
+            exit 1
+          }
+          START=$SECONDS
+          while :; do
+            PENDING=""
+            for WORKFLOW in sandbox-case-gate-smoke.yml sandbox-case-run-smoke.yml; do
+              # The newest run of that workflow for this exact commit; none yet is "none/".
+              # A failed call is retried at the next poll; the timeout still bounds it.
+              if ! gh api "repos/$GH_REPO/actions/workflows/$WORKFLOW/runs?head_sha=$HEAD_SHA&event=pull_request" > "$RUNNER_TEMP/runs.json"; then
+                PENDING="$PENDING $WORKFLOW"
+                continue
+              fi
+              STATE="$(jq -r '.workflow_runs | max_by(.run_number) // {} | "\(.status // "none")/\(.conclusion // "")"' "$RUNNER_TEMP/runs.json")"
+              case "$STATE" in
+                completed/success) ;;
+                completed/*) fail "$WORKFLOW concluded ${STATE#completed/} on $HEAD_SHA" ;;
+                none/*)
+                  [ $((SECONDS - START)) -lt "$SMOKE_GRACE_SECONDS" ] || fail "$WORKFLOW never started on $HEAD_SHA"
+                  PENDING="$PENDING $WORKFLOW"
+                  ;;
+                *) PENDING="$PENDING $WORKFLOW" ;;
+              esac
+            done
+            if [ -z "$PENDING" ]; then
+              echo "Both smokes passed on \`$HEAD_SHA\`." >> "$GITHUB_STEP_SUMMARY"
+              break
+            fi
+            [ $((SECONDS - START)) -lt "$SMOKE_TIMEOUT_SECONDS" ] || fail "timed out waiting for$PENDING on $HEAD_SHA"
+            sleep "$SMOKE_POLL_SECONDS"
+          done
+
+      - name: Enable auto-merge
+        id: automerge
+        if: steps.smokes.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          PR_NUMBER: ${{ steps.push.outputs.number }}
+          HEAD_SHA: ${{ steps.push.outputs.head_sha }}
+        run: |
+          gh pr merge "$PR_NUMBER" --auto --squash --match-head-commit "$HEAD_SHA"
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+          echo "Auto-merge enabled." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail on any failed case
+        if: always()
+        env:
+          FAILED: ${{ steps.bump.outputs.failed }}
+        run: |
+          if [ "$FAILED" != "0" ]; then
+            echo "::error::a case failed at the target, or the bump could not be prepared; see the summary"
+            exit 1
+          fi
+
+  # One message per bump run, also when a job failed; none when the run was
+  # cancelled or the pin was already at saas-sandbox `main`.
+  alert:
+    name: Alert on Slack
+    needs: [plan, cases, pr]
+    if: ${{ !cancelled() && vars.SLACK_CHANNEL_SANDBOX_CASE_ALERTS != '' && (needs.plan.result != 'success' || needs.plan.outputs.target != '') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Alert on Slack
+        continue-on-error: true
+        timeout-minutes: 2
+        env:
+          SLACK_CHANNEL: ${{ vars.SLACK_CHANNEL_SANDBOX_CASE_ALERTS }}
+          SLACK_TOKEN: ${{ secrets.SLACK_HYDRA_BOT_TOKEN }}
+          TARGET: ${{ needs.plan.outputs.target }}
+          PLAN_RESULT: ${{ needs.plan.result }}
+          PR_RESULT: ${{ needs.pr.result }}
+          PR_URL: ${{ needs.pr.outputs.pr_url }}
+          FAILED: ${{ needs.pr.outputs.failed }}
+          FAILED_CASES: ${{ needs.pr.outputs.failed_cases }}
+          SMOKE_FAILURE: ${{ needs.pr.outputs.smoke_failure }}
+          AUTO_MERGE: ${{ needs.pr.outputs.auto_merge }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ "$PR_RESULT" = success ] && [ "$AUTO_MERGE" = true ]; then
+            EMOJI="✅" DESCRIPTION="every case and both smokes passed; auto-merge enabled"
+          elif [ "$PR_RESULT" = success ]; then
+            EMOJI="🔵" DESCRIPTION="every case passed; SANDBOX_PIN_AUTOBUMP_ENABLED is off, so the PR waits for a human"
+          elif [ -n "$FAILED" ] && [ "$FAILED" != 0 ]; then
+            EMOJI="❌" DESCRIPTION="$FAILED case(s) failed: $FAILED_CASES"
+          elif [ -n "$SMOKE_FAILURE" ]; then
+            EMOJI="❌" DESCRIPTION="not merged: $SMOKE_FAILURE"
+          else
+            EMOJI="❌" DESCRIPTION="the run failed (plan: $PLAN_RESULT, pr: $PR_RESULT)"
+          fi
+          jq -n --arg channel "$SLACK_CHANNEL" --arg emoji "$EMOJI" --arg description "$DESCRIPTION" \
+            --arg target "${TARGET:0:8}" --arg pr_url "$PR_URL" --arg run_url "$RUN_URL" '
+            ($description | gsub("&"; "&amp;") | gsub("<"; "&lt;") | gsub(">"; "&gt;")) as $d
+            | (if $pr_url == "" then "" else "<\($pr_url)|PR>, " end) as $pr
+            | {channel: $channel, unfurl_links: false, unfurl_media: false,
+               text: "\($emoji) SaaS Sandbox pin bump \($target): \($d) (\($pr)<\($run_url)|run>)"}' > "$RUNNER_TEMP/slack.json"
+          RESPONSE="$(curl -sS --max-time 30 https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_TOKEN" -H "Content-Type: application/json; charset=utf-8" \
+            --data @"$RUNNER_TEMP/slack.json")" || RESPONSE='{"error": "could not reach Slack"}'
+          if [ "$(jq -r '.ok' <<< "$RESPONSE" 2>/dev/null)" != "true" ]; then
+            echo "::warning::Slack alert not sent: $(jq -r '.error // "unknown error"' <<< "$RESPONSE" 2>/dev/null || echo "unreadable response")"
+          fi

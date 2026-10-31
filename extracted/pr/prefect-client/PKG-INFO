@@ -1,9 +1,9 @@
 Metadata-Version: 2.5
 Name: prefect-client
-Version: 3.9.0
+Version: 3.9.1
 Summary: Workflow orchestration and management.
 Project-URL: Changelog, https://github.com/PrefectHQ/prefect/releases
-Project-URL: Documentation, https://docs.prefect.io
+Project-URL: Documentation, https://www.prefect.io/docs
 Project-URL: Source, https://github.com/PrefectHQ/prefect
 Project-URL: Tracker, https://github.com/PrefectHQ/prefect/issues
 Author-email: "Prefect Technologies, Inc." <help@prefect.io>
@@ -50,7 +50,7 @@ Requires-Dist: pydantic-core<3.0.0,>=2.12.0
 Requires-Dist: pydantic-extra-types<3.0.0,>=2.8.2
 Requires-Dist: pydantic-settings<3.0.0,>=2.9.1
 Requires-Dist: python-dateutil<3.0.0,>=2.8.2
-Requires-Dist: python-slugify<9.1,>=9
+Requires-Dist: python-slugify<9.2,>=9
 Requires-Dist: pytz<2027,>=2021.1
 Requires-Dist: pyyaml<7.0.0,>=5.4.1
 Requires-Dist: rfc3339-validator<0.2.0,>=0.1.4
@@ -62,9 +62,9 @@ Requires-Dist: toml>=0.10.0
 Requires-Dist: typing-extensions<5.0.0,>=4.10.0
 Requires-Dist: uvicorn!=0.29.0,>=0.14.0
 Requires-Dist: websockets<17.0,>=15.0.1
-Requires-Dist: whenever<0.11.0,>=0.10.5; python_version >= '3.13'
+Requires-Dist: whenever<0.12.0,>=0.10.5; python_version >= '3.13'
 Provides-Extra: notifications
-Requires-Dist: apprise<2.0.0,>=1.13.0; extra == 'notifications'
+Requires-Dist: apprise<2.1.0,>=1.13.0; extra == 'notifications'
 Description-Content-Type: text/markdown
 
 <p align="center"><img src="https://github.com/PrefectHQ/prefect/assets/3407835/c654cbc6-63e8-4ada-a92a-efd2f8f24b85" width=1000></p>
@@ -163,7 +163,7 @@ describing the functionality you are interested in using and we will do our best
 ## Next steps
 
 There's lots more you can do to orchestrate and observe your workflows with Prefect!
-Start with our [friendly tutorial](https://docs.prefect.io/tutorials) or explore the [core concepts of Prefect workflows](https://docs.prefect.io/concepts/).
+Start with our [friendly tutorial](https://www.prefect.io/docs/v3/get-started/quickstart) or explore the [core concepts of Prefect workflows](https://www.prefect.io/docs/concepts/).
 
 ## Join the community
 
@@ -173,6 +173,6 @@ All community forums, including code contributions, issue discussions, and Slack
 
 ## Contribute
 
-See our [documentation on contributing to Prefect](https://docs.prefect.io/contributing/overview/).
+See our [documentation on contributing to Prefect](https://www.prefect.io/docs/contribute).
 
 Thanks for being part of the mission to build a new kind of workflow system and, of course, **happy engineering!**

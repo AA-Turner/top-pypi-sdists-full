@@ -11,7 +11,7 @@ from chalk.features._encoding.serialized_dtype import deserialize_dtype, seriali
 from chalk.features._geospatial import LatLon, LatLonRadians
 from chalk.features._tensor import Tensor, TensorLayout
 from chalk.features._vector import Vector
-from chalk.features.dataframe import DataFrame
+from chalk.features.dataframe import DataFrame, ForRelationship, for_relationship
 from chalk.features.feature_field import CacheStrategy, Feature, FeatureNotFoundException, feature, has_many, has_one
 from chalk.features.feature_set import Features, FeatureSetBase, is_features_cls
 from chalk.features.feature_set_decorator import add_features, features
@@ -208,6 +208,7 @@ __all__ = (
     "FeatureNotFoundException",
     "FeatureSetBase",
     "FeatureTime",
+    "ForRelationship",
     "FeatureWrapper",
     "Features",
     "Filter",
@@ -241,6 +242,7 @@ __all__ = (
     "feature",
     "feature_time",
     "features",
+    "for_relationship",
     "has_many",
     "has_one",
     "is_feature_tag_override_active",

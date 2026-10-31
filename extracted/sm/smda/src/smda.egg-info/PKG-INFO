@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: smda
-Version: 5.0.1
+Version: 5.0.2
 Summary: A recursive disassembler optimized for CFG recovery from memory dumps. Based on capstone.
 Author-email: Daniel Plohmann <daniel.plohmann@mailbox.org>
 License-Expression: BSD-2-Clause
@@ -38,7 +38,7 @@ Requires-Dist: hypothesis; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
-Requires-Dist: ruff==0.16.10; extra == "dev"
+Requires-Dist: ruff==0.17.1; extra == "dev"
 Requires-Dist: ty==0.0.74; extra == "dev"
 Requires-Dist: tqdm; extra == "dev"
 Requires-Dist: twine; extra == "dev"

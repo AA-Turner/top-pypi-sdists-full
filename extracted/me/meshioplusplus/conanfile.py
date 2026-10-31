@@ -34,12 +34,8 @@ from conan.tools.files import copy
 
 class MeshioplusplusConan(ConanFile):
     name = "meshioplusplus"
-    version = "17.23.0"
-    # MIT for meshio++ itself. The default build links OpenCASCADE (with_occt,
-    # LGPL-2.1 with the OCCT exception), so the package declares that combined
-    # licence. A -o with_occt=False build contains no OpenCASCADE and is MIT,
-    # but this is one class attribute, so every option set declares the same.
-    license = "MIT AND (LGPL-2.1-only WITH OCCT-exception-1.0)"
+    version = "17.7.0"
+    license = "MIT"
     description = "C++ core for the meshio++ mesh I/O library (installable C API)"
     homepage = "https://github.com/loumalouomega/meshioplusplus"
     url = "https://github.com/loumalouomega/meshioplusplus"
@@ -58,7 +54,6 @@ class MeshioplusplusConan(ConanFile):
         "with_lzma": [True, False],
         "with_bzip2": [True, False],
         "with_kahip": [True, False],
-        "with_netgen": [True, False],
         "with_cgnslib": [True, False],
         "with_adios2": [True, False],
         "with_tecio": [True, False],
@@ -90,25 +85,17 @@ class MeshioplusplusConan(ConanFile):
         # supplies an install and points KAHIP_ROOT at it (find_package prefix,
         # same policy as the CMake build). Off by default.
         "with_kahip": False,
-        # Netgen's nglib (tetrahedralize; LGPL-2.1, linked dynamically) is not
-        # on ConanCenter: bring-your-own like KaHIP, the option only flips the
-        # CMake flag and the consumer points NETGEN_ROOT at an install.
-        "with_netgen": False,
         "with_cgnslib": False,
         # ADIOS2 (DOLFINx .bp) is not on ConanCenter and TecIO (.szplt) is a
         # vendor library: both are bring-your-own like KaHIP -- the options only
         # flip the CMake flag (ADIOS2_DIR / TECIO_ROOT). Off by default.
         "with_adios2": False,
         "with_tecio": False,
-        # OpenCASCADE (fit_cad's kernel, STEP/IGES reading; LGPL-2.1 with the
-        # OCCT exception) is on by default and auto-detected, as in the CMake
-        # build: the option only flips the CMake flag, and the consumer supplies
-        # OpenCASCADE_DIR (or a prefix) -- ConanCenter's opencascade recipe, 7.9
-        # and later with a tcl/tk/OpenGL/X11 tree, is not required, so the
-        # package never builds one unasked. Where none is found, fit_cad falls
-        # back to its kernel-free native backend (with_occt=False skips the
-        # probe). build/build-occt.sh builds the pinned static one.
-        "with_occt": True,
+        # OpenCASCADE (fit_cad) is LGPL-2.1 and bring-your-own like KaHIP: the
+        # option only flips the CMake flag and the consumer supplies
+        # OpenCASCADE_DIR (ConanCenter's opencascade recipe is not required, so
+        # the package never pulls an LGPL dependency unasked). Off by default.
+        "with_occt": False,
         # Unlike with_eigen/with_json (submodules, off by default), gidpost is
         # a vendored hardcopy that IS in exports_sources, so this defaults True
         # like with_hdf5/with_netcdf/with_zlib -- consistent with the CMake
@@ -132,8 +119,6 @@ class MeshioplusplusConan(ConanFile):
     exports_sources = (
         "CMakeLists.txt",
         "LICENSE",
-        "LICENSE-BINARIES.md",
-        "THIRD_PARTY_NOTICES.md",
         "src/cpp/include/*",
         "src/cpp/src/*",
         "src/cpp/third_party/pugixml/*",
@@ -197,9 +182,6 @@ class MeshioplusplusConan(ConanFile):
         tc.cache_variables["MESHIOPLUSPLUS_WITH_LZMA"] = bool(self.options.with_lzma)
         tc.cache_variables["MESHIOPLUSPLUS_WITH_BZIP2"] = bool(self.options.with_bzip2)
         tc.cache_variables["MESHIOPLUSPLUS_WITH_KAHIP"] = bool(self.options.with_kahip)
-        tc.cache_variables["MESHIOPLUSPLUS_WITH_NETGEN"] = bool(
-            self.options.with_netgen
-        )
         # cgnslib is not on ConanCenter, so like KaHIP it is bring-your-own:
         # this only flips the CMake flag and the consumer supplies CGNS_ROOT.
         tc.cache_variables["MESHIOPLUSPLUS_WITH_CGNSLIB"] = bool(
@@ -233,17 +215,12 @@ class MeshioplusplusConan(ConanFile):
     def package(self):
         cmake = CMake(self)
         cmake.install()
-        for license_file in (
+        copy(
+            self,
             "LICENSE",
-            "LICENSE-BINARIES.md",
-            "THIRD_PARTY_NOTICES.md",
-        ):
-            copy(
-                self,
-                license_file,
-                src=self.source_folder,
-                dst=os.path.join(self.package_folder, "licenses"),
-            )
+            src=self.source_folder,
+            dst=os.path.join(self.package_folder, "licenses"),
+        )
 
     def package_info(self):
         # Match the installed find_package config so downstream

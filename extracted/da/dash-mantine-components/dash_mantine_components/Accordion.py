@@ -106,6 +106,11 @@ Keyword arguments:
     Determines whether chevron rotation should be disabled, `False` by
     default.
 
+- disableCollapse (boolean; optional):
+    If set, the open item cannot be collapsed by clicking it again, so
+    one item always stays open. Only applies when `multiple` is
+    `False`. default False.
+
 - display (dict; optional):
     Display – Accepts CSS values or a dict for responsive styles.
 
@@ -135,6 +140,16 @@ Keyword arguments:
 
 - inset (string | number | dict; optional):
     Inset – Accepts CSS values or a dict for responsive styles.
+
+- keepMounted (boolean; optional):
+    If set to `False`, panels are unmounted when collapsed. By
+    default, panels stay mounted when collapsed. default True.
+
+- keepMountedMode (a value equal to: 'activity', 'display-none'; optional):
+    Controls how inactive panels content is hidden when `keepMounted`
+    is `True`, `'activity'` – hidden with `Activity` component,
+    `'display-none'` – hidden with `display: none` styles default
+    'activity'.
 
 - left (string | number | dict; optional):
     Left offset – Accepts CSS values or a dict for responsive styles.
@@ -190,9 +205,15 @@ Keyword arguments:
     Margin inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- mie (number; optional):
+    MarginInlineEnd, theme key: theme.spacing.
+
 - mih (string | number | dict; optional):
     Minimum height – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
+
+- mis (number; optional):
+    MarginInlineStart, theme key: theme.spacing.
 
 - miw (string | number | dict; optional):
     Minimum width – Accepts theme spacing keys, CSS values, or a dict
@@ -268,6 +289,12 @@ Keyword arguments:
     memory, reset on page refresh. local: window.localStorage, data is
     kept after the browser quit. session: window.sessionStorage, data
     is cleared once the browser quit.
+
+- pie (number; optional):
+    PaddingInlineEnd, theme key: theme.spacing.
+
+- pis (number; optional):
+    PaddingInlineStart, theme key: theme.spacing.
 
 - pl (string | number | dict; optional):
     Padding left – Accepts theme spacing keys, CSS values, or a dict
@@ -372,6 +399,9 @@ Keyword arguments:
         variant: typing.Optional[Literal["default", "contained", "filled", "separated"]] = None,
         radius: typing.Optional[typing.Union[str, NumberType]] = None,
         chevronIconSize: typing.Optional[typing.Union[str, NumberType]] = None,
+        keepMounted: typing.Optional[bool] = None,
+        keepMountedMode: typing.Optional[Literal["activity", "display-none"]] = None,
+        disableCollapse: typing.Optional[bool] = None,
         hiddenFrom: typing.Optional[str] = None,
         visibleFrom: typing.Optional[str] = None,
         mod: typing.Optional[typing.Union[str, dict, typing.Sequence[typing.Union[str, dict]]]] = None,
@@ -429,6 +459,10 @@ Keyword arguments:
         style: typing.Optional[typing.Any] = None,
         lightHidden: typing.Optional[bool] = None,
         darkHidden: typing.Optional[bool] = None,
+        mis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        mie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         classNames: typing.Optional[dict] = None,
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
@@ -441,9 +475,9 @@ Keyword arguments:
         persistence_type: typing.Optional[Literal["local", "session", "memory"]] = None,
         **kwargs
     ):
-        self._prop_names = ['children', 'id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'chevron', 'chevronIconSize', 'chevronPosition', 'chevronSize', 'className', 'classNames', 'darkHidden', 'data-*', 'disableChevronRotation', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inset', 'left', 'lh', 'lightHidden', 'loading_state', 'loop', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'multiple', 'mx', 'my', 'opacity', 'order', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'right', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'transitionDuration', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w']
+        self._prop_names = ['children', 'id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'chevron', 'chevronIconSize', 'chevronPosition', 'chevronSize', 'className', 'classNames', 'darkHidden', 'data-*', 'disableChevronRotation', 'disableCollapse', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inset', 'keepMounted', 'keepMountedMode', 'left', 'lh', 'lightHidden', 'loading_state', 'loop', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'multiple', 'mx', 'my', 'opacity', 'order', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pie', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'right', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'transitionDuration', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['children', 'id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'chevron', 'chevronIconSize', 'chevronPosition', 'chevronSize', 'className', 'classNames', 'darkHidden', 'data-*', 'disableChevronRotation', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inset', 'left', 'lh', 'lightHidden', 'loading_state', 'loop', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'multiple', 'mx', 'my', 'opacity', 'order', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'right', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'transitionDuration', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w']
+        self.available_properties = ['children', 'id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'chevron', 'chevronIconSize', 'chevronPosition', 'chevronSize', 'className', 'classNames', 'darkHidden', 'data-*', 'disableChevronRotation', 'disableCollapse', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inset', 'keepMounted', 'keepMountedMode', 'left', 'lh', 'lightHidden', 'loading_state', 'loop', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'multiple', 'mx', 'my', 'opacity', 'order', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pie', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'right', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'transitionDuration', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

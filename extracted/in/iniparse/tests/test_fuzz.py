@@ -1,10 +1,21 @@
+"""
+:component: python-iniparse
+:requirement: RHSS-291606
+:polarion-project-id: RHELSS
+:polarion-include-skipped: false
+:polarion-lookup-method: id
+:poolteam: rhel-sst-csi-client-tools
+:caseautomation: Automated
+:upstream: No
+"""
+
 import re
 import os
 import random
 import sys
 import unittest
-from six import StringIO
-from six.moves import configparser
+from io import StringIO
+import configparser
 from iniparse import compat, ini, tidy
 
 # TODO:
@@ -55,7 +66,7 @@ def random_ini_file():
         elif x < 0.7:
             # option
             name = random_string()
-            name = re.sub(':|=| |\[', '', name)
+            name = re.sub(r':|=| |\[', '', name)
             sep = random.choice([':', '='])
             l = name + random_space() + sep + random_space() + random_string()
             if random.randint(0,1):
@@ -73,6 +84,27 @@ def random_ini_file():
 
 class TestFuzz(unittest.TestCase):
     def test_fuzz(self):
+        """
+        :id: 144b65b2-74fa-4bc3-97b5-861e9c011af3
+        :title: Fuzz test for INIConfig parser robustness
+        :description:
+            Performs fuzz testing by generating randomized INI-formatted input containing
+            a mix of comments, sections, options, and multiline values. Verifies that parsing
+            and serialization do not raise exceptions and preserve config integrity.
+        :tags: Tier 1
+        :steps:
+            1. Generate random key-value pairs, section headers, and comments using random tokens.
+            2. Construct a large synthetic INI string by combining the elements in random order.
+            3. Parse the synthetic string using `INIConfig`.
+            4. Convert the resulting config back to a string.
+            5. Verify that the output can be parsed again without error.
+        :expectedresults:
+            1. INI string is generated successfully with randomized components.
+            2. A large synthetic INI string is constructed
+            3. Parser handles all elements without raising exceptions.
+            4. Output string is generated without error.
+            5. Re-parsing the output string succeeds, indicating parser stability.
+        """
         random.seed(42)
         try:
             num_iter = int(os.environ['INIPARSE_FUZZ_ITERATIONS'])
@@ -102,7 +134,7 @@ class TestFuzz(unittest.TestCase):
                 cc = compat.RawConfigParser()
                 cc.readfp(StringIO(s))
                 cc_py = configparser.RawConfigParser()
-                cc_py.readfp(StringIO(s))
+                cc_py.read_file(StringIO(s))
                 # compare the two configparsers
                 self.assertEqualConfig(cc_py, cc)
                 # check that tidy does not change semantics
@@ -130,10 +162,3 @@ class TestFuzz(unittest.TestCase):
 
     def assertEqualSorted(self, l1, l2):
         self.assertEqual(sorted(l1), sorted(l2))
-
-
-class Suite(unittest.TestSuite):
-    def __init__(self):
-        unittest.TestSuite.__init__(self, [
-                unittest.makeSuite(TestFuzz, 'test'),
-        ])

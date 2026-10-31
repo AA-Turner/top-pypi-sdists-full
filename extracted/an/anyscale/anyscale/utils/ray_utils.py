@@ -6,6 +6,7 @@ This file contains internal APIs extracted from opensource ray.
 import logging
 import os
 from pathlib import Path
+import posixpath
 from typing import Callable, List, Optional
 from zipfile import ZipFile
 
@@ -77,9 +78,23 @@ def _dir_travel(
         excludes.pop()
 
 
+def _normalize_exclude(pattern: str) -> str:
+    """Clean a typed path like "./a/../b", and keep the "!" and trailing "/" of gitignore."""
+    negate = pattern.startswith("!")
+    body = pattern[1:] if negate else pattern
+    cleaned = posixpath.normpath(body) if body else body
+    if cleaned == ".":
+        # The pattern names the working dir itself. Keep it as written.
+        return pattern
+    if body.endswith("/") and not cleaned.endswith("/"):
+        cleaned += "/"
+    return ("!" if negate else "") + cleaned
+
+
 def _get_excludes(path: Path, excludes: List[str]) -> Callable:
     path = path.absolute()
-    pathspec = PathSpec.from_lines("gitwildmatch", excludes)
+    # The gitignore syntax does not match "./", "//" or "..", so clean the path first.
+    pathspec = PathSpec.from_lines("gitwildmatch", [_normalize_exclude(e) for e in excludes])
 
     def match(p: Path):
         path_str = str(p.absolute().relative_to(path))

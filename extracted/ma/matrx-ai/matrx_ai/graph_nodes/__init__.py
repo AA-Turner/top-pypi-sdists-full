@@ -14,10 +14,6 @@ Actions registered:
 - ``ai.agent.start``           — run a saved agent with a user input.
 - ``ai.mandate.start``         — run a named JOB; the database picks the doer.
 - ``ai.agent.assignment_batch``— durable coordinated variable assignments.
-- ``ai.agent.tool_calling``    — inline agent loop with native provider
-                                 tool calling.
-- ``ai.agent.react``           — inline ReAct-style agent with structured
-                                 Thought / Action / Observation trace.
 - ``ai.conversation.continue`` — append a user turn to an existing thread.
 - ``ai.conversation.revise`` — check an answer; revise it in the same thread on a miss.
 - ``ai.transcribe``            — catalog-dispatched speech-to-text.
@@ -25,10 +21,13 @@ Actions registered:
                                  Google / OpenAI) via UnifiedConfig.
 - ``ai.generate_image``        — text → image (Imagen / FLUX / DALL-E /
                                  SD) via UnifiedConfig.
-- ``ai.image.concept_generate``— pick visual concepts for a topic (large model).
-- ``ai.image.prompt_write``    — write image prompts from a concept (small model).
-- ``ai.image.qc_judge``        — vision-model pass/fail on a generated image.
-- ``ai.judge.resolve``         — pick the best of N gathered arms, or merge them.
+- ``ai.image.edit``            — AI edit of existing images (+ optional mask).
+- ``ai.vision.read``           — describe / read the text in / ask about images.
+- ``ai.generate_music``        — text → music (Eleven Music / Lyria).
+- ``ai.generate_sound_effect`` — text → a short sound effect (ElevenLabs).
+- ``ai.voice_to_voice``        — speech → the same speech in another voice (ElevenLabs).
+- ``ai.moderate``              — text → a safety verdict with category scores (OpenAI).
+- ``ai.judge.resolve``         — the author's judge agent picks the best of N gathered arms, or merges them.
 Every action returns the canonical ``AiExecutionResult`` — stable Pydantic
 shape regardless of which entry point ran. Downstream workflow nodes wire
 to ``result.final_text``, ``result.conversation_id``, ``result.usage``, etc.
@@ -55,23 +54,25 @@ def register_with_graph() -> None:
     from matrx_ai.graph_nodes import (  # noqa: F401 — imported for side effects
         agent_action,
         agent_assignment_action,
-        agent_loop_actions,
         agent_produce_action,
         chat_action,
         conversation_action,
-        extract_action,
         image_action,
-        image_pipeline_actions,
+        image_edit_action,
         llm_action,
         mandate_action,
+        moderation_action,
+        music_action,
         resolve_action,
         revise_action,
         scrape_action,
-        search_action,
+        sound_effect_action,
         transcribe_action,
         tts_action,
         util_action,
         video_action,
+        vision_action,
+        voice_to_voice_action,
     )
 
     _registered = True

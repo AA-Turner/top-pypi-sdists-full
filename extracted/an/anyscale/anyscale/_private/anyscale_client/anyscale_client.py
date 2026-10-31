@@ -45,6 +45,7 @@ from anyscale.client.openapi_client.models import (
     AnyscaleServiceAccount,
     ApiKeyParameters,
     ApplyProductionServiceMultiVersionV2Model,
+    ApplyTrafficPolicyUpdateModel,
     ArchiveStatus,
     Cloud,
     CloudDataBucketAccessMode,
@@ -76,10 +77,12 @@ from anyscale.client.openapi_client.models import (
     DeleteResourceTagsRequest,
     ExperimentalWorkspace,
     GetOrCreateBuildFromImageUriRequest,
+    GpuDetail,
     InternalProductionJob,
     JobQueueSortDirective,
     JobQueuesQuery,
     ListResourceQuotasQuery,
+    NodeGpusResponse,
     OrganizationCollaborator,
     OrganizationcollaboratorListResponse,
     OrganizationInvitation,
@@ -167,6 +170,7 @@ from anyscale.sdk.anyscale_client.models import (
     Project as ProjectExternal,
     RollbackServiceModel,
     TextQuery,
+    TrafficPolicy,
 )
 from anyscale.sdk.anyscale_client.models.page_query import PageQuery
 from anyscale.sdk.anyscale_client.rest import ApiException as ExternalApiException
@@ -734,15 +738,20 @@ class AnyscaleClient(AnyscaleClientInterface):
         compute_config_name: Optional[str] = None,
         cloud: Optional[str] = None,
         *,
+        cloud_id: Optional[str] = None,
         include_archived: bool = False,
     ) -> Optional[str]:
+        if cloud is not None and cloud_id is not None:
+            raise ValueError("Only one of cloud or cloud_id should be provided.")
+
         if compute_config_name is not None:
             name, version = parse_cluster_compute_name_version(compute_config_name)
             if version is None:
                 # Setting `version=-1` will return only the latest version if there are multiple.
                 version = -1
 
-            cloud_id = self.get_cloud_id(cloud_name=cloud) if cloud is not None else None
+            if cloud is not None:
+                cloud_id = self.get_cloud_id(cloud_name=cloud)
 
             cluster_computes = self._internal_api_client.search_compute_templates_api_v2_compute_templates_search_post(
                 ComputeTemplateQuery(
@@ -910,6 +919,13 @@ class AnyscaleClient(AnyscaleClientInterface):
     def archive_image(self, *, image_id: str) -> None:
         """Archive an image (cluster environment) by ID."""
         self._internal_api_client.archive_cluster_environment_api_v2_application_templates_application_template_id_archive_post(
+            image_id
+        )
+
+    @handle_api_exceptions
+    def unarchive_image(self, *, image_id: str) -> None:
+        """Unarchive an image (cluster environment) by ID."""
+        self._internal_api_client.unarchive_cluster_environment_api_v2_application_templates_application_template_id_unarchive_post(
             image_id
         )
 
@@ -1596,6 +1612,20 @@ class AnyscaleClient(AnyscaleClientInterface):
         return result
 
     @handle_api_exceptions
+    def update_service_traffic_policy(
+        self,
+        service_id: str,
+        traffic_policy: TrafficPolicy,
+        version_names: Optional[List[str]] = None,
+    ) -> DecoratedProductionServiceV2APIModel:
+        return self._internal_api_client.apply_traffic_policy_update_api_v2_services_v2_service_id_apply_traffic_policy_update_put(
+            service_id,
+            ApplyTrafficPolicyUpdateModel(
+                traffic_policy=traffic_policy, version_names=version_names
+            ),
+        ).result
+
+    @handle_api_exceptions
     def terminate_service(self, service_id: str) -> DecoratedProductionServiceV2APIModel:
         result = self._internal_api_client.terminate_service_api_v2_services_v2_service_id_terminate_post(
             service_id
@@ -2217,6 +2247,16 @@ class AnyscaleClient(AnyscaleClientInterface):
         if not workspace:
             raise ValueError(f"Workspace '{workspace_id}' not found.")
 
+        # A KubeRay workspace has no `sessions` row for the PUT below. Refused before the
+        # PATCH, so a request that can't fully apply changes nothing. An idle timeout of 0
+        # is a real setting (never stop for being idle), not an empty one.
+        if workspace.kuberay_cr_id and (
+            compute_config_id or cluster_environment_build_id or idle_timeout_minutes is not None
+        ):
+            raise ValueError(
+                f"Workspace '{workspace_id}' runs on KubeRay: its compute config, image and idle timeout can't be updated."
+            )
+
         # Name and priority go through the workspaces JSON-patch API.
         patch_ops: List[Dict[str, Any]] = []
         if name:
@@ -2273,6 +2313,13 @@ class AnyscaleClient(AnyscaleClientInterface):
         if workspace_model is None:
             raise ValueError(f"Workspace '{workspace_id}' not found.")
 
+        if workspace_model.kuberay_cr_id:
+            # No `sessions` row: cluster_id reads back as the CR id, which the sessions route
+            # rejects with 403. The KubeRay route dispatches on the workspace id instead.
+            return self._internal_api_client.start_workload_api_v2_kuberay_workloads_workload_id_start_post(
+                workload_id=workspace_model.id
+            )
+
         return self._internal_api_client.start_session_api_v2_sessions_session_id_start_post(
             session_id=workspace_model.cluster_id,
             start_session_options=StartSessionOptions(),
@@ -2285,6 +2332,13 @@ class AnyscaleClient(AnyscaleClientInterface):
         if workspace_model is None:
             raise ValueError(f"Workspace '{workspace_id}' not found.")
 
+        if workspace_model.kuberay_cr_id:
+            # Suspends the RayCluster, keeping the CR and its storage for a later start. Not
+            # the sessions route, for the reason in start_workspace.
+            return self._internal_api_client.terminate_workload_api_v2_kuberay_workloads_workload_id_terminate_post(
+                workload_id=workspace_model.id
+            )
+
         options = StopSessionOptions(
             terminate=True,
             workers_only=False,
@@ -2294,6 +2348,13 @@ class AnyscaleClient(AnyscaleClientInterface):
         return self._internal_api_client.stop_session_api_v2_sessions_session_id_stop_post(
             session_id=workspace_model.cluster_id,
             stop_session_options=options,
+        )
+
+    @handle_api_exceptions
+    def delete_workspace(self, workspace_id: str) -> None:
+        # The route dispatches VM vs KubeRay on the server, so no lookup is needed here.
+        self._internal_api_client.delete_workspace_api_v2_experimental_workspaces_workspace_id_delete(
+            workspace_id
         )
 
     @handle_api_exceptions
@@ -2343,6 +2404,82 @@ class AnyscaleClient(AnyscaleClientInterface):
             return project.directory_name
         else:
             return project.name
+
+    @handle_api_exceptions
+    def get_metric_names(
+        self,
+        *,
+        resource: Dict[str, str],
+        start: Optional[float] = None,
+        end: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        kwargs: Dict[str, Any] = dict(resource)
+        kwargs.update({k: v for k, v in {"start": start, "end": end}.items() if v is not None})
+        return self._internal_api_client.get_metric_names_api_v2_metrics_names_get(
+            **kwargs
+        ).result.data
+
+    @handle_api_exceptions
+    def query_metrics(
+        self,
+        *,
+        promql_query: str,
+        resource: Dict[str, str],
+        time: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        kwargs: Dict[str, Any] = dict(resource)
+        if time is not None:
+            kwargs["time"] = time
+        return self._internal_api_client.query_api_v2_metrics_query_get(
+            promql_query, **kwargs
+        ).result.data
+
+    @handle_api_exceptions
+    def query_metrics_range(
+        self,
+        *,
+        promql_query: str,
+        resource: Dict[str, str],
+        start: float,
+        end: float,
+        step: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        kwargs: Dict[str, Any] = dict(resource)
+        if step is not None:
+            kwargs["step"] = step
+        return self._internal_api_client.query_range_api_v2_metrics_query_range_get(
+            promql_query, start, end, **kwargs
+        ).result.data
+
+    @handle_api_exceptions
+    def get_node_gpus(
+        self,
+        *,
+        cluster_id: str,
+        node_id: str,
+        time: Optional[float] = None,
+    ) -> NodeGpusResponse:
+        kwargs: Dict[str, Any] = {}
+        if time is not None:
+            kwargs["time"] = time
+        return self._internal_api_client.get_node_gpus_api_v2_clusters_cluster_id_nodes_node_id_gpus_get(
+            cluster_id, node_id, **kwargs
+        ).result
+
+    @handle_api_exceptions
+    def get_gpu(
+        self,
+        *,
+        cluster_id: str,
+        gpu_uuid: str,
+        time: Optional[float] = None,
+    ) -> GpuDetail:
+        kwargs: Dict[str, Any] = {}
+        if time is not None:
+            kwargs["time"] = time
+        return self._internal_api_client.get_gpu_api_v2_clusters_cluster_id_gpus_gpu_uuid_get(
+            cluster_id, gpu_uuid, **kwargs
+        ).result
 
     @handle_api_exceptions
     def get_unified_events(  # noqa: PLR0913
@@ -2759,21 +2896,30 @@ class AnyscaleClient(AnyscaleClientInterface):
         )
 
     @handle_api_exceptions
-    def migrate_scim_permissions(self, *, dry_run: bool = True) -> Dict:
+    def migrate_scim_permissions(
+        self,
+        *,
+        dry_run: bool = True,
+        acknowledge_user_removal_count: Optional[int] = None,
+    ) -> Dict:
         """Migrate organization permissions to SCIM-based user group permissions."""
         api = self._internal_api_client
         if hasattr(api, "migrate_scim_permissions_api_v2_scim_migrate_permissions_post"):
             resp = api.migrate_scim_permissions_api_v2_scim_migrate_permissions_post(
-                dry_run=dry_run
+                dry_run=dry_run,
+                acknowledge_user_removal_count=acknowledge_user_removal_count,
             )
             if hasattr(resp, "to_dict"):
                 return resp.to_dict()  # type: ignore[no-any-return]
             return {"result": getattr(resp, "result", resp)}
 
+        query_params: List[Tuple[str, Any]] = [("dry_run", dry_run)]
+        if acknowledge_user_removal_count is not None:
+            query_params.append(("acknowledge_user_removal_count", acknowledge_user_removal_count))
         response = api.api_client.call_api(
             "/api/v2/scim/migrate-permissions",
             "POST",
-            query_params=[("dry_run", dry_run)],
+            query_params=query_params,
             response_type="object",
             auth_settings=["HTTPBearer"],
             _return_http_data_only=True,

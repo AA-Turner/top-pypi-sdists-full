@@ -14,6 +14,7 @@ from fishaudio.core import (
     RequestOptions,
     WebSocketOptions,
 )
+from fishaudio.core._ws_utils import drain_reader
 from fishaudio.core.iterators import AsyncAudioStream, AudioStream
 from fishaudio.types import (
     AudioFormat,
@@ -82,7 +83,7 @@ class TTSClient:
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
         config: TTSConfig = TTSConfig(),
-        model: Model = "s2-pro",
+        model: Union[Model, str] = "s2.1-pro",
         request_options: Optional[RequestOptions] = None,
     ) -> AudioStream:
         """
@@ -166,7 +167,7 @@ class TTSClient:
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
         config: TTSConfig = TTSConfig(),
-        model: Model = "s2-pro",
+        model: Union[Model, str] = "s2.1-pro",
         request_options: Optional[RequestOptions] = None,
     ) -> bytes:
         """
@@ -228,7 +229,7 @@ class TTSClient:
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
         config: TTSConfig = TTSConfig(),
-        model: Model = "s2-pro",
+        model: Union[Model, str] = "s2.1-pro",
         max_workers: int = 10,
         ws_options: Optional[WebSocketOptions] = None,
     ) -> Iterator[bytes]:
@@ -362,10 +363,15 @@ class TTSClient:
 
                 sender_future = executor.submit(sender)
 
-                # Process incoming audio messages
-                yield from iter_websocket_audio(ws)
+                try:
+                    # Process incoming audio messages
+                    yield from iter_websocket_audio(ws)
 
-                sender_future.result()
+                    sender_future.result()
+                finally:
+                    # Stop httpx-ws's reader thread before the socket is closed so it
+                    # cannot read from a reused fd belonging to the next connection.
+                    drain_reader(ws)
         finally:
             executor.shutdown(wait=False)
 
@@ -386,7 +392,7 @@ class AsyncTTSClient:
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
         config: TTSConfig = TTSConfig(),
-        model: Model = "s2-pro",
+        model: Union[Model, str] = "s2.1-pro",
         request_options: Optional[RequestOptions] = None,
     ) -> AsyncAudioStream:
         """
@@ -471,7 +477,7 @@ class AsyncTTSClient:
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
         config: TTSConfig = TTSConfig(),
-        model: Model = "s2-pro",
+        model: Union[Model, str] = "s2.1-pro",
         request_options: Optional[RequestOptions] = None,
     ) -> bytes:
         """
@@ -534,7 +540,7 @@ class AsyncTTSClient:
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
         config: TTSConfig = TTSConfig(),
-        model: Model = "s2-pro",
+        model: Union[Model, str] = "s2.1-pro",
         ws_options: Optional[WebSocketOptions] = None,
     ):
         """

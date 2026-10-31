@@ -157,7 +157,7 @@ middleware_for_protected_routes = [auth_middleware]
 
 # Add encryption context middleware if encryption is configured
 if LANGGRAPH_ENCRYPTION:
-    from langgraph_api.encryption.middleware import EncryptionContextMiddleware
+    from langgraph_api.encryption.context import EncryptionContextMiddleware
 
     middleware_for_protected_routes.append(Middleware(EncryptionContextMiddleware))
 

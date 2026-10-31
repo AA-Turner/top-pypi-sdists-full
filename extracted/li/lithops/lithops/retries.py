@@ -12,11 +12,15 @@
 # limitations under the License.
 #
 
+import time
+from collections.abc import Iterator
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from lithops import FunctionExecutor
 from lithops.future import ResponseFuture
+from lithops.job.partitioner import create_partitions
 from lithops.storage.utils import CloudObject
+from lithops.utils import _as_iterdata_list, _chained_futures, is_object_processing_function, verify_args
 from lithops.wait import (
     ALL_COMPLETED,
     ALWAYS,
@@ -136,7 +140,8 @@ class RetryingFuture:
             internal_storage=internal_storage,
             check_only=check_only,
         )
-        self._reraise_if_error()
+        if throw_except:
+            self._reraise_if_error()
         return stat
 
     def result(self, throw_except: bool = True, internal_storage: Any = None):
@@ -150,7 +155,8 @@ class RetryingFuture:
         res = self.response_future.result(
             throw_except=throw_except, internal_storage=internal_storage
         )
-        self._reraise_if_error()
+        if throw_except:
+            self._reraise_if_error()
         return res
 
 
@@ -212,6 +218,10 @@ class RetryingFunctionExecutor:
 
         :param map_function: The function to map over the data.
         :param map_iterdata: An iterable of input data (e.g., Python list).
+            For a function that processes objects, the objects are
+            partitioned first, with the requests map() makes, so that each
+            object, or chunk of one, is an input of its own, retried on its
+            own. An empty object is no input, as it runs no call.
         :param chunksize: Split map_iterdata in chunks of this
             size. One worker per chunk.
         :param extra_args: Additional arguments to pass to each
@@ -241,6 +251,31 @@ class RetryingFunctionExecutor:
 
         retries_to_use = self._retries_to_use(retries)
 
+        # A generator can be read only once, and the inputs are kept to be
+        # resubmitted on a retry
+        if isinstance(map_iterdata, Iterator):
+            map_iterdata = list(map_iterdata)
+        # The future of each call is paired with the input it was made from.
+        # A chain leaves out the futures that produce no input
+        inputs = _chained_futures(map_iterdata)
+        if inputs is None and is_object_processing_function(map_function):
+            # A bucket, a prefix or a directory runs one call per object in
+            # it, or per chunk of one, and an empty object none. Partitioned
+            # here, with the requests map() would make, each call gets an
+            # input of its own, so that a retry resubmits only the partition
+            # whose call failed. map() takes the partitions as they are
+            map_iterdata, _ = create_partitions(
+                self.executor.config,
+                self.executor.internal_storage,
+                verify_args(map_function, map_iterdata, extra_args),
+                obj_chunk_size, obj_chunk_number, obj_newline,
+            )
+            inputs = map_iterdata
+            # verify_args merged them into every input already
+            extra_args = None
+        if inputs is None:
+            inputs = _as_iterdata_list(map_iterdata)
+
         map_kwargs = dict(
             chunksize=chunksize,
             extra_args=extra_args,
@@ -259,6 +294,14 @@ class RetryingFunctionExecutor:
             map_iterdata,
             **map_kwargs,
         )
+        if len(futures_list) != len(inputs):
+            # Not expected, since the objects are partitioned above. Said
+            # rather than pairing a future with the input of another call
+            raise ValueError(
+                f'The {len(inputs)} inputs turned into {len(futures_list)} '
+                'calls, which are running now but cannot be retried: a retry '
+                'resubmits the input of the call that failed'
+            )
         return [
             RetryingFuture(
                 f,
@@ -267,7 +310,7 @@ class RetryingFunctionExecutor:
                 retries=retries_to_use,
                 **map_kwargs,
             )
-            for i, f in zip(map_iterdata, futures_list)
+            for i, f in zip(inputs, futures_list)
         ]
 
     def _split_done_and_retried(self, done, pending, lookup):
@@ -299,6 +342,17 @@ class RetryingFunctionExecutor:
         return retrying_done, retrying_pending
 
     @staticmethod
+    def _split_without_retry(done, pending, lookup):
+        """
+        The same split as a finished round, without resubmitting failures.
+        Used once the deadline has passed: a retry would run past the timeout
+        """
+        return (
+            [lookup[response_future] for response_future in done],
+            [lookup[response_future] for response_future in pending],
+        )
+
+    @staticmethod
     def _wait_is_over(return_when, retrying_done, retrying_pending):
         """
         Tells whether the completion policy is satisfied, which for anything
@@ -310,7 +364,11 @@ class RetryingFunctionExecutor:
             return bool(retrying_done)
         if return_when == ALL_COMPLETED:
             return not retrying_pending
-        return False
+        # A percentage of the calls, as lithops.wait() takes it
+        total = len(retrying_done) + len(retrying_pending)
+        if not total:
+            return True
+        return len(retrying_done) * 100 / total >= return_when
 
     def wait(
         self,
@@ -338,30 +396,57 @@ class RetryingFunctionExecutor:
 
         :return: A tuple (done, pending) of lists of RetryingFutures.
         """
+        if not fs:
+            return [], []
         lookup = {f.response_future: f for f in fs}
+        # One deadline for every retry round. Passing the original timeout
+        # again gave each round a fresh budget
+        deadline = None if timeout is None else time.monotonic() + timeout
 
         while True:
+            remaining = None if deadline is None else max(0, deadline - time.monotonic())
             # A retry replaces the response future of a RetryingFuture, so
-            # the list has to be rebuilt on every round
+            # the list has to be rebuilt on every round. A call that failed
+            # must come back here instead of ending the wait: the executor
+            # would otherwise discard every future instead of retrying it.
+            # A timeout returns what finished and leaves the rest running,
+            # so this loop can still retry inside the time that is left
             done, pending = self.executor.wait(
                 [f.response_future for f in fs],
-                throw_except=throw_except,
+                throw_except=False,
                 return_when=return_when,
                 download_results=download_results,
-                timeout=timeout,
+                timeout=remaining,
                 threadpool_size=threadpool_size,
                 wait_dur_sec=wait_dur_sec,
                 show_progressbar=show_progressbar,
+                cancel_on_timeout=False,
             )
 
-            retrying_done, retrying_pending = self._split_done_and_retried(
-                done, pending, lookup
-            )
+            out_of_time = deadline is not None and time.monotonic() >= deadline
+            if out_of_time:
+                retrying_done, retrying_pending = self._split_without_retry(
+                    done, pending, lookup
+                )
+            else:
+                retrying_done, retrying_pending = self._split_done_and_retried(
+                    done, pending, lookup
+                )
 
             if self._wait_is_over(
                 return_when, retrying_done, retrying_pending
             ):
+                if throw_except:
+                    # Only the calls with no retries left are still failed
+                    for retrying_future in retrying_done:
+                        retrying_future._reraise_if_error()
                 return retrying_done, retrying_pending
+
+            if out_of_time:
+                raise TimeoutError(
+                    f'Timeout of {timeout} seconds exceeded waiting for '
+                    'function activations to finish'
+                )
 
     def clean(
         self,

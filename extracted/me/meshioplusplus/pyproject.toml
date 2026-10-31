@@ -1,14 +1,14 @@
 [build-system]
-requires = ["scikit-build-core>=0.11", "pybind11>=2.11"]
+requires = ["scikit-build-core>=0.8", "pybind11>=2.11"]
 build-backend = "scikit_build_core.build"
 
 [project]
 name = "meshioplusplus"
-version = "17.23.0"
+version = "17.7.0"
 description = "meshio++: I/O for many mesh formats (C++20 core + Python bindings)"
 readme = "README.md"
 requires-python = ">=3.8"
-license = "MIT AND (LGPL-2.1-only WITH OCCT-exception-1.0)"
+license = {file = "LICENSE"}
 keywords = [
   "mesh",
   "file formats",
@@ -25,6 +25,7 @@ classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Programming Language :: Python",
   "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
@@ -52,15 +53,13 @@ kahip = ["kahip"]
 # Polyscope (MIT): the desktop backend of `view()` and all of `screenshot()`.
 # Python-only and strictly optional -- it never reaches the C++/WASM/C/Fortran
 # core, and the browser backend of `view()` needs nothing from this extra.
-# It is also part of `[all]`.
 viewer = ["polyscope>=2.4"]
 # In-memory interoperability (src/python/meshioplusplus/_interop.py). Python-only
 # and strictly optional: none of these reaches the C++/WASM/C/Fortran core, and
 # every import is lazy, so the package works exactly as before without them.
-# Deliberately NOT in `all`, which holds the format runtime dependencies (h5py,
-# netCDF4) and the desktop viewer backend (polyscope). Quietly adding a
-# PyVista-sized dependency there would surprise people, so `kahip`, `codecs`
-# and the interop extras stand apart.
+# Deliberately NOT in `all`, which means "the optional deps the FORMATS need"
+# (h5py/netCDF4) -- quietly adding a PyVista-sized dependency there would
+# surprise people. `viewer`/`kahip`/`codecs` stand apart for the same reason.
 pyvista = ["pyvista>=0.44"]
 trimesh = ["trimesh>=4.0"]
 arrow = ["pyarrow>=14"]
@@ -88,19 +87,21 @@ interop = [
 # itself requires Python >= 3.10 while the package floor stays 3.8 -- the pure
 # tool layer works everywhere, only running the server needs this extra.
 #
-# Both SDK majors are supported: 1.x serves through `mcp.server.fastmcp.FastMCP`
-# and 2.x, which removed that module, through `mcp.server.mcpserver.MCPServer`
-# (`_server.py` imports whichever exists). The bound is `<3` so the next major
-# is not picked up before it has been tested; CI runs both majors. The pure
-# tool layer (`_tools.py`) imports no SDK and is unaffected.
-mcp = ["mcp>=1.2,<3"]
+# Upper-bounded at <2 deliberately: the SDK's 2.0.0 removed `mcp.server.fastmcp`
+# outright, replacing it with a different server API (`mcp.server.mcpserver`), so
+# `_server.py`'s `from mcp.server.fastmcp import FastMCP` raises ModuleNotFound
+# there. The bound is not caution about an unseen release -- it was an unbounded
+# `>=1.2` that let CI resolve 2.0.0 and fail. Porting to the 2.x API is a
+# separate piece of work; until then this pins the SDK the server is written
+# against. The pure tool layer (`_tools.py`) imports no SDK and is unaffected.
+mcp = ["mcp>=1.2,<2"]
 # The companion process (`meshioplusplus-mcp --http`, src/python/meshioplusplus/
 # mcp/_http.py): the JSON API the browser dataset manager talks to, plus MCP
 # over HTTP. Starlette/uvicorn arrive transitively with the mcp SDK today, but
 # _http.py imports them directly, so they are declared here rather than
 # borrowed from the SDK's own dependency list. Same Python floor and same
 # NOT-in-`all` reasoning as [mcp].
-dashboard = ["mcp>=1.2,<3", "starlette>=0.27", "uvicorn>=0.31"]
+dashboard = ["mcp>=1.2,<2", "starlette>=0.27", "uvicorn>=0.31"]
 # OpenUSD, for the `usd` format (src/python/meshioplusplus/usd/). `usd-core` is
 # Pixar's self-contained PyPI build of USD -- no Omniverse install -- and it is
 # a ~30 MB wheel, so it stays out of `all` like every other interop-sized
@@ -134,22 +135,9 @@ meshioplusplus-mcp = "meshioplusplus.mcp:main"
 [tool.scikit-build]
 # scikit-build-core drives the CMake build of the meshioplusplus._core
 # extension and bundles it next to the pure-Python package (src layout).
-minimum-version = "0.11"
+minimum-version = "0.8"
 build-dir = "build/{wheel_tag}"
 wheel.packages = ["src/python/meshioplusplus"]
-# The wheels link OpenCASCADE statically, so their licence is the combined
-# expression in [project]. LICENSE-BINARIES.md states it, and the notices and
-# OpenCASCADE's licence texts (build/build-occt.sh) ship in .dist-info/licenses.
-# This is wheel.license-files, not project.license-files: scikit-build-core
-# requires every project.license-files pattern to match, and a source build
-# without OpenCASCADE has no OCCT texts, so the metadata gets no License-File
-# lines.
-wheel.license-files = [
-  "LICENSE",
-  "LICENSE-BINARIES.md",
-  "THIRD_PARTY_NOTICES.md",
-  "build/occt/share/licenses/opencascade/*.txt",
-]
 cmake.version = ">=3.15"
 cmake.build-type = "Release"
 

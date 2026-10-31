@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  parseCells,
   planTurn,
+  readOffset,
   deltaGuardFailure,
   digestDrift,
   stateDrift,
@@ -15,6 +17,8 @@ const BASE = {
   migrateAfter: 0,
   expectDelta: true,
   verifyEvery: 50,
+  readOffset: 0,
+  storageEvery: 0,
   bucketSize: 100,
 };
 
@@ -179,4 +183,33 @@ test('a missing digest on either side is reported, not passed', () => {
   assert.equal(digestDrift(undefined, 'a'.repeat(64)), 'run_digest_missing');
   assert.equal(digestDrift('', 'a'.repeat(64)), 'run_digest_missing');
   assert.equal(digestDrift('a'.repeat(64), null), 'cold_digest_missing');
+});
+
+test('cold reads spread across the snapshot interval instead of all landing on it', () => {
+  const offsets = Array.from({ length: 20 }, (_, i) => readOffset(i + 1, 20, 50));
+  assert.equal(offsets[0], 0);
+  assert.equal(offsets.at(-1), 47);
+  assert.equal(new Set(offsets).size, 20, 'every VU reads at its own point');
+  assert.equal(planTurn(47, { ...BASE, readOffset: 3 }).verify, true);
+  assert.equal(planTurn(50, { ...BASE, readOffset: 3 }).verify, false);
+});
+
+test('storage is read on the cold-read turn of each bucket that ends a table row', () => {
+  const options = { ...BASE, bucketSize: 50, readOffset: 10, storageEvery: 350 };
+  assert.equal(planTurn(340, options).storage, true, 'bucket 301-350 ends on 350');
+  assert.equal(planTurn(290, options).storage, false, 'a cold read, but bucket 251-300 is not a row');
+  assert.equal(planTurn(341, options).storage, false, 'not a cold-read turn');
+});
+
+test('without a storage interval, storage is read on every cold read', () => {
+  assert.equal(planTurn(50, { ...BASE, storageEvery: 0 }).storage, true);
+  assert.equal(planTurn(51, { ...BASE, storageEvery: 0 }).storage, false);
+});
+
+test('cells parse from name:graph:expectDelta', () => {
+  assert.deepEqual(parseCells('control:benchmark:false, delta_50:benchmark_delta_messages:true'), [
+    { name: 'control', graphId: 'benchmark', expectDelta: false },
+    { name: 'delta_50', graphId: 'benchmark_delta_messages', expectDelta: true },
+  ]);
+  assert.deepEqual(parseCells(''), []);
 });

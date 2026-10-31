@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: humming-kernels
-Version: 0.1.18
+Version: 0.1.19
 Summary: JIT-compiled GPU GEMM kernels for quantized inference
 Author: Humming contributors
 License-Expression: Apache-2.0
@@ -13,12 +13,14 @@ Keywords: cuda,gemm,quantization,inference
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
 Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: Microsoft :: Windows
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: torch>=2.7
-Requires-Dist: triton
+Requires-Dist: triton; sys_platform != "win32"
+Requires-Dist: triton-windows>=3.8.0.post29; sys_platform == "win32"
 Requires-Dist: numpy
 Requires-Dist: safetensors
 Requires-Dist: jinja2

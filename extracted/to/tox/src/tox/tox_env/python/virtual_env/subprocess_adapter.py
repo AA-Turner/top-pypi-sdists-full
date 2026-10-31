@@ -5,19 +5,26 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import shutil
 import subprocess
 import sys
 import venv
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from typing import TYPE_CHECKING, Final
 
 from filelock import FileLock
+from packaging.requirements import InvalidRequirement, Requirement
+from packaging.utils import canonicalize_name
+
+from tox.tox_env.errors import Fail
 
 if TYPE_CHECKING:
-    from pathlib import Path
+    from packaging.specifiers import SpecifierSet
+    from python_discovery import MarkerEnvironment
 
-
-_PROBE_SCRIPT = """\
+_PROBE_SCRIPT: Final[str] = """\
 import json, struct, sys, sysconfig
 print(json.dumps({
     "implementation": sys.implementation.name,
@@ -44,8 +51,6 @@ class _VersionInfo:
 
 @dataclass
 class SubprocessPythonInfo:
-    """Python interpreter information gathered via subprocess probe."""
-
     implementation: str
     version_info: _VersionInfo
     version: str
@@ -55,6 +60,7 @@ class SubprocessPythonInfo:
     free_threaded: bool
     debug_build: bool = False
     sysconfig_platform: str | None = None
+    marker_environment: MarkerEnvironment | None = None
 
     @property
     def machine(self) -> str:
@@ -116,9 +122,20 @@ class SubprocessSession:
         if self._bootstrap_python is None:
             msg = "no interpreter discovered"
             raise RuntimeError(msg)
-        cmd = [str(self._bootstrap_python), "-m", "virtualenv", str(self._env_dir)]
         try:
-            result = subprocess.run(cmd, env=self._env_vars, capture_output=True, text=True, check=False)
+            result = subprocess.run(
+                [
+                    str(self._bootstrap_python),
+                    "-m",
+                    "virtualenv",
+                    f"--python={self.creator.interpreter.system_executable}",
+                    str(self._env_dir),
+                ],
+                env=self._env_vars,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
         except FileNotFoundError as exc:
             msg = f"virtualenv subprocess failed: {exc}"
             raise RuntimeError(msg) from exc
@@ -134,8 +151,7 @@ class SubprocessSession:
         return self._creator
 
 
-def probe_python(python_path: str) -> SubprocessPythonInfo | None:
-    """Probe a Python executable to extract interpreter metadata."""
+def probe_python(python_path: str, marker_environment: MarkerEnvironment | None = None) -> SubprocessPythonInfo | None:
     try:
         result = subprocess.run(
             [python_path, "-c", _PROBE_SCRIPT], capture_output=True, text=True, timeout=30, check=False
@@ -154,6 +170,7 @@ def probe_python(python_path: str) -> SubprocessPythonInfo | None:
         platform=raw["platform"],
         system_executable=raw["system_executable"],
         free_threaded=raw["free_threaded"],
+        marker_environment=marker_environment,
         debug_build=raw.get("debug_build", False),
         sysconfig_platform=raw.get("sysconfig_platform"),
     )
@@ -187,38 +204,82 @@ def _has_correct_virtualenv(python: Path, virtualenv_spec: str) -> bool:
             timeout=30,
             check=False,
         )
-        if result.returncode != 0:
-            return False
-        from packaging.specifiers import SpecifierSet  # ruff:ignore[import-outside-top-level]
-
-        installed = result.stdout.strip()
-        spec = virtualenv_spec.removeprefix("virtualenv")
-        return installed in SpecifierSet(spec) if spec else True
     except (subprocess.SubprocessError, FileNotFoundError, OSError):
         return False
+    if result.returncode != 0:
+        return False
+    specifier = _version_specifier(virtualenv_spec)
+    return result.stdout.strip() in specifier if specifier else True
 
 
 def ensure_bootstrap(work_dir: Path, virtualenv_spec: str) -> Path:
-    """Create or reuse a cached bootstrap venv with the specified virtualenv version."""
-    base = _bootstrap_path(work_dir, virtualenv_spec)
-    python = _bootstrap_python(base)
+    _version_specifier(virtualenv_spec)
+    base: Final[Path] = _bootstrap_path(work_dir, virtualenv_spec)
+    if not base.parent.resolve().is_relative_to(work_dir.resolve()):
+        cache_parent_error: Final[str] = "bootstrap cache directory must stay within work directory"
+        raise Fail(cache_parent_error)
+    python: Final[Path] = _bootstrap_python(base)
     if _has_correct_virtualenv(python, virtualenv_spec):
         return python
 
-    lock_path = base.parent / f"{base.name}.lock"
+    lock_path: Final[Path] = base.parent / f"{base.name}.lock"
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     with FileLock(lock_path):
         if _has_correct_virtualenv(python, virtualenv_spec):
             return python
         logging.info("bootstrapping %s into %s", virtualenv_spec, base)
-        if base.exists():
-            import shutil  # ruff:ignore[import-outside-top-level]
-
-            shutil.rmtree(base)
-        venv.create(str(base), with_pip=True, clear=True)
-        pip = _bootstrap_pip(base)
-        result = subprocess.run([str(pip), "install", virtualenv_spec], capture_output=True, text=True, check=False)
-        if result.returncode != 0:
-            msg = f"failed to install {virtualenv_spec} into bootstrap env: {result.stderr}"
-            raise RuntimeError(msg)
+        if sys.platform == "win32":
+            with TemporaryDirectory(dir=work_dir) as stage_parent:
+                stage: Final[Path] = Path(stage_parent) / base.name
+                _build_bootstrap(stage, virtualenv_spec)
+                _remove_stale_bootstrap(base)
+                stage.rename(base)
+        else:
+            _remove_stale_bootstrap(base)
+            _build_bootstrap(base, virtualenv_spec)
         return python
+
+
+def _build_bootstrap(base: Path, virtualenv_spec: str) -> None:
+    # A planted link must fail creation; clear=True would erase its target.
+    base.mkdir()
+    venv.create(str(base), with_pip=True)
+    result: Final[subprocess.CompletedProcess[str]] = subprocess.run(
+        [str(_bootstrap_pip(base)), "install", virtualenv_spec], capture_output=True, text=True, check=False
+    )
+    if result.returncode != 0:
+        msg: Final[str] = f"failed to install {virtualenv_spec} into bootstrap env: {result.stderr}"
+        raise RuntimeError(msg)
+
+
+def _remove_stale_bootstrap(base: Path) -> None:
+    if base.is_symlink() or (base.exists() and not base.is_dir()):
+        base.unlink()
+    elif base.exists():
+        shutil.rmtree(base)
+
+
+def _version_specifier(virtualenv_spec: str) -> SpecifierSet:
+    msg = "virtualenv_spec must name virtualenv with optional version specifiers"
+    try:
+        requirement = Requirement(virtualenv_spec)
+    except InvalidRequirement:
+        raise Fail(msg) from None
+    if (
+        canonicalize_name(requirement.name) != "virtualenv"
+        or requirement.url is not None
+        or requirement.extras
+        or requirement.marker is not None
+        or any(specifier.operator == "===" for specifier in requirement.specifier)
+    ):
+        raise Fail(msg)
+    return requirement.specifier
+
+
+__all__ = [
+    "SubprocessCreator",
+    "SubprocessPythonInfo",
+    "SubprocessSession",
+    "ensure_bootstrap",
+    "probe_python",
+]

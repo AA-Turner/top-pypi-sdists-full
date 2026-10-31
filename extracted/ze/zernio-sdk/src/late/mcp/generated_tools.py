@@ -9,6 +9,7 @@ from __future__ import annotations
 import base64
 from typing import Any, Literal
 
+from fastmcp.exceptions import ToolError
 from mcp.types import ToolAnnotations
 
 
@@ -106,7 +107,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.account_groups.list_account_groups()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -137,7 +138,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -165,7 +166,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -187,7 +188,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.account_groups.delete_account_group(group_id=group_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # ACCOUNT_SETTINGS
 
@@ -215,7 +216,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -265,7 +266,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -287,7 +288,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.account_settings.get_messenger_menu(account_id=account_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -317,7 +318,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -341,7 +342,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -365,7 +366,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -396,7 +397,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -420,7 +421,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -444,7 +445,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -471,7 +472,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -495,7 +496,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -519,7 +520,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -550,7 +551,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -574,7 +575,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -598,7 +599,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -625,7 +626,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -649,7 +650,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -673,7 +674,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -700,7 +701,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -724,7 +725,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # ACCOUNTS
 
@@ -748,6 +749,7 @@ def register_generated_tools(mcp, _get_client):
         order: Literal["asc", "desc"] = "asc",
         include_over_limit: bool = False,
         exclude_hidden: bool = False,
+        ad_account_rows: bool = False,
         include_creator_accounts: bool = False,
         include_sandbox: bool = False,
         include_status_counts: bool = False,
@@ -783,6 +785,9 @@ def register_generated_tools(mcp, _get_client):
         - the internal `sms` and `phone` accounts behind each phone number.
 
         Applied before pagination, so page totals and `statusCounts` count only the remaining accounts. Sandbox accounts added by `includeSandbox` are appended after this filter. Accepts `true` or `false` in any letter case; any other value returns 400.
+                ad_account_rows: When true, lists every ads account row, one per ad account. By default an API key or OAuth app sees each ads login once per profile and platform, as the single ads connection it had before rows per ad account: its oldest row.
+
+        Only changes the result once ads are connected as one row per ad account; until then the two shapes are the same. Applied before pagination. Accepts `true` or `false` in any letter case; any other value returns 400.
                 include_creator_accounts: When true, also lists the accounts creators connected to your creator campaigns. They sit on creator profiles, which `GET /v1/profiles` does not list, and are left out by default.
 
         Asking for one creator profile by `profileId` lists its accounts either way. Applied before pagination. Accepts `true` or `false` in any letter case; any other value returns 400.
@@ -809,6 +814,7 @@ def register_generated_tools(mcp, _get_client):
                 order=order,
                 include_over_limit=include_over_limit,
                 exclude_hidden=exclude_hidden,
+                ad_account_rows=ad_account_rows,
                 include_creator_accounts=include_creator_accounts,
                 include_sandbox=include_sandbox,
                 include_status_counts=include_status_counts,
@@ -820,7 +826,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -865,7 +871,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -909,7 +915,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -939,7 +945,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -961,7 +967,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.accounts.delete_account(account_id=account_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -1024,7 +1030,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -1062,7 +1068,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.accounts.get_account_health(account_id=account_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -1102,7 +1108,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.accounts.get_account_posts(account_id=account_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -1149,7 +1155,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -1184,7 +1190,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -1213,7 +1219,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -1240,7 +1246,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -1275,7 +1281,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -1302,7 +1308,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -1337,7 +1343,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -1369,7 +1375,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -1451,7 +1457,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -1487,7 +1493,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -1546,7 +1552,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -1574,7 +1580,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -1631,7 +1637,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -1658,7 +1664,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -1695,7 +1701,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -1732,7 +1738,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -1777,7 +1783,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -1805,7 +1811,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -1853,7 +1859,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -1908,7 +1914,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -1940,7 +1946,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -1976,7 +1982,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -2003,7 +2009,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -2030,7 +2036,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.accounts.list_business_partners(account_id=account_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -2112,7 +2118,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -2139,7 +2145,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -2185,7 +2191,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -2207,7 +2213,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.accounts.get_hub_spot_settings(account_id=account_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -2242,7 +2248,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -2264,7 +2270,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.accounts.get_slack_settings(account_id=account_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -2299,7 +2305,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -2321,7 +2327,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.accounts.get_bluesky_settings(account_id=account_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -2346,7 +2352,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # AD_ACCOUNTS
 
@@ -2407,7 +2413,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -2462,7 +2468,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -2518,7 +2524,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -2569,7 +2575,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -2599,7 +2605,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -2668,7 +2674,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -2712,7 +2718,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -2743,7 +2749,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -2794,7 +2800,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -2825,7 +2831,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -2859,7 +2865,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -2894,7 +2900,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -2925,7 +2931,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -2958,7 +2964,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -3013,7 +3019,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -3043,7 +3049,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -3095,7 +3101,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -3142,7 +3148,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -3190,7 +3196,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -3229,7 +3235,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -3289,7 +3295,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -3340,7 +3346,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -3385,7 +3391,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -3445,7 +3451,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -3497,7 +3503,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -3553,7 +3559,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -3588,7 +3594,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -3642,7 +3648,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -3676,7 +3682,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -3726,7 +3732,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -3782,7 +3788,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -3835,7 +3841,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -3891,7 +3897,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -3944,7 +3950,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -4007,7 +4013,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -4043,7 +4049,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -4082,7 +4088,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -4121,7 +4127,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -4160,7 +4166,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -4196,7 +4202,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -4235,7 +4241,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -4274,7 +4280,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -4313,7 +4319,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -4349,7 +4355,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -4388,7 +4394,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -4427,7 +4433,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -4466,7 +4472,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -4513,7 +4519,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -4559,7 +4565,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -4612,7 +4618,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -4651,7 +4657,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -4716,7 +4722,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -4758,7 +4764,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -4814,7 +4820,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -4848,7 +4854,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -4885,7 +4891,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -4923,7 +4929,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -4957,7 +4963,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -4998,7 +5004,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -5028,7 +5034,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -5059,7 +5065,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -5104,7 +5110,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -5163,7 +5169,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -5206,7 +5212,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.ad_accounts.create_ad_account(body=body)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -5266,7 +5272,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -5335,7 +5341,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -5366,7 +5372,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -5402,7 +5408,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -5431,7 +5437,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -5486,7 +5492,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -5523,7 +5529,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # AD_AUDIENCES
 
@@ -5590,7 +5596,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -5631,7 +5637,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.ad_audiences.create_ad_audience(body=body)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -5657,7 +5663,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.ad_audiences.get_ad_audience(audience_id=audience_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -5703,7 +5709,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -5741,7 +5747,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.ad_audiences.delete_ad_audience(audience_id=audience_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -5789,7 +5795,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -5824,7 +5830,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -5867,7 +5873,202 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
+
+    # AD_CAMPAIGN_RESULTS
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Upload your results per campaign",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_campaign_results_upload_campaign_results(
+        rows: list[dict[str, Any]] | None,
+    ) -> str:
+        """Upload your results per campaign
+
+        Sends your own daily numbers per campaign (qualified leads, sales, revenue...) so rules and reports can use them next to spend.
+
+        Name each row's campaign by `campaignId`, `utmCampaign` or `campaignName`. Rows are matched in the background: the `202` returns an `uploadId`, and `Location` points to `GET /v1/ads/campaign-results/uploads/{uploadId}`.
+
+        Re-sending a day replaces it. Send an `Idempotency-Key` to retry safely. Limits per team: 60 requests and 20,000 rows per hour, 512 KB per request.
+
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+
+        Args:
+            rows: Each item is an object with keys: date (string, required) - The day, at most 400 days ago.; campaignId (string) - The platform campaign id.; utmCampaign (string) - The `utm_campaign` value on the campaign's ads.; campaignName (string) - The campaign's name, matched case-insensitively.; adAccountId (string) - Platform ad account id. Narrows matching to one ad account.; values (object, required) - Metric key (snake_case, up to 40 characters) to a non-negative number. 1 to 20 per row. (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_campaign_results.upload_campaign_results(rows=rows)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List your results per campaign",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_campaign_results_list_campaign_results(
+        from_date: str,
+        to_date: str,
+        campaign_ids: str | None = None,
+        limit: int = 100,
+        cursor: str | None = None,
+    ) -> str:
+        """List your results per campaign
+
+        Your results summed per campaign over a date range, one entry per campaign with every metric it has, for the ad accounts your key can see. Each day counts its newest value only.
+
+        Paginated by campaign: pass `nextCursor` back as `cursor` until it is null.
+
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+
+        Args:
+            from_date: (required)
+            to_date: Inclusive. At most 400 days after `fromDate`. (required)
+            campaign_ids: Comma-separated platform campaign ids, at most 500. Omit for all campaigns.
+            limit: Campaigns per page.
+            cursor: `nextCursor` from the previous page."""
+        client = _get_client()
+        try:
+            response = client.ad_campaign_results.list_campaign_results(
+                from_date=from_date,
+                to_date=to_date,
+                campaign_ids=campaign_ids,
+                limit=limit,
+                cursor=cursor,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Check a results upload",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_campaign_results_get_campaign_results_upload(upload_id: str) -> str:
+        """Check a results upload
+
+        How an upload was matched: rows matched and unmatched, and up to 100 unmatched rows with why (`no_campaign` or `ambiguous`).
+
+        `status` turns `done` once every row is processed, usually within seconds. Uploads are kept for 30 days.
+
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+
+        Args:
+            upload_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_campaign_results.get_campaign_results_upload(
+                upload_id=upload_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get your results totals",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_campaign_results_get_campaign_results_totals(
+        from_date: str, to_date: str, ad_account_ids: str | None = None
+    ) -> str:
+        """Get your results totals
+
+        Each metric you send summed over a date range across every campaign of the ad accounts your key can see, or of the ones you name. Each day counts its newest value only.
+
+        Formulas are not computed here, since they also read the platform's numbers: apply one to these totals and the account's spend for the same range, or read it per campaign from `GET /v1/ads/tree?results=true`.
+
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+
+        Args:
+            from_date: (required)
+            to_date: Inclusive. At most 400 days after `fromDate`. (required)
+            ad_account_ids: Comma-separated platform ad account ids, at most 100. Omit for every ad account your key can see."""
+        client = _get_client()
+        try:
+            response = client.ad_campaign_results.get_campaign_results_totals(
+                from_date=from_date, to_date=to_date, ad_account_ids=ad_account_ids
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List your result metrics",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_campaign_results_list_campaign_result_metrics() -> str:
+        """List your result metrics
+
+        The metric keys your team has sent, with their label and kind, then the formulas: your own and the built-in ones (`cac_percent`, `cost_per_sale`, `cost_per_qualified_lead`, `lead_to_sale`). A new key appears as a `count` labelled from the key; name it, or define a formula, with `PUT /v1/ads/campaign-results/metrics/{key}`.
+
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit"""
+        client = _get_client()
+        try:
+            response = client.ad_campaign_results.list_campaign_result_metrics()
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Name a result metric or define a formula",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_campaign_results_set_campaign_result_metric(
+        key: str,
+        label: str,
+        kind: Literal["count", "money", "percent", "ratio"],
+        currency: str | None = None,
+        formula: str | None = None,
+    ) -> str:
+        """Name a result metric or define a formula
+
+        Sets a metric key's label and kind: `count` for things you count (leads, sales), `money` with its currency (revenue), `percent` or `ratio`.
+
+        Send `formula` to make it a computed metric: `+ - * /` and parentheses over `spend`, `impressions`, `clicks`, `conversions`, `purchase_value` and the metrics you send, at most 200 characters. A formula cannot read another formula.
+
+        It is computed per campaign over the summed values of the range, and has no value when an input is missing or a division is by zero.
+
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+
+        Args:
+            key: (required)
+            label: (required)
+            kind: (required)
+            currency: ISO 4217, money metrics only.
+            formula: Makes it a computed metric. Null or absent for a number you send."""
+        client = _get_client()
+        try:
+            response = client.ad_campaign_results.set_campaign_result_metric(
+                key=key, label=label, kind=kind, currency=currency, formula=formula
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
 
     # AD_CAMPAIGNS
 
@@ -5980,7 +6181,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -6031,7 +6232,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -6078,7 +6279,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -6114,7 +6315,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -6162,7 +6363,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -6219,7 +6420,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -6289,7 +6490,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -6322,7 +6523,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -6367,7 +6568,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -6436,7 +6637,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -6479,7 +6680,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -6511,7 +6712,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -6537,7 +6738,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.ad_campaigns.remove_ad_keyword(keyword_id=keyword_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -6657,7 +6858,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -6813,7 +7014,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -6871,7 +7072,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -6928,7 +7129,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -6976,7 +7177,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -7035,7 +7236,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -7074,7 +7275,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -7186,7 +7387,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -7250,7 +7451,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -7303,7 +7504,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -7354,7 +7555,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -7389,7 +7590,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -7471,7 +7672,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -7520,7 +7721,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -7562,7 +7763,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -7657,7 +7858,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -7757,7 +7958,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -7836,7 +8037,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -7907,7 +8108,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -7946,7 +8147,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -8127,7 +8328,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -8159,7 +8360,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.ad_campaigns.delete_ad_set(ad_set_id=ad_set_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -8197,7 +8398,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -8264,7 +8465,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -8315,6 +8516,7 @@ def register_generated_tools(mcp, _get_client):
         time_increment: int | None = None,
         daily_level: Literal["campaign", "adset", "ad"] = "campaign",
         compare: Literal["previous"] | None = None,
+        results: bool | None = None,
     ) -> str:
         """Get campaign tree
 
@@ -8382,7 +8584,8 @@ def register_generated_tools(mcp, _get_client):
         - `campaign` (default): on campaign nodes only. The common per-campaign-trend case, and the smallest payload.
         - `adset`: on ad sets too.
         - `ad`: on every ad in `ads[]` as well. Heaviest (a long range × up to 100 ads per ad set); scope with `campaignId` to keep responses small.
-                compare: Set to `previous` to also read the period of the same length that ends the day before `fromDate`. Every campaign, ad set and ad gains `previousMetrics` (same fields as `metrics`) and the response gains `previousRange`, so a table can show the change against the previous period in one call."""
+                compare: Set to `previous` to also read the period of the same length that ends the day before `fromDate`. Every campaign, ad set and ad gains `previousMetrics` (same fields as `metrics`) and the response gains `previousRange`, so a table can show the change against the previous period in one call.
+                results: Set to `true` to add your own results (see [Campaign results](/guides/campaign-results)): every campaign gains `results`, the values you sent for the range plus each formula they allow, and the response gains `resultMetrics` to label them."""
         client = _get_client()
         try:
             response = client.ad_campaigns.get_ad_tree(
@@ -8406,10 +8609,11 @@ def register_generated_tools(mcp, _get_client):
                 time_increment=time_increment,
                 daily_level=daily_level,
                 compare=compare,
+                results=results,
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -8477,7 +8681,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -8544,7 +8748,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -8619,7 +8823,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -8660,7 +8864,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.ad_campaigns.delete_ad(ad_id=ad_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -8711,7 +8915,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.ad_campaigns.update_ad_status(ad_id=ad_id, status=status)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -8750,7 +8954,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -8801,7 +9005,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -8843,7 +9047,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -8888,7 +9092,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -8927,7 +9131,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -8978,7 +9182,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -9020,7 +9224,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -9065,7 +9269,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -9117,7 +9321,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -9154,7 +9358,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.ad_campaigns.get_tik_tok_smart_plus_ad_review(ad_id=ad_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -9165,7 +9369,9 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def ad_campaigns_list_ads_alerts(
-        account_id: str | None = None, include_dismissed: bool = False
+        account_id: str | None = None,
+        profile_id: str | None = None,
+        include_dismissed: bool = False,
     ) -> str:
         """List ads that need attention
 
@@ -9176,6 +9382,8 @@ def register_generated_tools(mcp, _get_client):
         - Meta ad accounts with a failed or overdue payment, or disabled while holding live ads
         - campaigns that spent on 3 or more of the last 7 days without a result (conversion, lead, purchase or conversation goals)
         - budgets spent to their daily cap yesterday
+        - ads connections that need reconnecting while they still hold live ads
+        - ad accounts whose sync has been failing
 
         Built from stored data and the last 7 days of synced metrics, so it costs no platform call.
 
@@ -9185,15 +9393,18 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             account_id: Only alerts of this ads connection (sibling-expanded like /v1/ads/tree). Omit for every ad account the API key can reach.
+            profile_id: Only alerts of the ads connections on this profile. Omit for every profile the API key can reach.
             include_dismissed: Also return dismissed alerts, with `dismissed: true`."""
         client = _get_client()
         try:
             response = client.ad_campaigns.list_ads_alerts(
-                account_id=account_id, include_dismissed=include_dismissed
+                account_id=account_id,
+                profile_id=profile_id,
+                include_dismissed=include_dismissed,
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -9218,7 +9429,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.ad_campaigns.dismiss_ads_alert(alert_id=alert_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -9273,7 +9484,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -9316,7 +9527,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -9361,7 +9572,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -9778,7 +9989,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -9815,7 +10026,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -9872,7 +10083,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -9903,7 +10114,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -9957,7 +10168,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -9991,7 +10202,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -10037,7 +10248,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -10079,7 +10290,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -11058,7 +11269,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -11089,7 +11300,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -11136,7 +11347,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # AD_CREATIVES
 
@@ -11183,7 +11394,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -11230,7 +11441,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -11289,7 +11500,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -11324,7 +11535,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -11370,7 +11581,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -11471,7 +11682,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -11514,7 +11725,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -11548,7 +11759,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -11578,7 +11789,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -11619,7 +11830,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -11664,7 +11875,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -11729,7 +11940,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -11785,7 +11996,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -11824,7 +12035,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -11860,7 +12071,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -11899,7 +12110,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -11930,7 +12141,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -11962,7 +12173,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # AD_INSIGHTS
 
@@ -12025,7 +12236,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -12084,7 +12295,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -12130,7 +12341,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -12199,7 +12410,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -12264,7 +12475,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -12323,7 +12534,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -12445,7 +12656,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -12517,7 +12728,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -12555,7 +12766,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -12613,7 +12824,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -12686,7 +12897,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # AD_LIBRARY
 
@@ -12784,7 +12995,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # AD_RULES
 
@@ -12823,7 +13034,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -12837,7 +13048,7 @@ def register_generated_tools(mcp, _get_client):
         name: str,
         account_id: str,
         ad_account_id: str,
-        level: Literal["campaign", "adset"],
+        level: Literal["campaign", "adset", "ad"],
         conditions: dict[str, Any] | None,
         actions: list[dict[str, Any]] | None,
         campaign_ids: list[str] | None = None,
@@ -12902,7 +13113,30 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List ready-made ad rules",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_rules_list_ad_rule_templates() -> str:
+        """List ready-made ad rules
+
+        Common rules to start from: stop losers, scale winners, pause ads with no conversions, creative fatigue and spend spike alerts.
+
+        Each template is a complete rule body. Add `name`, `accountId` and `adAccountId`, adjust the thresholds to the ad account, and send it to `POST /v1/ads/rules`. Amounts are in the ad account currency. `platforms` lists the networks a template works on, or is null for all of them.
+
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit"""
+        client = _get_client()
+        try:
+            response = client.ad_rules.list_ad_rule_templates()
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -12949,7 +13183,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -12970,7 +13204,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.ad_rules.get_ad_rule()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -12982,7 +13216,7 @@ def register_generated_tools(mcp, _get_client):
     )
     def ad_rules_update_ad_rule(
         name: str | None = None,
-        level: Literal["campaign", "adset"] | None = None,
+        level: Literal["campaign", "adset", "ad"] | None = None,
         campaign_ids: str | None = None,
         conditions: dict[str, Any] | None = None,
         actions: list[dict[str, Any]] | None = None,
@@ -13021,7 +13255,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -13042,7 +13276,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.ad_rules.delete_ad_rule()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -13067,7 +13301,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.ad_rules.preview_ad_rule(rule_id=rule_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -13097,7 +13331,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # AD_TARGETING
 
@@ -13129,7 +13363,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -13234,7 +13468,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -13287,7 +13521,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -13348,7 +13582,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -13411,7 +13645,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -13492,7 +13726,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # ANALYTICS
 
@@ -13557,10 +13791,10 @@ def register_generated_tools(mcp, _get_client):
         Their lifetime metrics refresh about hourly, with a final reading shortly ...
 
         Args:
-            post_id: Returns analytics for a single post. Accepts both Zernio Post IDs and External Post IDs. Zernio IDs are auto-resolved to External Post analytics.
+            post_id: Returns analytics for a single post. Accepts Zernio Post IDs, External Post IDs and the platform's native post ID. Zernio IDs are auto-resolved to External Post analytics.
             platform: Filter by platform (default "all")
-            profile_id: Filter by profile ID (default "all")
-            account_id: Filter by account ID
+            profile_id: Filter by profile ID (default "all"). With a native postId, selects that profile's copy of the post.
+            account_id: Filter by account ID. With a native postId, selects that account's copy of the post.
             source: Filter by post source: late (posted via Zernio API), external (synced from platform), all (default)
             from_date: Inclusive lower bound (YYYY-MM-DD). Defaults to 90 days ago if omitted. Max range is 366 days.
             to_date: Inclusive upper bound (YYYY-MM-DD). Defaults to today if omitted.
@@ -13587,7 +13821,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -13633,7 +13867,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -13704,7 +13938,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -13792,7 +14026,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -13868,7 +14102,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -13914,7 +14148,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -13968,7 +14202,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -14057,7 +14291,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -14112,7 +14346,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -14172,7 +14406,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -14226,7 +14460,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -14265,7 +14499,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -14280,25 +14514,25 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Get LinkedIn organization follower demographics
 
-            Returns the lifetime follower breakdown of a connected LinkedIn organization page by job function, seniority, industry and company size.
+            Returns the lifetime follower breakdown of a connected LinkedIn organization page by job function, seniority, industry, company size, country and region. Without `breakdown` it returns function, seniority, industry and company size; country and region are returned only when requested.
 
             ### Labels
 
             - Function, seniority and industry are labelled with LinkedIn's standardized names (English) and keep the LinkedIn URN in `id`.
             - Company size is labelled as a range such as `2-10` or `10001+`.
+            - Country and region are labelled with LinkedIn's geo names (English) and keep `urn:li:geo:*` in `id`. A region is a LinkedIn market area, for example New York City Metropolitan Area.
 
             LinkedIn returns at most the top 100 values per breakdown and leaves out followers whose profile lacks that field, so a breakdown does not add up to the follower count.
 
             ### Requirements
 
             - Organization accounts only: a personal LinkedIn account answers 400 `personal_account_not_supported`.
-            - Requires the r_organization_social, r_organization_followers and r_organization_admin scopes (412 otherwise).
-            - Requires the Analytics add-on.
+            - Requires the ...
 
             Args:
                 account_id: The Zernio SocialAccount ID of the LinkedIn organization account (required)
-                breakdown: Comma-separated list of demographic dimensions: function, seniority, industry, company_size.
-        Defaults to all four if omitted."""
+                breakdown: Comma-separated list of demographic dimensions: function, seniority, industry, company_size, country, region.
+        Defaults to function, seniority, industry and company_size if omitted. Country and region are returned only when requested."""
         client = _get_client()
         try:
             response = client.analytics.get_linked_in_demographics(
@@ -14306,7 +14540,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -14346,7 +14580,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -14375,7 +14609,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -14430,7 +14664,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -14479,7 +14713,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -14533,7 +14767,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -14570,7 +14804,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -14607,7 +14841,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -14644,7 +14878,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -14675,7 +14909,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -14739,7 +14973,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -14788,7 +15022,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -14813,7 +15047,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -14869,7 +15103,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -14904,7 +15138,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -14929,7 +15163,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.analytics.get_tracking_window(window_id=window_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -14955,7 +15189,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.analytics.cancel_tracking_window(window_id=window_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -14996,7 +15230,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -15027,7 +15261,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.analytics.get_post_authenticity(post_id=post_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -15080,7 +15314,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -15128,7 +15362,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -15171,7 +15405,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -15210,7 +15444,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -15258,7 +15492,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -15283,7 +15517,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -15315,7 +15549,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -15345,7 +15579,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -15392,7 +15626,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -15431,7 +15665,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # API_KEYS
 
@@ -15454,7 +15688,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.api_keys.verify_credential()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -15473,7 +15707,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.api_keys.list_api_keys()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -15543,7 +15777,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -15565,7 +15799,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.api_keys.delete_api_key(key_id=key_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # BLOGS
 
@@ -15607,7 +15841,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -15641,7 +15875,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -15669,7 +15903,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.blogs.get_blog(account_id=account_id, blog_id=blog_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -15707,7 +15941,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -15736,7 +15970,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.blogs.delete_blog(account_id=account_id, blog_id=blog_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -15777,7 +16011,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -15864,7 +16098,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -15897,7 +16131,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -15984,7 +16218,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -16021,7 +16255,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # BRANDED_CALLING
 
@@ -16096,7 +16330,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -16113,7 +16347,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.branded_calling.list_branded_calling_enterprises()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -16133,7 +16367,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.branded_calling.get_branded_calling_enterprise(id=id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -16155,7 +16389,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.branded_calling.delete_branded_calling_enterprise(id=id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -16192,7 +16426,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -16211,7 +16445,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.branded_calling.list_branded_calling_call_reasons()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -16267,7 +16501,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -16284,7 +16518,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.branded_calling.list_branded_calling_identities()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -16332,7 +16566,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -16354,7 +16588,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.branded_calling.get_branded_calling_identity(id=id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -16404,7 +16638,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -16426,7 +16660,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.branded_calling.delete_branded_calling_identity(id=id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -16450,7 +16684,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -16480,7 +16714,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -16502,7 +16736,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -16534,7 +16768,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -16561,7 +16795,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # BROADCASTS
 
@@ -16604,7 +16838,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -16662,7 +16896,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -16684,7 +16918,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.broadcasts.get_broadcast(broadcast_id=broadcast_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -16725,7 +16959,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -16747,7 +16981,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.broadcasts.delete_broadcast(broadcast_id=broadcast_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -16769,7 +17003,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.broadcasts.send_broadcast(broadcast_id=broadcast_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -16794,7 +17028,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -16816,7 +17050,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.broadcasts.cancel_broadcast(broadcast_id=broadcast_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -16848,7 +17082,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -16883,7 +17117,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # BUSINESS_AGENT
 
@@ -16922,7 +17156,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -16957,7 +17191,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -16984,7 +17218,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -17033,7 +17267,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -17057,7 +17291,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -17084,7 +17318,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -17109,7 +17343,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -17133,7 +17367,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -17179,7 +17413,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -17203,7 +17437,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -17225,7 +17459,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -17260,7 +17494,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -17283,7 +17517,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -17319,7 +17553,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -17342,7 +17576,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -17364,7 +17598,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -17408,7 +17642,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -17433,7 +17667,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -17478,7 +17712,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -17503,7 +17737,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -17525,7 +17759,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -17560,7 +17794,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -17583,7 +17817,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -17606,7 +17840,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -17628,7 +17862,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -17660,7 +17894,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -17683,7 +17917,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -17719,7 +17953,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -17744,7 +17978,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -17776,7 +18010,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -17827,7 +18061,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -17852,7 +18086,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -17904,7 +18138,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -17929,7 +18163,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -17953,7 +18187,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -18003,7 +18237,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -18028,7 +18262,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -18079,7 +18313,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -18104,7 +18338,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -18134,7 +18368,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -18161,7 +18395,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -18211,7 +18445,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -18236,7 +18470,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -18283,7 +18517,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -18309,7 +18543,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -18357,7 +18591,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -18383,7 +18617,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -18415,7 +18649,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -18439,7 +18673,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -18466,7 +18700,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -18494,7 +18728,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -18528,7 +18762,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -18551,7 +18785,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -18588,7 +18822,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -18615,7 +18849,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # CALENDAR
 
@@ -18639,7 +18873,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.calendar.list_calendars(account_id=account_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -18701,7 +18935,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -18787,7 +19021,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -18820,7 +19054,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -18892,7 +19126,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -18918,7 +19152,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -18956,7 +19190,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -18980,7 +19214,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -19030,7 +19264,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # CALLS
 
@@ -19088,7 +19322,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -19114,7 +19348,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.calls.get_call(id=id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -19141,7 +19375,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.calls.get_call_recording(id=id, as_=as_)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # CHANGELOG
 
@@ -19188,7 +19422,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # COMMENT_AUTOMATIONS
 
@@ -19216,7 +19450,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -19363,7 +19597,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -19387,7 +19621,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -19521,7 +19755,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -19545,7 +19779,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -19577,7 +19811,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # COMMENTS
 
@@ -19662,7 +19896,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -19725,7 +19959,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -19786,7 +20020,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -19815,7 +20049,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -19857,7 +20091,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -19907,7 +20141,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -19938,7 +20172,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -19967,7 +20201,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -19996,7 +20230,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -20025,7 +20259,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -20080,7 +20314,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -20115,7 +20349,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -20169,7 +20403,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -20204,7 +20438,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -20262,7 +20496,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # COMMERCE
 
@@ -20295,7 +20529,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.commerce.get_commerce_store(account_id=account_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -20356,7 +20590,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -20383,7 +20617,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -20439,7 +20673,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -20504,7 +20738,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -20538,7 +20772,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -20565,7 +20799,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -20620,7 +20854,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -20652,7 +20886,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -20687,7 +20921,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -20749,7 +20983,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -20776,7 +21010,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -20836,7 +21070,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -20863,7 +21097,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -20903,7 +21137,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -20933,7 +21167,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -20963,7 +21197,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -21000,7 +21234,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -21030,7 +21264,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -21060,7 +21294,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -21090,7 +21324,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -21120,7 +21354,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -21160,7 +21394,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -21189,7 +21423,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -21219,7 +21453,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -21249,7 +21483,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -21286,7 +21520,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -21315,7 +21549,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -21347,7 +21581,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -21377,7 +21611,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -21414,7 +21648,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -21448,7 +21682,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -21478,7 +21712,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -21512,7 +21746,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -21552,7 +21786,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -21579,7 +21813,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -21622,7 +21856,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -21649,7 +21883,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -21673,7 +21907,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.commerce.list_commerce_locations(account_id=account_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -21700,7 +21934,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -21734,7 +21968,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -21758,7 +21992,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.commerce.list_commerce_channels(account_id=account_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -21792,7 +22026,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -21865,7 +22099,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -21892,7 +22126,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -21956,7 +22190,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -21983,7 +22217,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -22013,7 +22247,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -22043,7 +22277,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -22077,7 +22311,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -22107,7 +22341,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -22141,7 +22375,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -22168,7 +22402,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -22192,7 +22426,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.commerce.list_commerce_menus(account_id=account_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -22223,7 +22457,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -22250,7 +22484,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -22290,7 +22524,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -22317,7 +22551,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -22343,7 +22577,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -22374,7 +22608,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -22408,7 +22642,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -22435,7 +22669,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -22472,7 +22706,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -22499,7 +22733,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -22523,7 +22757,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.commerce.list_commerce_markets(account_id=account_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -22547,7 +22781,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.commerce.list_commerce_price_lists(account_id=account_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -22577,7 +22811,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -22609,7 +22843,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -22683,7 +22917,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -22712,7 +22946,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -22767,7 +23001,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -22793,7 +23027,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -22839,7 +23073,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -22863,7 +23097,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.commerce.get_commerce_catalog_sync(sync_id=sync_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -22887,7 +23121,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.commerce.delete_commerce_catalog_sync(sync_id=sync_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -22911,7 +23145,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.commerce.run_commerce_catalog_sync(sync_id=sync_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # CONNECT
 
@@ -23243,7 +23477,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -23290,7 +23524,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -23321,6 +23555,11 @@ def register_generated_tools(mcp, _get_client):
         force: bool = False,
         ad_account_id: str | None = None,
         ad_account_ids: list[str] | None = None,
+        welcome: bool | None = None,
+        brand_name: str | None = None,
+        logo_url: str | None = None,
+        primary_color: str | None = None,
+        welcome_theme: str | None = None,
     ) -> str:
         """Connect ads for a platform
 
@@ -23418,7 +23657,19 @@ def register_generated_tools(mcp, _get_client):
 
         - Persisted server-side; the latest call wins. De-scoped ad accounts have their synced ads, campaigns, ad sets and keywords removed.
         - On Meta only the scoped ad accounts get webhook subscriptions, including when the call starts a fresh OAuth.
-        - Omitting both `adAccountId` and `adAccountIds` keeps any previously persisted scope unchanged (no scope means every reachable ad account)."""
+        - Omitting both `adAccountId` and `adAccountIds` keeps any previously persisted scope unchanged (no scope means every reachable ad account).
+                welcome: When `true`, `authUrl` opens on the Zernio-hosted welcome screen with your brand, as on GET /v1/connect/{platform}, naming the ads platform ("<brandName> wants to connect to your Meta Ads").
+
+        - With no `redirect_url`, the flow ends on the branded result page instead of the Zernio dashboard.
+        - Shown only with `welcome=true`: the workspace's saved "on by default" (`PUT /v1/connect/welcome-screen`) applies to GET /v1/connect/{platform} only, so ads links behave as before unless you opt in. The saved brand still fills in what the call leaves out.
+        - Without `adAccountId` or `adAccountIds`, on Meta, Google, LinkedIn, X, Reddit and Microsoft, the user then picks the ad accounts to connect on a branded Zernio-hosted page (skipped when the login reaches only one).
+        - After that page the flow ends on your `redirect_url` with `connected` set to the ads platform and `accountId` to the ads connection.
+        - Cannot be combined with `headless=true` (400 `INVALID_FIELD_VALUE`).
+        - Responses with `alreadyConnected: true` carry no `authUrl`, so they show no screen.
+                brand_name: Welcome screen only: your product name in its heading. Same rules as on GET /v1/connect/{platform}.
+                logo_url: Welcome screen only: https URL of your square logo. Rejected with 400 `INVALID_FIELD_VALUE` when the welcome screen is not shown.
+                primary_color: Welcome screen only: hex colour (`#RRGGBB`) of its button.
+                welcome_theme: Welcome screen only: a URL-encoded JSON object restyling and rewording the welcome screen and the result page, with the keys documented on GET /v1/connect/{platform}. Rejected when the welcome screen is not shown."""
         client = _get_client()
         try:
             response = client.connect.connect_ads(
@@ -23433,10 +23684,15 @@ def register_generated_tools(mcp, _get_client):
                 force=force,
                 ad_account_id=ad_account_id,
                 ad_account_ids=ad_account_ids,
+                welcome=welcome,
+                brand_name=brand_name,
+                logo_url=logo_url,
+                primary_color=primary_color,
+                welcome_theme=welcome_theme,
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -23479,7 +23735,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -23523,7 +23779,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -23559,7 +23815,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -23608,7 +23864,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -23645,7 +23901,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -23679,7 +23935,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -23720,7 +23976,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -23763,7 +24019,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -23802,7 +24058,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -23843,7 +24099,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -23877,7 +24133,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -23916,7 +24172,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -23962,7 +24218,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -24007,7 +24263,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -24044,7 +24300,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.connect.select_facebook_page(body=body)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -24082,7 +24338,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -24128,7 +24384,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -24166,7 +24422,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -24207,7 +24463,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -24243,7 +24499,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.connect.get_connect_handoff(handoff_id=handoff_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -24262,7 +24518,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.connect.get_connect_welcome_screen()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -24297,7 +24553,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -24328,7 +24584,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.connect.list_o_auth_apps(limit=limit, cursor=cursor)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -24343,6 +24599,8 @@ def register_generated_tools(mcp, _get_client):
         label: str,
         client_id: str,
         client_secret: str,
+        meta_app_id: str | None = None,
+        meta_app_secret: str | None = None,
         slack_signing_secret: str | None = None,
         scope_areas: list[Literal["posting", "analytics", "comments", "messaging"]]
         | None = None,
@@ -24365,6 +24623,8 @@ def register_generated_tools(mcp, _get_client):
             label: (required)
             client_id: (required)
             client_secret: (required)
+            meta_app_id: Instagram only: the numeric ID of the Meta app your Instagram app lives in. Zernio uses it with `metaAppSecret` to register the webhook. Send both or neither.
+            meta_app_secret: Instagram only: the secret of that Meta app. Never returned.
             slack_signing_secret: Slack only: the signing secret from the app's Basic Information page. Needed to receive events from your Slack app; any other platform is a 400.
             scope_areas: Areas this app requests. Defaults to every area the platform supports; an area the platform cannot request separately is a 400."""
         client = _get_client()
@@ -24374,12 +24634,14 @@ def register_generated_tools(mcp, _get_client):
                 label=label,
                 client_id=client_id,
                 client_secret=client_secret,
+                meta_app_id=meta_app_id,
+                meta_app_secret=meta_app_secret,
                 slack_signing_secret=slack_signing_secret,
                 scope_areas=scope_areas,
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -24396,7 +24658,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.connect.get_o_auth_app()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -24409,6 +24671,8 @@ def register_generated_tools(mcp, _get_client):
     def connect_update_o_auth_app(
         label: str | None = None,
         client_secret: str | None = None,
+        meta_app_id: str | None = None,
+        meta_app_secret: str | None = None,
         slack_signing_secret: str | None = None,
         scope_areas: list[Literal["posting", "analytics", "comments", "messaging"]]
         | None = None,
@@ -24424,6 +24688,8 @@ def register_generated_tools(mcp, _get_client):
         Args:
             label
             client_secret
+            meta_app_id: Instagram only: the numeric ID of the Meta app your Instagram app lives in. Zernio uses it with `metaAppSecret` to register the webhook. Send both or neither.
+            meta_app_secret: Instagram only: the secret of that Meta app. Never returned.
             slack_signing_secret: Slack only: saves or replaces the signing secret from the app's Basic Information page; any other platform is a 400.
             scope_areas: Replaces the areas new connects request. Accounts already connected keep what they were granted until they reconnect."""
         client = _get_client()
@@ -24431,12 +24697,14 @@ def register_generated_tools(mcp, _get_client):
             response = client.connect.update_o_auth_app(
                 label=label,
                 client_secret=client_secret,
+                meta_app_id=meta_app_id,
+                meta_app_secret=meta_app_secret,
                 slack_signing_secret=slack_signing_secret,
                 scope_areas=scope_areas,
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -24458,7 +24726,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.connect.delete_o_auth_app(confirm=confirm)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -24480,7 +24748,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.connect.test_o_auth_app(app_id=app_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -24522,7 +24790,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.connect.get_pending_o_auth_data(token=token)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -24547,7 +24815,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -24591,7 +24859,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -24621,7 +24889,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -24671,7 +24939,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -24701,7 +24969,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -24748,7 +25016,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -24787,7 +25055,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -24834,7 +25102,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -24876,7 +25144,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -24935,7 +25203,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -24966,7 +25234,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -25007,7 +25275,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -25062,7 +25330,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -25085,7 +25353,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.connect.get_whats_app_sdk_config()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -25123,7 +25391,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -25182,7 +25450,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -25223,7 +25491,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -25245,7 +25513,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.connect.get_telegram_connect_status(profile_id=profile_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -25270,7 +25538,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -25293,7 +25561,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.connect.complete_telegram_connect(code=code)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -25319,7 +25587,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -25346,7 +25614,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -25376,7 +25644,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -25407,7 +25675,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -25429,7 +25697,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.connect.get_linked_in_organizations(account_id=account_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -25461,7 +25729,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -25483,7 +25751,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.connect.get_pinterest_boards(account_id=account_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -25513,7 +25781,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -25548,7 +25816,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -25600,7 +25868,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -25622,7 +25890,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.connect.get_youtube_playlists(account_id=account_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -25672,7 +25940,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -25704,7 +25972,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -25741,7 +26009,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -25775,7 +26043,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -25822,7 +26090,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -25846,7 +26114,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.connect.get_reddit_subreddits(account_id=account_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -25875,7 +26143,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -25906,7 +26174,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -25943,7 +26211,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -25970,7 +26238,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -26017,7 +26285,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -26054,7 +26322,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # CONNECTED_APPS
 
@@ -26081,7 +26349,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.connected_apps.list_connected_apps()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -26111,7 +26379,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.connected_apps.revoke_connected_app(client_id=client_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # CONTACTS
 
@@ -26174,7 +26442,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -26241,7 +26509,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -26263,7 +26531,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.contacts.get_contact(contact_id=contact_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -26313,7 +26581,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -26335,7 +26603,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.contacts.delete_contact(contact_id=contact_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -26357,7 +26625,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.contacts.get_contact_channels(contact_id=contact_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -26402,7 +26670,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # CONVERSIONS
 
@@ -26442,7 +26710,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -26510,7 +26778,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -26554,7 +26822,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -26605,7 +26873,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -26698,7 +26966,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -26741,7 +27009,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -26782,7 +27050,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -26885,7 +27153,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -26921,7 +27189,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -26963,7 +27231,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -27008,7 +27276,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -27047,7 +27315,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -27092,7 +27360,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -27146,7 +27414,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -27168,7 +27436,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.conversions.list_event_destinations(profile_id=profile_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -27205,7 +27473,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -27229,7 +27497,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -27272,7 +27540,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -27380,7 +27648,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -27416,7 +27684,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -27481,7 +27749,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -27522,7 +27790,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -27559,7 +27827,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -27600,7 +27868,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -27638,7 +27906,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -27695,7 +27963,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # CREATOR_CAMPAIGNS
 
@@ -27747,7 +28015,7 @@ def register_generated_tools(mcp, _get_client):
             profile_id: Profile the campaign lives in. Creator accounts connect into the same workspace. (required)
             name: (required)
             brand_name: (required)
-            economics: Object with keys: type (one of: cpm; required); ratePer1kCents (integer, required); minViewsToEarn (integer, required); maxPayoutPerClipCents (integer); budgetCents (integer, required) (required)
+            economics: Object with keys: type (one of: cpm; required); metric (one of: views, engagements) - What the rate pays on. `engagements` counts the `engagementTypes` as each platform reports them, and `minViewsToEarn` then applies to engagements. Fixed once ...; engagementTypes (list of string) - With `metric: engagements`, the engagements that count. Missing means all four, and sending it on a views campaign answers 400. YouTube reports likes and ...; organicViewsOnly (boolean) - Count only organic views: views from ads the creator ran do not earn. Every campaign platform must be YouTube or X, which report ad views per post, or the ...; ratePer1kCents (integer, required); minViewsToEarn (integer, required) - The count a post must reach before it earns, in the campaign metric (views or engagements).; maxPayoutPerClipCents (integer); budgetCents (integer, required) (required)
             caps: Omitted, the campaign starts with authenticityThreshold 40 and no other caps. Object with keys: maxParticipants (integer) - Invites and joins past this count answer 403.; maxSubmissionsPerParticipantPerDay (integer) - Posts one participant can submit to this campaign per UTC day, counting every submission whatever its status. The next submit that day answers 409 ...; maxAccountsPerParticipant (integer) - Accounts a participant can use in this campaign. Connecting a new account past it answers 400; only the first accounts connected, up to this count, can submit ...; maxXReadSpendCents (integer) - X campaigns only: what tracking X posts may cost in X reads, in cents. Unset means 5000 ($50). X bills one read per tracked post per UTC day, and you pay it ...; authenticityThreshold (number, required) - A submission whose authenticity score falls below this is flagged `low_authenticity`. It is never rejected automatically. Defaults to 40 on create.
             platforms: Platforms creators may post on. At least one is needed to activate. `twitter` (X) needs usage-based billing: X reads are billed at cost, up to `caps.maxXReadSpendCents`, and X views are the post's impressions. `facebook` takes Page reels and videos only.
             content_rules
@@ -27778,7 +28046,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -27812,7 +28080,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -27836,7 +28104,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -27892,7 +28160,7 @@ def register_generated_tools(mcp, _get_client):
             hold_days
             max_post_age_minutes: Null removes the limit.
             settlement
-            economics: Object with keys: type (one of: cpm; required); ratePer1kCents (integer, required); minViewsToEarn (integer, required); maxPayoutPerClipCents (integer); budgetCents (integer, required)
+            economics: Object with keys: type (one of: cpm; required); metric (one of: views, engagements) - What the rate pays on. `engagements` counts the `engagementTypes` as each platform reports them, and `minViewsToEarn` then applies to engagements. Fixed once ...; engagementTypes (list of string) - With `metric: engagements`, the engagements that count. Missing means all four, and sending it on a views campaign answers 400. YouTube reports likes and ...; organicViewsOnly (boolean) - Count only organic views: views from ads the creator ran do not earn. Every campaign platform must be YouTube or X, which report ad views per post, or the ...; ratePer1kCents (integer, required); minViewsToEarn (integer, required) - The count a post must reach before it earns, in the campaign metric (views or engagements).; maxPayoutPerClipCents (integer); budgetCents (integer, required)
             caps: Object with keys: maxParticipants (integer) - Invites and joins past this count answer 403.; maxSubmissionsPerParticipantPerDay (integer) - Posts one participant can submit to this campaign per UTC day, counting every submission whatever its status. The next submit that day answers 409 ...; maxAccountsPerParticipant (integer) - Accounts a participant can use in this campaign. Connecting a new account past it answers 400; only the first accounts connected, up to this count, can submit ...; maxXReadSpendCents (integer) - X campaigns only: what tracking X posts may cost in X reads, in cents. Unset means 5000 ($50). X bills one read per tracked post per UTC day, and you pay it ...; authenticityThreshold (number, required) - A submission whose authenticity score falls below this is flagged `low_authenticity`. It is never rejected automatically. Defaults to 40 on create.
             branding"""
         client = _get_client()
@@ -27915,7 +28183,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -27948,7 +28216,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -27974,7 +28242,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -27999,7 +28267,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -28027,7 +28295,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -28067,7 +28335,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -28099,7 +28367,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -28126,7 +28394,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -28153,7 +28421,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -28180,7 +28448,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -28209,7 +28477,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -28241,7 +28509,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -28294,7 +28562,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -28340,7 +28608,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -28367,7 +28635,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -28393,7 +28661,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -28427,6 +28695,8 @@ def register_generated_tools(mcp, _get_client):
             "account_restricted",
             "low_authenticity",
             "x_read_cap",
+            "paid_views",
+            "organic_unverified",
         ]
         | None = None,
         platform: Literal[
@@ -28443,7 +28713,11 @@ def register_generated_tools(mcp, _get_client):
         max_score: int | None = None,
         q: str | None = None,
         sort: Literal[
-            "submittedAt", "viewsEligible", "earnedCents", "authenticityScore"
+            "submittedAt",
+            "viewsEligible",
+            "engagementsLatest",
+            "earnedCents",
+            "authenticityScore",
         ] = "submittedAt",
         order: Literal["asc", "desc"] = "desc",
         limit: int = 50,
@@ -28486,7 +28760,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -28513,7 +28787,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -28553,7 +28827,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -28583,7 +28857,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -28621,7 +28895,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -28646,7 +28920,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -28680,7 +28954,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -28738,7 +29012,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -28763,7 +29037,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # CREATOR_PORTAL
 
@@ -28796,7 +29070,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -28822,7 +29096,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.creator_portal.get_creator_portal()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -28854,7 +29128,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -28878,7 +29152,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.creator_portal.start_creator_connect(platform=platform)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -28902,7 +29176,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.creator_portal.submit_creator_post(url=url)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -28927,7 +29201,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.creator_portal.get_creator_payouts(limit=limit, skip=skip)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -28957,7 +29231,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -28978,7 +29252,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.creator_portal.create_creator_payout_login()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -29001,7 +29275,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.creator_portal.get_creator_payout_statement()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # CUSTOM_FIELDS
 
@@ -29031,7 +29305,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -29056,7 +29330,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -29078,7 +29352,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.custom_fields.list_custom_fields(profile_id=profile_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -29112,7 +29386,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -29140,7 +29414,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -29162,7 +29436,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.custom_fields.delete_custom_field(field_id=field_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # DISCORD
 
@@ -29186,7 +29460,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.discord.get_discord_settings(account_id=account_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -29225,7 +29499,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -29247,7 +29521,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.discord.get_discord_channels(account_id=account_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -29302,7 +29576,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -29335,7 +29609,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -29387,7 +29661,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -29438,7 +29712,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -29470,7 +29744,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -29505,7 +29779,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -29538,7 +29812,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -29569,7 +29843,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -29609,7 +29883,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -29644,7 +29918,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -29679,7 +29953,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -29712,7 +29986,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -29754,7 +30028,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -29784,7 +30058,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -29820,7 +30094,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -29849,7 +30123,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -29884,7 +30158,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -29939,7 +30213,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -29965,7 +30239,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -30023,7 +30297,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -30052,7 +30326,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # EMAIL
 
@@ -30132,7 +30406,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -30155,7 +30429,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -30193,7 +30467,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -30273,7 +30547,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -30358,7 +30632,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -30391,7 +30665,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -30429,7 +30703,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -30452,7 +30726,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -30529,7 +30803,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -30551,7 +30825,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.email.list_email_folders(account_id=account_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -30581,7 +30855,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # FEEDBACK
 
@@ -30640,7 +30914,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # FILES
 
@@ -30686,7 +30960,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -30732,7 +31006,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -30758,7 +31032,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -30816,7 +31090,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -30839,7 +31113,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.files.get_file(file_id=file_id, account_id=account_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -30871,7 +31145,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -30894,7 +31168,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.files.trash_file(file_id=file_id, account_id=account_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -30919,7 +31193,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -30944,7 +31218,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # GMB_SERVICES
 
@@ -30974,7 +31248,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -31008,7 +31282,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # GMB_VERIFICATIONS
 
@@ -31037,7 +31311,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -31086,7 +31360,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -31123,7 +31397,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -31155,7 +31429,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # IMESSAGE
 
@@ -31176,7 +31450,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.imessage.list_imessage_senders()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -31222,7 +31496,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -31246,7 +31520,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -31318,7 +31592,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -31340,7 +31614,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.imessage.get_imessage_sender(sender_id=sender_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -31370,7 +31644,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -31396,7 +31670,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.imessage.cancel_imessage_sender(sender_id=sender_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -31434,7 +31708,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -31464,7 +31738,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.imessage.list_imessage_sandbox_contacts()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -31486,7 +31760,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.imessage.add_imessage_sandbox_contact(handle=handle)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -31510,7 +31784,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -31540,7 +31814,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -31589,7 +31863,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -31622,7 +31896,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.imessage.list_imessage_available_numbers(region=region)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -31646,7 +31920,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -31691,7 +31965,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -31716,7 +31990,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -31751,7 +32025,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -31779,7 +32053,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -31807,7 +32081,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # INBOX_ANALYTICS
 
@@ -31853,7 +32127,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -31902,7 +32176,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -31944,7 +32218,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -31992,7 +32266,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -32036,7 +32310,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -32106,7 +32380,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -32144,7 +32418,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # INSTAGRAM
 
@@ -32176,7 +32450,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.instagram.list_instagram_stories(account_id=account_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -32206,7 +32480,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -32248,7 +32522,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -32278,7 +32552,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -32320,7 +32594,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -32359,7 +32633,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -32391,7 +32665,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.instagram.list_instagram_live_media(account_id=account_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -32431,7 +32705,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -32465,7 +32739,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -32500,7 +32774,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -32540,7 +32814,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # INVITES
 
@@ -32605,7 +32879,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # LEAD_GEN
 
@@ -32677,7 +32951,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -32708,7 +32982,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -32752,7 +33026,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -32794,7 +33068,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -32879,7 +33153,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -32918,7 +33192,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -32950,7 +33224,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -33007,7 +33281,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -33039,7 +33313,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -33074,7 +33348,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # LEDGER
 
@@ -33109,7 +33383,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -33175,7 +33449,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # LOGS
 
@@ -33280,7 +33554,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # MEDIA
 
@@ -33335,7 +33609,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -33390,7 +33664,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.media.prepare_media(url=url, target=target)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # MENTIONS
 
@@ -33450,7 +33724,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -33494,7 +33768,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # MESSAGES
 
@@ -33576,7 +33850,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -33688,7 +33962,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -33760,7 +34034,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -33785,7 +34059,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -33813,7 +34087,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -33854,7 +34128,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -33913,7 +34187,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -34075,7 +34349,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -34116,7 +34390,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -34153,7 +34427,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -34193,7 +34467,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -34244,7 +34518,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -34278,7 +34552,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -34300,7 +34574,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.messages.list_inbox_labels(account_id=account_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -34325,7 +34599,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -34350,7 +34624,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -34375,7 +34649,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -34405,7 +34679,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -34435,7 +34709,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -34475,7 +34749,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -34516,7 +34790,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -34555,7 +34829,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -34586,7 +34860,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.messages.upload_media_direct()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -34643,7 +34917,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # MESSAGING_ADS
 
@@ -35091,7 +35365,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -35509,7 +35783,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -35917,7 +36191,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # PHONE_NUMBERS
 
@@ -35964,7 +36238,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -35993,7 +36267,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.phone_numbers.get_phone_number(id=id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -36019,7 +36293,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.phone_numbers.release_phone_number(id=id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -36105,7 +36379,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -36131,7 +36405,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.phone_numbers.get_phone_number_claim(claim_id=claim_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -36161,7 +36435,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.phone_numbers.list_phone_number_countries()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -36227,7 +36501,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -36267,7 +36541,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -36297,7 +36571,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -36391,7 +36665,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -36419,7 +36693,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -36452,7 +36726,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -36499,7 +36773,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -36557,7 +36831,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -36623,7 +36897,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -36643,7 +36917,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.phone_numbers.list_phone_number_port_ins()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -36690,7 +36964,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -36717,7 +36991,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -36746,7 +37020,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.phone_numbers.upload_phone_number_port_in_document()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -36782,7 +37056,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -36810,7 +37084,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -36836,7 +37110,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.phone_numbers.cancel_phone_number_port_in(id=id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -36878,7 +37152,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -36904,7 +37178,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.phone_numbers.get_phone_number_remediation(id=id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -36940,7 +37214,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -36977,7 +37251,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -37029,7 +37303,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -37070,7 +37344,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -37087,7 +37361,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.phone_numbers.list_phone_number_stock_watches()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -37107,7 +37381,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.phone_numbers.delete_phone_number_stock_watch(id=id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -37143,7 +37417,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # POSTS
 
@@ -37258,7 +37532,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -37380,7 +37654,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -37402,7 +37676,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.posts.get_post(post_id=post_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -37501,7 +37775,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -37547,7 +37821,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.posts.delete_post(post_id=post_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -37591,7 +37865,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.posts.bulk_upload_posts(dry_run=dry_run)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -37617,7 +37891,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.posts.review_post(post_id=post_id, decision=decision)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -37659,7 +37933,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -37687,7 +37961,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -37715,7 +37989,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -37782,7 +38056,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -37855,7 +38129,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # PRODUCT_CATALOGS
 
@@ -37911,7 +38185,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -37974,7 +38248,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -38006,7 +38280,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -38040,7 +38314,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -38085,7 +38359,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -38124,7 +38398,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -38163,7 +38437,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -38200,7 +38474,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -38237,7 +38511,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -38279,7 +38553,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -38316,7 +38590,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -38348,7 +38622,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -38390,7 +38664,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -38427,7 +38701,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -38469,7 +38743,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -38503,7 +38777,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -38545,7 +38819,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -38588,7 +38862,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -38625,7 +38899,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # PRODUCTS
 
@@ -38678,7 +38952,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -38710,7 +38984,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -38788,7 +39062,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # PROFILES
 
@@ -38828,7 +39102,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -38875,7 +39149,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -38897,7 +39171,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.profiles.get_profile(profile_id=profile_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -38941,7 +39215,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -38963,7 +39237,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.profiles.delete_profile(profile_id=profile_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # QUEUE
 
@@ -38995,7 +39269,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -39034,7 +39308,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -39081,7 +39355,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -39108,7 +39382,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -39136,7 +39410,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -39161,7 +39435,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # RCS
 
@@ -39182,7 +39456,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.rcs.list_rcs_brands()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -39202,7 +39476,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.rcs.list_rcs_agents(include_closed=include_closed)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -39251,7 +39525,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -39271,7 +39545,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.rcs.get_rcs_agent(agent_id=agent_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -39315,7 +39589,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -39337,7 +39611,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.rcs.deactivate_rcs_agent(agent_id=agent_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -39389,7 +39663,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -39409,7 +39683,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.rcs.list_rcs_test_devices(agent_id=agent_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -39436,7 +39710,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -39459,7 +39733,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -39480,7 +39754,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.rcs.upload_rcs_asset()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -39536,7 +39810,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -39561,7 +39835,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # REACH_AND_FREQUENCY
 
@@ -39639,7 +39913,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -39671,7 +39945,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -39705,7 +39979,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -39741,7 +40015,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # REDDIT
 
@@ -39789,7 +40063,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -39832,7 +40106,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -39886,7 +40160,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # REVIEWS
 
@@ -39944,7 +40218,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -39988,7 +40262,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -40013,7 +40287,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # SEQUENCES
 
@@ -40047,7 +40321,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -40103,7 +40377,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -40125,7 +40399,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.sequences.get_sequence(sequence_id=sequence_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -40166,7 +40440,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -40188,7 +40462,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.sequences.delete_sequence(sequence_id=sequence_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -40210,7 +40484,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.sequences.activate_sequence(sequence_id=sequence_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -40232,7 +40506,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.sequences.pause_sequence(sequence_id=sequence_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -40264,7 +40538,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -40289,7 +40563,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -40321,7 +40595,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # SLACK
 
@@ -40351,7 +40625,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # SMS
 
@@ -40406,7 +40680,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -40432,7 +40706,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.sms.lookup_sms_number(number=number)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -40460,7 +40734,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.sms.list_sms_opt_outs(format=format, limit=limit)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -40495,7 +40769,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.sms.create_sms_sender_id(sender_id=sender_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -40512,7 +40786,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.sms.list_sms_sender_ids()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -40541,7 +40815,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -40564,7 +40838,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.sms.delete_sms_sender_id(id=id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -40621,7 +40895,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -40643,7 +40917,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -40689,7 +40963,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -40714,7 +40988,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.sms.deactivate_sms_registration(id=id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -40736,7 +41010,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.sms.get_sms_registration(id=id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -40761,7 +41035,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.sms.verify_sms_registration_otp(id=id, otp_pin=otp_pin)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -40786,7 +41060,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.sms.resend_sms_registration_otp(id=id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -40834,7 +41108,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -40877,7 +41151,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -40900,7 +41174,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.sms.upload_sms_opt_in_proof_file()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -40926,7 +41200,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.sms.upload_sms_opt_in_proof(id=id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -40951,7 +41225,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.sms.share_sms_registration(number_id=number_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -40988,7 +41262,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.sms.enable_sms_on_number(id=id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -41012,7 +41286,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.sms.disable_sms_on_number(id=id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -41038,7 +41312,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.sms.reuse_sms_registration_for_number(id=id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # SUPPORT_ASSISTANT
 
@@ -41073,7 +41347,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -41099,7 +41373,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.support_assistant.get_support_answer(run_id=run_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # TOOLS
 
@@ -41133,7 +41407,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # TRACKING_TAGS
 
@@ -41170,7 +41444,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.tracking_tags.get_ad_tracking_tags(ad_id=ad_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -41232,7 +41506,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -41275,7 +41549,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -41368,7 +41642,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -41420,7 +41694,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -41518,7 +41792,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -41556,7 +41830,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -41603,7 +41877,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -41643,7 +41917,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -41710,7 +41984,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -41763,7 +42037,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -41812,7 +42086,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -41866,7 +42140,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -41948,7 +42222,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -42040,7 +42314,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -42090,7 +42364,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -42125,7 +42399,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -42163,7 +42437,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -42195,7 +42469,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -42229,7 +42503,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -42261,7 +42535,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -42344,7 +42618,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # TREASURY
 
@@ -42378,7 +42652,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.treasury.get_balance()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -42421,7 +42695,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -42442,7 +42716,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.treasury.list_topups(limit=limit, skip=skip)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -42464,7 +42738,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.treasury.get_topup_receipt(topup_id=topup_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -42492,7 +42766,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.treasury.confirm_topup(topup_id=topup_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -42520,7 +42794,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.treasury.cancel_topup(topup_id=topup_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -42539,7 +42813,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.treasury.list_payees()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -42561,7 +42835,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.treasury.create_payee_onboarding_link(payee_id=payee_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -42608,7 +42882,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -42629,7 +42903,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.treasury.list_transfers(limit=limit, skip=skip)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -42649,7 +42923,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.treasury.get_transfer(transfer_id=transfer_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -42671,7 +42945,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.treasury.get_payout_batch(batch_id=batch_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -42699,7 +42973,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.treasury.confirm_payout_batch(batch_id=batch_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -42726,7 +43000,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.treasury.cancel_payout_batch(batch_id=batch_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # TWITTER_ENGAGEMENT
 
@@ -42754,7 +43028,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -42779,7 +43053,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -42806,7 +43080,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -42831,7 +43105,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -42858,7 +43132,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -42883,7 +43157,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -42947,7 +43221,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -42982,7 +43256,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # USAGE
 
@@ -43011,7 +43285,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.usage.get_billing()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -43039,7 +43313,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.usage.get_x_api_pricing()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -43111,7 +43385,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -43153,7 +43427,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.usage.get_usage_stats(reconcile=reconcile)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -43202,7 +43476,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -43240,7 +43514,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # USERS
 
@@ -43261,7 +43535,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.users.list_users()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -43283,7 +43557,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.users.get_user(user_id=user_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # VALIDATE
 
@@ -43327,7 +43601,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.validate.validate_post_length(text=text)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -43361,7 +43635,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -43387,7 +43661,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.validate.validate_media(url=url)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -43416,7 +43690,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # VERIFY
 
@@ -43472,7 +43746,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -43496,7 +43770,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.verify.get_verification(verification_id=verification_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -43526,7 +43800,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # VOICE
 
@@ -43593,7 +43867,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -43634,7 +43908,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -43656,7 +43930,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.voice.get_voice_call(id=id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -43691,7 +43965,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.voice.end_voice_call(id=id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -43719,7 +43993,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.voice.get_voice_call_recording(id=id, as_=as_)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -43744,7 +44018,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.voice.transfer_voice_call(id=id, to=to)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -43786,7 +44060,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -43810,7 +44084,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.voice.create_voice_web_session()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -43853,7 +44127,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -43932,7 +44206,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -43955,7 +44229,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.voice.disable_voice_on_number(id=id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -43997,7 +44271,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -44014,7 +44288,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.voice.list_sip_trunks()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -44034,7 +44308,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.voice.get_sip_trunk(id=id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -44057,7 +44331,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.voice.delete_sip_trunk(id=id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -44080,7 +44354,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.voice.rotate_sip_trunk_credentials(id=id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -44107,7 +44381,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.voice.attach_number_to_sip_trunk(id=id, trunk_id=trunk_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -44130,7 +44404,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.voice.detach_number_from_sip_trunk(id=id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # WEBHOOKS
 
@@ -44151,7 +44425,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.webhooks.get_webhook_settings()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -44355,7 +44629,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -44580,7 +44854,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -44607,7 +44881,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -44663,7 +44937,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -44700,7 +44974,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -44860,7 +45134,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.webhooks.test_webhook(webhook_id=webhook_id, event=event)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # WHATSAPP
 
@@ -44895,7 +45169,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -44929,7 +45203,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -44956,7 +45230,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -44993,7 +45267,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -45036,7 +45310,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -45108,7 +45382,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -45147,7 +45421,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -45208,7 +45482,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -45241,7 +45515,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -45267,7 +45541,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -45324,7 +45598,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -45352,7 +45626,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -45385,7 +45659,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -45415,7 +45689,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -45443,7 +45717,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -45470,7 +45744,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -45503,7 +45777,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -45527,7 +45801,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -45562,7 +45836,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -45586,7 +45860,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -45610,7 +45884,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -45658,7 +45932,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -45690,7 +45964,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -45713,7 +45987,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.whatsapp.get_whats_app_display_name(account_id=account_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -45742,7 +46016,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -45769,7 +46043,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -45825,7 +46099,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -45850,7 +46124,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -45875,7 +46149,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -45904,7 +46178,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -45934,7 +46208,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -45967,7 +46241,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -45996,7 +46270,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -46028,7 +46302,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -46054,7 +46328,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.whatsapp.get_whats_app_dataset(account_id=account_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -46087,7 +46361,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.whatsapp.create_whats_app_dataset(account_id=account_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -46118,7 +46392,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -46155,7 +46429,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -46183,7 +46457,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -46223,7 +46497,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -46250,7 +46524,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -46280,7 +46554,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -46310,7 +46584,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -46339,7 +46613,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -46368,7 +46642,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -46398,7 +46672,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -46428,7 +46702,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -46467,7 +46741,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -46587,7 +46861,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # WHATSAPP_CALLING
 
@@ -46621,7 +46895,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -46677,7 +46951,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -46734,7 +47008,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -46766,7 +47040,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -46796,7 +47070,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -46857,7 +47131,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -46907,7 +47181,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -46930,7 +47204,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -46963,7 +47237,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -46997,7 +47271,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -47023,7 +47297,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.whatsapp_calling.get_whats_app_calling(id=id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -47076,7 +47350,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -47130,7 +47404,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -47157,7 +47431,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -47188,7 +47462,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -47215,7 +47489,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # WHATSAPP_FLOWS
 
@@ -47239,7 +47513,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.whatsapp_flows.list_whats_app_flows(account_id=account_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -47293,7 +47567,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -47321,7 +47595,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -47371,7 +47645,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -47396,7 +47670,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -47421,7 +47695,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -47453,7 +47727,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -47483,7 +47757,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -47512,7 +47786,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -47539,7 +47813,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -47565,7 +47839,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -47598,7 +47872,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -47628,7 +47902,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -47686,7 +47960,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -47718,7 +47992,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # WHATSAPP_PHONE_NUMBERS
 
@@ -47766,7 +48040,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -47823,7 +48097,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -47871,7 +48145,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -47924,7 +48198,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -47949,7 +48223,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.whatsapp_phone_numbers.list_whats_app_number_countries()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -48001,7 +48275,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -48041,7 +48315,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -48073,7 +48347,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -48170,7 +48444,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -48209,7 +48483,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -48259,7 +48533,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -48315,7 +48589,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -48359,7 +48633,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -48389,7 +48663,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -48428,7 +48702,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -48461,7 +48735,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -48494,7 +48768,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # WHATSAPP_SANDBOX
 
@@ -48518,7 +48792,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.whatsapp_sandbox.list_whats_app_sandbox_sessions()
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -48555,7 +48829,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -48585,7 +48859,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # WHATSAPP_TEMPLATES
 
@@ -48617,7 +48891,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     # WORKFLOWS
 
@@ -48651,7 +48925,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -48707,7 +48981,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -48729,7 +49003,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.workflows.get_workflow(workflow_id=workflow_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -48790,7 +49064,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -48812,7 +49086,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.workflows.delete_workflow(workflow_id=workflow_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -48834,7 +49108,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.workflows.activate_workflow(workflow_id=workflow_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -48856,7 +49130,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.workflows.pause_workflow(workflow_id=workflow_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -48889,7 +49163,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -48924,7 +49198,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -48970,7 +49244,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -48997,7 +49271,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -49019,7 +49293,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.workflows.duplicate_workflow(workflow_id=workflow_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -49041,7 +49315,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.workflows.list_workflow_versions(workflow_id=workflow_id)
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -49066,7 +49340,7 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -49095,4 +49369,4 @@ def register_generated_tools(mcp, _get_client):
             )
             return _format_response(response)
         except Exception as e:
-            return f"Error: {e}"
+            raise ToolError(f"Error: {e}") from e

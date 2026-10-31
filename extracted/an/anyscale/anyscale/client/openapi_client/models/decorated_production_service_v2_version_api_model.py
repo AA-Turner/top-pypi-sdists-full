@@ -48,7 +48,8 @@ class DecoratedProductionServiceV2VersionAPIModel(object):
         'connection_ids': 'list[str]',
         'current_state': 'ServiceVersionState',
         'global_target_capacity': 'float',
-        'placements': 'list[ServiceVersionPlacement]'
+        'placements': 'list[ServiceVersionPlacement]',
+        'traffic_policy': 'TrafficPolicy'
     }
 
     attribute_map = {
@@ -67,10 +68,11 @@ class DecoratedProductionServiceV2VersionAPIModel(object):
         'connection_ids': 'connection_ids',
         'current_state': 'current_state',
         'global_target_capacity': 'global_target_capacity',
-        'placements': 'placements'
+        'placements': 'placements',
+        'traffic_policy': 'traffic_policy'
     }
 
-    def __init__(self, id=None, created_at=None, weight=None, current_weight=None, target_weight=None, version=None, ray_serve_config=None, ray_gcs_external_storage_config=None, tracing_config=None, build_id=None, compute_config_id=None, production_job_ids=None, connection_ids=None, current_state=None, global_target_capacity=None, placements=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, created_at=None, weight=None, current_weight=None, target_weight=None, version=None, ray_serve_config=None, ray_gcs_external_storage_config=None, tracing_config=None, build_id=None, compute_config_id=None, production_job_ids=None, connection_ids=None, current_state=None, global_target_capacity=None, placements=None, traffic_policy=None, local_vars_configuration=None):  # noqa: E501
         """DecoratedProductionServiceV2VersionAPIModel - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -92,6 +94,7 @@ class DecoratedProductionServiceV2VersionAPIModel(object):
         self._current_state = None
         self._global_target_capacity = None
         self._placements = None
+        self._traffic_policy = None
         self.discriminator = None
 
         self.id = id
@@ -117,6 +120,7 @@ class DecoratedProductionServiceV2VersionAPIModel(object):
             self.global_target_capacity = global_target_capacity
         if placements is not None:
             self.placements = placements
+        self.traffic_policy = traffic_policy
 
     @property
     def id(self):
@@ -501,6 +505,29 @@ class DecoratedProductionServiceV2VersionAPIModel(object):
         """
 
         self._placements = placements
+
+    @property
+    def traffic_policy(self):
+        """Gets the traffic_policy of this DecoratedProductionServiceV2VersionAPIModel.  # noqa: E501
+
+        How the service version splits its traffic and capacity across the cloud resources it runs on. Null splits evenly.  # noqa: E501
+
+        :return: The traffic_policy of this DecoratedProductionServiceV2VersionAPIModel.  # noqa: E501
+        :rtype: TrafficPolicy
+        """
+        return self._traffic_policy
+
+    @traffic_policy.setter
+    def traffic_policy(self, traffic_policy):
+        """Sets the traffic_policy of this DecoratedProductionServiceV2VersionAPIModel.
+
+        How the service version splits its traffic and capacity across the cloud resources it runs on. Null splits evenly.  # noqa: E501
+
+        :param traffic_policy: The traffic_policy of this DecoratedProductionServiceV2VersionAPIModel.  # noqa: E501
+        :type: TrafficPolicy
+        """
+
+        self._traffic_policy = traffic_policy
 
     def to_dict(self):
         """Returns the model properties as a dict"""

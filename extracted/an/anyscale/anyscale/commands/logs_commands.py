@@ -195,6 +195,7 @@ def execute_anyscale_logs_cluster(  # noqa: PLR0913
     download_dir: Optional[str],
     parallelism: int,
     resource_id: Optional[str] = None,
+    is_kuberay: bool = False,
 ):
 
     node_type: Optional[NodeType] = None
@@ -224,6 +225,7 @@ def execute_anyscale_logs_cluster(  # noqa: PLR0913
             parallelism=parallelism,
             unpack=unpack,
             resource_id=resource_id,
+            is_kuberay=is_kuberay,
         )
 
     else:
@@ -234,6 +236,7 @@ def execute_anyscale_logs_cluster(  # noqa: PLR0913
             page_size=DEFAULT_PAGE_SIZE,
             timeout=timedelta(seconds=DEFAULT_TIMEOUT),
             ttl_seconds=ttl,
+            is_kuberay=is_kuberay,
         )
         if len(log_group.get_files()) == 0:
             console.print("No results found.")
@@ -531,10 +534,15 @@ def anyscale_logs_workspace(  # noqa: PLR0913
     parallelism: int,
 ) -> None:
     logs_controller = LogsController()
-    cluster_id = logs_controller.get_cluster_id_for_workspace(workspace_id=id)
+    workspace = logs_controller.get_workspace_for_logs(workspace_id=id)
+    is_kuberay = bool(workspace.kuberay_cr_id)
+    if is_kuberay:
+        # The shared path warns off a session lookup a KubeRay workspace has no row for;
+        # the workspace record carries the same state.
+        logs_controller.warn_if_cluster_running(workspace.state)
     execute_anyscale_logs_cluster(
         logs_controller=logs_controller,
-        cluster_id=cluster_id,
+        cluster_id=workspace.cluster_id,
         download=download,
         tail=tail,
         glob=glob,
@@ -547,6 +555,7 @@ def anyscale_logs_workspace(  # noqa: PLR0913
         download_dir=download_dir,
         parallelism=parallelism,
         resource_id=id if download else None,
+        is_kuberay=is_kuberay,
     )
 
 

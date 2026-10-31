@@ -10,6 +10,16 @@ project('pyamg', 'cpp',
 
 add_global_arguments('-ftemplate-depth=2048', language: 'cpp')
 
+# MSVC (as in matplotlib): with b_vscrt=mt (see pyproject.toml), a static C++
+# library (no MSVCP140.dll), but the shared UCRT and VCRUNTIME140.dll that ship
+# with Python
+if meson.get_compiler('cpp').get_id() == 'msvc'
+  add_project_link_arguments(['ucrt.lib', 'vcruntime.lib',
+                              '/nodefaultlib:libucrt.lib',
+                              '/nodefaultlib:libvcruntime.lib'],
+                             language: 'cpp')
+endif
+
 amg_core_headers = ['air',
                     'evolution_strength',
                     'graph',

@@ -47,7 +47,7 @@ class CreateResponseV2RequestParams(typing_extensions.TypedDict):
 
     reasoning: typing_extensions.NotRequired[ResponseReasoningParams]
     """
-    Optional reasoning config for `glm5.3` and `deepseekv4.1-flash`. On `glm5.3`, a reasoning item is always in `output` — read `summary[0].text`. **`effort`:** on `glm5.3`, `low` or `high` only — omit for `max`-level reasoning (the literal string `max` returns `400`); on `deepseekv4.1-flash`, `low`, `high`, or `max` all work directly. Optional **`summary`:** `auto` or `detailed`.
+    Optional reasoning config for `glm5.3`, `glm5.3-flash`, `gemma4`, `deepseekv4.1-flash-1017`, `deepseekv4-pro`, `kimi-k3`, `mimo-v2.6-flash`, `mimo-v2.6-pro`. **`effort`:** on `glm5.3` and `glm5.3-flash`, `low` or `high` only (the literal string `max` returns `400`; omitting it gives `max` on `glm5.3` and `high` on `glm5.3-flash`); on `deepseekv4.1-flash-1017`, `deepseekv4-pro`, `kimi-k3`, `mimo-v2.6-flash`, and `mimo-v2.6-pro`, `low`, `high`, or `max` all work directly. The trace is in the reasoning item's `content[0].text`; `summary` is filled only when `summary` is set. Optional **`summary`:** `auto` or `detailed`.
     """
 
     extra_body: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]
@@ -67,7 +67,7 @@ class CreateResponseV2RequestParams(typing_extensions.TypedDict):
 
     top_k: typing_extensions.NotRequired[int]
     """
-    Top-k sampling on `glm5.3`. Omit or use **`-1`** to disable; values **`≥ 1`** enable top-k. **`0`** is rejected.
+    Not supported on the Responses route for `glm5.3`; any value returns **`400`**.
     """
 
     frequency_penalty: typing_extensions.NotRequired[float]
@@ -82,12 +82,12 @@ class CreateResponseV2RequestParams(typing_extensions.TypedDict):
 
     text: typing_extensions.NotRequired[ResponseTextConfigParams]
     """
-    Output format. If you send `text`, `format` is required (`400` when missing). `json_object` and strict `json_schema` are honoured on `glm5.3` and skip the reasoning item.
+    Output format, set in `format` (`text`, `json_object`, or `json_schema`).
     """
 
     parallel_tool_calls: typing_extensions.NotRequired[bool]
     """
-    Not currently enforced on this route for any model that supports tool calling here (`glm5.3`, `gemma4`, `deepseekv4.1-flash`). Setting **`false`** is accepted without error, but the model may still return multiple tool calls in one turn.
+    **`false`** limits a turn to a single tool call on every open-weight model. `sarvam-105b` ignores it on this route.
     """
 
     n: typing_extensions.NotRequired[int]

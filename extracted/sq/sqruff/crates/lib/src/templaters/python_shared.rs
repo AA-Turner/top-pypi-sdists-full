@@ -20,6 +20,12 @@ pub struct PythonFluffConfig {
     jinja_apply_dbt_builtins: bool,
     jinja_ignore_templating: Option<bool>,
     jinja_library_paths: Vec<String>,
+    jinja_variable_start_string: Option<String>,
+    jinja_variable_end_string: Option<String>,
+    jinja_block_start_string: Option<String>,
+    jinja_block_end_string: Option<String>,
+    jinja_comment_start_string: Option<String>,
+    jinja_comment_end_string: Option<String>,
 
     dbt_profile: Option<String>,
     dbt_profiles_dir: Option<String>,
@@ -129,6 +135,34 @@ impl From<&FluffConfig> for PythonFluffConfig {
                     })
                     .unwrap_or_default(),
             },
+            // Optional Jinja delimiter overrides. Any that aren't set fall
+            // back to Jinja's defaults ({{ }} for variables, {% %} for
+            // blocks, {# #} for comments) on the Python side.
+            // Ported from SQLFluff #8277.
+            jinja_variable_start_string: value
+                .templater_value(TemplaterKind::Jinja, "variable_start_string")
+                .and_then(Value::as_string)
+                .map(ToString::to_string),
+            jinja_variable_end_string: value
+                .templater_value(TemplaterKind::Jinja, "variable_end_string")
+                .and_then(Value::as_string)
+                .map(ToString::to_string),
+            jinja_block_start_string: value
+                .templater_value(TemplaterKind::Jinja, "block_start_string")
+                .and_then(Value::as_string)
+                .map(ToString::to_string),
+            jinja_block_end_string: value
+                .templater_value(TemplaterKind::Jinja, "block_end_string")
+                .and_then(Value::as_string)
+                .map(ToString::to_string),
+            jinja_comment_start_string: value
+                .templater_value(TemplaterKind::Jinja, "comment_start_string")
+                .and_then(Value::as_string)
+                .map(ToString::to_string),
+            jinja_comment_end_string: value
+                .templater_value(TemplaterKind::Jinja, "comment_end_string")
+                .and_then(Value::as_string)
+                .map(ToString::to_string),
             dbt_profile: None,
             dbt_profiles_dir: value
                 .templater_value(TemplaterKind::Dbt, "profiles_dir")
@@ -246,6 +280,75 @@ mod tests {
     }
 
     #[test]
+    fn test_toml_ini_nested_context_rendering_equivalence() {
+        use crate::core::linter::core::Linter;
+        use std::path::Path;
+
+        let bundle_literal = "{'safe_name': 'test_metric', 'base_sql': 'select 1', 'join_key': 'user_id', 'selected_metrics': [{'name': 'logged_days', 'definition': 'COUNT(*)'}]}";
+        let expected_bundle: Value = serde_json::from_value(serde_json::json!({
+            "safe_name": "test_metric",
+            "base_sql": "select 1",
+            "join_key": "user_id",
+            "selected_metrics": [{"name": "logged_days", "definition": "COUNT(*)"}]
+        }))
+        .unwrap();
+
+        for (name, kind, class_name, sql) in [
+            (
+                "jinja",
+                TemplaterKind::Jinja,
+                "JinjaTemplater",
+                "SELECT {% for m in bundle.selected_metrics %}{{ m.definition }} AS {{ m.name }}{% endfor %}",
+            ),
+            (
+                "python",
+                TemplaterKind::Python,
+                "PythonTemplater",
+                "SELECT {bundle[selected_metrics][0][definition]} AS {bundle[selected_metrics][0][name]}",
+            ),
+        ] {
+            let ini = format!(
+                "[sqruff]\ntemplater = {name}\ndialect = snowflake\n[sqruff:templater:{name}:context]\nbundle = {bundle_literal}\n"
+            );
+            let toml = format!(
+                "[tool.sqlfluff.core]\ntemplater = '{name}'\ndialect = 'snowflake'\n[tool.sqlfluff.templater.{name}.context]\nbundle = {{safe_name = 'test_metric', base_sql = 'select 1', join_key = 'user_id', selected_metrics = [{{name = 'logged_days', definition = 'COUNT(*)'}}]}}\n"
+            );
+
+            for (source, filename) in [(&ini, ".sqruff"), (&toml, "pyproject.toml")] {
+                let config = FluffConfig::from_source(source, Some(Path::new(filename)));
+                Python::attach(|py| {
+                    let module = py
+                        .import(format!("sqruff.templaters.{name}_templater"))
+                        .unwrap();
+                    let renderer = module.getattr(class_name).unwrap().call0().unwrap();
+                    let context = config.to_python_context(py, kind).unwrap();
+                    let context = renderer
+                        .call_method1("get_context", (py.None(), py.None(), context))
+                        .unwrap();
+                    let expected = config_value_to_python(py, &expected_bundle).unwrap();
+                    assert!(
+                        context.get_item("bundle").unwrap().eq(expected).unwrap(),
+                        "{name}: {filename}"
+                    );
+                });
+
+                let templater = Linter::get_templater(&config).unwrap();
+                let rendered = templater
+                    .process(&[(sql, "test.sql")], &config, &None)
+                    .into_iter()
+                    .next()
+                    .unwrap()
+                    .unwrap();
+                assert_eq!(
+                    rendered.templated(),
+                    "SELECT COUNT(*) AS logged_days",
+                    "{name}: {filename}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn test_fluff_base_config() {
         let config = FluffConfig::from_source("", None);
 
@@ -265,8 +368,49 @@ mod tests {
         assert!(python_fluff_config.jinja_loader_search_path.is_empty());
         assert!(python_fluff_config.jinja_apply_dbt_builtins);
         assert_eq!(python_fluff_config.jinja_ignore_templating, None);
+        assert_eq!(python_fluff_config.jinja_variable_start_string, None);
+        assert_eq!(python_fluff_config.jinja_variable_end_string, None);
+        assert_eq!(python_fluff_config.jinja_block_start_string, None);
+        assert_eq!(python_fluff_config.jinja_block_end_string, None);
+        assert_eq!(python_fluff_config.jinja_comment_start_string, None);
+        assert_eq!(python_fluff_config.jinja_comment_end_string, None);
         assert_eq!(python_fluff_config.dbt_threads, None);
         assert!(python_fluff_config.dbt_skip_compilation_error);
+    }
+
+    #[test]
+    fn test_jinja_custom_delimiters_are_serialized() {
+        let source = r"
+[sqruff]
+templater = jinja
+[sqruff:templater:jinja]
+variable_start_string = <%
+variable_end_string = %>
+block_start_string = <<
+block_end_string = >>
+";
+        let config = FluffConfig::from_source(source, None);
+        let python_fluff_config = PythonFluffConfig::from(config);
+
+        assert_eq!(
+            python_fluff_config.jinja_variable_start_string.as_deref(),
+            Some("<%")
+        );
+        assert_eq!(
+            python_fluff_config.jinja_variable_end_string.as_deref(),
+            Some("%>")
+        );
+        assert_eq!(
+            python_fluff_config.jinja_block_start_string.as_deref(),
+            Some("<<")
+        );
+        assert_eq!(
+            python_fluff_config.jinja_block_end_string.as_deref(),
+            Some(">>")
+        );
+        // Unset delimiters fall back to Jinja defaults on the Python side.
+        assert_eq!(python_fluff_config.jinja_comment_start_string, None);
+        assert_eq!(python_fluff_config.jinja_comment_end_string, None);
     }
 
     #[test]

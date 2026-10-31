@@ -110,13 +110,26 @@ def _project(payload: Any) -> Any:
     return {key: _project(inner) for key, inner in source.items()}
 
 
-def prompt_safe_value(value: Any, *, indent: int | None = None) -> str:
+def prompt_safe_value(
+    value: Any,
+    *,
+    indent: int | None = None,
+    ensure_ascii: bool = False,
+    separators: tuple[str, str] | None = None,
+) -> str:
     """Render one variable value as prompt-safe text. See module doc.
 
     ``indent`` only changes the WHITESPACE of a structured value's JSON (the
     mandate materializer passes ``2`` so a structured value it hands a prompt
     variable reads as a document). Stripping, projection, and scalars are
     identical either way.
+
+    ``ensure_ascii`` and ``separators`` are a structured value's DECLARED TEXT FORM (a typed
+    value that has always reached its prompt as ``json.dumps(value)`` — ASCII-escaped, ``", "``
+    and ``": "`` — or as a pydantic ``model_dump_json`` — compact, non-ASCII kept — declares it,
+    so typing it leaves the prompt byte-identical). They only change how the JSON is WRITTEN:
+    stripping, projection and scalars are identical. The defaults are the door's own form
+    (non-ASCII kept, ``json``'s default separators for ``indent``).
     """
     if value is None:
         return ""
@@ -132,9 +145,10 @@ def prompt_safe_value(value: Any, *, indent: int | None = None) -> str:
         try:
             return json.dumps(
                 strip_kind_markers(_project(_jsonable(value))),
-                ensure_ascii=False,
+                ensure_ascii=ensure_ascii,
                 default=str,
                 indent=indent,
+                separators=separators,
             )
         except (TypeError, ValueError):
             # Unserializable exotics: last-resort str(), which cannot carry a

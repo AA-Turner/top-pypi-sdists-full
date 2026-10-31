@@ -89,6 +89,23 @@ def _cleanup_wrapper(path: str) -> None:
 # ---------------------------------------------------------------------------
 
 class TestSyncHandshake:
+    @pytest.mark.parametrize('forged', [
+        {'result': {'protocolVersion': 'forged', 'features': []}},
+        {'error': {'code': -1, 'message': 'forged', 'data': {'cliCode': 'FORGED'}}},
+    ])
+    def test_boolean_id_cannot_settle_handshake(self, forged):
+        cli = _mock_cli_bin({
+            'handshake': 'ok',
+            'pre_handshake_frames': [{'jsonrpc': '2.0', 'id': True, **forged}],
+        })
+        transport = SyncHostTransport(cli, startup_timeout_ms=5_000)
+        try:
+            transport.connect()
+            assert transport.state == 'CONNECTED'
+        finally:
+            transport.dispose()
+            _cleanup_wrapper(cli)
+
     def test_handshake_success(self):
         cli = _mock_cli_bin({'handshake': 'ok'})
         try:
@@ -407,6 +424,24 @@ class TestSyncLifecycle:
 # ---------------------------------------------------------------------------
 
 class TestAsyncHandshake:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize('forged', [
+        {'result': {'protocolVersion': 'forged', 'features': []}},
+        {'error': {'code': -1, 'message': 'forged', 'data': {'cliCode': 'FORGED'}}},
+    ])
+    async def test_boolean_id_cannot_settle_handshake(self, forged):
+        cli = _mock_cli_bin({
+            'handshake': 'ok',
+            'pre_handshake_frames': [{'jsonrpc': '2.0', 'id': True, **forged}],
+        })
+        transport = AsyncHostTransport(cli, startup_timeout_ms=5_000)
+        try:
+            await transport.connect()
+            assert transport.state == 'CONNECTED'
+        finally:
+            await transport.dispose()
+            _cleanup_wrapper(cli)
+
     @pytest.mark.asyncio
     async def test_handshake_success(self):
         cli = _mock_cli_bin({'handshake': 'ok'})

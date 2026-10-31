@@ -26,7 +26,7 @@ def constrain_output(lattice, text):
     return kaldifst.compose(lattice, output)
 
 
-def project_output(lattice):
+def project_output(lattice, determinize=True):
     lines = []
     for state in kaldifst.StateIterator(lattice):
         for arc in kaldifst.ArcIterator(lattice, state):
@@ -46,7 +46,7 @@ def project_output(lattice):
         return kaldifst.StdVectorFst()
     projected = kaldifst.compile("\n".join(lines))
     kaldifst.rmepsilon(projected)
-    return kaldifst.determinize(projected)
+    return kaldifst.determinize(projected) if determinize else projected
 
 
 def linear_path(path):
@@ -60,8 +60,9 @@ def linear_path(path):
     )
 
 
-def shortest_unique_paths(lattice, n):
-    projected = project_output(lattice)
+def shortest_unique_paths(lattice, n, projected=None):
+    if projected is None:
+        projected = project_output(lattice)
     if projected.start == -1:
         return []
     # OpenFst/Pynini breaks equal-weight paths lexicographically, while
@@ -85,19 +86,35 @@ class WeightedOutput:
 
 
 class UniqueOutputPathStream:
-    def __init__(self, lattice):
+    def __init__(self, lattice, prefer_native=False, native_projection=False):
+        self.native_projection = native_projection
+        self.prefer_native = prefer_native
         self.lattice = lattice
         self.items = []
         self.yielded = set()
         self.next_rank = 0
         self.limit = 0
+        self.projected = None
         self.exhausted = False
 
     def _expand(self):
         if self.exhausted:
             return
+        if self.prefer_native and self.limit == 0 and self.lattice.start != -1:
+            # Preserve the native one-best tie choice before enumerating
+            # remaining unique outputs. Determinization can change meaningful
+            # equal-cost choices (Korean numbers, Chinese and English times).
+            # English TN selects its tie on the output projection, matching
+            # upstream punctuation spacing and its established n-best order.
+            graph = project_output(self.lattice, determinize=False) if self.native_projection else self.lattice
+            _, output, weight = linear_path(kaldifst.shortest_path(graph, 1))
+            self.items = [WeightedOutput(output, weight, -1)]
+            self.limit = 1
+            return
         limit = 1 if self.limit == 0 else self.limit * 2
-        paths = shortest_unique_paths(self.lattice, limit)
+        if self.projected is None:
+            self.projected = project_output(self.lattice)
+        paths = shortest_unique_paths(self.lattice, limit, projected=self.projected)
         self.items = [WeightedOutput(text, weight, -1) for text, weight in paths if text not in self.yielded]
         self.limit = limit
         if len(paths) < limit:

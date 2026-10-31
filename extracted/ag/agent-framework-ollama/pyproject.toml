@@ -3,14 +3,13 @@ name = "agent-framework-ollama"
 description = "Ollama integration for Microsoft Agent Framework."
 readme = "README.md"
 requires-python = ">=3.10"
-version = "1.0.0b261022"
+version = "1.0.0b261030"
 license-files = ["LICENSE"]
 classifiers = [
     "License :: OSI Approved :: MIT License",
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -20,7 +19,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "agent-framework-core>=1.22.0,<2",
+    "agent-framework-core>=1.24.0,<2",
     "ollama>=0.5.3,<0.5.4",
 ]
 
@@ -33,6 +32,9 @@ homepage = "https://learn.microsoft.com/en-us/agent-framework/"
 source = "https://github.com/microsoft/agent-framework/tree/main/python"
 release_notes = "https://github.com/microsoft/agent-framework/releases?q=tag%3Apython-1&expanded=true"
 issues = "https://github.com/microsoft/agent-framework/issues"
+
+[dependency-groups]
+test = ["openai>=2.25.0,<4"]
 
 [tool.uv]
 prerelease = "if-necessary"

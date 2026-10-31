@@ -347,6 +347,11 @@ class ProviderConfigId(enum.StrEnum):
     Microsoft Exchange Online
     """
 
+    EMAIL_SECURITY_IRONSCALES = "emailsecurity_ironscales"
+    """
+    Ironscales
+    """
+
     EMAIL_SECURITY_MIMECAST_CLOUD_GATEWAY = "emailsecurity_mimecast_cloud_gateway"
     """
     Mimecast Cloud Gateway
@@ -537,6 +542,11 @@ class ProviderConfigId(enum.StrEnum):
     KnowBe4 Security Awareness Training (KSAT)
     """
 
+    SIEM_AMAZON_SECURITY_LAKE = "siem_amazon_security_lake"
+    """
+    Amazon Security Lake
+    """
+
     SIEM_CROWDSTRIKE = "siem_crowdstrike"
     """
     CrowdStrike Falcon® Next-Gen SIEM
@@ -600,6 +610,11 @@ class ProviderConfigId(enum.StrEnum):
     SIEM_SUMO_LOGIC = "siem_sumo_logic"
     """
     Sumo Logic Cloud SIEM
+    """
+
+    SINK_AMAZON_SECURITY_LAKE = "sink_amazon_security_lake"
+    """
+    Amazon Security Lake
     """
 
     SINK_AWS_S_3 = "sink_aws_s3"
@@ -1027,6 +1042,7 @@ class ProviderConfigId(enum.StrEnum):
         email_security_defender_for_office: typing.Callable[[], T_Result],
         email_security_defender_for_office_mock: typing.Callable[[], T_Result],
         email_security_exchange_online: typing.Callable[[], T_Result],
+        email_security_ironscales: typing.Callable[[], T_Result],
         email_security_mimecast_cloud_gateway: typing.Callable[[], T_Result],
         email_security_mimecast_cloud_gateway_mock: typing.Callable[[], T_Result],
         email_security_o_365_management_activity: typing.Callable[[], T_Result],
@@ -1065,6 +1081,7 @@ class ProviderConfigId(enum.StrEnum):
         notifications_slack: typing.Callable[[], T_Result],
         notifications_teams: typing.Callable[[], T_Result],
         security_awareness_know_be_4: typing.Callable[[], T_Result],
+        siem_amazon_security_lake: typing.Callable[[], T_Result],
         siem_crowdstrike: typing.Callable[[], T_Result],
         siem_datadog: typing.Callable[[], T_Result],
         siem_elasticsearch: typing.Callable[[], T_Result],
@@ -1078,6 +1095,7 @@ class ProviderConfigId(enum.StrEnum):
         siem_sentinel: typing.Callable[[], T_Result],
         siem_splunk: typing.Callable[[], T_Result],
         siem_sumo_logic: typing.Callable[[], T_Result],
+        sink_amazon_security_lake: typing.Callable[[], T_Result],
         sink_aws_s_3: typing.Callable[[], T_Result],
         sink_aws_security_lake: typing.Callable[[], T_Result],
         sink_aws_sqs: typing.Callable[[], T_Result],
@@ -1283,6 +1301,8 @@ class ProviderConfigId(enum.StrEnum):
             return email_security_defender_for_office_mock()
         if self is ProviderConfigId.EMAIL_SECURITY_EXCHANGE_ONLINE:
             return email_security_exchange_online()
+        if self is ProviderConfigId.EMAIL_SECURITY_IRONSCALES:
+            return email_security_ironscales()
         if self is ProviderConfigId.EMAIL_SECURITY_MIMECAST_CLOUD_GATEWAY:
             return email_security_mimecast_cloud_gateway()
         if self is ProviderConfigId.EMAIL_SECURITY_MIMECAST_CLOUD_GATEWAY_MOCK:
@@ -1359,6 +1379,8 @@ class ProviderConfigId(enum.StrEnum):
             return notifications_teams()
         if self is ProviderConfigId.SECURITY_AWARENESS_KNOW_BE_4:
             return security_awareness_know_be_4()
+        if self is ProviderConfigId.SIEM_AMAZON_SECURITY_LAKE:
+            return siem_amazon_security_lake()
         if self is ProviderConfigId.SIEM_CROWDSTRIKE:
             return siem_crowdstrike()
         if self is ProviderConfigId.SIEM_DATADOG:
@@ -1385,6 +1407,8 @@ class ProviderConfigId(enum.StrEnum):
             return siem_splunk()
         if self is ProviderConfigId.SIEM_SUMO_LOGIC:
             return siem_sumo_logic()
+        if self is ProviderConfigId.SINK_AMAZON_SECURITY_LAKE:
+            return sink_amazon_security_lake()
         if self is ProviderConfigId.SINK_AWS_S_3:
             return sink_aws_s_3()
         if self is ProviderConfigId.SINK_AWS_SECURITY_LAKE:

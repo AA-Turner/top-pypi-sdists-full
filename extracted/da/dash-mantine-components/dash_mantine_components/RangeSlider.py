@@ -123,6 +123,9 @@ Keyword arguments:
     Breakpoint above which the component is hidden with `display:
     none`.
 
+- hiddenInputProps (dict; optional):
+    Props passed down to the hidden input.
+
 - inset (string | number | dict; optional):
     Inset – Accepts CSS values or a dict for responsive styles.
 
@@ -204,13 +207,18 @@ Keyword arguments:
     for responsive styles.
 
 - marks (list of dicts; optional):
-    Marks displayed on the track.
+    Marks displayed on the track. Type: list of dictionaries. Each
+    dictionary must contain a `value` (number) specifying the position
+    of the mark and can optionally contain a `label` (str or
+    component) and `hidden` (boolean) to hide the mark.
 
     `marks` is a list of dicts with keys:
 
     - value (number; required)
 
     - label (a list of or a singular dash component, string or number; optional)
+
+    - hidden (boolean; optional)
 
 - maw (string | number | dict; optional):
     Maximum width – Accepts theme spacing keys, CSS values, or a dict
@@ -230,6 +238,9 @@ Keyword arguments:
     Margin inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- mie (number; optional):
+    MarginInlineEnd, theme key: theme.spacing.
+
 - mih (string | number | dict; optional):
     Minimum height – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
@@ -239,6 +250,9 @@ Keyword arguments:
 
 - minRange (number; optional):
     Minimal range interval, `10` by default.
+
+- mis (number; optional):
+    MarginInlineStart, theme key: theme.spacing.
 
 - miw (string | number | dict; optional):
     Minimum width – Accepts theme spacing keys, CSS values, or a dict
@@ -279,6 +293,9 @@ Keyword arguments:
 - opacity (string | number | dict; optional):
     Opacity – Accepts CSS values or a dict for responsive styles.
 
+- orientation (a value equal to: 'horizontal', 'vertical'; optional):
+    Slider orientation default 'horizontal'.
+
 - p (string | number | dict; optional):
     Padding – Accepts theme spacing keys, CSS values, or a dict for
     responsive styles.
@@ -310,6 +327,12 @@ Keyword arguments:
     memory, reset on page refresh. local: window.localStorage, data is
     kept after the browser quit. session: window.sessionStorage, data
     is cleared once the browser quit.
+
+- pie (number; optional):
+    PaddingInlineEnd, theme key: theme.spacing.
+
+- pis (number; optional):
+    PaddingInlineStart, theme key: theme.spacing.
 
 - pl (string | number | dict; optional):
     Padding left – Accepts theme spacing keys, CSS values, or a dict
@@ -392,12 +415,20 @@ Keyword arguments:
 - thumbFromLabel (string; optional):
     First thumb `aria-label`.
 
+- thumbLabel (string; optional):
+    `aria-label` for both thumbs (overridden by
+    thumbFromLabel/thumbToLabel if provided).
+
 - thumbSize (string | number; optional):
     Thumb `width` and `height`, by default value is computed based on
     `size` prop.
 
 - thumbToLabel (string; optional):
     Second thumb `aria-label`.
+
+- thumbValueText (boolean | number | string | dict | list; optional):
+    `aria-valuetext` for both thumbs. When a function is provided, it
+    receives the scaled value.
 
 - top (string | number | dict; optional):
     Top offset – Accepts CSS values or a dict for responsive styles.
@@ -433,14 +464,6 @@ Keyword arguments:
     _base_nodes = ['label', 'thumbChildren', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'RangeSlider'
-    Marks = TypedDict(
-        "Marks",
-            {
-            "value": NumberType,
-            "label": NotRequired[ComponentType]
-        }
-    )
-
     LabelTransitionProps = TypedDict(
         "LabelTransitionProps",
             {
@@ -474,7 +497,7 @@ Keyword arguments:
         precision: typing.Optional[NumberType] = None,
         value: typing.Optional[typing.Sequence[NumberType]] = None,
         name: typing.Optional[str] = None,
-        marks: typing.Optional[typing.Sequence["Marks"]] = None,
+        marks: typing.Optional[typing.Sequence[typing.Dict[str, typing.Any]]] = None,
         label: typing.Optional[ComponentType] = None,
         labelTransitionProps: typing.Optional["LabelTransitionProps"] = None,
         labelAlwaysOn: typing.Optional[bool] = None,
@@ -492,6 +515,10 @@ Keyword arguments:
         scale: typing.Optional[typing.Any] = None,
         domain: typing.Optional[typing.Sequence[NumberType]] = None,
         pushOnOverlap: typing.Optional[bool] = None,
+        orientation: typing.Optional[Literal["horizontal", "vertical"]] = None,
+        thumbLabel: typing.Optional[str] = None,
+        thumbValueText: typing.Optional[typing.Any] = None,
+        hiddenInputProps: typing.Optional[dict] = None,
         hiddenFrom: typing.Optional[str] = None,
         visibleFrom: typing.Optional[str] = None,
         mod: typing.Optional[typing.Union[str, dict, typing.Sequence[typing.Union[str, dict]]]] = None,
@@ -549,6 +576,10 @@ Keyword arguments:
         style: typing.Optional[typing.Any] = None,
         lightHidden: typing.Optional[bool] = None,
         darkHidden: typing.Optional[bool] = None,
+        mis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        mie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         classNames: typing.Optional[dict] = None,
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
@@ -562,9 +593,9 @@ Keyword arguments:
         persistence_type: typing.Optional[Literal["local", "session", "memory"]] = None,
         **kwargs
     ):
-        self._prop_names = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'color', 'darkHidden', 'data-*', 'disabled', 'display', 'domain', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inset', 'inverted', 'label', 'labelAlwaysOn', 'labelTransitionProps', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'marks', 'maw', 'max', 'maxRange', 'mb', 'me', 'mih', 'min', 'minRange', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'name', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'pos', 'pr', 'precision', 'ps', 'pt', 'pushOnOverlap', 'px', 'py', 'radius', 'restrictToMarks', 'right', 'scale', 'showLabelOnHover', 'size', 'step', 'style', 'styles', 'ta', 'tabIndex', 'td', 'thumbChildren', 'thumbFromLabel', 'thumbSize', 'thumbToLabel', 'top', 'tt', 'unstyled', 'updatemode', 'value', 'variant', 'visibleFrom', 'w']
+        self._prop_names = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'color', 'darkHidden', 'data-*', 'disabled', 'display', 'domain', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'hiddenInputProps', 'inset', 'inverted', 'label', 'labelAlwaysOn', 'labelTransitionProps', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'marks', 'maw', 'max', 'maxRange', 'mb', 'me', 'mie', 'mih', 'min', 'minRange', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'name', 'opacity', 'orientation', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pie', 'pis', 'pl', 'pos', 'pr', 'precision', 'ps', 'pt', 'pushOnOverlap', 'px', 'py', 'radius', 'restrictToMarks', 'right', 'scale', 'showLabelOnHover', 'size', 'step', 'style', 'styles', 'ta', 'tabIndex', 'td', 'thumbChildren', 'thumbFromLabel', 'thumbLabel', 'thumbSize', 'thumbToLabel', 'thumbValueText', 'top', 'tt', 'unstyled', 'updatemode', 'value', 'variant', 'visibleFrom', 'w']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'color', 'darkHidden', 'data-*', 'disabled', 'display', 'domain', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inset', 'inverted', 'label', 'labelAlwaysOn', 'labelTransitionProps', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'marks', 'maw', 'max', 'maxRange', 'mb', 'me', 'mih', 'min', 'minRange', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'name', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'pos', 'pr', 'precision', 'ps', 'pt', 'pushOnOverlap', 'px', 'py', 'radius', 'restrictToMarks', 'right', 'scale', 'showLabelOnHover', 'size', 'step', 'style', 'styles', 'ta', 'tabIndex', 'td', 'thumbChildren', 'thumbFromLabel', 'thumbSize', 'thumbToLabel', 'top', 'tt', 'unstyled', 'updatemode', 'value', 'variant', 'visibleFrom', 'w']
+        self.available_properties = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'color', 'darkHidden', 'data-*', 'disabled', 'display', 'domain', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'hiddenInputProps', 'inset', 'inverted', 'label', 'labelAlwaysOn', 'labelTransitionProps', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'marks', 'maw', 'max', 'maxRange', 'mb', 'me', 'mie', 'mih', 'min', 'minRange', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'name', 'opacity', 'orientation', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pie', 'pis', 'pl', 'pos', 'pr', 'precision', 'ps', 'pt', 'pushOnOverlap', 'px', 'py', 'radius', 'restrictToMarks', 'right', 'scale', 'showLabelOnHover', 'size', 'step', 'style', 'styles', 'ta', 'tabIndex', 'td', 'thumbChildren', 'thumbFromLabel', 'thumbLabel', 'thumbSize', 'thumbToLabel', 'thumbValueText', 'top', 'tt', 'unstyled', 'updatemode', 'value', 'variant', 'visibleFrom', 'w']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

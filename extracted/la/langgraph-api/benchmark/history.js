@@ -3,43 +3,62 @@
  *
  * Usage (CI):
  *   node history.js fetch --workflow "<workflow name>" --prefix <artifact prefix> \
- *     --out <dir> --exclude <current run id> [--limit 7]
+ *     --out <dir> --exclude <current run id> [--limit 7] [--require <file prefix>]
  */
 
 import { spawnSync } from "node:child_process";
-import { mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-export function fetchHistory({ workflow, prefix, outDir, excludeRunId, limit = 7 }) {
+const MAX_HISTORY_AGE_DAYS = 30;
+// Covers MAX_HISTORY_AGE_DAYS of nightly runs plus the manual dispatches between them.
+const RUNS_TO_LIST = 200;
+
+/**
+ * Newest first. The filtering happens here because `gh run list --event
+ * schedule --status completed` has returned months-old runs in place of last
+ * week's, and a run that is kept but has no artifact would still use up a night.
+ */
+export function historyCandidates(runs, { excludeRunId, now = new Date() }) {
+  const oldest = now.getTime() - MAX_HISTORY_AGE_DAYS * 24 * 60 * 60 * 1000;
+  return runs
+    .filter((run) => run.event === "schedule" && run.status === "completed")
+    .filter((run) => String(run.databaseId) !== String(excludeRunId))
+    .filter((run) => Date.parse(run.createdAt) >= oldest)
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+}
+
+export function fetchHistory({ workflow, prefix, outDir, excludeRunId, limit = 7, requireFile }) {
   mkdirSync(outDir, { recursive: true });
   const list = spawnSync(
     "gh",
     [
       "run", "list",
       "--workflow", workflow,
-      "--event", "schedule",
-      "--status", "completed",
-      "--limit", String(limit + 1),
-      "--json", "databaseId,createdAt",
+      "--limit", String(RUNS_TO_LIST),
+      "--json", "databaseId,createdAt,event,status",
     ],
     { encoding: "utf8" },
   );
   if (list.status !== 0) {
     throw new Error(`gh run list failed: ${(list.stderr || "").trim()}`);
   }
-  const runs = JSON.parse(list.stdout)
-    .filter((run) => String(run.databaseId) !== String(excludeRunId))
-    .slice(0, limit);
+  const runs = historyCandidates(JSON.parse(list.stdout), { excludeRunId });
   const fetched = [];
   for (const run of runs) {
+    if (fetched.length >= limit) break;
     const dir = path.join(outDir, String(run.databaseId));
     const download = spawnSync(
       "gh",
       ["run", "download", String(run.databaseId), "-p", `${prefix}*`, "-D", dir],
       { encoding: "utf8" },
     );
-    if (download.status === 0) {
+    if (download.status === 0 && requireFile && !hasFile(dir, requireFile)) {
+      // A night that failed before producing results still uploads its context.
+      rmSync(dir, { recursive: true, force: true });
+      console.warn(`run ${run.databaseId}: no ${requireFile}* file, not a night to compare with`);
+    } else if (download.status === 0) {
       fetched.push({ runId: run.databaseId, createdAt: run.createdAt, dir });
     } else {
       console.warn(`run ${run.databaseId}: no ${prefix}* artifact (${(download.stderr || "").trim()})`);
@@ -50,6 +69,10 @@ export function fetchHistory({ workflow, prefix, outDir, excludeRunId, limit = 7
 
 function isNumber(value) {
   return typeof value === "number" && Number.isFinite(value);
+}
+
+export function hasFile(dir, prefix) {
+  return walk(dir).some((file) => path.basename(file).startsWith(prefix));
 }
 
 function walk(dir) {
@@ -172,6 +195,25 @@ export function formatMove(before, after, deltaPct, unit = "") {
   return `${before} → ${after}${suffix} (${deltaPct >= 0 ? "+" : "-"}${Math.abs(Math.round(deltaPct))}%)`;
 }
 
+const BARS = "▁▂▃▄▅▆▇█";
+
+/**
+ * Oldest first. A missing night is a gap, so a hole in the data is not drawn as
+ * a low. The height spans at least half the series' peak, so night-to-night
+ * noise stays mid-height instead of filling the whole range.
+ */
+export function sparkline(values) {
+  const known = values.filter(isNumber);
+  if (known.length === 0) return "";
+  const high = Math.max(...known);
+  const low = Math.min(...known);
+  const span = Math.max(high - low, Math.abs(high) * 0.5);
+  const floor = (high + low) / 2 - span / 2;
+  return values
+    .map((v) => (!isNumber(v) ? " " : high === low ? BARS[3] : BARS[Math.round(((v - floor) / span) * (BARS.length - 1))]))
+    .join("");
+}
+
 function argValue(argv, flag) {
   const index = argv.indexOf(flag);
   return index >= 0 ? argv[index + 1] : undefined;
@@ -179,7 +221,7 @@ function argValue(argv, flag) {
 
 function main(argv) {
   if (argv[0] !== "fetch") {
-    console.error("usage: node history.js fetch --workflow <name> --prefix <artifact prefix> --out <dir> --exclude <run id> [--limit 7]");
+    console.error("usage: node history.js fetch --workflow <name> --prefix <artifact prefix> --out <dir> --exclude <run id> [--limit 7] [--require <file prefix>]");
     process.exit(2);
   }
   const fetched = fetchHistory({
@@ -188,6 +230,7 @@ function main(argv) {
     outDir: argValue(argv, "--out") ?? "history",
     excludeRunId: argValue(argv, "--exclude"),
     limit: Number(argValue(argv, "--limit") ?? 7),
+    requireFile: argValue(argv, "--require"),
   });
   console.log(`fetched ${fetched.length} previous run(s)`);
 }

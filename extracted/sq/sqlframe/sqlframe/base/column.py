@@ -118,10 +118,10 @@ class Column:
         return self.unary_op(exp.Not)
 
     def __rand__(self, other: ColumnOrLiteral) -> Column:
-        return self.inverse_binary_op(exp.And, other)
+        return self.inverse_binary_op(exp.And, other, paren=True)
 
     def __ror__(self, other: ColumnOrLiteral) -> Column:
-        return self.inverse_binary_op(exp.Or, other)
+        return self.inverse_binary_op(exp.Or, other, paren=True)
 
     def __call__(self, *args, **kwargs):
         raise UnsupportedOperationError(
@@ -159,6 +159,12 @@ class Column:
         |            abc| value|
         +---------------+------+
         """
+        if isinstance(key, slice):
+            if key.step is not None:
+                raise ValueError("Slice with step is not supported.")
+            if key.start is None or key.stop is None:
+                raise TypeError("Slice must have both a start and a stop.")
+            return self.substr(key.start, key.stop)
         return self.getItem(key)
 
     def __getattr__(self, name: str) -> Column:
@@ -462,7 +468,10 @@ class Column:
 
     def isin(self, *cols: t.Union[ColumnOrLiteral, t.Iterable[ColumnOrLiteral]]):
         columns = flatten(cols) if isinstance(cols[0], (list, set, tuple)) else cols
-        expressions = [self._lit(x).expression for x in columns]  # type: ignore[arg-type]
+        expressions = [
+            x.column_expression if isinstance(x, Column) else self._lit(x).expression  # type: ignore[arg-type]
+            for x in columns
+        ]
         return Column.invoke_expression_over_column(self, exp.In, expressions=expressions)
 
     def between(

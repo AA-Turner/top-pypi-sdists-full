@@ -1,15 +1,7 @@
 import functools
 from collections.abc import Awaitable, Iterable
 from datetime import datetime, timedelta
-from typing import (  # noqa: UP035
-    TYPE_CHECKING,
-    AbstractSet,
-    Callable,
-    Literal,
-    NamedTuple,
-    Optional,
-    TypeVar,
-)
+from typing import TYPE_CHECKING, AbstractSet, Callable, Literal, NamedTuple, Optional, TypeVar  # noqa: UP035
 
 from dagster import _check as check
 from dagster._check import CheckError
@@ -48,7 +40,7 @@ from dagster._core.definitions.partitions.utils import (
 from dagster._core.definitions.temporal_context import TemporalContext
 from dagster._core.loader import LoadingContext
 from dagster._time import get_current_datetime
-from dagster._utils.aiodataloader import DataLoader
+from dagster._utils.aiodataloader import BlockingDataLoader, DataLoader
 from dagster._utils.cached_method import cached_method
 from dagster._utils.schedules import reverse_cron_string_iterator
 
@@ -153,7 +145,7 @@ class AssetGraphView(LoadingContext):
         return self._instance
 
     @property
-    def loaders(self) -> dict[type, DataLoader]:
+    def loaders(self) -> dict[type, tuple[DataLoader, BlockingDataLoader]]:
         return self._loaders
 
     @property
@@ -679,7 +671,7 @@ class AssetGraphView(LoadingContext):
             known_statuses = self.get_empty_subset(key=key)
             for serializable_subset in cache_value.subsets.values():
                 subset = self.get_subset_from_serializable_subset(serializable_subset)
-                if subset:
+                if subset is not None:
                     known_statuses = known_statuses.compute_union(subset)
             return from_subset.compute_difference(known_statuses) or self.get_empty_subset(key=key)
         else:

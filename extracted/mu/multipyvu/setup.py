@@ -20,8 +20,12 @@ setup(
             "font/*.ttf",
             "scripts/*",
             "MultiVuDataFile/*.py",
-            "logging_config.yaml"
+            "logging_config.yaml",
+            # the examples are listed as data so that the .cmd files are
+            # installed along with the scripts
+            "examples/*/*.py",
+            "examples/*/*.cmd",
             ]
         },
-    python_requires=">=3.7",
+    python_requires=">=3.8",
 )

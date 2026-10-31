@@ -134,14 +134,11 @@ RequestResolver = Callable[[str], Awaitable["str | None"]]
 
 
 def _text_of(message: Any) -> str:
-    parts = []
-    for item in getattr(message, "content", None) or []:
-        text = getattr(item, "text", None)
-        if text is None and isinstance(item, dict):
-            text = item.get("text")
-        if isinstance(text, str):
-            parts.append(text)
-    return "".join(parts)
+    """The reply text of a message: its text blocks only. A ``thinking`` block keeps the model's
+    reasoning under ``text``; it is never the answer a revision is judged on or handed back."""
+    from matrx_ai.config.message_config import content_text
+
+    return content_text(getattr(message, "content", None), sep="")
 
 
 def find_revision_turn(messages: list[Any], key: str) -> tuple[bool, str | None]:

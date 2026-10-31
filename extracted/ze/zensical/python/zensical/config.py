@@ -45,6 +45,7 @@ from deepmerge import always_merger
 from tomli import load as toml_load
 from yaml import Loader, YAMLError
 from yaml.constructor import ConstructorError
+from zensical_ui import get_theme_dir as get_ui_theme_dir
 
 from zensical.compat.mkdocstrings import _python_handler_has_backlinks
 from zensical.extensions.autorefs import AutorefsExtension
@@ -183,6 +184,7 @@ _PLUGIN_UNSUPPORTED_OPTIONS = {
         "watch",
     ),
     "offline": (),
+    "optimize": (),
     "privacy": (),
     "redirects": (),
     "rss": (),
@@ -411,8 +413,7 @@ def get_themes() -> dict[str, EntryPoint]:
 
 def get_builtin_theme_dir() -> str:
     """Return the built-in theme directory."""
-    path = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(path, "templates")
+    return get_ui_theme_dir()
 
 
 def get_theme_dir(name: str) -> str:
@@ -783,6 +784,7 @@ def _apply_defaults(config: dict, path: str) -> dict:
         "shadowed_footnotes": False,
         "invalid_links": True,
         "invalid_link_anchors": True,
+        "absolute_links_relative_to_docs": False,
     }
 
     # Map MkDocs validation configuration to ours - note that we only support
@@ -805,6 +807,10 @@ def _apply_defaults(config: dict, path: str) -> dict:
             validation["invalid_links"] = input["not_found"] != "ignore"
         if "anchors" in input:
             validation["invalid_link_anchors"] = input["anchors"] != "ignore"
+        if "absolute_links" in input:
+            validation["absolute_links_relative_to_docs"] = (
+                input["absolute_links"] == "relative_to_docs"
+            )
 
         # Our own keys override the ones we map from MkDocs, so we apply them
         # after mapping the MkDocs keys
@@ -1995,6 +2001,62 @@ def _validate_api_root(label: str, plugin: dict, name: str) -> None:
     plugin[name] = value
 
 
+def _normalize_optimize(value: dict[str, Any], name: str) -> dict[str, Any]:
+    """Validate Material optimize options and fill their defaults."""
+    defaults = {
+        "enabled": True,
+        "concurrency": max(1, (os.cpu_count() or 1) - 1),
+        "cache": True,
+        "cache_dir": ".cache/plugin/optimize",
+        "optimize": True,
+        "optimize_png": True,
+        "optimize_png_speed": 3,
+        "optimize_png_strip": True,
+        "optimize_jpg": True,
+        "optimize_jpg_quality": 60,
+        "optimize_jpg_progressive": True,
+        "optimize_include": [],
+        "optimize_exclude": [],
+        "print_gain": True,
+        "print_gain_summary": True,
+    }
+    _reject_unknown_options(name, value, set(defaults))
+    for option, default in defaults.items():
+        value.setdefault(option, default)
+    _validate_boolean_options(
+        name,
+        value,
+        [
+            option
+            for option, default in defaults.items()
+            if isinstance(default, bool)
+        ],
+    )
+    _validate_string_options(name, value, ("cache_dir",))
+    for option, minimum, maximum in (
+        ("concurrency", 1, None),
+        ("optimize_png_speed", 1, 10),
+        ("optimize_jpg_quality", 0, 100),
+    ):
+        number = value[option]
+        if (
+            type(number) is not int
+            or number < minimum
+            or (maximum is not None and number > maximum)
+        ):
+            bounds = (
+                f"between {minimum} and {maximum}"
+                if maximum is not None
+                else "greater than zero"
+            )
+            raise ConfigurationError(
+                f"{name} {option} must be an integer {bounds}"
+            )
+    for option in ("optimize_include", "optimize_exclude"):
+        _validate_string_list(name, value, option)
+    return value
+
+
 def _normalize_privacy(value: dict[str, Any], name: str) -> dict[str, Any]:
     """Validate Material privacy options and fill their defaults."""
     aliases = {
@@ -2115,6 +2177,7 @@ def _convert_plugins(value: Any, config: dict) -> dict:
     rss: list[dict[str, Any]] = []
     social: list[dict[str, Any]] = []
     privacy: list[dict[str, Any]] = []
+    optimize: list[dict[str, Any]] = []
 
     def add(name: Any, data: Any) -> None:
         """Canonicalize Material aliases while preserving tag instances."""
@@ -2122,7 +2185,7 @@ def _convert_plugins(value: Any, config: dict) -> dict:
             raise ConfigurationError("Plugin names must be strings")
         name = name.removeprefix("material/")
         canonical = name
-        if name.startswith(("social/", "privacy/")):
+        if name.startswith(("social/", "privacy/", "optimize/")):
             canonical = name.split("/", 1)[0]
         if canonical not in _PLUGIN_UNSUPPORTED_OPTIONS:
             return
@@ -2144,6 +2207,10 @@ def _convert_plugins(value: Any, config: dict) -> dict:
         elif canonical == "privacy":
             privacy.append(
                 {"name": name, "config": _normalize_privacy(data, name)}
+            )
+        elif canonical == "optimize":
+            optimize.append(
+                {"name": name, "config": _normalize_optimize(data, name)}
             )
         elif name == "rss":
             rss.append({"name": name, "config": _normalize_rss(data)})
@@ -2180,6 +2247,7 @@ def _convert_plugins(value: Any, config: dict) -> dict:
     # Preserve ordered social instances for native validation and rendering.
     plugins["social"] = social
     plugins["privacy"] = privacy
+    plugins["optimize"] = optimize
     plugins["llmstxt"] = _normalize_llmstxt(
         plugins.get("llmstxt", {}), config, "llmstxt" in plugins
     )

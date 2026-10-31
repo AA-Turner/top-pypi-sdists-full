@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: private_attribute_cpp
-Version: 2.2.7
+Version: 2.2.8.1
 Summary: A Python package that provides a way to define private attributes in C++ implementation.
 Author-Email: HuangHaoHua <13140752715@example.com>
 License-Expression: MIT
@@ -197,7 +197,7 @@ class MyClass(PrivateAttrBase):
 decorator application. It exposes two public attributes:
 
 - **`.result`** — the final decorated result.
-- **`.funcs`** — the tuple of original (pre-decoration) functions.
+- **`.funcs`** — a read-only list proxy (`_listproxy`) of the original (pre-decoration) functions.
 
 To stack decorators, resolve name conflicts, or fix decorator ordering, chain
 `.result.<attr>` onto the wrapped method and pass the method itself as the

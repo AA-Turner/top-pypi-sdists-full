@@ -4,6 +4,10 @@ use chrono::DateTime;
 use serde_json::{Map, Value as JsonValue};
 use thiserror::Error;
 
+use super::gate::{
+    gate_payload_workspace_mode, validate_gate_staged_payload,
+    GateWorkspaceModeWire,
+};
 use super::wire::{
     StageAdmissionRequestWire, StagedHandoffKindWire, StagedHandoffReceiptWire,
     StagedHandoffWire, SuccessorWorkspaceWire, STAGED_HANDOFF_OUTCOME_ADOPTED,
@@ -39,6 +43,9 @@ pub enum StagedHandoffError {
         "stage the handoff before the final declaration, then refresh the declaration through /sase_final"
     )]
     AcceptedSubmission,
+    /// Host preparation names invalid originating identity or evidence.
+    #[error("{0}")]
+    HostPreparation(String),
 }
 
 /// Validate and re-encode one staged-handoff JSON value.
@@ -100,13 +107,76 @@ pub fn receipt_authorizes(
 pub fn evaluate_stage_admission(
     value: &JsonValue,
 ) -> Result<(), StagedHandoffError> {
-    let request: StageAdmissionRequestWire =
-        serde_json::from_value(value.clone()).map_err(|error| {
-            StagedHandoffError::Invalid(format!(
-                "request is not a valid StageAdmissionRequestWire: {error}"
-            ))
-        })?;
+    let request: StageAdmissionRequestWire = parse_admission_request(value)?;
     reject_schema(request.schema_version)?;
+    refuse_shared_conditions(&request)?;
+    if request.has_accepted_current_submission {
+        return Err(StagedHandoffError::AcceptedSubmission);
+    }
+    Ok(())
+}
+
+/// Decide whether a host-owned workflow completion may stage a review.
+///
+/// The existing one-handoff and finalizer-owned restrictions still apply.
+/// The request must also name its explicit originating invocation/step
+/// identity, plus completed-provider evidence for provider-backed (agent)
+/// steps. Unlike CLI admission, an accepted current submission is not a
+/// refusal: the host seam re-runs the ordinary finalizer controller with
+/// the staged handoff bound, so the declaration is refreshed through
+/// ordinary recovery or legal host-synthesized carry, never reused stale.
+pub fn evaluate_host_stage_admission(
+    value: &JsonValue,
+) -> Result<(), StagedHandoffError> {
+    let request: StageAdmissionRequestWire = parse_admission_request(value)?;
+    reject_schema(request.schema_version)?;
+    refuse_shared_conditions(&request)?;
+    if request.host_workflow.trim().is_empty() {
+        return Err(StagedHandoffError::HostPreparation(
+            "host workflow review must name its originating workflow".into(),
+        ));
+    }
+    if request.host_step.trim().is_empty() {
+        return Err(StagedHandoffError::HostPreparation(
+            "host workflow review must name its originating step".into(),
+        ));
+    }
+    match request.host_step_type.as_str() {
+        "agent" => {
+            match request.host_provider_evidence.as_deref().map(str::trim) {
+                Some(evidence) if !evidence.is_empty() => {}
+                _ => {
+                    return Err(StagedHandoffError::HostPreparation(
+                    "agent workflow reviews require completed-provider evidence"
+                        .into(),
+                ));
+                }
+            }
+        }
+        "bash" | "python" => {}
+        other => {
+            return Err(StagedHandoffError::HostPreparation(format!(
+                "unknown host workflow step type: {other:?}"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn parse_admission_request(
+    value: &JsonValue,
+) -> Result<StageAdmissionRequestWire, StagedHandoffError> {
+    serde_json::from_value(value.clone()).map_err(|error| {
+        StagedHandoffError::Invalid(format!(
+            "request is not a valid StageAdmissionRequestWire: {error}"
+        ))
+    })
+}
+
+/// Refuse staging on conditions shared by CLI and host-preparation admission.
+fn refuse_shared_conditions(
+    request: &StageAdmissionRequestWire,
+) -> Result<(), StagedHandoffError> {
     if !request.is_agent {
         return Err(StagedHandoffError::MissingAgent);
     }
@@ -132,9 +202,6 @@ agent stages handoffs."
         return Err(StagedHandoffError::AlreadyExists(
             request.occupying.join(", "),
         ));
-    }
-    if request.has_accepted_current_submission {
-        return Err(StagedHandoffError::AcceptedSubmission);
     }
     Ok(())
 }
@@ -188,16 +255,47 @@ fn validate_kind_invariants(
             )?;
         }
         StagedHandoffKindWire::Gate => {
-            if record.successor_workspace == SuccessorWorkspaceWire::None
-                && record.carry_allowed
-            {
-                return Err(invalid(
-                    "gate handoffs with successor_workspace none cannot set carry_allowed",
-                ));
-            }
+            validate_gate_record(record)?;
         }
     }
     Ok(())
+}
+
+fn validate_gate_record(
+    record: &StagedHandoffWire,
+) -> Result<(), StagedHandoffError> {
+    let payload = JsonValue::Object(record.payload.clone());
+    validate_gate_staged_payload(&payload)?;
+    match gate_payload_workspace_mode(&payload)? {
+        GateWorkspaceModeWire::Inherit => {
+            require_workspace(
+                record,
+                SuccessorWorkspaceWire::Inherit,
+                "gate handoffs with workspace_mode inherit require \
+                 successor_workspace inherit",
+            )?;
+            if !record.carry_allowed {
+                return Err(invalid(
+                    "gate handoffs with workspace_mode inherit require carry_allowed",
+                ));
+            }
+            Ok(())
+        }
+        GateWorkspaceModeWire::Release => {
+            require_workspace(
+                record,
+                SuccessorWorkspaceWire::None,
+                "gate handoffs with workspace_mode release require \
+                 successor_workspace none",
+            )?;
+            if record.carry_allowed {
+                return Err(invalid(
+                    "gate handoffs with workspace_mode release cannot set carry_allowed",
+                ));
+            }
+            Ok(())
+        }
+    }
 }
 
 fn require_workspace(

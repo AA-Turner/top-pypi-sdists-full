@@ -89,7 +89,7 @@ def step_metadata(
     The Holder travels as the ``mandate_key=`` argument to
     ``execute_ai_request`` — one carrier, named at the call, where a static
     resolver can read it. This only adds the step type, so any report (a bypass
-    row, a usage row, the references board) can say "ai.extract" instead of
+    row, a usage row, the references board) can say "ai.llm.chat" instead of
     naming a file. A ``spec_type`` already on the caller's metadata wins.
 
     It also stamps ``continuable: False``, because THAT IS WHAT A WORKFLOW STEP

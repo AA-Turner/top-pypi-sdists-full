@@ -42,6 +42,7 @@ class ParsedInputs():
         self.status = False
         self.running = False
         self.quit = False
+        self.examples_folder = ''
 
     def __str__(self):
         parsed_str = f'--ip={self.host} --port={self.port}'
@@ -106,6 +107,7 @@ def parse_input(input_args_list: List[str]) -> ParsedInputs:
         -status to get the server status
         -running to see if the server is running
         -q(uit) to force quit the server
+        -examples=<folder> to copy the example scripts into a folder
 
         An argument without a flag is the instrument.
 
@@ -121,9 +123,26 @@ def parse_input(input_args_list: List[str]) -> ParsedInputs:
     can also be thrown if the instrument name does not match a valid
     MultiVu flavor (or if the flag is unknown).
     """
-    parsed_inputs = dict()
-    # convert the input_args_list into a string.
-    input_args = ' '.join(input_args_list)
+    parsed_inputs = ParsedInputs()
+
+    # copy the examples: -examples=<folder>.  This is taken out of the
+    # list before the list is joined into a string so that a folder name
+    # with spaces stays in one piece.
+    examples_args = re.compile(r'-[-]?examples(?:=(.*))?$', re.IGNORECASE)
+    remaining_args = []
+    for arg in input_args_list:
+        examples_match = examples_args.match(arg)
+        if examples_match:
+            if not examples_match.group(1):
+                msg = help_text('Specify the folder for the examples '
+                                'using -examples=<folder>.')
+                raise UserWarning(msg)
+            parsed_inputs.examples_folder = examples_match.group(1)
+        else:
+            remaining_args.append(arg)
+
+    # convert the remaining arguments into a string.
+    input_args = ' '.join(remaining_args)
 
     # reg-ex for finding flags in the input
     # help: -h
@@ -149,8 +168,6 @@ def parse_input(input_args_list: List[str]) -> ParsedInputs:
     running_args = re.compile(r'-(running)', re.IGNORECASE)
     # force quit server: -q
     quit_args = re.compile(r'-[-]?(q(uit)?)')
-
-    parsed_inputs = ParsedInputs()
 
     show_help = True
     additional_help_info = f'{input_args} is not a valid flag.'
@@ -254,6 +271,8 @@ To get the server status:
     > python -m MultiPyVu -status
 To force quit the server:
     > python -m MultiPyVu -quit
+To copy the example scripts into a folder:
+    > python -m MultiPyVu -examples=<folder>
 Note that the IP address and port can be specified using the -ip=
 and -p= commands as described above.
 

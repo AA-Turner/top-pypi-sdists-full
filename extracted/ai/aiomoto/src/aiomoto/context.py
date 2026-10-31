@@ -22,7 +22,7 @@ import os
 from pathlib import Path
 import threading
 import time
-from typing import Any, no_type_check, overload, ParamSpec, TypeVar
+from typing import Any, Final, no_type_check, overload, ParamSpec, TypeVar
 from urllib import error, parse, request
 import uuid
 
@@ -50,6 +50,8 @@ from aiomoto.patches.server_mode import AutoEndpointMode, ServerModePatcher
 P = ParamSpec("P")
 R = TypeVar("R")
 RA = TypeVar("RA")
+
+_MODE_START_LOCK: Final = threading.Lock()
 
 _ENV_KEYS = (
     "AWS_ACCESS_KEY_ID",
@@ -130,7 +132,7 @@ class _InProcessState:
             return self._count > 0
 
     def enter(self) -> None:
-        with self._lock:
+        with _MODE_START_LOCK, self._lock:
             if _SERVER_STATE.active():
                 raise ModeConflictError(
                     "aiomoto server_mode cannot be combined with in-process mode."
@@ -160,7 +162,7 @@ class _ServerModeState:
             return self._count > 0
 
     def start(self, server_port: int | None) -> tuple[str, int, str, str | None]:
-        with self._lock:
+        with _MODE_START_LOCK, self._lock:
             if _INPROCESS_STATE.active():
                 raise ModeConflictError(
                     "aiomoto server_mode cannot be combined with in-process mode."

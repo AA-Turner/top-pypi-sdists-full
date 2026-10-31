@@ -701,3 +701,43 @@ def archive(name: str, cloud_id: Optional[str] = None) -> None:
         raise click.ClickException(str(e)) from None
     except Exception as e:  # noqa: BLE001
         raise click.ClickException(f"Failed to archive image: {e}") from None
+
+
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Unarchive an image by name.",
+            command="anyscale image unarchive -n my-image",
+            output_raw=command_examples.IMAGE_UNARCHIVE_EXAMPLE,
+        ),
+    ],
+)
+@image_cli.command(
+    name="unarchive",
+    short_help="Unarchive an image and all of its versions.",
+    help=(
+        "Unarchive an image and all of its versions, so the image name can be used again. "
+        "Job queues that were sealed when the image was archived stay sealed. "
+        "Not supported on Azure Control Plane."
+    ),
+    cls=AnyscaleCommand,
+    hidden=True,
+)
+@click.option(
+    "--name",
+    "-n",
+    help="Name of the image to unarchive. A version tag (e.g., 'name:version') is ignored, since every version is unarchived.",
+    type=str,
+    required=True,
+)
+def unarchive(name: str) -> None:
+    try:
+        anyscale.image.unarchive(name=name)
+        print(f"Image '{name}' unarchived successfully.")
+    except ValueError as e:
+        raise click.ClickException(str(e)) from None
+    except Exception as e:  # noqa: BLE001
+        raise click.ClickException(f"Failed to unarchive image: {e}") from None

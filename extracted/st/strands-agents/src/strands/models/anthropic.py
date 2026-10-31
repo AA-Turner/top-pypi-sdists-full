@@ -9,6 +9,7 @@ import json
 import logging
 import re
 import warnings
+from collections import Counter
 from collections.abc import AsyncGenerator
 from typing import Any, TypeVar, cast
 from urllib.parse import urlparse
@@ -41,7 +42,12 @@ from ._native_output import (
     unsupported_mechanisms,
 )
 from ._thinking_binding import THINKING_BINDING_BETA, is_thinking_binding_error, thinking_with_drop_block
-from ._validation import _has_location_source, _warn_on_deprecated_cache_tools, validate_config_keys
+from ._validation import (
+    _has_location_source,
+    _log_skipped_blocks,
+    _warn_on_deprecated_cache_tools,
+    validate_config_keys,
+)
 from .model import BaseModelConfig, CacheConfig, CacheToolsConfig, Model
 
 logger = logging.getLogger(__name__)
@@ -340,6 +346,7 @@ class AnthropicModel(Model):
         configured_ttl = cache_config.ttl if cache_config else None
         formatted_messages = []
         dropped_unsigned_reasoning = False
+        skipped: Counter[str] = Counter()
 
         for message_idx, message in enumerate(messages):
             formatted_contents: list[dict[str, Any]] = []
@@ -365,7 +372,7 @@ class AnthropicModel(Model):
 
                 # Check for location sources in image, document, or video content
                 if _has_location_source(content):
-                    logger.warning("Location sources are not supported by Anthropic | skipping content block")
+                    skipped["Location sources are not supported by Anthropic | skipping content block"] += 1
                     continue
 
                 formatted_content = self._format_request_message_content(content)
@@ -390,6 +397,7 @@ class AnthropicModel(Model):
         if dropped_unsigned_reasoning:
             logger.warning("Unsigned reasoning content is not supported by Anthropic | skipped content blocks")
 
+        _log_skipped_blocks(logger, skipped)
         return formatted_messages
 
     @classmethod
@@ -418,6 +426,27 @@ class AnthropicModel(Model):
 
         return False
 
+    def _auto_caching_unsupported(self) -> bool:
+        """Whether the default ``"auto"`` strategy must skip caching for this model.
+
+        ``"auto"`` defers to the model info: a model it says does not support prompt caching gets no
+        cache points. An explicit strategy caches regardless.
+        """
+        cache_config = self.config.get("cache_config")
+        if cache_config is None or cache_config.strategy != "auto":
+            return False
+
+        if self.model_info.capabilities.prompt_caching != "unsupported":
+            return False
+
+        # Caller depth varies, so stacklevel=1 pins dedup to this line (once per process).
+        warnings.warn(
+            "cache_config is enabled but the model info says this model does not support prompt caching;"
+            " prompt caching is disabled",
+            stacklevel=1,
+        )
+        return True
+
     def _resolve_tools_cache(self) -> dict[str, Any] | None:
         """Return the Anthropic ``cache_control`` payload for tool definitions, if enabled.
 
@@ -426,9 +455,12 @@ class AnthropicModel(Model):
         """
         cache_config = self.config.get("cache_config")
         if cache_config is None or cache_config.tools_ttl is None:
-            return self._resolve_deprecated_cache_tools()
+            return None if self._auto_caching_unsupported() else self._resolve_deprecated_cache_tools()
 
         if cache_config.tools_ttl is False or cache_config.strategy not in ("auto", "anthropic"):
+            return None
+
+        if self._auto_caching_unsupported():
             return None
 
         tools_ttl = cache_config.tools_ttl
@@ -490,6 +522,9 @@ class AnthropicModel(Model):
                 " prompt caching is disabled",
                 stacklevel=1,
             )
+            return messages, None
+
+        if self._auto_caching_unsupported():
             return messages, None
 
         target_idx = next(
@@ -628,7 +663,11 @@ class AnthropicModel(Model):
             The API system value (string or text blocks), or None when no system prompt is given.
         """
         cache_config = self.config.get("cache_config")
-        if cache_config is None or cache_config.strategy not in ("auto", "anthropic"):
+        if (
+            cache_config is None
+            or cache_config.strategy not in ("auto", "anthropic")
+            or self._auto_caching_unsupported()
+        ):
             managed_ttl: str | None = None
             auto_inject = False
         else:
@@ -1169,6 +1208,7 @@ class AnthropicModel(Model):
             unsupported_mechanisms("anthropic", self.config["model_id"], structured_output_model),
             cast(dict[str, Any] | None, tool_choice),
             structured_output_model,
+            self.model_info,
         )[0]
         if mechanism == "native" and not _SDK_SUPPORTS_NATIVE_OUTPUT:
             warnings.warn(

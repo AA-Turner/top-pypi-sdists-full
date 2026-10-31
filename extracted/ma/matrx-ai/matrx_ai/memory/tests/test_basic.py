@@ -102,7 +102,16 @@ async def test_om():
         )
     ]
     
-    injected_messages = await om.process_input_step(new_messages, thread_id, resource_id)
+    from matrx_ai.memory.context_framing import set_context_framing_resolver
+
+    async def _framing(_org_id):
+        return ("MEMORY PREAMBLE", "MEMORY INSTRUCTIONS")
+
+    set_context_framing_resolver(_framing)  # the host installs this at boot (aidream: agents.memory knobs)
+    try:
+        injected_messages = await om.process_input_step(new_messages, thread_id, resource_id)
+    finally:
+        set_context_framing_resolver(None)
     
     assert len(injected_messages) == 2
     assert injected_messages[0].role == MessageRole.SYSTEM

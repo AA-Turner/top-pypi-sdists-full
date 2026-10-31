@@ -1,31 +1,30 @@
 Metadata-Version: 2.4
 Name: django-axes
-Version: 8.3.1
+Version: 9.0.0
 Summary: Keep track of failed login attempts in Django-powered sites.
-Home-page: https://github.com/jazzband/django-axes
+Home-page: https://github.com/django-commons/django-axes
 Author: Josh VanderLinden, Philip Neustrom, Michael Blume, Alex Clark, Camilo Nova, Aleksi Hakli
-Author-email: security@jazzband.co
-Maintainer: Jazzband
-Maintainer-email: security@jazzband.co
+Author-email: django-commons-admins@googlegroups.com
+Maintainer: Django Commons
+Maintainer-email: django-commons-admins@googlegroups.com
 License: MIT
 Project-URL: Documentation, https://django-axes.readthedocs.io/
-Project-URL: Source, https://github.com/jazzband/django-axes
-Project-URL: Tracker, https://github.com/jazzband/django-axes/issues
+Project-URL: Source, https://github.com/django-commons/django-axes
+Project-URL: Tracker, https://github.com/django-commons/django-axes/issues
 Keywords: authentication django pci security
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Environment :: Plugins
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -34,9 +33,10 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Internet :: Log Analysis
 Classifier: Topic :: Security
 Classifier: Topic :: System :: Logging
-Requires-Python: >=3.10
+Requires-Python: >=3.11
+Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: django>=4.2
+Requires-Dist: django>=5.2
 Requires-Dist: asgiref>=3.6.0
 Provides-Extra: ipware
 Requires-Dist: django-ipware>=3; extra == "ipware"
@@ -44,6 +44,7 @@ Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
 Dynamic: description
+Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
@@ -60,12 +61,12 @@ Dynamic: summary
 django-axes
 ===========
 
-.. image:: https://jazzband.co/static/img/badge.svg
-   :target: https://jazzband.co/
-   :alt: Jazzband
+.. image:: https://img.shields.io/badge/Django%20Commons-Project-blue.svg
+   :target: https://github.com/django-commons/
+   :alt: Django Commons
 
-.. image:: https://img.shields.io/github/stars/jazzband/django-axes.svg?label=Stars&style=socialcA
-   :target: https://github.com/jazzband/django-axes
+.. image:: https://img.shields.io/github/stars/django-commons/django-axes.svg?label=Stars&style=socialcA
+   :target: https://github.com/django-commons/django-axes
    :alt: GitHub
 
 .. image:: https://img.shields.io/pypi/v/django-axes.svg
@@ -84,12 +85,12 @@ django-axes
    :target: https://django-axes.readthedocs.io/
    :alt: Documentation
 
-.. image:: https://github.com/jazzband/django-axes/workflows/Test/badge.svg
-   :target: https://github.com/jazzband/django-axes/actions
+.. image:: https://github.com/django-commons/django-axes/workflows/Test/badge.svg
+   :target: https://github.com/django-commons/django-axes/actions
    :alt: GitHub Actions
 
-.. image:: https://codecov.io/gh/jazzband/django-axes/branch/master/graph/badge.svg
-   :target: https://codecov.io/gh/jazzband/django-axes
+.. image:: https://codecov.io/gh/django-commons/django-axes/branch/master/graph/badge.svg
+   :target: https://codecov.io/gh/django-commons/django-axes
    :alt: Coverage
 
 
@@ -132,7 +133,7 @@ Issues
 
 If you have questions or have trouble using the app please file a bug report at:
 
-https://github.com/jazzband/django-axes/issues
+https://github.com/django-commons/django-axes/issues
 
 
 Contributing
@@ -143,6 +144,57 @@ See `CONTRIBUTING <CONTRIBUTING.rst>`__.
 
 Changes
 =======
+
+9.0.0 (2026-10-30)
+------------------
+
+Breaking changes and upgrading
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Require Python 3.11 or newer and Django 5.2 or newer. Python 3.10 and
+  Django 4.2 are no longer supported.
+- Run ``python manage.py migrate`` after upgrading, even when
+  ``AXES_USE_ATTEMPT_EXPIRATION`` is disabled. The
+  ``axes.0010_accessattemptexpiration`` migration, introduced in 8.1.0, is
+  required when deleting access attempts. This release adds no new migrations.
+- Usernames longer than the Axes username field's maximum length are now
+  truncated consistently before logging and lockout lookups, including values
+  returned by ``AXES_USERNAME_CALLABLE``. Usernames with the same truncated
+  prefix share the same username-based lockout tracking.
+
+Features and fixes
+~~~~~~~~~~~~~~~~~~
+
+- Truncate usernames to the model field's maximum length before lockout lookups
+  and failed-login logging to avoid database errors for oversized usernames.
+- Fall back to the user model's ``USERNAME_FIELD`` when
+  ``AXES_USERNAME_FORM_FIELD`` is missing from credentials or request data,
+  preserving compatibility with Django's ``user_login_failed`` signal.
+- Redact passwords and other configured sensitive parameters submitted with a
+  Django form prefix, such as ``login-password``, before storing request data.
+- Fix asynchronous middleware lockout responses by passing the original
+  response and credentials in the correct argument order, including to custom
+  lockout callables.
+- Handle ``MultiPartParserError`` when reading POST data during failed-login
+  logging so malformed multipart requests do not prevent attempts being saved.
+- Calculate cooloff thresholds safely when no request is supplied or the
+  request has no ``axes_attempt_time`` attribute.
+- Add Django 6.1 support.
+- Include a PEP 561 ``py.typed`` marker so type checkers can use the package's
+  inline annotations.
+
+Project and packaging
+~~~~~~~~~~~~~~~~~~~~~
+
+- Move project maintenance and repository links from Jazzband to Django Commons.
+- Publish releases through PyPI trusted publishing and build distributions
+  using PEP 517.
+
+8.3.2 (2026-08-30)
+------------------
+
+- Fix race condition in cache backend.
+  [aviseth]
 
 8.3.1 (2026-02-11)
 ------------------
@@ -172,6 +224,10 @@ Changes
 - Add Persion (fa) translations for django-axes.
   [AmirAli-BahramJerdi]
 - Add individual attempt expiry support.
+  This release adds the ``axes.0010_accessattemptexpiration`` migration.
+  Run ``python manage.py migrate`` after upgrading, also when
+  ``AXES_USE_ATTEMPT_EXPIRATION`` is off: deleting access attempts
+  needs the new table.
   [kuldeepkhatke]
 - Add checks for missing ip_address in lockout params.
   [shayanTaki]
@@ -223,7 +279,7 @@ Changes
 7.0.0 (2024-10-02)
 ------------------
 
-- Add support for dynamic cooloff time calculation from request. This is a breaking change. Please see `version 7 upgrade notes in the documentation <https://github.com/jazzband/django-axes/blob/4e89d72b92db044ff3f6b23ea2ab2e681211c98e/docs/2_installation.rst#version-7-breaking-changes-and-upgrading-from-django-axes-version-6>`_.
+- Add support for dynamic cooloff time calculation from request. This is a breaking change. Please see `version 7 upgrade notes in the documentation <https://github.com/django-commons/django-axes/blob/4e89d72b92db044ff3f6b23ea2ab2e681211c98e/docs/2_installation.rst#version-7-breaking-changes-and-upgrading-from-django-axes-version-6>`_.
   [browniebroke]
 
 

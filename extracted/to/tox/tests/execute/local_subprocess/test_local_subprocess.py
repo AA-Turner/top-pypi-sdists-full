@@ -114,14 +114,17 @@ def test_local_execute_basic_pass(
 
 
 @pytest.mark.parametrize(
-    ("no_capture", "stdin", "expected"),
+    ("no_capture", "stdin", "capture", "expected"),
     [
-        pytest.param(False, StdinSource.API, (b"out", b"err", "", ""), id="capture-api"),
-        pytest.param(False, StdinSource.USER, (b"out", b"err", "", ""), id="capture-user"),
-        pytest.param(False, StdinSource.OFF, (b"out", b"err", "", ""), id="capture-off"),
-        pytest.param(True, StdinSource.API, (b"out", b"err", "", ""), id="no-capture-api"),
-        pytest.param(True, StdinSource.USER, (b"", b"", "out", "err"), id="no-capture-user"),
-        pytest.param(True, StdinSource.OFF, (b"", b"", "out", "err"), id="no-capture-off"),
+        pytest.param(False, StdinSource.API, False, (b"out", b"err", "", ""), id="capture-api"),
+        pytest.param(False, StdinSource.USER, False, (b"out", b"err", "", ""), id="capture-user"),
+        pytest.param(False, StdinSource.OFF, False, (b"out", b"err", "", ""), id="capture-off"),
+        pytest.param(True, StdinSource.API, False, (b"out", b"err", "", ""), id="no-capture-api"),
+        pytest.param(True, StdinSource.USER, False, (b"", b"", "out", "err"), id="no-capture-user"),
+        pytest.param(True, StdinSource.OFF, False, (b"", b"", "out", "err"), id="no-capture-off"),
+        pytest.param(True, StdinSource.API, True, (b"out", b"err", "", ""), id="required-capture-api"),
+        pytest.param(True, StdinSource.USER, True, (b"out", b"err", "", ""), id="required-capture-user"),
+        pytest.param(True, StdinSource.OFF, True, (b"out", b"err", "", ""), id="required-capture-off"),
     ],
 )
 def test_local_execute_capture(
@@ -130,13 +133,14 @@ def test_local_execute_capture(
     capfd: CaptureFixture,
     no_capture: bool,
     stdin: StdinSource,
+    capture: bool,
     expected: tuple[bytes, bytes, str, str],
 ) -> None:
     tox_env: Final[ToxEnv] = tox_project({"tox.ini": ""}).run("l").state.envs["py"]
     tox_env.options.no_capture = no_capture
     code: Final[str] = "import sys; print('out', end=''); print('err', end='', file=sys.stderr)"
     request: Final[ExecuteRequest] = ExecuteRequest(
-        cmd=[sys.executable, "-c", code], cwd=Path(), env=os_env, stdin=stdin, run_id=""
+        cmd=[sys.executable, "-c", code], cwd=Path(), env=os_env, stdin=stdin, run_id="", capture=capture
     )
     with LocalSubProcessExecutor(colored=False).build_instance(
         request, ExecuteOptions(tox_env), SyncWrite("out", None), SyncWrite("err", None)
@@ -170,6 +174,20 @@ def test_local_execute_basic_pass_show_on_standard_newline_flush(caplog: LogCapt
     assert out == f"out{os.linesep}yay{os.linesep}"
     assert not err
     assert not caplog.records
+
+
+def test_local_execute_start_error_masks_secret_flag(caplog: LogCaptureFixture, os_env: dict[str, str]) -> None:
+    request: Final = ExecuteRequest(
+        cmd=["--token=hunter2"], cwd=Path.cwd(), env=os_env, stdin=StdinSource.OFF, run_id=""
+    )
+    with LocalSubProcessExecutor(colored=False).call(
+        request, show=True, out_err=FakeOutErr().out_err, env=_create_mock_env()
+    ) as status:
+        status.wait()
+    assert isinstance(status.start_error, OSError)
+    assert "Exception running subprocess" in caplog.text
+    assert "--token=*******" in caplog.text or "--token" not in caplog.text
+    assert "hunter2" not in caplog.text
 
 
 def test_local_execute_write_a_lot(os_env: dict[str, str]) -> None:
@@ -590,10 +608,101 @@ def _create_shebang_test(tmp_path: Path, env: dict[str, str]) -> tuple[str, Path
     script.write_text(f"#!{exe} -s")
     script.chmod(script.stat().st_mode | stat.S_IEXEC)  # mark it executable
     env["PATH"] = str(script.parent)
-    request = create_autospec(ExecuteRequest, cmd=["s", "--magic"], env=env, allow=None)
+    request = create_autospec(ExecuteRequest, cmd=["s", "--magic"], cwd=tmp_path, env=env, allow=None)
     writer = create_autospec(SyncWrite)
     instance = LocalSubProcessExecuteInstance(request, create_autospec(ExecuteOptions), writer, writer)
     return exe, script, instance
+
+
+@pytest.mark.parametrize("name", [pytest.param("build.cmd", id="cmd"), pytest.param("build.BAT", id="bat-uppercase")])
+def test_windows_batch_file_started_via_cmd_exe(
+    tmp_path: Path, mocker: MockerFixture, monkeypatch: MonkeyPatch, name: str
+) -> None:
+    mocker.patch.object(local_sub_process, "sys", mocker.MagicMock(platform="win32"))
+    popen: Final[MagicMock] = mocker.patch.object(
+        local_sub_process, "Popen", autospec=True, side_effect=OSError(errno.ENOENT, "not started")
+    )
+    monkeypatch.setenv("SYSTEMROOT", str(tmp_path))
+    script: Final[Path] = tmp_path / name
+    script.touch()
+    script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    request: Final[ExecuteRequest] = ExecuteRequest(
+        cmd=[str(script), "v1.0&next"], cwd=tmp_path, env={"PATH": ""}, stdin=StdinSource.OFF, run_id=""
+    )
+    writer: Final[SyncWrite] = SyncWrite("out", None)
+
+    with LocalSubProcessExecuteInstance(request, ExecuteOptions(_create_mock_env()), writer, writer) as status:
+        assert status.exit_code == errno.ENOENT
+
+    assert (popen.call_args.args, popen.call_args.kwargs["executable"]) == (
+        (f'cmd.exe /e:ON /v:OFF /d /c ""{script}" "v1.0&next""',),
+        str(tmp_path / "System32" / "cmd.exe"),
+    )
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="batch files are Windows-only")
+@pytest.mark.parametrize(
+    "name",
+    [
+        pytest.param("show args.cmd", id="space"),
+        pytest.param("show & args.cmd", id="operator"),
+        pytest.param("show %PATH% args.cmd", id="variable"),
+    ],
+)
+def test_windows_batch_file_args_are_literal(tmp_path: Path, os_env: dict[str, str], name: str) -> None:
+    script: Final[Path] = tmp_path / name
+    script.write_text(f'@"{sys.executable}" -c "import json, sys; print(json.dumps(sys.argv[1:]))" %*\n')
+    args: Final[list[str]] = [
+        "v1.0",
+        "v1.0&next",
+        'a b" & next & "',
+        '\\"|next',
+        "%PATH%",
+        "!PATH!",
+        "^",
+        "a=b",
+        "a\\",
+        "",
+    ]
+    request: Final[ExecuteRequest] = ExecuteRequest(
+        cmd=[str(script), *args], cwd=tmp_path, env=os_env, stdin=StdinSource.OFF, run_id=""
+    )
+    executor: Final[LocalSubProcessExecutor] = LocalSubProcessExecutor(colored=False)
+
+    with executor.call(request, show=False, out_err=FakeOutErr().out_err, env=_create_mock_env()) as status:
+        status.wait()
+
+    assert status.outcome is not None
+    assert json.loads(status.outcome.out) == args
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="only POSIX resolves relative commands from the child's cwd")
+@pytest.mark.parametrize(
+    ("cmd", "path"),
+    [
+        pytest.param("scripts/s", os.defpath, id="relative-command"),
+        pytest.param("s", "scripts", id="relative-path-entry"),
+    ],
+)
+def test_shebang_resolved_from_request_cwd(tmp_path: Path, monkeypatch: MonkeyPatch, cmd: str, path: str) -> None:
+    for folder, interpreter in (("project", "/bin/sh"), ("invoked_from", "/bin/other")):
+        script = tmp_path / folder / "scripts" / "s"
+        script.parent.mkdir(parents=True)
+        script.write_text(f"#!{interpreter}")
+        script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    monkeypatch.chdir(tmp_path / "invoked_from")
+    request: Final = ExecuteRequest(
+        cmd=[cmd, "--magic"],
+        cwd=tmp_path / "project",
+        env={"PATH": path, "TOX_LIMITED_SHEBANG": "1"},
+        stdin=StdinSource.OFF,
+        run_id="run-id",
+        allow=[cmd],
+    )
+    writer: Final = create_autospec(SyncWrite)
+    instance: Final = LocalSubProcessExecuteInstance(request, create_autospec(ExecuteOptions), writer, writer)
+
+    assert instance.cmd == ["/bin/sh", str(tmp_path / "project" / "scripts" / "s"), "--magic"]
 
 
 @pytest.mark.parametrize("key", ["COLUMNS", "ROWS"])

@@ -135,6 +135,9 @@ class SendPrep:
     # What the perishable-state step marked stale on this pass (resolve stage,
     # host-enabled conversations only). ``None`` = the step did not run.
     perishable_report: dict[str, Any] | None = None
+    # The history window's cache decision on this pass (``warm``, the ``previous`` recorded cut, ``waits`` — the
+    # cold-cache knob), shared with the stale markers so both move on ONE decision. ``None`` = no window ran.
+    history_cut_context: dict[str, Any] | None = None
     # What the live-plan step staged at the end of this send (loop stage only).
     # ``None`` = no open tasks / no host source / the step failed (announced).
     live_plan: dict[str, Any] | None = None
@@ -163,6 +166,7 @@ async def prepare_for_send(
     user_input: Any = None,
     config_overrides: Any = None,
     organization_id: str | None = None,
+    history_len: int | None = None,
 ) -> SendPrep:
     """THE entry point. Shape ``config`` for the provider and audit what happened.
 
@@ -185,6 +189,8 @@ async def prepare_for_send(
         organization_id: the organization whose trim knobs apply.
         user_input / config_overrides: resolve-stage turn intent used to decide
             whether a completed structured contract may relax to text.
+        history_len: how many of ``config.messages`` are the PERSISTED history (resolve stage; the
+            rest is this turn's input) — the part the history window may cut.
 
     Never raises for a SHAPING failure — a failing step is logged and skipped.
     The one deliberate exception is the context pre-flight: a prompt that
@@ -225,9 +231,18 @@ async def prepare_for_send(
         )
 
     if stage == STAGE_RESOLVE:
+        # HOW FAR BACK THIS CONVERSATION READS — a declared stage, here and nowhere else (B2,
+        # 2026-10-30). FIRST of the history shaping: the markers and the trim see what is sent.
+        # The cut moves only when the provider cache is already cold; a moved cut is recorded.
+        await _apply_history_window(
+            prep, config, conversation_id=conversation_id, cache_state=cache_state, history_len=history_len
+        )
+
+    if stage == STAGE_RESOLVE:
         # BEFORE the trim: a result the trim later clears carries no content to
         # recite, and marking first keeps the trim's own idempotence key intact.
-        await _mark_perishable_state(prep, config, conversation_id=conversation_id)
+        # They move on the window's cold-cache decision: while warm, exactly the recorded markers are replayed.
+        await _mark_perishable_state(prep, config, conversation_id=conversation_id, cache_state=cache_state)
 
     if stage == STAGE_LOOP:
         # FIRST, before anything reads the prompt: a mandate-held turn sends the
@@ -1448,14 +1463,189 @@ async def _resolve_org_trim_policy(prep: SendPrep, organization_id: str | None) 
     return policy
 
 
+#: Where a conversation's history cut lives: ``cx_conversation.cache_state[HISTORY_CUT_KEY]`` (persisted with the
+#: cache facts it depends on by ``db/persistence._refresh_cache_state``).
+HISTORY_CUT_KEY = "history_cut"
+#: The cut THIS process decided for a conversation, until persistence writes it into ``cache_state``.
+_HISTORY_CUT_MEMO: OrderedDict[str, dict[str, Any]] = OrderedDict()
+
+
+def remembered_history_cut(conversation_id: str | None) -> dict[str, Any] | None:
+    """The cut this process last decided for ``conversation_id`` (read by ``persistence._refresh_cache_state``)."""
+    if not conversation_id:
+        return None
+    cut = _HISTORY_CUT_MEMO.get(str(conversation_id))
+    return dict(cut) if cut is not None else None
+
+
+def _first_kept_index(history: list[Any], cut: dict[str, Any]) -> int | None:
+    """Where a recorded cut starts in this history: the message whose ``id`` (else ``position``) it names."""
+    first_id, first_position = cut.get("first_id"), cut.get("first_position")
+    for index, message in enumerate(history):
+        if first_id and getattr(message, "id", None) == first_id:
+            return index
+        if first_position is not None and getattr(message, "position", None) == first_position:
+            return index
+    return None
+
+
+def _record_history_cut(prep: SendPrep, decision: dict[str, Any]) -> None:
+    """A history-window decision lands on AppContext (``history_cut`` → iteration 1's ``cx_request.metadata``)
+    and in ``prep.steps``. A MOVED cut is a deliberate cache break and is also announced."""
+    from matrx_ai.context.app_context import try_get_app_context
+
+    prep.steps.append(f"history_window:{decision['action']}")
+    ctx = try_get_app_context()
+    if ctx is not None:
+        ctx.metadata["history_cut"] = dict(decision)
+    if decision.get("cache_break"):
+        vcprint(
+            f"[send_boundary/{prep.stage}] {decision.get('conversation_id')}: history cut MOVED "
+            f"({decision.get('reason')}): {decision.get('kept')} of {decision.get('history')} persisted messages, "
+            f"{decision.get('cleared_now', 0)} tool result(s) cleared — a deliberate cache break.",
+            color="yellow",
+        )
+
+
+def _cut_context(conversation_id: str, cache_state: dict[str, Any] | None) -> tuple[bool, dict[str, Any] | None]:
+    """(is the provider cache warm, the recorded history cut) — the ONE warm/cold decision the history window and
+    the stale markers share (``context_trim._is_cache_likely_alive``, the trim gate's own test)."""
+    from matrx_ai.config.context_trim import _is_cache_likely_alive
+
+    state = dict(cache_state or {})
+    if not state:
+        memo = _CACHE_STATE_MEMO.get(str(conversation_id))
+        state = dict(memo) if memo else {}
+    previous = state.get(HISTORY_CUT_KEY) if isinstance(state.get(HISTORY_CUT_KEY), dict) else None
+    if previous is None:
+        previous = remembered_history_cut(conversation_id)
+    return bool(state) and _is_cache_likely_alive(state), previous
+
+
+async def _apply_history_window(
+    prep: SendPrep,
+    config: Any,
+    *,
+    conversation_id: str | None,
+    cache_state: dict[str, Any] | None,
+    history_len: int | None,
+) -> None:
+    """THE history window: every conversation the host gives a policy (rule 23), shaped HERE (B2).
+
+    THE CACHE LAW (Arman): nothing but the removal of large tool outputs may change text behind the cache line.
+    THE RULING (Arman, D3): every conversation gets the window. Both hold because the cut MOVES only when the
+    provider cache is already cold (``context_trim._is_cache_likely_alive`` on the conversation's cache state —
+    the same warm/cold test the trim's payback gate uses): a cold cache has no prefix left to protect. While it
+    is warm the recorded cut is REPLAYED (same first message, same cleared tool results), so the prefix the
+    provider cached is rebuilt byte for byte. Every moved cut is recorded (``_record_history_cut``) and the new
+    cut is remembered in the cache state that persistence writes back.
+
+    The host's door (``_ext.get_conversation_history_window``) returns a :class:`HistoryWindowPolicy` from its
+    knobs, or ``None`` for no window. It MAY raise (a knob it cannot read): the turn fails loudly, never runs on a
+    window nobody chose.
+    """
+    from matrx_ai._ext import get_conversation_history_window
+    from matrx_ai.config.history_budget import (
+        HistoryWindowUnavailable,
+        clear_tool_results,
+        last_turns,
+        trim_history_to_token_budget,
+    )
+
+    door = get_conversation_history_window()
+    messages = getattr(config, "messages", None)
+    if door is None or not conversation_id or not messages:
+        return
+    count = len(messages) if history_len is None else max(0, min(int(history_len), len(messages)))
+    history, tail = list(messages[:count]), list(messages[count:])
+    if not history:
+        return
+    try:
+        policy = await door(
+            conversation_id=str(conversation_id),
+            structure_is_live=bool(getattr(config, "responder_mandate_key", None)),
+        )
+        if policy is not None and int(policy.turns) <= 0:
+            last_turns(history, int(policy.turns))  # raises the refusal sentence
+    except Exception as exc:
+        raise HistoryWindowUnavailable(
+            f"the history window of conversation {conversation_id} could not be decided: {exc}"
+        ) from exc
+    if policy is None:
+        return
+    warm, previous = _cut_context(conversation_id, cache_state)
+    prep.history_cut_context = {"warm": warm, "previous": previous, "waits": bool(policy.waits_for_cold_cache)}
+    decision: dict[str, Any] = {"conversation_id": str(conversation_id), "history": len(history)}
+
+    if warm and policy.waits_for_cold_cache:
+        bounded = history
+        if previous is not None:
+            start = _first_kept_index(history, previous)
+            if start is not None:
+                bounded = history[start:]
+            clear_tool_results(bounded, set(previous.get("cleared") or []))
+        decision.update(action="held_warm", reason="the provider cache is warm", kept=len(bounded), cache_break=False)
+    else:
+        bounded = last_turns(history, int(policy.turns))
+        report = trim_history_to_token_budget(bounded, policy.token_budget)
+        kept_ids = {
+            str(getattr(b, "tool_use_id", "") or "")
+            for m in bounded
+            for b in (getattr(m, "content", None) or [])
+        }
+        carried = [i for i in (previous or {}).get("cleared") or [] if i in kept_ids]
+        cleared = sorted({*carried, *report.cleared_ids})
+        first = bounded[0] if bounded else None
+        cut = {
+            "first_id": getattr(first, "id", None),
+            "first_position": getattr(first, "position", None),
+            "cleared": cleared,
+            "turns": int(policy.turns),
+            "token_budget": policy.token_budget,
+            "at": datetime.now(UTC).isoformat(),
+        }
+        moved = (
+            previous is None and (len(bounded) != len(history) or bool(report.cleared_ids))
+        ) or (
+            previous is not None
+            and (
+                (previous.get("first_id"), previous.get("first_position")) != (cut["first_id"], cut["first_position"])
+                or set(previous.get("cleared") or []) != set(cleared)
+            )
+        )
+        decision.update(
+            action="moved" if moved else "unchanged",
+            reason="the provider cache is cold" if not warm else "the cold-cache gate is off (knob)",
+            kept=len(bounded),
+            cleared_now=len(report.cleared_ids),
+            cache_break=bool(moved),
+            turns=int(policy.turns),
+        )
+        _HISTORY_CUT_MEMO[str(conversation_id)] = cut
+        _HISTORY_CUT_MEMO.move_to_end(str(conversation_id))
+        while len(_HISTORY_CUT_MEMO) > _MAX_TRACKED:
+            _HISTORY_CUT_MEMO.popitem(last=False)
+    _record_history_cut(prep, decision)
+    if len(bounded) != len(history):
+        config.messages.clear()
+        config.messages.extend([*bounded, *tail])
+
+
 async def _mark_perishable_state(
-    prep: SendPrep, config: Any, *, conversation_id: str | None
+    prep: SendPrep, config: Any, *, conversation_id: str | None, cache_state: dict[str, Any] | None = None
 ) -> None:
     """Mark earlier turns' live-machine readings stale — host-enabled threads only.
 
     See ``config/perishable_state.py``. The host decides which conversations are
     permanent (``_ext.get_perishable_state_marker``); unconfigured or False →
     nothing happens. A failure is announced and skipped, never fatal.
+
+    THE CACHE LAW (Arman: nothing but the removal of large tool outputs may change text behind the cache line):
+    a marker rewrites an EARLIER turn, which the provider has cached. So the markers move only on the history
+    window's cold-cache decision (``prep.history_cut_context``; no window → the same warm/cold test, gate on).
+    While warm, exactly the keys the last cold turn marked (``history_cut.stale``) are re-marked; a cold pass
+    marks every earlier reading and records the new set on the cut and on the request
+    (``history_cut.stale_markers``), a moved set announced as a deliberate cache break.
     """
     from matrx_ai._ext import get_perishable_state_marker
     from matrx_ai.config.perishable_state import mark_perishable_state
@@ -1464,9 +1654,19 @@ async def _mark_perishable_state(
     if decider is None or not conversation_id or not getattr(config, "messages", None):
         return
     try:
-        if not await decider(conversation_id=str(conversation_id)):
+        if not await decider(
+            conversation_id=str(conversation_id),
+            structure_is_live=bool(getattr(config, "responder_mandate_key", None)),
+        ):
             return
-        report = mark_perishable_state(config.messages)
+        cut_context = prep.history_cut_context
+        if cut_context is None:
+            warm, previous = _cut_context(str(conversation_id), cache_state)
+            cut_context = {"warm": warm, "previous": previous, "waits": True}
+        previous = cut_context.get("previous") or {}
+        recorded = {str(k) for k in previous.get("stale") or []}
+        hold = bool(cut_context.get("warm")) and bool(cut_context.get("waits"))
+        report = mark_perishable_state(config.messages, only=recorded if hold else None)
     except Exception as exc:  # noqa: BLE001 — shaping never costs a send
         vcprint(
             f"[send_boundary/{prep.stage}] step 'perishable_state' failed (ignored): "
@@ -1477,12 +1677,65 @@ async def _mark_perishable_state(
         return
     prep.perishable_report = report.to_dict()
     prep.steps.append("perishable_state")
+    _record_stale_markers(
+        prep,
+        conversation_id=str(conversation_id),
+        hold=hold,
+        warm=bool(cut_context.get("warm")),
+        previous=previous,
+        marked=sorted(set(report.marked_keys)),
+    )
     if report.blocks_marked:
         vcprint(
             f"[send_boundary/{prep.stage}] {conversation_id}: marked "
             f"{report.blocks_marked} earlier-turn workspace reading(s) stale "
             f"({', '.join(sorted(set(report.tools)))}).",
             color="cyan",
+        )
+
+
+def _record_stale_markers(
+    prep: SendPrep,
+    *,
+    conversation_id: str,
+    hold: bool,
+    warm: bool,
+    previous: dict[str, Any],
+    marked: list[str],
+) -> None:
+    """Record the stale markers' cache decision the way the window records its cut: on the request
+    (``history_cut.stale_markers`` → ``cx_request.metadata``) and, when they moved, on the cut persistence
+    writes into ``cx_conversation.cache_state`` (``history_cut.stale``)."""
+    from matrx_ai.context.app_context import try_get_app_context
+
+    recorded = sorted({str(k) for k in previous.get("stale") or []})
+    if hold:
+        decision = {"action": "held_warm", "reason": "the provider cache is warm", "marked": len(marked), "cache_break": False}
+    else:
+        moved = marked != recorded
+        decision = {
+            "action": "moved" if moved else "unchanged",
+            "reason": "the provider cache is cold" if not warm else "the cold-cache gate is off (knob)",
+            "marked": len(marked),
+            "cache_break": bool(moved),
+        }
+        cut = dict(_HISTORY_CUT_MEMO.get(conversation_id) or previous or {})
+        cut["stale"] = marked
+        _HISTORY_CUT_MEMO[conversation_id] = cut
+        _HISTORY_CUT_MEMO.move_to_end(conversation_id)
+        while len(_HISTORY_CUT_MEMO) > _MAX_TRACKED:
+            _HISTORY_CUT_MEMO.popitem(last=False)
+    prep.steps.append(f"stale_markers:{decision['action']}")
+    ctx = try_get_app_context()
+    if ctx is not None:
+        entry = dict(ctx.metadata.get("history_cut") or {"conversation_id": conversation_id})
+        entry["stale_markers"] = decision
+        ctx.metadata["history_cut"] = entry
+    if decision["cache_break"]:
+        vcprint(
+            f"[send_boundary/{prep.stage}] {conversation_id}: stale markers MOVED ({decision['reason']}): "
+            f"{len(marked)} earlier block(s) marked — a deliberate cache break.",
+            color="yellow",
         )
 
 

@@ -31,6 +31,9 @@ _IMPORT_AI_LIBRARIES = (
 #: The installed copy's answer once it was yes: libraries do not vanish
 #: mid-run, and each ask costs a fresh interpreter importing Pydantic AI.
 _installed_copy_ready: dict[str, str] = {}
+#: The version a side-by-side install in THIS process checked in the
+#: environment it then switched `probe` to (`_install_side_by_side`).
+_switched_ai_libraries: str | None = None
 
 
 def _installed_copy() -> str | None:
@@ -77,7 +80,8 @@ def _ai_libraries_of(binary: str) -> str | None:
 def ai_libraries() -> str | None:
     """The installed Pydantic AI version where the daemon runs, or None when the
     `daemon` extra is missing there: this CLI's environment, or the installed
-    `probe`'s when this is a launcher's temporary copy (`_installed_copy`).
+    `probe`'s when this is a launcher's temporary copy (`_installed_copy`) or
+    when this process just switched `probe` to an environment that has them.
 
     IMPORTS them, on purpose: this is the READINESS check that gates choosing
     the daemon, provisioning it and `probe daemon install`, and a package that
@@ -92,7 +96,11 @@ def ai_libraries() -> str | None:
 
         return getattr(pydantic_ai, "__version__", "installed")
     except ImportError:
-        return None
+        # `_install_side_by_side` put them in a NEW environment and switched
+        # `probe` to it; this process still runs from the old one, where the
+        # import can never succeed (2026-10-29: two first-run Mac app installs
+        # read `no_libraries` right after a working install).
+        return _switched_ai_libraries
 
 
 def located_ai_libraries() -> str | None:
@@ -374,13 +382,18 @@ def _install_side_by_side(version: str) -> int | None:
             typer.echo(line, err=True)
         typer.echo("Capture keeps running; daemon mode stays unavailable.", err=True)
         return 1
-    if _fresh_ai_libraries(str(installs.env_python(out.env))) is None:
+    libraries = _fresh_ai_libraries(str(installs.env_python(out.env)))
+    if libraries is None:
         typer.echo(
             "the install finished but the daemon's AI libraries still do not import. Capture keeps running; "
             "daemon mode stays unavailable.",
             err=True,
         )
         return 1
+    if not out.waiting:
+        # `probe` names that environment now; a waiting switch has not happened.
+        global _switched_ai_libraries
+        _switched_ai_libraries = libraries
     typer.echo("installed: daemon mode can run on this machine")
     return 0
 

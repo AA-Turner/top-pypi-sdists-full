@@ -47,6 +47,14 @@ def test_or():
     ).sql() == "(cola = colb OR colc = cold)"
 
 
+def test_rand():
+    assert (F.col("cola") | (True & F.col("colb"))).sql() == "(cola OR (TRUE AND colb))"
+
+
+def test_ror():
+    assert (F.col("cola") & (True | F.col("colb"))).sql() == "(cola AND (TRUE OR colb))"
+
+
 def test_mod():
     assert (F.col("cola") % 2).sql() == "(cola % 2)"
 
@@ -131,9 +139,23 @@ def test_substring():
     assert (F.col("cola").substr(2, 3)).sql() == "SUBSTRING(cola, 2, 3)"
 
 
+def test_getitem_slice():
+    assert F.col("cola")[1:3].sql() == "SUBSTRING(cola, 1, 3)"
+    with pytest.raises(ValueError):
+        F.col("cola")[1:3:2]
+    for open_ended in (slice(None, 3), slice(1, None), slice(None, None)):
+        with pytest.raises(TypeError):
+            F.col("cola")[open_ended]
+
+
 def test_isin():
     assert (F.col("cola").isin([1, 2, 3])).sql() == "cola IN (1, 2, 3)"
     assert (F.col("cola").isin(1, 2, 3)).sql() == "cola IN (1, 2, 3)"
+
+
+def test_isin_columns():
+    assert (F.col("cola").isin(F.col("colb"), 1)).sql() == "cola IN (colb, 1)"
+    assert (F.col("cola").isin([F.col("colb"), F.col("colc")])).sql() == "cola IN (colb, colc)"
 
 
 @pytest.mark.parametrize("value", [float("inf"), float("-inf")])

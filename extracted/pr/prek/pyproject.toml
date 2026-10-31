@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "prek"
-version = "0.5.7"
+version = "0.5.9"
 description = "A fast Git hook manager written in Rust, designed as a drop-in alternative to pre-commit, reimagined."
 authors = [{ name = "j178", email = "hi@j178.dev" }]
 requires-python = ">=3.8"
@@ -23,7 +23,7 @@ classifiers = [
 
 [project.urls]
 Repository = "https://github.com/j178/prek"
-Changelog = "https://github.com/j178/prek/blob/master/CHANGELOG.md"
+Changelog = "https://github.com/j178/prek/blob/main/CHANGELOG.md"
 Releases = "https://github.com/j178/prek/releases"
 Homepage = "https://prek.j178.dev/"
 
@@ -32,7 +32,7 @@ dev = ["rooster"]
 docs = [
   "llmstxt-standalone>=0.2.0",
   "mike",
-  "zensical>=0.0.69",
+  "zensical>=0.0.71",
 ]
 docker = ["cargo-zigbuild>=0.23.4"]
 

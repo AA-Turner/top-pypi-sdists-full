@@ -45,6 +45,7 @@ if TYPE_CHECKING:
     from pymatgen.core.composition import Element, Species
     from pymatgen.core.structure import IStructure
     from pymatgen.symmetry.groups import CrystalSystem
+    from pymatgen.symmetry.structure import SymmetrizedStructure
 
 __author__ = "Richard Tran, Wenhao Sun, Zihan Xu, Shyue Ping Ong"
 
@@ -629,6 +630,7 @@ class Slab(Structure):
             site_properties=struct.site_properties,
             reorient_lattice=self.reorient_lattice,
             reconstruction=self.reconstruction,
+            energy=self.energy,
         )
 
     def add_adsorbate_atom(
@@ -708,13 +710,13 @@ class Slab(Structure):
         2. If not 1, get_equi_sites has multiple nested loops
         """
 
-        def get_equi_sites(slab: Slab, sites: Sequence[SupportsIndex]) -> list[SupportsIndex]:
+        def get_equi_sites(slab: SymmetrizedStructure, sites: Sequence[NDArray]) -> list[int]:
             """
             Get the indices of the equivalent sites of given sites.
 
             Parameters:
-                slab (Slab): The slab structure.
-                sites (Sequence[SupportsIndex]): Original indices of sites.
+                slab (SymmetrizedStructure): The symmetrized slab structure.
+                sites (Sequence[NDArray]): Fractional coordinates of the original sites.
 
             Returns:
                 list[int]: Indices of the equivalent sites.
@@ -741,10 +743,11 @@ class Slab(Structure):
                         continue
                     if slab[i2].frac_coords[2] == slab[i1].frac_coords[2]:
                         continue
-                    # Test site remove to see if it results in symmetric slab
-                    slab = self.copy()
-                    slab.remove_sites([i1, i2])
-                    if slab.is_symmetric():
+                    # Test site remove to see if it results in symmetric slab. Use a separate trial copy so the
+                    # symmetrized slab used for the remaining lookups is not replaced.
+                    trial_slab = self.copy()
+                    trial_slab.remove_sites([i1, i2])
+                    if trial_slab.is_symmetric():
                         equi_sites.append(i2)
                         break
 
@@ -754,12 +757,12 @@ class Slab(Structure):
         slab_copy = SpacegroupAnalyzer(self.copy()).get_symmetrized_structure()
         sites = [slab_copy[i].frac_coords for i in indices]
 
-        equi_sites = get_equi_sites(slab_copy, sites)  # type:ignore[arg-type]
+        equi_sites = get_equi_sites(slab_copy, sites)
 
         # Check if found any equivalent sites
         if len(equi_sites) == len(indices):
-            self.remove_sites(indices)
-            self.remove_sites(equi_sites)
+            # Remove in one call: removing in two calls would shift the indices in between
+            self.remove_sites([*indices, *equi_sites])
 
         else:
             warnings.warn("Equivalent sites could not be found for some indices. Surface unchanged.", stacklevel=2)
@@ -776,11 +779,10 @@ def center_slab(slab: Structure) -> Structure:
         1. When the slab region is completely positioned between
         two vacuum layers in the cell but is not centered, we simply
         shift the slab to the center along z-axis.
-        2. If the slab completely resides outside the cell either
-        from the bottom or the top, we iterate through all sites that
-        spill over and shift all sites such that it is now
-        on the other side. An edge case being, either the top
-        of the slab is at z = 0 or the bottom is at z = 1.
+        2. If the slab is split across the periodic boundary along c
+        (part of it near z = 0 and the rest near z = 1), we first shift
+        all sites so that the vacuum, taken as the largest gap between
+        sites along c, straddles the boundary. This reduces it to case 1.
 
     Args:
         slab (Structure): The slab to center.
@@ -791,24 +793,15 @@ def center_slab(slab: Structure) -> Structure:
     # Get all site indices
     all_indices = list(range(len(slab)))
 
-    # Get a reasonable cutoff radius to sample neighbors
-    bond_dists = sorted(nn[1] for nn in slab.get_neighbors(slab[0], 10) if nn[1] > 0)
-    # TODO (@DanielYang59): magic number for cutoff radius (would 3 be too large?)
-    cutoff_radius = bond_dists[0] * 3
-
-    # TODO (@DanielYang59): do we need the following complex method?
-    # Why don't we just calculate the center of the Slab and move it to z=0.5?
-    # Before moving we need to ensure there is only one Slab layer though
-
-    # If structure is case 2, shift all the sites
-    # to the other side until it is case 1
-    for site in slab:  # DEBUG (@DanielYang59): Slab position changes during loop?
-        # DEBUG (@DanielYang59): sites below z=0 is not considered (only check coord > c)
-        if any(nn[1] >= slab.lattice.c for nn in slab.get_neighbors(site, cutoff_radius)):
-            # TODO (@DanielYang59): the magic offset "0.05" seems unnecessary,
-            # as the Slab would be centered later anyway
-            shift = 1 - site.frac_coords[2] + 0.05
-            slab.translate_sites(all_indices, [0, 0, shift])
+    # If structure is case 2, the slab is split across the periodic boundary along c.
+    # The largest gap between consecutive sites along c (including the gap across
+    # the boundary) is the vacuum. Shift all sites so that the middle of the vacuum
+    # sits at z=0, which leaves the slab contiguous inside the cell (case 1).
+    z_coords = np.sort(np.mod(slab.frac_coords[:, 2], 1))
+    gaps = np.diff(np.append(z_coords, z_coords[0] + 1))
+    idx_gap = int(np.argmax(gaps))
+    vacuum_center = z_coords[idx_gap] + gaps[idx_gap] / 2
+    slab.translate_sites(all_indices, [0, 0, -vacuum_center])
 
     # Now the slab is case 1, move it to the center
     weights = [site.species.weight for site in slab]
@@ -983,18 +976,19 @@ class SlabGenerator:
             divisor = abs(reduce(math.gcd, vector))  # type: ignore[arg-type]
             return cast("tuple[int, int, int]", tuple(int(idx / divisor) for idx in vector))
 
-        def add_site_types() -> None:
-            """Add Wyckoff symbols and equivalent sites to the initial structure."""
-            if (
-                "bulk_wyckoff" not in initial_structure.site_properties
-                or "bulk_equivalent" not in initial_structure.site_properties
-            ):
-                spg_analyzer = SpacegroupAnalyzer(initial_structure)
-                initial_structure.add_site_property("bulk_wyckoff", spg_analyzer.get_symmetry_dataset().wyckoffs)
-                initial_structure.add_site_property(
-                    "bulk_equivalent",
-                    spg_analyzer.get_symmetry_dataset().equivalent_atoms.tolist(),
-                )
+        def add_site_types(structure: Structure | IStructure) -> Structure | IStructure:
+            """Add Wyckoff symbols and equivalent sites to a copy of the structure, if missing."""
+            if "bulk_wyckoff" in structure.site_properties and "bulk_equivalent" in structure.site_properties:
+                return structure
+            # Work on a copy so the caller's structure is not modified
+            structure = structure.copy()
+            spg_analyzer = SpacegroupAnalyzer(structure)
+            structure.add_site_property("bulk_wyckoff", spg_analyzer.get_symmetry_dataset().wyckoffs)
+            structure.add_site_property(
+                "bulk_equivalent",
+                spg_analyzer.get_symmetry_dataset().equivalent_atoms.tolist(),
+            )
+            return structure
 
         def calculate_surface_normal() -> np.ndarray:
             """Calculate the unit surface normal vector using the reciprocal
@@ -1077,7 +1071,7 @@ class SlabGenerator:
 
         # Add Wyckoff symbols and equivalent sites to the initial structure,
         # to help identify types of sites in the generated slab
-        add_site_types()
+        initial_structure = add_site_types(initial_structure)
 
         # Calculate the surface normal
         lattice = initial_structure.lattice
@@ -1219,10 +1213,9 @@ class SlabGenerator:
 
         # Correct the scale_factor for LLL, primitivization, c-axis changes
         # Orienting of either lattice must happen after this, not before
-        scale_factor = np.linalg.solve(
-            self.parent.lattice.matrix.T,
-            struct.lattice.matrix.T,
-        ).T
+        scale_factor = np.asarray(
+            np.linalg.solve(self.parent.lattice.matrix.T, struct.lattice.matrix.T).T, dtype=np.float64
+        )
 
         return Slab(
             struct.lattice,
@@ -1557,12 +1550,14 @@ class SlabGenerator:
 
         return Slab(
             init_slab.lattice,
-            slab.species,
+            slab.species_and_occu,
             slab.frac_coords,
             init_slab.miller_index,
             init_slab.oriented_unit_cell,
             init_slab.shift,
             init_slab.scale_factor,
+            reorient_lattice=init_slab.reorient_lattice,
+            site_properties=slab.site_properties,
             energy=init_slab.energy,
         )
 
@@ -2073,24 +2068,25 @@ def get_symmetrically_equivalent_miller_indices(
         _miller_index = (miller_index[0], miller_index[1], miller_index[2])
 
     max_idx = max(np.abs(miller_index))
-    idx_range = range(max_idx, -max_idx - 1, -1)
 
     # Skip crystal system analysis if already given
-    if system:
-        spg_analyzer = None
-    else:
-        spg_analyzer = SpacegroupAnalyzer(structure)
-        system = spg_analyzer.get_crystal_system()
+    if not system:
+        system = SpacegroupAnalyzer(structure).get_crystal_system()
 
-    # Get distinct hkl planes from the rhombohedral setting if trigonal
+    # Get distinct hkl planes from the rhombohedral setting if trigonal. The operations of the
+    # primitive lattice are expressed in its own basis, so convert them to the basis of the input
+    # structure (e.g. the hexagonal setting of an R-centered cell) before applying them to its hkl.
     if system == "trigonal":
-        if not spg_analyzer:
-            spg_analyzer = SpacegroupAnalyzer(structure)
-        prim_structure = spg_analyzer.get_primitive_standard_structure()
-        symm_ops = prim_structure.lattice.get_recp_symmetry_operation()
+        prim_lattice = structure.get_primitive_structure().lattice
+        symm_ops = _transform_recp_symm_ops(prim_lattice.get_recp_symmetry_operation(), prim_lattice, structure.lattice)
 
     else:
         symm_ops = structure.lattice.get_recp_symmetry_operation()
+
+    # Equivalent indices can have larger components than the input, e.g. (1, 1, 0) and (2, -1, 0)
+    # in a hexagonal hkl setting, so search up to the largest component of all symmetry images.
+    search_max = max(max_idx, *(int(np.max(np.abs(np.rint(op.operate(_miller_index))))) for op in symm_ops))
+    idx_range = range(search_max, -search_max - 1, -1)
 
     equivalent_millers: list[tuple[int, int, int]] = [_miller_index]  # type: ignore[list-item]
     # Explicit x3 repeat instead of keyword, so mypy understands it correctly
@@ -2313,7 +2309,40 @@ def _is_in_miller_family(
     return any(in_coord_list(miller_list, op.operate(miller_index)) for op in symm_ops)
 
 
-def _index_transformation(transf: NDArray, index: tuple[int, int, int] | NDArray) -> NDArray[int]:
+def _transform_recp_symm_ops(
+    symm_ops: Iterable[SymmOp],
+    from_lattice: Lattice,
+    to_lattice: Lattice,
+) -> list[SymmOp]:
+    """Express reciprocal lattice symmetry operations (acting on hkl) in another lattice basis.
+
+    Both lattices must share the same Cartesian frame. Operations that do not map
+    the hkl of `to_lattice` onto integers (i.e. that are not symmetries of it) are dropped.
+
+    Args:
+        symm_ops (Iterable[SymmOp]): Operations acting on hkl in the basis of `from_lattice`.
+        from_lattice (Lattice): Lattice the operations are expressed in.
+        to_lattice (Lattice): Lattice to express the operations in.
+
+    Returns:
+        list[SymmOp]: Operations acting on hkl in the basis of `to_lattice`.
+    """
+    from_recp = from_lattice.reciprocal_lattice_crystallographic.matrix
+    to_recp = to_lattice.reciprocal_lattice_crystallographic.matrix
+    # Maps hkl in the basis of from_lattice to hkl in the basis of to_lattice
+    basis_change = np.linalg.solve(to_recp.T, from_recp.T)
+    inv_basis_change = np.linalg.inv(basis_change)
+
+    transformed_ops = []
+    for op in symm_ops:
+        rotation = basis_change @ op.rotation_matrix @ inv_basis_change
+        rounded_rotation = np.rint(rotation)
+        if np.allclose(rotation, rounded_rotation, atol=1e-5):
+            transformed_ops.append(SymmOp.from_rotation_and_translation(rounded_rotation, np.zeros(3)))
+    return transformed_ops
+
+
+def _index_transformation(transf: NDArray, index: tuple[int, int, int] | NDArray) -> NDArray[np.int_]:
     """Transforms a given index via transf @ index, while avoiding floats."""
     # Convert the elements of the transformation matrix to integers
     fractions = [Fraction(value).limit_denominator(100) for value in itertools.chain.from_iterable(transf)]

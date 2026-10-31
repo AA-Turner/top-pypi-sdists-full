@@ -539,6 +539,11 @@ class ThreadsStub:
                 request_serializer=core__api__pb2.GetGraphIDRequest.SerializeToString,
                 response_deserializer=core__api__pb2.GetGraphIDResponse.FromString,
                 _registered_method=True)
+        self.Storage = channel.unary_unary(
+                '/coreApi.Threads/Storage',
+                request_serializer=core__api__pb2.GetThreadStorageRequest.SerializeToString,
+                response_deserializer=core__api__pb2.ThreadStorage.FromString,
+                _registered_method=True)
 
 
 class ThreadsServicer:
@@ -613,6 +618,13 @@ class ThreadsServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def Storage(self, request, context):
+        """Get a thread's checkpoint storage (Postgres only).
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_ThreadsServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -670,6 +682,11 @@ def add_ThreadsServicer_to_server(servicer, server):
                     servicer.GetGraphID,
                     request_deserializer=core__api__pb2.GetGraphIDRequest.FromString,
                     response_serializer=core__api__pb2.GetGraphIDResponse.SerializeToString,
+            ),
+            'Storage': grpc.unary_unary_rpc_method_handler(
+                    servicer.Storage,
+                    request_deserializer=core__api__pb2.GetThreadStorageRequest.FromString,
+                    response_serializer=core__api__pb2.ThreadStorage.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -979,6 +996,33 @@ class Threads:
             metadata,
             _registered_method=True)
 
+    @staticmethod
+    def Storage(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/coreApi.Threads/Storage',
+            core__api__pb2.GetThreadStorageRequest.SerializeToString,
+            core__api__pb2.ThreadStorage.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
 
 class RunsStub:
     """Missing associated documentation comment in .proto file."""
@@ -1017,6 +1061,11 @@ class RunsStub:
         self.SetStatus = channel.unary_unary(
                 '/coreApi.Runs/SetStatus',
                 request_serializer=core__api__pb2.SetRunStatusRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                _registered_method=True)
+        self.Requeue = channel.unary_unary(
+                '/coreApi.Runs/Requeue',
+                request_serializer=core__api__pb2.RequeueRunRequest.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                 _registered_method=True)
         self.Stream = channel.stream_stream(
@@ -1101,6 +1150,14 @@ class RunsServicer:
 
     def SetStatus(self, request, context):
         """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Requeue(self, request, context):
+        """Re-queue a drained run: counts the drain, then makes the run pending so
+        another worker resumes it from its checkpoint (internal worker method)
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -1204,6 +1261,11 @@ def add_RunsServicer_to_server(servicer, server):
             'SetStatus': grpc.unary_unary_rpc_method_handler(
                     servicer.SetStatus,
                     request_deserializer=core__api__pb2.SetRunStatusRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+            'Requeue': grpc.unary_unary_rpc_method_handler(
+                    servicer.Requeue,
+                    request_deserializer=core__api__pb2.RequeueRunRequest.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
             'Stream': grpc.stream_stream_rpc_method_handler(
@@ -1413,6 +1475,33 @@ class Runs:
             target,
             '/coreApi.Runs/SetStatus',
             core__api__pb2.SetRunStatusRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def Requeue(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/coreApi.Runs/Requeue',
+            core__api__pb2.RequeueRunRequest.SerializeToString,
             google_dot_protobuf_dot_empty__pb2.Empty.FromString,
             options,
             channel_credentials,

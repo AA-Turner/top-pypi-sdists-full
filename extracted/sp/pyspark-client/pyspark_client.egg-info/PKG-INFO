@@ -1,20 +1,19 @@
 Metadata-Version: 2.4
 Name: pyspark-client
-Version: 4.2.1
+Version: 4.3.0
 Summary: Python Spark Connect client for Apache Spark
 Home-page: https://github.com/apache/spark/tree/master/python
 Author: Spark Developers
 Author-email: dev@spark.apache.org
 License: Apache-2.0
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Typing :: Typed
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
@@ -24,7 +23,7 @@ Requires-Dist: grpcio>=1.76.0
 Requires-Dist: grpcio-status>=1.76.0
 Requires-Dist: googleapis-common-protos>=1.71.0
 Requires-Dist: zstandard>=0.25.0
-Requires-Dist: numpy>=1.21
+Requires-Dist: numpy>=1.23.2
 Requires-Dist: pyyaml>=3.11
 Dynamic: author
 Dynamic: author-email
@@ -70,4 +69,4 @@ The Python packaging for Spark is not intended to replace all of the other use c
 ## Python Requirements
 
 At its core PySpark depends on Py4J, but some additional sub-packages have their own extra requirements for some features (including numpy, pandas, and pyarrow).
-See also [Dependencies](https://spark.apache.org/docs/latest/api/python/getting_started/install.html#dependencies) for production, and [dev/requirements.txt](https://github.com/apache/spark/blob/master/dev/requirements.txt) for development.
+See also [Dependencies](https://spark.apache.org/docs/latest/api/python/getting_started/install.html#dependencies) for production, and [pyproject.toml](https://github.com/apache/spark/blob/master/pyproject.toml) for development.

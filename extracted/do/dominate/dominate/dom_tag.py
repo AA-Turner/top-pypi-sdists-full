@@ -23,7 +23,7 @@ import numbers
 from collections import defaultdict, namedtuple
 from functools import wraps
 import threading
-from asyncio import get_event_loop
+from asyncio import current_task, get_running_loop
 from uuid import uuid4
 from contextvars import ContextVar
 
@@ -52,9 +52,9 @@ except ImportError:
 # sort of bleed into one another...
 
 # The solution is to use a ContextVar - which provides async context local storage.
-# We use this to store a unique ID for each async context. We then use thie ID to
+# We use this to store a unique ID for each async context. We then use the ID to
 # form the key (in _get_thread_context) that is used to index the _with_context defaultdict.
-# The presense of this key ensures that each async context has its own stack and doesn't conflict.
+# The presence of this key ensures that each async context has its own stack and doesn't conflict.
 async_context_id = ContextVar('async_context_id', default = None)
 
 def _get_async_context_id():
@@ -71,9 +71,10 @@ def _get_thread_context():
     context.append(("greenlet", greenlet.getcurrent()))
 
   try:
-    if get_event_loop().is_running():
+    if get_running_loop().is_running():
       # Only add this extra information if we are actually in a running event loop
-      context.append(("async", _get_async_context_id()))
+      # A child task inherits ContextVars, so its task identity must also differ.
+      context.append(("async", _get_async_context_id(), current_task()))
   # A runtime error is raised if there is no async loop...
   except RuntimeError:
     pass
@@ -199,7 +200,7 @@ class dom_tag(object):
 
   def delete_attribute(self, key):
     if isinstance(key, int):
-      del self.children[key:key+1]
+      del self.children[key]
     else:
       del self.attributes[key]
   __delitem__ = delete_attribute
@@ -370,7 +371,7 @@ class dom_tag(object):
     sb.append(name)
 
     for attribute, value in sorted(self.attributes.items()):
-      if value in (False, None):
+      if value is False or value is None:
         continue
       val = unicode(value) if isinstance(value, util.text) and not value.escape else util.escape(unicode(value), True)
       sb.append(' %s="%s"' % (attribute, val))
@@ -441,7 +442,7 @@ class dom_tag(object):
     }.get(attribute, attribute)
 
     # Workaround for Python's reserved words
-    if attribute[0] == '_':
+    if attribute[0] == '_' and len(attribute) > 1:
       attribute = attribute[1:]
 
     # Workaround for dash

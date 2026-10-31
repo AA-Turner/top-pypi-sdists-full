@@ -1644,26 +1644,6 @@ pub fn raw_dialect() -> Dialect {
         .into(),
     )]);
 
-    postgres.replace_grammar(
-        "TypedArrayLiteralSegment",
-        Sequence::new(vec![
-            Sequence::new(vec![
-                Ref::keyword("VARIADIC").to_matchable(),
-                Sequence::new(vec![
-                    Ref::new("NakedIdentifierSegment").to_matchable(),
-                    Ref::new("WalrusOperatorSegment").to_matchable(),
-                ])
-                .config(|this| this.optional())
-                .to_matchable(),
-            ])
-            .config(|this| this.optional())
-            .to_matchable(),
-            Ref::new("ArrayTypeSegment").to_matchable(),
-            Ref::new("ArrayLiteralSegment").to_matchable(),
-        ])
-        .to_matchable(),
-    );
-
     postgres.add([(
         "IndexAccessMethodSegment".into(),
         NodeMatcher::new(SyntaxKind::IndexAccessMethod, |_| {
@@ -2759,6 +2739,7 @@ pub fn raw_dialect() -> Dialect {
                 Some(vec![
                     Ref::new("NamedWindowSegment").optional().to_matchable(),
                     Ref::new("OrderByClauseSegment").optional().to_matchable(),
+                    Ref::new("ForClauseSegment").optional().to_matchable(),
                     Ref::new("LimitClauseSegment").optional().to_matchable(),
                     Ref::new("OffsetClauseSegment").optional().to_matchable(),
                     Ref::new("FetchClauseSegment").optional().to_matchable(),
@@ -7908,6 +7889,40 @@ pub fn raw_dialect() -> Dialect {
         ])
         .to_matchable(),
     );
+
+    let merge_statement = postgres
+        .grammar("MergeStatementSegment")
+        .match_grammar(&postgres)
+        .unwrap()
+        .copy(
+            Some(vec![
+                Sequence::new(vec![
+                    Ref::keyword("RETURNING").to_matchable(),
+                    MetaSegment::indent().to_matchable(),
+                    one_of(vec![
+                        Ref::new("StarSegment").to_matchable(),
+                        Delimited::new(vec![
+                            Sequence::new(vec![
+                                Ref::new("ExpressionSegment").to_matchable(),
+                                Ref::new("AliasExpressionSegment").optional().to_matchable(),
+                            ])
+                            .to_matchable(),
+                        ])
+                        .to_matchable(),
+                    ])
+                    .to_matchable(),
+                    MetaSegment::dedent().to_matchable(),
+                ])
+                .config(|this| this.optional())
+                .to_matchable(),
+            ]),
+            None,
+            None,
+            None,
+            Vec::new(),
+            false,
+        );
+    postgres.replace_grammar("MergeStatementSegment", merge_statement);
 
     postgres.replace_grammar(
         "MergeMatchedClauseSegment",

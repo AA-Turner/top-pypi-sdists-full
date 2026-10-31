@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: napari
-Version: 0.9.2
+Version: 0.10.0
 Summary: n-dimensional array viewer in Python
 Author-email: napari team <napari-steering-council@googlegroups.com>
 License-Expression: BSD-3-Clause
@@ -45,7 +45,7 @@ Requires-Dist: napari-console>=0.1.4
 Requires-Dist: napari-plugin-engine>=0.2.1
 Requires-Dist: napari-resources>=1.0.1
 Requires-Dist: napari-svg>=0.1.8
-Requires-Dist: npe2>=0.9.0
+Requires-Dist: npe2>=0.10.0
 Requires-Dist: numpy>=1.25
 Requires-Dist: pandas>=1.5.0
 Requires-Dist: Pillow>=10.0
@@ -71,16 +71,12 @@ Requires-Dist: typing_extensions>=4.12
 Requires-Dist: vispy<0.18,>=0.17.0
 Requires-Dist: wrapt>=1.14.1
 Provides-Extra: pyside6
-Requires-Dist: PySide6!=6.11.0,!=6.11.1,>6.7; extra == "pyside6"
+Requires-Dist: PySide6!=6.11.0,!=6.11.1,>=6.8.3; extra == "pyside6"
 Provides-Extra: pyqt6
-Requires-Dist: PyQt6>6.5; extra == "pyqt6"
-Requires-Dist: PyQt6!=6.6.1; platform_system == "Darwin" and extra == "pyqt6"
+Requires-Dist: PyQt6>=6.7; extra == "pyqt6"
 Requires-Dist: pyqt6-qt6!=6.11.0,!=6.11.1; extra == "pyqt6"
 Provides-Extra: pyside
 Requires-Dist: napari[pyside6]; extra == "pyside"
-Provides-Extra: pyqt5
-Requires-Dist: PyQt5>=5.15.8; extra == "pyqt5"
-Requires-Dist: pyqt5-qt5<=5.15.2; sys_platform == "Windows" and extra == "pyqt5"
 Provides-Extra: pyqt
 Requires-Dist: napari[pyqt6]; extra == "pyqt"
 Provides-Extra: qt
@@ -124,7 +120,7 @@ Requires-Dist: tensorstore>=0.1.43; extra == "testing"
 Requires-Dist: virtualenv>=20.24.7; extra == "testing"
 Requires-Dist: xarray>=2023.5.0; extra == "testing"
 Requires-Dist: IPython>=7.25.0; extra == "testing"
-Requires-Dist: qtconsole>=4.5.1; extra == "testing"
+Requires-Dist: qtconsole>=5.4.0; extra == "testing"
 Requires-Dist: rich>=14.0.0; extra == "testing"
 Requires-Dist: napari[bermuda,optional-base]; extra == "testing"
 Provides-Extra: testing-extra

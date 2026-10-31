@@ -617,6 +617,7 @@ class CompletedRequest:
         # ``send_boundary._record_fit`` and persisted the same way: iteration 1 reads
         # ``last_fit``, every iteration its own ``fit_by_iteration`` entry.
         _last_fit: dict[str, Any] | None = None
+        _history_cut: dict[str, Any] | None = None
         _fit_by_iteration: dict[int, dict[str, Any]] = {}
         try:
             from matrx_ai.context.app_context import try_get_app_context as _fit_app_ctx
@@ -624,6 +625,9 @@ class CompletedRequest:
             _fit_ctx = _fit_app_ctx()
             if _fit_ctx is not None:
                 _last_fit = _fit_ctx.metadata.get("last_fit")
+                # The history window's decision this turn (``send_boundary._apply_history_window``): a moved
+                # cut is a deliberate cache break and is recorded on iteration 1's row, never silent.
+                _history_cut = _fit_ctx.metadata.get("history_cut")
                 _fits = _fit_ctx.metadata.get("fit_by_iteration")
                 if isinstance(_fits, dict):
                     _fit_by_iteration = {
@@ -865,6 +869,8 @@ class CompletedRequest:
                 _iter_fit = _last_fit
             if _iter_fit is not None:
                 row.setdefault("metadata", {})["input_fit"] = _iter_fit
+            if i == 0 and isinstance(_history_cut, dict):
+                row.setdefault("metadata", {})["history_cut"] = _history_cut
 
             request_rows.append(row)
 

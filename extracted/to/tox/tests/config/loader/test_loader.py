@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 import pytest
 
@@ -8,7 +8,7 @@ from tox.config.cli.parse import get_options
 from tox.config.loader.api import Override, apply_overrides_to_raw
 
 if TYPE_CHECKING:
-    from tox.pytest import CaptureFixture, ToxProjectCreator
+    from tox.pytest import CaptureFixture, ToxProjectCreator, ToxRunOutcome
 
 
 @pytest.mark.parametrize("flag", ["-x", "--override"])
@@ -62,6 +62,31 @@ def test_override_not_equals_different_type() -> None:
 
 def test_override_repr() -> None:
     assert repr(Override("b.a=c")) == "Override('b.a=c')"
+
+
+@pytest.mark.parametrize(
+    ("secret", "mask"),
+    [
+        pytest.param("hunter2", "*******", id="plain"),
+        pytest.param("hun ter2", "********", id="space"),
+        pytest.param("hun\nter2", "********", id="newline"),
+        pytest.param("hun;ter2", "********", id="semicolon"),
+    ],
+)
+def test_override_redacts_inline_secret(secret: str, mask: str) -> None:
+    override: Final[Override] = Override(f"testenv.commands=python deploy.py --password={secret}")
+    assert str(override) == f"testenv.commands=python deploy.py --password={mask}"
+    assert repr(override) == f"Override('testenv.commands=python deploy.py --password={mask}')"
+
+
+def test_override_redacts_secret_in_key() -> None:
+    override: Final[Override] = Override("--password=hunter2")
+    assert str(override) == "--password=*******"
+    assert repr(override) == "Override('--password=*******')"
+
+
+def test_override_str_keeps_spacing_when_nothing_is_redacted() -> None:
+    assert str(Override("b.a=  x  ")) == "b.a=  x  "
 
 
 @pytest.mark.parametrize(
@@ -196,6 +221,63 @@ def test_override_set_env_value_is_substituted(
         *(["KEEP=1"] if "KEEP" in content and override.startswith("set_env+=") else []),
         *expected,
     ]
+
+
+@pytest.mark.parametrize(
+    ("filename", "content", "namespace"),
+    [
+        pytest.param("tox.toml", 'env_list = ["a"]\n', "env.a", id="toml"),
+        pytest.param("tox.ini", "[tox]\nenv_list = a\n", "testenv:a", id="ini"),
+    ],
+)
+@pytest.mark.parametrize(
+    ("override", "expected"),
+    [
+        pytest.param("make,{env:NAMES}", "\n  make\n  b\n  rm", id="alone"),
+        pytest.param("make,b-{env:NAME}", "\n  make\n  b-c", id="within-entry"),
+    ],
+)
+def test_override_list_value_is_substituted(
+    tox_project: ToxProjectCreator,
+    monkeypatch: pytest.MonkeyPatch,
+    filename: str,
+    content: str,
+    namespace: str,
+    override: str,
+    expected: str,
+) -> None:
+    monkeypatch.setenv("NAME", "c")
+    monkeypatch.setenv("NAMES", "b,rm")
+    key = "allowlist_externals"
+    outcome: Final[ToxRunOutcome] = tox_project({filename: content}).run(
+        "c", "-e", "a", "-k", key, "-x", f"{namespace}.{key}={override}"
+    )
+    outcome.assert_success()
+    outcome.assert_out_err(f"[testenv:a]\n{key} ={expected}\n", "")
+
+
+@pytest.mark.parametrize(
+    ("filename", "content", "namespace"),
+    [
+        pytest.param("tox.toml", 'env_list = ["a"]\n', "env.a", id="toml"),
+        pytest.param("tox.ini", "[tox]\nenv_list = a\n", "testenv:a", id="ini"),
+    ],
+)
+@pytest.mark.parametrize("key", ["allowlist_externals", "extras", "base_python"])
+def test_override_list_value_substituted_cannot_add_entries(
+    tox_project: ToxProjectCreator,
+    monkeypatch: pytest.MonkeyPatch,
+    filename: str,
+    content: str,
+    namespace: str,
+    key: str,
+) -> None:
+    monkeypatch.setenv("NAMES", "b,rm")
+    outcome: Final[ToxRunOutcome] = tox_project({filename: content}).run(
+        "c", "-e", "a", "-k", key, "-x", f"{namespace}.{key}=make,b-{{env:NAMES}}"
+    )
+    outcome.assert_failed()
+    assert f"failed to load a.{key}: a substitution within an entry cannot add an entry separator" in outcome.out
 
 
 @pytest.mark.parametrize(

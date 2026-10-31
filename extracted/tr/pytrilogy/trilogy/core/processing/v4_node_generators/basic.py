@@ -24,18 +24,6 @@ from trilogy.core.processing.v4_helper.projection import (
 from .common import outputs_with_parent_grain_keys, parent_outputs_needed
 
 
-def basic_regroups(
-    outputs: list[BuildConcept],
-    parents: list[StrategyNode],
-    environment: BuildEnvironment,
-) -> bool:
-    """Whether the BASIC node over `parents` groups instead of projecting its
-    one parent's rows as they stand."""
-    return len(parents) == 1 and _grain_claim_needs_group(
-        outputs_with_parent_grain_keys(outputs, parents), parents[0], environment
-    )
-
-
 def _expose_boundary_handle(node: StrategyNode, handle: BuildConcept) -> bool:
     """Expose a rowset handle on the boundary under `node` whose body produces
     its content: a boundary carries the columns its reader demands, so a grain
@@ -131,7 +119,27 @@ def _grain_claim_needs_group(
     if not parent_grain or parent_grain.issubset({c.address for c in outputs}):
         return False
     _expose_parent_grain(parent, parent_grain, environment)
-    if parent_grain.issubset({c.address for c in parent.output_concepts}):
+    return grain_claim_unheld(
+        outputs,
+        parent_grain,
+        {c.address for c in parent.output_concepts},
+        environment,
+    )
+
+
+def grain_claim_unheld(
+    outputs: list[BuildConcept],
+    parent_grain: set[str],
+    parent_outputs: set[str],
+    environment: BuildEnvironment,
+) -> bool:
+    """Whether a projection of `outputs` off a parent at `parent_grain` claims
+    a grain the parent's rows do not hold, with nothing to widen back to."""
+    if (
+        not parent_grain
+        or parent_grain.issubset({c.address for c in outputs})
+        or parent_grain.issubset(parent_outputs)
+    ):
         return False
     claimed = BuildGrain.from_concepts(outputs).components
     return not all(

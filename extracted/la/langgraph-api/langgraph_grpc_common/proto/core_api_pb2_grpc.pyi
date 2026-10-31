@@ -164,6 +164,8 @@ class ThreadsStub:
     """Set the status of a thread and run atomically."""
     GetGraphID: _grpc.UnaryUnaryMultiCallable[_core_api_pb2.GetGraphIDRequest, _core_api_pb2.GetGraphIDResponse]
     """Get graph ID for the latest run in a thread (internal method, no auth)."""
+    Storage: _grpc.UnaryUnaryMultiCallable[_core_api_pb2.GetThreadStorageRequest, _core_api_pb2.ThreadStorage]
+    """Get a thread's checkpoint storage (Postgres only)."""
 
 @_typing.type_check_only
 class ThreadsAsyncStub(ThreadsStub):
@@ -182,6 +184,8 @@ class ThreadsAsyncStub(ThreadsStub):
     """Set the status of a thread and run atomically."""
     GetGraphID: _aio.UnaryUnaryMultiCallable[_core_api_pb2.GetGraphIDRequest, _core_api_pb2.GetGraphIDResponse]  # type: ignore[assignment]
     """Get graph ID for the latest run in a thread (internal method, no auth)."""
+    Storage: _aio.UnaryUnaryMultiCallable[_core_api_pb2.GetThreadStorageRequest, _core_api_pb2.ThreadStorage]  # type: ignore[assignment]
+    """Get a thread's checkpoint storage (Postgres only)."""
 
 class ThreadsServicer(metaclass=_abc_1.ABCMeta):
     @_abc_1.abstractmethod
@@ -264,6 +268,14 @@ class ThreadsServicer(metaclass=_abc_1.ABCMeta):
     ) -> _typing.Union[_core_api_pb2.GetGraphIDResponse, _abc.Awaitable[_core_api_pb2.GetGraphIDResponse]]:
         """Get graph ID for the latest run in a thread (internal method, no auth)."""
 
+    @_abc_1.abstractmethod
+    def Storage(
+        self,
+        request: _core_api_pb2.GetThreadStorageRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_core_api_pb2.ThreadStorage, _abc.Awaitable[_core_api_pb2.ThreadStorage]]:
+        """Get a thread's checkpoint storage (Postgres only)."""
+
 def add_ThreadsServicer_to_server(servicer: ThreadsServicer, server: _typing.Union[_grpc.Server, _aio.Server]) -> None: ...
 
 class RunsStub:
@@ -277,6 +289,10 @@ class RunsStub:
     Search: _grpc.UnaryUnaryMultiCallable[_core_api_pb2.SearchRunsRequest, _core_api_pb2.SearchRunsResponse]
     Cancel: _grpc.UnaryUnaryMultiCallable[_core_api_pb2.CancelRunRequest, _empty_pb2.Empty]
     SetStatus: _grpc.UnaryUnaryMultiCallable[_core_api_pb2.SetRunStatusRequest, _empty_pb2.Empty]
+    Requeue: _grpc.UnaryUnaryMultiCallable[_core_api_pb2.RequeueRunRequest, _empty_pb2.Empty]
+    """Re-queue a drained run: counts the drain, then makes the run pending so
+    another worker resumes it from its checkpoint (internal worker method)
+    """
     Stream: _grpc.StreamStreamMultiCallable[_core_api_pb2.StreamRunClientMessage, _core_api_pb2.StreamEvent]
     """Bidirectional stream for run events.
     Client opens stream, then sends JoinRunRequest to start receiving events.
@@ -313,6 +329,10 @@ class RunsAsyncStub(RunsStub):
     Search: _aio.UnaryUnaryMultiCallable[_core_api_pb2.SearchRunsRequest, _core_api_pb2.SearchRunsResponse]  # type: ignore[assignment]
     Cancel: _aio.UnaryUnaryMultiCallable[_core_api_pb2.CancelRunRequest, _empty_pb2.Empty]  # type: ignore[assignment]
     SetStatus: _aio.UnaryUnaryMultiCallable[_core_api_pb2.SetRunStatusRequest, _empty_pb2.Empty]  # type: ignore[assignment]
+    Requeue: _aio.UnaryUnaryMultiCallable[_core_api_pb2.RequeueRunRequest, _empty_pb2.Empty]  # type: ignore[assignment]
+    """Re-queue a drained run: counts the drain, then makes the run pending so
+    another worker resumes it from its checkpoint (internal worker method)
+    """
     Stream: _aio.StreamStreamMultiCallable[_core_api_pb2.StreamRunClientMessage, _core_api_pb2.StreamEvent]  # type: ignore[assignment]
     """Bidirectional stream for run events.
     Client opens stream, then sends JoinRunRequest to start receiving events.
@@ -382,6 +402,16 @@ class RunsServicer(metaclass=_abc_1.ABCMeta):
         request: _core_api_pb2.SetRunStatusRequest,
         context: _ServicerContext,
     ) -> _typing.Union[_empty_pb2.Empty, _abc.Awaitable[_empty_pb2.Empty]]: ...
+
+    @_abc_1.abstractmethod
+    def Requeue(
+        self,
+        request: _core_api_pb2.RequeueRunRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_empty_pb2.Empty, _abc.Awaitable[_empty_pb2.Empty]]:
+        """Re-queue a drained run: counts the drain, then makes the run pending so
+        another worker resumes it from its checkpoint (internal worker method)
+        """
 
     @_abc_1.abstractmethod
     def Stream(

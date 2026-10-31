@@ -22,6 +22,25 @@ class MultiPeriodFieldLong(QuantConnect.Data.Fundamental.MultiPeriodField[int], 
     def __add__(self, right: QuantConnect.Data.Fundamental.MultiPeriodFieldLong) -> float:
         ...
 
+    def __float__(self) -> float:
+        ...
+
+    @overload
+    def __ge__(self, other: QuantConnect.Data.Fundamental.MultiPeriodFieldLong) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: QuantConnect.Data.Fundamental.MultiPeriodFieldLong) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: float) -> bool:
+        ...
+
     def __iadd__(self, right: QuantConnect.Data.Fundamental.MultiPeriodFieldLong) -> float:
         ...
 
@@ -56,6 +75,9 @@ class MultiPeriodFieldLong(QuantConnect.Data.Fundamental.MultiPeriodField[int], 
         """
         ...
 
+    def __int__(self) -> int:
+        ...
+
     def __isub__(self, right: QuantConnect.Data.Fundamental.MultiPeriodFieldLong) -> float:
         """Subtracts the right field's default value from the left field's default value"""
         ...
@@ -64,12 +86,31 @@ class MultiPeriodFieldLong(QuantConnect.Data.Fundamental.MultiPeriodField[int], 
         """Divides the left field's default value by the right field's default value"""
         ...
 
+    @overload
+    def __le__(self, other: QuantConnect.Data.Fundamental.MultiPeriodFieldLong) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: QuantConnect.Data.Fundamental.MultiPeriodFieldLong) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: float) -> bool:
+        ...
+
     def __mod__(self, right: QuantConnect.Data.Fundamental.MultiPeriodFieldLong) -> float:
         """Computes the remainder of dividing the left field's default value by the right field's default value"""
         ...
 
     def __mul__(self, right: QuantConnect.Data.Fundamental.MultiPeriodFieldLong) -> float:
         """Multiplies the default values of two fields"""
+        ...
+
+    def __neg__(self) -> float:
         ...
 
     def __sub__(self, right: QuantConnect.Data.Fundamental.MultiPeriodFieldLong) -> float:
@@ -147,6 +188,25 @@ class MultiPeriodField(typing.Generic[QuantConnect_Data_Fundamental_MultiPeriodF
         """Adds the default values of a long and a double backed field"""
         ...
 
+    def __float__(self) -> float:
+        ...
+
+    @overload
+    def __ge__(self, other: QuantConnect.Data.Fundamental.MultiPeriodField[QuantConnect_Data_Fundamental_MultiPeriodField_T]) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: QuantConnect.Data.Fundamental.MultiPeriodField[QuantConnect_Data_Fundamental_MultiPeriodField_T]) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: float) -> bool:
+        ...
+
     @overload
     def __iadd__(self, right: QuantConnect.Data.Fundamental.MultiPeriodField) -> float:
         ...
@@ -214,6 +274,9 @@ class MultiPeriodField(typing.Generic[QuantConnect_Data_Fundamental_MultiPeriodF
         """
         ...
 
+    def __int__(self) -> int:
+        ...
+
     @overload
     def __isub__(self, right: QuantConnect.Data.Fundamental.MultiPeriodField) -> float:
         """Subtracts the right field's default value from the left field's default value"""
@@ -245,6 +308,22 @@ class MultiPeriodField(typing.Generic[QuantConnect_Data_Fundamental_MultiPeriodF
         ...
 
     @overload
+    def __le__(self, other: QuantConnect.Data.Fundamental.MultiPeriodField[QuantConnect_Data_Fundamental_MultiPeriodField_T]) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: QuantConnect.Data.Fundamental.MultiPeriodField[QuantConnect_Data_Fundamental_MultiPeriodField_T]) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: float) -> bool:
+        ...
+
+    @overload
     def __mod__(self, right: QuantConnect.Data.Fundamental.MultiPeriodField) -> float:
         """Computes the remainder of dividing the left field's default value by the right field's default value"""
         ...
@@ -272,6 +351,9 @@ class MultiPeriodField(typing.Generic[QuantConnect_Data_Fundamental_MultiPeriodF
     @overload
     def __mul__(self, right: QuantConnect.Data.Fundamental.MultiPeriodField) -> float:
         """Multiplies the default values of a long and a double backed field"""
+        ...
+
+    def __neg__(self) -> float:
         ...
 
     @overload

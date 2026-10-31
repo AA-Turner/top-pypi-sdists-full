@@ -56,7 +56,8 @@ class DatabricksConfigResponse(object):
         self.discriminator = None
 
         self.config_id = config_id
-        self.connection_id = connection_id
+        if connection_id is not None:
+            self.connection_id = connection_id
         self.message = message
 
     @property
@@ -100,8 +101,6 @@ class DatabricksConfigResponse(object):
         :param connection_id: The connection_id of this DatabricksConfigResponse.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and connection_id is None:  # noqa: E501
-            raise ValueError("Invalid value for `connection_id`, must not be `None`")  # noqa: E501
 
         self._connection_id = connection_id
 

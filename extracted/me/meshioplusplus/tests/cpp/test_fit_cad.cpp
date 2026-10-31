@@ -20,37 +20,37 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
-#include <filesystem>
 #include <fstream>
 #include <iterator>
-#include <limits>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
 #include <gtest/gtest.h>
 
-#include "meshioplusplus/detail/provenance.hpp"
 #include "meshioplusplus/exceptions.hpp"
 #include "meshioplusplus/operations/fit_cad.hpp"
 #include "meshioplusplus/operations/fit_primitives.hpp"
-#include "meshioplusplus/operations/merge.hpp"
 #include "meshioplusplus/operations/pipeline.hpp"
 #include "meshioplusplus/operations/segment.hpp"
-#include "meshioplusplus/operations/transform.hpp"
 #include "analytic_surfaces.hpp"
-#include "fit_cad_fixtures.hpp"
 #include "mesh_fixtures.hpp"
 
 #include "../../src/cpp/src/detail/nurbs_eval.hpp"
-#include "../../src/cpp/src/detail/primitive_constraints.hpp"
 
 using namespace meshioplusplus;
 
 namespace {
 
-using fcfix::fitted;
-using fcfix::saddle_box;
+Mesh fitted(const Mesh& rSkin, double CurvatureTolerance = 0.0, double Tolerance = 1e-3,
+            std::int64_t MinPatchCells = 1) {
+    SegmentOptions so;
+    so.mCurvatureTolerance = CurvatureTolerance;
+    so.mMinPatchCells = MinPatchCells;
+    FitPrimitivesOptions fo;
+    fo.mTolerance = Tolerance;
+    return fit_primitives(segment(rSkin, so).mMesh, fo).mMesh;
+}
 
 #ifdef MESHIOPLUSPLUS_HAS_OCCT
 // The NURBS side channel holds every face of the solid, each trimmed, and every
@@ -96,6 +96,24 @@ std::string read_bytes(const std::string& rPath) {
     return std::string(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
 }
 
+// A closed box whose top is the saddle z = 1 + 0.2 (x - 1/2)(y - 1/2) * 4: no
+// primitive explains the top, so it must come back faceted.
+Mesh saddle_box(int n) {
+    Mesh box = analytic::box_skin(n);
+    const NDArray& p = box.Points();
+    NDArray q = NDArray::Uninit(DType::Float64, {box.NumPoints(), 3});
+    for (std::size_t i = 0; i < box.NumPoints(); ++i) {
+        const double x = p.As<double>()[i * 3], y = p.As<double>()[i * 3 + 1];
+        double z = p.As<double>()[i * 3 + 2];
+        z *= 1.0 + 0.8 * (x - 0.5) * (y - 0.5);
+        q.As<double>()[i * 3] = x;
+        q.As<double>()[i * 3 + 1] = y;
+        q.As<double>()[i * 3 + 2] = z;
+    }
+    box.AssignPoints(std::move(q));
+    return box;
+}
+
 }  // namespace
 
 TEST(FitCad, CapabilityMatchesTheBuild) {
@@ -106,190 +124,18 @@ TEST(FitCad, CapabilityMatchesTheBuild) {
 #endif
 }
 
-// The kernel-free backend runs in every build.
-TEST(FitCad, NativeBackendWritesAnalyticFaces) {
-    FitCadOptions o;
-    o.mBackend = FitCadBackend::Native;
-    const std::string path =
-        (std::filesystem::temp_directory_path() / "native_plate.step").string();
-    // A raw skin: segmented by the primitive method and fitted first.
-    const FitCadResult r = fit_cad(analytic::filleted_plate(), path, o);
-    EXPECT_EQ(r.mBackend, FitCadBackend::Native);
-    EXPECT_TRUE(r.mValid);
-    EXPECT_EQ(r.mNumSolids, 1);
-    EXPECT_EQ(r.mNumFaces, 8);
-    EXPECT_EQ(r.mNumPlane, 6);
-    EXPECT_EQ(r.mNumCylinder, 2);
-    EXPECT_EQ(r.mNumFacetedFaces, 0);
-    EXPECT_EQ(r.mNumDemoted, 0);
-    EXPECT_TRUE(std::isnan(r.mVolume));
-    EXPECT_GT(r.mSkinVolume, 0.0);
-    EXPECT_LE(r.mMaxDeviation, r.mTolerance);
-    // The skin itself comes back, each cell with its face, type and patch.
-    ASSERT_TRUE(r.mMesh.HasCellData(kFitCadFaceName));
-    const NDArray& t = r.mMesh.CellData(kFitCadTypeName, 0);
-    EXPECT_EQ(t.Size(), r.mMesh.Cells(0).NumCells());
-    for (std::size_t i = 0; i < t.Size(); ++i) {
-        const std::int64_t v = t.As<std::int64_t>()[i];
-        EXPECT_TRUE(v == 1 || v == 3) << v;
-    }
-    const std::string text = read_bytes(path);
-    std::remove(path.c_str());
-    EXPECT_NE(text.find("CYLINDRICAL_SURFACE"), std::string::npos);
-}
-
-// The native backend is a write entry point: a provenance note an earlier,
-// unrelated operation left on this thread must not reach its STEP header.
-TEST(FitCad, NativeStepIgnoresEarlierProvenanceNotes) {
-    FitCadOptions o;
-    o.mBackend = FitCadBackend::Native;
-    const Mesh skin = fitted(analytic::box_skin(3));
-    const std::string path = ::testing::TempDir() + "native_provenance.step";
-    detail::provenance_begin_write();
-    fit_cad(skin, path, o);
-    const std::string clean = read_bytes(path);
-    detail::provenance_note("left-behind", "a note from an earlier operation");
-    fit_cad(skin, path, o);
-    const std::string after = read_bytes(path);
-    std::remove(path.c_str());
-    EXPECT_EQ(after.find("left-behind"), std::string::npos);
-    EXPECT_EQ(clean, after);
-}
-
-// Refinement before building: an angle segmentation of the filleted plate
-// leaves the fillet in one patch with a side it is tangent to, which no
-// primitive explains; refined, both are analytic faces (v17.11.0).
-TEST(FitCad, NativeBackendRefines) {
-    FitCadOptions o;
-    o.mBackend = FitCadBackend::Native;
-    const Mesh skin = fitted(analytic::filleted_plate());
-    const FitCadResult before = fit_cad(skin, "", o);
-    o.mRefineSegmentation = true;
-    const FitCadResult after = fit_cad(skin, "", o);
-    EXPECT_FALSE(before.mRefined);
-    EXPECT_TRUE(after.mRefined);
-    EXPECT_GT(after.mNumRefineSplits, 0);
-    EXPECT_GT(after.mExplainedAreaFraction, after.mInitialExplainedAreaFraction);
-    EXPECT_NEAR(after.mExplainedAreaFraction, 1.0, 1e-12);
-    EXPECT_GT(after.mNumPlane + after.mNumCylinder, before.mNumPlane + before.mNumCylinder);
-    EXPECT_EQ(after.mNumCylinder, 2);
-    EXPECT_TRUE(after.mValid);
-    EXPECT_TRUE(after.mMesh.HasFieldData(kRefinePatchProxyName));
-    EXPECT_FALSE(before.mMesh.HasFieldData(kRefinePatchProxyName));
-}
-
-TEST(FitCad, NativeBackendLeavesTypesOutAsPolygons) {
-    FitCadOptions o;
-    o.mBackend = FitCadBackend::Native;
-    o.mTypes = 1u << 1;  // planes only: the bore and the fillet become polygons
-    const FitCadResult r = fit_cad(analytic::filleted_plate(), "", o);
-    EXPECT_TRUE(r.mValid);
-    EXPECT_EQ(r.mNumPlane, 6);
-    EXPECT_EQ(r.mNumCylinder, 0);
-    EXPECT_GT(r.mNumFacetedFaces, 0);
-}
-
-TEST(FitCad, NativeBackendReportsAClosedSolid) {
-    FitCadOptions o;
-    o.mBackend = FitCadBackend::Native;
-    const FitCadResult r = fit_cad(fitted(analytic::box_skin(3)), "", o);
-    EXPECT_TRUE(r.mClosed);
-    EXPECT_TRUE(std::isnan(r.mHausdorffMax));
-    EXPECT_EQ(r.mNumExtendedEdges, 0);
-    EXPECT_EQ(r.mNumSnappedJunctions, 0);
-}
-
-TEST(FitCad, BadFreeformGeneralOptionsAreRefused) {
-    const auto bad = [](auto&& rSet) {
-        FitCadOptions o;
-        o.mBackend = FitCadBackend::Native;
-        rSet(o);
-        EXPECT_THROW(fit_cad(analytic::box_skin(2), "", o), std::invalid_argument);
-    };
-    bad([](FitCadOptions& o) { o.mFreeformTolerance = -1.0; });
-    bad([](FitCadOptions& o) { o.mFreeformSmoothing = -1.0; });
-    bad([](FitCadOptions& o) { o.mMaxFreeformPoles = 3; });
-    bad([](FitCadOptions& o) { o.mMaxFreeformIterations = 0; });
-    bad([](FitCadOptions& o) { o.mMaxFreeformSplits = -1; });
-    bad([](FitCadOptions& o) { o.mSewTolerance = -1.0; });
-    bad([](FitCadOptions& o) { o.mSewTolerance = std::numeric_limits<double>::infinity(); });
-}
-
-TEST(FitCad, BadBackendIsRefused) {
-    FitCadOptions o;
-    o.mBackend = static_cast<FitCadBackend>(5);
-    EXPECT_THROW(fit_cad(analytic::box_skin(2), "", o), std::invalid_argument);
-}
-
 #ifndef MESHIOPLUSPLUS_HAS_OCCT
 
 TEST(FitCad, AbsentBackendIsNamed) {
-    FitCadOptions o;
-    o.mBackend = FitCadBackend::Occt;
     try {
-        fit_cad(analytic::box_skin(2), "", o);
+        fit_cad(analytic::box_skin(2));
         FAIL() << "expected Unsupported";
     } catch (const Unsupported& rErr) {
         EXPECT_NE(std::string(rErr.what()).find("MESHIOPLUSPLUS_WITH_OCCT"), std::string::npos);
     }
-    // Without OpenCASCADE, the automatic backend is the native one.
-    EXPECT_EQ(fit_cad(analytic::box_skin(2)).mBackend, FitCadBackend::Native);
-}
-
-// The automatic fallback says so once per process (an earlier test may have
-// used it already); asking for the native backend by name never warns.
-TEST(FitCad, FallbackIsAnnouncedOnce) {
-    const std::string notice = "kernel-free native backend is used";
-    auto count = [&](const std::string& rText) {
-        std::size_t n = 0;
-        for (std::size_t at = rText.find(notice); at != std::string::npos;
-             at = rText.find(notice, at + 1))
-            ++n;
-        return n;
-    };
-    testing::internal::CaptureStderr();
-    fit_cad(analytic::box_skin(2));
-    fit_cad(analytic::box_skin(2));
-    EXPECT_LE(count(testing::internal::GetCapturedStderr()), 1u);
-    FitCadOptions o;
-    o.mBackend = FitCadBackend::Native;
-    testing::internal::CaptureStderr();
-    fit_cad(analytic::box_skin(2), "", o);
-    EXPECT_EQ(count(testing::internal::GetCapturedStderr()), 0u);
 }
 
 #else
-
-TEST(FitCad, FilletedPlateIsEightExactFaces) {
-    // A raw skin with a fillet tangent to its sides and a bore: segmented by
-    // the surfaces the facets lie on, so neither is lost to facets.
-    const FitCadResult r = fit_cad(analytic::filleted_plate());
-    EXPECT_EQ(r.mBackend, FitCadBackend::Occt);
-    EXPECT_TRUE(r.mValid);
-    EXPECT_EQ(r.mNumFaces, 8);
-    EXPECT_EQ(r.mNumPlane, 6);
-    EXPECT_EQ(r.mNumCylinder, 2);
-    EXPECT_EQ(r.mNumFacetedFaces, 0);
-    EXPECT_EQ(r.mNumDemoted, 0);
-    // The exact solid: the plate less the fillet's corner and the bore.
-    const double rc = 0.8, rb = 0.6;
-    const double exact = (16.0 - (rc * rc - analytic::kPi * rc * rc / 4.0) - analytic::kPi * rb * rb) * 0.5;
-    EXPECT_NEAR(r.mVolume, exact, 1e-6);
-}
-
-TEST(FitCad, FacetsLeftOutMergeIntoCoplanarFaces) {
-    // With every type left out the box is all facets, written as one planar
-    // face per coplanar group rather than one per triangle.
-    FitCadOptions o;
-    o.mTypes = 0;
-    const FitCadResult r = fit_cad(fitted(analytic::box_skin(3)), "", o);
-    EXPECT_TRUE(r.mValid);
-    EXPECT_EQ(r.mNumFaces, 6);
-    EXPECT_EQ(r.mNumFacetedFaces, 6);
-    EXPECT_NEAR(r.mVolume, 1.0, 1e-9);
-    o.mMergeFaces = false;
-    EXPECT_EQ(fit_cad(fitted(analytic::box_skin(3)), "", o).mNumFaces, 6);
-}
 
 TEST(FitCad, BoxIsSixExactPlanes) {
     const FitCadResult r = fit_cad(fitted(analytic::box_skin(3)));
@@ -675,84 +521,6 @@ TEST(FitCad, RunsSegmentAndFitWhenMissing) {
     EXPECT_EQ(r.mNumPlane, 6);
 }
 
-// The same with OpenCASCADE: the turned part segmented by angles alone keeps
-// smooth junctions inside patches; refined, every surface is an analytic face
-// of a valid solid (v17.11.0).
-TEST(FitCad, RefinementExplainsTangentJunctions) {
-    const Mesh skin = fitted(analytic::turned_part());
-    const FitCadResult before = fit_cad(skin);
-    FitCadOptions o;
-    o.mRefineSegmentation = true;
-    const FitCadResult after = fit_cad(skin, "", o);
-    EXPECT_TRUE(after.mValid);
-    EXPECT_TRUE(after.mRefined);
-    EXPECT_NEAR(after.mExplainedAreaFraction, 1.0, 1e-12);
-    const auto analytic_faces = [](const FitCadResult& rR) {
-        return rR.mNumPlane + rR.mNumSphere + rR.mNumCylinder + rR.mNumCone + rR.mNumTorus;
-    };
-    EXPECT_GT(analytic_faces(after), analytic_faces(before));
-    EXPECT_EQ(after.mNumFacetedFaces, 0);
-    EXPECT_EQ(after.mNumDemoted, 0);
-    EXPECT_NEAR(after.mVolumeRatio, 1.0, 1e-2);
-    EXPECT_LE(after.mMaxDeviation, after.mTolerance);
-}
-
-// The general freeform face (v17.11.0): a wavy top the grid fit cannot reach
-// with at most four grid points a side comes back faceted; with the general
-// fit it is one B-spline face of a valid solid.
-TEST(FitCad, GeneralFreeformFitsWhatTheGridCannot) {
-    const Mesh skin = fitted(fcfix::wavy_top_box(24));
-    FitCadOptions o;
-    o.mFreeformMaxControl = 4;
-    const FitCadResult before = fit_cad(skin, "", o);
-    EXPECT_EQ(before.mNumBspline, 0);
-    EXPECT_GT(before.mNumFacetedFaces, 0);
-    EXPECT_EQ(before.mNumFreeformGeneral, 0);
-    o.mFreeformGeneral = true;
-    const FitCadResult after = fit_cad(skin, "", o);
-    EXPECT_TRUE(after.mValid);
-    EXPECT_EQ(after.mNumFreeformGeneral, 1);
-    EXPECT_EQ(after.mNumBspline, 1);
-    EXPECT_EQ(after.mNumPlane, 5);
-    EXPECT_EQ(after.mNumFacetedFaces, 0);
-    EXPECT_GT(after.mAvgFreeformPoles, 0.0);
-    EXPECT_NEAR(after.mVolumeRatio, 1.0, 1e-3);
-    EXPECT_LE(after.mMaxDeviation, after.mTolerance);
-    expect_brep_consistent(after);
-    // The general fit runs only where the grid fit fails: with the default
-    // grid the same top is the grid's face, as before.
-    FitCadOptions d;
-    d.mFreeformGeneral = true;
-    const FitCadResult dflt = fit_cad(skin, "", d);
-    EXPECT_EQ(dflt.mNumFreeformGeneral, 0);
-    EXPECT_EQ(dflt.mNumBspline, 1);
-}
-
-// Never silently wrong: with the grid fit starved, the freeform fixtures go
-// through the general path (the closed band through its halving too), and
-// every solid stays valid and within the tolerance; a face that fails comes
-// back as facets.
-TEST(FitCad, GeneralFreeformKeepsEverySolidValid) {
-    FitCadOptions o;
-    o.mFreeformMaxControl = 4;
-    o.mFreeformGeneral = true;
-    for (const fcfix::Fixture& f : fcfix::golden_fixtures()) {
-        if (f.mName != "saddle_box" && f.mName != "wavy_capped")
-            continue;  // the freeform ones; the rest have no freeform patch
-        SCOPED_TRACE(f.mName);
-        const FitCadResult r = fit_cad(f.mMesh, "", o);
-        EXPECT_TRUE(r.mValid);
-        EXPECT_LE(r.mMaxDeviation, r.mTolerance);
-        EXPECT_NEAR(r.mVolumeRatio, 1.0, 2e-2);
-        if (f.mName == "wavy_capped") {
-            // Starved, the grid fit leaves the wavy wall's halves faceted; the
-            // general fit makes them two B-spline faces.
-            EXPECT_EQ(r.mNumFreeformGeneral, 2);
-            EXPECT_EQ(r.mNumFacetedFaces, 0);
-        }
-    }
-}
-
 TEST(FitCad, WritesReproducibleStep) {
     const std::string a = ::testing::TempDir() + "fit_cad_a.step";
     const Mesh fit = fitted(analytic::capped_cylinder());
@@ -821,272 +589,6 @@ TEST(FitCad, RefusesOpenSkinsAndBadOptions) {
     o = FitCadOptions{};
     o.mFreeformMaxControl = 3;
     EXPECT_THROW(fit_cad(analytic::box_skin(2), "", o), std::invalid_argument);
-}
-
-TEST(FitCad, RefinementVerdictOverridesALooserPrimitive) {
-    // refine_patches finds no primitive for the saddle top within the
-    // tolerance, while fit_primitives, by its own measure, accepts a torus's
-    // inner side for it; that torus's edges fail and its demotion took the
-    // box's planes with it. fit_cad takes the refinement's verdict.
-    FitCadOptions o;
-    o.mRefineSegmentation = true;
-    for (const FitCadBackend b : {FitCadBackend::Occt, FitCadBackend::Native}) {
-        o.mBackend = b;
-        const FitCadResult r = fit_cad(fitted(saddle_box(24)), "", o);
-        EXPECT_TRUE(r.mValid);
-        EXPECT_TRUE(r.mRefined);
-        EXPECT_EQ(r.mNumPlane, 5);
-        EXPECT_EQ(r.mNumTorus, 0);
-        EXPECT_EQ(r.mNumDemoted, 0);
-        if (b == FitCadBackend::Occt) {
-            EXPECT_EQ(r.mNumFaces, 6);
-            EXPECT_EQ(r.mNumBspline, 1);
-        }
-    }
-}
-
-TEST(FitCad, SewToleranceAtTheToleranceIsTheDefault) {
-    const Mesh skin = fitted(analytic::capped_cylinder());
-    const std::string a = ::testing::TempDir() + "fit_cad_sew.step";
-    const FitCadResult r = fit_cad(skin, a);
-    const std::string bytes = read_bytes(a);
-    FitCadOptions o;
-    o.mSewTolerance = r.mTolerance;
-    fit_cad(skin, a, o);
-    EXPECT_EQ(bytes, read_bytes(a));
-    // A tighter sewing still closes a solid whose edges are shared already.
-    o.mSewTolerance = 1e-3 * r.mTolerance;
-    const FitCadResult t = fit_cad(skin, a, o);
-    EXPECT_TRUE(t.mValid);
-    EXPECT_TRUE(t.mClosed);
-    std::remove(a.c_str());
-}
-
-TEST(FitCad, ClosedSolidReported) {
-    const FitCadResult r = fit_cad(fitted(analytic::box_skin(3)));
-    EXPECT_TRUE(r.mClosed);
-    EXPECT_TRUE(std::isnan(r.mHausdorffMax));  // not measured unless asked
-    EXPECT_FALSE(r.mMesh.HasFieldData(kFitCadFaceHausdorffName));
-}
-
-TEST(FitCad, JunctionSnapPlacesTheCorners) {
-    FitCadOptions o;
-    o.mSnapJunctions = true;
-    const FitCadResult r = fit_cad(fitted(analytic::box_skin(3)), "", o);
-    EXPECT_TRUE(r.mValid);
-    EXPECT_EQ(r.mNumSnappedJunctions, 8);  // the box's corners, three planes each
-    EXPECT_NEAR(r.mVolume, 1.0, 1e-9);
-    EXPECT_LT(r.mMaxDeviation, 1e-9);
-    const FitCadResult t = fit_cad(fitted(analytic::turned_part()), "", o);
-    EXPECT_TRUE(t.mValid);
-    EXPECT_LE(t.mMaxDeviation, t.mTolerance);
-}
-
-namespace {
-
-// The noisy turned part of the goldens, tilted off the coordinate axes so no
-// shared direction is exact by accident: a plane, a cylinder, a torus, a
-// plane, a cone and a sphere about one axis.
-Mesh noisy_tilted_turned_part() {
-    const Mesh skin = transform(analytic::turned_part(), transform_rotation(1.0, 2.0, 0.5, 0.3));
-    return fitted(fcfix::jittered(skin, 1e-3), 1.0, 2e-3, 20);
-}
-
-// The `fit:patch_params` rows of a fitted skin.
-std::vector<std::vector<double>> patch_rows(const Mesh& rMesh) {
-    const NDArray& a = rMesh.FieldData("fit:patch_params");
-    std::vector<std::vector<double>> rows(a.Shape()[0]);
-    for (std::size_t r = 0; r < rows.size(); ++r)
-        rows[r].assign(a.As<double>() + r * 10, a.As<double>() + r * 10 + 10);
-    return rows;
-}
-
-std::vector<std::int64_t> patch_types(const Mesh& rMesh) {
-    const NDArray& a = rMesh.FieldData("fit:patch_type");
-    return std::vector<std::int64_t>(a.As<std::int64_t>(), a.As<std::int64_t>() + a.Size());
-}
-
-// The distance from a point to the line through rX along the unit rD.
-double line_distance(const double* pX, const double* pD, const double* pP) {
-    const double v[3] = {pP[0] - pX[0], pP[1] - pX[1], pP[2] - pX[2]};
-    const double h = v[0] * pD[0] + v[1] * pD[1] + v[2] * pD[2];
-    const double r[3] = {v[0] - h * pD[0], v[1] - h * pD[1], v[2] - h * pD[2]};
-    return std::sqrt(r[0] * r[0] + r[1] * r[1] + r[2] * r[2]);
-}
-
-}  // namespace
-
-TEST(FitCad, ConstrainedPrimitivesShareOneAxis) {
-    Mesh m = noisy_tilted_turned_part();
-    const std::vector<std::int64_t> types = patch_types(m);
-    const std::vector<std::vector<double>> before = patch_rows(m);
-    const double tol = 3.0 * m.FieldData("fit:patch_tolerance").As<double>()[0];
-    const detail::PrimitiveConstraintReport rep = detail::constrain_primitives(m, tol);
-    const std::vector<std::vector<double>> after = patch_rows(m);
-    EXPECT_GE(rep.mNumGroups, 2);  // the axis, and the planes' normal along it
-
-    // The shared axis: the first axial row's.
-    const double* axis = nullptr;
-    const double* point = nullptr;
-    std::size_t num_axial = 0, num_planes = 0, num_spheres = 0;
-    double spread_before = 0.0;
-    for (std::size_t r = 0; r < types.size(); ++r) {
-        if (types[r] < 3 || types[r] > 5)
-            continue;
-        ++num_axial;
-        if (!axis) {
-            axis = after[r].data() + 3;
-            point = after[r].data();
-        }
-        // Cylinders and tori carry the canonical sign, a cone points into itself.
-        const double s = after[r][3] * axis[0] + after[r][4] * axis[1] + after[r][5] * axis[2];
-        for (int k = 0; k < 3; ++k)
-            EXPECT_EQ(after[r][3 + k], (s < 0.0 ? -1.0 : 1.0) * axis[k]) << "row " << r;
-        EXPECT_LT(line_distance(point, axis, after[r].data()), 1e-12) << "row " << r;
-        const double* d0 = before[r].data() + 3;
-        const double c = std::fabs(d0[0] * axis[0] + d0[1] * axis[1] + d0[2] * axis[2]);
-        spread_before = std::max(spread_before, std::sqrt(std::max(0.0, 1.0 - c * c)));
-    }
-    for (std::size_t r = 0; r < types.size(); ++r) {
-        if (types[r] == 1) {
-            ++num_planes;
-            const double s = after[r][3] * axis[0] + after[r][4] * axis[1] + after[r][5] * axis[2];
-            for (int k = 0; k < 3; ++k)
-                EXPECT_EQ(after[r][3 + k], (s < 0.0 ? -1.0 : 1.0) * axis[k]) << "row " << r;
-        } else if (types[r] == 2) {
-            ++num_spheres;
-            EXPECT_LT(line_distance(point, axis, after[r].data()), 1e-12);
-        }
-    }
-    EXPECT_EQ(num_axial, 3u);
-    EXPECT_EQ(num_planes, 2u);
-    EXPECT_EQ(num_spheres, 1u);
-    EXPECT_EQ(rep.mNumConstrained, 6);
-    // Fitted one by one, the axes disagree.
-    EXPECT_GT(spread_before, 1e-9);
-    // Every patch still passes its fit.
-    const NDArray& rms = m.FieldData("fit:patch_rms");
-    const NDArray& ptol = m.FieldData("fit:patch_tolerance");
-    for (std::size_t r = 0; r < types.size(); ++r)
-        EXPECT_LE(rms.As<double>()[r], ptol.As<double>()[r]);
-}
-
-TEST(FitCad, ConstrainedPrimitivesLeaveAnOffAxisPrimitive) {
-    Mesh m = noisy_tilted_turned_part();
-    const std::vector<std::int64_t> types = patch_types(m);
-    // Move the cylinder's axis by ten tolerances: it no longer lies on the
-    // others' axis, so it keeps its own (now poor) fit.
-    const double tol = m.FieldData("fit:patch_tolerance").As<double>()[0];
-    std::size_t cyl = types.size();
-    for (std::size_t r = 0; r < types.size() && cyl == types.size(); ++r)
-        if (types[r] == 3)
-            cyl = r;
-    ASSERT_LT(cyl, types.size());
-    std::vector<std::vector<double>> rows = patch_rows(m);
-    double* row = rows[cyl].data();
-    // A direction perpendicular to the axis.
-    const double perp[3] = {row[4], -row[3], 0.0};
-    const double n = std::sqrt(perp[0] * perp[0] + perp[1] * perp[1]);
-    for (int k = 0; k < 3; ++k)
-        row[k] += 10.0 * tol * perp[k] / n;
-    NDArray params = NDArray::Uninit(DType::Float64, {rows.size(), 10});
-    for (std::size_t r = 0; r < rows.size(); ++r)
-        std::copy(rows[r].begin(), rows[r].end(), params.As<double>() + r * 10);
-    m.AddFieldData("fit:patch_params", std::move(params));
-    const std::vector<double> moved = rows[cyl];
-    detail::constrain_primitives(m, 1e3 * tol);
-    EXPECT_EQ(patch_rows(m)[cyl], moved);
-}
-
-TEST(FitCad, ConstrainedPrimitivesEqualRadii) {
-    // Two capped cylinders side by side whose radii differ by less than the
-    // tolerance: they take one radius, their own axes kept.
-    const Mesh a = analytic::capped_cylinder(1.0);
-    const Mesh b = transform(analytic::capped_cylinder(1.002), transform_translation(4.0, 0.0, 0.0));
-    Mesh m = fitted(merge({&a, &b}).mMesh, 0.0, 1e-3);
-    const std::vector<std::int64_t> types = patch_types(m);
-    const detail::PrimitiveConstraintReport rep = detail::constrain_primitives(m, 1.0);
-    const std::vector<std::vector<double>> rows = patch_rows(m);
-    std::vector<double> radii;
-    for (std::size_t r = 0; r < types.size(); ++r)
-        if (types[r] == 3)
-            radii.push_back(rows[r][6]);
-    ASSERT_EQ(radii.size(), 2u);
-    EXPECT_EQ(radii[0], radii[1]);
-    EXPECT_NEAR(radii[0], 1.001, 1e-3);
-    EXPECT_GE(rep.mNumGroups, 1);
-}
-
-TEST(FitCad, ConstrainedPrimitivesInBothBackends) {
-    const Mesh skin = noisy_tilted_turned_part();
-    FitCadOptions o;
-    for (const FitCadBackend b : {FitCadBackend::Occt, FitCadBackend::Native}) {
-        o.mBackend = b;
-        o.mConstrainPrimitives = false;
-        const FitCadResult off = fit_cad(skin, "", o);
-        EXPECT_EQ(off.mNumConstrainedPrimitives, 0);
-        EXPECT_EQ(off.mNumConstraintGroups, 0);
-        o.mConstrainPrimitives = true;
-        const FitCadResult on = fit_cad(skin, "", o);
-        EXPECT_TRUE(on.mValid);
-        EXPECT_EQ(on.mNumDemoted, 0);
-        EXPECT_EQ(on.mNumConstrainedPrimitives, 6);
-        EXPECT_GE(on.mNumConstraintGroups, 2);
-        EXPECT_EQ(on.mNumFaces, off.mNumFaces);
-        EXPECT_LE(on.mMaxDeviation, on.mTolerance);
-        if (b == FitCadBackend::Occt)
-            EXPECT_NEAR(on.mVolumeRatio, 1.0, 0.01);
-    }
-}
-
-TEST(FitCad, FaceHausdorffBoundsGlobal) {
-    FitCadOptions o;
-    o.mFaceDeviation = true;
-    const FitCadResult r = fit_cad(fitted(analytic::turned_part()), "", o);
-    ASSERT_TRUE(r.mMesh.HasFieldData(kFitCadFaceHausdorffName));
-    ASSERT_TRUE(r.mMesh.HasFieldData(kFitCadFaceRmsName));
-    const NDArray& h = r.mMesh.FieldData(kFitCadFaceHausdorffName);
-    const NDArray& rms = r.mMesh.FieldData(kFitCadFaceRmsName);
-    ASSERT_EQ(h.Shape().size(), 2u);
-    EXPECT_EQ(h.Shape()[0], static_cast<std::size_t>(r.mNumFaces));
-    EXPECT_EQ(h.Shape()[1], 2u);
-    EXPECT_EQ(rms.Size(), static_cast<std::size_t>(r.mNumFaces));
-    double worst = 0.0;
-    for (std::size_t i = 0; i < h.Size(); ++i)
-        worst = std::max(worst, h.As<double>()[i]);
-    EXPECT_EQ(worst, r.mHausdorffMax);
-    EXPECT_LE(r.mHausdorffRms, r.mHausdorffMax);
-    for (std::size_t f = 0; f < rms.Size(); ++f)
-        EXPECT_LE(rms.As<double>()[f], std::max(h.As<double>()[f * 2], h.As<double>()[f * 2 + 1]));
-    // Every face stands within the tolerance of the skin, both ways.
-    EXPECT_LE(r.mHausdorffMax, r.mTolerance);
-    // The measure does not touch the solid.
-    const FitCadResult plain = fit_cad(fitted(analytic::turned_part()));
-    EXPECT_EQ(plain.mNumFaces, r.mNumFaces);
-    EXPECT_EQ(plain.mMaxDeviation, r.mMaxDeviation);
-}
-
-TEST(FitCad, ExtendedSurfacesLeaveFoundEdgesAlone) {
-    // Where the surfaces' own intersection has a branch along every chain, the
-    // extensions are never intersected: the solid is the one built without.
-    FitCadOptions o;
-    o.mFreeformMaxControl = 4;
-    o.mFreeformGeneral = true;
-    for (const fcfix::Fixture& f : fcfix::golden_fixtures()) {
-        if (f.mName != "saddle_box" && f.mName != "wavy_capped")
-            continue;
-        SCOPED_TRACE(f.mName);
-        o.mExtendSurfaces = false;
-        const FitCadResult plain = fit_cad(f.mMesh, "", o);
-        o.mExtendSurfaces = true;
-        const FitCadResult r = fit_cad(f.mMesh, "", o);
-        EXPECT_TRUE(r.mValid);
-        EXPECT_TRUE(r.mClosed);
-        EXPECT_EQ(r.mNumExtendedEdges, 0);
-        EXPECT_EQ(r.mNumFaces, plain.mNumFaces);
-        EXPECT_EQ(r.mNumExactEdges, plain.mNumExactEdges);
-        EXPECT_EQ(r.mVolume, plain.mVolume);
-    }
 }
 
 #endif

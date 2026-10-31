@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prek
-Version: 0.5.7
+Version: 0.5.9
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -17,7 +17,7 @@ Author-email: j178 <hi@j178.dev>
 License-Expression: MIT
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: Changelog, https://github.com/j178/prek/blob/master/CHANGELOG.md
+Project-URL: Changelog, https://github.com/j178/prek/blob/main/CHANGELOG.md
 Project-URL: Homepage, https://prek.j178.dev/
 Project-URL: Releases, https://github.com/j178/prek/releases
 Project-URL: Repository, https://github.com/j178/prek
@@ -25,13 +25,13 @@ Project-URL: Repository, https://github.com/j178/prek
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/j178/prek/master/docs/assets/logo-dark.png">
-  <img width="600" alt="prek" src="https://raw.githubusercontent.com/j178/prek/master/docs/assets/logo.png" />
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/j178/prek/main/docs/assets/logo-dark.png">
+  <img width="600" alt="prek" src="https://raw.githubusercontent.com/j178/prek/main/docs/assets/logo.png" />
 </picture>
 
 <a href="https://trendshift.io/repositories/14578?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-14578" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/14578" alt="j178%2Fprek | Trendshift" width="250" height="55"/></a>
 
-[![prek](https://raw.githubusercontent.com/j178/prek/master/docs/assets/badge.svg)](https://github.com/j178/prek)
+[![prek](https://raw.githubusercontent.com/j178/prek/main/docs/assets/badge.svg)](https://github.com/j178/prek)
 [![PyPI version](https://img.shields.io/pypi/v/prek.svg)](https://pypi.python.org/pypi/prek)
 [![codecov](https://codecov.io/github/j178/prek/graph/badge.svg?token=MP6TY24F43)](https://codecov.io/github/j178/prek)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/prek?period=monthly&units=INTERNATIONAL_SYSTEM&left_color=GREY&right_color=BLUE&left_text=downloads%2Fmonth)](https://pepy.tech/projects/prek)
@@ -83,7 +83,7 @@ On Linux and macOS:
 <!-- --8<-- [start: linux-standalone-install] -->
 
 ```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/j178/prek/releases/download/v0.5.7/prek-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/j178/prek/releases/download/v0.5.9/prek-installer.sh | sh
 ```
 
 <!-- --8<-- [end: linux-standalone-install] -->
@@ -93,7 +93,7 @@ On Windows:
 <!-- --8<-- [start: windows-standalone-install] -->
 
 ```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://github.com/j178/prek/releases/download/v0.5.7/prek-installer.ps1 | iex"
+powershell -ExecutionPolicy ByPass -c "irm https://github.com/j178/prek/releases/download/v0.5.9/prek-installer.ps1 | iex"
 ```
 
 <!-- --8<-- [end: windows-standalone-install] -->

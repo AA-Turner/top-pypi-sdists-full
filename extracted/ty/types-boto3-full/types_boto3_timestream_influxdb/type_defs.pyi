@@ -71,6 +71,9 @@ __all__ = (
     "DeleteDbClusterOutputTypeDef",
     "DeleteDbInstanceInputTypeDef",
     "DeleteDbInstanceOutputTypeDef",
+    "DeploymentConfigurationOutputTypeDef",
+    "DeploymentConfigurationTypeDef",
+    "DeploymentConfigurationUnionTypeDef",
     "DurationTypeDef",
     "EmptyResponseMetadataTypeDef",
     "GetDbBackupInputTypeDef",
@@ -83,6 +86,8 @@ __all__ = (
     "GetDbParameterGroupOutputTypeDef",
     "InfluxDBv2ParametersTypeDef",
     "InfluxDBv3CoreParametersTypeDef",
+    "InfluxDBv3EnterpriseDeploymentConfigurationOutputTypeDef",
+    "InfluxDBv3EnterpriseDeploymentConfigurationTypeDef",
     "InfluxDBv3EnterpriseParametersTypeDef",
     "ListDbBackupsInputPaginateTypeDef",
     "ListDbBackupsInputTypeDef",
@@ -103,6 +108,8 @@ __all__ = (
     "ListTagsForResourceResponseTypeDef",
     "LogDeliveryConfigurationTypeDef",
     "MaintenanceScheduleTypeDef",
+    "NodeGroupOutputTypeDef",
+    "NodeGroupTypeDef",
     "PaginatorConfigTypeDef",
     "ParametersTypeDef",
     "PercentOrAbsoluteLongTypeDef",
@@ -272,6 +279,16 @@ class GetDbParameterGroupInputTypeDef(TypedDict):
 class PercentOrAbsoluteLongTypeDef(TypedDict):
     percent: NotRequired[str]
     absolute: NotRequired[int]
+
+class NodeGroupOutputTypeDef(TypedDict):
+    instanceModes: list[InstanceModeType]
+    instanceType: DbInstanceTypeType
+    count: int
+
+class NodeGroupTypeDef(TypedDict):
+    instanceModes: Sequence[InstanceModeType]
+    instanceType: DbInstanceTypeType
+    count: int
 
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
@@ -461,9 +478,6 @@ class InfluxDBv3CoreParametersTypeDef(TypedDict):
     pluginRepositorySecretArn: NotRequired[str]
 
 class InfluxDBv3EnterpriseParametersTypeDef(TypedDict):
-    ingestQueryInstances: int
-    queryOnlyInstances: int
-    dedicatedCompactor: bool
     queryFileLimit: NotRequired[int]
     queryLogSize: NotRequired[int]
     logFilter: NotRequired[str]
@@ -505,6 +519,9 @@ class InfluxDBv3EnterpriseParametersTypeDef(TypedDict):
     hardDeleteDefaultDuration: NotRequired[DurationTypeDef]
     pluginRepositoryUrl: NotRequired[str]
     pluginRepositorySecretArn: NotRequired[str]
+    ingestQueryInstances: NotRequired[int]
+    queryOnlyInstances: NotRequired[int]
+    dedicatedCompactor: NotRequired[bool]
     compactionRowLimit: NotRequired[int]
     compactionMaxNumFilesPerPlan: NotRequired[int]
     compactionGen2Duration: NotRequired[DurationTypeDef]
@@ -519,6 +536,12 @@ class InfluxDBv3EnterpriseParametersTypeDef(TypedDict):
     walBufferSize: NotRequired[int]
     snapshotSize: NotRequired[PercentOrAbsoluteLongTypeDef]
     snapshotDuration: NotRequired[DurationTypeDef]
+
+class InfluxDBv3EnterpriseDeploymentConfigurationOutputTypeDef(TypedDict):
+    nodeGroups: list[NodeGroupOutputTypeDef]
+
+class InfluxDBv3EnterpriseDeploymentConfigurationTypeDef(TypedDict):
+    nodeGroups: Sequence[NodeGroupTypeDef]
 
 class ListDbBackupsInputPaginateTypeDef(TypedDict):
     dbResourceId: NotRequired[str]
@@ -545,60 +568,11 @@ class ParametersTypeDef(TypedDict):
     InfluxDBv3Core: NotRequired[InfluxDBv3CoreParametersTypeDef]
     InfluxDBv3Enterprise: NotRequired[InfluxDBv3EnterpriseParametersTypeDef]
 
-CreateDbBackupOutputTypeDef = TypedDict(
-    "CreateDbBackupOutputTypeDef",
-    {
-        "id": str,
-        "name": str,
-        "arn": str,
-        "status": DbBackupStatusType,
-        "createdAt": datetime,
-        "expiresAfter": str,
-        "dbResourceId": str,
-        "type": DbBackupTypeType,
-        "engineType": EngineTypeType,
-        "deploymentType": ResourceDeploymentTypeType,
-        "kmsKeyId": str,
-        "clusterConfiguration": ClusterConfigurationTypeDef,
-        "dbParameterGroupId": str,
-        "dbInstanceType": DbInstanceTypeType,
-        "logDeliveryConfiguration": LogDeliveryConfigurationTypeDef,
-        "failoverMode": FailoverModeType,
-        "dbStorageType": DbStorageTypeType,
-        "allocatedStorage": int,
-        "vpcSubnetIds": list[str],
-        "vpcSecurityGroupIds": list[str],
-        "publiclyAccessible": bool,
-        "port": int,
-        "networkType": NetworkTypeType,
-        "influxAuthParametersSecretArn": str,
-        "maintenanceSchedule": MaintenanceScheduleTypeDef,
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
+class DeploymentConfigurationOutputTypeDef(TypedDict):
+    InfluxDBv3Enterprise: NotRequired[InfluxDBv3EnterpriseDeploymentConfigurationOutputTypeDef]
 
-class CreateDbClusterInputTypeDef(TypedDict):
-    name: str
-    dbInstanceType: DbInstanceTypeType
-    vpcSubnetIds: Sequence[str]
-    vpcSecurityGroupIds: Sequence[str]
-    username: NotRequired[str]
-    password: NotRequired[str]
-    organization: NotRequired[str]
-    bucket: NotRequired[str]
-    port: NotRequired[int]
-    dbParameterGroupIdentifier: NotRequired[str]
-    dbStorageType: NotRequired[DbStorageTypeType]
-    allocatedStorage: NotRequired[int]
-    networkType: NotRequired[NetworkTypeType]
-    publiclyAccessible: NotRequired[bool]
-    deploymentType: NotRequired[Literal["MULTI_NODE_READ_REPLICAS"]]
-    failoverMode: NotRequired[FailoverModeType]
-    logDeliveryConfiguration: NotRequired[LogDeliveryConfigurationTypeDef]
-    maintenanceSchedule: NotRequired[MaintenanceScheduleTypeDef]
-    dbBackupConfigurations: NotRequired[Sequence[DbBackupConfigurationTypeDef]]
-    kmsKeyId: NotRequired[str]
-    tags: NotRequired[Mapping[str, str]]
+class DeploymentConfigurationTypeDef(TypedDict):
+    InfluxDBv3Enterprise: NotRequired[InfluxDBv3EnterpriseDeploymentConfigurationTypeDef]
 
 class CreateDbInstanceInputTypeDef(TypedDict):
     name: str
@@ -655,37 +629,6 @@ CreateDbInstanceOutputTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
-DeleteDbBackupOutputTypeDef = TypedDict(
-    "DeleteDbBackupOutputTypeDef",
-    {
-        "id": str,
-        "name": str,
-        "arn": str,
-        "status": DbBackupStatusType,
-        "createdAt": datetime,
-        "expiresAfter": str,
-        "dbResourceId": str,
-        "type": DbBackupTypeType,
-        "engineType": EngineTypeType,
-        "deploymentType": ResourceDeploymentTypeType,
-        "kmsKeyId": str,
-        "clusterConfiguration": ClusterConfigurationTypeDef,
-        "dbParameterGroupId": str,
-        "dbInstanceType": DbInstanceTypeType,
-        "logDeliveryConfiguration": LogDeliveryConfigurationTypeDef,
-        "failoverMode": FailoverModeType,
-        "dbStorageType": DbStorageTypeType,
-        "allocatedStorage": int,
-        "vpcSubnetIds": list[str],
-        "vpcSecurityGroupIds": list[str],
-        "publiclyAccessible": bool,
-        "port": int,
-        "networkType": NetworkTypeType,
-        "influxAuthParametersSecretArn": str,
-        "maintenanceSchedule": MaintenanceScheduleTypeDef,
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
 DeleteDbInstanceOutputTypeDef = TypedDict(
     "DeleteDbInstanceOutputTypeDef",
     {
@@ -714,70 +657,6 @@ DeleteDbInstanceOutputTypeDef = TypedDict(
         "maintenanceSchedule": MaintenanceScheduleTypeDef,
         "lastMaintenanceTime": datetime,
         "nextMaintenanceTime": datetime,
-        "dbBackupConfigurations": list[DbBackupConfigurationOutputTypeDef],
-        "kmsKeyId": str,
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
-GetDbBackupOutputTypeDef = TypedDict(
-    "GetDbBackupOutputTypeDef",
-    {
-        "id": str,
-        "name": str,
-        "arn": str,
-        "status": DbBackupStatusType,
-        "createdAt": datetime,
-        "expiresAfter": str,
-        "dbResourceId": str,
-        "type": DbBackupTypeType,
-        "engineType": EngineTypeType,
-        "deploymentType": ResourceDeploymentTypeType,
-        "kmsKeyId": str,
-        "clusterConfiguration": ClusterConfigurationTypeDef,
-        "dbParameterGroupId": str,
-        "dbInstanceType": DbInstanceTypeType,
-        "logDeliveryConfiguration": LogDeliveryConfigurationTypeDef,
-        "failoverMode": FailoverModeType,
-        "dbStorageType": DbStorageTypeType,
-        "allocatedStorage": int,
-        "vpcSubnetIds": list[str],
-        "vpcSecurityGroupIds": list[str],
-        "publiclyAccessible": bool,
-        "port": int,
-        "networkType": NetworkTypeType,
-        "influxAuthParametersSecretArn": str,
-        "maintenanceSchedule": MaintenanceScheduleTypeDef,
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
-GetDbClusterOutputTypeDef = TypedDict(
-    "GetDbClusterOutputTypeDef",
-    {
-        "id": str,
-        "name": str,
-        "arn": str,
-        "status": ClusterStatusType,
-        "endpoint": str,
-        "readerEndpoint": str,
-        "port": int,
-        "deploymentType": Literal["MULTI_NODE_READ_REPLICAS"],
-        "dbInstanceType": DbInstanceTypeType,
-        "networkType": NetworkTypeType,
-        "dbStorageType": DbStorageTypeType,
-        "allocatedStorage": int,
-        "engineType": EngineTypeType,
-        "publiclyAccessible": bool,
-        "dbParameterGroupIdentifier": str,
-        "effectiveDbParameterGroupIdentifier": str,
-        "logDeliveryConfiguration": LogDeliveryConfigurationTypeDef,
-        "maintenanceSchedule": MaintenanceScheduleTypeDef,
-        "lastMaintenanceTime": datetime,
-        "nextMaintenanceTime": datetime,
-        "influxAuthParametersSecretArn": str,
-        "vpcSubnetIds": list[str],
-        "vpcSecurityGroupIds": list[str],
-        "failoverMode": FailoverModeType,
-        "clusterConfiguration": ClusterConfigurationTypeDef,
         "dbBackupConfigurations": list[DbBackupConfigurationOutputTypeDef],
         "kmsKeyId": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
@@ -867,16 +746,6 @@ class RestoreFromDbBackupInputTypeDef(TypedDict):
     dbBackupConfigurations: NotRequired[Sequence[DbBackupConfigurationTypeDef]]
     kmsKeyId: NotRequired[str]
 
-class UpdateDbClusterInputTypeDef(TypedDict):
-    dbClusterId: str
-    logDeliveryConfiguration: NotRequired[LogDeliveryConfigurationTypeDef]
-    dbParameterGroupIdentifier: NotRequired[str]
-    port: NotRequired[int]
-    dbInstanceType: NotRequired[DbInstanceTypeType]
-    failoverMode: NotRequired[FailoverModeType]
-    maintenanceSchedule: NotRequired[MaintenanceScheduleTypeDef]
-    dbBackupConfigurations: NotRequired[Sequence[DbBackupConfigurationTypeDef]]
-
 class UpdateDbInstanceInputTypeDef(TypedDict):
     identifier: str
     logDeliveryConfiguration: NotRequired[LogDeliveryConfigurationTypeDef]
@@ -951,3 +820,171 @@ GetDbParameterGroupOutputTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
+CreateDbBackupOutputTypeDef = TypedDict(
+    "CreateDbBackupOutputTypeDef",
+    {
+        "id": str,
+        "name": str,
+        "arn": str,
+        "status": DbBackupStatusType,
+        "createdAt": datetime,
+        "expiresAfter": str,
+        "dbResourceId": str,
+        "type": DbBackupTypeType,
+        "engineType": EngineTypeType,
+        "deploymentType": ResourceDeploymentTypeType,
+        "kmsKeyId": str,
+        "clusterConfiguration": ClusterConfigurationTypeDef,
+        "deploymentConfiguration": DeploymentConfigurationOutputTypeDef,
+        "dbParameterGroupId": str,
+        "dbInstanceType": DbInstanceTypeType,
+        "logDeliveryConfiguration": LogDeliveryConfigurationTypeDef,
+        "failoverMode": FailoverModeType,
+        "dbStorageType": DbStorageTypeType,
+        "allocatedStorage": int,
+        "vpcSubnetIds": list[str],
+        "vpcSecurityGroupIds": list[str],
+        "publiclyAccessible": bool,
+        "port": int,
+        "networkType": NetworkTypeType,
+        "influxAuthParametersSecretArn": str,
+        "maintenanceSchedule": MaintenanceScheduleTypeDef,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+DeleteDbBackupOutputTypeDef = TypedDict(
+    "DeleteDbBackupOutputTypeDef",
+    {
+        "id": str,
+        "name": str,
+        "arn": str,
+        "status": DbBackupStatusType,
+        "createdAt": datetime,
+        "expiresAfter": str,
+        "dbResourceId": str,
+        "type": DbBackupTypeType,
+        "engineType": EngineTypeType,
+        "deploymentType": ResourceDeploymentTypeType,
+        "kmsKeyId": str,
+        "clusterConfiguration": ClusterConfigurationTypeDef,
+        "deploymentConfiguration": DeploymentConfigurationOutputTypeDef,
+        "dbParameterGroupId": str,
+        "dbInstanceType": DbInstanceTypeType,
+        "logDeliveryConfiguration": LogDeliveryConfigurationTypeDef,
+        "failoverMode": FailoverModeType,
+        "dbStorageType": DbStorageTypeType,
+        "allocatedStorage": int,
+        "vpcSubnetIds": list[str],
+        "vpcSecurityGroupIds": list[str],
+        "publiclyAccessible": bool,
+        "port": int,
+        "networkType": NetworkTypeType,
+        "influxAuthParametersSecretArn": str,
+        "maintenanceSchedule": MaintenanceScheduleTypeDef,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+GetDbBackupOutputTypeDef = TypedDict(
+    "GetDbBackupOutputTypeDef",
+    {
+        "id": str,
+        "name": str,
+        "arn": str,
+        "status": DbBackupStatusType,
+        "createdAt": datetime,
+        "expiresAfter": str,
+        "dbResourceId": str,
+        "type": DbBackupTypeType,
+        "engineType": EngineTypeType,
+        "deploymentType": ResourceDeploymentTypeType,
+        "kmsKeyId": str,
+        "clusterConfiguration": ClusterConfigurationTypeDef,
+        "deploymentConfiguration": DeploymentConfigurationOutputTypeDef,
+        "dbParameterGroupId": str,
+        "dbInstanceType": DbInstanceTypeType,
+        "logDeliveryConfiguration": LogDeliveryConfigurationTypeDef,
+        "failoverMode": FailoverModeType,
+        "dbStorageType": DbStorageTypeType,
+        "allocatedStorage": int,
+        "vpcSubnetIds": list[str],
+        "vpcSecurityGroupIds": list[str],
+        "publiclyAccessible": bool,
+        "port": int,
+        "networkType": NetworkTypeType,
+        "influxAuthParametersSecretArn": str,
+        "maintenanceSchedule": MaintenanceScheduleTypeDef,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+GetDbClusterOutputTypeDef = TypedDict(
+    "GetDbClusterOutputTypeDef",
+    {
+        "id": str,
+        "name": str,
+        "arn": str,
+        "status": ClusterStatusType,
+        "endpoint": str,
+        "readerEndpoint": str,
+        "port": int,
+        "deploymentType": Literal["MULTI_NODE_READ_REPLICAS"],
+        "dbInstanceType": DbInstanceTypeType,
+        "networkType": NetworkTypeType,
+        "dbStorageType": DbStorageTypeType,
+        "allocatedStorage": int,
+        "engineType": EngineTypeType,
+        "publiclyAccessible": bool,
+        "dbParameterGroupIdentifier": str,
+        "effectiveDbParameterGroupIdentifier": str,
+        "logDeliveryConfiguration": LogDeliveryConfigurationTypeDef,
+        "maintenanceSchedule": MaintenanceScheduleTypeDef,
+        "lastMaintenanceTime": datetime,
+        "nextMaintenanceTime": datetime,
+        "influxAuthParametersSecretArn": str,
+        "vpcSubnetIds": list[str],
+        "vpcSecurityGroupIds": list[str],
+        "failoverMode": FailoverModeType,
+        "clusterConfiguration": ClusterConfigurationTypeDef,
+        "deploymentConfiguration": DeploymentConfigurationOutputTypeDef,
+        "dbBackupConfigurations": list[DbBackupConfigurationOutputTypeDef],
+        "kmsKeyId": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+DeploymentConfigurationUnionTypeDef = Union[
+    DeploymentConfigurationTypeDef, DeploymentConfigurationOutputTypeDef
+]
+
+class CreateDbClusterInputTypeDef(TypedDict):
+    name: str
+    vpcSubnetIds: Sequence[str]
+    vpcSecurityGroupIds: Sequence[str]
+    username: NotRequired[str]
+    password: NotRequired[str]
+    organization: NotRequired[str]
+    bucket: NotRequired[str]
+    port: NotRequired[int]
+    dbParameterGroupIdentifier: NotRequired[str]
+    dbInstanceType: NotRequired[DbInstanceTypeType]
+    dbStorageType: NotRequired[DbStorageTypeType]
+    allocatedStorage: NotRequired[int]
+    networkType: NotRequired[NetworkTypeType]
+    publiclyAccessible: NotRequired[bool]
+    deploymentType: NotRequired[Literal["MULTI_NODE_READ_REPLICAS"]]
+    deploymentConfiguration: NotRequired[DeploymentConfigurationUnionTypeDef]
+    failoverMode: NotRequired[FailoverModeType]
+    logDeliveryConfiguration: NotRequired[LogDeliveryConfigurationTypeDef]
+    maintenanceSchedule: NotRequired[MaintenanceScheduleTypeDef]
+    dbBackupConfigurations: NotRequired[Sequence[DbBackupConfigurationTypeDef]]
+    kmsKeyId: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+
+class UpdateDbClusterInputTypeDef(TypedDict):
+    dbClusterId: str
+    logDeliveryConfiguration: NotRequired[LogDeliveryConfigurationTypeDef]
+    dbParameterGroupIdentifier: NotRequired[str]
+    port: NotRequired[int]
+    dbInstanceType: NotRequired[DbInstanceTypeType]
+    deploymentConfiguration: NotRequired[DeploymentConfigurationUnionTypeDef]
+    failoverMode: NotRequired[FailoverModeType]
+    maintenanceSchedule: NotRequired[MaintenanceScheduleTypeDef]
+    dbBackupConfigurations: NotRequired[Sequence[DbBackupConfigurationTypeDef]]

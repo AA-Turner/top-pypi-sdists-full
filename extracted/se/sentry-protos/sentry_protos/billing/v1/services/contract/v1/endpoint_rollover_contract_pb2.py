@@ -25,18 +25,19 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 from sentry_protos.billing.v1.common.v1 import address_pb2 as sentry__protos_dot_billing_dot_v1_dot_common_dot_v1_dot_address__pb2
 from sentry_protos.billing.v1.common.v1 import pending_change_pb2 as sentry__protos_dot_billing_dot_v1_dot_common_dot_v1_dot_pending__change__pb2
+from sentry_protos.billing.v1.services.contract.ledger.v1 import ledger_withdrawal_pb2 as sentry__protos_dot_billing_dot_v1_dot_services_dot_contract_dot_ledger_dot_v1_dot_ledger__withdrawal__pb2
 from sentry_protos.billing.v1.services.contract.v1 import invoice_pb2 as sentry__protos_dot_billing_dot_v1_dot_services_dot_contract_dot_v1_dot_invoice__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nNsentry_protos/billing/v1/services/contract/v1/endpoint_rollover_contract.proto\x12-sentry_protos.billing.v1.services.contract.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x30sentry_protos/billing/v1/common/v1/address.proto\x1a\x37sentry_protos/billing/v1/common/v1/pending_change.proto\x1a;sentry_protos/billing/v1/services/contract/v1/invoice.proto\"\x80\x04\n\x17RolloverContractRequest\x12\x13\n\x0b\x63ontract_id\x18\x01 \x01(\x04\x12\x31\n\rlast_usage_ts\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12R\n\nline_items\x18\x03 \x03(\x0b\x32>.sentry_protos.billing.v1.services.contract.v1.InvoiceLineItem\x12<\n\x07\x61\x64\x64ress\x18\x04 \x01(\x0b\x32+.sentry_protos.billing.v1.common.v1.Address\x12N\n\x0epending_change\x18\x05 \x01(\x0b\x32\x31.sentry_protos.billing.v1.common.v1.PendingChangeH\x00\x88\x01\x01\x12!\n\x14tax_transaction_code\x18\x07 \x01(\tH\x01\x88\x01\x01\x12\x11\n\timmediate\x18\x08 \x01(\x08\x12\x16\n\x0estart_new_term\x18\t \x01(\x08\x12\x17\n\ntax_number\x18\n \x01(\tH\x02\x88\x01\x01\x12\x19\n\x11is_reverse_charge\x18\x0b \x01(\x08\x42\x11\n\x0f_pending_changeB\x17\n\x15_tax_transaction_codeB\r\n\x0b_tax_number\"t\n\x18RolloverContractResponse\x12\x12\n\ninvoice_id\x18\x01 \x01(\x04\x12\x14\n\x0cneeds_charge\x18\x02 \x01(\x08\x12\x15\n\ramount_billed\x18\x03 \x01(\x04\x12\x17\n\x0fnew_contract_id\x18\x04 \x01(\x04\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nNsentry_protos/billing/v1/services/contract/v1/endpoint_rollover_contract.proto\x12-sentry_protos.billing.v1.services.contract.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x30sentry_protos/billing/v1/common/v1/address.proto\x1a\x37sentry_protos/billing/v1/common/v1/pending_change.proto\x1aLsentry_protos/billing/v1/services/contract/ledger/v1/ledger_withdrawal.proto\x1a;sentry_protos/billing/v1/services/contract/v1/invoice.proto\"\xe4\x04\n\x17RolloverContractRequest\x12\x13\n\x0b\x63ontract_id\x18\x01 \x01(\x04\x12\x31\n\rlast_usage_ts\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12R\n\nline_items\x18\x03 \x03(\x0b\x32>.sentry_protos.billing.v1.services.contract.v1.InvoiceLineItem\x12<\n\x07\x61\x64\x64ress\x18\x04 \x01(\x0b\x32+.sentry_protos.billing.v1.common.v1.Address\x12N\n\x0epending_change\x18\x05 \x01(\x0b\x32\x31.sentry_protos.billing.v1.common.v1.PendingChangeH\x00\x88\x01\x01\x12!\n\x14tax_transaction_code\x18\x07 \x01(\tH\x01\x88\x01\x01\x12\x11\n\timmediate\x18\x08 \x01(\x08\x12\x16\n\x0estart_new_term\x18\t \x01(\x08\x12\x17\n\ntax_number\x18\n \x01(\tH\x02\x88\x01\x01\x12\x19\n\x11is_reverse_charge\x18\x0b \x01(\x08\x12\x62\n\x12ledger_withdrawals\x18\x0c \x03(\x0b\x32\x46.sentry_protos.billing.v1.services.contract.ledger.v1.LedgerWithdrawalB\x11\n\x0f_pending_changeB\x17\n\x15_tax_transaction_codeB\r\n\x0b_tax_number\"t\n\x18RolloverContractResponse\x12\x12\n\ninvoice_id\x18\x01 \x01(\x04\x12\x14\n\x0cneeds_charge\x18\x02 \x01(\x08\x12\x15\n\ramount_billed\x18\x03 \x01(\x04\x12\x17\n\x0fnew_contract_id\x18\x04 \x01(\x04\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.services.contract.v1.endpoint_rollover_contract_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_ROLLOVERCONTRACTREQUEST']._serialized_start=331
-  _globals['_ROLLOVERCONTRACTREQUEST']._serialized_end=843
-  _globals['_ROLLOVERCONTRACTRESPONSE']._serialized_start=845
-  _globals['_ROLLOVERCONTRACTRESPONSE']._serialized_end=961
+  _globals['_ROLLOVERCONTRACTREQUEST']._serialized_start=409
+  _globals['_ROLLOVERCONTRACTREQUEST']._serialized_end=1021
+  _globals['_ROLLOVERCONTRACTRESPONSE']._serialized_start=1023
+  _globals['_ROLLOVERCONTRACTRESPONSE']._serialized_end=1139
 # @@protoc_insertion_point(module_scope)

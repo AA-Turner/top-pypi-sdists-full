@@ -376,7 +376,7 @@ class ValidateXbrl:
                         self.modelXbrl.error("xbrl.4.9:tupleMixedContent",
                             _("Tuple %(concept)s must not have mixed content"),
                             modelObject=concept, concept=concept.qname)
-                    if XmlUtil.descendant(conceptType, XbrlConst.xsd, "simpleContent"):
+                    if XmlUtil.descendant(conceptType, XbrlConst.xsd, "simpleContent") is not None:
                         self.modelXbrl.error("xbrl.4.9:tupleSimpleContent",
                             _("Tuple %(concept)s must not have simple content"),
                             modelObject=concept, concept=concept.qname)
@@ -608,7 +608,7 @@ class ValidateXbrl:
                                      else (_("compiling formulae") if modelXbrl.hasFormulae
                                            else _("compiling rendering tables")),
                                      # block executing formulas when validating if hasFormula is False (e.g., --formula=none)
-                                     compileOnly=modelXbrl.modelRenderingTables and not modelXbrl.hasFormulae)
+                                     compileOnly=bool(modelXbrl.modelRenderingTables) and not modelXbrl.hasFormulae)
 
         for pluginXbrlMethod in self.modelXbrl.modelManager.cntlr.plugins.hooks("Validate.Finally"):
             pluginXbrlMethod(self)
@@ -889,8 +889,8 @@ class ValidateXbrl:
                             self.modelXbrl.error(
                                 ("enum2ie:InvalidEnumerationSetValue" if concept.instanceOfType(XbrlConst.qnEnumerationSetItemTypes)
                                  else "enum2ie:InvalidEnumerationValue") if concept.instanceOfType(XbrlConst.qnEnumeration2ItemTypes)
-                                else ("InvalidListFactValue" if concept.instanceOfType(XbrlConst.qnEnumerationListItemTypes)
-                                      else "InvalidFactValue"),
+                                else ("enumie:InvalidListFactValue" if concept.instanceOfType(XbrlConst.qnEnumerationListItemTypes)
+                                      else "enumie:InvalidFactValue"),
                                 _("Fact %(fact)s context %(contextID)s enumeration %(value)s is not in the domain of %(concept)s"),
                                 modelObject=f, fact=f.qname, contextID=f.contextID, value=f.xValue, concept=f.qname,
                                 messageCodes=("enumie:InvalidFactValue", "enumie:InvalidListFactValue",

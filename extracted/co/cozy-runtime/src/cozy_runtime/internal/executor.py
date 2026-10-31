@@ -74,8 +74,7 @@ from cozy_runtime.author import ModelRegistry, _split, describe
 from cozy_runtime.author import _request_path as request_path
 from cozy_runtime.author._activity import ThreadPoolExecutor
 from cozy_runtime.author._app import Registration
-from cozy_runtime.author._artifacts import ModelArtifact
-from cozy_runtime.author._assets import Asset, GrantedInput, Tree
+from cozy_runtime.author._artifacts import ModelChoice
 from cozy_runtime.author._attention import _close as close_producer_states
 from cozy_runtime.author._calls import Nudges, _Broker, _CallType, _export
 from cozy_runtime.author._context import CURRENT, AdapterRef, Device, place
@@ -105,6 +104,7 @@ from cozy_runtime.author._executor_requests import (
     Request,
 )
 from cozy_runtime.author._executor_requests import encode as encode_request
+from cozy_runtime.author._files import File, GrantedInput, Tree
 from cozy_runtime.author._invoke import (
     Invocation,
     PreparedRequest,
@@ -606,10 +606,10 @@ def _serving(module: str, export: str, surface: Any) -> _CallType:
             frozen=True,
             forbid_unknown_fields=True,
         )
-    artifact: Any = ModelArtifact | None
+    choice: Any = ModelChoice | None
     models = msgspec.defstruct(
         f"{export}Models",
-        [(slot, artifact, None) for slot in sorted(slots)],
+        [(slot, choice, None) for slot in sorted(slots)],
         module=module,
         kw_only=True,
         frozen=True,
@@ -905,6 +905,8 @@ class Executor:
         self.discovered: Any = None
         #: HOST ONLY: what its attempts may call (`Start.call_interfaces`), and their bindings
         self.call_interfaces: tuple[CallInterface, ...] = ()
+        #: HOST ONLY: its machine takes a ModelChoice per call slot (`Start.model_choices`)
+        self.model_choices = False
         self._bound_calls: tuple[tuple[CallInterface, ...], CallBindings] | None = None
         self.ready = False
         self.poisoned = ""
@@ -939,8 +941,13 @@ class Executor:
         self.schema_digests: dict[str, str] = {}
         #: request_id -> the record `prepare_request` resolved, run by `invoke`
         self.prepared: dict[str, PreparedRequest] = {}
+        #: prepared requests whose invoke has not come (`awaiting_invoke`); a refused invoke
+        #: leaves its record in `prepared` for the retry, not here
+        self.awaiting: set[str] = set()
         # A cancel may arrive on the seam reader while preflight is still running.
         self._prepared_lock = threading.Lock()
+        #: the command order `serve` keeps, woken when a prepared request goes (`_discard`)
+        self.order: _Order | None = None
         self.attempts = 0
 
     # ------------------------------------------------------------------ prepare
@@ -1054,10 +1061,11 @@ class Executor:
             return {"ok": False, "code": "weight_residency_unavailable", "detail": str(exc)}
         accel.first_launches(torch, self.device_kind)
         if self.device_kind == "cuda" and self.world == 1:
-            # The prebuilt 8-bit op opens here, before any request: a component first built
-            # mid-request (Klein's on-demand upsampler under a 16-bit main model) would ask for it
-            # only then, and serve its whole stage on a fallback while it lands.
-            int8_linear.native(torch, torch.cuda.current_device())
+            # The prebuilt 8-bit op opens from here, before any request, beside the weight fill:
+            # a component first built mid-request (Klein's on-demand upsampler under a 16-bit
+            # main model) would ask for it only then, and serve its whole stage on a fallback
+            # while it lands. Its first ask waits for it.
+            int8_linear.prime(torch, torch.cuda.current_device())
         self._device_ready = True
         place(self._device())
         return None
@@ -1758,6 +1766,7 @@ class Executor:
                 stage("package_import")
             # A fork's own Start names them again; its import-only parent installed them.
             self.call_interfaces = command.call_interfaces or self.call_interfaces
+            self.model_choices = command.model_choices
             compiles = (
                 self._expect_kernels(isolated=command.import_only)
                 if constructs and self.rank == 0 and not imported
@@ -3219,9 +3228,23 @@ class Executor:
         for construction in (self, *self.constructions.values()):
             with construction._prepared_lock:
                 construction.prepared.pop(request_id, None)
+                construction.awaiting.discard(request_id)
         if self.host.memory is not None:
             # Never hold the prepared-record lock while touching a native read owner.
             self.host.memory.cancel_queued(request_id)
+        if self.order is not None:
+            self.order.wake()  # an idle period may open now (`awaiting_invoke`)
+
+    def awaiting_invoke(self) -> bool:
+        """A prepared request waits for its invoke, which comes next (TensorD's lookahead or its
+        dispatch): no idle period opens before it, so its first call never waits for idle work
+        to reach a boundary. Each goes with its invoke, its cancel (`_discard`), the trim
+        (`PREPARED_HELD`) or this executor, never with a clock."""
+        for construction in (self, *self.constructions.values()):
+            with construction._prepared_lock:
+                if construction.awaiting:
+                    return True
+        return False
 
     def serve_request(self, command: PrepareRequest) -> dict[str, Any]:
         target = self._target(command, attempt=False)
@@ -3230,6 +3253,9 @@ class Executor:
         return target.prepare_request(command)
 
     def serve_invoke(self, command: Invoke) -> dict[str, Any]:
+        for construction in (self, *self.constructions.values()):  # its invoke came
+            with construction._prepared_lock:
+                construction.awaiting.discard(command.request_id)
         target = self._target(command, attempt=True)
         if isinstance(target, dict):
             return target
@@ -3359,9 +3385,11 @@ class Executor:
                 stages=waits.stages,
                 prefetch_key=(command.attention_kernel, command.bits),
             )
+            self.awaiting.add(command.request_id)
             # A prepared request never dispatched must not survive for the generation.
             for stale in list(self.prepared)[: -PREPARED_HELD or None]:
                 self.prepared.pop(stale, None)
+                self.awaiting.discard(stale)
         return {
             "ok": True,
             "features": dict(prepared.features.values),
@@ -3597,6 +3625,7 @@ class Executor:
         if self.rank == 0:
             for member in self.model_executors or [self]:
                 self._emit_gemm(record, member)
+                self._emit_lora(record, member)
             for feature, instead in accel.unavailable(self.device_kind) if self.models else ():
                 record.emit(
                     "log", f"{feature} unavailable on {self.device_kind}", "warn", instead=instead
@@ -3804,6 +3833,21 @@ class Executor:
             for name, root in executor.backend.roots.items():
                 roots[executor._prefix() + name] = root
         return roots
+
+    @staticmethod
+    def _emit_lora(record: AuthorAttempt, member: Executor) -> None:
+        """`gemm.lora`: per component with LoRA'd linears, how this attempt served them: baked
+        (`how` fused or eager) or per step until the bake kernels are ready. A `gemm.` name, so
+        TensorD keeps it in the run's measurements beside `gemm.selected`."""
+        if member.backend is None:
+            return
+        prefix = member._prefix()
+        for component, bakes in sorted(member.backend.bakes.items()):
+            if bakes.bakes:
+                record.emit(
+                    "confession", "gemm.lora", bakes.serving, how=bakes.how or "",
+                    component=prefix + component, linears=len(bakes.bakes),
+                )  # fmt: skip
 
     @staticmethod
     def _emit_gemm(record: AuthorAttempt, member: Executor) -> None:
@@ -4415,6 +4459,7 @@ class Executor:
             exchange,
             lambda: self._child_events(exchange),
             functools.partial(self._yielding, request_id),
+            self.model_choices,
         )
 
     def _yielding(self, request_id: str) -> contextlib.AbstractContextManager[None]:
@@ -4773,20 +4818,25 @@ class Executor:
             if group is not None:
                 group.broadcast(executor_commands.encode(command))
             if self.memory is not None:
+                members = [m for m in child.model_executors or [child] if m.backend is not None]
                 if command.level == "ram":
                     # Map is ordered after every preceding invocation. Join its remaining
                     # consumer streams before retiring owners and returning allocator storage.
                     accel.synchronize(self.torch, self.device_kind)
-                for member in child.model_executors or [child]:
-                    if member.backend is not None:
-                        if command.level == "ram" and member.residency is not None:
+                    # Every slot's decoders, graphs and holds go before any model leaves: a
+                    # language model's engine retains its drafter's weights too, and Klein's
+                    # drafter slot maps before its upsampler, so an idle Klein refused every
+                    # offload and a running call beside it ran out of memory (0.36.0 gate).
+                    for member in members:
+                        if member.residency is not None:
                             member.residency.release()
                         for model in member.backend.models.values():
-                            if command.level == "ram":
-                                for _, release in graphs.DECODERS:
-                                    release(model.module)
-                                graphs.retire(self.torch, model.module)
-                            self.memory.load(model.module, command.level)
+                            for _, release in graphs.DECODERS:
+                                release(model.module)
+                            graphs.retire(self.torch, model.module)
+                for member in members:
+                    for model in member.backend.models.values():
+                        self.memory.load(model.module, command.level)
                 if command.level == "ram":
                     self.memory.trim()
             for reply in group.collect("map") if group is not None else ():
@@ -4936,10 +4986,10 @@ def _serialize_result(
 
     msgspec encodes the whole annotated result struct — nested structs, lists and all — in
     one pass, so nothing is stringified on the way out and a nested typed value survives as
-    a typed value. Assets are the one thing that cannot go on the wire as themselves: the
+    a typed value. Files are the one thing that cannot go on the wire as themselves: the
     hook replaces each with its MANIFEST ROW (`asset_ref`, kind, media type — and digest and
     size once encoded; a frame the post phase still owes carries neither, cr-079), which is
-    exactly what `Asset.row()` already publishes and carries no local path.
+    exactly what `File.row()` already publishes and carries no local path.
 
     Output identity comes from the result's own FIELD PATH (`image`, `pair.thumb`,
     `frames.0`) — a stable name the RecordOwner can grant against. It is never a list index
@@ -4955,7 +5005,7 @@ def _serialize_result(
         return None, [], 0
 
     def hook(value: object) -> object:
-        if isinstance(value, (Asset, Tree)):
+        if isinstance(value, (File, Tree)):
             row = value.row()
             return {"asset_ref": row.pop("ref"), **row}
         raise TypeError(f"{type(value).__name__} has no wire spelling in a result")
@@ -4975,7 +5025,7 @@ def _serialize_result(
 
 
 def _assets_at(node: Any, path: str) -> list[dict[str, Any]]:
-    """Every asset node in the serialized result, with the field path that names it."""
+    """Every file node in the serialized result, with the field path that names it."""
     found: list[dict[str, Any]] = []
     if isinstance(node, dict):
         if "asset_ref" in node:
@@ -5206,16 +5256,33 @@ class _Order:
         """A command arrived beside the idle holder."""
         return len(self._open) > 1
 
+    def wake(self) -> None:
+        """Something an idle period waits on changed outside a command (`Executor._discard`)."""
+        with self._changed:
+            self._changed.notify_all()
+
 
 def _idle(executor: Executor, order: _Order) -> None:
-    """Graphs record off the request path (`graphs.capture_idle`): after a command is answered,
-    while no other is open. One arriving makes the capture yield at its next region boundary. A
-    device fault there poisons the executor, as one in a request does (the machine ends it)."""
+    """Graphs record and host pages pin off the request path (`graphs.capture_idle`,
+    `Memory.pin_idle`): after a command is answered, while no other is open. One arriving makes
+    either yield at its next region boundary or stored part. A device fault there poisons the
+    executor, as one in a request does (the machine ends it)."""
     answered = 0
-    while True:
-        with order.idle(answered, lambda: bool(graphs.IDLE.jobs)) as answered:
+
+    def pins() -> bool:
+        return executor.host.memory is not None and executor.host.memory.host_pending()
+
+    def ready() -> bool:
+        return (bool(graphs.IDLE.jobs) or pins()) and not executor.awaiting_invoke()
+
+    while not executor.poisoned:  # a faulted device takes no idle work: the machine ends it
+        with order.idle(answered, ready) as answered:
+            if executor.poisoned:
+                return
             try:
                 graphs.capture_idle(order.waiting)
+                if (memory := executor.host.memory) is not None and memory.host_pending():
+                    memory.pin_idle(order.waiting)
             except Exception as exc:
                 traceback.print_exc()
                 if fault(exc) in (Fault.STICKY, Fault.DEVICE):
@@ -5233,7 +5300,7 @@ def serve(executor: Executor, channel: Channel) -> int:
     request_path.told = functools.partial(_waiting, channel)
     # Runtime-owned workers, none before the first is needed.
     pool = ThreadPoolExecutor(CALLS_IN_FLIGHT, "call")
-    order = _Order()
+    order = executor.order = _Order()
     idle = False
     while True:
         if not idle and executor.started:

@@ -1,19 +1,19 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.39.2+obcheckpoint(0.2.14);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-10-29T12:38:34.365977                                                            #
+# Generated on 2026-10-30T13:34:58.212937                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import abc
 import metaflow
+import abc
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.datastore.flow_datastore
-    import metaflow.datastore.content_addressed_store
     import metaflow.exception
+    import metaflow.datastore.content_addressed_store
     import abc
+    import metaflow.datastore.flow_datastore
 
 from ..exception import MetaflowException as MetaflowException
 

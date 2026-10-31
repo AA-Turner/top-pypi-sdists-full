@@ -16,15 +16,16 @@
 # limitations under the License.
 #
 
+import io
 import re
 import os
 import sys
 import uuid
 import json
-import socket
 import shutil
 import base64
 import inspect
+import importlib
 import struct
 import lithops
 import zipfile
@@ -33,9 +34,8 @@ import threading
 import logging.config
 import subprocess as sp
 from enum import Enum
-from contextlib import closing
 
-from typing import List
+from typing import List, Optional
 
 from lithops import constants
 from lithops.version import __version__
@@ -169,13 +169,6 @@ def monitoring_queues(executor_id: str) -> List[str]:
     return parent_queues + [queue]
 
 
-def get_executor_id():
-    """Returns the ID of the last executor created in this session"""
-    if _SESSION_ID is None:
-        raise KeyError(constants.SESSION_ID_ENV)
-    return f'{_SESSION_ID}-{_EXECUTOR_COUNT - 1}'
-
-
 def iterchunks(lst, n):
     """Yield successive n-sized chunks from lst."""
     for i in range(0, len(lst), n):
@@ -213,7 +206,7 @@ class FuturesList(list):
     """
 
     # Defaults for lists that were not built by create_futures_list, and for
-    # the ones rehydrated by __reduce__, which drops the executor
+    # unpickled ones, whose state leaves the executor out (__getstate__)
     executor = None
     config = None
 
@@ -226,9 +219,8 @@ class FuturesList(list):
         return self.alt_list if hasattr(self, 'alt_list') else self
 
     def _extend_futures(self, fs):
-        # Only the last job of the chain produces the output of the chain
-        for fut in self:
-            fut._produce_output = False
+        # Mapping over this list already marked its futures as consumed,
+        # so only the last job of the chain produces the output of the chain
         if not hasattr(self, 'alt_list'):
             self.alt_list = []
             self.alt_list.extend(self)
@@ -310,18 +302,13 @@ class FuturesList(list):
         self._create_executor()
         return self.executor.get_result(self._all_futures(), **kwargs)
 
-    def __reduce__(self):
+    def __getstate__(self):
         # The executor is not picklable, and a rehydrated list creates its
         # own. Dropped from the pickled state rather than from the object,
         # so that pickling a list does not detach the one being pickled
-        reduced = list(super().__reduce__())
-        # A list that never had an attribute set reduces without a state
-        state = reduced[2] if len(reduced) > 2 else None
-        if isinstance(state, dict) and 'executor' in state:
-            state = dict(state)
-            state.pop('executor')
-            reduced[2] = state
-        return tuple(reduced)
+        state = self.__dict__.copy()
+        state.pop('executor', None)
+        return state
 
 
 _MODE_TO_DEFAULT_BACKEND = {
@@ -373,18 +360,20 @@ def setup_lithops_logger(log_level=constants.LOGGER_LEVEL,
     if log_level is None or str(log_level).lower() == 'none':
         return
 
-    if stream is None:
-        stream = constants.LOGGER_STREAM
-
-    # Both handlers are always declared, so the unused FileHandler is pointed
-    # at os.devnull rather than at a file nobody asked for
-    log_to_file = filename is not None
-    if filename is None:
-        filename = os.devnull
-
     if isinstance(log_level, str):
         log_level = logging.getLevelName(log_level.upper())
 
+    if filename is None:
+        handler_name, handler = 'console_handler', {
+            'class': 'lithops.utils.ShutdownSafeStreamHandler',
+            'stream': constants.LOGGER_STREAM if stream is None else stream,
+        }
+    else:
+        handler_name, handler = 'file_handler', {
+            'class': 'logging.FileHandler',
+            'filename': filename,
+            'mode': 'a',
+        }
     config_dict = {
         'version': 1,
         'disable_existing_loggers': False,
@@ -394,31 +383,16 @@ def setup_lithops_logger(log_level=constants.LOGGER_LEVEL,
             },
         },
         'handlers': {
-            'console_handler': {
-                'level': log_level,
-                'formatter': 'standard',
-                'class': 'lithops.utils.ShutdownSafeStreamHandler',
-                'stream': stream
-            },
-            'file_handler': {
-                'level': log_level,
-                'formatter': 'standard',
-                'class': 'logging.FileHandler',
-                'filename': filename,
-                'mode': 'a',
-            },
+            handler_name: {'level': log_level, 'formatter': 'standard', **handler},
         },
         'loggers': {
             'lithops': {
-                'handlers': ['console_handler'],
+                'handlers': [handler_name],
                 'level': log_level,
                 'propagate': False
             },
         }
     }
-
-    if log_to_file:
-        config_dict['loggers']['lithops']['handlers'] = ['file_handler']
 
     logging.config.dictConfig(config_dict)
 
@@ -498,15 +472,16 @@ def create_handler_zip(
             os.remove(dst_zip_location)
 
 
-def verify_runtime_name(runtime_name: str) -> None:
-    """Asserts that the runtime name can be used as a container image name"""
-    assert re.match("^[A-Za-z0-9_/.:-]*$", runtime_name), \
-        f'Runtime name "{runtime_name}" not valid'
-
-
-def timeout_handler(error_msg, signum, frame):
-    """Signal handler that turns an alarm into a TimeoutError"""
-    raise TimeoutError(error_msg)
+def verify_runtime_name(runtime_name: str, allow_local_path: bool = False) -> None:
+    """
+    Asserts that the runtime name can be used as a container image name. With
+    ``allow_local_path`` the absolute path to a local interpreter is valid too:
+    the localhost mode runs it without a shell, so it may hold any character
+    """
+    valid = re.match("^[A-Za-z0-9_/.:-]*$", runtime_name) is not None
+    if not valid and allow_local_path:
+        valid = os.path.isabs(runtime_name)
+    assert valid, f'Runtime name "{runtime_name}" not valid'
 
 
 def version_str(version_info) -> str:
@@ -562,11 +537,6 @@ def sizeof_fmt(num, suffix='B') -> str:
             return f'{num:3.1f}{unit}{suffix}'
         num /= 1024.0
     return f'{num:.1f}Yi{suffix}'
-
-
-def sdb_to_dict(item):
-    attr = item['Attributes']
-    return {c['Name']: c['Value'] for c in attr}
 
 
 def dict_to_b64str(the_dict):
@@ -657,46 +627,6 @@ def get_default_container_name(backend, backend_config, runtime_name):
         return f'{docker_server}/{img}'
 
 
-def _get_docker_desktop_username() -> str:
-    """Reads the registry user out of the Docker Desktop credential helper"""
-    cmd = (
-        "docker-credential-desktop list | jq -r 'to_entries[].key' | while "
-        "read; do docker-credential-desktop get <<<$REPLY; break; done"
-    )
-    try:
-        credentials = sp.check_output(
-            cmd, shell=True, encoding='UTF-8', stderr=sp.STDOUT
-        )
-        return json.loads(credentials)['Username']
-    except Exception:
-        raise Exception('Unable to get the Docker registry user')
-
-
-def get_docker_username():
-    """Returns the user that docker/podman is logged in to the registry as"""
-    docker_path = get_docker_path()
-    docker_info = sp.check_output(
-        f"{docker_path} info", shell=True,
-        encoding='UTF-8', stderr=sp.STDOUT
-    )
-
-    user = None
-    for line in docker_info.splitlines():
-        if 'Username' in line:
-            _, username = line.strip().split(':')
-            user = username.strip()
-
-    return user if user is not None else _get_docker_desktop_username()
-
-
-def find_free_port() -> int:
-    """Returns a port that is free at this instant"""
-    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.bind(('', 0))
-        return s.getsockname()[1]
-
-
 # Schemes that name a Lithops storage backend by its protocol
 _URL_SCHEME_ALIASES = {'cos': 'ibm_cos', 's3': 'aws_s3'}
 
@@ -726,24 +656,12 @@ def split_object_url(obj_url):
     return sb, bucket, prefix, obj_name
 
 
-def split_path(path):
-    """Splits a storage path into its bucket and its key"""
-    if path.startswith("/"):
-        path = path[1:]
-    ind = path.find("/")
-    if ind > 0:
-        bucket_name = path[:ind]
-        key = path[ind + 1:]
-    else:
-        bucket_name = path
-        key = None
-    return bucket_name, key
-
-
 def format_data(iterdata, extra_args):
     """
     Converts iterdata to a list, appending extra_args to every element. The
-    element decides how: tuples are concatenated, dicts are merged
+    element decides how: tuples are concatenated, dicts are merged. A single
+    value is left alone when extra_args is a dict: only the signature of the
+    function names its param, so verify_args merges the dict when binding it
     """
     data = _as_iterdata_list(iterdata)
     if not extra_args:
@@ -763,6 +681,8 @@ def format_data(iterdata, extra_args):
                     'extra_args must contain kwargs in a dictionary'
                 )
             data_i.update(extra_args)
+            new_iterdata.append(data_i)
+        elif isinstance(extra_args, dict):
             new_iterdata.append(data_i)
         else:
             new_iterdata.append((data_i, *extra_args))
@@ -793,6 +713,11 @@ def _user_signature(func) -> inspect.Signature:
     return func_sig.replace(parameters=user_parameters)
 
 
+# call_async() is one activation. A list or tuple of futures is that
+# activation's input, resolved on the worker, not one activation per future
+_CALL_ASYNC_CHAIN = '_lithops_call_async_chain'
+
+
 def _chained_futures(iterdata):
     """
     The futures of a previous job used as the input of this one, or None
@@ -800,12 +725,25 @@ def _chained_futures(iterdata):
 
     A slice of a FuturesList, or a list built from one, is a chain too: both
     lose the FuturesList type, and binding a future to a parameter as if it
-    were data fails with an error that says nothing about chaining
+    were data fails with an error that says nothing about chaining.
+
+    The map stage of a map_reduce is left out: its reducer already consumed
+    its output, and only the reduce stage produces the output of that job
     """
     from lithops.future import ResponseFuture
 
+    def producing_output(futures):
+        produced = [f for f in futures if not getattr(f, '_mapreduce_map', False)]
+        if futures and not produced:
+            raise ValueError(
+                "The map stage of a map_reduce cannot be chained: its output "
+                "is consumed by the reducer. Chain the whole map_reduce to "
+                "take the reducer output"
+            )
+        return produced
+
     if isinstance(iterdata, FuturesList):
-        return list(iterdata)
+        return producing_output(iterdata)
 
     if not isinstance(iterdata, (list, tuple)) or not iterdata:
         return None
@@ -821,7 +759,7 @@ def _chained_futures(iterdata):
             "Chaining takes the futures of one job as the whole input of "
             "the next one"
         )
-    return list(iterdata)
+    return producing_output(iterdata)
 
 
 def verify_args(func, iterdata, extra_args):
@@ -854,12 +792,21 @@ def verify_args(func, iterdata, extra_args):
         p.kind == inspect.Parameter.VAR_KEYWORD
         for p in func_sig.parameters.values()
     )
+    # A dict element only has to name the params that have no default
+    required = {
+        name for name, p in func_sig.parameters.items()
+        if p.default is inspect.Parameter.empty
+        and p.kind not in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
+    }
 
     new_data = []
 
     for elem in data:
+        if isinstance(elem, dict) and set(elem) == {_CALL_ASYNC_CHAIN}:
+            new_data.append({'future': elem[_CALL_ASYNC_CHAIN]})
+            continue
         if isinstance(elem, dict):
-            if has_var_keyword or set(func_sig.parameters) <= set(elem):
+            if has_var_keyword or required <= set(elem):
                 new_data.append(elem)
             else:
                 raise ValueError(
@@ -870,8 +817,10 @@ def verify_args(func, iterdata, extra_args):
         elif isinstance(elem, tuple):
             new_data.append(dict(func_sig.bind(*elem).arguments))
         else:
-            # A single value of any other type binds to the first param
-            new_data.append(dict(func_sig.bind(elem).arguments))
+            # A single value of any other type binds to the first param, and
+            # dict extra_args to the params they name
+            extra_kwargs = extra_args if isinstance(extra_args, dict) else {}
+            new_data.append(dict(func_sig.bind(elem, **extra_kwargs).arguments))
 
     return new_data
 
@@ -930,12 +879,43 @@ class WrappedStreamingBody:
         return self
 
     def __next__(self):
-        return self.read(64 * 1024)
+        # An empty read is the end of the stream, whether it gives bytes or str
+        try:
+            chunk = self.read(64 * 1024)
+        except EOFError:
+            raise StopIteration
+        if not chunk:
+            raise StopIteration
+        return chunk
 
     def __getattr__(self, attr):
         # Only reached for the attributes this wrapper does not define, so
         # everything else of the fileobj protocol falls through to boto3
         return getattr(self.sb, attr)
+
+
+class _PartitionRows(io.RawIOBase):
+    """The rows of a partition as a raw stream, for io.BufferedReader to buffer"""
+    def __init__(self, read_rows):
+        self._read_rows = read_rows
+
+    def readable(self):
+        return True
+
+    def readinto(self, buf):
+        piece = self._read_rows(len(buf))
+        buf[:len(piece)] = piece
+        return len(piece)
+
+    def readall(self):
+        # What read() with no size ends in. Without it, RawIOBase reads the
+        # stream one buffer, 8 KiB, at a time
+        pieces = []
+        while True:
+            piece = self._read_rows(None)
+            if not piece:
+                return b''.join(pieces)
+            pieces.append(piece)
 
 
 class WrappedStreamingBodyPartition(WrappedStreamingBody):
@@ -944,73 +924,88 @@ class WrappedStreamingBodyPartition(WrappedStreamingBody):
     integrity of the partitions based on the newline
     character.
     """
-    def __init__(self, sb, size, byterange, newline='\n'):
+    def __init__(self, sb, size, byterange, newline='\n', more=None):
         super().__init__(sb, size)
+        # Opens the object again from a byte on, for a last row longer than
+        # the range; returns None past the end of the object
+        self._more = more
         self.range = byterange
         self.newline_char = newline.encode()
-        # Every chunk but the first one reads one byte early, so that read()
-        # can tell whether the previous chunk ended in the middle of a row
-        self._plusbytes = 0 if not self.range or self.range[0] == 0 else 1
-        self._first_byte = None
+        # Every chunk but the first one reads the newline length early, so that
+        # it can tell whether the previous chunk ended in the middle of a row
+        first_chunk = not self.range or self.range[0] == 0
+        self._plusbytes = 0 if first_chunk else len(self.newline_char)
+        # Set while the cut row at the start of the chunk, which the previous
+        # chunk returns, is being skipped
+        self._discarding = not first_chunk
+        # The last bytes read, in case a newline is split between two reads
+        self._carry = b''
         self._eof = False
-        self._first_read = True
+        self._rows = io.BufferedReader(_PartitionRows(self._read_rows))
+
+    def _read_rows(self, n):
+        """
+        Reads the next piece of the rows of this chunk, at most n bytes of the
+        stream at a time, and b'' once they are over. The chunk owns the rows
+        that start within its size: the cut row at its start is skipped, and
+        the last one is read past its size until its newline or the end of the
+        stream. The previous chunk ends at the same newline this one skips
+        """
+        newline_len = len(self.newline_char)
+        # The end of the chunk in the stream, which starts _plusbytes early
+        end = self.size + self._plusbytes
+        while not self._eof:
+            data = self.sb.read(n)
+            if not data:
+                if self._more is None or self._discarding or self.pos < end:
+                    break
+                stream = self._more(self.range[0] + self.pos)
+                if stream is None:
+                    break
+                self.sb.close()
+                self.sb = stream
+                continue
+            window = self._carry + data
+            # Position of the first byte of window within the stream
+            offset = self.pos - len(self._carry)
+            self.pos += len(data)
+            self._carry = window[len(window) - newline_len + 1:]
+            begin = len(window) - len(data)
+
+            if self._discarding:
+                idx = window.find(self.newline_char)
+                if idx < 0:
+                    continue
+                logger.debug('Discarding first partial row')
+                self._discarding = False
+                begin = idx + newline_len
+
+            if self.pos >= end:
+                # The last row ends at the first newline that ends from the end
+                # of the chunk on, which is where the next chunk starts
+                idx = window.find(self.newline_char, max(end - offset - newline_len, begin - newline_len, 0))
+                if idx >= 0:
+                    self._eof = True
+                    return window[begin:idx + newline_len]
+
+            if begin < len(window):
+                return window[begin:]
+        self._eof = True
+        return b''
 
     def read(self, n=None):
-        if self._eof:
-            return b''
-
-        if not self._first_byte and self._plusbytes == 1:
-            self._first_byte = self.sb.read(self._plusbytes)
-
-        retval = self.sb.read(n)
-        last_row_end_pos = len(retval)
-        self.pos += last_row_end_pos
-        first_row_start_pos = 0
-
-        if self._first_read and self._first_byte and \
-           self._first_byte != self.newline_char:
-            # The previous chunk did not end in a newline, so the first row of
-            # this one is a cut row that the previous chunk already returned
-            logger.debug('Discarding first partial row')
-            first_row_start_pos = retval.find(self.newline_char) + 1
-            self._first_read = False
-
-        # The last row of a chunk is completed past its own end
-        if self.pos >= self.size:
-            current_end_pos = last_row_end_pos - (self.pos - self.size)
-            last_byte_pos = retval[current_end_pos - 1:].find(self.newline_char)
-            last_row_end_pos = current_end_pos + last_byte_pos
-            self._eof = True
-
-        return retval[first_row_start_pos:last_row_end_pos]
+        return self._rows.read(n)
 
     def readline(self):
-        if self._eof:
-            return b''
-
-        if not self._first_byte and self._plusbytes == 1:
-            self._first_byte = self.sb.read(self._plusbytes)
-            if self._first_byte != self.newline_char:
-                logger.debug('Discarding first partial row')
-                self.sb._raw_stream.readline()
-        try:
-            retval = self.sb._raw_stream.readline()
-        except struct.error:
-            raise EOFError()
-        self.pos += len(retval)
-
-        if self.pos >= self.size:
-            self._eof = True
-
-        return retval
+        return self._rows.readline()
 
 
 def docker_login(docker_user, docker_password, docker_server):
     """
     Log in to a container registry using docker/podman.
 
-    Docker Hub must be logged in without an explicit server host, matching
-    `docker login -u USER --password-stdin`.
+    Docker Hub uses Docker's default login host. Podman needs an explicit
+    registry even for Docker Hub when no default registry is configured.
     """
     if not docker_user or not docker_password:
         raise Exception('docker_user and docker_password are required')
@@ -1020,7 +1015,7 @@ def docker_login(docker_user, docker_password, docker_server):
     docker_path = get_docker_path()
     docker_password = docker_password.strip()
 
-    if 'docker.io' in docker_server:
+    if docker_server == 'docker.io' and not is_podman(docker_path):
         cmd = f'{docker_path} login -u {docker_user} --password-stdin'
     else:
         cmd = (f'{docker_path} login -u {docker_user} --password-stdin '
@@ -1062,6 +1057,42 @@ def is_podman(docker_path) -> bool:
         return True
     except Exception:
         return False
+
+
+def import_backend_module(package: str, kind: str, backend: str, submodule: Optional[str] = None):
+    """
+    Imports ``<package>.<backend>``, a backend package the monitoring and
+    telemetry layers pick by name, or one of its submodules.
+
+    Raises ValueError only when the backend itself is not there. A
+    backend whose SDK is missing keeps its own ImportError, which names
+    the package to install instead of claiming the backend is unknown.
+    ``kind`` names the layer in that message (``monitoring``,
+    ``telemetry``).
+    """
+    module_name = f'{package}.{backend}'
+    if submodule:
+        module_name = f'{module_name}.{submodule}'
+    try:
+        return importlib.import_module(module_name)
+    except ModuleNotFoundError as exc:
+        if exc.name and not module_name.startswith(exc.name):
+            raise
+        raise ValueError(f'Unknown {kind} backend: {backend}') from exc
+
+
+def load_backend_attr(package: str, kind: str, backend: str, attr: str):
+    """
+    Returns ``attr`` of ``<package>.<backend>``, naming the backend when
+    the package does not export it
+    """
+    module = import_backend_module(package, kind, backend)
+    try:
+        return getattr(module, attr)
+    except AttributeError as exc:
+        raise ValueError(
+            f"{kind.capitalize()} backend '{backend}' exports no {attr}"
+        ) from exc
 
 
 class BackendType(Enum):

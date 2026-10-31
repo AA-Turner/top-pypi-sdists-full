@@ -18,9 +18,12 @@ pub struct Cli {
     /// Force color output, even when redirected or NO_COLOR is set.
     #[arg(long, global = true, overrides_with = "nocolor")]
     pub color: bool,
-    /// Path to a configuration file.
+    /// Additional configuration file whose settings override discovered configuration.
     #[arg(long, global = true)]
     pub config: Option<String>,
+    /// Ignore discovered global and project configuration files. Still load --config.
+    #[arg(long, global = true)]
+    pub ignore_local_config: bool,
     /// Override the dialect (e.g., bigquery, clickhouse, ansi).
     #[arg(long, global = true)]
     pub dialect: Option<String>,
@@ -91,6 +94,12 @@ pub struct LintArgs {
     pub paths: Vec<PathBuf>,
     #[arg(default_value_t, short, long)]
     pub format: Format,
+    /// Severity for GitLab Code Quality findings. Configured warnings remain info.
+    #[arg(long, value_enum, default_value_t, ignore_case = true)]
+    pub annotation_level: AnnotationLevel,
+    /// Write the GitLab Code Quality report to this file instead of stdout.
+    #[arg(long, value_name = "PATH")]
+    pub write_output: Option<PathBuf>,
 }
 
 #[derive(Debug, Parser)]
@@ -129,10 +138,21 @@ pub struct ParseArgs {
 pub enum Format {
     Human,
     GithubAnnotationNative,
+    Gitlab,
     Json,
     Sarif,
     /// Produce no output. Used mostly for testing.
     None,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum, Display, Default)]
+#[strum(serialize_all = "kebab-case")]
+pub enum AnnotationLevel {
+    Notice,
+    #[default]
+    Warning,
+    Failure,
+    Error,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum, Display, Default)]

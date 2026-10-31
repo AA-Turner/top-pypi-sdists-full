@@ -71,6 +71,7 @@ dev = [
     "twine",
     "build",
     "commitizen",
+    "setuptools>=83.0.0; python_version >= '3.10'", # PYSEC-2026-3447 (setuptools 83 requires py3.10+)
 
     # test
     "apache-airflow<3.4", # Starship supports Airflow versions up to 3.3
@@ -150,7 +151,7 @@ addopts = [
 ]
 
 [tool.commitizen]
-version = "2.10.1"
+version = "2.11.0"
 version_files = ["astronomer_starship/__init__.py:__version__"]
 tag_format = "v$version"
 update_changelog_on_bump = false

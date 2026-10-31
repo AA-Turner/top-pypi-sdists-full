@@ -35,6 +35,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from matrx_ai.config.message_config import NOT_REPLY_BLOCK_TYPES
 from matrx_ai.decisions.kinds import (
     DecisionAnswer,
     DecisionAnswers,
@@ -132,7 +133,10 @@ def refuse_incompatible_parts(message: Any, *, model_name: str) -> None:
 
 
 def _text_of(block: Any) -> str:
-    """The text a block contributes to the state, or ``''``."""
+    """The text a block contributes to the state, or ``''``. A reasoning block contributes nothing: it
+    keeps the model's private reasoning under ``text`` and is never material to judge."""
+    if _content_type(block) in NOT_REPLY_BLOCK_TYPES:
+        return ""
     text = getattr(block, "text", None)
     if isinstance(text, str) and text.strip():
         return text.strip()
@@ -252,19 +256,19 @@ def system_one_questions(batch: DecisionQuestions) -> dict[str, Any]:
         if question.type == "choice":
             out[question.name] = {
                 "type": "choice",
-                "instructions": question.instructions,
+                "instructions": question.rendered_instructions(),
                 "criteria": dict(question.criteria or {}),
             }
         elif question.type == "score":
             out[question.name] = {
                 "type": "score",
-                "instructions": question.instructions,
+                "instructions": question.rendered_instructions(),
                 "criteria": question.score_levels(),
             }
         else:
             payload: dict[str, Any] = {
                 "type": "noul",
-                "instructions": question.instructions,
+                "instructions": question.rendered_instructions(),
             }
             if isinstance(question.criteria, dict) and question.criteria:
                 payload["criteria"] = dict(question.criteria)
@@ -406,7 +410,7 @@ def verbalized_instructions(
     lines.extend(["## Questions", ""])
     for question in batch.questions:
         lines.append(f"### {question.name} ({question.type})")
-        lines.append(question.instructions)
+        lines.append(question.rendered_instructions())
         if question.type == "choice":
             lines.append("Choose exactly one option:")
             lines.extend(

@@ -162,6 +162,22 @@ class TestSimpleModule:
         )
         assert cells[1].text.strip() == "A function with a long signature."
 
+    def test_summary_with_return_annotation(self, parse):
+        example_file = parse("_build/html/autoapi/example/index.html")
+
+        functions_table = example_file.find_all(class_="autosummary")[-1]
+        summary_row = next(
+            row
+            for row in functions_table.find_all("tr")
+            if "fn_with_return_annotation" in row.text
+        )
+        cells = summary_row.find_all("td")
+        assert (
+            cells[0].text.replace("\xa0", " ")
+            == "fn_with_return_annotation(first, second) → list[str]"
+        )
+        assert cells[1].text.strip() == "A function with a return annotation."
+
 
 class TestSimpleModuleManual:
     @pytest.fixture(autouse=True, scope="class")
@@ -276,12 +292,22 @@ class TestMovedConfPy(TestSimpleModule):
     @pytest.fixture(autouse=True, scope="class")
     @classmethod
     def built(cls, builder):
-        builder(
-            "pymovedconfpy",
-            confdir="confpy",
-            warningiserror=True,
-            confoverrides={"exclude_patterns": ["manualapi.rst"]},
+        symlink = (
+            pathlib.Path(__file__).parent / "pymovedconfpy" / "example"
+        ).absolute()
+        symlink.symlink_to(
+            symlink.parent.parent / "pyexample" / "example",
+            target_is_directory=True,
         )
+        try:
+            builder(
+                "pymovedconfpy",
+                confdir="confpy",
+                warningiserror=True,
+                confoverrides={"exclude_patterns": ["manualapi.rst"]},
+            )
+        finally:
+            symlink.unlink()
 
 
 class TestSimpleModuleDifferentPrimaryDomain(TestSimpleModule):
@@ -1225,6 +1251,34 @@ def test_caching(builder, rebuild):
     rebuild()
     record_mtime()
     assert mtimes[1] != mtimes[0]
+
+
+def test_caching_ignores_mtime_changes(builder, rebuild):
+    confoverrides = {"autoapi_keep_files": True}
+
+    def newest_rst_mtime():
+        return max(
+            path.stat().st_mtime for path in pathlib.Path("autoapi").rglob("*.rst")
+        )
+
+    builder("pypackagecomplex", confoverrides=confoverrides)
+    first_build = newest_rst_mtime()
+
+    for source in pathlib.Path("complex").rglob("*.py"):
+        source.touch()
+
+    rebuild(confoverrides=confoverrides)
+    assert newest_rst_mtime() == first_build
+
+    source = pathlib.Path("complex/foo.py")
+    original = source.read_text()
+    try:
+        source.write_text(original + "\n")
+        rebuild(confoverrides=confoverrides)
+    finally:
+        source.write_text(original)
+
+    assert newest_rst_mtime() != first_build
 
 
 class TestImplicitNamespacePackage:

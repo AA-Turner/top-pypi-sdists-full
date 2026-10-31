@@ -472,10 +472,14 @@ class PutOp(_message.Message):
     VALUE_JSON_FIELD_NUMBER: _builtins.int
     TTLMINUTES_FIELD_NUMBER: _builtins.int
     VECTORS_FIELD_NUMBER: _builtins.int
+    TTLMINUTESEXACT_FIELD_NUMBER: _builtins.int
     key: _builtins.str
     value_json: _builtins.bytes
     """JSON-encoded value (orjson)."""
     ttlMinutes: _builtins.int
+    """Whole minutes, rounded up; stored as ttl_minutes and used for TTL refresh."""
+    ttlMinutesExact: _builtins.float
+    """Exact, possibly fractional TTL in minutes; sets the initial expires_at."""
     @_builtins.property
     def namespace(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]: ...
     @_builtins.property
@@ -490,10 +494,11 @@ class PutOp(_message.Message):
         value_json: _builtins.bytes = ...,
         ttlMinutes: _builtins.int = ...,
         vectors: _abc.Iterable[Global___VectorValue] | None = ...,
+        ttlMinutesExact: _builtins.float = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["key", b"key", "namespace", b"namespace", "ttlMinutes", b"ttlMinutes", "value_json", b"value_json", "vectors", b"vectors"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["key", b"key", "namespace", b"namespace", "ttlMinutes", b"ttlMinutes", "ttlMinutesExact", b"ttlMinutesExact", "value_json", b"value_json", "vectors", b"vectors"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

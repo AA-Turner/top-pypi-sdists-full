@@ -145,10 +145,12 @@ std::vector<Diagnostic> WarningsOf(const CompiledProgram& program) {
 
 absl::StatusOr<std::shared_ptr<CompiledProgram>> CompileWithEntry(
     const Source& source) {
-  ABSL_ASSIGN_OR_RETURN(
-      std::shared_ptr<CompiledProgram> program,
-      CompiledProgram::Compile(source.text, FileModuleIdentity(source.name), {},
-                               FileModuleResolver()));
+  ABSL_ASSIGN_OR_RETURN(std::shared_ptr<CompiledProgram> program,
+                        CompiledProgram::Compile(
+                            source.text, FileModuleIdentity(source.name), {},
+                            FileModuleResolver(source.limits.max_source_bytes,
+                                               {}, source.source_roots),
+                            source.limits, source.single_item_slots));
   if (program->Entry() == nullptr) {
     return absl::NotFoundError(absl::StrCat(
         source.name.empty() ? "this program" : source.name,
@@ -230,6 +232,7 @@ absl::StatusOr<RunOutcome> Run(const Source& source,
   // The bridge, when the host gave one.
   ::a11::flow::RunOptions how;
   how.bridge = options.bridge;
+  how.frames = options.frames;
   // Where `call` steps go. Given to the handler rather than to the action
   // below, because a locally-run action that holds a stream ends that stream
   // when it finishes -- so the stream belongs to the calls, not to the flow.

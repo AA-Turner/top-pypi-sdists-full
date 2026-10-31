@@ -448,6 +448,120 @@ impl NetworkAccessChecker {
             .any(|network| network.contains(&ip))
     }
 
+    /// Reserved ranges that are never a legitimate tunnel destination, denied
+    /// regardless of the configured allowlist.
+    ///
+    /// This is a **floor**, not an allowlist: it can only ever deny. Any address
+    /// outside these ranges is decided exactly as before, so no currently-working
+    /// destination changes behaviour.
+    ///
+    /// Denied:
+    /// - `169.254.0.0/16` — IPv4 link-local. Covers the cloud instance-metadata
+    ///   endpoint `169.254.169.254` (AWS/GCP/Azure/OCI), the highest-value SSRF
+    ///   target reachable from inside a customer network.
+    /// - `fe80::/10` — IPv6 link-local, the same surface.
+    /// - `fd00:ec2::254` — AWS IMDS over IPv6. A single address, not the
+    ///   surrounding `fd00::/8`, which is legitimate private space.
+    /// - `0.0.0.0/8` ("this network"), `224.0.0.0/4` (multicast) and
+    ///   `240.0.0.0/4` (reserved) — not meaningful TCP destinations.
+    ///
+    /// Deliberately **NOT** denied, because each is a legitimate destination and
+    /// denying it would break working deployments:
+    /// - **Loopback** (`127.0.0.0/8`, `::1`) — an intentional, tested-allowed
+    ///   destination; `keeperdb-proxy` listens on `127.0.0.1` by default and the
+    ///   existing SOCKS tests assert loopback resolves.
+    /// - **RFC1918** (`10/8`, `172.16/12`, `192.168/16`) — the normal case for a
+    ///   gateway inside a customer network.
+    /// - **CGNAT** `100.64.0.0/10` — carrier NAT and ZTNA products (Zscaler ZPA
+    ///   synthetic IPs) legitimately present addresses in this range.
+    ///
+    /// IPv4-mapped IPv6 (`::ffff:169.254.169.254`) is normalised before the check
+    /// so it cannot be used to step around the IPv4 rule.
+    #[inline]
+    fn is_reserved_denied(ip: IpAddr) -> bool {
+        // Normalise embedded-IPv4 forms so no IPv6 spelling of an IPv4 address
+        // can step around the IPv4 rules below. `to_ipv4()` covers BOTH the
+        // IPv4-mapped form (`::ffff:a.b.c.d`) and the deprecated
+        // IPv4-compatible form (`::a.b.c.d`) — `to_ipv4_mapped()` alone misses
+        // the latter, which would let `::169.254.169.254` through.
+        //
+        // `::1` and `::` are excluded from that normalisation: `to_ipv4()` maps
+        // them to `0.0.0.1` / `0.0.0.0`, which the `0.0.0.0/8` rule would deny.
+        // They are IPv6 loopback and unspecified, not embedded IPv4 — loopback
+        // is deliberately allowed, and `::` is denied by `is_unspecified()` on
+        // the V6 branch anyway.
+        let ip = match ip {
+            IpAddr::V6(v6) if v6.is_loopback() || v6.is_unspecified() => IpAddr::V6(v6),
+            IpAddr::V6(v6) => match v6.to_ipv4() {
+                Some(v4) => IpAddr::V4(v4),
+                None => IpAddr::V6(v6),
+            },
+            v4 => v4,
+        };
+
+        match ip {
+            IpAddr::V4(v4) => {
+                v4.is_link_local()            // 169.254.0.0/16 (incl. IMDS)
+                    || v4.is_multicast()      // 224.0.0.0/4
+                    || v4.is_unspecified()    // 0.0.0.0
+                    || v4.octets()[0] == 0    // 0.0.0.0/8 "this network"
+                    || v4.octets()[0] >= 240 // 240.0.0.0/4 reserved
+            }
+            IpAddr::V6(v6) => {
+                // fe80::/10 link-local
+                let is_link_local = (v6.segments()[0] & 0xffc0) == 0xfe80;
+                // AWS IMDS over IPv6: fd00:ec2::254 exactly.
+                let is_aws_imds_v6 = v6.segments() == [0xfd00, 0x0ec2, 0, 0, 0, 0, 0, 0x0254];
+                is_link_local || v6.is_multicast() || v6.is_unspecified() || is_aws_imds_v6
+            }
+        }
+    }
+
+    /// Apply [`Self::is_reserved_denied`] to a resolved address set, returning
+    /// `None` if nothing survives.
+    ///
+    /// Applied at **every** return path of [`Self::resolve_if_allowed`]. The
+    /// hostname and wildcard paths previously returned resolved addresses without
+    /// any per-IP check, so an allowlisted name whose DNS answer pointed at
+    /// `169.254.169.254` was reachable.
+    ///
+    /// A floor denial is logged at **WARN**, unconditionally — not behind the
+    /// verbose-logging flag. Two reasons:
+    ///
+    /// 1. **Diagnosability.** Without it, a floor denial is indistinguishable
+    ///    from an ordinary policy denial: the caller just sees "not allowed" and
+    ///    has no way to tell that the *reserved-range rule*, rather than their
+    ///    allowlist, refused the destination.
+    /// 2. **Auditability.** A resolved reserved address means either a
+    ///    misconfiguration or an attempt to reach instance metadata through the
+    ///    tunnel. Either way an operator should see it.
+    ///
+    /// Denials are rare by construction, so this is not on the hot path — no
+    /// logging is added to the allow path.
+    #[inline]
+    fn deny_reserved(
+        ips: smallvec::SmallVec<[IpAddr; 4]>,
+    ) -> Option<smallvec::SmallVec<[IpAddr; 4]>> {
+        let mut kept: smallvec::SmallVec<[IpAddr; 4]> = smallvec::SmallVec::new();
+        for ip in ips {
+            if Self::is_reserved_denied(ip) {
+                warn!(
+                    "Tunnel destination {} denied by the reserved-range floor \
+                     (link-local / instance-metadata / unroutable). This rule is \
+                     not configurable; see NetworkAccessChecker::is_reserved_denied.",
+                    ip
+                );
+            } else {
+                kept.push(ip);
+            }
+        }
+        if kept.is_empty() {
+            None
+        } else {
+            Some(kept)
+        }
+    }
+
     /// Fast port checking with binary search (O(log n))
     #[inline]
     pub fn is_port_allowed(&self, port: u16) -> bool {
@@ -491,7 +605,8 @@ impl NetworkAccessChecker {
             return self
                 .resolve_with_minimal_allocation(domain_name_or_ip)
                 .await
-                .ok();
+                .ok()
+                .and_then(Self::deny_reserved);
         }
 
         // **ZERO-ALLOCATION HOT PATH 1**: Check exact hostname match
@@ -500,7 +615,8 @@ impl NetworkAccessChecker {
                 return self
                     .resolve_with_minimal_allocation(domain_name_or_ip)
                     .await
-                    .ok();
+                    .ok()
+                    .and_then(Self::deny_reserved);
             }
         }
 
@@ -510,7 +626,8 @@ impl NetworkAccessChecker {
                 return self
                     .resolve_with_minimal_allocation(domain_name_or_ip)
                     .await
-                    .ok();
+                    .ok()
+                    .and_then(Self::deny_reserved);
             }
         }
 
@@ -519,7 +636,9 @@ impl NetworkAccessChecker {
             return if self.is_ip_allowed_fast(ip) {
                 let mut ips = smallvec::SmallVec::new();
                 ips.push(ip);
-                Some(ips)
+                // Route through deny_reserved so a floor denial is logged here
+                // exactly as it is on the hostname/wildcard/DNS paths.
+                Self::deny_reserved(ips)
             } else {
                 None
             };
@@ -542,11 +661,9 @@ impl NetworkAccessChecker {
                             .copied()
                             .filter(|&ip| self.is_ip_allowed_fast(ip))
                             .collect();
-                        return if allowed_ips.is_empty() {
-                            None
-                        } else {
-                            Some(allowed_ips)
-                        };
+                        // Floor applied last so a reserved address is logged,
+                        // not silently dropped by the allowlist filter.
+                        return Self::deny_reserved(allowed_ips);
                     }
                 }
             }
@@ -582,11 +699,9 @@ impl NetworkAccessChecker {
                         .into_iter()
                         .filter(|&ip| self.is_ip_allowed_fast(ip))
                         .collect();
-                    if allowed_ips.is_empty() {
-                        None
-                    } else {
-                        Some(allowed_ips)
-                    }
+                    // Floor applied last so a reserved address is logged,
+                    // not silently dropped by the allowlist filter.
+                    Self::deny_reserved(allowed_ips)
                 }
                 Err(_) => None,
             }

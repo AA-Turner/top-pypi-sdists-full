@@ -1,11 +1,16 @@
+from typing import TYPE_CHECKING, List
+
 from . import compat
-from .ini import LineContainer, EmptyLine
+from .ini import EmptyLine, LineContainer
+
+if TYPE_CHECKING:
+    from .ini import LineType
 
 
-def tidy(cfg):
+def tidy(cfg: compat.RawConfigParser):
     """Clean up blank lines.
 
-    This functions makes the configuration look clean and
+    This function makes the configuration look clean and
     handwritten - consecutive empty lines and empty lines at
     the start of the file are removed, and one is guaranteed
     to be at the end of the file.
@@ -14,12 +19,13 @@ def tidy(cfg):
     if isinstance(cfg, compat.RawConfigParser):
         cfg = cfg.data
     cont = cfg._data.contents
-    i = 1
+    # start at 0 so that a section at the very top of the file is tidied too
+    i = 0
     while i < len(cont):
         if isinstance(cont[i], LineContainer):
             tidy_section(cont[i])
             i += 1
-        elif (isinstance(cont[i-1], EmptyLine) and
+        elif (i > 0 and isinstance(cont[i-1], EmptyLine) and
               isinstance(cont[i], EmptyLine)):
             del cont[i]
         else:
@@ -34,9 +40,9 @@ def tidy(cfg):
         cont.append(EmptyLine())
 
 
-def tidy_section(lc):
-    cont = lc.contents
-    i = 1
+def tidy_section(lc: "LineContainer"):
+    cont: List[LineType] = lc.contents
+    i: int = 1
     while i < len(cont):
         if isinstance(cont[i-1], EmptyLine) and isinstance(cont[i], EmptyLine):
             del cont[i]

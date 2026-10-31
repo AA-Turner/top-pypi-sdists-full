@@ -15,6 +15,7 @@ from urllib.error import URLError
 
 import pytest
 from click.testing import CliRunner
+from conftest import vcs_params
 
 from reuse.cli import download
 from reuse.cli.main import main
@@ -88,12 +89,10 @@ class TestDownload:
         """If both EUPL-1.2 and EUPL-1.2+ is detected, download EUPL-1.2 only
         once.
         """
-        Path("foo.py").write_text(
-            """
+        Path("foo.py").write_text("""
             # SPDX-License-Identifier: EUPL-1.2+
             # SPDX-License-Identifier: EUPL-1.2
-            """
-        )
+            """)
         result = CliRunner().invoke(main, ["download", "--all"])
 
         assert result.exit_code == 0
@@ -184,14 +183,15 @@ class TestDownload:
             "0BSD", destination=Path("0BSD.txt").absolute(), source=None
         )
 
-    def test_inside_licenses_dir_in_git(
-        self, git_repository, mock_put_license_in_file
+    @vcs_params
+    def test_inside_licenses_dir_in_vcs(
+        self, vcs_strategy, vcs_repo, mock_put_license_in_file
     ):
-        """While inside a random LICENSES/ directory in a Git repository, use
+        """While inside a random LICENSES/ directory in a VCS repository, use
         the root LICENSES/ directory.
         """
-        (git_repository / "doc/LICENSES").mkdir()
-        os.chdir(git_repository / "doc/LICENSES")
+        (vcs_repo / "doc/LICENSES").mkdir()
+        os.chdir(vcs_repo / "doc/LICENSES")
         result = CliRunner().invoke(main, ["download", "0BSD"])
         assert result.exit_code == 0
         mock_put_license_in_file.assert_called_with(

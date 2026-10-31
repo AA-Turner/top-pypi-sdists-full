@@ -34,23 +34,15 @@ class ConvertIamResult(object):
     """
     openapi_types = {
         'option': 'IamMigrationOption',
-        'all_users_group_id': 'str',
-        'user_groups_created': 'int',
-        'role_bindings_created': 'int',
-        'members_added': 'int',
-        'auto_add_clouds_turned_off': 'int'
+        'all_users_group_id': 'str'
     }
 
     attribute_map = {
         'option': 'option',
-        'all_users_group_id': 'all_users_group_id',
-        'user_groups_created': 'user_groups_created',
-        'role_bindings_created': 'role_bindings_created',
-        'members_added': 'members_added',
-        'auto_add_clouds_turned_off': 'auto_add_clouds_turned_off'
+        'all_users_group_id': 'all_users_group_id'
     }
 
-    def __init__(self, option=None, all_users_group_id=None, user_groups_created=None, role_bindings_created=None, members_added=None, auto_add_clouds_turned_off=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, option=None, all_users_group_id=None, local_vars_configuration=None):  # noqa: E501
         """ConvertIamResult - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -58,19 +50,11 @@ class ConvertIamResult(object):
 
         self._option = None
         self._all_users_group_id = None
-        self._user_groups_created = None
-        self._role_bindings_created = None
-        self._members_added = None
-        self._auto_add_clouds_turned_off = None
         self.discriminator = None
 
         self.option = option
         if all_users_group_id is not None:
             self.all_users_group_id = all_users_group_id
-        self.user_groups_created = user_groups_created
-        self.role_bindings_created = role_bindings_created
-        self.members_added = members_added
-        self.auto_add_clouds_turned_off = auto_add_clouds_turned_off
 
     @property
     def option(self):
@@ -119,106 +103,6 @@ class ConvertIamResult(object):
         """
 
         self._all_users_group_id = all_users_group_id
-
-    @property
-    def user_groups_created(self):
-        """Gets the user_groups_created of this ConvertIamResult.  # noqa: E501
-
-        How many user groups it created, All users included.  # noqa: E501
-
-        :return: The user_groups_created of this ConvertIamResult.  # noqa: E501
-        :rtype: int
-        """
-        return self._user_groups_created
-
-    @user_groups_created.setter
-    def user_groups_created(self, user_groups_created):
-        """Sets the user_groups_created of this ConvertIamResult.
-
-        How many user groups it created, All users included.  # noqa: E501
-
-        :param user_groups_created: The user_groups_created of this ConvertIamResult.  # noqa: E501
-        :type: int
-        """
-        if self.local_vars_configuration.client_side_validation and user_groups_created is None:  # noqa: E501
-            raise ValueError("Invalid value for `user_groups_created`, must not be `None`")  # noqa: E501
-
-        self._user_groups_created = user_groups_created
-
-    @property
-    def role_bindings_created(self):
-        """Gets the role_bindings_created of this ConvertIamResult.  # noqa: E501
-
-        How many role bindings it created.  # noqa: E501
-
-        :return: The role_bindings_created of this ConvertIamResult.  # noqa: E501
-        :rtype: int
-        """
-        return self._role_bindings_created
-
-    @role_bindings_created.setter
-    def role_bindings_created(self, role_bindings_created):
-        """Sets the role_bindings_created of this ConvertIamResult.
-
-        How many role bindings it created.  # noqa: E501
-
-        :param role_bindings_created: The role_bindings_created of this ConvertIamResult.  # noqa: E501
-        :type: int
-        """
-        if self.local_vars_configuration.client_side_validation and role_bindings_created is None:  # noqa: E501
-            raise ValueError("Invalid value for `role_bindings_created`, must not be `None`")  # noqa: E501
-
-        self._role_bindings_created = role_bindings_created
-
-    @property
-    def members_added(self):
-        """Gets the members_added of this ConvertIamResult.  # noqa: E501
-
-        How many users it added to its user groups, once per group.  # noqa: E501
-
-        :return: The members_added of this ConvertIamResult.  # noqa: E501
-        :rtype: int
-        """
-        return self._members_added
-
-    @members_added.setter
-    def members_added(self, members_added):
-        """Sets the members_added of this ConvertIamResult.
-
-        How many users it added to its user groups, once per group.  # noqa: E501
-
-        :param members_added: The members_added of this ConvertIamResult.  # noqa: E501
-        :type: int
-        """
-        if self.local_vars_configuration.client_side_validation and members_added is None:  # noqa: E501
-            raise ValueError("Invalid value for `members_added`, must not be `None`")  # noqa: E501
-
-        self._members_added = members_added
-
-    @property
-    def auto_add_clouds_turned_off(self):
-        """Gets the auto_add_clouds_turned_off of this ConvertIamResult.  # noqa: E501
-
-        How many clouds stopped adding every new member.  # noqa: E501
-
-        :return: The auto_add_clouds_turned_off of this ConvertIamResult.  # noqa: E501
-        :rtype: int
-        """
-        return self._auto_add_clouds_turned_off
-
-    @auto_add_clouds_turned_off.setter
-    def auto_add_clouds_turned_off(self, auto_add_clouds_turned_off):
-        """Sets the auto_add_clouds_turned_off of this ConvertIamResult.
-
-        How many clouds stopped adding every new member.  # noqa: E501
-
-        :param auto_add_clouds_turned_off: The auto_add_clouds_turned_off of this ConvertIamResult.  # noqa: E501
-        :type: int
-        """
-        if self.local_vars_configuration.client_side_validation and auto_add_clouds_turned_off is None:  # noqa: E501
-            raise ValueError("Invalid value for `auto_add_clouds_turned_off`, must not be `None`")  # noqa: E501
-
-        self._auto_add_clouds_turned_off = auto_add_clouds_turned_off
 
     def to_dict(self):
         """Returns the model properties as a dict"""

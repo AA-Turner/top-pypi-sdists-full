@@ -120,6 +120,7 @@ from matrx_connect.context.data_types import (
     StructuredInputWarningData,
     VideoOutputData,
     WorkflowNodeTestResultData,
+    MandateTryResultData,
     WorkflowStepData,
 )
 from matrx_connect.context.events import (
@@ -307,6 +308,7 @@ __all__ = [
     "VideoOutputData",
     "WarningPayload",
     "WorkflowNodeTestResultData",
+    "MandateTryResultData",
     "PlanGenStartedData",
     "PlanGenCandidateData",
     "PlanGenMergedData",

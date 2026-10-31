@@ -21,6 +21,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import inspect
+import re
 import time
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any, cast, get_args
@@ -148,6 +149,23 @@ EventSink = Callable[[dict[str, Any]], Awaitable[None] | None]
 _IN_FLIGHT_THREAD_STATUS = "busy"
 _INTERRUPT_SETTLE_TIMEOUT_SECONDS = 5.0
 _INTERRUPT_SETTLE_POLL_INTERVAL_SECONDS = 0.05
+# langgraph resumes interrupts by id only when every key of the resume map has
+# this shape; any other key turns the whole map into one value for whichever
+# interrupt is pending.
+_INTERRUPT_ID_RE = re.compile(r"[0-9a-f]{32}")
+
+
+class _AmbiguousResumeError(Exception):
+    """``run.start`` input would resume several pending interrupts at once."""
+
+
+def _keyed_by_interrupt_id(value: Any) -> bool:
+    """Whether langgraph resumes ``value`` per interrupt rather than as one answer."""
+    return (
+        _is_record(value)
+        and bool(value)
+        and all(_INTERRUPT_ID_RE.fullmatch(key) for key in value)
+    )
 
 
 # Protocol v2 commands this server implements. Anything outside this
@@ -174,6 +192,9 @@ class ThreadRunManager:
     One ``ThreadRunManager`` is created per connection (HTTP SSE stream or
     WebSocket). It is not shared across connections — each observer owns
     its own view of the thread's run stream.
+
+    ``replay_buffer=False`` keeps no per-run replay buffer, for connections
+    that never replay from it.
     """
 
     def __init__(
@@ -184,23 +205,27 @@ class ThreadRunManager:
         threads: Any,
         send_event: EventSink | None = None,
         headers: Mapping[str, str] | None = None,
+        replay_buffer: bool = True,
     ) -> None:
         self._thread_id = thread_id
         self._runs = runs
         self._threads = threads
         self._send_event = send_event
         self._headers = headers if headers is not None else {}
+        self._replay_buffer = replay_buffer
         self._session: EventStreamingSession | None = None
         self._current_run_id: str | None = None
         self._queued_events: list[dict[str, Any]] = []
         self._seq: int = 0
         self._thread_source_task: asyncio.Task[None] | None = None
         # Set by ``_consume_thread_stream`` when the background task
-        # exits — success, cancellation, or unexpected failure all
-        # transition this. Route handlers (SSE body_iter, WS watchdog)
-        # await this so a transient ``join_event_streaming`` failure can no
-        # longer leave the connection wedged with no events flowing.
+        # exits for any reason, including cancellation. Route handlers
+        # (SSE body_iter, WS watchdog) await this so a transient
+        # ``join_event_streaming`` failure can no longer leave the
+        # connection wedged with no events flowing.
         self._thread_stream_done: asyncio.Event = asyncio.Event()
+        # Set when the consumer stops for any reason other than cancellation.
+        self._thread_stream_failed: bool = False
         # WebSocket clients typically call ``subscription.subscribe``
         # before ``run.start`` — natural ordering since they want to
         # observe before firing. Buffer those subscriptions here and
@@ -225,6 +250,15 @@ class ThreadRunManager:
     @property
     def seq(self) -> int:
         return self._seq
+
+    @property
+    def thread_stream_failed(self) -> bool:
+        """Whether the thread-stream consumer stopped without being cancelled.
+
+        A thread stream has no natural end, so the consumer stopping on its
+        own, by raising or by its source finishing, means the read failed.
+        """
+        return self._thread_stream_failed
 
     async def attach_event_sink(self, send_event: EventSink) -> None:
         """Attach a live transport consumer and flush buffered events."""
@@ -262,7 +296,7 @@ class ThreadRunManager:
                 active=True,
             )
 
-    def start_thread_stream(self) -> None:
+    def start_thread_stream(self, *, auth_filters: Any = None) -> None:
         """Start consuming the thread-level stream for this connection.
 
         Always start from the beginning of the thread's event stream
@@ -277,14 +311,19 @@ class ThreadRunManager:
         produce output…". The SSE/WS sink applies the caller's ``since``
         as a seq filter on outbound events, and the SDK dedups by
         ``event_id``, so repeat observers don't see duplicates.
+
+        ``auth_filters`` is what the route's ``check_thread_stream_auth``
+        returned, passed on so the stream doesn't run the read handler again.
         """
         if self._thread_source_task is not None:
             return
         self._thread_source_task = asyncio.create_task(
-            self._consume_thread_stream(last_event_id="-")
+            self._consume_thread_stream(last_event_id="-", auth_filters=auth_filters)
         )
 
-    async def _consume_thread_stream(self, *, last_event_id: str | None) -> None:
+    async def _consume_thread_stream(
+        self, *, last_event_id: str | None, auth_filters: Any
+    ) -> None:
         try:
             async for (
                 event,
@@ -295,6 +334,7 @@ class ThreadRunManager:
                 self._thread_id,
                 stream_modes=["run_modes", "lifecycle"],
                 last_event_id=last_event_id,
+                auth_filters=auth_filters,
             ):
                 if not run_id or run_id == "*":
                     continue
@@ -309,11 +349,18 @@ class ThreadRunManager:
         except asyncio.CancelledError:
             raise
         except Exception as exc:
+            self._thread_stream_failed = True
             await logger.aexception(
                 "protocol thread stream failed",
                 thread_id=str(self._thread_id),
                 error=str(exc),
                 error_type=type(exc).__name__,
+            )
+        else:
+            self._thread_stream_failed = True
+            await logger.awarning(
+                "protocol thread stream ended unexpectedly",
+                thread_id=str(self._thread_id),
             )
         finally:
             # Wake up SSE body_iter / WS watchdog so the connection can
@@ -509,6 +556,8 @@ class ThreadRunManager:
 
         try:
             run = await self._create_or_resume_run(assistant_id, params)
+        except _AmbiguousResumeError as exc:
+            return self._error(command.get("id"), "invalid_argument", str(exc))
         except ProtocolV2UnsupportedError as exc:
             return self._error(command.get("id"), "unsupported", str(exc))
         except Exception as exc:
@@ -546,9 +595,7 @@ class ThreadRunManager:
         optional ``namespace``) or a ``responses`` batch — a list of
         ``{interrupt_id, response, namespace?}`` objects. The batch form
         resumes several interrupts pending at the same checkpoint (e.g.
-        parallel tool-authorization prompts) in one command; sequential
-        single resumes cannot, since the first resume starts a run, leaving
-        the rest with no interrupted run to respond to. Both forms are part
+        parallel tool-authorization prompts) in one command. Both forms are part
         of the streaming protocol (``InputRespondParams`` =
         ``InputRespondOne / InputRespondMany``); the batch entries are read
         leniently to tolerate clients pinned to older bindings.
@@ -625,7 +672,7 @@ class ThreadRunManager:
         # this HTTP request (the stateless ``POST /commands`` transport) its
         # source task hasn't had a chance to emit ``input.requested`` yet —
         # ``_pending_interrupts`` is still empty. In that case, fall back to
-        # the thread-state check (``_collect_settled_interrupt_ids``) so we
+        # the thread-row check (``_collect_interrupt_ids_unless_busy``) so we
         # don't reject legitimate resumes with a fresh handle.
         #
         # The thread-state fallback is fetched at most once per batch and
@@ -648,33 +695,26 @@ class ThreadRunManager:
                         "no_such_interrupt",
                         "Interrupt namespace does not match the pending interrupt.",
                     )
-                # WS can surface ``input.requested`` before postgres/gRPC
-                # persists the thread-row interrupt. Reuse the HTTP settle
-                # barrier before enqueueing the resume run.
-                if not thread_state_fetched:
-                    thread_state_ids = await self._collect_settled_interrupt_ids()
-                    thread_state_fetched = True
                 continue
             # HTTP fallback: the persisted lookup surfaces interrupts by id
             # only, so trust the client-claimed namespace and validate by
             # existence (the id is a namespace hash, so that's sufficient).
             if not thread_state_fetched:
-                thread_state_ids = await self._collect_settled_interrupt_ids()
+                thread_state_ids = await self._collect_interrupt_ids_unless_busy()
                 thread_state_fetched = True
-            # Fail open when the lookup is unavailable (``None``): only reject
-            # when a definitive id set was read and lacks the target. The
-            # checkpointer resume below is authoritative, so a transient lookup
-            # failure must not masquerade as a missing interrupt.
-            if thread_state_ids is not None and interrupt_id not in thread_state_ids:
+            # ``None`` means a run is in flight or the lookup failed. Then fail
+            # open for any id shaped like an interrupt id: the resume below is
+            # authoritative, so neither must masquerade as a missing interrupt.
+            if thread_state_ids is None:
+                rejected = not _INTERRUPT_ID_RE.fullmatch(interrupt_id)
+            else:
+                rejected = interrupt_id not in thread_state_ids
+            if rejected:
                 return self._error(
                     command.get("id"),
                     "no_such_interrupt",
                     f"Unknown or already-consumed interrupt: {interrupt_id}",
                 )
-
-        # At this point we've confirmed every interrupt exists on the
-        # thread state (or was surfaced via the session). No need for a
-        # second ``_has_pending_interrupts`` round-trip.
 
         # Resolve the assistant from thread metadata. Run creation keeps
         # the thread's assistant_id current, avoiding a latest-run search
@@ -754,7 +794,10 @@ class ThreadRunManager:
 
         config = params.get("config") if _is_record(params.get("config")) else {}
 
-        current_run = await self._fetch_current_run()
+        # ``input.respond`` checked its interrupts already and always resumes;
+        # the lookups below can wait seconds on a busy thread.
+        force_resume = params.get("force_resume")
+        current_run = None if force_resume else await self._fetch_current_run()
 
         current_status = None
         if current_run is not None:
@@ -765,11 +808,22 @@ class ThreadRunManager:
             )
 
         has_interrupts = False
-        if params.get("input") is not None:
+        if params.get("input") is not None and not force_resume:
             has_interrupts = await self._has_pending_interrupts()
+        if has_interrupts and not _keyed_by_interrupt_id(params["input"]):
+            # One answer can't say which of several pending interrupts it is
+            # for: langgraph fails the run, or picks one when they share a
+            # subgraph task. Only a paused thread's row is current, so a run in
+            # flight keeps resuming as before.
+            paused_on = await self._collect_interrupt_ids_unless_busy()
+            if paused_on is not None and len(paused_on) > 1:
+                raise _AmbiguousResumeError(
+                    f"run.start input can't say which of the {len(paused_on)} "
+                    "pending interrupts it answers; answer them with input.respond."
+                )
 
         is_resume = params.get("input") is not None and (
-            params.get("force_resume")
+            force_resume
             or (current_run is not None and current_status == "interrupted")
             or has_interrupts
         )
@@ -916,6 +970,7 @@ class ThreadRunManager:
             get_thread_state=self._make_get_thread_state(thread_id),
             source=None,
             send=self._make_send(),
+            max_buffer_size=None if self._replay_buffer else 0,
         )
 
         self._session = session
@@ -1116,6 +1171,11 @@ class ThreadRunManager:
         ``None`` if the fetch failed — callers treat ``None`` as "unavailable"
         and fall open rather than fabricating ``no_such_interrupt``.
         """
+        thread = await self._fetch_thread_row()
+        return None if thread is None else self._interrupt_ids(thread)
+
+    async def _fetch_thread_row(self) -> dict[str, Any] | None:
+        """Return the durable thread row, or ``None`` if the fetch failed."""
         from langgraph_runtime.database import connect  # noqa: PLC0415
 
         try:
@@ -1130,8 +1190,11 @@ class ThreadRunManager:
                 error_type=type(exc).__name__,
             )
             return None
+        return thread if _is_record(thread) else {}
 
-        interrupts_map = thread.get("interrupts") if _is_record(thread) else None
+    @staticmethod
+    def _interrupt_ids(thread: dict[str, Any]) -> set[str]:
+        interrupts_map = thread.get("interrupts")
         if not _is_record(interrupts_map):
             return set()
         found: set[str] = set()
@@ -1179,6 +1242,22 @@ class ThreadRunManager:
                 return None
             if ids:
                 return ids
+
+    async def _collect_interrupt_ids_unless_busy(self) -> set[str] | None:
+        """Persisted interrupt ids, or ``None`` while a run is in flight.
+
+        Interrupts reach the row map only when their run ends, so while one
+        is in flight the map can't say which interrupts are pending: that run
+        may raise new ones or answer listed ones before it pauses. ``None``
+        makes ``input.respond`` fail open; the resume run queues behind the
+        in-flight one, and langgraph applies it, or ignores an id that is no
+        longer pending, once that run pauses. Status and map come from one
+        read, so a failed read can't pass for a thread that isn't busy.
+        """
+        thread = await self._fetch_thread_row()
+        if thread is None or thread.get("status") == _IN_FLIGHT_THREAD_STATUS:
+            return None
+        return self._interrupt_ids(thread)
 
     async def _has_pending_interrupts(self) -> bool:
         # Prefer the session's in-memory pending interrupts (populated the

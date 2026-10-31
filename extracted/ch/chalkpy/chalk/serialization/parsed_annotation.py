@@ -498,6 +498,17 @@ class ParsedAnnotation:
                         label="invalid annotation",
                     )
                     return
+                if self._underlying.__relationship__ is not None:
+                    self._type_error(
+                        (
+                            f"Invalid type annotation for feature '{error_ctx}': "
+                            f"'{self._parsed_annotation}' declares for_relationship(...). A has-many feature is the "
+                            "relationship itself, so only a resolver's output DataFrame can name it."
+                        ),
+                        code="231",
+                        label="remove for_relationship",
+                    )
+                    return
 
                 self._as_dataframe = self._underlying
 

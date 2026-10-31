@@ -12,10 +12,13 @@ step after the gather::
 
 What it is built on — nothing here is a second implementation:
 
-* **The judge is a mandate** (:data:`ARM_RESOLVER_MANDATE`). The node holds the
-  call through ``hold_code_call`` and runs on the Holder's model and prompt;
-  no agent id and no prompt live in code. An unbound mandate refuses with a
-  ``judge_unbound`` failure naming the key and where to bind it.
+* **The judge is an agent the author picks** (``agent_id``). A workflow step runs an
+  agent DIRECTLY (aidream CLAUDE.md, 2026-10-28) — the same run path Run Agent uses
+  (``build_agent_request`` → ``run_step_agent``), bound to this node's strict answer
+  shape. No agent id and no prompt live in code, there is no default agent and no
+  seed fallback: a step with no agent refuses with ``judge_agent_missing`` naming
+  the field to set. (Until 2026-10-29 the judge hid behind the code-side mandate
+  ``evaluators.arm_resolver``; that key survives only as the ledger identity.)
 * **The verdict lands on the judge accuracy ledger** (``platform.judge_verdict``)
   through ``matrx_ai.evaluators.ledger.record_verdict`` — the same row shape the
   Judge and Selector write, in ``comparative`` mode, so "which arm won and why"
@@ -33,6 +36,7 @@ assessment is a RANK among the arms present (1 = best), never a 0-100 grade.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import uuid
 from typing import Any, Literal
@@ -44,19 +48,14 @@ from matrx_graph.types.result import NodeResult, failure, success
 from matrx_graph.types.usl import field_extras
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
-from matrx_ai.code_call_mandate_keys import ARM_RESOLVER_MANDATE
-from matrx_ai.graph_nodes._strict_json import StrictJsonError, node_panel_hooks
+from matrx_ai.graph_nodes._strict_json import StrictJsonError
 from matrx_ai.graph_nodes.class_pin import model_class_extras, offering_id_field
-from matrx_ai.mandates import (
-    MandateResolutionUnavailable,
-    Offer,
-    RunOptions,
-    carried_principal,
-    get_mandate_runner,
-)
-from matrx_ai.orchestrator.mandate_carrier import MANDATE_HOLDER_METADATA_KEY
 
 NODE_NAME = "ai.judge.resolve"
+#: The judge's identity on the accuracy ledger (``platform.judge_verdict.judge_key``).
+#: It is the former mandate key, kept so verdicts before and after 2026-10-29 group as
+#: one judge — it names a ledger contract, never a mandate the step resolves.
+RESOLVER_JUDGE_KEY = "evaluators.arm_resolver"
 #: The ledger identity of this judge. Bump on any change to the verdict
 #: vocabulary or the meaning of a field — two contracts never share one record.
 RESOLVER_JUDGE_VERSION = 1
@@ -128,10 +127,24 @@ class ResolveArmsInput(BaseModel):
         default=True,
         description="Let the judge combine arms into one merged result.",
     )
+    agent_id: str | None = Field(
+        default=None,
+        description=(
+            "The judge agent this step runs. Pick one of your saved agents; it is handed "
+            "the job, criteria, job_input, arms, missing_arms, allow_merge and "
+            "allowed_verdicts as variables and must answer in this step's verdict shape."
+        ),
+        json_schema_extra=field_extras(widget="agent_picker"),
+    )
+    is_version: bool = Field(
+        default=False,
+        description="Pin to this version: run the exact saved version named above.",
+        json_schema_extra=field_extras(widget="toggle"),
+    )
     model: str | None = Field(
         default=None,
         description=(
-            "Leave empty to run the model this step's mandate Holder names; set it only to "
+            "Leave empty to run the model the judge agent names; set it only to "
             "override that for this workflow."
         ),
         json_schema_extra=field_extras(widget="model_picker", **model_class_extras()),
@@ -319,7 +332,7 @@ async def _record(
     answer: _ResolverLlmOutput,
     present: list[dict[str, Any]],
     missing: list[MissingArm],
-    held_metadata: dict[str, Any],
+    agent_id: str,
     model: str | None,
 ) -> str | None:
     """One ``platform.judge_verdict`` row per verdict, linked to the workflow run."""
@@ -330,7 +343,7 @@ async def _record(
     run_id = getattr(ctx, "run_id", None)
     rubric = "\n".join(c.strip() for c in inputs.criteria if c.strip()) or None
     contract = JudgeContract(
-        key=ARM_RESOLVER_MANDATE,
+        key=RESOLVER_JUDGE_KEY,
         version=RESOLVER_JUDGE_VERSION,
         question=(
             "Of these results of the same job on the same input, which is best — "
@@ -342,7 +355,6 @@ async def _record(
         rubric_name="workflow criteria" if rubric else None,
         rubric=rubric,
         rubric_provenance="H",
-        mandate=ARM_RESOLVER_MANDATE,
         model=model,
         consumer=NODE_NAME,
     )
@@ -385,7 +397,7 @@ async def _record(
         "step": getattr(ctx, "step", None),
         "winner_arm_index": answer.winner_arm_index,
         "arm_count": len(present) + len(missing),
-        "mandate_holder": held_metadata.get(MANDATE_HOLDER_METADATA_KEY),
+        "judge_agent_id": agent_id,
     }
     return await record_verdict(
         contract=contract,
@@ -397,6 +409,94 @@ async def _record(
         user_id=_uuid_or_none(getattr(app, "user_id", None)),
         candidate_refs=candidate_refs,
     )
+
+
+def judge_variables(
+    inputs: ResolveArmsInput, present: list[dict[str, Any]], missing: list[MissingArm]
+) -> dict[str, Any]:
+    """The values the judge agent is handed, by name (its declared ``{{name}}`` variables)."""
+    return {
+        "job": inputs.job,
+        "criteria": list(inputs.criteria),
+        "job_input": inputs.job_input,
+        "arms": present,
+        "missing_arms": [m.model_dump(mode="json") for m in missing],
+        "allow_merge": inputs.allow_merge,
+        "allowed_verdicts": ", ".join(
+            v for v in RESOLVER_VERDICTS if inputs.allow_merge or v != "merge"
+        ),
+    }
+
+
+async def _run_judge_agent(
+    ctx: NodeExecutionContext,
+    inputs: ResolveArmsInput,
+    present: list[dict[str, Any]],
+    missing: list[MissingArm],
+) -> tuple[_ResolverLlmOutput, str | None] | NodeResult[Any]:
+    """Run the author's judge agent DIRECTLY — Run Agent's own path, bound to the verdict shape."""
+    from matrx_ai.config.response_format import response_format_for_model
+    from matrx_ai.graph_nodes.agent_action import (
+        AgentStartInput,
+        build_agent_request,
+        require_agent_host,
+        resolve_step_agent_full,
+        run_step_agent,
+    )
+    from matrx_ai.graph_nodes.shared import AiExecutionResult, normalize_completed_result
+
+    require_agent_host(NODE_NAME)
+    node_id = getattr(ctx, "node_id", None) or "?"
+    overrides: dict[str, Any] = {}
+    if inputs.model:
+        overrides["model"] = inputs.model
+        if inputs.offering_id:
+            overrides["offering_id"] = inputs.offering_id
+    step = AgentStartInput(
+        agent_id=inputs.agent_id,
+        is_version=inputs.is_version,
+        variables=judge_variables(inputs, present, missing),
+        config_overrides=overrides or None,
+        max_output_tokens=4096,
+    )
+    resolved = await resolve_step_agent_full(step, consumer=f"{NODE_NAME}:{node_id}")
+    request = build_agent_request(
+        ctx,
+        step,
+        resolved,
+        node_type=NODE_NAME,
+        top_config_overrides={
+            "response_format": response_format_for_model(_ResolverLlmOutput).model_dump(
+                mode="json", by_alias=True, exclude_none=True
+            )
+        },
+    )
+    completed = await run_step_agent(ctx, resolved.agent_id, request)
+    if isinstance(completed, AiExecutionResult):
+        normalized = completed
+    else:
+        outcome = await asyncio.to_thread(normalize_completed_result, completed)
+        if outcome.status == "error":
+            # The failed paid turn already carries its billed usage — hand it on as itself.
+            return outcome  # type: ignore[return-value]
+        normalized = outcome.result
+    payload = normalized.structured_output
+    if not isinstance(payload, dict):
+        raise ArmResolverError(
+            f"{NODE_NAME}: the judge agent answered without a verdict object.",
+            raw_output=(normalized.final_text or "")[:2000],
+        )
+    try:
+        answer = _ResolverLlmOutput.model_validate(
+            {k: v for k, v in payload.items() if k != "__kind"}
+        )
+    except ValueError as exc:
+        raise ArmResolverError(
+            f"{NODE_NAME}: the judge agent's verdict is outside the contract: {exc}",
+            raw_output=json.dumps(payload, default=str)[:2000],
+        ) from exc
+    model_id = (normalized.metadata or {}).get("model_id") or inputs.model
+    return answer, (str(model_id) if model_id else None)
 
 
 # ============================================================================
@@ -431,46 +531,18 @@ async def resolve_arms(
             )
         )
 
-    on_delta, on_reset = node_panel_hooks(getattr(getattr(ctx, "app", None), "emitter", None))
-    try:
-        held = (
-            await get_mandate_runner().prepare(
-                ARM_RESOLVER_MANDATE,
-                Offer.given_values(
-                    {
-                        "job": inputs.job,
-                        "criteria": list(inputs.criteria),
-                        "job_input": inputs.job_input,
-                        "arms": present,
-                        "missing_arms": [m.model_dump(mode="json") for m in missing],
-                        "allow_merge": inputs.allow_merge,
-                        "allowed_verdicts": ", ".join(
-                            v for v in RESOLVER_VERDICTS if inputs.allow_merge or v != "merge"
-                        ),
-                    }
-                ),
-                who=carried_principal(),
-                opts=RunOptions(door="package_code_call", consumer=NODE_NAME),
-            )
-        ).held_call()
-    except MandateResolutionUnavailable as exc:
+    if not (inputs.agent_id or "").strip():
         return failure(
-            "judge_unbound",
-            f"No judge is bound to this step yet. Bind an agent to the mandate "
-            f"'{ARM_RESOLVER_MANDATE}' at /mandates/{ARM_RESOLVER_MANDATE}.",
-            details={"mandate_key": ARM_RESOLVER_MANDATE, "reason": exc.reason},
+            "judge_agent_missing",
+            f"{NODE_NAME}: no judge agent is set on this step. Pick the agent that judges "
+            "the arms in the step's 'agent_id' field (an agent you can open and edit); "
+            "nothing runs until one is chosen.",
+            details={"field": "agent_id"},
         )
-
-    answer = await held.send_pydantic(
-        user=held.authored_user(),
-        output_cls=_ResolverLlmOutput,
-        model=inputs.model,
-        offering_id=inputs.offering_id,
-        unset_max_tokens=4096,
-        metadata=dict(inputs.metadata),
-        on_delta=on_delta,
-        on_reset=on_reset,
-    )
+    ran = await _run_judge_agent(ctx, inputs, present, missing)
+    if not isinstance(ran, tuple):
+        return ran  # the judge's failed turn, as itself
+    answer, model_id = ran
     _check_answer(answer, present, allow_merge=inputs.allow_merge)
 
     ledger_id = await _record(
@@ -479,8 +551,8 @@ async def resolve_arms(
         answer=answer,
         present=present,
         missing=missing,
-        held_metadata=held.metadata,
-        model=held.pick_model(inputs.model),
+        agent_id=str(inputs.agent_id),
+        model=model_id,
     )
     if ledger_id is None and ctx is not None and hasattr(ctx, "warn"):
         await ctx.warn(
@@ -510,12 +582,13 @@ async def resolve_arms(
 
 
 __all__ = [
-    "ARM_RESOLVER_MANDATE",
+    "RESOLVER_JUDGE_KEY",
     "ArmAssessment",
     "ArmResolution",
     "ArmResolverError",
     "MissingArm",
     "ResolveArmsInput",
+    "judge_variables",
     "lay_out_arms",
     "resolve_arms",
 ]

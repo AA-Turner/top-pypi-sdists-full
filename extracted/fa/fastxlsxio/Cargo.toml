@@ -1,6 +1,6 @@
 [package]
 name = "fastxlsxio"
-version = "0.8.2"
+version = "0.8.3"
 license = "Apache-2.0"
 edition = "2021"
 readme = "README.md"
@@ -24,5 +24,5 @@ rust_xlsxwriter = { version = "0.99.0", features = ["chrono", "zlib", "ryu", "co
 lto = true         # Enables link to optimizations
 strip = true       # Remove debug symbols
 codegen-units = 1  # Compile crates one after another so the compiler can optimize better
-panic = "abort"    # Strip expensive panic clean-up logic
+# panic = "abort"    # Strip expensive panic clean-up logic
 opt-level = 3      # all optimizations

@@ -139,7 +139,7 @@ def get_shfe_receipt_1(
                 data_cut = data.loc[indexes[i] : indexes[i + 1] - 1, :]
             else:
                 data_cut = data.loc[indexes[i] : last_index, :]
-                data_cut = data_cut.fillna(method="pad")
+                data_cut = data_cut.ffill()
             data_dict = dict()
             data_dict["var"] = chinese_to_english(data_cut[0].tolist()[0])
             data_dict["receipt"] = int(data_cut[2].tolist()[-1])
@@ -186,7 +186,7 @@ def get_shfe_receipt_2(
     if len(data.columns) < 1:
         return pd.DataFrame()
     records = pd.DataFrame()
-    for var in set(data["VARNAME"].tolist()):
+    for var in dict.fromkeys(data["VARNAME"].tolist()):
         data_cut = data[data["VARNAME"] == var]
         if "BC" in var:
             data_dict = {
@@ -243,12 +243,17 @@ def get_shfe_receipt_3(
     from io import StringIO
 
     temp_tables = pd.read_html(StringIO(r.text))
-    len(temp_tables)
     records = pd.DataFrame()
     for table_num in range(1, len(temp_tables)):
-        temp_df = pd.read_html(StringIO(r.text))[table_num]
+        temp_df = temp_tables[table_num]
+        # 交易所新增品种时 chinese_to_english 不认识其名称，跳过该表而不是让整个接口报错
+        try:
+            var = chinese_to_english(temp_df.iloc[0, 1])
+        except ValueError:
+            warnings.warn(f"上期所仓单中有未识别的品种：{temp_df.iloc[0, 1]}，已跳过")
+            continue
         data_dict = {
-            "var": chinese_to_english(temp_df.iloc[0, 1]),
+            "var": var,
             "receipt": int(temp_df.iloc[-1, 2]),
             "receipt_chg": int(temp_df.iloc[-1, 3]),
             "date": date,
@@ -297,10 +302,10 @@ def get_czce_receipt_1(date: str = None, vars_list: List = cons.contract_symbols
     for i in list(range(len(indexes))):
         if i != len(indexes) - 1:
             data_cut = data.loc[indexes[i] : ends[i], :]
-            data_cut = data_cut.fillna(method="pad")
+            data_cut = data_cut.ffill()
         else:
             data_cut = data.loc[indexes[i] :, :]
-            data_cut = data_cut.fillna(method="pad")
+            data_cut = data_cut.ffill()
         if "PTA" in data_cut[0].tolist()[0]:
             var = "TA"
         else:

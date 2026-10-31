@@ -43,7 +43,7 @@ _IGNORE_FILE_PATTERNS = [
     re.compile(r"^\.hgtags$"),
     re.compile(r".*\.license$"),
     re.compile(r"^REUSE\.toml$"),
-    # Workaround for https://github.com/fsfe/reuse-tool/issues/229
+    # Workaround for https://codeberg.org/fsfe/reuse-tool/issues/229
     re.compile(r"^CAL-1.0(-Combined-Work-Exception)?(\..+)?$"),
     re.compile(r"^SHL-2.1(\..+)?$"),
 ]
@@ -95,10 +95,6 @@ def is_path_ignored(
                 return True
     # Directory.
     elif stat.S_ISDIR(stat_result.st_mode):
-        if subset_files is not None and not any(
-            Path(file_).is_relative_to(path.resolve()) for file_ in subset_files
-        ):
-            return True
         for pattern in _IGNORE_DIR_PATTERNS:
             if pattern.match(name):
                 return True

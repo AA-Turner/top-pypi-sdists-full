@@ -7,7 +7,7 @@ interpreter and all dependencies. The binary is architecture-specific but
 works across different Python runtime versions.
 
 Usage:
-    python3 build_standalone.py [--expect-python MAJOR.MINOR]
+    python3 build_standalone.py [--expect-python MAJOR.MINOR] [--package SPEC] [--dist-dir DIR]
 """
 
 import argparse
@@ -39,7 +39,7 @@ def get_version():
     return match.group(1)
 
 
-def build():
+def build(package, dist_dir):
     """Build the standalone binary."""
     start_time = time.time()
 
@@ -62,7 +62,7 @@ def build():
                 "install",
                 "--quiet",
                 f"pyinstaller=={PYINSTALLER_VERSION}",
-                ".",
+                package,
             ]
         )
     except subprocess.CalledProcessError as e:
@@ -100,7 +100,7 @@ def build():
             "--paths",
             str(CLI_DIR.parent),  # Add search path for finding imports
             "--distpath",
-            "dist",  # Output directory for built binary
+            dist_dir,  # Output directory for built binary
             "--workpath",
             f"{tmpdir}/build",  # Temporary build directory
             "--specpath",
@@ -123,7 +123,7 @@ def build():
             sys.exit(f"PyInstaller build failed: {e}")
 
     # Verify binary exists and works
-    binary_path = Path("dist") / binary_name
+    binary_path = Path(dist_dir) / binary_name
     if not binary_path.exists():
         sys.exit(f"Binary was not created: {binary_path}")
 
@@ -155,6 +155,18 @@ if __name__ == "__main__":
         "The built binary bundles that interpreter, so callers testing a "
         "specific Python version must assert it here.",
     )
+    parser.add_argument(
+        "--package",
+        default=".",
+        help="pip requirement spec for the anyscale package to bundle, such "
+        "as a prebuilt wheel path. Defaults to this source tree.",
+    )
+    parser.add_argument(
+        "--dist-dir",
+        default="dist",
+        help="Directory the binary is written to, relative to this script's "
+        "directory unless absolute.",
+    )
     args = parser.parse_args()
     if args.expect_python:
         running = f"{sys.version_info.major}.{sys.version_info.minor}"
@@ -165,4 +177,4 @@ if __name__ == "__main__":
                 "bundles the interpreter that runs this script; invoke it with "
                 f"a Python {args.expect_python} interpreter."
             )
-    sys.exit(build())
+    sys.exit(build(args.package, args.dist_dir))

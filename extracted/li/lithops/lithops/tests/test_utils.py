@@ -48,12 +48,10 @@ from lithops.utils import (
     create_futures_list,
     dict_to_b64str,
     docker_login,
-    find_free_port,
     format_data,
     get_default_backend,
     get_default_container_name,
     get_docker_path,
-    get_executor_id,
     get_mode,
     is_linux_system,
     is_lithops_worker,
@@ -66,13 +64,10 @@ from lithops.utils import (
     monitoring_queues,
     log_prefix,
     run_command,
-    sdb_to_dict,
     setup_lithops_logger,
     ShutdownSafeStreamHandler,
     sizeof_fmt,
     split_object_url,
-    split_path,
-    timeout_handler,
     verify_args,
     verify_runtime_name,
     version_str,
@@ -224,6 +219,25 @@ class TestVerifyArgs:
 
         assert verify_args(fn, [{'x': 1}], None) == [{'x': 1}]
 
+    def test_dict_may_leave_out_params_with_defaults(self):
+        def fn(a, b=2, *rest):
+            return a + b
+
+        assert verify_args(fn, [{'a': 1}], None) == [{'a': 1}]
+        assert verify_args(fn, [(1,)], None) == [{'a': 1}]
+        with pytest.raises(ValueError, match='Check the args names'):
+            verify_args(fn, [{'b': 1}], None)
+
+    def test_single_values_with_dict_extra_args(self):
+        """The dict names params: its keys are not positional values"""
+        def fn(x, y):
+            return x + y
+
+        assert verify_args(fn, [1, 2], {'y': 10}) == [
+            {'x': 1, 'y': 10},
+            {'x': 2, 'y': 10},
+        ]
+
 
 class TestMiscUtils:
 
@@ -246,11 +260,6 @@ class TestMiscUtils:
         assert split_object_url('bucket') == (None, 'bucket', '', '')
         assert split_object_url('bucket/key') == (None, 'bucket', '', 'key')
 
-    def test_split_path(self):
-        assert split_path('/bucket/dir/key') == ('bucket', 'dir/key')
-        assert split_path('bucket') == ('bucket', None)
-        assert split_path('bucket/') == ('bucket', '')
-
     def test_convert_bools_to_string_mutates_in_place(self):
         env = {'flag': True, 'count': 1, 'name': 'x'}
         assert convert_bools_to_string(env) is env
@@ -271,9 +280,21 @@ class TestMiscUtils:
         with pytest.raises(AssertionError, match='not valid'):
             verify_runtime_name('bad name')
 
-    def test_timeout_handler_raises(self):
-        with pytest.raises(TimeoutError, match='too slow'):
-            timeout_handler('too slow', None, None)
+    @pytest.mark.parametrize('path', [
+        pytest.param(path, marks=pytest.mark.skipif(os.name == 'nt', reason='Unix path'))
+        for path in ('/opt/homebrew/opt/python@3.12/bin/python3.12', '/Users/Some User/venv/bin/python')
+    ] + [
+        pytest.param(path, marks=pytest.mark.skipif(os.name != 'nt', reason='Windows path'))
+        for path in ('C:\\Python312\\python.exe', 'C:\\Program Files\\Python312\\python.exe')
+    ])
+    def test_verify_runtime_name_local_interpreter_path(self, path):
+        verify_runtime_name(path, allow_local_path=True)
+        with pytest.raises(AssertionError, match='not valid'):
+            verify_runtime_name(path)
+
+    def test_verify_runtime_name_local_path_must_be_absolute(self):
+        with pytest.raises(AssertionError, match='not valid'):
+            verify_runtime_name('venv/bin/python@3', allow_local_path=True)
 
     def test_b64_dict_roundtrip(self):
         payload = {'a': 1, 'b': 'x'}
@@ -379,7 +400,6 @@ class TestMiscUtils:
         assert len(session) == 4
         assert num == '0'
         assert second == f'{session}-1'
-        assert get_executor_id() == second
         # Exported so a process spawned from this one joins the session
         assert os.environ[SESSION_ID_ENV] == session
         assert os.environ[TOTAL_EXECUTORS_ENV] == '1'
@@ -443,11 +463,6 @@ class TestMiscUtils:
 
         assert len(set(ids)) == 32
 
-    def test_get_executor_id_without_an_executor(self, monkeypatch):
-        self._fresh_session(monkeypatch)
-        with pytest.raises(KeyError):
-            get_executor_id()
-
     def test_monitoring_queue_chain_matches_the_shapes_in_use(self, monkeypatch):
         # These are the chains the id-derived formula produced, and every id
         # shape Lithops builds today. The chain must not change for them
@@ -502,10 +517,6 @@ class TestMiscUtils:
     def test_bytes_b64_roundtrip(self):
         payload = b'hello'
         assert b64str_to_bytes(bytes_to_b64str(payload)) == payload
-
-    def test_sdb_to_dict(self):
-        item = {'Attributes': [{'Name': 'a', 'Value': '1'}, {'Name': 'b', 'Value': 'x'}]}
-        assert sdb_to_dict(item) == {'a': '1', 'b': 'x'}
 
     def test_is_unix_and_linux(self, monkeypatch):
         monkeypatch.setattr('lithops.utils.platform.system', lambda: 'Darwin')
@@ -564,12 +575,33 @@ class TestMiscUtils:
         with pytest.raises(Exception, match='docker_server is required'):
             docker_login('u', 'p', '')
 
+    @pytest.mark.parametrize('podman,server,expected_server', [
+        (True, 'docker.io', 'docker.io'),
+        (False, 'docker.io', None),
+        (True, 'eu-madrid-1.ocir.io', 'eu-madrid-1.ocir.io'),
+        (False, 'eu-madrid-1.ocir.io', 'eu-madrid-1.ocir.io'),
+        (False, 'docker.io.example.org', 'docker.io.example.org'),
+    ])
+    def test_docker_login_registry(self, monkeypatch, podman, server, expected_server):
+        executable = '/usr/bin/podman' if podman else '/usr/bin/docker'
+        monkeypatch.setattr(lithops_utils, 'get_docker_path', lambda: executable)
+        monkeypatch.setattr(lithops_utils, 'is_podman', lambda path: podman)
+        run = MagicMock()
+        monkeypatch.setattr(lithops_utils, 'run_command', run)
+
+        docker_login('alice', ' secret-token\n', server)
+
+        expected = f'{executable} login -u alice --password-stdin'
+        if expected_server:
+            expected += f' {expected_server}'
+        run.assert_called_once_with(expected, input='secret-token')
+
     def test_get_default_container_name_variants(self):
         cfg = {'docker_server': 'docker.io', 'docker_user': 'alice'}
-        name = get_default_container_name('ibm_cf', cfg, 'lithops')
+        name = get_default_container_name('openwhisk', cfg, 'lithops')
         assert name.startswith('docker.io/alice/lithops-v')
         cfg = {'docker_server': 'icr.io', 'docker_namespace': 'ns'}
-        name = get_default_container_name('ibm_cf', cfg, 'lithops')
+        name = get_default_container_name('openwhisk', cfg, 'lithops')
         assert name.startswith('icr.io/ns/lithops-v')
         cfg = {
             'docker_server': 'us-docker.pkg.dev',
@@ -584,7 +616,7 @@ class TestMiscUtils:
 
     def test_get_default_container_name_missing_docker_user(self):
         with pytest.raises(Exception, match='docker_user'):
-            get_default_container_name('ibm_cf', {'docker_server': 'docker.io'}, 'r')
+            get_default_container_name('openwhisk', {'docker_server': 'docker.io'}, 'r')
 
     def test_is_podman(self, monkeypatch):
         monkeypatch.setattr(
@@ -689,6 +721,8 @@ class TestMiscUtils:
         assert config['handlers']['console_handler']['class'] == (
             'lithops.utils.ShutdownSafeStreamHandler'
         )
+        # No file handler is declared, so dictConfig opens no file at all
+        assert list(config['handlers']) == ['console_handler']
 
     def test_shutdown_safe_handler_ignores_closed_stream(self, capsys):
         stream = io.StringIO()
@@ -722,6 +756,7 @@ class TestMiscUtils:
         config = cfg.call_args[0][0]
         assert config['loggers']['lithops']['handlers'] == ['file_handler']
         assert config['handlers']['file_handler']['filename'] == log_file
+        assert list(config['handlers']) == ['file_handler']
 
     def test_run_command_check_call_by_default(self):
         with patch('lithops.utils.sp.check_call') as call:
@@ -737,13 +772,6 @@ class TestMiscUtils:
         with patch('lithops.utils.sp.check_output', return_value=b'') as out:
             run_command('cat', input='secret')
         assert out.call_args.kwargs['input'] == b'secret'
-
-    def test_find_free_port_returns_int(self):
-        first = find_free_port()
-        second = find_free_port()
-        assert isinstance(first, int) and isinstance(second, int)
-        assert 0 < first < 65536
-        assert 0 < second < 65536
 
     def test_futures_list_map_wait_get_result_and_pickle(self):
         class Item:
@@ -778,6 +806,22 @@ class TestMiscUtils:
         assert list(loaded) == [1, 2]
         assert loaded.executor is None
 
+    def test_futures_list_copies_keep_the_chain_but_not_the_executor(self):
+        import copy
+        fl = FuturesList([1, 2])
+        fl.executor = threading.Lock()
+        fl.config = {'lithops': {'backend': 'localhost'}}
+        fl.alt_list = [0, 1, 2]
+        copies = [pickle.loads(pickle.dumps(fl, protocol=p)) for p in range(pickle.HIGHEST_PROTOCOL + 1)]
+        copies += [copy.copy(fl), copy.deepcopy(fl)]
+        for loaded in copies:
+            assert type(loaded) is FuturesList
+            assert list(loaded) == [1, 2]
+            assert loaded.executor is None
+            assert loaded.config == fl.config
+            assert loaded.alt_list == [0, 1, 2]
+        assert isinstance(fl.executor, type(threading.Lock()))
+
     def test_wrapped_streaming_body_partition_middle_chunk_discards_partial_row(self):
         data = b'aaa\nbbb\nccc\n'
         part = WrappedStreamingBodyPartition(
@@ -798,6 +842,94 @@ class TestMiscUtils:
             Stream(data[2:]), size=len(data[2:]), byterange=(2, len(data) - 1)
         )
         assert part.readline() == b'bbb\n'
+
+    def test_iterating_wrapped_streams_stops(self):
+        body = WrappedStreamingBody(io.BytesIO(b'abc'), 3)
+        assert list(body) == [b'abc']
+        part = WrappedStreamingBodyPartition(io.BytesIO(b'abc\n'), 4, (0, 3))
+        assert list(part) == [b'abc\n']
+
+    def test_reading_a_whole_partition_reads_the_stream_at_once(self):
+        """It took one request of the HTTP stream per 8 KiB buffer"""
+        class Counting(io.BytesIO):
+            reads = 0
+
+            def read(self, n=-1):
+                Counting.reads += 1
+                return super().read(n)
+
+        data = b'row\n' * 100_000
+        part = WrappedStreamingBodyPartition(Counting(data), len(data), (0, len(data) - 1))
+        assert part.read() == data
+        assert Counting.reads <= 2
+
+    @staticmethod
+    def _partition_streams(path, chunk_size, newline='\n'):
+        """The streams the workers read the partitions of a local file from"""
+        from lithops.job.partitioner import create_partitions
+        from lithops.worker.jobrunner import JobRunner
+
+        parts, _ = create_partitions(
+            {}, None, [{'obj': str(path)}], chunk_size, None, newline
+        )
+        runner = JobRunner.__new__(JobRunner)
+        streams = []
+        for part in parts:
+            data = {'obj': part['obj']}
+            runner._load_object(data)
+            streams.append(data['obj'].data_stream)
+        return streams
+
+    @pytest.mark.parametrize('newline', ['\n', '\r\n'])
+    @pytest.mark.parametrize('trailing_newline', [True, False])
+    @pytest.mark.parametrize('how', ['read', 'small_reads', 'readline', 'iter'])
+    def test_partitions_reassemble_the_object(self, tmp_path, how, trailing_newline, newline):
+        """
+        Every row is returned by exactly one partition, whatever the size of
+        the reads and of the newline, and the last byte of an object without
+        a trailing newline is kept
+        """
+        # The rows hold the bytes of a two byte newline on their own too
+        rows = [b'x' * 30, b'a', b'', b'b\r', b'%04d' % 7, b'\n', b'y' * 25 + b'\r\r']
+        data = newline.encode().join(rows * 6) + newline.encode()
+        if not trailing_newline:
+            data = data[:-len(newline)]
+        path = tmp_path / 'data.txt'
+        path.write_bytes(data)
+
+        def read_all(stream):
+            pieces = []
+            while True:
+                if how == 'readline':
+                    piece = stream.readline()
+                elif how == 'small_reads':
+                    piece = stream.read(7)
+                else:
+                    piece = stream.read()
+                if not piece:
+                    return b''.join(pieces)
+                pieces.append(piece)
+
+        # A chunk size of 1 is raised to one byte more than the newline
+        for chunk_size in (1, 2, 3, 5, 16, 20, 64):
+            streams = self._partition_streams(path, chunk_size, newline)
+            assert len(streams) > 1
+            if how == 'iter':
+                got = b''.join(b''.join(stream) for stream in streams)
+            else:
+                got = b''.join(read_all(stream) for stream in streams)
+            assert got == data
+
+    @pytest.mark.parametrize('trailing_newline', [True, False])
+    def test_partitions_keep_rows_longer_than_the_overshoot(self, tmp_path, trailing_newline):
+        """A row that goes on past the CHUNK_THRESHOLD a chunk reads ahead is not cut"""
+        from lithops.job.partitioner import CHUNK_THRESHOLD
+        rows = [b'a' * 10, b'b' * (2 * CHUNK_THRESHOLD + 7), b'c' * 10, b'd' * (CHUNK_THRESHOLD + 1)]
+        data = b'\n'.join(rows) + (b'\n' if trailing_newline else b'')
+        path = tmp_path / 'data.txt'
+        path.write_bytes(data)
+        streams = self._partition_streams(path, 1000)
+        assert b''.join(stream.read() for stream in streams) == data
 
     def test_create_handler_zip_removes_partial_zip_on_write_error(self, tmp_path):
         from lithops.utils import create_handler_zip
@@ -830,3 +962,35 @@ class TestMiscUtils:
             with pytest.raises(KeyboardInterrupt):
                 create_handler_zip(str(dest), [str(entry)])
         assert not dest.exists()
+
+
+class TestChainedFuturesAfterMapReduce:
+
+    @staticmethod
+    def _future(mapreduce_map=False, produce_output=True):
+        future = _response_future()
+        future._mapreduce_map = mapreduce_map
+        future._produce_output = produce_output
+        return future
+
+    @pytest.mark.parametrize('container', [FuturesList, list])
+    def test_the_map_stage_of_a_map_reduce_is_not_chained(self, container):
+        from lithops.utils import _chained_futures
+        map_stage = [self._future(mapreduce_map=True) for _ in range(3)]
+        reducer = self._future()
+        assert _chained_futures(container(map_stage + [reducer])) == [reducer]
+
+    def test_a_future_with_no_output_file_is_still_chained(self):
+        """A call that returned None has no output file, but is chained"""
+        from lithops.utils import _chained_futures
+        returned_none = self._future(produce_output=False)
+        assert _chained_futures([returned_none]) == [returned_none]
+
+    @pytest.mark.parametrize('container', [FuturesList, list])
+    def test_the_map_stage_alone_is_refused(self, container):
+        """It used to become a job of no calls, and its result an empty list"""
+        from lithops.utils import _chained_futures
+        map_stage = [self._future(mapreduce_map=True) for _ in range(2)]
+        with pytest.raises(ValueError, match='map stage of a map_reduce'):
+            _chained_futures(container(map_stage))
+        assert _chained_futures(FuturesList()) == []

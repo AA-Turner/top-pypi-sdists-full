@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-ai-projects
-Version: 2.9.0
+Version: 2.10.0
 Summary: Microsoft Corporation Azure AI Projects Client Library for Python
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License-Expression: MIT
@@ -97,6 +97,7 @@ To report an issue with the client library, or request additional features, plea
 * Python 3.10 or later.
 * An [Azure subscription][azure_sub].
 * A [project in Microsoft Foundry](https://learn.microsoft.com/azure/foundry/how-to/create-projects).
+* An [Application Insights resource connected to your Foundry project](https://learn.microsoft.com/azure/foundry/observability/how-to/trace-agent-setup) for agent tracing.
 * A Foundry project endpoint URL of the form `https://your-ai-services-account-name.services.ai.azure.com/api/projects/your-project-name`. It can be found in your Microsoft Foundry Project home page. Below we will assume the environment variable `FOUNDRY_PROJECT_ENDPOINT` was defined to hold this value.
 * Client authentication is done using Entra ID. To authenticate, your application needs an object that implements the [TokenCredential](https://learn.microsoft.com/python/api/azure-core/azure.core.credentials.tokencredential) interface. Code samples here use [DefaultAzureCredential](https://learn.microsoft.com/python/api/azure-identity/azure.identity.defaultazurecredential). To get that working, you will need:
   * An appropriate role assignment. See [Role-based access control in Microsoft Foundry portal](https://learn.microsoft.com/azure/foundry/concepts/rbac-foundry). Role assignment can be done via the "Access Control (IAM)" tab of your Azure AI Project resource in the Azure portal.
@@ -193,6 +194,7 @@ See the **responses** folder in the [samples][samples] for additional samples in
 See Foundry documentation:
 
 * **[Microsoft Foundry Agents overview](https://learn.microsoft.com/azure/foundry/agents/overview)** — concepts, setup, and quick-starts.
+* **[Quickstart: Set up Microsoft Foundry resources](https://learn.microsoft.com/azure/foundry/tutorials/quickstart-create-foundry-resources)** — create a project, deploy a model, and connect Application Insights for agent tracing.
 * **[Runtime components](https://learn.microsoft.com/azure/foundry/agents/concepts/runtime-components?tabs=python)** — deep-dive into agent architecture.
 * **[Tool catalog](https://learn.microsoft.com/azure/foundry/agents/concepts/tool-catalog)** — all available tools and agent capabilities.
 * **[SDK samples folder][samples]** — fully runnable Python code for synchronous and asynchronous clients covering all operations below.
@@ -375,6 +377,23 @@ This project has adopted the [Microsoft Open Source Code of Conduct][code_of_con
 [azure_sub]: https://azure.microsoft.com/free/
 
 # Release History
+
+## 2.10.0 (2026-10-30)
+
+### Features Added
+
+* Added optional `VoiceAgentDefinition.soundscape` for built-in background ambience and event cues in telephony calls, with `VoiceAgentSoundscapeConfig`, `VoiceAgentSoundscapeSourceConfig`, `VoiceAgentSoundscapeTrackConfig`, `VoiceAgentSoundscapeWorkingTrackConfig`, and `VoiceAgentSoundscapeSound`.
+* Added optional `VoiceAgentInputTranscription.profanity_filter` and `VoiceAgentProfanityFilterMode` for configuring Azure Speech input-transcript filtering before a session starts.
+* Added `VoiceAgentInputTranscriptionModel.AZURE_SPEECH_STREAMING` for Azure Speech streaming transcription in cascaded text-model conversations. This model requires a nonempty `VoiceAgentInputTranscription.language` and is not supported with realtime speech-to-speech models.
+* Added `VoiceAgentNoiseReductionType.AZURE_DEEP_NOISE_SUPPRESSION_HEADSET` and `VoiceAgentNoiseReductionType.AZURE_PERSONAL_NOISE_SUPPRESSION` for local voice activity detection without changing recognition audio.
+* Added `AgentEndpointProtocol.VOICE_CONVERSATION_ENGINE` for hosted text agents used as Voice Agent conversation engines. Hosted agents must declare this protocol with version `1.0.0`; `invocations_ws` does not substitute for it.
+* Added optional `HostedAgentDefinition.enable_memory_snapshot` to start hosted-agent sessions from a snapshot of the initialized process instead of starting the process from its image.
+* Added known `ImageGenTool.model` values `gpt-image-2.5-sunburst`, `gpt-image-2.5-sunburst-2026-09-08`, `gpt-image-2.5-flare`, and `gpt-image-2.5-flare-2026-09-08`, with `xhigh` and `max` quality options for these models.
+
+### Bugs Fixed
+
+* Fixed tracing to record `temperature=0` and `top_p=0` instead of omitting these valid values.
+* Fixed `SimulationSeedDataGenerationJobConfiguration` to expose the service-required `max_samples` property and constructor argument. Updated the simulation-seed evaluation sample to pass this argument directly instead of using the mapping workaround.
 
 ## 2.9.0 (2026-10-16)
 

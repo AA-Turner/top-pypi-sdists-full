@@ -160,6 +160,121 @@ tracing_config:
             raise TypeError("'sampling_ratio' must be a float.")
 
 
+class TrafficPolicyType(ModelEnum):
+    """How a service splits its traffic and capacity across the cloud resources it runs on."""
+
+    EQUAL = "EQUAL"
+    STATIC = "STATIC"
+
+    __docstrings__: ClassVar[Dict[str, str]] = {
+        EQUAL: "Splits traffic and capacity evenly across the cloud resources.",
+        STATIC: "Splits traffic and capacity across the cloud resources in proportion to `static.weights`.",
+    }
+
+
+@dataclass(frozen=True)
+class StaticTrafficPolicy(ModelBase):
+    """Settings of a static traffic policy."""
+
+    __doc_py_example__ = """\
+from anyscale.service.models import StaticTrafficPolicy
+
+static = StaticTrafficPolicy(weights={"vm-aws-us-west-2": 3, "k8s-aws-us-east-2": 1})
+"""
+
+    __doc_yaml_example__ = """\
+weights:
+  vm-aws-us-west-2: 3
+  k8s-aws-us-east-2: 1
+"""
+
+    weights: Dict[str, int] = field(
+        metadata={
+            "docstring": (
+                "Relative weight of each cloud resource, by cloud resource name. Each weight "
+                "is at least 1, and the weights must cover every cloud resource the service "
+                "runs on."
+            )
+        },
+    )
+
+    def _validate_weights(self, weights: Dict[str, int]):
+        if not isinstance(weights, dict) or any(
+            not isinstance(name, str) or not isinstance(weight, int) or isinstance(weight, bool)
+            for name, weight in weights.items()
+        ):
+            raise TypeError("'weights' must be a Dict[str, int].")
+        if not weights:
+            raise ValueError("'weights' must name at least one cloud resource.")
+        for name, weight in weights.items():
+            if weight < 1:
+                raise ValueError(f"The weight of cloud resource '{name}' must be at least 1.")
+
+
+@dataclass(frozen=True)
+class TrafficPolicy(ModelBase):
+    """How a service splits its traffic and capacity across the cloud resources it runs on."""
+
+    __doc_py_example__ = """\
+from anyscale.service.models import (
+    ServiceConfig,
+    StaticTrafficPolicy,
+    TrafficPolicy,
+    TrafficPolicyType,
+)
+
+config = ServiceConfig(
+    name="my-service",
+    applications=[{"import_path": "main:app"}],
+    traffic_policy=TrafficPolicy(
+        type=TrafficPolicyType.STATIC,
+        static=StaticTrafficPolicy(weights={"vm-aws-us-west-2": 3, "k8s-aws-us-east-2": 1}),
+    ),
+)
+"""
+
+    __doc_yaml_example__ = """\
+name: my-service
+applications:
+  - import_path: main:app
+traffic_policy:
+  type: STATIC
+  static:
+    weights:
+      vm-aws-us-west-2: 3
+      k8s-aws-us-east-2: 1
+"""
+
+    type: Union[TrafficPolicyType, str] = field(  # noqa: A003
+        metadata={"docstring": "The policy's algorithm."},
+    )
+
+    def _validate_type(self, type: Union[TrafficPolicyType, str]) -> TrafficPolicyType:  # noqa: A002
+        return TrafficPolicyType.validate(type)
+
+    static: Union[StaticTrafficPolicy, Dict, None] = field(
+        default=None,
+        metadata={
+            "docstring": "Settings of the static policy. Required when `type` is `STATIC`, and not allowed otherwise."
+        },
+    )
+
+    def _validate_static(
+        self, static: Union[StaticTrafficPolicy, Dict, None]
+    ) -> Optional[StaticTrafficPolicy]:
+        if isinstance(static, dict):
+            static = StaticTrafficPolicy.from_dict(static)
+        if static is not None and not isinstance(static, StaticTrafficPolicy):
+            raise TypeError("'static' must be a StaticTrafficPolicy or corresponding dict.")
+
+        # `type` is declared first, so it is already validated here.
+        if self.type == TrafficPolicyType.STATIC and static is None:
+            raise ValueError("A STATIC traffic policy requires 'static'.")
+        if self.type != TrafficPolicyType.STATIC and static is not None:
+            raise ValueError("'static' is only allowed when 'type' is STATIC.")
+        return static
+
+
 @dataclass(frozen=True)
 class ServiceConfig(WorkloadConfig):
     """Configuration options for a service."""
@@ -434,6 +549,33 @@ connections: # (Optional) List of third-party connections for credential injecti
             raise TypeError("'tracing_config' must be a TracingConfig or corresponding dict.")
 
         return tracing_config
+
+    traffic_policy: Union[TrafficPolicy, Dict, None] = field(
+        default=None,
+        metadata={
+            "docstring": (
+                "How the version this config deploys splits its traffic and capacity across "
+                "the cloud resources it runs on. Unset splits evenly. An in-place update "
+                "ignores it; use `anyscale.service.update_traffic_policy` to change the policy "
+                "of running versions."
+            )
+        },
+    )
+
+    def _validate_traffic_policy(
+        self,
+        traffic_policy: Union[TrafficPolicy, Dict, None],
+    ) -> Optional[TrafficPolicy]:
+        if traffic_policy is None:
+            return None
+
+        if isinstance(traffic_policy, dict):
+            traffic_policy = TrafficPolicy.from_dict(traffic_policy)
+
+        if not isinstance(traffic_policy, TrafficPolicy):
+            raise TypeError("'traffic_policy' must be a TrafficPolicy or corresponding dict.")
+
+        return traffic_policy
 
     tags: Optional[Dict[str, str]] = field(
         default=None,

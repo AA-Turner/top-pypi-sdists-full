@@ -47474,8 +47474,8 @@ function scanInlineChildren(node2, text6, ranges, warned) {
     }
   );
   let absorbing = false;
-  let rawText = (
-    /** @type {string | null} */
+  let rawTextEnd = (
+    /** @type {RegExp | null} */
     null
   );
   let prevEnd = node2.position.start.offset;
@@ -47484,9 +47484,8 @@ function scanInlineChildren(node2, text6, ranges, warned) {
     const base = child.position.start.offset;
     const end = child.position.end.offset;
     absorbing = foldAbsorb(absorbing, text6.slice(prevEnd, base));
-    if (rawText) {
-      if (new RegExp(`</${rawText}(?![a-z0-9-])`, "i").test(value))
-        rawText = null;
+    if (rawTextEnd) {
+      if (rawTextEnd.test(value)) rawTextEnd = null;
     } else if (state.depth > 0) {
       updateHiddenState(state, value, end, ranges);
     } else if (!absorbing) {
@@ -47503,7 +47502,7 @@ function scanInlineChildren(node2, text6, ranges, warned) {
       } else if (!value.startsWith("</")) {
         const el = parseHtmlTag(value);
         if (el) {
-          if (RAW_TEXT_ELEMENTS.has(el.tagName)) rawText = el.tagName;
+          rawTextEnd = RAW_TEXT_END_TAGS.get(el.tagName) ?? null;
           if (isReportedElement(el)) countTag(warned, el.tagName);
           if (hasDataSrc(el)) warned.dataSrc += 1;
         }
@@ -48008,7 +48007,7 @@ function detectConfusableHosts(text6) {
     }
   );
 }
-var NEAR_ZERO_EPSILON, OFFSCREEN_ABSOLUTE_THRESHOLD, OFFSCREEN_VIEWPORT_THRESHOLD, ABSOLUTE_UNITS, VIEWPORT_UNITS, ANGLE_UNITS, NAMED_COLORS, BLOCK_AXIS_EXTENT_PROPS, INLINE_AXIS_EXTENT_PROPS, BORDER_SHORTHANDS, BORDER_WIDTH_KEYWORDS, FONT_SIZE_UNITS, CSS_PROPERTY_IDENT_RE, LEXER_TOKEN_LIMIT, VALIDATION_BUDGET, cssLexer, RESETTING_SHORTHANDS, NO_CASCADE, INHERITED_COLOR_KEYWORDS, REPORTED_TAGS, VOID_ELEMENTS2, FOREIGN_ELEMENTS, RAW_TEXT_ELEMENTS, INHERITING_KEYWORDS, INLINE_ELEMENTS, INLINE_DISPLAYS, BLOCKIFYING_VALUES, ITEM_BLOCKIFYING_DISPLAYS, REPLACED_ELEMENTS, TEXT_ONLY_HIDES, elementCascades, parents, contentOwners, SHADOW_HOST_TAGS, RESERVED_CUSTOM_ELEMENT_NAMES, PARENT_RELATIVE_FONT_UNITS, PARENT_RELATIVE_FONT_KEYWORDS, MATH_FUNCTIONS, parseFragment2, HIDDEN_PLACEHOLDER, COMMENT_PLACEHOLDER, mdParser, parseMarkdown, MARKDOWN_CODE_HINT, BOGUS_COMMENT_OPEN_RE, MARKUP_OPENER_RE, PHRASING_ROOTS, FLOW_HTML_PARENTS, MAX_SPLICE_ROUNDS, EXFIL_INDICATORS, KEYWORD_PARAM_NAME_RE, LONG_QUERY_THRESHOLD, ACTIVE_DATA_TYPES, DATA_URI_LENGTH_THRESHOLD, SCRIPT_SCHEMES, RELATIVE_URL_BASE, BENIGN_BLOB_PARAM_RE, BENIGN_SHORT_PARAM_RE, BENIGN_SHORT_VALUE_MAX_LEN, BENIGN_SHORT_TOTAL_MAX_LEN, PUBLIC_KEY_ID_PARAM_RE, BLOB_VALUE_MIN_LEN, OPAQUE_TOKEN_RE, VALUE_HAS_DIGIT_RE, BLOB_VALUE_B64_RE, HEX_ONLY_RE, HEX_BLOB_MIN_LEN, DIGEST_HEX_LENGTHS, BLOB_VALUE_B64URL_RE, PATH_BLOB_RE, DIGEST_MAX_LEN, BLOB_SEPARATOR_RE, BLOB_RUN_SPLIT_RE, FLOAT_RE, SRCSET_URL_RE, SRCSET_DESCRIPTORS_RE, STRING_URL_FUNCTIONS, GRAMMAR_READERS, OFF_ORIGIN_REASON, COMMENT_INTERIOR_OPENER_RE;
+var NEAR_ZERO_EPSILON, OFFSCREEN_ABSOLUTE_THRESHOLD, OFFSCREEN_VIEWPORT_THRESHOLD, ABSOLUTE_UNITS, VIEWPORT_UNITS, ANGLE_UNITS, NAMED_COLORS, BLOCK_AXIS_EXTENT_PROPS, INLINE_AXIS_EXTENT_PROPS, BORDER_SHORTHANDS, BORDER_WIDTH_KEYWORDS, FONT_SIZE_UNITS, CSS_PROPERTY_IDENT_RE, LEXER_TOKEN_LIMIT, VALIDATION_BUDGET, cssLexer, RESETTING_SHORTHANDS, NO_CASCADE, INHERITED_COLOR_KEYWORDS, REPORTED_TAGS, VOID_ELEMENTS2, FOREIGN_ELEMENTS, RAW_TEXT_END_TAGS, INHERITING_KEYWORDS, INLINE_ELEMENTS, INLINE_DISPLAYS, BLOCKIFYING_VALUES, ITEM_BLOCKIFYING_DISPLAYS, REPLACED_ELEMENTS, TEXT_ONLY_HIDES, elementCascades, parents, contentOwners, SHADOW_HOST_TAGS, RESERVED_CUSTOM_ELEMENT_NAMES, PARENT_RELATIVE_FONT_UNITS, PARENT_RELATIVE_FONT_KEYWORDS, MATH_FUNCTIONS, parseFragment2, HIDDEN_PLACEHOLDER, COMMENT_PLACEHOLDER, mdParser, parseMarkdown, MARKDOWN_CODE_HINT, BOGUS_COMMENT_OPEN_RE, MARKUP_OPENER_RE, PHRASING_ROOTS, FLOW_HTML_PARENTS, MAX_SPLICE_ROUNDS, EXFIL_INDICATORS, KEYWORD_PARAM_NAME_RE, LONG_QUERY_THRESHOLD, ACTIVE_DATA_TYPES, DATA_URI_LENGTH_THRESHOLD, SCRIPT_SCHEMES, RELATIVE_URL_BASE, BENIGN_BLOB_PARAM_RE, BENIGN_SHORT_PARAM_RE, BENIGN_SHORT_VALUE_MAX_LEN, BENIGN_SHORT_TOTAL_MAX_LEN, PUBLIC_KEY_ID_PARAM_RE, BLOB_VALUE_MIN_LEN, OPAQUE_TOKEN_RE, VALUE_HAS_DIGIT_RE, BLOB_VALUE_B64_RE, HEX_ONLY_RE, HEX_BLOB_MIN_LEN, DIGEST_HEX_LENGTHS, BLOB_VALUE_B64URL_RE, PATH_BLOB_RE, DIGEST_MAX_LEN, BLOB_SEPARATOR_RE, BLOB_RUN_SPLIT_RE, FLOAT_RE, SRCSET_URL_RE, SRCSET_DESCRIPTORS_RE, STRING_URL_FUNCTIONS, GRAMMAR_READERS, OFF_ORIGIN_REASON, COMMENT_INTERIOR_OPENER_RE;
 var init_html4 = __esm({
   "src/html.mjs"() {
     "use strict";
@@ -48295,16 +48294,16 @@ var init_html4 = __esm({
       "wbr"
     ]);
     FOREIGN_ELEMENTS = /* @__PURE__ */ new Set(["svg", "math"]);
-    RAW_TEXT_ELEMENTS = /* @__PURE__ */ new Set([
-      "script",
-      "style",
-      "textarea",
-      "title",
-      "xmp",
-      "iframe",
-      "noembed",
-      "noframes",
-      "plaintext"
+    RAW_TEXT_END_TAGS = /* @__PURE__ */ new Map([
+      ["script", /<\/script(?![a-z0-9-])/i],
+      ["style", /<\/style(?![a-z0-9-])/i],
+      ["textarea", /<\/textarea(?![a-z0-9-])/i],
+      ["title", /<\/title(?![a-z0-9-])/i],
+      ["xmp", /<\/xmp(?![a-z0-9-])/i],
+      ["iframe", /<\/iframe(?![a-z0-9-])/i],
+      ["noembed", /<\/noembed(?![a-z0-9-])/i],
+      ["noframes", /<\/noframes(?![a-z0-9-])/i],
+      ["plaintext", /<\/plaintext(?![a-z0-9-])/i]
     ]);
     INHERITING_KEYWORDS = new Set(
       "inherit unset revert revert-layer".split(" ")
@@ -48476,7 +48475,7 @@ async function runRedact(state, options) {
     secrets = await redact(state.text);
   } catch (l4err) {
     throw new Error(
-      `CRITICAL: secret redaction failed (${errMessage(l4err)}). Failing closed \u2014 tool output suppressed.`,
+      `CRITICAL: secret redaction failed (${errMessage(l4err)}). This text was not vetted for secrets.`,
       { cause: l4err }
     );
   }
@@ -48533,7 +48532,7 @@ function processLayer1(text6, sgrCarveOut) {
 function refuseIfSpent(deadline) {
   if (deadline && deadline.remainingMs() <= 0)
     throw new Error(
-      "CRITICAL: the sanitization time budget ran out before the hidden-HTML and exfil-URL layers finished, so this text was not fully checked. Failing closed \u2014 tool output suppressed."
+      "CRITICAL: the sanitization time budget ran out before the hidden-HTML and exfil-URL layers finished, so this text was not fully checked and must be treated as UNSANITIZED."
     );
 }
 async function loadHtmlLayer(deadline) {

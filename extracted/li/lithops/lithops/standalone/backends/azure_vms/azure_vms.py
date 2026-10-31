@@ -19,11 +19,11 @@ import re
 import time
 import uuid
 import logging
-import base64
 from concurrent.futures import ThreadPoolExecutor
 from azure.identity import DefaultAzureCredential
 from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.compute.models import (
+    BillingProfile,
     HardwareProfile,
     ImageReference,
     LinuxConfiguration,
@@ -38,6 +38,10 @@ from azure.mgmt.compute.models import (
     VirtualMachine,
 )
 from azure.mgmt.network import NetworkManagementClient
+from azure.mgmt.network.models import (
+    AddressSpace, NetworkInterface, NetworkInterfaceIPConfiguration, NetworkSecurityGroup,
+    PublicIPAddress, PublicIPAddressSku, SecurityRule, Subnet, VirtualNetwork,
+)
 from azure.core.exceptions import HttpResponseError, ResourceNotFoundError
 
 from lithops.version import __version__
@@ -56,13 +60,6 @@ logger = logging.getLogger(__name__)
 
 INSTANCE_START_TIMEOUT = 180
 DEFAULT_UBUNTU_IMAGE = 'Canonical:ubuntu-24_04-lts:server:latest'
-
-
-def b64s(string):
-    """
-    Base-64 encode a string and return a string
-    """
-    return base64.b64encode(string.encode('utf-8')).decode('ascii')
 
 
 class AzureVMSBackend:
@@ -132,15 +129,6 @@ class AzureVMSBackend:
         if os.path.exists(self.cache_file):
             os.remove(self.cache_file)
 
-    def _reset_init_created(self):
-        self._init_created = {
-            'vnet': False,
-            'subnet': False,
-            'nsg': False,
-            'floating_ip': False,
-            'ssh_key': False,
-        }
-
     def _safe_rollback_delete(self, delete_fn, resource_desc):
         try:
             delete_fn()
@@ -153,28 +141,28 @@ class AzureVMSBackend:
         """
         Deletes Azure resources created during a failed init().
         """
-        if not self._init_created:
+        if self._init_created is None:
             return
 
         logger.info('Rolling back Azure VMs resources provisioned during failed init')
         rg = self.config['resource_group']
         created = self._init_created
 
-        if created.get('floating_ip') and self.config.get('floating_ip_name'):
+        if 'floating_ip' in created and self.config.get('floating_ip_name'):
             fip_name = self.config['floating_ip_name']
             self._safe_rollback_delete(
                 lambda: self.network_client.public_ip_addresses.begin_delete(rg, fip_name).result(),
                 f'public IP {fip_name}',
             )
 
-        if created.get('nsg') and self.config.get('security_group_name'):
+        if 'nsg' in created and self.config.get('security_group_name'):
             sg_name = self.config['security_group_name']
             self._safe_rollback_delete(
                 lambda: self.network_client.network_security_groups.begin_delete(rg, sg_name).result(),
                 f'network security group {sg_name}',
             )
 
-        if created.get('subnet') and self.config.get('vnet_name') and self.config.get('subnet_name'):
+        if 'subnet' in created and self.config.get('vnet_name') and self.config.get('subnet_name'):
             vnet_name = self.config['vnet_name']
             subnet_name = self.config['subnet_name']
             self._safe_rollback_delete(
@@ -184,14 +172,14 @@ class AzureVMSBackend:
                 f'subnet {subnet_name}',
             )
 
-        if created.get('vnet') and self.config.get('vnet_name'):
+        if 'vnet' in created and self.config.get('vnet_name'):
             vnet_name = self.config['vnet_name']
             self._safe_rollback_delete(
                 lambda: self.network_client.virtual_networks.begin_delete(rg, vnet_name).result(),
                 f'virtual network {vnet_name}',
             )
 
-        if created.get('ssh_key'):
+        if 'ssh_key' in created:
             key_filename = self.config.get('ssh_key_filename')
             if key_filename and 'lithops-key-' in key_filename:
                 for path in (key_filename, f'{key_filename}.pub'):
@@ -241,16 +229,15 @@ class AzureVMSBackend:
             poller = self.network_client.virtual_networks.begin_create_or_update(
                 self.config['resource_group'],
                 self.vnet_name,
-                {
-                    "location": self.location,
-                    "address_space": {"address_prefixes": ["10.0.0.0/16"]},
-                },
+                VirtualNetwork(
+                    location=self.location,
+                    address_space=AddressSpace(address_prefixes=["10.0.0.0/16"]),
+                ),
             )
             vnet_result = poller.result()
             self.config['vnet_id'] = vnet_result.id
             self.config['vnet_name'] = vnet_result.name
-            if self._init_created is not None:
-                self._init_created['vnet'] = True
+            self._init_created.add('vnet')
 
     def _create_subnet(self):
         """
@@ -285,13 +272,12 @@ class AzureVMSBackend:
                 self.config['resource_group'],
                 self.vnet_name,
                 self.subnet_name,
-                {"address_prefix": "10.0.0.0/24"},
+                Subnet(address_prefix="10.0.0.0/24", default_outbound_access=True),
             )
             subnet_result = poller.result()
             self.config['subnet_id'] = subnet_result.id
             self.config['subnet_name'] = subnet_result.name
-            if self._init_created is not None:
-                self._init_created['subnet'] = True
+            self._init_created.add('subnet')
 
     def _use_security_group(self, sg_info):
         """
@@ -348,10 +334,10 @@ class AzureVMSBackend:
                 {
                     "name": "allow-ssh",
                     "protocol": "Tcp",
-                    "sourcePortRange": "*",
-                    "destinationPortRange": "22",
-                    "sourceAddressPrefix": "*",
-                    "destinationAddressPrefix": "*",
+                    "source_port_range": "*",
+                    "destination_port_range": "22",
+                    "source_address_prefix": "*",
+                    "destination_address_prefix": "*",
                     "access": "Allow",
                     "direction": "Inbound",
                     "priority": 100
@@ -359,10 +345,10 @@ class AzureVMSBackend:
                 {
                     "name": "allow-master-port-8080",
                     "protocol": "Tcp",
-                    "sourcePortRange": "*",
-                    "destinationPortRange": "8080",
-                    "sourceAddressPrefix": "10.0.0.0/24",
-                    "destinationAddressPrefix": "*",
+                    "source_port_range": "*",
+                    "destination_port_range": "8080",
+                    "source_address_prefix": "10.0.0.0/24",
+                    "destination_address_prefix": "*",
                     "access": "Allow",
                     "direction": "Inbound",
                     "priority": 101
@@ -370,10 +356,10 @@ class AzureVMSBackend:
                 {
                     "name": "allow-worker-port-8081",
                     "protocol": "Tcp",
-                    "sourcePortRange": "*",
-                    "destinationPortRange": "8081",
-                    "sourceAddressPrefix": "10.0.0.0/24",
-                    "destinationAddressPrefix": "*",
+                    "source_port_range": "*",
+                    "destination_port_range": "8081",
+                    "source_address_prefix": "10.0.0.0/24",
+                    "destination_address_prefix": "*",
                     "access": "Allow",
                     "direction": "Inbound",
                     "priority": 102
@@ -381,10 +367,10 @@ class AzureVMSBackend:
                 {
                     "name": "allow-redis-port-6379",
                     "protocol": "Tcp",
-                    "sourcePortRange": "*",
-                    "destinationPortRange": "6379",
-                    "sourceAddressPrefix": "10.0.0.0/24",
-                    "destinationAddressPrefix": "*",
+                    "source_port_range": "*",
+                    "destination_port_range": "6379",
+                    "source_address_prefix": "10.0.0.0/24",
+                    "destination_address_prefix": "*",
                     "access": "Allow",
                     "direction": "Inbound",
                     "priority": 103
@@ -392,10 +378,10 @@ class AzureVMSBackend:
             ]
 
             # Define the network security group to contain the rule
-            network_security_group = {
-                "location": self.location,
-                "securityRules": nsg_rules
-            }
+            network_security_group = NetworkSecurityGroup(
+                location=self.location,
+                security_rules=[SecurityRule(**rule) for rule in nsg_rules],
+            )
 
             # Create or update the network security group
             poller = self.network_client.network_security_groups.begin_create_or_update(
@@ -407,8 +393,7 @@ class AzureVMSBackend:
 
             self.config['security_group_name'] = sg_result.name
             self.config['security_group_id'] = sg_result.id
-            if self._init_created is not None:
-                self._init_created['nsg'] = True
+            self._init_created.add('nsg')
 
     def _create_master_floating_ip(self):
         """
@@ -442,19 +427,18 @@ class AzureVMSBackend:
             poller = self.network_client.public_ip_addresses.begin_create_or_update(
                 self.config['resource_group'],
                 floating_ip_name,
-                {
-                    "location": self.location,
-                    "sku": {"name": "Standard"},
-                    "public_ip_allocation_method": "Static",
-                    "public_ip_address_version": "IPV4",
-                },
+                PublicIPAddress(
+                    location=self.location,
+                    sku=PublicIPAddressSku(name="Standard"),
+                    public_ip_allocation_method="Static",
+                    public_ip_address_version="IPv4",
+                ),
             )
             ip_address_result = poller.result()
             self.config['floating_ip'] = ip_address_result.ip_address
             self.config['floating_ip_name'] = ip_address_result.name
             self.config['floating_ip_id'] = ip_address_result.id
-            if self._init_created is not None:
-                self._init_created['floating_ip'] = True
+            self._init_created.add('floating_ip')
 
     def _create_ssh_key(self):
         """
@@ -478,8 +462,7 @@ class AzureVMSBackend:
             logger.debug("Generating new ssh key pair")
             os.system(f'ssh-keygen -b 2048 -t rsa -f {key_filename} -q -N ""')
             logger.debug(f"SHH key pair generated: {key_filename}")
-            if self._init_created is not None:
-                self._init_created['ssh_key'] = True
+            self._init_created.add('ssh_key')
 
         self.config['ssh_key_filename'] = key_filename
 
@@ -540,7 +523,8 @@ class AzureVMSBackend:
 
         if self.mode in [StandaloneMode.CREATE.value, StandaloneMode.REUSE.value]:
 
-            self._reset_init_created()
+            # The resources this init() creates, deleted again if it fails
+            self._init_created = set()
             try:
                 # Create the Virtual Netowrk if not exists
                 self._create_vnet()
@@ -862,7 +846,8 @@ class VMInstance:
         self.instance_data = None
         self.private_ip = None
         self.public_ip = '0.0.0.0'
-        self.home_dir = '/home/ubuntu'
+        ssh_user = self.config['ssh_username']
+        self.home_dir = '/root' if ssh_user == 'root' else f'/home/{ssh_user}'
 
         self.ssh_credentials = {
             'username': self.config['ssh_username'],
@@ -992,34 +977,34 @@ class VMInstance:
         vm_created = False
 
         # Create NIC
-        nic_params = {
-            'location': self.location,
-            'ip_configurations': [{
-                'name': 'ipconfig1',
-                'subnet': {'id': self.config['subnet_id']},
-            }],
-            "network_security_group": {"id": self.config['security_group_id']}
-        }
+        nic_params = NetworkInterface(
+            location=self.location,
+            ip_configurations=[NetworkInterfaceIPConfiguration(
+                name='ipconfig1',
+                subnet=Subnet(id=self.config['subnet_id']),
+            )],
+            network_security_group=NetworkSecurityGroup(id=self.config['security_group_id']),
+        )
 
         try:
             if self.public and not self.public_ip:
                 poller = self.network_client.public_ip_addresses.begin_create_or_update(
                     self.config['resource_group'],
                     self.name + '-ip',
-                    {
-                        "location": self.location,
-                        "sku": {"name": "Standard"},
-                        "public_ip_allocation_method": "Static",
-                        "public_ip_address_version": "IPV4",
-                    },
+                    PublicIPAddress(
+                        location=self.location,
+                        sku=PublicIPAddressSku(name="Standard"),
+                        public_ip_allocation_method="Static",
+                        public_ip_address_version="IPv4",
+                    ),
                 )
                 ip_address_result = poller.result()
                 public_ip_created = True
                 self.public_ip = ip_address_result.ip_address
-                nic_params['ip_configurations'][0]['public_ip_address'] = {"id": ip_address_result.id}
+                nic_params.ip_configurations[0].public_ip_address = PublicIPAddress(id=ip_address_result.id)
 
             elif self.public:
-                nic_params['ip_configurations'][0]['public_ip_address'] = {"id": self.config['floating_ip_id']}
+                nic_params.ip_configurations[0].public_ip_address = PublicIPAddress(id=self.config['floating_ip_id'])
 
             poller = self.network_client.network_interfaces.begin_create_or_update(
                 self.config['resource_group'],
@@ -1046,6 +1031,17 @@ class VMInstance:
                     version=image_version,
                 )
             )
+
+            spot_args = {}
+            if self.spot_instance and not self.public:
+                # Workers only, as on AWS. Evicted on lack of capacity, never on
+                # price, and deallocated so that they can be started again
+                logger.debug(f"Creating new VM instance {self.name} (Spot)")
+                spot_args = {
+                    'priority': 'Spot',
+                    'eviction_policy': 'Deallocate',
+                    'billing_profile': BillingProfile(max_price=-1),
+                }
 
             vm = VirtualMachine(
                 location=self.location,
@@ -1085,6 +1081,7 @@ class VMInstance:
                         NetworkInterfaceReference(id=nic_data.id, primary=True)
                     ]
                 ),
+                **spot_args,
             )
 
             poller = self.compute_client.virtual_machines.begin_create_or_update(
@@ -1241,16 +1238,21 @@ class VMInstance:
 
     def _stop_instance(self):
         """
-        Stops the VM instance
+        Stops the VM instance. Azure keeps billing a VM that is only powered
+        off, so it is deallocated
         """
         logger.debug(f"Stopping VM instance {self.name}")
         try:
-            self.compute_client.virtual_machines.begin_power_off(
+            self.compute_client.virtual_machines.begin_deallocate(
                 self.config['resource_group'], self.name
             )
-        except Exception:
+        except Exception as e:
+            # Inside the VM there may be no credentials allowed to deallocate it
             if os.path.isfile(SA_CONFIG_FILE):
+                logger.debug(f'Could not deallocate {self}, powering it off: {e}')
                 os.system("shutdown -h now")
+            else:
+                logger.warning(f'Could not deallocate {self}: {e}')
 
     def stop(self):
         """

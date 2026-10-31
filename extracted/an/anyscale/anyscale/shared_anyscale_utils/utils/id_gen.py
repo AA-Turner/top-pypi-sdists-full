@@ -125,9 +125,11 @@ class IDTypes(Enum):
     resource_tags = "rtag"
     user_groups = "ug"
     user_group_memberships = "ugm"
+    user_group_pending_members = "ugpm"
     resource_permissions = "rperm"
     roles = "rol"
     role_bindings = "rb"
+    invitee_pending_role_bindings = "iprb"
     resource_policies = "rpol"
     workload_connections = "wlc"
     connection_configs = "ccfg"
@@ -145,6 +147,9 @@ class IDTypes(Enum):
     # Permission label only: lineage artifact and workload ids are minted by
     # the lineage service, never here.
     lineage = "lng"
+    # Permission label only: the organization's members are users, minted as
+    # usr_; this names the org-scoped member family for the RBAC proxy.
+    organization_members = "orgmbr"
     # API keys are minted as server_sessions ("sss"); this label exists only to
     # carry the api_keys RBAC resource-proxy (admin api-key revoke endpoints),
     # whose check resolves to the caller's organization and ignores this id.

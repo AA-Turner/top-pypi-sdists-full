@@ -18,6 +18,42 @@ from probe.sdk.config import save_context
 main = importlib.import_module("probe.cli.main")
 
 
+@pytest.mark.parametrize("grant", [wizard.COMPANION_GRANT, "capture"])
+def test_desktop_recording_credential_failure_never_starts_device_approval(monkeypatch, grant):
+    monkeypatch.setenv("PROBE_DESKTOP_HUMAN", "1")
+    monkeypatch.setattr("probe.sdk.device.device_authorize", lambda *a, **kw: pytest.fail("opened approval"))
+    credentials, errors = wizard.authorize([grant], base_url="https://api.test", allow_browser_approval=False)
+    assert credentials == {}
+    assert errors and "saved sign-in" in errors[0]
+
+
+def test_desktop_capture_only_configure_keeps_its_authorization_path(monkeypatch):
+    """Configure's remaining grants may be capture alone on a signed-in Mac."""
+    from probe.sdk.device import DeviceLoginError
+
+    monkeypatch.setenv("PROBE_DESKTOP_HUMAN", "1")
+    called = []
+
+    def approve(*args, **kwargs):
+        called.append(kwargs["grants"])
+        raise DeviceLoginError("test approval declined")
+
+    monkeypatch.setattr("probe.sdk.device.device_authorize", approve)
+    _, errors = wizard.authorize(["capture"], base_url="https://api.test")
+    assert called == [["capture"]]
+    assert "test approval declined" in errors[0]
+
+
+@pytest.mark.parametrize("capture", [False, True])
+def test_desktop_provisioning_failure_never_falls_back_to_device_approval(monkeypatch, capture):
+    monkeypatch.setenv("PROBE_DESKTOP_HUMAN", "1")
+    monkeypatch.setattr(wizard, "mint_from_sign_in", lambda *a, **kw: None)
+    monkeypatch.setattr("probe.sdk.device.device_authorize", lambda *a, **kw: pytest.fail("opened approval"))
+    lines = (wizard.pair_capture("pi", base_url="https://api.test") if capture
+             else main._authorize_companion("https://api.test"))
+    assert any("saved sign-in" in line for line in lines)
+
+
 @pytest.fixture
 def calls(monkeypatch):
     seen = {"authorize": [], "revoke": []}

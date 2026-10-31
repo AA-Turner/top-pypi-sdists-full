@@ -14,8 +14,6 @@ All four are `hidden=True` for now: they run when typed, but are left out of the
 them.
 """
 
-from datetime import datetime, timedelta, timezone
-import re
 from typing import Any, Dict, List, Optional, Tuple
 
 import click
@@ -27,15 +25,13 @@ from anyscale.commands.doc_metadata import (
     ReleaseStatus,
 )
 from anyscale.commands.output_format import OutputFormat, print_output
+from anyscale.commands.time_flags import format_timestamp, resolve_window
 from anyscale.commands.util import AnyscaleCommand
 from anyscale.events.models import Event, EventsFilter, LEVELS, SOURCES_BY_ENTITY
 
 
 _OUTPUT_FORMATS = [OutputFormat.TEXT, OutputFormat.JSON, OutputFormat.YAML, OutputFormat.TABLE]
 _TABLE_COLUMNS = ["created_at", "level", "source", "message"]
-
-_DURATION_PATTERN = re.compile(r"^(\d+)([smhd])$")
-_DURATION_UNITS = {"s": "seconds", "m": "minutes", "h": "hours", "d": "days"}
 
 
 # --- shared flags, declared once ------------------------------------------------------------
@@ -264,7 +260,7 @@ def _run(  # noqa: PLR0913
     node_ip: Optional[str] = None,
     resource_bundles: Tuple[str, ...] = (),
 ) -> None:
-    start, end = _resolve_window(since, start_time, end_time)
+    start, end = resolve_window(since, start_time, end_time)
 
     try:
         events_filter = EventsFilter(
@@ -296,64 +292,17 @@ def _run(  # noqa: PLR0913
         print_output([_to_row(event) for event in events], output_format, _TABLE_COLUMNS)
 
 
-def _resolve_window(
-    since: Optional[str], start_time: Optional[str], end_time: Optional[str]
-) -> Tuple[Optional[datetime], Optional[datetime]]:
-    """Turn the three time flags into one (start, end) pair of UTC datetimes."""
-    if since is not None and (start_time is not None or end_time is not None):
-        raise click.UsageError("--since cannot be combined with --start-time or --end-time.")
-
-    if since is not None:
-        now = datetime.now(timezone.utc)
-        return now - _parse_duration(since), now
-
-    return _parse_timestamp(start_time, "--start-time"), _parse_timestamp(end_time, "--end-time")
-
-
-def _parse_duration(value: str) -> timedelta:
-    match = _DURATION_PATTERN.match(value.strip())
-    if not match:
-        raise click.UsageError(
-            f"Invalid --since value {value!r}. Use a number followed by s, m, h or d, "
-            "e.g. 30m or 2h."
-        )
-    amount, unit = match.groups()
-    return timedelta(**{_DURATION_UNITS[unit]: int(amount)})
-
-
-def _parse_timestamp(value: Optional[str], flag: str) -> Optional[datetime]:
-    if value is None:
-        return None
-    text = value.strip()
-    # Python 3.9's fromisoformat does not accept a trailing "Z".
-    if text.endswith("Z"):
-        text = text[:-1] + "+00:00"
-    try:
-        parsed = datetime.fromisoformat(text)
-    except ValueError:
-        raise click.UsageError(
-            f"Invalid {flag} value {value!r}. Use ISO 8601, e.g. 2026-09-01T10:00:00Z."
-        ) from None
-    # A timestamp without a timezone is taken as UTC.
-    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
-
-
-def _format_timestamp(value: datetime) -> str:
-    utc = value.astimezone(timezone.utc) if value.tzinfo else value.replace(tzinfo=timezone.utc)
-    return utc.strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
 def _format_text_line(event: Event) -> str:
     # One event per line: timestamp, then fixed-width level and source, then the message.
     return (
-        f"{_format_timestamp(event.created_at)}  {event.level:<8} {event.source:<18} "
+        f"{format_timestamp(event.created_at)}  {event.level:<8} {event.source:<18} "
         f"{event.message or ''}"
     ).rstrip()
 
 
 def _to_row(event: Event) -> Dict[str, Any]:
     row = event.to_dict()
-    row["created_at"] = _format_timestamp(event.created_at)
+    row["created_at"] = format_timestamp(event.created_at)
     return row
 
 

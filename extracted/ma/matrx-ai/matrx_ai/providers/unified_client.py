@@ -1789,6 +1789,9 @@ class UnifiedAIClient:
         "huggingface_chat": "HuggingFaceChat",
         "elevenlabs_chat": "ElevenLabsChat",
         "elevenlabs_music": "ElevenLabsMusic",
+        "elevenlabs_sound_effects": "ElevenLabsSoundEffects",
+        "elevenlabs_voice_changer": "ElevenLabsVoiceChanger",
+        "openai_moderation": "OpenAIModeration",
         "mock_chat": "MockChat",
         "moonshot_chat": "MoonshotChat",
         # A model on a person's own Matrx 2 computer (served_via) — providers/device/.

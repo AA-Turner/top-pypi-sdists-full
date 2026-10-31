@@ -48,11 +48,15 @@ escalated once could never be re-alerted after it later resolves and recurs.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from typing import Any, Callable, Mapping, Sequence
 
 from coord import queue_diagnose
+from coord.models import Board
+
+_log = logging.getLogger(__name__)
 
 TIER_AUTO = "auto"
 TIER_ALERT = "alert"
@@ -99,6 +103,22 @@ _LIVE_CLEAR_CAUSES = frozenset({queue_diagnose.CAUSE_NOTHING_BLOCKING})
 #: reclassifier has independently confirmed IS ceiling-blocked gets
 #: relabelled, so the broad causes stay alert-eligible for everything else.
 CAUSE_CEILING_BLOCKED_MERGEABLE = "ceiling-blocked-mergeable"
+
+#: #3760 Action 5: a Test-stage smoke leg that ended its `claude -p` session
+#: without printing a verdict marker line often enough to exhaust
+#: `coord.smoke.MUTE_SMOKE_LEG_BUDGET` — `coord.notify._record_smoke_verdict`
+#: parks the assignment at `test_state="blocked"` instead of re-dispatching
+#: it forever (#2272), so without this cause the row sits there until a
+#: human notices. Registered in `coord.board_doctor_policy.ALLOWLIST`: the
+#: safe auto-action (`coord.board_doctor_permissions.sweep_smoke_requeue`,
+#: via the `smoke_requeue` sweep action) clears the parked `test_state` so
+#: the assignment re-enters the normal Test-stage dispatch scan, bounded by
+#: its own `coord.smoke.BOARD_DOCTOR_REQUEUE_BUDGET` (#3810) — a row that
+#: keeps muting after each requeue is NOT cleared again once that budget is
+#: spent, so it keeps matching this cause's detection predicate every
+#: sweep and its convergence counter escalates to a human instead of the
+#: requeue repeating forever.
+CAUSE_SMOKE_NO_VERDICT = "smoke-no-verdict"
 
 #: A repo whose merge base has hit `coord.state.BASELINE_RED_STREAK_LIMIT`
 #: consecutive confirmed-red classifications (#3386) poisons every row in
@@ -161,7 +181,7 @@ _CAPACITY_CHECK_UNSET = _CapacityCheckUnset()
 class StuckRow:
     """One drive-queue or merge-queue row this sweep looked at."""
 
-    queue: str  # "drive-queue", "merge-queue", or "baseline-red"
+    queue: str  # "drive-queue", "merge-queue", "baseline-red", or "smoke-no-verdict"
     key: str
     state: str
     cause: str
@@ -176,6 +196,18 @@ class StuckRow:
     #: skipping its own dispatch/counter update entirely — the collapsed
     #: baseline-red row is what alerts, once per repo, not this one.
     suppressed: bool = False
+    #: #3777: True only for a row whose cause/confidence this SWEEP itself
+    #: just computed from live evidence (:func:`drive_queue_rows`,
+    #: :func:`merge_queue_rows`, :func:`baseline_red_rows`,
+    #: :func:`_refresh_ceiling_blocked_settled_rows`) — never for
+    #: :func:`_episode_stuck_row`'s reconstruction of a *stored* diagnosis,
+    #: which can be arbitrarily old and is never re-confirmed by that path.
+    #: `_ceiling_bypass_eligible` requires this before it will let a
+    #: high-confidence cause skip the #2972 ceiling: bypassing the ceiling
+    #: on a stale stored verdict (e.g. a `merge-conflict`/`high` row whose
+    #: PR has since merged) would spend a fix-it leg against evidence that
+    #: is no longer true, which is exactly what the ceiling exists to stop.
+    fresh: bool = False
 
 
 @dataclass(frozen=True)
@@ -242,6 +274,7 @@ def merge_queue_rows(entries: Sequence[Any]) -> list[StuckRow]:
                 cause=cause,
                 confidence=queue_diagnose.CONFIDENCE_HIGH,
                 evidence=evidence,
+                fresh=True,
             )
         )
     return rows
@@ -276,13 +309,97 @@ def baseline_red_rows(blocked_streaks: Mapping[str, int]) -> list[StuckRow]:
             cause=CAUSE_BASELINE_RED,
             confidence=queue_diagnose.CONFIDENCE_HIGH,
             evidence=(f"baseline_red_streak={streak}",),
+            fresh=True,
         )
         for repo_name, streak in blocked_streaks.items()
     ]
 
 
+#: Assignment types `coord.state.reset_work_test_state`/`test_reset_candidates`
+#: can clear with no `assignment_id` (`coord.state._test_reset_where`). A
+#: `test-author`/`mock-author` row parked on the same mute-leg tally needs
+#: its own `assignment_id` threaded through to be clearable at all — this
+#: detector has no row to thread (`StuckRow` carries only `queue`/`key`, not
+#: `assignment_id`), so it is restricted to the types the handler can
+#: actually reach rather than minting a `StuckRow` `sweep_smoke_requeue`
+#: would see as "no live row" every sweep forever (`auto-dispatch-noop`
+#: with no path to the alert tier, since the row never stops matching this
+#: detector's predicate to let `clear_absent_rows` give up on it).
+_SMOKE_REQUEUE_REACHABLE_TYPES = frozenset({"work", "plan", "epic-decompose"})
+
+
+def smoke_no_verdict_rows(board: Board) -> list[StuckRow]:
+    """One :class:`StuckRow` per *issue* with an assignment parked on a
+    no-verdict smoke leg.
+
+    #3760 Action 5 / #2244: `coord.notify._record_smoke_verdict` parks an
+    assignment at ``test_state=TEST_STATE_BLOCKED`` with a
+    `coord.smoke.mute_smoke_tally`-prefixed `test_reason` once
+    `coord.smoke.mute_smoke_legs` reaches `coord.smoke.MUTE_SMOKE_LEG_BUDGET`
+    consecutive Test-stage legs that ended without printing a verdict marker
+    (not a genuine suite result). That predicate is read directly off the
+    live `test_state`/`test_reason` the board already carries — never
+    re-derived — and is exactly what naturally excludes the two sibling
+    retry-budget parks (#3315's environmental-retry, #3737's
+    abandoned-background): each writes its own distinct tally marker text
+    that `coord.smoke.mute_smoke_legs` does not match, so neither is ever
+    picked up here.
+
+    Restricted to :data:`_SMOKE_REQUEUE_REACHABLE_TYPES` — a parked
+    ``test-author``/``mock-author`` row is invisible to
+    `coord.state.reset_work_test_state` without its own `assignment_id`,
+    which this detector has no row to carry, so including it here would
+    only mint a `StuckRow` the handler can never actually clear.
+
+    Deduped by issue (``f"{repo_name}#{issue_number}"``): two parked
+    assignments on the same issue produce exactly one row, since
+    `coord.board_doctor_permissions.sweep_smoke_requeue` clears every
+    matching row for the issue in a single call and a second, duplicate
+    `StuckRow` for the same ``(queue, key)`` would only double-count the
+    sweep's own convergence/decision bookkeeping for one real episode.
+
+    *board* is a single already-built `coord.models.Board` (callers pass
+    the one `collect_rows` already builds for `queue_diagnose.GhLiveProbe`,
+    rather than this function calling `coord.state.build_board` a second
+    time). Walks ``board.active + board.completed`` since a parked
+    assignment may have already been marked done in some callers' boards.
+    """
+    from coord.smoke import (  # noqa: PLC0415
+        MUTE_SMOKE_LEG_BUDGET,
+        TEST_STATE_BLOCKED,
+        mute_smoke_legs,
+    )
+
+    seen: dict[str, StuckRow] = {}
+    for assignment in (*board.active, *board.completed):
+        if assignment.type not in _SMOKE_REQUEUE_REACHABLE_TYPES:
+            continue
+        if assignment.test_state != TEST_STATE_BLOCKED:
+            continue
+        legs = mute_smoke_legs(assignment.test_reason)
+        if legs < MUTE_SMOKE_LEG_BUDGET:
+            continue
+        key = f"{assignment.repo_name}#{assignment.issue_number}"
+        if key in seen:
+            continue
+        seen[key] = StuckRow(
+            queue="smoke-no-verdict",
+            key=key,
+            state="blocked",
+            cause=CAUSE_SMOKE_NO_VERDICT,
+            confidence=queue_diagnose.CONFIDENCE_HIGH,
+            evidence=(f"mute_smoke_legs={legs}",),
+            fresh=True,
+        )
+    return list(seen.values())
+
+
 def drive_queue_rows(diagnoses: Sequence[queue_diagnose.Diagnosis]) -> list[StuckRow]:
-    """Adapt :func:`coord.queue_diagnose.run_pass` output to :class:`StuckRow`."""
+    """Adapt :func:`coord.queue_diagnose.run_pass` output to :class:`StuckRow`.
+
+    ``fresh=True``: every *diagnoses* entry came from `run_pass` probing the
+    entry live THIS sweep (#3777) — never a stored verdict from a prior one.
+    """
     return [
         StuckRow(
             queue="drive-queue",
@@ -291,6 +408,7 @@ def drive_queue_rows(diagnoses: Sequence[queue_diagnose.Diagnosis]) -> list[Stuc
             cause=d.cause,
             confidence=d.confidence,
             evidence=d.evidence,
+            fresh=True,
         )
         for d in diagnoses
     ]
@@ -313,6 +431,12 @@ def _episode_stuck_row(episode: dict) -> StuckRow | None:
     Returns ``None`` for an episode with no concluded, actionable cause
     yet (empty or still :data:`coord.queue_diagnose.CAUSE_UNKNOWN`) — same
     as today's effective behavior for those, just reached without a retry.
+
+    Leaves :attr:`StuckRow.fresh` at its default ``False`` (#3777): the
+    cause/confidence here are whatever `block_log` persisted from the
+    diagnosis event that concluded the episode, which can be arbitrarily
+    old — this never re-confirms them, so nothing downstream may treat
+    this row as this-sweep live evidence.
     """
     cause = episode.get("diagnosed_cause") or ""
     if not cause or cause == queue_diagnose.CAUSE_UNKNOWN:
@@ -328,6 +452,90 @@ def _episode_stuck_row(episode: dict) -> StuckRow | None:
         confidence=str(episode.get("diagnosis_confidence") or queue_diagnose.CONFIDENCE_LOW),
         evidence=tuple(episode.get("diagnosis_evidence") or ()),
     )
+
+
+def _refresh_ceiling_blocked_settled_rows(
+    settled_episodes: Sequence[dict],
+    *,
+    entries_by_key: Mapping[str, Any],
+    probe: queue_diagnose.LiveProbe,
+    trigger: str,
+) -> tuple[list[StuckRow], list[dict]]:
+    """Give a #2972-ceiling-blocked settled episode one more live look (#3777).
+
+    :func:`_episode_stuck_row` is right that a settled episode's stored
+    cause must stay visible to this sweep — but for the subset of settled
+    episodes whose drive-queue row has already exhausted the fix-round
+    ceiling, that stored cause can also go stale forever: once
+    :func:`coord.queue_diagnose.needs_diagnosis` decides an episode is
+    concluded, nothing ever re-probes it, even after the underlying PR
+    later merges. Widening what :func:`coord.queue_diagnose.run_pass` is
+    handed cannot fix that — it re-applies `needs_diagnosis` internally to
+    every candidate regardless of which list the caller passes, so a
+    settled episode never reaches its probe through that path no matter
+    what. This calls the same two primitives `run_pass` calls internally
+    (`probe.probe` then :func:`coord.queue_diagnose.diagnose`) directly,
+    bypassing `needs_diagnosis` for just this narrow, already-permanently-
+    blocked subset. That bypass does spend one of this sweep's live `gh`
+    probes outside `needs_diagnosis`'s own call-rate budget for this
+    episode — but it cannot corrupt `block_log` itself: neither `run_pass`
+    nor this module ever writes a diagnosis back to it (both only read it
+    and build ephemeral rows for this sweep).
+
+    Returns the freshly diagnosed rows (:attr:`StuckRow.fresh` set, since
+    each reflects a probe this sweep just took), plus whichever episodes
+    this left untouched (not ceiling-blocked, unparseable key, no matching
+    drive-queue entry, a failed probe, or a refresh that still can't name
+    an actionable cause) for :func:`_episode_stuck_row` to keep handling
+    exactly as before.
+    """
+    from coord.drive_queue import (  # noqa: PLC0415
+        fix_round_ceiling_blocked_for_issue,
+        parse_key as _parse_row_key,
+    )
+
+    refreshed: list[StuckRow] = []
+    remaining: list[dict] = []
+    for episode in settled_episodes:
+        key = str(episode.get("key") or "")
+        if not key:
+            remaining.append(episode)
+            continue
+        parsed = _parse_row_key(key)
+        entry = entries_by_key.get(key)
+        if (
+            entry is None
+            or parsed is None
+            or not fix_round_ceiling_blocked_for_issue(*parsed)
+        ):
+            remaining.append(episode)
+            continue
+        try:
+            live = probe.probe(entry)
+        except Exception:  # noqa: BLE001 — a refresh must never crash the sweep
+            _log.debug("board-doctor: ceiling-refresh probe failed for %s", key, exc_info=True)
+            remaining.append(episode)
+            continue
+        diagnosis = queue_diagnose.diagnose(entry, live, trigger=trigger)
+        if diagnosis.cause == queue_diagnose.CAUSE_UNKNOWN:
+            # A partial/inconclusive probe must not downgrade a previously
+            # settled, actionable stored cause (e.g. CAUSE_PR_MERGED) to
+            # unknown — keep the episode as `_episode_stuck_row` would have
+            # reconstructed it from `block_log`.
+            remaining.append(episode)
+            continue
+        refreshed.append(
+            StuckRow(
+                queue="drive-queue",
+                key=diagnosis.key,
+                state=diagnosis.state,
+                cause=diagnosis.cause,
+                confidence=diagnosis.confidence,
+                evidence=diagnosis.evidence,
+                fresh=True,
+            )
+        )
+    return refreshed, remaining
 
 
 def _reclassify_ceiling_blocked(rows: list[StuckRow]) -> list[StuckRow]:
@@ -348,22 +556,37 @@ def _reclassify_ceiling_blocked(rows: list[StuckRow]) -> list[StuckRow]:
     reads are clear" has not actually been established for that row; this
     reclassification, and the auto-dispatch it feeds, must not fire on an
     unconfirmed reading.
+
+    Also requires :attr:`StuckRow.fresh` (#3806, follow-up to #3760): a row
+    :func:`_episode_stuck_row` rebuilt from `block_log`'s *stored*
+    ``diagnosed_cause``/``diagnosis_confidence`` can be arbitrarily old —
+    ``queue_diagnose.needs_diagnosis`` never re-probes a settled episode, so
+    a ``nothing-blocking`` verdict earned once would otherwise replay into
+    this reclassifier, and the auto-dispatch it feeds, indefinitely, even
+    after the PR has since gone red or conflicted. Only a row THIS sweep
+    just computed from a live probe (:func:`drive_queue_rows`,
+    :func:`_refresh_ceiling_blocked_settled_rows`) is new-enough evidence to
+    grant a fresh #2972 fix-round budget — the same age bound
+    `_ceiling_bypass_eligible` (`coord/board_doctor_policy.py`) already
+    applies to its own ceiling-bypass decision, so the two stay consistent
+    (#2096: one question — "is this evidence fresh enough to act on?" — one
+    answer, `StuckRow.fresh`).
     """
-    from coord.drive_queue import fix_round_ceiling_blocked_for_issue  # noqa: PLC0415
+    from coord.drive_queue import (  # noqa: PLC0415
+        fix_round_ceiling_blocked_for_issue,
+        parse_key as _parse_row_key,
+    )
 
     reclassified: list[StuckRow] = []
     for row in rows:
         if (
             row.queue == "drive-queue"
+            and row.fresh
             and row.cause in _LIVE_CLEAR_CAUSES
             and row.confidence != queue_diagnose.CONFIDENCE_LOW
         ):
-            repo_name, _, issue_text = row.key.rpartition("#")
-            if (
-                repo_name
-                and issue_text.isdigit()
-                and fix_round_ceiling_blocked_for_issue(repo_name, int(issue_text))
-            ):
+            parsed = _parse_row_key(row.key)
+            if parsed is not None and fix_round_ceiling_blocked_for_issue(*parsed):
                 row = replace(
                     row,
                     cause=CAUSE_CEILING_BLOCKED_MERGEABLE,
@@ -393,7 +616,12 @@ def collect_rows(*, config, trigger: str = "board-doctor-sweep") -> list[StuckRo
     directly via :func:`_episode_stuck_row`, so a cause this sweep already
     knows never becomes permanently invisible just because it is settled
     (#3758) — that would invert the point of a sweep that is supposed to
-    ACT on settled causes.
+    ACT on settled causes. Within that settled set, one whose drive-queue
+    row is also blocked on the #2972 fix-round ceiling gets one more live
+    probe via :func:`_refresh_ceiling_blocked_settled_rows` first (#3777)
+    — the one case a stale settled cause (e.g. a merge-conflict diagnosis
+    recorded before the PR actually merged) would otherwise park forever,
+    since nothing else ever re-probes a concluded episode.
 
     Deferred imports, same reason ``drive_queue_diagnose`` defers them: this
     module is imported by the CLI's thin registration layer, and these
@@ -419,15 +647,17 @@ def collect_rows(*, config, trigger: str = "board-doctor-sweep") -> list[StuckRo
     settled_episodes = [ep for ep in episodes if not queue_diagnose.needs_diagnosis(ep)]
 
     entries = entries_from_rows(list_drive_queue())
+    entries_by_key = {e.key: e for e in entries}
     fleet_health = local_fleet_health_block([m.name for m in config.machines])
     live_sessions = frozenset(
         str(row["session_name"])
         for row in list_drive_sessions()
         if row.get("session_name")
     )
+    board = build_board()
     probe = queue_diagnose.GhLiveProbe(
         config=config,
-        board=build_board(),
+        board=board,
         fleet_health=fleet_health,
         live_sessions=live_sessions,
         local_host=_local_host_id(),
@@ -436,10 +666,15 @@ def collect_rows(*, config, trigger: str = "board-doctor-sweep") -> list[StuckRo
     diagnoses = queue_diagnose.run_pass(
         entries, fresh_episodes, probe=probe, keys=None, triggers=triggers, limit=None
     )
+    refreshed_rows, settled_episodes = _refresh_ceiling_blocked_settled_rows(
+        settled_episodes, entries_by_key=entries_by_key, probe=probe, trigger=trigger
+    )
     rows = drive_queue_rows(diagnoses)
+    rows.extend(refreshed_rows)
     rows.extend(row for ep in settled_episodes if (row := _episode_stuck_row(ep)) is not None)
     rows = _reclassify_ceiling_blocked(rows)
     rows.extend(merge_queue_rows(load_merge_queue()))
+    rows.extend(smoke_no_verdict_rows(board))
 
     blocked_streaks = {
         repo_name: streak
@@ -467,7 +702,7 @@ def collect_rows(*, config, trigger: str = "board-doctor-sweep") -> list[StuckRo
         # holds — deliberate, since any per-row action here would be
         # against evidence this sweep no longer trusts (the base, not the
         # row, is why the queue diagnosis is unreliable right now).
-        from coord.board_doctor_policy import _parse_row_key  # noqa: PLC0415
+        from coord.drive_queue import parse_key as _parse_row_key  # noqa: PLC0415
 
         def _suppress_if_blocked(row: StuckRow) -> StuckRow:
             parsed = _parse_row_key(row.key)

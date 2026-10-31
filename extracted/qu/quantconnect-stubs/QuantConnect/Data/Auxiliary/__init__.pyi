@@ -166,6 +166,19 @@ class IFactorProvider(typing.Iterable[QuantConnect.Data.Auxiliary.IFactorRow], m
         """Gets the price factor for the specified search date"""
         ...
 
+    def get_price_scale(self, date_time: typing.Union[datetime.datetime, datetime.date], normalization_mode: QuantConnect.DataNormalizationMode, contract_offset: int = 0, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, end_date_time: typing.Optional[datetime.datetime] = None) -> float:
+        """
+        Resolves the price scale for a date given a factor file and required settings
+        
+        :param date_time: The date for the price scale lookup
+        :param normalization_mode: The price normalization mode requested
+        :param contract_offset: The contract offset, useful for continuous contracts
+        :param data_mapping_mode: The data mapping mode used, useful for continuous contracts
+        :param end_date_time: The reference end date for scaling prices.
+        :returns: The price scale to use.
+        """
+        ...
+
 
 class LocalDiskFactorFileProvider(System.Object, QuantConnect.Interfaces.IFactorFileProvider):
     """Provides an implementation of IFactorFileProvider that searches the local disk"""

@@ -93,6 +93,7 @@ class _CapturingTracker:
         parent_refs: dict[str, str] | None = None,
         metadata: dict[str, Any] | None = None,
         record_id: str | None = None,
+        created_at: str | None = None,
     ) -> str:
         record_id = record_id or str(uuid4())
         self.reserved.append(
@@ -105,7 +106,9 @@ class _CapturingTracker:
         )
         return record_id
 
-    async def mark_active(self, emitter: Any, table: str, record_id: str) -> None:
+    async def mark_active(
+        self, emitter: Any, table: str, record_id: str, created_at: str | None = None
+    ) -> None:
         self.activated.append(record_id)
 
 

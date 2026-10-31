@@ -114,6 +114,7 @@ __all__ = (
     "DateTimeConverterTypeDef",
     "DateTimeConverterUnionTypeDef",
     "DeleteAccountPolicyRequestTypeDef",
+    "DeleteAccountPolicyResponseTypeDef",
     "DeleteDataProtectionPolicyRequestTypeDef",
     "DeleteDeliveryDestinationPolicyRequestTypeDef",
     "DeleteDeliveryDestinationRequestTypeDef",
@@ -200,6 +201,7 @@ __all__ = (
     "DisassociateKmsKeyRequestTypeDef",
     "DisassociateSourceFromS3TableIntegrationRequestTypeDef",
     "DisassociateSourceFromS3TableIntegrationResponseTypeDef",
+    "DryRunResultTypeDef",
     "EmptyResponseMetadataTypeDef",
     "EntityTypeDef",
     "ExportTaskExecutionInfoTypeDef",
@@ -296,6 +298,7 @@ __all__ = (
     "LogFieldTypeTypeDef",
     "LogFieldsListItemTypeDef",
     "LogGroupFieldTypeDef",
+    "LogGroupImpactTypeDef",
     "LogGroupSummaryTypeDef",
     "LogGroupTypeDef",
     "LogStreamTypeDef",
@@ -652,6 +655,7 @@ class DateTimeConverterTypeDef(TypedDict):
 class DeleteAccountPolicyRequestTypeDef(TypedDict):
     policyName: str
     policyType: PolicyTypeType
+    dryRun: NotRequired[bool]
 
 
 class DeleteDataProtectionPolicyRequestTypeDef(TypedDict):
@@ -910,6 +914,7 @@ class LogGroupTypeDef(TypedDict):
     logGroupArn: NotRequired[str]
     deletionProtectionEnabled: NotRequired[bool]
     bearerTokenAuthenticationEnabled: NotRequired[bool]
+    retentionPolicyName: NotRequired[str]
 
 
 class DescribeLogStreamsRequestTypeDef(TypedDict):
@@ -1052,6 +1057,13 @@ class DisassociateKmsKeyRequestTypeDef(TypedDict):
 
 class DisassociateSourceFromS3TableIntegrationRequestTypeDef(TypedDict):
     identifier: str
+
+
+class LogGroupImpactTypeDef(TypedDict):
+    logGroupName: NotRequired[str]
+    currentRetention: NotRequired[str]
+    proposedRetention: NotRequired[str]
+    storedBytes: NotRequired[int]
 
 
 class EntityTypeDef(TypedDict):
@@ -1461,6 +1473,7 @@ class PutAccountPolicyRequestTypeDef(TypedDict):
     policyType: PolicyTypeType
     scope: NotRequired[Literal["ALL"]]
     selectionCriteria: NotRequired[str]
+    dryRun: NotRequired[bool]
 
 
 class PutBearerTokenAuthenticationRequestTypeDef(TypedDict):
@@ -1850,11 +1863,6 @@ class ListTagsForResourceResponseTypeDef(TypedDict):
 
 class ListTagsLogGroupResponseTypeDef(TypedDict):
     tags: dict[str, str]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class PutAccountPolicyResponseTypeDef(TypedDict):
-    accountPolicy: AccountPolicyTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2251,6 +2259,15 @@ class DestinationConfigurationOutputTypeDef(TypedDict):
 class DestinationConfigurationTypeDef(TypedDict):
     s3Configuration: NotRequired[S3ConfigurationTypeDef]
     lookupTableConfiguration: NotRequired[LookupTableConfigurationTypeDef]
+
+
+class DryRunResultTypeDef(TypedDict):
+    totalMatchedLogGroups: NotRequired[int]
+    increasedRetentionLogGroupCount: NotRequired[int]
+    decreasedRetentionLogGroupCount: NotRequired[int]
+    unchangedRetentionLogGroupCount: NotRequired[int]
+    failedAnalysisCount: NotRequired[int]
+    topLogGroupsImpacted: NotRequired[list[LogGroupImpactTypeDef]]
 
 
 ExportTaskTypeDef = TypedDict(
@@ -2666,6 +2683,17 @@ class UpdateScheduledQueryResponseTypeDef(TypedDict):
 DestinationConfigurationUnionTypeDef = Union[
     DestinationConfigurationTypeDef, DestinationConfigurationOutputTypeDef
 ]
+
+
+class DeleteAccountPolicyResponseTypeDef(TypedDict):
+    dryRunResult: DryRunResultTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class PutAccountPolicyResponseTypeDef(TypedDict):
+    accountPolicy: AccountPolicyTypeDef
+    dryRunResult: DryRunResultTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeExportTasksResponseTypeDef(TypedDict):

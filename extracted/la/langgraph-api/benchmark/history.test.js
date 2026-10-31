@@ -11,8 +11,11 @@ import {
   flaggedChange,
   formatDelta,
   formatMove,
+  hasFile,
+  historyCandidates,
   loadCapacityHistory,
   loadDailyHistory,
+  sparkline,
 } from "./history.js";
 
 test("compare reports the median, the past half-range and tonight's delta", () => {
@@ -120,4 +123,35 @@ test("capacity history remembers which executor measured each night", () => {
   }));
   const [night] = loadCapacityHistory(root)[cellKey({ deploymentSlug: "d", computeTier: "L", benchmarkType: "wait_write" })];
   assert.equal(night.executor, "constant-arrival-rate");
+});
+
+test("sparkline keeps noise mid-height, draws a real step full height, and leaves gaps for missing nights", () => {
+  assert.equal(sparkline([5, 5.2, 4.9, 5.1, 5]), "▄▅▄▅▄");
+  assert.equal(sparkline([12.8, 12.5, 4.6, 4.8]), "██▁▁");
+  assert.equal(sparkline([1, null, 3]), "▁ █");
+  assert.equal(sparkline([2, 2]), "▄▄");
+  assert.equal(sparkline([null]), "");
+});
+
+test("history keeps only recent completed scheduled runs, newest first, never tonight's", () => {
+  const run = (databaseId, createdAt, event = "schedule", status = "completed") => ({ databaseId, createdAt, event, status });
+  const runs = [
+    run(1, "2026-08-01T12:19:13Z"),
+    run(5, "2026-09-27T12:07:31Z"),
+    run(6, "2026-09-28T12:09:13Z"),
+    run(4, "2026-09-25T15:07:23Z", "workflow_dispatch"),
+    run(3, "2026-09-26T12:07:11Z"),
+    run(7, "2026-09-28T13:00:00Z", "schedule", "in_progress"),
+  ];
+  const kept = historyCandidates(runs, { excludeRunId: 6, now: new Date("2026-09-28T12:40:00Z") });
+  assert.deepEqual(kept.map((r) => r.databaseId), [5, 3]);
+});
+
+test("a night whose artifact holds only its context is not a night of results", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "history-night-"));
+  mkdirSync(path.join(dir, "benchmark-results-wait_write-1"));
+  writeFileSync(path.join(dir, "benchmark-results-wait_write-1", "report_context.json"), "{}");
+  assert.equal(hasFile(dir, "summary_"), false);
+  writeFileSync(path.join(dir, "benchmark-results-wait_write-1", "summary_2026-09-29.json"), "{}");
+  assert.equal(hasFile(dir, "summary_"), true);
 });

@@ -467,3 +467,53 @@ async def test_only_known_ad_attributes_are_strong_and_editorial_ad_attributes_n
     for ad in REVIEW7_SWEPT:
         assert await page.locator(ad).count() == 0, (ad, swept)
     assert "MRI scans" in await page.locator("article").inner_text()
+
+
+async def _count(page, selector: str) -> int:
+    return await page.evaluate("(s) => document.querySelectorAll(s).length", selector)
+
+
+async def test_root_selector_used_matches_exactly_one_element_on_the_unclipped_page(browser):
+    # Four sibling div.col-md-12 hold the menu, the story and two teasers: `div.col-md-12` (the old record)
+    # matches all four, so a reviewer opening the page by it lands on the menu.
+    page = await _load(browser, "duplicate_root_class.html")
+    assert await _count(page, "div.col-md-12") == 4
+    picked = await page.evaluate("() => { const e = window.__pressClip.pickContainer(''); e.setAttribute('data-pc-root','1'); return window.__pressClip.describe(e); }")
+    assert picked == "div.col-md-12"
+    report = await _clip(page)
+    selector = report["root_selector_used"]
+    assert selector != "div.col-md-12"
+    # The record is checked on a fresh, unclipped copy of the same page: it must find the story and only the story.
+    fresh = await _load(browser, "duplicate_root_class.html")
+    assert await _count(fresh, selector) == 1, selector
+    assert "Story-top-sec" in await fresh.evaluate(
+        "(s) => document.querySelector(s).innerHTML", selector
+    )
+
+
+async def test_unique_selector_keeps_the_readable_form_when_it_is_already_unique(browser):
+    page = await _load(browser, "news_article.html")
+    report = await _clip(page)
+    assert report["root_selector_used"] == "article#story.story"
+
+
+async def test_unique_selector_agrees_with_the_server_root_finder(browser):
+    # One rule, two implementations (clip_page.js and aidream root_candidates.stable_selector): on the same page
+    # both selectors must point at the same single element.
+    pytest.importorskip("lxml")
+    try:
+        from aidream.services.press_clip.root_candidates import root_candidates_from_html
+    except ImportError:
+        pytest.skip("aidream is not importable from the scraper package's environment")
+    html = (FIXTURES / "duplicate_root_class.html").read_text()
+    server = root_candidates_from_html(html, headline="Recycler opens new certified e-waste processing line")
+    page = await _load(browser, "duplicate_root_class.html")
+    js_sel = await page.evaluate(
+        "() => window.__pressClip.uniqueSelector(window.__pressClip.pickContainer(''))"
+    )
+    assert await _count(page, server["suggested_root"]) == 1
+    same = await page.evaluate(
+        "([a, b]) => document.querySelector(a) === document.querySelector(b)",
+        [js_sel, server["suggested_root"]],
+    )
+    assert same, (js_sel, server["suggested_root"])

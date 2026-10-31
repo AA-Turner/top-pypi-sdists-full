@@ -144,6 +144,12 @@ pub fn x11_keysym_to_kitty_sequence(
         );
     }
 
+    // Below level 2 there is no event type, so a release would encode exactly
+    // like a press and repeat the key. Only level 2+ reports releases.
+    if !pressed && kitty_level < 2 {
+        return Vec::new();
+    }
+
     // Convert keysym to Unicode codepoint
     let unicode = match keysym {
         // ASCII printable range

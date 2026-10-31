@@ -8,9 +8,9 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { MIN_HISTORY_NIGHTS, compare, flaggedChange, formatDelta, formatMove, loadDailyHistory } from './history.js';
-import { describeRunnerBriefly, runnerColumnName, runnerGloss, runnerShortName } from './runner-descriptions.js';
-import { dotFor, postReport } from './slack.js';
+import { MIN_HISTORY_NIGHTS, compare, flaggedChange, formatDelta, formatMove, loadDailyHistory, sparkline } from './history.js';
+import { runnerColumnName, runnerShortName } from './runner-descriptions.js';
+import { dotFor, footer, postReport } from './slack.js';
 
 // Resolve against this file, not the working directory, so the step does not
 // have to be run from a particular place for the paths to line up.
@@ -115,40 +115,6 @@ function heldFor(plateauDuration) {
   return plateau % 60 === 0 ? `${plateau / 60} min` : `${plateau}s`;
 }
 
-function usersSentence(runs) {
-  const withLoad = runs.filter((run) => usersOf(run.load ?? {}) != null);
-  if (withLoad.length === 0) return null;
-  const common = Math.max(...withLoad.map((run) => usersOf(run.load)));
-  const others = withLoad
-    .filter((run) => usersOf(run.load) !== common)
-    .map((run) => `${runName(run)} ${count(usersOf(run.load))}`);
-  return `${count(common)} virtual users${others.length > 0 ? ` (${others.join(', ')})` : ''}`;
-}
-
-// The 60 s per level is ramp.js's stage length.
-export function describeBenchmark(runs, prefix = '') {
-  const withLoad = runs.filter((run) => usersOf(run.load ?? {}) != null);
-  const { levels, plateauDuration } = withLoad[0]?.load ?? {};
-  const levelCount = Number(levels);
-  const users = usersSentence(runs);
-  const held = heldFor(plateauDuration);
-  const load = [
-    users,
-    isNumber(levelCount) && levelCount > 0 ? `${levelCount}×60 s ramp` : null,
-    held ? `${held} hold` : null,
-    'closed model',
-  ]
-    .filter(Boolean)
-    .join(', ');
-  const paths = runs.map((run) => runnerGloss(run.benchmarkType)).join(', ');
-  return [
-    prefix.trim(),
-    `k6: ${load}. Paths: ${paths}. Measures per-iteration latency (avg, p95) and failed requests by status. Same load nightly on a fresh revision, so a change is the server.`,
-  ]
-    .filter(Boolean)
-    .join(' ');
-}
-
 export function loadSentence(runs) {
   const withLoad = runs.filter((run) => usersOf(run.load ?? {}) != null);
   if (withLoad.length === 0) return '';
@@ -251,9 +217,15 @@ function runName(run) {
   return runnerShortName(run.benchmarkType);
 }
 
+function noResults(run) {
+  return run.revisionError
+    ? `no results, the new revision failed: ${run.revisionError}`
+    : `no results produced, step finished as \`${run.stepOutcome}\``;
+}
+
 function failureReason(run) {
   const metrics = run.summary?.metrics;
-  if (!metrics) return `no results produced, step finished as \`${run.stepOutcome}\``;
+  if (!metrics) return noResults(run);
   const crossed = describedThresholds(run.summary.thresholds, metrics).filter((t) => t.ok === false);
   if (crossed.length > 0) return crossed.map((t) => t.breach).join(', ');
   if (!metrics.successfulRuns) return 'no run succeeded';
@@ -263,16 +235,32 @@ function failureReason(run) {
   return `step finished as \`${run.stepOutcome}\``;
 }
 
-function digestTable(runs, changesByRun) {
-  const labelWidth = Math.max(...runs.map((run) => runName(run).length)) + 2;
-  const lines = ['```', `${''.padEnd(labelWidth)}${'runs'.padStart(9)}${'failed'.padStart(8)}${'p95 s'.padStart(7)} `];
+/** The flag baseline stays at a week; the older nights only draw the trend. */
+/** Nights in the table's trend, tonight included. The flags compare against the other nights, so both mean the same window. */
+export const NIGHTS = 10;
+
+const baseline = (run) => (run.history ?? []).slice(0, NIGHTS - 1);
+
+function p95Of(metrics) {
+  return succeeded(metrics) && isNumber(metrics?.p95Duration) ? metrics.p95Duration : null;
+}
+
+function roundedDelta(pct) {
+  return `${pct >= 0 ? '+' : '-'}${Math.abs(Math.round(pct))}%`;
+}
+
+// Table rows use the one-word column names so every line fits PHONE_WIDTH.
+function tableName(run) {
+  return runnerColumnName(run.benchmarkType);
+}
+
+function digestTable(runs) {
+  const labelWidth = Math.max(...runs.map((run) => tableName(run).length)) + 1;
+  const lines = ['```', `${''.padEnd(labelWidth)}${'p95 s'.padStart(5)} last ${NIGHTS}`];
   for (const run of runs) {
-    const metrics = run.summary?.metrics;
-    const p95 = changesByRun.get(run)?.find((c) => c.key === 'p95Duration');
-    const cells = metrics
-      ? [count(metrics.totalRuns), count(metrics.failedRuns), succeeded(metrics) && isNumber(metrics.p95Duration) ? metrics.p95Duration.toFixed(1) : '-']
-      : ['-', '-', '-'];
-    lines.push(`${runName(run).padEnd(labelWidth)}${cells[0].padStart(9)}${cells[1].padStart(8)}${cells[2].padStart(7)}${p95?.arrow ?? ' '}`);
+    const p95 = p95Of(run.summary?.metrics);
+    const trend = sparkline([...baseline(run).reverse().map(p95Of), p95]);
+    lines.push(`${tableName(run).padEnd(labelWidth)}${(p95 == null ? '-' : p95.toFixed(1)).padStart(5)} ${trend}`.trimEnd());
   }
   lines.push('```');
   return lines;
@@ -286,14 +274,14 @@ export function buildDigest(runs, context = {}) {
   const {
     titleSuffix = '',
     apiVersion = null,
-    goal = '',
+    docsAnchor = 'daily-benchmark',
     artifactUrl = null,
     now = new Date(),
     manual = false,
   } = context;
 
   const changesByRun = new Map(
-    runs.map((run) => [run, run.summary?.metrics ? figureChanges(run.summary.metrics, run.history ?? []) : []])
+    runs.map((run) => [run, run.summary?.metrics ? figureChanges(run.summary.metrics, baseline(run)) : []])
   );
   const unhealthy = runs.filter((run) => !isHealthy({ stepOutcome: run.stepOutcome, metrics: run.summary?.metrics }));
   const withErrors = runs.filter((run) => hasErrors(run.summary?.metrics));
@@ -301,12 +289,13 @@ export function buildDigest(runs, context = {}) {
   const regressed = [];
   const improved = [];
   for (const run of runs) {
-    for (const change of changesByRun.get(run)) {
-      if (!change.flagged) continue;
-      (change.better ? improved : regressed).push(`${runName(run)} ${change.label} ${change.move}`);
+    const flagged = changesByRun.get(run).filter((change) => change.flagged);
+    for (const [better, list] of [[false, regressed], [true, improved]]) {
+      const moved = flagged.filter((change) => change.better === better);
+      if (moved.length > 0) list.push(`${runName(run)} ${moved.map((c, i) => (i === 0 ? `${c.label} ${c.move}` : `${c.label} ${roundedDelta(c.deltaPct)}`)).join(', ')}`);
     }
   }
-  const nights = Math.max(0, ...runs.map((run) => (run.history ?? []).length));
+  const nights = Math.max(0, ...runs.map((run) => baseline(run).length));
   const checked = nights >= MIN_HISTORY_NIGHTS;
   const tools = runs.map((run) => [run, toolLine(run.summary?.metrics)]).filter(([, line]) => line);
 
@@ -324,7 +313,6 @@ export function buildDigest(runs, context = {}) {
   const passed = runs.length - unhealthy.length;
   const lines = [
     `${dot} *Daily Benchmark${titleSuffix} · ${date}*${manual ? ' · manual run' : ''}${apiVersion ? ` · API ${apiVersion}` : ''} · ${passed} of ${runs.length} passed · ${clauses.join(' · ')}`,
-    describeBenchmark(runs, goal),
   ];
   if (unhealthy.length > 0) {
     lines.push(`*Failed:* ${unhealthy.map((run) => `${runName(run)}: ${failureReason(run)}`).join(' · ')}`);
@@ -333,52 +321,33 @@ export function buildDigest(runs, context = {}) {
     lines.push(
       `*Errors:* ${withErrors
         .map((run) => {
-          const streak = errorStreak(run.history ?? []);
-          const again = manual ? `${streak} runs in a row` : `${ordinal(streak)} night in a row`;
+          const history = run.history ?? [];
+          const streak = errorStreak(history);
+          // Every fetched night had errors, so the streak started before the history does.
+          const again = streak > history.length
+            ? `${streak}+ ${manual ? 'runs' : 'nights'} in a row`
+            : manual ? `${streak} runs in a row` : `${ordinal(streak)} night in a row`;
           return `${runName(run)} ${errorParts(run.summary.metrics).join(', ')}${streak > 1 ? `, ${again}` : ''}`;
         })
         .join(' · ')}`
     );
   }
-  if (!checked) {
-    lines.push(`*Regressed:* not checked, ${nights} of ${MIN_HISTORY_NIGHTS} nights of history`);
-  } else {
-    lines.push(`*Regressed:* ${regressed.length > 0 ? regressed.join(' · ') : 'none'}`);
-    if (improved.length > 0) lines.push(`*Improved:* ${improved.join(' · ')}`);
-  }
+  if (regressed.length > 0) lines.push(`*Regressed:* ${regressed.join(' · ')}`);
   for (const [run, line] of tools) lines.push(`:warning: ${runName(run)}: ${line}`);
 
-  lines.push(...digestTable(runs, changesByRun));
+  lines.push(...digestTable(runs));
+  if (!checked) lines.push(`_${nights} of ${MIN_HISTORY_NIGHTS} nights of history, no change flags yet_`);
+  lines.push(footer(docsAnchor, artifactUrl));
 
-  const rules = [...new Set(runs.flatMap((run) => describedThresholds(run.summary?.thresholds, run.summary?.metrics).map((t) => t.rule)))];
-  const legend = [
-    rules.length > 0 ? `*Pass:* ${rules.join(', ')}` : null,
-    `▲ better ▼ worse than the last ${MIN_HISTORY_NIGHTS}+ nights`,
-    `🟢 quiet · 🟡 ${ERROR_ATTENTION}+ failed requests or a regression · 🔴 a run failed`,
-  ].filter(Boolean);
-  lines.push(legend.join(' · '));
-  lines.push(`*Thread:* per-run detail and how to read${artifactUrl ? ` · <${artifactUrl}|Artifacts:> results and charts` : ''}`);
-
-  return { text: lines.join('\n'), thread: [perRunDetail(runs, changesByRun, loadSentence(runs))] };
+  return { text: lines.join('\n'), thread: [perRunDetail(runs, changesByRun, improved, loadSentence(runs))] };
 }
 
-function howToRead(runs, load) {
-  return [
-    '*How to read*',
-    `• *Tests:* ${runs.map((run) => `${runName(run)} = ${describeRunnerBriefly(run.benchmarkType)}`).join(' · ')}.`,
-    load ? `• *Load:* ${load}.` : null,
-    `• *Regressed / Improved:* a figure outside the usual range of the last ${MIN_HISTORY_NIGHTS}+ nights of the same test. Run count is compared here but never flagged; under a fixed user count it follows latency.`,
-    `• *Errors:* failed requests by HTTP status. ${ERROR_ATTENTION} or more turn the dot yellow even when the run passes.`,
-    '• `-` in a cell: no number, the run produced no results or nothing succeeded.',
-  ].filter(Boolean);
-}
-
-function perRunDetail(runs, changesByRun, load) {
-  const labelWidth = Math.max(...runs.map((run) => runName(run).length)) + 2;
+function perRunDetail(runs, changesByRun, improved, load) {
+  const labelWidth = Math.max(...runs.map((run) => tableName(run).length)) + 1;
   const lines = [
     '*Per run* · seconds, then tonight against the past nights',
     '```',
-    `${''.padEnd(labelWidth)}${'avg'.padStart(7)}${'p95'.padStart(7)}${'p95 ok'.padStart(8)}`,
+    `${''.padEnd(labelWidth)}${'avg'.padStart(6)}${'p95'.padStart(6)}${'p95 ok'.padStart(7)}`,
   ];
   for (const run of runs) {
     const metrics = run.summary?.metrics;
@@ -387,22 +356,30 @@ function perRunDetail(runs, changesByRun, load) {
       : !succeeded(metrics)
         ? ['-', '-', '-']
         : [metrics.averageDuration, metrics.p95Duration, metrics.p95SuccessDuration].map((v) => (isNumber(v) ? v.toFixed(2) : '-'));
-    lines.push(`${runName(run).padEnd(labelWidth)}${cells[0].padStart(7)}${cells[1].padStart(7)}${cells[2].padStart(8)}`);
+    lines.push(`${tableName(run).padEnd(labelWidth)}${cells[0].padStart(6)}${cells[1].padStart(6)}${cells[2].padStart(7)}`);
   }
   lines.push('```');
   for (const run of runs) {
-    const changes = changesByRun.get(run);
-    const nights = (run.history ?? []).length;
-    if (changes.length === 0) {
-      lines.push(`${runName(run)}: ${run.summary?.metrics ? (nights < 2 ? 'no history to compare' : succeeded(run.summary.metrics) ? 'nothing to compare' : 'no run succeeded, latency not compared') : `no results, step finished as \`${run.stepOutcome}\``}`);
+    const metrics = run.summary?.metrics;
+    if (!metrics) {
+      lines.push(`${runName(run)}: ${noResults(run)}`);
       continue;
     }
-    lines.push(`${runName(run)} vs ${nights} nights: ${changes.map((c) => `${c.label} ${formatDelta(c.deltaPct)}${c.flagged ? ` ${c.arrow}` : ''}`).join(' · ')}`);
+    const counts = `${count(metrics.totalRuns)} runs, ${count(metrics.failedRuns)} failed`;
+    const changes = changesByRun.get(run);
+    const nights = baseline(run).length;
+    const drift =
+      changes.length > 0
+        ? `vs ${nights} nights: ${changes.map((c) => `${c.label} ${formatDelta(c.deltaPct)}${c.flagged ? ` ${c.arrow}` : ''}`).join(' · ')}`
+        : nights < 2
+          ? 'no history to compare'
+          : succeeded(metrics)
+            ? 'nothing to compare'
+            : 'no run succeeded, latency not compared';
+    lines.push(`${runName(run)}: ${counts} · ${drift}`);
   }
-  if (runs.some((run) => run.benchmarkType === 'threads_search_metadata')) {
-    lines.push('threads_search keeps its threads between nights on purpose, so its table grows.');
-  }
-  lines.push('', ...howToRead(runs, load));
+  if (improved.length > 0) lines.push(`*Improved:* ${improved.join(' · ')}`);
+  if (load) lines.push(`*Load:* ${load}.`);
   return lines.join('\n');
 }
 
@@ -456,6 +433,7 @@ export function collectRuns(resultsDir, historyDir) {
     return {
       benchmarkType,
       stepOutcome: context.stepOutcome ?? (dir ? 'unknown' : 'missing'),
+      revisionError: context.revisionError,
       summary: dir ? readSummary(findLatestSummary(dir)) : null,
       load: { loadSize: context.loadSize, levels: context.levels, plateauDuration: context.plateauDuration },
       history: historyDir ? loadDailyHistory(historyDir, `-${benchmarkType}-`) : [],
@@ -487,8 +465,8 @@ async function main() {
   const runs = collectRuns(process.env.RESULTS_DIR || path.join(HERE, 'results'), process.env.HISTORY_DIR);
   const report = safeBuildDigest(runs, {
     titleSuffix: process.env.TITLE_SUFFIX || '',
-    apiVersion: process.env.API_VERSION || readApiVersion(),
-    goal: process.env.REPORT_GOAL || '',
+    apiVersion: process.env.API_VERSION || null,
+    docsAnchor: process.env.DOCS_ANCHOR || undefined,
     artifactUrl: process.env.ARTIFACT_URL,
     manual: process.env.MANUAL === 'true',
   });

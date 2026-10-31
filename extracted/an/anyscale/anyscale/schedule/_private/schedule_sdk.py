@@ -21,6 +21,7 @@ from anyscale.compute_config.models import (
     CloudDeployment,
     ComputeConfig,
     HeadNodeConfig,
+    HeadNodeOptionConfig,
     MarketType,
     MultiResourceComputeConfig,
     PhysicalResources as UserPhysicalResources,
@@ -73,7 +74,11 @@ class PrivateScheduleSDK(BaseSDK):
 
         job_queue_config = None
         if job_config.job_queue_config is not None:
-            job_queue_config = self._job_sdk.create_job_queue_config(job_config.job_queue_config)
+            job_queue_config = self._job_sdk.create_job_queue_config(
+                job_config.job_queue_config,
+                cloud_id=cloud_id,
+                compute_config_id=compute_config_id,
+            )
 
         # Resolve connection names to IDs
         connection_ids = self._job_sdk.resolve_connection_ids(job_config.connections)
@@ -343,6 +348,35 @@ class PrivateScheduleSDK(BaseSDK):
             cloud_deployment=cloud_deployment,
         )
 
+    def _convert_api_model_to_head_nodes(
+        self, api_model: Any
+    ) -> Optional[List[HeadNodeOptionConfig]]:
+        """Convert a head with head_options to its HeadNodeOptionConfig list, or None without any."""
+        options = getattr(api_model, "head_options", None)
+        if not options:
+            return None
+        head = self._convert_api_model_to_head_node_config(api_model)
+        return [
+            HeadNodeOptionConfig(
+                name=option.name,
+                instance_type=getattr(option, "instance_type", None),
+                resources=head.resources,
+                required_resources=UserPhysicalResources.from_dict(
+                    option.required_resources.to_dict()
+                )
+                if getattr(option, "required_resources", None) is not None
+                else None,
+                labels=head.labels,
+                required_labels=head.required_labels,
+                advanced_instance_config=self._convert_api_model_to_advanced_instance_config(
+                    option
+                ),
+                flags=head.flags,
+                cloud_deployment=head.cloud_deployment,
+            )
+            for option in options
+        ]
+
     def _convert_api_models_to_worker_node_group_configs(
         self, api_models: List[Any]
     ) -> List[WorkerNodeGroupConfig]:
@@ -443,13 +477,17 @@ class PrivateScheduleSDK(BaseSDK):
             if max_gpus:
                 max_resources["GPU"] = max_gpus
 
+        head_nodes = self._convert_api_model_to_head_nodes(dc.head_node_type)
         return ComputeConfig(
             cloud=cloud_name,
             cloud_resource=getattr(dc, "cloud_deployment", None),
             zones=zones,
             advanced_instance_config=getattr(dc, "advanced_configurations_json", None) or None,
             enable_cross_zone_scaling=enable_cross_zone_scaling,
-            head_node=self._convert_api_model_to_head_node_config(dc.head_node_type),
+            head_node=None
+            if head_nodes
+            else self._convert_api_model_to_head_node_config(dc.head_node_type),
+            head_nodes=head_nodes,
             worker_nodes=worker_nodes,
             min_resources=min_resources,
             max_resources=max_resources or None,
@@ -520,12 +558,16 @@ class PrivateScheduleSDK(BaseSDK):
             )
         advanced_instance_config = advanced_instance_config or None
 
+        head_nodes = self._convert_api_model_to_head_nodes(full_config.head_node_type)
         return ComputeConfig(
             cloud=cloud_name,
             zones=zones,
             advanced_instance_config=advanced_instance_config,
             enable_cross_zone_scaling=enable_cross_zone_scaling,
-            head_node=self._convert_api_model_to_head_node_config(full_config.head_node_type),
+            head_node=None
+            if head_nodes
+            else self._convert_api_model_to_head_node_config(full_config.head_node_type),
+            head_nodes=head_nodes,
             worker_nodes=worker_nodes,
             min_resources=min_resources,
             max_resources=max_resources or None,

@@ -79,18 +79,10 @@
 #include "meshioplusplus/operations/isosurface.hpp"
 #include "meshioplusplus/operations/merge.hpp"
 #include "meshioplusplus/operations/feature_edges.hpp"
-#include "meshioplusplus/operations/fit_cad.hpp"
 #include "meshioplusplus/operations/fit_primitives.hpp"
 #include "meshioplusplus/operations/segment.hpp"
 #include "meshioplusplus/operations/hausdorff.hpp"
 #include "meshioplusplus/operations/normals.hpp"
-#include "meshioplusplus/operations/octree.hpp"
-#include "meshioplusplus/operations/mesh_cad.hpp"
-#include "meshioplusplus/operations/project_to_cad.hpp"
-#include "meshioplusplus/operations/boundary_layer.hpp"
-#include "meshioplusplus/operations/tetrahedralize.hpp"
-#include "meshioplusplus/detail/data_ops.hpp"
-#include "meshioplusplus/operations/octree_mesh.hpp"
 #include "meshioplusplus/operations/optimize_volume.hpp"
 #include "meshioplusplus/operations/partition.hpp"
 #include "meshioplusplus/operations/pipeline.hpp"
@@ -111,7 +103,6 @@
 #include "meshioplusplus/operations/render.hpp"
 #include "meshioplusplus/operations/undo_green.hpp"
 #include "meshioplusplus/operations/voxelize.hpp"
-#include "meshioplusplus/operations/primitives.hpp"
 #include "meshioplusplus/parallel.hpp"
 #include "meshioplusplus/skin.hpp"
 #include "mesh_digest.hpp"
@@ -650,8 +641,7 @@ int main(int argc, char** argv) {
         });
         row("quality", [&](MeshDigest* pD) { of(pD, mio::attach_quality(volume)); });
         row("quality_ragged", [&](MeshDigest* pD) { of(pD, mio::attach_quality(ragged)); });
-        row("data_average",
-            [&](MeshDigest* pD) { of(pD, mio::point_data_to_cell_data(with_field)); });
+        row("data_average", [&](MeshDigest* pD) { of(pD, mio::point_data_to_cell_data(with_field)); });
         row("data_average_ragged",
             [&](MeshDigest* pD) { of(pD, mio::point_data_to_cell_data(ragged_field)); });
         row("interpolate_cells", [&](MeshDigest* pD) {
@@ -682,8 +672,9 @@ int main(int argc, char** argv) {
                                   const Mesh& rSource) {
             if (!wanted(pOp))
                 return;
-            const std::filesystem::path dir = std::filesystem::temp_directory_path() /
-                                              (std::string("meshioplusplus_bench_read_") + pFormat);
+            const std::filesystem::path dir =
+                std::filesystem::temp_directory_path() /
+                (std::string("meshioplusplus_bench_read_") + pFormat);
             std::filesystem::create_directories(dir);
             const std::string path = (dir / (std::string("mesh") + pExt)).string();
             try {
@@ -830,43 +821,14 @@ int main(int argc, char** argv) {
         row("compute_curvature",
             [&](MeshDigest* pD) { of(pD, mio::compute_curvature(surface).mMesh); });
         // Rows for roadmap §5's analysis operations (v16.23.0).
-        row("feature_edges", [&](MeshDigest* pD) { of(pD, mio::feature_edges(volume).mMesh); });
+        row("feature_edges",
+            [&](MeshDigest* pD) { of(pD, mio::feature_edges(volume).mMesh); });
         // Rows for roadmap §6.3's skin to CAD: the cube's skin segments into its
         // six faces (the growth is the serial phase), and each face fits a plane.
         const BenchLazyMesh segmented([&] { return mio::segment(surface).mMesh; });
         row("segment", [&](MeshDigest* pD) { of(pD, mio::segment(surface).mMesh); });
         row("fit_primitives",
             [&](MeshDigest* pD) { of(pD, mio::fit_primitives(segmented).mMesh); });
-        // Rows for fit_cad's freeform modes (v17.12.0): the same skin with a
-        // monkey saddle lifted onto its top, fitted kernel-free, the saddle as
-        // one adaptive B-spline face and as a patch network.
-        const BenchLazyMesh saddle_fitted([&] {
-            const double* q = surface.Points().As<double>();
-            double lo[3] = {1e300, 1e300, 1e300}, hi[3] = {-1e300, -1e300, -1e300};
-            for (std::size_t i = 0; i < surface.NumPoints(); ++i)
-                for (int j = 0; j < 3; ++j) {
-                    lo[j] = std::min(lo[j], q[3 * i + j]);
-                    hi[j] = std::max(hi[j], q[3 * i + j]);
-                }
-            const Mesh lifted = bench_ops_moved(surface, [&](std::size_t, double* pP) {
-                if (pP[2] < hi[2])
-                    return;
-                const double u = 2.0 * (pP[0] - lo[0]) / (hi[0] - lo[0]) - 1.0;
-                const double v = 2.0 * (pP[1] - lo[1]) / (hi[1] - lo[1]) - 1.0;
-                pP[2] += 0.15 * (hi[2] - lo[2]) * (u * u * u - 3.0 * u * v * v);
-            });
-            return mio::fit_primitives(mio::segment(lifted).mMesh).mMesh;
-        });
-        for (const auto mode :
-             {mio::FitCadFreeformMode::Adaptive, mio::FitCadFreeformMode::Network}) {
-            row(mode == mio::FitCadFreeformMode::Adaptive ? "fit_cad_adaptive" : "fit_cad_network",
-                [&, mode](MeshDigest* pD) {
-                    mio::FitCadOptions o;
-                    o.mBackend = mio::FitCadBackend::Native;
-                    o.mFreeformMode = mode;
-                    of(pD, mio::fit_cad(saddle_fitted, "", o).mMesh);
-                });
-        }
         // Rows for roadmap §7's software rasterizer (v16.33.0): a terminal-sized
         // frame of the volume (its skin extraction is part of the cost), and a
         // 4x-supersampled image of the field mesh with smooth shading, a mapped
@@ -955,28 +917,6 @@ int main(int argc, char** argv) {
             o.mResolution = std::array<std::int64_t, 3>{48, 48, 48};
             of(pD, mio::voxelize(volume, o).mMesh);
         });
-        // The parametric generators read no input mesh, so each row measures
-        // construction alone, sized by the tier's lattice resolution. The budget
-        // is lifted: the XL tier is far above the default limit by design.
-        row("box", [&](MeshDigest* pD) {
-            const auto m = static_cast<std::int64_t>(n);
-            of(pD, mio::box({{m, m, m}}, {{1.0, 1.0, 1.0}}, {{0.0, 0.0, 0.0}}, "hexahedron", 1, 0));
-        });
-        row("rectangle", [&](MeshDigest* pD) {
-            const auto m = static_cast<std::int64_t>(4 * n);
-            of(pD, mio::rectangle({{m, m}}, {{1.0, 1.0}}, {{0.0, 0.0, 0.0}}, "triangle", "zigzag",
-                                  1, 0));
-        });
-        row("uv_sphere", [&](MeshDigest* pD) {
-            const auto m = static_cast<std::int64_t>(4 * n);
-            of(pD, mio::uv_sphere(1.0, 2 * m, m, {{0.0, 0.0, 0.0}}, "triangle", 1, 0));
-        });
-        row("icosa_sphere",
-            [&](MeshDigest* pD) { of(pD, mio::icosa_sphere(1.0, 6, {{0.0, 0.0, 0.0}}, 1, 0)); });
-        row("cylinder", [&](MeshDigest* pD) {
-            const auto m = static_cast<std::int64_t>(n);
-            of(pD, mio::cylinder(1.0, 1.0, m, m, {{0.0, 0.0, 0.0}}, "hexahedron", 1, 0));
-        });
         // Rows for roadmap §3's remaining operation items (v16.19.0).
         row("remesh", [&](MeshDigest* pD) {
             mio::RemeshOptions o;
@@ -987,419 +927,6 @@ int main(int argc, char** argv) {
             mio::RemeshVolumeOptions o;
             o.mCellSize = 1.5 / static_cast<double>(n);
             of(pD, mio::remesh_volume(surface, o).mMesh);
-        });
-        // The octree around the cube's surface (the baseline of the next two
-        // rows), and `octree_mesh`'s castellated and tetrahedral outputs on a
-        // size field from one to eight lattice steps.
-        const double octree_step = 1.0 / static_cast<double>(n);
-        row("octree", [&](MeshDigest* pD) {
-            mio::OctreeOptions o;
-            o.mMaxLevel =
-                static_cast<std::int64_t>(std::ceil(std::log2(static_cast<double>(n)))) + 1;
-            o.mFill = mio::VoxelFill::Inside;
-            of(pD, mio::octree(surface, o).mMesh);
-        });
-        row("octree_mesh_castellated", [&](MeshDigest* pD) {
-            mio::OctreeMeshOptions o;
-            o.mOutput = mio::OctreeMeshOutput::Castellated;
-            o.mMinSize = octree_step;
-            o.mMaxSize = 8.0 * octree_step;
-            of(pD, mio::octree_mesh(surface, o).mMesh);
-        });
-        row("octree_mesh_tet", [&](MeshDigest* pD) {
-            mio::OctreeMeshOptions o;
-            o.mMinSize = octree_step;
-            o.mMaxSize = 8.0 * octree_step;
-            of(pD, mio::octree_mesh(surface, o).mMesh);
-        });
-        row("octree_mesh_hex", [&](MeshDigest* pD) {
-            mio::OctreeMeshOptions o;
-            o.mOutput = mio::OctreeMeshOutput::Hexa;
-            o.mSurfaceSize = 2.0 * octree_step;
-            o.mMaxSize = 8.0 * octree_step;
-            of(pD, mio::octree_mesh(surface, o).mMesh);
-        });
-        row("octree_mesh_hex_graded", [&](MeshDigest* pD) {
-            mio::OctreeMeshOptions o;
-            o.mOutput = mio::OctreeMeshOutput::Hexa;
-            o.mHexGrading = mio::OctreeMeshHexGrading::Graded;
-            o.mMinSize = 2.0 * octree_step;
-            o.mMaxSize = 8.0 * octree_step;
-            of(pD, mio::octree_mesh(surface, o).mMesh);
-        });
-        // The CAD models of the mesh_cad_surface rows, built inside each row's
-        // timed body as before.
-        const auto cad_box = [&]() {
-            mio::BrepInfo box;
-            const double sides[6][3][3] = {
-                {{0, 0, 0}, {0, 1, 0}, {1, 0, 0}}, {{0, 0, 1}, {1, 0, 0}, {0, 1, 0}},
-                {{0, 0, 0}, {1, 0, 0}, {0, 0, 1}}, {{0, 1, 0}, {0, 0, 1}, {1, 0, 0}},
-                {{0, 0, 0}, {0, 0, 1}, {0, 1, 0}}, {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}};
-            for (int f = 0; f < 6; ++f) {
-                mio::NurbsPatch p;
-                p.mDegrees = {1, 1};
-                p.mKnots = {{0, 0, 1, 1}, {0, 0, 1, 1}};
-                p.mControlPoints = NDArray(mio::DType::Float64, {4, 3});
-                p.mWeights = NDArray(mio::DType::Float64, {4});
-                for (int j = 0; j < 2; ++j)
-                    for (int i = 0; i < 2; ++i)
-                        for (int k = 0; k < 3; ++k)
-                            p.mControlPoints.As<double>()[3 * (2 * j + i) + k] =
-                                sides[f][0][k] + i * sides[f][1][k] + j * sides[f][2][k];
-                for (int i = 0; i < 4; ++i)
-                    p.mWeights.As<double>()[i] = 1.0;
-                box.mPatches.push_back(p);
-                mio::BrepFace face;
-                face.mId = f + 1;
-                face.mPatch = f;
-                box.mFaces.push_back(face);
-            }
-            return box;
-        };
-        const auto cad_plate = [&]() {
-            constexpr double kTwoPi = 6.283185307179586;
-            // A full circle in the plane's parameters: four rational quarters
-            // from angle A0, run counter-clockwise or not.
-            const auto circle = [&](double Cx, double Cy, double R, double A0, bool Ccw) {
-                mio::BrepTrim t;
-                t.mDirection = Ccw;
-                mio::BrepCurve& c = t.mCurve;
-                c.mDegree = 2;
-                c.mRational = true;
-                const double q = 0.25 * kTwoPi;
-                c.mKnots = {0, 0, 0, q, q, 2 * q, 2 * q, 3 * q, 3 * q, 4 * q, 4 * q, 4 * q};
-                c.mControlPoints = NDArray(mio::DType::Float64, {9, 3});
-                c.mWeights = NDArray(mio::DType::Float64, {9});
-                const double w = std::sqrt(0.5);
-                for (int k = 0; k < 9; ++k) {
-                    const double a = A0 + 0.5 * q * k;
-                    const double r = k % 2 ? R / w : R;
-                    double* p = c.mControlPoints.As<double>() + 3 * k;
-                    p[0] = Cx + r * std::cos(a);
-                    p[1] = Cy + r * std::sin(a);
-                    p[2] = 0.0;
-                    c.mWeights.As<double>()[k] = k % 2 ? w : 1.0;
-                }
-                return t;
-            };
-            mio::BrepInfo plate;
-            mio::NurbsPatch p;
-            p.mDegrees = {1, 1};
-            p.mKnots = {{-2.5, -2.5, 2.5, 2.5}, {-2.5, -2.5, 2.5, 2.5}};
-            p.mControlPoints = NDArray(mio::DType::Float64, {4, 3});
-            p.mWeights = NDArray(mio::DType::Float64, {4});
-            for (int j = 0; j < 2; ++j)
-                for (int i = 0; i < 2; ++i) {
-                    double* x = p.mControlPoints.As<double>() + 3 * (2 * j + i);
-                    x[0] = i ? 2.5 : -2.5;
-                    x[1] = j ? 2.5 : -2.5;
-                    x[2] = 0.0;
-                    p.mWeights.As<double>()[2 * j + i] = 1.0;
-                }
-            plate.mPatches.push_back(p);
-            mio::BrepFace face;
-            face.mId = 1;
-            face.mPatch = 0;
-            face.mTrimmed = true;
-            face.mRational = true;
-            face.mLoops.resize(2);
-            face.mLoops[0].mTrims.push_back(circle(0.0, 0.0, 2.0, 0.625 * kTwoPi, true));
-            face.mLoops[1].mType = "inner";
-            face.mLoops[1].mTrims.push_back(circle(0.98, 0.0, 1.0, 0.0, false));
-            mio::BrepTrim line;
-            line.mCurve.mDegree = 1;
-            line.mCurve.mKnots = {0, 0, 1, 1};
-            line.mCurve.mControlPoints = NDArray(mio::DType::Float64, {2, 3});
-            line.mCurve.mWeights = NDArray(mio::DType::Float64, {2});
-            const double ends[6] = {-1.6, -0.6, 0.0, -0.4, 1.2, 0.0};
-            std::copy(ends, ends + 6, line.mCurve.mControlPoints.As<double>());
-            line.mCurve.mWeights.As<double>()[0] = 1.0;
-            line.mCurve.mWeights.As<double>()[1] = 1.0;
-            face.mEmbeddedEdges.push_back(line);
-            plate.mFaces.push_back(face);
-            return plate;
-        };
-        // mesh_cad_surface (v17.13.0): the unit box as six untrimmed bilinear
-        // patches with no edge topology (the trims are paired by their
-        // images), meshed at one lattice step.
-        row("mesh_cad_surface", [&](MeshDigest* pD) {
-            const mio::BrepInfo box = cad_box();
-            mio::MeshCadSurfaceOptions o;
-            o.mTargetSize = octree_step;
-            of(pD, mio::mesh_cad_surface(box, o).mMesh);
-        });
-        // mesh_cad_surface on trimmed geometry (v17.14.0): a disc plate of
-        // radius 2 with a hole of radius 1 whose edge comes within 0.02 of the
-        // rim, and an embedded line across the plate. At h = 1.1 the coarse
-        // loops cross and are split until they do not; at the tier's step
-        // the plate is filled around the embedded edge.
-        row("mesh_cad_surface_trimmed", [&](MeshDigest* pD) {
-            const mio::BrepInfo plate = cad_plate();
-            for (const double h : {1.1, 4.0 * octree_step}) {
-                mio::MeshCadSurfaceOptions o;
-                o.mTargetSize = h;
-                of(pD, mio::mesh_cad_surface(plate, o).mMesh);
-            }
-        });
-        // Delaunay refinement (v17.15.0): the same two models refined to 25
-        // degrees on the surface (the plate also smoothed twice), against
-        // the two rows above at the same sizes for refinement's cost.
-        row("mesh_cad_surface_refined", [&](MeshDigest* pD) {
-            const mio::BrepInfo box = cad_box();
-            const mio::BrepInfo plate = cad_plate();
-            mio::MeshCadSurfaceOptions o;
-            o.mTargetSize = octree_step;
-            o.mMinAngleDeg = 25.0;
-            of(pD, mio::mesh_cad_surface(box, o).mMesh);
-            for (const double h : {1.1, 4.0 * octree_step}) {
-                o.mTargetSize = h;
-                o.mSmoothIterations = 2;
-                of(pD, mio::mesh_cad_surface(plate, o).mMesh);
-            }
-        });
-        // Curved elements (v17.16.0): the same two models at orders 2 and 3,
-        // their nodes placed on the geometry and every element's Jacobian
-        // bounded, against the unrefined rows above at the same sizes.
-        row("mesh_cad_surface_curved", [&](MeshDigest* pD) {
-            const mio::BrepInfo box = cad_box();
-            const mio::BrepInfo plate = cad_plate();
-            for (const std::int32_t order : {2, 3}) {
-                mio::MeshCadSurfaceOptions o;
-                o.mOrder = order;
-                o.mTargetSize = octree_step;
-                of(pD, mio::mesh_cad_surface(box, o).mMesh);
-                for (const double h : {1.1, 4.0 * octree_step}) {
-                    o.mTargetSize = h;
-                    of(pD, mio::mesh_cad_surface(plate, o).mMesh);
-                }
-            }
-        });
-        // A size field (v17.18.0): the unit box squashed to a slab two
-        // lattice steps thick, with two cells across its walls, so the first
-        // uniform pass, the gap rays, the graded field and the sized edges
-        // and faces all run, against mesh_cad_surface at the same step.
-        row("mesh_cad_surface_sized", [&](MeshDigest* pD) {
-            mio::BrepInfo slab = cad_box();
-            for (mio::NurbsPatch& r_p : slab.mPatches)
-                for (std::size_t i = 0; i < 4; ++i)
-                    r_p.mControlPoints.As<double>()[3 * i + 2] *= 2.0 * octree_step;
-            mio::MeshCadSurfaceOptions o;
-            o.mTargetSize = octree_step;
-            o.mCellsAcrossGaps = 2.0;
-            o.mGrading = 1.3;
-            of(pD, mio::mesh_cad_surface(slab, o).mMesh);
-        });
-        // Given sizes (v17.19.0): the unit box at four lattice steps with one
-        // face given one step, graded into the rest.
-        row("mesh_cad_surface_given_sizes", [&](MeshDigest* pD) {
-            const mio::BrepInfo box = cad_box();
-            mio::MeshCadSurfaceOptions o;
-            o.mTargetSize = 4.0 * octree_step;
-            mio::MeshCadSizeSources src;
-            src.mFaceSizes = {{1, octree_step}};
-            of(pD, mio::mesh_cad_surface(box, o, src).mMesh);
-        });
-        // A metric source (roadmap 6.10.2): the unit box at four lattice
-        // steps, a constant Hessian asking for one step along x alone, so the
-        // triangles stretch along y and z.
-        row("mesh_cad_surface_metric", [&](MeshDigest* pD) {
-            const mio::BrepInfo box = cad_box();
-            mio::MeshCadSurfaceOptions o;
-            o.mTargetSize = 4.0 * octree_step;
-            o.mEdges = false;
-            mio::Mesh bg = mio::mesh_cad_surface(box, o).mMesh;
-            NDArray hess(mio::DType::Float64, {bg.NumPoints(), 9});
-            for (std::size_t i = 0; i < bg.NumPoints(); ++i)
-                for (std::size_t k = 0; k < 9; ++k)
-                    hess.As<double>()[9 * i + k] = k == 0 ? 8.0 / (octree_step * octree_step) : 0.0;
-            bg.AddPointData("hessian", std::move(hess));
-            mio::MeshCadSizeSources src;
-            src.pMetricBackground = &bg;
-            src.mMetricArray = "hessian";
-            src.mMetricError = 1.0;
-            of(pD, mio::mesh_cad_surface(box, o, src).mMesh);
-        });
-        // Bilinear patches over z = 0, each from its four corners (u fastest).
-        const auto bilinear = [&](const std::vector<std::array<double, 12>>& rCorners) {
-            mio::BrepInfo b;
-            for (std::size_t f = 0; f < rCorners.size(); ++f) {
-                mio::NurbsPatch p;
-                p.mDegrees = {1, 1};
-                p.mKnots = {{0, 0, 1, 1}, {0, 0, 1, 1}};
-                p.mControlPoints = NDArray(mio::DType::Float64, {4, 3});
-                p.mWeights = NDArray(mio::DType::Float64, {4});
-                for (int i = 0; i < 12; ++i)
-                    p.mControlPoints.As<double>()[i] = rCorners[f][static_cast<std::size_t>(i)];
-                for (int i = 0; i < 4; ++i)
-                    p.mWeights.As<double>()[i] = 1.0;
-                b.mPatches.push_back(p);
-                mio::BrepFace face;
-                face.mId = static_cast<std::int64_t>(f) + 1;
-                face.mPatch = static_cast<std::int64_t>(f);
-                b.mFaces.push_back(face);
-            }
-            return b;
-        };
-        // The discrete reparametrisation (v17.20.0): a patch whose two corner
-        // control points coincide, flattened by its conformal map, refined to
-        // 25 degrees.
-        row("mesh_cad_surface_reparam", [&](MeshDigest* pD) {
-            const mio::BrepInfo patch = bilinear({{0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 2, 0}});
-            mio::MeshCadSurfaceOptions o;
-            o.mTargetSize = 2.0 * octree_step;
-            o.mMinAngleDeg = 25.0;
-            o.mReparamConditionNumber = 4.0;
-            of(pD, mio::mesh_cad_surface(patch, o).mMesh);
-        });
-        // Virtual faces (v17.20.0): three plates in a row, the middle one a
-        // twentieth of the step wide, merged into a neighbour.
-        row("mesh_cad_surface_virtual_faces", [&](MeshDigest* pD) {
-            const double w = 0.05 * octree_step;
-            const mio::BrepInfo strip =
-                bilinear({{0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0},
-                          {0, 1, 0, 1, 1, 0, 0, 1 + w, 0, 1, 1 + w, 0},
-                          {0, 1 + w, 0, 1, 1 + w, 0, 0, 2 + w, 0, 1, 2 + w, 0}});
-            mio::MeshCadSurfaceOptions o;
-            o.mTargetSize = octree_step;
-            o.mMinAngleDeg = 25.0;
-            mio::MeshCadSurfaceExtras extras;
-            extras.mVirtualFaces = true;
-            of(pD, mio::mesh_cad_surface(strip, o, mio::MeshCadSizeSources{}, extras).mMesh);
-        });
-        // Corner lopping (v17.20.0): a parallelogram with two 30-degree
-        // corners, lopped and refined to 20 degrees.
-        row("mesh_cad_surface_lop_corners", [&](MeshDigest* pD) {
-            const double c = std::sqrt(3.0), sh = 1.0;
-            const mio::BrepInfo para = bilinear({{0, 0, 0, 2, 0, 0, c, sh, 0, 2 + c, sh, 0}});
-            mio::MeshCadSurfaceOptions o;
-            o.mTargetSize = octree_step;
-            o.mMinAngleDeg = 20.0;
-            mio::MeshCadSurfaceExtras extras;
-            extras.mLopCorners = true;
-            of(pD, mio::mesh_cad_surface(para, o, mio::MeshCadSizeSources{}, extras).mMesh);
-        });
-        // Untangling (roadmap 6.6.3): the plate's curved rows again, its
-        // folded elements' own nodes moved on the surface before any is
-        // straightened.
-        row("mesh_cad_surface_untangle", [&](MeshDigest* pD) {
-            const mio::BrepInfo plate = cad_plate();
-            mio::MeshCadSurfaceExtras extras;
-            extras.mUntangle = true;
-            for (const std::int32_t order : {2, 3})
-                for (const double h : {1.1, 4.0 * octree_step}) {
-                    mio::MeshCadSurfaceOptions o;
-                    o.mOrder = order;
-                    o.mTargetSize = h;
-                    of(pD,
-                       mio::mesh_cad_surface(plate, o, mio::MeshCadSizeSources{}, extras).mMesh);
-                }
-        });
-        // Quadrilaterals (roadmap 6.8): the box and the plate refined to 25
-        // degrees, recombined quad-dominant, and the box all-quad.
-        row("mesh_cad_surface_quads", [&](MeshDigest* pD) {
-            const mio::BrepInfo box = cad_box();
-            const mio::BrepInfo plate = cad_plate();
-            mio::MeshCadSurfaceOptions o;
-            o.mMinAngleDeg = 25.0;
-            mio::MeshCadSurfaceExtras extras;
-            extras.mQuads = mio::MeshCadQuads::Dominant;
-            o.mTargetSize = octree_step;
-            of(pD, mio::mesh_cad_surface(box, o, mio::MeshCadSizeSources{}, extras).mMesh);
-            o.mTargetSize = 4.0 * octree_step;
-            of(pD, mio::mesh_cad_surface(plate, o, mio::MeshCadSizeSources{}, extras).mMesh);
-            extras.mQuads = mio::MeshCadQuads::All;
-            o.mTargetSize = octree_step;
-            of(pD, mio::mesh_cad_surface(box, o, mio::MeshCadSizeSources{}, extras).mMesh);
-        });
-        // The same quad-dominant meshes paired greedily (roadmap 6.8.1: the
-        // matching is the default).
-        row("mesh_cad_surface_quads_greedy", [&](MeshDigest* pD) {
-            const mio::BrepInfo box = cad_box();
-            const mio::BrepInfo plate = cad_plate();
-            mio::MeshCadSurfaceOptions o;
-            o.mMinAngleDeg = 25.0;
-            mio::MeshCadSurfaceExtras extras;
-            extras.mQuads = mio::MeshCadQuads::Dominant;
-            extras.mQuadPairs = mio::MeshCadQuadPairs::Greedy;
-            o.mTargetSize = octree_step;
-            of(pD, mio::mesh_cad_surface(box, o, mio::MeshCadSizeSources{}, extras).mMesh);
-            o.mTargetSize = 4.0 * octree_step;
-            of(pD, mio::mesh_cad_surface(plate, o, mio::MeshCadSizeSources{}, extras).mMesh);
-        });
-        // Curved all-quad meshes (roadmap 6.8.3): the box and the plate as
-        // quad9, and the plate sized by its gaps at twice the size.
-        row("mesh_cad_surface_quad9", [&](MeshDigest* pD) {
-            const mio::BrepInfo box = cad_box();
-            const mio::BrepInfo plate = cad_plate();
-            mio::MeshCadSurfaceOptions o;
-            o.mOrder = 2;
-            mio::MeshCadSurfaceExtras extras;
-            extras.mQuads = mio::MeshCadQuads::All;
-            o.mTargetSize = octree_step;
-            of(pD, mio::mesh_cad_surface(box, o, mio::MeshCadSizeSources{}, extras).mMesh);
-            o.mTargetSize = 4.0 * octree_step;
-            of(pD, mio::mesh_cad_surface(plate, o, mio::MeshCadSizeSources{}, extras).mMesh);
-            o.mOrder = 1;
-            o.mCellsAcrossGaps = 2.0;
-            of(pD, mio::mesh_cad_surface(plate, o, mio::MeshCadSizeSources{}, extras).mMesh);
-        });
-        // Back onto the CAD (roadmap 6.10.1): the plate's mesh lifted off its
-        // plane and moved in it, projected back onto its face and edges.
-        row("project_to_cad", [&](MeshDigest* pD) {
-            const mio::BrepInfo plate = cad_plate();
-            mio::MeshCadSurfaceOptions o;
-            o.mTargetSize = octree_step;
-            const mio::Mesh m = mio::mesh_cad_surface(plate, o).mMesh;
-            mio::Mesh off = mio::detail::clone_mesh(m);
-            mio::NDArray p =
-                mio::NDArray::Uninit(mio::DType::Float64, {m.NumPoints(), std::size_t{3}});
-            const double* src = m.Points().As<double>();
-            for (std::size_t i = 0; i < m.NumPoints(); ++i) {
-                p.As<double>()[3 * i] = src[3 * i] + 0.01 * std::sin(double(i));
-                p.As<double>()[3 * i + 1] = src[3 * i + 1] + 0.01 * std::cos(double(i));
-                p.As<double>()[3 * i + 2] = src[3 * i + 2] + 0.05 * std::sin(3.0 * double(i));
-            }
-            off.AssignPoints(std::move(p));
-            of(pD, mio::project_to_cad(off, plate).mMesh);
-        });
-        // Boundary layers (roadmap 6.9): four layers grown out of the box's
-        // surface and into its all-quad one.
-        row("boundary_layer", [&](MeshDigest* pD) {
-            const mio::BrepInfo box = cad_box();
-            mio::MeshCadSurfaceOptions o;
-            o.mTargetSize = octree_step;
-            mio::BoundaryLayerOptions b;
-            b.mFirstHeight = 0.05 * octree_step;
-            b.mNumLayers = 4;
-            of(pD, mio::boundary_layer(mio::mesh_cad_surface(box, o).mMesh, b).mMesh);
-            mio::MeshCadSurfaceExtras ex;
-            ex.mQuads = mio::MeshCadQuads::All;
-            b.mReverse = true;
-            of(pD, mio::boundary_layer(
-                       mio::mesh_cad_surface(box, o, mio::MeshCadSizeSources{}, ex).mMesh, b)
-                       .mMesh);
-        });
-        // Tetrahedra filling the box's skin (roadmap 6.7), only where the
-        // Netgen backend is built in; its calls are serialised, so the digest
-        // is the same at every thread count.
-        if (mio::tetrahedralize_has_netgen())
-            row("tetrahedralize", [&](MeshDigest* pD) {
-                const mio::BrepInfo box = cad_box();
-                mio::MeshCadSurfaceOptions o;
-                o.mTargetSize = octree_step;
-                mio::TetrahedralizeOptions t;
-                t.mBackend = mio::TetrahedralizeBackend::Netgen;
-                t.mMaxSize = octree_step;
-                of(pD, mio::tetrahedralize(mio::mesh_cad_surface(box, o).mMesh, t).mMesh);
-            });
-        // The same skin through the native octree backend, always built.
-        row("tetrahedralize_octree", [&](MeshDigest* pD) {
-            const mio::BrepInfo box = cad_box();
-            mio::MeshCadSurfaceOptions o;
-            o.mTargetSize = octree_step;
-            mio::TetrahedralizeOptions t;
-            t.mBackend = mio::TetrahedralizeBackend::Octree;
-            of(pD, mio::tetrahedralize(mio::mesh_cad_surface(box, o).mMesh, t).mMesh);
         });
         row("sample_distance", [&](MeshDigest* pD) {
             const NDArray d = mio::sample_distance(surface, jittered->Points());

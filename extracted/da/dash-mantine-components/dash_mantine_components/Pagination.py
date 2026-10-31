@@ -113,6 +113,9 @@ Keyword arguments:
 - flex (string | number | dict; optional):
     Flex – Accepts CSS values or a dict for responsive styles.
 
+- formatLabel (boolean | number | string | dict | list; optional):
+    Function to format the label text displayed in responsive mode.
+
 - fs (dict; optional):
     Font style – Accepts CSS values or a dict for responsive styles.
 
@@ -140,6 +143,11 @@ Keyword arguments:
 
 - inset (string | number | dict; optional):
     Inset – Accepts CSS values or a dict for responsive styles.
+
+- layout (a value equal to: 'default', 'responsive'; optional):
+    Determines how the pagination is displayed, `'responsive'` uses
+    CSS container queries to switch between pages and a compact label
+    default 'default'.
 
 - left (string | number | dict; optional):
     Left offset – Accepts CSS values or a dict for responsive styles.
@@ -191,9 +199,15 @@ Keyword arguments:
     Margin inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- mie (number; optional):
+    MarginInlineEnd, theme key: theme.spacing.
+
 - mih (string | number | dict; optional):
     Minimum height – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
+
+- mis (number; optional):
+    MarginInlineStart, theme key: theme.spacing.
 
 - miw (string | number | dict; optional):
     Minimum width – Accepts theme spacing keys, CSS values, or a dict
@@ -263,6 +277,12 @@ Keyword arguments:
     kept after the browser quit. session: window.sessionStorage, data
     is cleared once the browser quit.
 
+- pie (number; optional):
+    PaddingInlineEnd, theme key: theme.spacing.
+
+- pis (number; optional):
+    PaddingInlineStart, theme key: theme.spacing.
+
 - pl (string | number | dict; optional):
     Padding left – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
@@ -304,6 +324,9 @@ Keyword arguments:
 
 - size (number; optional):
     `height` and `min-width` of controls, `'md'` by default.
+
+- startValue (number; optional):
+    Starting page number, defaults to 1.
 
 - styles (boolean | number | string | dict | list; optional):
     Adds inline styles directly to inner elements of a component.  See
@@ -388,6 +411,9 @@ Keyword arguments:
         autoContrast: typing.Optional[bool] = None,
         hideWithOnePage: typing.Optional[bool] = None,
         withPages: typing.Optional[bool] = None,
+        startValue: typing.Optional[NumberType] = None,
+        layout: typing.Optional[Literal["default", "responsive"]] = None,
+        formatLabel: typing.Optional[typing.Any] = None,
         hiddenFrom: typing.Optional[str] = None,
         visibleFrom: typing.Optional[str] = None,
         mod: typing.Optional[typing.Union[str, dict, typing.Sequence[typing.Union[str, dict]]]] = None,
@@ -445,6 +471,10 @@ Keyword arguments:
         style: typing.Optional[typing.Any] = None,
         lightHidden: typing.Optional[bool] = None,
         darkHidden: typing.Optional[bool] = None,
+        mis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        mie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         classNames: typing.Optional[dict] = None,
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
@@ -458,9 +488,9 @@ Keyword arguments:
         loading_state: typing.Optional["LoadingState"] = None,
         **kwargs
     ):
-        self._prop_names = ['id', 'aria-*', 'attributes', 'autoContrast', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'boundaries', 'c', 'className', 'classNames', 'color', 'darkHidden', 'data-*', 'disabled', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'gap', 'h', 'hiddenFrom', 'hideWithOnePage', 'inset', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'right', 'siblings', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'total', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withControls', 'withEdges', 'withPages']
+        self._prop_names = ['id', 'aria-*', 'attributes', 'autoContrast', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'boundaries', 'c', 'className', 'classNames', 'color', 'darkHidden', 'data-*', 'disabled', 'display', 'ff', 'flex', 'formatLabel', 'fs', 'fw', 'fz', 'gap', 'h', 'hiddenFrom', 'hideWithOnePage', 'inset', 'layout', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pie', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'right', 'siblings', 'size', 'startValue', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'total', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withControls', 'withEdges', 'withPages']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['id', 'aria-*', 'attributes', 'autoContrast', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'boundaries', 'c', 'className', 'classNames', 'color', 'darkHidden', 'data-*', 'disabled', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'gap', 'h', 'hiddenFrom', 'hideWithOnePage', 'inset', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'right', 'siblings', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'total', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withControls', 'withEdges', 'withPages']
+        self.available_properties = ['id', 'aria-*', 'attributes', 'autoContrast', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'boundaries', 'c', 'className', 'classNames', 'color', 'darkHidden', 'data-*', 'disabled', 'display', 'ff', 'flex', 'formatLabel', 'fs', 'fw', 'fz', 'gap', 'h', 'hiddenFrom', 'hideWithOnePage', 'inset', 'layout', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pie', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'right', 'siblings', 'size', 'startValue', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'total', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withControls', 'withEdges', 'withPages']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

@@ -1159,8 +1159,21 @@ def human_authored_text(role: Any, content: Any, user_content: Any) -> str:
     return content_text(content)
 
 
-def content_text(content: Any) -> str:
-    """Text blocks only. Tool machinery is not speech."""
+#: Blocks a message stores beside its reply that are NOT the reply. A ``thinking`` block keeps the
+#: model's private reasoning under ``text`` (same key as the answer), so a reader that takes "any
+#: block with a text field" puts the reasoning in front of every answer, judge, text message and
+#: parent agent (run 57db7ef9, 2026-10-29). Readers of stored dict blocks that cannot use
+#: :func:`content_text` skip these types.
+NOT_REPLY_BLOCK_TYPES = frozenset({"thinking", "redacted_thinking", "reasoning"})
+
+
+def content_text(content: Any, *, sep: str = "\n") -> str:
+    """THE reply text of a stored or in-memory message body: text blocks only.
+
+    Tool machinery is not speech and reasoning is not a reply: only ``text`` / ``input_text``
+    blocks (dicts, typed contents or bare strings) contribute, so a ``thinking`` block, whose
+    reasoning rides under ``text``, never leaks. ``sep`` joins the pieces (``""`` for text that the
+    provider split mid-sentence into consecutive blocks)."""
     if isinstance(content, str):
         return content
     if not isinstance(content, list):
@@ -1177,7 +1190,7 @@ def content_text(content: Any) -> str:
             text = getattr(block, "text", None)
             if isinstance(text, str) and getattr(block, "type", "text") in ("text", "input_text"):
                 parts.append(text)
-    return "\n".join(part for part in parts if part.strip())
+    return sep.join(part for part in parts if part.strip())
 
 
 @dataclass

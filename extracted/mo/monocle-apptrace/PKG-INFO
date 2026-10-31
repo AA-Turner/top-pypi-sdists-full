@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: monocle_apptrace
-Version: 0.8.15
+Version: 0.8.16
 Summary: package with monocle genAI tracing
 Project-URL: Homepage, https://github.com/monocle2ai/monocle
 Project-URL: Issues, https://github.com/monocle2ai/monocle/issues
@@ -87,6 +87,7 @@ Requires-Dist: opentelemetry-instrumentation-flask; extra == 'dev'
 Requires-Dist: opentelemetry-semantic-conventions-ai==0.4.13; extra == 'dev'
 Requires-Dist: opentelemetry-semantic-conventions==0.60b1; extra == 'dev'
 Requires-Dist: parameterized==0.9.0; extra == 'dev'
+Requires-Dist: pyarrow<26; extra == 'dev'
 Requires-Dist: pydantic==2.11.7; extra == 'dev'
 Requires-Dist: pytest-asyncio>=0.26.0; extra == 'dev'
 Requires-Dist: pytest-venv; extra == 'dev'
@@ -100,6 +101,7 @@ Requires-Dist: llama-index-llms-gemini==0.6.0; extra == 'dev-gemini'
 Provides-Extra: dev-msagent
 Requires-Dist: agent-framework-foundry==1.11.0; extra == 'dev-msagent'
 Requires-Dist: agent-framework-openai==1.14.0; extra == 'dev-msagent'
+Requires-Dist: agent-framework-orchestrations==1.1.1; extra == 'dev-msagent'
 Requires-Dist: openai>=2.8.0; extra == 'dev-msagent'
 Provides-Extra: dev-strands
 Requires-Dist: strands-agents-tools==0.2.10; extra == 'dev-strands'

@@ -5,10 +5,12 @@ import os
 import sys
 import time
 from contextlib import contextmanager
+from importlib.metadata import Distribution
 from pathlib import Path
+from shutil import which
 from subprocess import check_call
 from textwrap import dedent
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 from unittest import mock
 from zipfile import ZipFile
 
@@ -21,11 +23,12 @@ if TYPE_CHECKING:
 
     from build import DistributionType
     from devpi_process import Index, IndexServer
+    from pytest_mock import MockerFixture
 
     from tox.execute.request import ExecuteRequest
-    from tox.pytest import MonkeyPatch, TempPathFactory, ToxProjectCreator
+    from tox.pytest import MonkeyPatch, TempPathFactory, ToxProject, ToxProjectCreator, ToxRunOutcome
+    from tox.tox_env.api import ToxEnv
 
-from importlib.metadata import Distribution
 
 ROOT = Path(__file__).parents[1]
 
@@ -151,6 +154,18 @@ def test_provision_requires_nok(tox_project: ToxProjectCreator) -> None:
     )
 
 
+def test_provision_requires_substitution_cannot_add_requirement(
+    tox_project: ToxProjectCreator, monkeypatch: MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PIN", "1,pkg-not-required")
+    outcome: Final[ToxRunOutcome] = tox_project({"tox.ini": "[tox]\nrequires = pkg-does-not-exist=={env:PIN}\n"}).run(
+        "c", "-e", "py"
+    )
+    outcome.assert_failed()
+    assert "replace failed in tox.requires with ValueError('a substitution within an entry cannot" in outcome.out
+    assert "provisioned" not in outcome.out
+
+
 def test_provision_requires_skips_false_markers(tox_project: ToxProjectCreator) -> None:
     project = tox_project({
         "tox.toml": """
@@ -179,15 +194,285 @@ def test_provision_requires_checks_true_markers(tox_project: ToxProjectCreator) 
     assert "pkg-does-not-exist" in outcome.out
 
 
+def test_provision_requires_direct_url_not_satisfied_by_installed_name(tox_project: ToxProjectCreator) -> None:
+    url: Final[str] = "file:///srv/wheels/tox-99.0-py3-none-any.whl"
+    outcome: Final[ToxRunOutcome] = tox_project({"tox.ini": f"[tox]\nrequires = tox @ {url}\nno_package = true\n"}).run(
+        "c", "-e", "py", "--no-provision"
+    )
+    outcome.assert_failed()
+    assert f"is missing [requires (has)]: {Requirement(f'tox @ {url}')} (" in outcome.out
+
+
+@pytest.mark.usefixtures("installed_pkg_info")
+def test_provision_requires_direct_url_without_origin(tox_project: ToxProjectCreator) -> None:
+    outcome: Final[ToxRunOutcome] = tox_project({"tox.ini": "[tox]\nrequires = pkg @ file:///w/pkg-1.0.whl\n"}).run(
+        "c", "-e", "py", "--no-provision"
+    )
+
+    assert ("is missing [requires (has)]" in outcome.out, outcome.success) == (True, False)
+
+
+def test_provision_requires_direct_url_invalid_encoding(
+    tox_project: ToxProjectCreator, installed_pkg_info: Path
+) -> None:
+    (installed_pkg_info / "direct_url.json").write_bytes(b"\xff")
+    outcome: Final[ToxRunOutcome] = tox_project({"tox.ini": "[tox]\nrequires = pkg @ file:///w/pkg-1.0.whl\n"}).run(
+        "c", "-e", "py", "--no-provision"
+    )
+
+    assert ("is missing [requires (has)]" in outcome.out, outcome.success) == (True, False)
+
+
+@pytest.mark.parametrize(
+    "fragment",
+    [
+        pytest.param("", id="no-fragment"),
+        pytest.param("#egg=pkg", id="egg-fragment"),
+        pytest.param("#sha3_256=abc", id="unsupported-hash"),
+    ],
+)
+def test_provision_requires_direct_url_credentialed_without_hash(
+    tox_project: ToxProjectCreator, installed_pkg_info: Path, fragment: str
+) -> None:
+    (installed_pkg_info / "direct_url.json").write_text(
+        '{"url": "https://h/pkg-1.0.whl", "archive_info": {"hashes": {"sha256": "abc"}}}'
+    )
+    outcome: Final[ToxRunOutcome] = tox_project({
+        "tox.toml": f'requires = ["pkg @ https://user:token@h/pkg-1.0.whl{fragment}"]\n'
+    }).run("c", "-e", "py")
+
+    assert ("cannot verify the installed origin of a credentialed direct URL" in outcome.out, outcome.success) == (
+        True,
+        False,
+    )
+
+
+@pytest.mark.parametrize(
+    ("requirement", "direct_url", "is_missing"),
+    [
+        pytest.param("pkg @ file:///w/pkg-1.0.whl", "not json", True, id="invalid-json"),
+        pytest.param("pkg @ file:///w/pkg-1.0.whl", "[]", True, id="not-object"),
+        pytest.param("pkg @ file:///w/pkg-1.0.whl", '{"url": 1}', True, id="url-not-str"),
+        pytest.param("pkg @ file:///w/pkg-1.0.whl", '{"url": "file:///w/pkg-1.0.whl"}', True, id="missing-origin"),
+        pytest.param(
+            "pkg @ file:///w/pkg-1.0.whl", '{"url": "file:///other/pkg-1.0.whl", "archive_info": {}}', True, id="other"
+        ),
+        pytest.param(
+            "pkg @ file:///w/pkg-1.0.whl", '{"url": "file:///w/pkg-1.0.whl", "archive_info": {}}', False, id="same"
+        ),
+        pytest.param(
+            "pkg @ https://h/pkg-1.0.whl#sha256=abc",
+            '{"url": "https://h/pkg-1.0.whl", "archive_info": {"hashes": {"sha256": "abc"}}}',
+            False,
+            id="hash-fragment",
+        ),
+        pytest.param(
+            "pkg @ https://h/pkg-1.0.whl#egg=pkg",
+            '{"url": "https://h/pkg-1.0.whl", "archive_info": {}}',
+            False,
+            id="ignored-egg-fragment",
+        ),
+        pytest.param(
+            "pkg @ https://h/pkg-1.0.whl#other=value",
+            '{"url": "https://h/pkg-1.0.whl", "archive_info": {}}',
+            False,
+            id="ignored-other-fragment",
+        ),
+        pytest.param(
+            "pkg @ https://h/pkg-1.0.whl#sha3_256=abc",
+            '{"url": "https://h/pkg-1.0.whl", "archive_info": {}}',
+            False,
+            id="ignored-unsupported-hash",
+        ),
+        pytest.param(
+            "pkg @ https://h/pkg-1.0.whl#sha256=abc&sha256=def",
+            '{"url": "https://h/pkg-1.0.whl", "archive_info": {"hashes": {"sha256": "abc"}}}',
+            False,
+            id="first-duplicate-hash",
+        ),
+        pytest.param(
+            "pkg @ https://h/pkg-1.0.whl#sha256=abc&sha512=def",
+            '{"url": "https://h/pkg-1.0.whl", "archive_info": {"hashes": {"sha256": "abc"}}}',
+            False,
+            id="first-hash-algorithm",
+        ),
+        pytest.param(
+            "pkg @ https://h/pkg-1.0.whl#sha256=def",
+            '{"url": "https://h/pkg-1.0.whl", "archive_info": {"hashes": {"sha256": "abc"}}}',
+            True,
+            id="different-hash",
+        ),
+        pytest.param(
+            "pkg @ https://user:pass@[bad/pkg-1.0.whl",
+            '{"url": "https://h/pkg-1.0.whl", "archive_info": {}}',
+            True,
+            id="invalid-url-authority",
+        ),
+        pytest.param(
+            "pkg @ https://user:token@h/pkg-1.0.whl#sha256=abc",
+            '{"url": "https://h/pkg-1.0.whl", "archive_info": {"hashes": {"sha256": "abc"}}}',
+            False,
+            id="credentialed-matching-hash",
+        ),
+        pytest.param(
+            "pkg @ https://user:token@h/pkg-1.0.whl#sha256=def",
+            '{"url": "https://h/pkg-1.0.whl", "archive_info": {"hashes": {"sha256": "abc"}}}',
+            True,
+            id="credentialed-different-hash",
+        ),
+        pytest.param(
+            "pkg @ https://h/pkg-1.0.whl#sha256=abc",
+            '{"url": "https://h/pkg-1.0.whl", "archive_info": {"hash": "sha256=abc"}}',
+            False,
+            id="legacy-hash",
+        ),
+        pytest.param(
+            "pkg @ https://h/pkg-1.0.whl#subdirectory=src",
+            '{"url": "https://h/pkg-1.0.whl", "archive_info": {}, "subdirectory": "src"}',
+            False,
+            id="same-subdirectory",
+        ),
+        pytest.param(
+            "pkg @ https://h/pkg-1.0.whl#subdirectory=src&subdirectory=other",
+            '{"url": "https://h/pkg-1.0.whl", "archive_info": {}, "subdirectory": "src"}',
+            False,
+            id="first-subdirectory",
+        ),
+        pytest.param(
+            "pkg @ https://h/pkg-1.0.whl#subdirectory=src%2Fpkg",
+            '{"url": "https://h/pkg-1.0.whl", "archive_info": {}, "subdirectory": "src%2Fpkg"}',
+            False,
+            id="encoded-subdirectory",
+        ),
+        pytest.param(
+            "pkg @ https://h/pkg-1.0.whl#subdirectory=src+pkg",
+            '{"url": "https://h/pkg-1.0.whl", "archive_info": {}, "subdirectory": "src+pkg"}',
+            False,
+            id="plus-subdirectory",
+        ),
+        pytest.param(
+            "pkg @ https://h/pkg-1.0.whl#subdirectory=",
+            '{"url": "https://h/pkg-1.0.whl", "archive_info": {}}',
+            False,
+            id="empty-subdirectory",
+        ),
+        pytest.param(
+            "pkg @ https://h/pkg-1.0.whl#subdirectory=src",
+            '{"url": "https://h/pkg-1.0.whl", "archive_info": {}, "subdirectory": "other"}',
+            True,
+            id="different-subdirectory",
+        ),
+        pytest.param(
+            "pkg @ https://h/pkg-1.0.whl",
+            '{"url": "https://h/pkg-1.0.whl", "archive_info": {}, "subdirectory": "src"}',
+            True,
+            id="unexpected-subdirectory",
+        ),
+        pytest.param(
+            "pkg @ https://h/pkg-1.0.whl/",
+            '{"url": "https://h/pkg-1.0.whl", "archive_info": {}}',
+            True,
+            id="different-trailing-slash",
+        ),
+        pytest.param(
+            "pkg @ git+https://h/r.git@v1",
+            '{"url": "https://h/r.git", "vcs_info": {"vcs": "git", "requested_revision": "v1", "commit_id": "c"}}',
+            False,
+            id="vcs-same-revision",
+        ),
+        pytest.param(
+            "pkg @ git+https://h/r.git@v1#egg=pkg",
+            '{"url": "https://h/r.git", "vcs_info": {"vcs": "git", "requested_revision": "v1", "commit_id": "c"}}',
+            False,
+            id="vcs-ignored-egg",
+        ),
+        pytest.param(
+            "pkg @ git+https://h/r.git@v2",
+            '{"url": "https://h/r.git", "vcs_info": {"vcs": "git", "requested_revision": "v1", "commit_id": "c"}}',
+            True,
+            id="vcs-other-revision",
+        ),
+        pytest.param(
+            "pkg @ git+https://h/r.git@v1#sha256=abc",
+            '{"url": "https://h/r.git", "vcs_info": {"vcs": "git", "requested_revision": "v1", "commit_id": "c"}}',
+            True,
+            id="vcs-unverifiable-hash",
+        ),
+        pytest.param(
+            "pkg @ git+https://h/r.git",
+            '{"url": "https://h/r.git", "vcs_info": {"vcs": "git", "commit_id": "c"}}',
+            False,
+            id="vcs-no-revision",
+        ),
+    ],
+)
+def test_provision_requires_direct_url_origin(
+    tox_project: ToxProjectCreator,
+    installed_pkg_info: Path,
+    requirement: str,
+    direct_url: str,
+    is_missing: bool,
+) -> None:
+    (installed_pkg_info / "direct_url.json").write_text(direct_url)
+    outcome: Final[ToxRunOutcome] = tox_project({"tox.toml": f"requires = [{json.dumps(requirement)}]\n"}).run(
+        "c", "-e", "py", "--no-provision"
+    )
+
+    assert ("is missing [requires (has)]" in outcome.out, outcome.success) == (is_missing, not is_missing)
+
+
+@pytest.fixture
+def installed_pkg_info(tmp_path: Path, mocker: MockerFixture) -> Path:
+    dist_info: Final[Path] = tmp_path / "pkg-1.0.dist-info"
+    dist_info.mkdir()
+    (dist_info / "METADATA").write_text("Metadata-Version: 2.1\nName: pkg\nVersion: 1.0\n")
+    mocker.patch("tox.provision.distribution", return_value=Distribution.at(dist_info))
+    return dist_info
+
+
 @pytest.mark.integration
 @pytest.mark.timeout(120)
-@pytest.mark.parametrize("subcommand", ["l", "c"])
+def test_provision_requires_direct_url_ignored_fragment_with_pip(
+    tox_project: ToxProjectCreator,
+    tox_wheels: list[Path],
+    demo_pkg_inline_wheel: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PIP_NO_INDEX", "1")
+    monkeypatch.setenv(
+        "PIP_FIND_LINKS", "\n".join(sorted({path.parent.as_uri() for path in [*tox_wheels, demo_pkg_inline_wheel]}))
+    )
+    outcome: Final[ToxRunOutcome] = tox_project({
+        "tox.toml": f'requires = ["demo-pkg-inline @ {demo_pkg_inline_wheel.as_uri()}#egg=demo-pkg-inline"]\n'
+    }).run("c", "-e", "py")
+
+    outcome.assert_success()
+    assert "automatically provisioned tox" in outcome.out
+
+
+@pytest.mark.integration
+@pytest.mark.timeout(120)
+@pytest.mark.parametrize("subcommand", [pytest.param("l", id="list"), pytest.param("c", id="show-config")])
+@pytest.mark.parametrize(
+    ("provision_config", "safe_path_flag"),
+    [
+        pytest.param("", "-P", id="supported-python"),
+        pytest.param(
+            '[env.".tox"]\nbase_python = "python3.10"',
+            "-I",
+            marks=pytest.mark.skipif(which("python3.10") is None, reason="python3.10 is unavailable"),
+            id="older-python",
+        ),
+    ],
+)
 def test_provision_before_loading_env_list(
     tox_project: ToxProjectCreator,
     tmp_path: Path,
     monkeypatch: MonkeyPatch,
     pkg_builder: Callable[[Path, Path, Sequence[DistributionType], bool], Path],
     subcommand: str,
+    provision_config: str,
+    safe_path_flag: str,
 ) -> None:
     future_tox = tmp_path / "future-tox"
     (future_tox / "tox").mkdir(parents=True)
@@ -215,16 +500,19 @@ def test_provision_before_loading_env_list(
     monkeypatch.setenv("PIP_NO_INDEX", "1")
 
     project = tox_project({
-        "tox.toml": """
+        "tox.toml": f"""
             requires = ["tox>=999"]
             env_list = [1]
+            {provision_config}
         """,
+        "tox.py": "raise SystemExit('loaded from the start directory')",
     })
 
     outcome = project.run(subcommand)
 
     outcome.assert_success()
     assert "will run in automatically provisioned tox" in outcome.out
+    assert f" {safe_path_flag} -m tox" in outcome.out
     assert f"future tox ran {subcommand}" in outcome.out
 
 
@@ -292,6 +580,37 @@ def test_provision_no_recreate(tox_project: ToxProjectCreator) -> None:
     result = tox_project({"tox.ini": ini}).run("c", "-e", "py", "--no-provision")
     result.assert_failed()
     assert f"provisioning explicitly disabled within {sys.executable}, but is missing [requires (has)]: p" in result.out
+
+
+@pytest.mark.parametrize(
+    ("command_args", "expected_code"),
+    [
+        pytest.param(("l", "--no-provision"), -2, id="disabled"),
+        pytest.param(("l",), 0, id="automatic"),
+    ],
+)
+def test_provision_masks_requires_url_userinfo(
+    tox_project: ToxProjectCreator,
+    mocker: MockerFixture,
+    command_args: tuple[str, ...],
+    expected_code: int,
+) -> None:
+    mocker.patch("tox.provision.run_provision", autospec=True, return_value=0)
+    result: Final[ToxRunOutcome] = tox_project({
+        "tox.ini": "[tox]\nrequires = demo-pkg @ https://user:pass@example.invalid/demo_pkg-1.0-py3-none-any.whl\n",
+    }).run(*command_args)
+    assert result.code == expected_code
+    assert "https://*********@example.invalid/demo_pkg-1.0-py3-none-any.whl" in result.out
+    assert "user:pass" not in result.out
+
+
+def test_provision_masks_url_before_inline_flag(tox_project: ToxProjectCreator) -> None:
+    result: Final[ToxRunOutcome] = tox_project({
+        "tox.ini": "[tox]\nrequires = demo-pkg @ https://user:pass@example.invalid/demo.whl?x=--token=abc\n",
+    }).run("l", "--no-provision")
+    result.assert_failed(-2)
+    assert "https://*********@example.invalid/demo.whl?x=--token=***" in result.out
+    assert "user:pass" not in result.out
 
 
 def test_no_provision_before_command_keeps_command(tox_project: ToxProjectCreator) -> None:
@@ -408,6 +727,13 @@ def test_provision_unrecognized_args_no_provision(tox_project: ToxProjectCreator
     assert "unrecognized arguments: --some-unknown-flag" in result.out
 
 
+def test_provision_unrecognized_args_mask_secret(tox_project: ToxProjectCreator) -> None:
+    result: Final = tox_project({"tox.toml": '[env_run_base]\npackage = "skip"\n'}).run("r", "--api-token=hunter2")
+    result.assert_failed()
+    assert "--api-token=*******" in result.out
+    assert "hunter2" not in result.out
+
+
 @pytest.mark.integration
 @pytest.mark.usefixtures("_pypi_index_self")
 def test_provision_plugin_cli_options(tox_project: ToxProjectCreator, tmp_path: Path) -> None:
@@ -475,6 +801,50 @@ def test_provision_install_pkg_pep517(
     project = tox_project({"tox.ini": tox_ini}, base=example)
     result = project.run("r", "-e", "py", "--installpkg", str(wheel), "--notest", "--no-list-dependencies")
     result.assert_success()
+
+
+@pytest.mark.integration
+@pytest.mark.timeout(120)
+def test_install_pkg_only_in_test_environment(
+    tox_project: ToxProjectCreator,
+    tox_wheels: list[Path],
+    demo_pkg_inline_wheel: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    project: Final[ToxProject] = tox_project({
+        "tox.ini": "[tox]\nrequires = demo-pkg-inline\n[testenv]\ncommands = python -c 'import artifact'",
+    })
+    imports: Final[Path] = project.path / "imports.txt"
+    artifact: Final[Path] = project.path / "artifact-1.0-py3-none-any.whl"
+    with ZipFile(artifact, "w") as wheel:
+        wheel.writestr(
+            "artifact.py",
+            f"import sys\nwith open({str(imports)!r}, 'a') as log:\n    print(sys.prefix, file=log)\n",
+        )
+        wheel.writestr("artifact-1.0.dist-info/METADATA", "Metadata-Version: 2.1\nName: artifact\nVersion: 1.0\n")
+        wheel.writestr("artifact-1.0.dist-info/WHEEL", "Wheel-Version: 1.0\nRoot-Is-Purelib: true\nTag: py3-none-any\n")
+        wheel.writestr("artifact-1.0.dist-info/entry_points.txt", "[tox]\nartifact = artifact\n")
+        wheel.writestr("artifact-1.0.dist-info/RECORD", "")
+    monkeypatch.setenv("PIP_NO_INDEX", "1")
+    monkeypatch.setenv(
+        "PIP_FIND_LINKS", "\n".join(sorted({path.parent.as_uri() for path in [*tox_wheels, demo_pkg_inline_wheel]}))
+    )
+
+    result: Final[ToxRunOutcome] = project.run("run", "-e", "py", "--installpkg", str(artifact))
+
+    result.assert_success()
+    assert imports.read_text().splitlines() == [str(project.path / ".tox" / "py")]
+    provision_env: Final[ToxEnv] = result.state.envs[".tox"]
+    assert provision_env.conf["package"] == "skip"
+    check_call([
+        str(provision_env.conf.get("env_python", Path)),
+        "-c",
+        (
+            "from importlib.metadata import version, distributions; "
+            "assert version('demo-pkg-inline') == '1.0.0'; "
+            "assert 'artifact' not in {dist.metadata['Name'] for dist in distributions()}"
+        ),
+    ])
 
 
 def test_provision_colored_passed_to_subprocess(tox_project: ToxProjectCreator) -> None:

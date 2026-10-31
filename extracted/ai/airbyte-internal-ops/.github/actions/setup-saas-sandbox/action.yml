@@ -1,5 +1,5 @@
 # Checks out airbytehq/saas-sandbox at the commit pinned in
-# `.github/saas-sandbox-ref`, installs its `sandbox` CLI and, with `start`,
+# `.github/saas-sandbox-ref` (or at `ref`, when set), installs its `sandbox` CLI and, with `start`,
 # starts a local sandbox server from the sandbox's own Compose file.
 #
 # Needs `uv` on PATH and this repository checked out as the workspace. Every
@@ -17,6 +17,10 @@ inputs:
     description: "'true' to start a local sandbox and export its connection to the job environment."
     required: false
     default: "true"
+  ref:
+    description: "Full saas-sandbox commit SHA to check out instead of the pin in .github/saas-sandbox-ref."
+    required: false
+    default: ""
 
 outputs:
   ref:
@@ -29,10 +33,12 @@ runs:
     - name: Read the saas-sandbox pin
       id: pin
       shell: bash
+      env:
+        REF_INPUT: ${{ inputs.ref }}
       run: |
-        REF="$(tr -d '[:space:]' < .github/saas-sandbox-ref)"
+        REF="${REF_INPUT:-$(tr -d '[:space:]' < .github/saas-sandbox-ref)}"
         if ! [[ "$REF" =~ ^[0-9a-f]{40}$ ]]; then
-          echo "::error::.github/saas-sandbox-ref must hold one full 40-character commit SHA"
+          echo "::error::the ref input or .github/saas-sandbox-ref must hold one full 40-character commit SHA"
           exit 1
         fi
         echo "ref=$REF" >> "$GITHUB_OUTPUT"

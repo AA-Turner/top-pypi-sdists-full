@@ -3,13 +3,16 @@ from PyObjCTools.TestSupport import TestCase, min_os_level
 
 
 class TestAVPlayerOutput(TestCase):
-    def test_constants(self):
+    def test_enums(self):
         self.assertIsEnumType(AVFoundation.CMTagCollectionVideoOutputPreset)
         self.assertEqual(AVFoundation.kCMTagCollectionVideoOutputPreset_Monoscopic, 0)
         self.assertEqual(AVFoundation.kCMTagCollectionVideoOutputPreset_Stereoscopic, 1)
 
     @min_os_level("14.2")
     def test_methods(self):
+        self.assertResultIsCFRetained(
+            AVFoundation.AVPlayerVideoOutput.copyTaggedBufferGroupForHostTime_presentationTimeStamp_activeConfiguration_
+        )
         self.assertArgIsOut(
             AVFoundation.AVPlayerVideoOutput.copyTaggedBufferGroupForHostTime_presentationTimeStamp_activeConfiguration_,
             1,

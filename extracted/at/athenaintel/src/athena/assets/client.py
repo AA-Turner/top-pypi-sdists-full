@@ -2,6 +2,7 @@
 
 import typing
 
+from .. import core
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from ..types.activity_clock_range_in import ActivityClockRangeIn
@@ -16,15 +17,21 @@ from ..types.creatable_asset_type import CreatableAssetType
 from ..types.create_asset_response_out import CreateAssetResponseOut
 from ..types.create_project_response_out import CreateProjectResponseOut
 from ..types.duplicate_asset_response_out import DuplicateAssetResponseOut
+from ..types.file_backed_workbook_response_out import FileBackedWorkbookResponseOut
 from ..types.move_asset_response_out import MoveAssetResponseOut
 from ..types.paginated_assets_out import PaginatedAssetsOut
 from ..types.public_asset_out import PublicAssetOut
 from ..types.public_collab_agent_config_in import PublicCollabAgentConfigIn
+from ..types.public_figure_config_in import PublicFigureConfigIn
+from ..types.public_session_computer_in import PublicSessionComputerIn
 from ..types.public_skill_config_in import PublicSkillConfigIn
 from ..types.publish_asset_response_out import PublishAssetResponseOut
 from ..types.rename_asset_response_out import RenameAssetResponseOut
 from ..types.share_asset_response_out import ShareAssetResponseOut
 from ..types.share_recipient import ShareRecipient
+from ..types.studio_token_request_in import StudioTokenRequestIn
+from ..types.studio_token_response_out import StudioTokenResponseOut
+from ..types.update_asset_config_response_out import UpdateAssetConfigResponseOut
 from ..types.workspace_access_response_out import WorkspaceAccessResponseOut
 from ..types.workspace_share_access import WorkspaceShareAccess
 from .raw_client import AsyncRawAssetsClient, RawAssetsClient
@@ -185,6 +192,7 @@ class AssetsClient:
         cpu: typing.Optional[int] = OMIT,
         disk: typing.Optional[int] = OMIT,
         env_vars: typing.Optional[typing.Dict[str, typing.Optional[str]]] = OMIT,
+        figure_config: typing.Optional[PublicFigureConfigIn] = OMIT,
         html_content: typing.Optional[str] = OMIT,
         memory: typing.Optional[int] = OMIT,
         parent_folder_id: typing.Optional[str] = OMIT,
@@ -197,12 +205,12 @@ class AssetsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateAssetResponseOut:
         """
-        Create a new asset such as a spreadsheet, document, folder, database, computer, user interface, skill, collab agent, or generic doc (admin-only) in your workspace with your current permissions. Computer assets return 202 after durable submission, which commits the asset and initialization delivery intent together. Runtime provisioning continues asynchronously. Inspect the returned asset ID for progress instead of repeating creation. Computers accept the same configuration as the Athena UI's creation dialog: template, provider, cpu, memory (GiB), disk (GiB) and env_vars. Sizes must be offered by the environment's computer resource policy, and only admins may pick a size other than the template default (403 otherwise). In capability enforce mode, computer creation requires computer.create and returns 403 when denied. Databases accept suspend_timeout_seconds, the auto-suspend window from the database's Settings in Athena: 0 keeps the database running (it never suspends, and keeps using capacity), otherwise 60 to 86400 seconds. A database is provisioned in the background: poll GET /api/v0/databases/{asset_id}/compute-status until it reports running or suspended. Without workspace_id the asset is created in the workspace of parent_folder_id when one is given, otherwise in your current workspace; you must be a member of that workspace.
+        Create a new asset such as a spreadsheet, document, folder, database, computer, user interface, skill, collab agent, figure, Word document, presentation, or generic doc (admin-only) in your workspace with your current permissions. Computer assets return 202 after durable submission, which commits the asset and initialization delivery intent together. Runtime provisioning continues asynchronously. Inspect the returned asset ID for progress instead of repeating creation. Computers accept the same configuration as the Athena UI's creation dialog: template, provider, cpu, memory (GiB), disk (GiB) and env_vars. Sizes must be offered by the environment's computer resource policy, and only admins may pick a size other than the template default (403 otherwise). In capability enforce mode, computer creation requires computer.create and returns 403 when denied. Databases accept suspend_timeout_seconds, the auto-suspend window from the database's Settings in Athena: 0 keeps the database running (it never suspends, and keeps using capacity), otherwise 60 to 86400 seconds. A database is provisioned in the background: poll GET /api/v0/databases/{asset_id}/compute-status until it reports running or suspended. Figures take figure_config, a FigureSpec (kind, rendered and provenance, plus spec or chart), validated as the Athena UI's figures are. A word_document is a Word document holding Athena's default template, and a presentation is a blank widescreen PPTX Studio deck (the workspace's default template is not applied): Athena creates each with its own studio credential, as your write, and answers once the studio has seeded it (502, keeping nothing, when PPTX Studio could not seed a deck). Edit them through DOCX Studio or PPTX Studio with a token from POST /api/v0/assets/{asset_id}/studio-token. From an agent run (a verified X-Athena-Session-Credential), their first write also records the run, and a presentation takes the create_presentation_pptx_studio tool policy. Without workspace_id the asset is created in the workspace of parent_folder_id when one is given, otherwise in your current workspace; you must be a member of that workspace.
 
         Parameters
         ----------
         asset_type : CreatableAssetType
-            Type of asset to create. Supported types: 'spreadsheet' (or 'sheet'), 'document' (or 'doc'), 'folder', 'database' (or 'db'), 'computer', 'generic_doc', 'user_interface' (or 'ui'), 'skill', 'collab_agent' (or 'agent')
+            Type of asset to create. Supported types: 'spreadsheet' (or 'sheet'), 'document' (or 'doc'), 'folder', 'database' (or 'db'), 'computer', 'generic_doc', 'user_interface' (or 'ui'), 'skill', 'collab_agent' (or 'agent'), 'figure', 'word_document' (or 'word'), 'presentation' (or 'deck'). 'document' is Athena's rich-text document; a Word document is 'word_document'.
 
         agent_config : typing.Optional[PublicCollabAgentConfigIn]
             collab_agent only. Initial agent configuration. Created as a draft; publish it with POST /api/v0/assets/{asset_id}/publish.
@@ -215,6 +223,9 @@ class AssetsClient:
 
         env_vars : typing.Optional[typing.Dict[str, typing.Optional[str]]]
             Computer only. Environment variables to set on the computer. Must include every key the template or environment requires. Also accepted as 'envVars'.
+
+        figure_config : typing.Optional[PublicFigureConfigIn]
+            figure only. The figure's FigureSpec: kind, rendered and provenance, plus spec (plotly, vega-lite) or chart (chart, mixed) and the optional fields.
 
         html_content : typing.Optional[str]
             user_interface only. HTML used as the interface's initial index.html; without it the interface starts from Athena's starter page.
@@ -271,6 +282,7 @@ class AssetsClient:
             cpu=cpu,
             disk=disk,
             env_vars=env_vars,
+            figure_config=figure_config,
             html_content=html_content,
             memory=memory,
             parent_folder_id=parent_folder_id,
@@ -280,6 +292,64 @@ class AssetsClient:
             template=template,
             title=title,
             workspace_id=workspace_id,
+            request_options=request_options,
+        )
+        return _response.data
+
+    def create_from_file(
+        self,
+        *,
+        file: core.File,
+        title: typing.Optional[str] = None,
+        parent_folder_id: typing.Optional[str] = None,
+        workspace_id: typing.Optional[str] = None,
+        source_asset_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> CreateAssetResponseOut:
+        """
+        Create a Word document from a .docx file, or a presentation from a .pptx or .potx file, holding that file's content: the asset Athena makes when you create one from a file in the app. Athena imports the file through DOCX Studio or PPTX Studio with its own studio credential, as your write, and answers once the asset is ready (a large deck can take a few minutes). Nothing is left behind when the import fails. The file's name decides the type; the title defaults to the name without its extension. Gates are those of POST /api/v0/assets/create: membership in the workspace (workspace_id, else parent_folder_id's, else your current one) and EDIT on parent_folder_id. With source_asset_id (an asset you can read, for example the document the file was exported from) and no parent_folder_id, the new asset goes into the source's folder when you may create there, otherwise at your root. Unlike POST /api/v0/tools/file/save, which stores the file itself and turns an Office upload into its editable type in the background, this makes the editable asset in the request and keeps no file asset. A Word file may be up to 18.75 MiB, a PowerPoint file up to 100 MiB. From an agent run (a verified X-Athena-Session-Credential), a Word document's first write also records the run, and a presentation takes the create_presentation_pptx_studio tool policy.
+
+        Parameters
+        ----------
+        file : core.File
+            See core.File for more documentation
+
+        title : typing.Optional[str]
+            Title for the new asset; defaults to the file's name
+
+        parent_folder_id : typing.Optional[str]
+            ID of the folder to create the asset in
+
+        workspace_id : typing.Optional[str]
+            ID of the workspace to create the asset in; defaults to the workspace of parent_folder_id, else your current workspace
+
+        source_asset_id : typing.Optional[str]
+            An asset you can read that the file came from; without parent_folder_id the new asset goes next to it when you may create there
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        CreateAssetResponseOut
+            Asset created from the file
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+        client.assets.create_from_file()
+        """
+        _response = self._raw_client.create_from_file(
+            file=file,
+            title=title,
+            parent_folder_id=parent_folder_id,
+            workspace_id=workspace_id,
+            source_asset_id=source_asset_id,
             request_options=request_options,
         )
         return _response.data
@@ -458,7 +528,7 @@ class AssetsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> RenameAssetResponseOut:
         """
-        Update an asset's display title. This supports folders and all other asset types the caller can edit, and applies the same rename side effects as the Athena application.
+        Update an asset's display title. This supports folders and all other asset types the caller can edit, and applies the same rename side effects as the Athena application. Only the title changes: to change a skill's or collab agent's content, use PUT /api/v0/assets/{asset_id}/skill-config or /api/v0/assets/{asset_id}/agent-config.
 
         Parameters
         ----------
@@ -673,6 +743,243 @@ class AssetsClient:
         )
         """
         _response = self._raw_client.get_activity_deltas(asset_id, ranges=ranges, request_options=request_options)
+        return _response.data
+
+    def update_agent_config(
+        self,
+        asset_id: str,
+        *,
+        accent_color: typing.Optional[str] = OMIT,
+        auto_compaction_enabled: typing.Optional[bool] = OMIT,
+        available_toolkits: typing.Optional[typing.Sequence[str]] = OMIT,
+        blacklisted_tools: typing.Optional[typing.Sequence[str]] = OMIT,
+        can_be_subagent: typing.Optional[bool] = OMIT,
+        comments_pane_enabled: typing.Optional[bool] = OMIT,
+        context_injection: typing.Optional[bool] = OMIT,
+        description: typing.Optional[str] = OMIT,
+        handle: typing.Optional[str] = OMIT,
+        icon: typing.Optional[str] = OMIT,
+        knowledge_base: typing.Optional[typing.Sequence[str]] = OMIT,
+        knowledge_base_tags: typing.Optional[typing.Sequence[str]] = OMIT,
+        max_past_messages_for_subagents: typing.Optional[int] = OMIT,
+        meeting_attendance_enabled: typing.Optional[bool] = OMIT,
+        meeting_voice_enabled: typing.Optional[bool] = OMIT,
+        model: typing.Optional[str] = OMIT,
+        muses_enabled: typing.Optional[bool] = OMIT,
+        muses_recall_enabled: typing.Optional[bool] = OMIT,
+        name: typing.Optional[str] = OMIT,
+        parallel_tool_calls: typing.Optional[bool] = OMIT,
+        permanent_enabled_tools: typing.Optional[typing.Sequence[str]] = OMIT,
+        plan_mode_enabled: typing.Optional[bool] = OMIT,
+        remove_session_computer: typing.Optional[bool] = OMIT,
+        session_computer: typing.Optional[PublicSessionComputerIn] = OMIT,
+        show_only_for_admin: typing.Optional[bool] = OMIT,
+        sms_blocked_sender_mode: typing.Optional[str] = OMIT,
+        sms_blocked_sender_reply: typing.Optional[str] = OMIT,
+        sms_enabled: typing.Optional[bool] = OMIT,
+        sources: typing.Optional[typing.Sequence[str]] = OMIT,
+        strict_agent_configuration: typing.Optional[bool] = OMIT,
+        sub_agents: typing.Optional[typing.Sequence[str]] = OMIT,
+        suggestions: typing.Optional[typing.Sequence[typing.Dict[str, typing.Optional[typing.Any]]]] = OMIT,
+        system_prompt: typing.Optional[str] = OMIT,
+        temperature: typing.Optional[float] = OMIT,
+        toolkits: typing.Optional[typing.Sequence[str]] = OMIT,
+        tools: typing.Optional[typing.Sequence[str]] = OMIT,
+        voice_enabled: typing.Optional[bool] = OMIT,
+        voice_sub_agents: typing.Optional[typing.Sequence[str]] = OMIT,
+        whitelisted_emails: typing.Optional[typing.Sequence[str]] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> UpdateAssetConfigResponseOut:
+        """
+        Write a collab agent's configuration (system prompt, model, tools, sources, behavior and channel settings) to its draft. Only the fields you send change; an omitted field keeps its current value, and a list or text field you send replaces the old one whole. The write goes to the live draft, the same draft the Athena editor shows, under the asset's existing id. Once the asset has been published, runs keep using the published version until you publish the draft with POST /api/v0/assets/{asset_id}/publish; one never published runs from its draft. Requires edit access to the asset; an archived asset is refused with 409. Unknown fields are refused with 422. A model must be available in the agent's workspace (422 otherwise). Tool or toolkit IDs the registry does not know are written and reported under warnings. A source (collab_source:<asset_id>) or Tool Asset (tool:<asset_id>) the agent does not already hold must be one the caller can open: one they cannot open, or an archived one, is refused with 403 naming it, and nothing is written. A new name also becomes the asset title. The agent's email address and its outbound approval recipients are not set here.
+
+        Parameters
+        ----------
+        asset_id : str
+            ID of the collab agent to update
+
+        accent_color : typing.Optional[str]
+            UI accent color (hex)
+
+        auto_compaction_enabled : typing.Optional[bool]
+            Auto-compaction
+
+        available_toolkits : typing.Optional[typing.Sequence[str]]
+            Toolkit IDs available for the agent to select
+
+        blacklisted_tools : typing.Optional[typing.Sequence[str]]
+            Tool IDs the agent may not use
+
+        can_be_subagent : typing.Optional[bool]
+            Whether the agent can be used as a sub-agent
+
+        comments_pane_enabled : typing.Optional[bool]
+            Allow @-mentioning the agent in an asset's comments pane
+
+        context_injection : typing.Optional[bool]
+            Inject contextual information into replies
+
+        description : typing.Optional[str]
+            What the agent does and when to use it
+
+        handle : typing.Optional[str]
+            Voice-friendly handle (lowercase words and spaces) used to address the agent as a sub-agent
+
+        icon : typing.Optional[str]
+            Icon identifier
+
+        knowledge_base : typing.Optional[typing.Sequence[str]]
+            Knowledge base references available to the agent
+
+        knowledge_base_tags : typing.Optional[typing.Sequence[str]]
+            Tags used to filter knowledge base context
+
+        max_past_messages_for_subagents : typing.Optional[int]
+            Maximum number of past messages passed to sub-agents
+
+        meeting_attendance_enabled : typing.Optional[bool]
+            Allow the agent to attend meetings
+
+        meeting_voice_enabled : typing.Optional[bool]
+            The agent's meeting voice
+
+        model : typing.Optional[str]
+            Model ID the agent runs on; must be available in its workspace
+
+        muses_enabled : typing.Optional[bool]
+            Muses long-term memory
+
+        muses_recall_enabled : typing.Optional[bool]
+            Inject relevant Muses memory before each reply
+
+        name : typing.Optional[str]
+            Display name of the agent; also becomes the asset title
+
+        parallel_tool_calls : typing.Optional[bool]
+            Parallel tool calls
+
+        permanent_enabled_tools : typing.Optional[typing.Sequence[str]]
+            Tool IDs that stay enabled whatever else is configured
+
+        plan_mode_enabled : typing.Optional[bool]
+            Plan Mode
+
+        remove_session_computer : typing.Optional[bool]
+            True stops giving the agent's sessions a computer (existing computers are kept). Not together with session_computer.
+
+        session_computer : typing.Optional[PublicSessionComputerIn]
+            Give the agent's sessions a computer the platform creates from an environment
+
+        show_only_for_admin : typing.Optional[bool]
+            Show the agent only to workspace admins
+
+        sms_blocked_sender_mode : typing.Optional[str]
+            How the agent answers a text from a workspace member it isn't shared with: 'default' (the standard no-access message), 'silent' (no reply) or 'custom' (sms_blocked_sender_reply verbatim). The text is always saved in the agent's SMS thread and the agent never runs; senders without an Athena account in the workspace never get a reply.
+
+        sms_blocked_sender_reply : typing.Optional[str]
+            Reply text sent to blocked SMS senders when sms_blocked_sender_mode is 'custom', e.g. 'Got it, thanks.' (max 320 characters).
+
+        sms_enabled : typing.Optional[bool]
+            SMS access
+
+        sources : typing.Optional[typing.Sequence[str]]
+            Knowledge source references: native source IDs, or collab_source:<asset_id>; replaces the list
+
+        strict_agent_configuration : typing.Optional[bool]
+            Whether the agent must follow strict configuration constraints
+
+        sub_agents : typing.Optional[typing.Sequence[str]]
+            Collab agent IDs available as sub-agents
+
+        suggestions : typing.Optional[typing.Sequence[typing.Dict[str, typing.Optional[typing.Any]]]]
+            Suggested prompts or actions shown for the agent
+
+        system_prompt : typing.Optional[str]
+            The instructions the agent follows (markdown); replaces the whole prompt
+
+        temperature : typing.Optional[float]
+            Sampling temperature override
+
+        toolkits : typing.Optional[typing.Sequence[str]]
+            Toolkit IDs the agent can use; replaces the list
+
+        tools : typing.Optional[typing.Sequence[str]]
+            Tool IDs the agent can use; replaces the list
+
+        voice_enabled : typing.Optional[bool]
+            Voice access
+
+        voice_sub_agents : typing.Optional[typing.Sequence[str]]
+            Collab agent IDs available as voice sub-agents
+
+        whitelisted_emails : typing.Optional[typing.Sequence[str]]
+            Email addresses allowed to use the agent
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        UpdateAssetConfigResponseOut
+            Successful Response
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+        client.assets.update_agent_config(
+            asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
+            system_prompt="You review designs for accessibility and consistency.",
+            tools=["read_asset"],
+        )
+        """
+        _response = self._raw_client.update_agent_config(
+            asset_id,
+            accent_color=accent_color,
+            auto_compaction_enabled=auto_compaction_enabled,
+            available_toolkits=available_toolkits,
+            blacklisted_tools=blacklisted_tools,
+            can_be_subagent=can_be_subagent,
+            comments_pane_enabled=comments_pane_enabled,
+            context_injection=context_injection,
+            description=description,
+            handle=handle,
+            icon=icon,
+            knowledge_base=knowledge_base,
+            knowledge_base_tags=knowledge_base_tags,
+            max_past_messages_for_subagents=max_past_messages_for_subagents,
+            meeting_attendance_enabled=meeting_attendance_enabled,
+            meeting_voice_enabled=meeting_voice_enabled,
+            model=model,
+            muses_enabled=muses_enabled,
+            muses_recall_enabled=muses_recall_enabled,
+            name=name,
+            parallel_tool_calls=parallel_tool_calls,
+            permanent_enabled_tools=permanent_enabled_tools,
+            plan_mode_enabled=plan_mode_enabled,
+            remove_session_computer=remove_session_computer,
+            session_computer=session_computer,
+            show_only_for_admin=show_only_for_admin,
+            sms_blocked_sender_mode=sms_blocked_sender_mode,
+            sms_blocked_sender_reply=sms_blocked_sender_reply,
+            sms_enabled=sms_enabled,
+            sources=sources,
+            strict_agent_configuration=strict_agent_configuration,
+            sub_agents=sub_agents,
+            suggestions=suggestions,
+            system_prompt=system_prompt,
+            temperature=temperature,
+            toolkits=toolkits,
+            tools=tools,
+            voice_enabled=voice_enabled,
+            voice_sub_agents=voice_sub_agents,
+            whitelisted_emails=whitelisted_emails,
+            request_options=request_options,
+        )
         return _response.data
 
     def archive(
@@ -1001,6 +1308,160 @@ class AssetsClient:
         )
         return _response.data
 
+    def update_skill_config(
+        self,
+        asset_id: str,
+        *,
+        allowed_tools: typing.Optional[str] = OMIT,
+        body_markdown: typing.Optional[str] = OMIT,
+        compatibility: typing.Optional[str] = OMIT,
+        description: typing.Optional[str] = OMIT,
+        license: typing.Optional[str] = OMIT,
+        metadata: typing.Optional[typing.Dict[str, typing.Optional[str]]] = OMIT,
+        name: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> UpdateAssetConfigResponseOut:
+        """
+        Write a skill's SKILL.md content (name, description, markdown body and the optional frontmatter) to its draft. Only the fields you send change; an omitted field keeps its current value, and a list or text field you send replaces the old one whole. The write goes to the live draft, the same draft the Athena editor shows, under the asset's existing id. Once the asset has been published, runs keep using the published version until you publish the draft with POST /api/v0/assets/{asset_id}/publish; one never published runs from its draft. Requires edit access to the asset; an archived asset is refused with 409. Unknown fields are refused with 422. The frontmatter is validated as it will read after the write; a skill that would not be spec-compliant is refused with 422 and nothing is written. A new name also becomes the asset title.
+
+        Parameters
+        ----------
+        asset_id : str
+            ID of the skill to update
+
+        allowed_tools : typing.Optional[str]
+            Space-separated list of pre-approved tools (experimental); an empty string clears it
+
+        body_markdown : typing.Optional[str]
+            The markdown instructions below the SKILL.md frontmatter. Replaces the whole body.
+
+        compatibility : typing.Optional[str]
+            Environment requirements (max 500 chars); an empty string clears it
+
+        description : typing.Optional[str]
+            What the skill does and when to use it (max 1024 chars)
+
+        license : typing.Optional[str]
+            License name or reference; an empty string clears it
+
+        metadata : typing.Optional[typing.Dict[str, typing.Optional[str]]]
+            Additional string metadata; replaces the whole map
+
+        name : typing.Optional[str]
+            Skill name slug (lowercase letters, numbers, single hyphens; max 64 chars). Also becomes the asset title.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        UpdateAssetConfigResponseOut
+            Successful Response
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+        client.assets.update_skill_config(
+            asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
+            body_markdown="# Ticket triage\n\n1. Read the ticket...",
+            description="Triage support tickets by urgency and product area.",
+        )
+        """
+        _response = self._raw_client.update_skill_config(
+            asset_id,
+            allowed_tools=allowed_tools,
+            body_markdown=body_markdown,
+            compatibility=compatibility,
+            description=description,
+            license=license,
+            metadata=metadata,
+            name=name,
+            request_options=request_options,
+        )
+        return _response.data
+
+    def create_studio_token(
+        self,
+        asset_id: str,
+        *,
+        request: typing.Optional[StudioTokenRequestIn] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> StudioTokenResponseOut:
+        """
+        Mint a short-lived asset token for the service that edits an asset: a spreadsheet's, a Word document's or a deck's, named in ``audience``. The token names the caller, this asset and one access level, lasts 15 minutes and is good only on that service's routes for this asset, so code (an SDK in a computer, for example) never sends the service a long-lived credential. The caller must be able to view the asset and be a member of its workspace; the token is read-write only when the caller can edit the asset and asked for edit. A computer's or session's credential mints tokens for assets of its own workspace only. With audience 'pptx-studio-source' it mints the read-only token the deck editing service reads a spreadsheet, figure or semantic model with for a linked table, OLE object or chart; a recording's token is always that one. Any other asset (another type, a live provider file, or one outside every workspace) is refused with 422.
+
+        Parameters
+        ----------
+        asset_id : str
+            The spreadsheet, Word document or deck to mint a token for
+
+        request : typing.Optional[StudioTokenRequestIn]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        StudioTokenResponseOut
+            Successful Response
+
+        Examples
+        --------
+        from athena import Athena, StudioTokenRequestIn
+
+        client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+        client.assets.create_studio_token(
+            asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
+            request=StudioTokenRequestIn(
+                access="edit",
+            ),
+        )
+        """
+        _response = self._raw_client.create_studio_token(asset_id, request=request, request_options=request_options)
+        return _response.data
+
+    def get_workbook(
+        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> FileBackedWorkbookResponseOut:
+        """
+        Read a spreadsheet file's contents as rows, every tab: an uploaded .xlsx, .xlsm, .xls, .csv, .tsv or Parquet file, or a linked file in SharePoint, Google Drive, OneDrive or iManage. Excel and Parquet cells keep their types; a CSV or TSV field that reads as a number becomes one. A sheet is read whole up to a safety ceiling, and a file over 40 MB is refused (413). A native Athena spreadsheet answers 409: its contents are the collaborative sheet, which the spreadsheet SDK opens directly. Nothing is written.
+
+        Parameters
+        ----------
+        asset_id : str
+            The spreadsheet file asset to read
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        FileBackedWorkbookResponseOut
+            Successful Response
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+        client.assets.get_workbook(
+            asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
+        )
+        """
+        _response = self._raw_client.get_workbook(asset_id, request_options=request_options)
+        return _response.data
+
     def update_workspace_access(
         self,
         asset_id: str,
@@ -1247,6 +1708,7 @@ class AsyncAssetsClient:
         cpu: typing.Optional[int] = OMIT,
         disk: typing.Optional[int] = OMIT,
         env_vars: typing.Optional[typing.Dict[str, typing.Optional[str]]] = OMIT,
+        figure_config: typing.Optional[PublicFigureConfigIn] = OMIT,
         html_content: typing.Optional[str] = OMIT,
         memory: typing.Optional[int] = OMIT,
         parent_folder_id: typing.Optional[str] = OMIT,
@@ -1259,12 +1721,12 @@ class AsyncAssetsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateAssetResponseOut:
         """
-        Create a new asset such as a spreadsheet, document, folder, database, computer, user interface, skill, collab agent, or generic doc (admin-only) in your workspace with your current permissions. Computer assets return 202 after durable submission, which commits the asset and initialization delivery intent together. Runtime provisioning continues asynchronously. Inspect the returned asset ID for progress instead of repeating creation. Computers accept the same configuration as the Athena UI's creation dialog: template, provider, cpu, memory (GiB), disk (GiB) and env_vars. Sizes must be offered by the environment's computer resource policy, and only admins may pick a size other than the template default (403 otherwise). In capability enforce mode, computer creation requires computer.create and returns 403 when denied. Databases accept suspend_timeout_seconds, the auto-suspend window from the database's Settings in Athena: 0 keeps the database running (it never suspends, and keeps using capacity), otherwise 60 to 86400 seconds. A database is provisioned in the background: poll GET /api/v0/databases/{asset_id}/compute-status until it reports running or suspended. Without workspace_id the asset is created in the workspace of parent_folder_id when one is given, otherwise in your current workspace; you must be a member of that workspace.
+        Create a new asset such as a spreadsheet, document, folder, database, computer, user interface, skill, collab agent, figure, Word document, presentation, or generic doc (admin-only) in your workspace with your current permissions. Computer assets return 202 after durable submission, which commits the asset and initialization delivery intent together. Runtime provisioning continues asynchronously. Inspect the returned asset ID for progress instead of repeating creation. Computers accept the same configuration as the Athena UI's creation dialog: template, provider, cpu, memory (GiB), disk (GiB) and env_vars. Sizes must be offered by the environment's computer resource policy, and only admins may pick a size other than the template default (403 otherwise). In capability enforce mode, computer creation requires computer.create and returns 403 when denied. Databases accept suspend_timeout_seconds, the auto-suspend window from the database's Settings in Athena: 0 keeps the database running (it never suspends, and keeps using capacity), otherwise 60 to 86400 seconds. A database is provisioned in the background: poll GET /api/v0/databases/{asset_id}/compute-status until it reports running or suspended. Figures take figure_config, a FigureSpec (kind, rendered and provenance, plus spec or chart), validated as the Athena UI's figures are. A word_document is a Word document holding Athena's default template, and a presentation is a blank widescreen PPTX Studio deck (the workspace's default template is not applied): Athena creates each with its own studio credential, as your write, and answers once the studio has seeded it (502, keeping nothing, when PPTX Studio could not seed a deck). Edit them through DOCX Studio or PPTX Studio with a token from POST /api/v0/assets/{asset_id}/studio-token. From an agent run (a verified X-Athena-Session-Credential), their first write also records the run, and a presentation takes the create_presentation_pptx_studio tool policy. Without workspace_id the asset is created in the workspace of parent_folder_id when one is given, otherwise in your current workspace; you must be a member of that workspace.
 
         Parameters
         ----------
         asset_type : CreatableAssetType
-            Type of asset to create. Supported types: 'spreadsheet' (or 'sheet'), 'document' (or 'doc'), 'folder', 'database' (or 'db'), 'computer', 'generic_doc', 'user_interface' (or 'ui'), 'skill', 'collab_agent' (or 'agent')
+            Type of asset to create. Supported types: 'spreadsheet' (or 'sheet'), 'document' (or 'doc'), 'folder', 'database' (or 'db'), 'computer', 'generic_doc', 'user_interface' (or 'ui'), 'skill', 'collab_agent' (or 'agent'), 'figure', 'word_document' (or 'word'), 'presentation' (or 'deck'). 'document' is Athena's rich-text document; a Word document is 'word_document'.
 
         agent_config : typing.Optional[PublicCollabAgentConfigIn]
             collab_agent only. Initial agent configuration. Created as a draft; publish it with POST /api/v0/assets/{asset_id}/publish.
@@ -1277,6 +1739,9 @@ class AsyncAssetsClient:
 
         env_vars : typing.Optional[typing.Dict[str, typing.Optional[str]]]
             Computer only. Environment variables to set on the computer. Must include every key the template or environment requires. Also accepted as 'envVars'.
+
+        figure_config : typing.Optional[PublicFigureConfigIn]
+            figure only. The figure's FigureSpec: kind, rendered and provenance, plus spec (plotly, vega-lite) or chart (chart, mixed) and the optional fields.
 
         html_content : typing.Optional[str]
             user_interface only. HTML used as the interface's initial index.html; without it the interface starts from Athena's starter page.
@@ -1341,6 +1806,7 @@ class AsyncAssetsClient:
             cpu=cpu,
             disk=disk,
             env_vars=env_vars,
+            figure_config=figure_config,
             html_content=html_content,
             memory=memory,
             parent_folder_id=parent_folder_id,
@@ -1350,6 +1816,72 @@ class AsyncAssetsClient:
             template=template,
             title=title,
             workspace_id=workspace_id,
+            request_options=request_options,
+        )
+        return _response.data
+
+    async def create_from_file(
+        self,
+        *,
+        file: core.File,
+        title: typing.Optional[str] = None,
+        parent_folder_id: typing.Optional[str] = None,
+        workspace_id: typing.Optional[str] = None,
+        source_asset_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> CreateAssetResponseOut:
+        """
+        Create a Word document from a .docx file, or a presentation from a .pptx or .potx file, holding that file's content: the asset Athena makes when you create one from a file in the app. Athena imports the file through DOCX Studio or PPTX Studio with its own studio credential, as your write, and answers once the asset is ready (a large deck can take a few minutes). Nothing is left behind when the import fails. The file's name decides the type; the title defaults to the name without its extension. Gates are those of POST /api/v0/assets/create: membership in the workspace (workspace_id, else parent_folder_id's, else your current one) and EDIT on parent_folder_id. With source_asset_id (an asset you can read, for example the document the file was exported from) and no parent_folder_id, the new asset goes into the source's folder when you may create there, otherwise at your root. Unlike POST /api/v0/tools/file/save, which stores the file itself and turns an Office upload into its editable type in the background, this makes the editable asset in the request and keeps no file asset. A Word file may be up to 18.75 MiB, a PowerPoint file up to 100 MiB. From an agent run (a verified X-Athena-Session-Credential), a Word document's first write also records the run, and a presentation takes the create_presentation_pptx_studio tool policy.
+
+        Parameters
+        ----------
+        file : core.File
+            See core.File for more documentation
+
+        title : typing.Optional[str]
+            Title for the new asset; defaults to the file's name
+
+        parent_folder_id : typing.Optional[str]
+            ID of the folder to create the asset in
+
+        workspace_id : typing.Optional[str]
+            ID of the workspace to create the asset in; defaults to the workspace of parent_folder_id, else your current workspace
+
+        source_asset_id : typing.Optional[str]
+            An asset you can read that the file came from; without parent_folder_id the new asset goes next to it when you may create there
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        CreateAssetResponseOut
+            Asset created from the file
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.assets.create_from_file()
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.create_from_file(
+            file=file,
+            title=title,
+            parent_folder_id=parent_folder_id,
+            workspace_id=workspace_id,
+            source_asset_id=source_asset_id,
             request_options=request_options,
         )
         return _response.data
@@ -1552,7 +2084,7 @@ class AsyncAssetsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> RenameAssetResponseOut:
         """
-        Update an asset's display title. This supports folders and all other asset types the caller can edit, and applies the same rename side effects as the Athena application.
+        Update an asset's display title. This supports folders and all other asset types the caller can edit, and applies the same rename side effects as the Athena application. Only the title changes: to change a skill's or collab agent's content, use PUT /api/v0/assets/{asset_id}/skill-config or /api/v0/assets/{asset_id}/agent-config.
 
         Parameters
         ----------
@@ -1809,6 +2341,251 @@ class AsyncAssetsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.get_activity_deltas(asset_id, ranges=ranges, request_options=request_options)
+        return _response.data
+
+    async def update_agent_config(
+        self,
+        asset_id: str,
+        *,
+        accent_color: typing.Optional[str] = OMIT,
+        auto_compaction_enabled: typing.Optional[bool] = OMIT,
+        available_toolkits: typing.Optional[typing.Sequence[str]] = OMIT,
+        blacklisted_tools: typing.Optional[typing.Sequence[str]] = OMIT,
+        can_be_subagent: typing.Optional[bool] = OMIT,
+        comments_pane_enabled: typing.Optional[bool] = OMIT,
+        context_injection: typing.Optional[bool] = OMIT,
+        description: typing.Optional[str] = OMIT,
+        handle: typing.Optional[str] = OMIT,
+        icon: typing.Optional[str] = OMIT,
+        knowledge_base: typing.Optional[typing.Sequence[str]] = OMIT,
+        knowledge_base_tags: typing.Optional[typing.Sequence[str]] = OMIT,
+        max_past_messages_for_subagents: typing.Optional[int] = OMIT,
+        meeting_attendance_enabled: typing.Optional[bool] = OMIT,
+        meeting_voice_enabled: typing.Optional[bool] = OMIT,
+        model: typing.Optional[str] = OMIT,
+        muses_enabled: typing.Optional[bool] = OMIT,
+        muses_recall_enabled: typing.Optional[bool] = OMIT,
+        name: typing.Optional[str] = OMIT,
+        parallel_tool_calls: typing.Optional[bool] = OMIT,
+        permanent_enabled_tools: typing.Optional[typing.Sequence[str]] = OMIT,
+        plan_mode_enabled: typing.Optional[bool] = OMIT,
+        remove_session_computer: typing.Optional[bool] = OMIT,
+        session_computer: typing.Optional[PublicSessionComputerIn] = OMIT,
+        show_only_for_admin: typing.Optional[bool] = OMIT,
+        sms_blocked_sender_mode: typing.Optional[str] = OMIT,
+        sms_blocked_sender_reply: typing.Optional[str] = OMIT,
+        sms_enabled: typing.Optional[bool] = OMIT,
+        sources: typing.Optional[typing.Sequence[str]] = OMIT,
+        strict_agent_configuration: typing.Optional[bool] = OMIT,
+        sub_agents: typing.Optional[typing.Sequence[str]] = OMIT,
+        suggestions: typing.Optional[typing.Sequence[typing.Dict[str, typing.Optional[typing.Any]]]] = OMIT,
+        system_prompt: typing.Optional[str] = OMIT,
+        temperature: typing.Optional[float] = OMIT,
+        toolkits: typing.Optional[typing.Sequence[str]] = OMIT,
+        tools: typing.Optional[typing.Sequence[str]] = OMIT,
+        voice_enabled: typing.Optional[bool] = OMIT,
+        voice_sub_agents: typing.Optional[typing.Sequence[str]] = OMIT,
+        whitelisted_emails: typing.Optional[typing.Sequence[str]] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> UpdateAssetConfigResponseOut:
+        """
+        Write a collab agent's configuration (system prompt, model, tools, sources, behavior and channel settings) to its draft. Only the fields you send change; an omitted field keeps its current value, and a list or text field you send replaces the old one whole. The write goes to the live draft, the same draft the Athena editor shows, under the asset's existing id. Once the asset has been published, runs keep using the published version until you publish the draft with POST /api/v0/assets/{asset_id}/publish; one never published runs from its draft. Requires edit access to the asset; an archived asset is refused with 409. Unknown fields are refused with 422. A model must be available in the agent's workspace (422 otherwise). Tool or toolkit IDs the registry does not know are written and reported under warnings. A source (collab_source:<asset_id>) or Tool Asset (tool:<asset_id>) the agent does not already hold must be one the caller can open: one they cannot open, or an archived one, is refused with 403 naming it, and nothing is written. A new name also becomes the asset title. The agent's email address and its outbound approval recipients are not set here.
+
+        Parameters
+        ----------
+        asset_id : str
+            ID of the collab agent to update
+
+        accent_color : typing.Optional[str]
+            UI accent color (hex)
+
+        auto_compaction_enabled : typing.Optional[bool]
+            Auto-compaction
+
+        available_toolkits : typing.Optional[typing.Sequence[str]]
+            Toolkit IDs available for the agent to select
+
+        blacklisted_tools : typing.Optional[typing.Sequence[str]]
+            Tool IDs the agent may not use
+
+        can_be_subagent : typing.Optional[bool]
+            Whether the agent can be used as a sub-agent
+
+        comments_pane_enabled : typing.Optional[bool]
+            Allow @-mentioning the agent in an asset's comments pane
+
+        context_injection : typing.Optional[bool]
+            Inject contextual information into replies
+
+        description : typing.Optional[str]
+            What the agent does and when to use it
+
+        handle : typing.Optional[str]
+            Voice-friendly handle (lowercase words and spaces) used to address the agent as a sub-agent
+
+        icon : typing.Optional[str]
+            Icon identifier
+
+        knowledge_base : typing.Optional[typing.Sequence[str]]
+            Knowledge base references available to the agent
+
+        knowledge_base_tags : typing.Optional[typing.Sequence[str]]
+            Tags used to filter knowledge base context
+
+        max_past_messages_for_subagents : typing.Optional[int]
+            Maximum number of past messages passed to sub-agents
+
+        meeting_attendance_enabled : typing.Optional[bool]
+            Allow the agent to attend meetings
+
+        meeting_voice_enabled : typing.Optional[bool]
+            The agent's meeting voice
+
+        model : typing.Optional[str]
+            Model ID the agent runs on; must be available in its workspace
+
+        muses_enabled : typing.Optional[bool]
+            Muses long-term memory
+
+        muses_recall_enabled : typing.Optional[bool]
+            Inject relevant Muses memory before each reply
+
+        name : typing.Optional[str]
+            Display name of the agent; also becomes the asset title
+
+        parallel_tool_calls : typing.Optional[bool]
+            Parallel tool calls
+
+        permanent_enabled_tools : typing.Optional[typing.Sequence[str]]
+            Tool IDs that stay enabled whatever else is configured
+
+        plan_mode_enabled : typing.Optional[bool]
+            Plan Mode
+
+        remove_session_computer : typing.Optional[bool]
+            True stops giving the agent's sessions a computer (existing computers are kept). Not together with session_computer.
+
+        session_computer : typing.Optional[PublicSessionComputerIn]
+            Give the agent's sessions a computer the platform creates from an environment
+
+        show_only_for_admin : typing.Optional[bool]
+            Show the agent only to workspace admins
+
+        sms_blocked_sender_mode : typing.Optional[str]
+            How the agent answers a text from a workspace member it isn't shared with: 'default' (the standard no-access message), 'silent' (no reply) or 'custom' (sms_blocked_sender_reply verbatim). The text is always saved in the agent's SMS thread and the agent never runs; senders without an Athena account in the workspace never get a reply.
+
+        sms_blocked_sender_reply : typing.Optional[str]
+            Reply text sent to blocked SMS senders when sms_blocked_sender_mode is 'custom', e.g. 'Got it, thanks.' (max 320 characters).
+
+        sms_enabled : typing.Optional[bool]
+            SMS access
+
+        sources : typing.Optional[typing.Sequence[str]]
+            Knowledge source references: native source IDs, or collab_source:<asset_id>; replaces the list
+
+        strict_agent_configuration : typing.Optional[bool]
+            Whether the agent must follow strict configuration constraints
+
+        sub_agents : typing.Optional[typing.Sequence[str]]
+            Collab agent IDs available as sub-agents
+
+        suggestions : typing.Optional[typing.Sequence[typing.Dict[str, typing.Optional[typing.Any]]]]
+            Suggested prompts or actions shown for the agent
+
+        system_prompt : typing.Optional[str]
+            The instructions the agent follows (markdown); replaces the whole prompt
+
+        temperature : typing.Optional[float]
+            Sampling temperature override
+
+        toolkits : typing.Optional[typing.Sequence[str]]
+            Toolkit IDs the agent can use; replaces the list
+
+        tools : typing.Optional[typing.Sequence[str]]
+            Tool IDs the agent can use; replaces the list
+
+        voice_enabled : typing.Optional[bool]
+            Voice access
+
+        voice_sub_agents : typing.Optional[typing.Sequence[str]]
+            Collab agent IDs available as voice sub-agents
+
+        whitelisted_emails : typing.Optional[typing.Sequence[str]]
+            Email addresses allowed to use the agent
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        UpdateAssetConfigResponseOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.assets.update_agent_config(
+                asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
+                system_prompt="You review designs for accessibility and consistency.",
+                tools=["read_asset"],
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.update_agent_config(
+            asset_id,
+            accent_color=accent_color,
+            auto_compaction_enabled=auto_compaction_enabled,
+            available_toolkits=available_toolkits,
+            blacklisted_tools=blacklisted_tools,
+            can_be_subagent=can_be_subagent,
+            comments_pane_enabled=comments_pane_enabled,
+            context_injection=context_injection,
+            description=description,
+            handle=handle,
+            icon=icon,
+            knowledge_base=knowledge_base,
+            knowledge_base_tags=knowledge_base_tags,
+            max_past_messages_for_subagents=max_past_messages_for_subagents,
+            meeting_attendance_enabled=meeting_attendance_enabled,
+            meeting_voice_enabled=meeting_voice_enabled,
+            model=model,
+            muses_enabled=muses_enabled,
+            muses_recall_enabled=muses_recall_enabled,
+            name=name,
+            parallel_tool_calls=parallel_tool_calls,
+            permanent_enabled_tools=permanent_enabled_tools,
+            plan_mode_enabled=plan_mode_enabled,
+            remove_session_computer=remove_session_computer,
+            session_computer=session_computer,
+            show_only_for_admin=show_only_for_admin,
+            sms_blocked_sender_mode=sms_blocked_sender_mode,
+            sms_blocked_sender_reply=sms_blocked_sender_reply,
+            sms_enabled=sms_enabled,
+            sources=sources,
+            strict_agent_configuration=strict_agent_configuration,
+            sub_agents=sub_agents,
+            suggestions=suggestions,
+            system_prompt=system_prompt,
+            temperature=temperature,
+            toolkits=toolkits,
+            tools=tools,
+            voice_enabled=voice_enabled,
+            voice_sub_agents=voice_sub_agents,
+            whitelisted_emails=whitelisted_emails,
+            request_options=request_options,
+        )
         return _response.data
 
     async def archive(
@@ -2192,6 +2969,186 @@ class AsyncAssetsClient:
             notify=notify,
             request_options=request_options,
         )
+        return _response.data
+
+    async def update_skill_config(
+        self,
+        asset_id: str,
+        *,
+        allowed_tools: typing.Optional[str] = OMIT,
+        body_markdown: typing.Optional[str] = OMIT,
+        compatibility: typing.Optional[str] = OMIT,
+        description: typing.Optional[str] = OMIT,
+        license: typing.Optional[str] = OMIT,
+        metadata: typing.Optional[typing.Dict[str, typing.Optional[str]]] = OMIT,
+        name: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> UpdateAssetConfigResponseOut:
+        """
+        Write a skill's SKILL.md content (name, description, markdown body and the optional frontmatter) to its draft. Only the fields you send change; an omitted field keeps its current value, and a list or text field you send replaces the old one whole. The write goes to the live draft, the same draft the Athena editor shows, under the asset's existing id. Once the asset has been published, runs keep using the published version until you publish the draft with POST /api/v0/assets/{asset_id}/publish; one never published runs from its draft. Requires edit access to the asset; an archived asset is refused with 409. Unknown fields are refused with 422. The frontmatter is validated as it will read after the write; a skill that would not be spec-compliant is refused with 422 and nothing is written. A new name also becomes the asset title.
+
+        Parameters
+        ----------
+        asset_id : str
+            ID of the skill to update
+
+        allowed_tools : typing.Optional[str]
+            Space-separated list of pre-approved tools (experimental); an empty string clears it
+
+        body_markdown : typing.Optional[str]
+            The markdown instructions below the SKILL.md frontmatter. Replaces the whole body.
+
+        compatibility : typing.Optional[str]
+            Environment requirements (max 500 chars); an empty string clears it
+
+        description : typing.Optional[str]
+            What the skill does and when to use it (max 1024 chars)
+
+        license : typing.Optional[str]
+            License name or reference; an empty string clears it
+
+        metadata : typing.Optional[typing.Dict[str, typing.Optional[str]]]
+            Additional string metadata; replaces the whole map
+
+        name : typing.Optional[str]
+            Skill name slug (lowercase letters, numbers, single hyphens; max 64 chars). Also becomes the asset title.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        UpdateAssetConfigResponseOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.assets.update_skill_config(
+                asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
+                body_markdown="# Ticket triage\n\n1. Read the ticket...",
+                description="Triage support tickets by urgency and product area.",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.update_skill_config(
+            asset_id,
+            allowed_tools=allowed_tools,
+            body_markdown=body_markdown,
+            compatibility=compatibility,
+            description=description,
+            license=license,
+            metadata=metadata,
+            name=name,
+            request_options=request_options,
+        )
+        return _response.data
+
+    async def create_studio_token(
+        self,
+        asset_id: str,
+        *,
+        request: typing.Optional[StudioTokenRequestIn] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> StudioTokenResponseOut:
+        """
+        Mint a short-lived asset token for the service that edits an asset: a spreadsheet's, a Word document's or a deck's, named in ``audience``. The token names the caller, this asset and one access level, lasts 15 minutes and is good only on that service's routes for this asset, so code (an SDK in a computer, for example) never sends the service a long-lived credential. The caller must be able to view the asset and be a member of its workspace; the token is read-write only when the caller can edit the asset and asked for edit. A computer's or session's credential mints tokens for assets of its own workspace only. With audience 'pptx-studio-source' it mints the read-only token the deck editing service reads a spreadsheet, figure or semantic model with for a linked table, OLE object or chart; a recording's token is always that one. Any other asset (another type, a live provider file, or one outside every workspace) is refused with 422.
+
+        Parameters
+        ----------
+        asset_id : str
+            The spreadsheet, Word document or deck to mint a token for
+
+        request : typing.Optional[StudioTokenRequestIn]
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        StudioTokenResponseOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena, StudioTokenRequestIn
+
+        client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.assets.create_studio_token(
+                asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
+                request=StudioTokenRequestIn(
+                    access="edit",
+                ),
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.create_studio_token(
+            asset_id, request=request, request_options=request_options
+        )
+        return _response.data
+
+    async def get_workbook(
+        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> FileBackedWorkbookResponseOut:
+        """
+        Read a spreadsheet file's contents as rows, every tab: an uploaded .xlsx, .xlsm, .xls, .csv, .tsv or Parquet file, or a linked file in SharePoint, Google Drive, OneDrive or iManage. Excel and Parquet cells keep their types; a CSV or TSV field that reads as a number becomes one. A sheet is read whole up to a safety ceiling, and a file over 40 MB is refused (413). A native Athena spreadsheet answers 409: its contents are the collaborative sheet, which the spreadsheet SDK opens directly. Nothing is written.
+
+        Parameters
+        ----------
+        asset_id : str
+            The spreadsheet file asset to read
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        FileBackedWorkbookResponseOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.assets.get_workbook(
+                asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.get_workbook(asset_id, request_options=request_options)
         return _response.data
 
     async def update_workspace_access(

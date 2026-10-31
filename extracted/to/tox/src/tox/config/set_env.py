@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from contextlib import suppress
 from dataclasses import dataclass
 from itertools import chain
 from pathlib import Path
@@ -9,9 +10,10 @@ from typing import TYPE_CHECKING, NotRequired, Protocol, TypedDict, final
 from packaging.markers import Marker
 
 from tox.config.loader.api import ConfigLoadArgs
-from tox.config.loader.replacer import MatchExpression
 from tox.report import HandledError
 from tox.tox_env.errors import Fail
+
+from .loader.replacer import HostText, MatchError, MatchExpression
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Mapping
@@ -185,6 +187,8 @@ class SetEnv:
         if not sep:
             msg = f"invalid line {line!r} in set_env"
             raise ValueError(msg)
+        if isinstance(line, HostText):
+            rest = line.fragment(len(key) + 1)
         value, marker = SetEnv._split_value_marker(rest.strip())
         return key.strip(), value, marker
 
@@ -206,11 +210,26 @@ class SetEnv:
                     elif char == quote_char:
                         in_quotes = False
                 elif char == ";" and not in_quotes and (index == 0 or value[index - 1] != "\\"):
-                    return value[:index].strip().replace("\\;", ";"), value[index + 1 :].strip()
+                    text: str = value.fragment(0, index) if isinstance(value, HostText) else value[:index]
+                    return SetEnv._unescape_semicolons(text.strip()), value[index + 1 :].strip()
                 index += 1
             if not in_quotes:
                 break  # quotes balanced or absent: the first pass is authoritative
-        return value.replace("\\;", ";"), ""
+        return SetEnv._unescape_semicolons(value), ""
+
+    @staticmethod
+    def _unescape_semicolons(value: str) -> str:
+        if "\\;" not in value:
+            return value
+        if not isinstance(value, HostText):
+            return value.replace("\\;", ";")
+        parts: Final[list[str]] = []
+        offset = 0
+        for match in re.finditer(r"\\;", value):
+            parts.extend((value.fragment(offset, match.start()), value.fragment(match.start() + 1, match.end())))
+            offset = match.end()
+        parts.append(value.fragment(offset))
+        return HostText.from_parts(parts)
 
     def load(self, item: str, args: ConfigLoadArgs | None = None) -> str:
         self._resolve_replacements()
@@ -224,7 +243,6 @@ class SetEnv:
         if args.chain[-1:] != [f"env:{item}"]:  # an {env:...} lookup already recorded the key it resolves
             args.chain.append(f"env:{item}")
         result = self._replacer(raw, args)  # apply any replace options
-        result = result.replace(r"\#", "#")  # unroll escaped comment with replacement
         self._materialized[item] = result
         self._raw.pop(item, None)  # if the replace requires the env we may be called again, so allow pop to fail
         return result
@@ -339,21 +357,23 @@ class SetEnv:
         except (OSError, UnicodeDecodeError) as exception:
             msg = f"{env_file} cannot be read for set_env: {exception}"
             raise Fail(msg) from exception
-        for env_line in content.splitlines():
-            env_line = env_line.strip()  # ruff:ignore[redefined-loop-name]
-            if not env_line or env_line.startswith("#"):
+        for line_number, line in enumerate(content.split("\n"), start=1):
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
                 continue
-            yield self._extract_key_value(env_line)
+            yield self._extract_key_value(stripped, env_file, line_number)
 
     @staticmethod
-    def _extract_key_value(line: str) -> tuple[str, str]:
-        """Split an environment file line; markers do not apply here, so ``;`` is a plain value character."""
+    def _extract_key_value(line: str, env_file: Path, line_number: int) -> tuple[str, str]:
         key, sep, value = line.partition("=")
-        if not sep:
-            msg = f"invalid line {line!r} in set_env"
+        if "\x00" in line:
+            msg = f"invalid line in set_env at {env_file}:{line_number}: NUL character"
             raise Fail(msg)
-        key = re.sub(r"^export[ \t]+", "", key.strip())
-        return key, value.strip()
+        if not sep:  # do not echo the line, it may hold part of a secret value
+            msg = f"invalid line {line_number} in {env_file} for set_env, expected KEY=VALUE"
+            raise Fail(msg)
+        # Unlike inline set_env, environment files keep semicolons in values.
+        return re.sub(r"^export[ \t]+", "", key.strip()), value.strip()
 
     def _expand(
         self, line: str, parents: tuple[str, ...], args: ConfigLoadArgs
@@ -361,6 +381,15 @@ class SetEnv:
         if line in parents:
             msg = f"circular set_env reference {' -> '.join((*parents, line))}"
             raise HandledError(msg)
+        key, separator, rest = self._partition_key(line)
+        if separator:
+            key = key.strip()
+            expanded_key = self._replacer(key, args)
+            if "=" in expanded_key or any(char in expanded_key for char in "\r\n\v\f\x1c\x1d\x1e\x85\u2028\u2029"):
+                msg = f"invalid set_env key {key!r} after substitution"
+                raise ValueError(msg)
+            value, marker = self._split_value_marker(rest.strip())
+            return {expanded_key.strip(): (value, Marker(marker) if marker else None)}
         # paste the text as written and parse it like lines written in place, so its values resolve only when read
         if (text := self._replacer(line, args, recursive=False)) == line:  # nothing left to substitute, keep it as text
             key, value, marker = self._extract_key_value_marker(line)
@@ -374,6 +403,13 @@ class SetEnv:
         entries.update((key, (value, block._markers.get(key))) for key, value in block._raw.items())
         return entries
 
+    @staticmethod
+    def _partition_key(line: str) -> tuple[str, str, str]:
+        with suppress(MatchError):
+            _, end = MatchExpression.parse_and_split_to_terminator(line, terminator="=")
+            return line[: end - 1], "=", line[end:]
+        return line, "", ""
+
     def raw(self, args: ConfigLoadArgs, *, resolve: bool = True) -> dict[str, SetEnvEntry]:
         """Preserve lazy values and markers when another section includes this configuration."""
         if resolve:
@@ -384,6 +420,16 @@ class SetEnv:
             if marker := self._markers.get(key):
                 result[key]["marker"] = str(marker)
         return result
+
+    def lines(self) -> str:
+        escaped_semicolon: Final[str] = r"\;"
+        lines: Final[list[str]] = []
+        for name, value in self.raw(self._args.copy()).items():
+            line = f"{name}={str(value['value']).replace(';', escaped_semicolon)}"
+            if marker := value.get("marker"):
+                line = f"{line}; {marker}"
+            lines.append(line)
+        return "\n".join(lines)
 
     def export(self, values: Mapping[str, Callable[[], str]]) -> None:
         """Set tox's own variables over the configured ones, resolved on first read.
@@ -424,10 +470,10 @@ class SetEnv:
                 self.changed = True
 
 
-__all__ = (
+__all__ = [
     "SetEnv",
     "SetEnvEntry",
     "SetEnvRaw",
     "SetEnvReference",
     "SetEnvValue",
-)
+]

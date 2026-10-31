@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from matrx_utils import vcprint
-
 from matrx_graph.actions import register_node
 from matrx_graph.types.context import NodeExecutionContext
-from matrx_graph.types.primitives import ActionTier, NodeCategory
 from matrx_graph.types.identity_inputs import identity_input
+from matrx_graph.types.primitives import ActionTier, NodeCategory
 from matrx_graph.types.result import NodeResult, failure, success
+from matrx_utils import vcprint
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 
@@ -328,8 +327,9 @@ async def ai_util_parse_llm_json(
     ctx: NodeExecutionContext, inputs: ParseLlmJsonInput
 ) -> NodeResult[ParseLlmJsonOutput]:
     _ = ctx
-    from matrx_ai.agents.response_parser import extract_json
     from matrx_graph.types.result import failure
+
+    from matrx_ai.agents.response_parser import extract_json
 
     result = extract_json(
         inputs.text,

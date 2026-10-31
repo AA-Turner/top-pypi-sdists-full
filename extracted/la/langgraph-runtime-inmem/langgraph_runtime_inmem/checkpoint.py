@@ -54,6 +54,7 @@ class InMemorySaver(InMemorySaverBase):
         self,
         *,
         serde: SerializerProtocol | None = None,
+        persist: bool = True,
         __persistence_hook__: Callable[[PersistentDict], None] | None = None,
     ) -> None:
         self.filename = os.path.join(".langgraph_api", ".langgraph_checkpoint.")
@@ -68,8 +69,6 @@ class InMemorySaver(InMemorySaverBase):
                 os.mkdir(".langgraph_api")
             thisfname = self.filename + str(i) + ".pckl"
             d = PersistentDict(*args, filename=thisfname)
-            if __persistence_hook__:
-                __persistence_hook__(d)
 
             try:
                 d.load()
@@ -94,13 +93,21 @@ class InMemorySaver(InMemorySaverBase):
                     os.remove(self.filename)
                 except Exception:
                     pass
+            # Register only once loaded, so a flush can't write the still-empty
+            # dict over the file.
+            if __persistence_hook__:
+                __persistence_hook__(d)
             return d
 
         from langgraph_api.serde import Serializer  # noqa: PLC0415
 
+        # persist=False: the saver borrows another saver's dicts instead of owning
+        # files. Owning them would load the pickles and take over their flush
+        # registrations (keyed by filename).
+        use_files = persist and not DISABLE_FILE_PERSISTENCE
         super().__init__(
             serde=serde if serde is not None else Serializer(),
-            factory=factory if not DISABLE_FILE_PERSISTENCE else defaultdict,
+            factory=factory if use_files else defaultdict,
         )
 
     def put(
@@ -286,9 +293,11 @@ def Checkpointer(*args, unpack_hook=None, **kwargs):
         else:
             ext_hook = unpack_hook
 
+        # A separate saver for its JSON-friendly serde and per-request latest_iter;
+        # the data itself is MEMORY's.
         saver = InMemorySaver(
             serde=Serializer(__unpack_ext_hook__=ext_hook),
-            __persistence_hook__=register_persistent_dict,
+            persist=False,
             **kwargs,
         )
         saver.writes = MEMORY.writes
@@ -299,50 +308,3 @@ def Checkpointer(*args, unpack_hook=None, **kwargs):
 
 
 __all__ = ["Checkpointer"]
-
-
-def _nbytes(value: Any) -> int:
-    if isinstance(value, bytes | bytearray | memoryview):
-        return len(value)
-    if isinstance(value, tuple | list):
-        return sum(_nbytes(item) for item in value)
-    return 0
-
-
-async def thread_storage(conn: Any, thread_id: str) -> dict[str, Any]:
-    """Bytes a thread's checkpoints occupy in memory, per table and per channel.
-
-    Same shape as the postgres runtime's report, so one endpoint serves both.
-    """
-    saver = Checkpointer()
-    by_channel: dict[str, dict[str, int]] = {}
-    for (tid, _ns, channel, _version), blob in list(saver.blobs.items()):
-        if tid != thread_id:
-            continue
-        entry = by_channel.setdefault(channel, {"versions": 0, "bytes": 0})
-        entry["versions"] += 1
-        entry["bytes"] += _nbytes(blob)
-    checkpoint_count = checkpoint_bytes = 0
-    if thread_id in saver.storage:
-        for checkpoints in saver.storage[thread_id].values():
-            for stored in checkpoints.values():
-                checkpoint_count += 1
-                checkpoint_bytes += _nbytes(stored)
-    write_count = write_bytes = 0
-    for (tid, _ns, _checkpoint_id), writes in list(saver.writes.items()):
-        if tid != thread_id:
-            continue
-        for write in writes.values():
-            write_count += 1
-            write_bytes += _nbytes(write)
-    channel_bytes = sum(entry["bytes"] for entry in by_channel.values())
-    return {
-        "total_bytes": checkpoint_bytes + channel_bytes + write_bytes,
-        "checkpoints": {"count": checkpoint_count, "bytes": checkpoint_bytes},
-        "channel_values": {
-            "count": sum(entry["versions"] for entry in by_channel.values()),
-            "bytes": channel_bytes,
-            "by_channel": by_channel,
-        },
-        "pending_writes": {"count": write_count, "bytes": write_bytes},
-    }

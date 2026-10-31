@@ -7378,8 +7378,11 @@ def _run_recorder_action(
         # A key minted from this device's sign-in opens no browser, so the
         # daemon's consent shows here first; a run nobody is watching keeps the
         # browser approval, where the consent is shown (`_sign_in_mint_consent`).
-        sign_in = False
-        if not headless:
+        # A desktop click is a person's explicit choice, even though its CLI
+        # child has no terminal. Reuse the installation sign-in, just as the
+        # interactive switch does, without a second approval surface.
+        sign_in = os.environ.get(telemetry_mod.DESKTOP_HUMAN_ENV) == "1"
+        if not headless and not sign_in:
             consent = _sign_in_mint_consent(base, pending, disclosed=disclosed)
             if consent is None:
                 return lines or None  # declined or backed out: nothing minted or moved
@@ -7668,13 +7671,17 @@ def _authorize_companion(base_url: str, *, open_browser: bool = True, sign_in: b
     # From this device's sign-in when the caller showed the daemon's consent
     # (`sign_in`): no browser. Otherwise, or when the device cannot (no
     # installation-bound sign-in, an older server), the browser approval.
-    from_sign_in = wizard.mint_from_sign_in(wizard.COMPANION_GRANT, base_url=base_url) if sign_in else None
+    from probe._shared.telemetry import DESKTOP_HUMAN_ENV
+
+    desktop = os.environ.get(DESKTOP_HUMAN_ENV) == "1"
+    from_sign_in = wizard.mint_from_sign_in(wizard.COMPANION_GRANT, base_url=base_url) if sign_in or desktop else None
     minted, errors = wizard.authorize(
         [wizard.COMPANION_GRANT],
         base_url=base_url,
         open_browser=open_browser,
         on_prompt=_prompt,
         minted=from_sign_in,
+        allow_browser_approval=not desktop,
     )
     if errors or not wizard.companion_token_held():
         return [

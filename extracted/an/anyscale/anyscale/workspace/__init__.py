@@ -9,6 +9,8 @@ from anyscale.workspace._private.workspace_sdk import PrivateWorkspaceSDK
 from anyscale.workspace.commands import (
     _CREATE_ARG_DOCSTRINGS,
     _CREATE_EXAMPLE,
+    _DELETE_ARG_DOCSTRINGS,
+    _DELETE_EXAMPLE,
     _GENERATE_SSH_CONFIG_FILE_ARG_DOCSTRINGS,
     _GENERATE_SSH_CONFIG_FILE_EXAMPLE,
     _GET_ARG_DOCSTRINGS,
@@ -39,6 +41,7 @@ from anyscale.workspace.commands import (
     _WAIT_EXAMPLE,
     add_tags as add_tags,
     create as create,
+    delete as delete,
     generate_ssh_config_file as generate_ssh_config_file,
     get as get,
     list as list,  # noqa: A004 - claude_comment("claude-opus-4-5", "SDK public API re-export")
@@ -119,6 +122,27 @@ class WorkspaceSDK:
         Returns the id of the terminated workspace.
         """
         return self._private_sdk.terminate(name=name, id=id, cloud=cloud, project=project)
+
+    @sdk_docs(
+        doc_py_example=_DELETE_EXAMPLE,
+        arg_docstrings=_DELETE_ARG_DOCSTRINGS,
+    )
+    def delete(  # noqa: F811
+        self,
+        *,
+        name: Optional[str] = None,
+        id: Optional[str] = None,  # noqa: A002
+        cloud: Optional[str] = None,
+        project: Optional[str] = None,
+    ) -> str:
+        """Delete a workspace.
+
+        Only a terminated workspace, or one that failed to start, can be deleted.
+        Terminate a running workspace first. Deleting cannot be undone.
+
+        Returns the id of the deleted workspace.
+        """
+        return self._private_sdk.delete(name=name, id=id, cloud=cloud, project=project)
 
     @sdk_docs(
         doc_py_example=_STATUS_EXAMPLE,

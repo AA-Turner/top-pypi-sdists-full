@@ -70,6 +70,7 @@ from .type_defs import (
     CreateScheduledQueryRequestTypeDef,
     CreateScheduledQueryResponseTypeDef,
     DeleteAccountPolicyRequestTypeDef,
+    DeleteAccountPolicyResponseTypeDef,
     DeleteDataProtectionPolicyRequestTypeDef,
     DeleteDeliveryDestinationPolicyRequestTypeDef,
     DeleteDeliveryDestinationRequestTypeDef,
@@ -443,7 +444,7 @@ class CloudWatchLogsClient(BaseClient):
 
     def delete_account_policy(
         self, **kwargs: Unpack[DeleteAccountPolicyRequestTypeDef]
-    ) -> EmptyResponseMetadataTypeDef:
+    ) -> DeleteAccountPolicyResponseTypeDef:
         """
         Deletes a CloudWatch Logs account policy.
 

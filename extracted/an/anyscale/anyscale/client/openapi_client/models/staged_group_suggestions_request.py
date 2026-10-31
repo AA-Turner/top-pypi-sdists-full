@@ -34,17 +34,15 @@ class StagedGroupSuggestionsRequest(object):
     """
     openapi_types = {
         'option': 'IamMigrationOption',
-        'edits': 'list[DraftEdit]',
-        'dismissed_suggestion_ids': 'list[str]'
+        'edits': 'list[DraftEdit]'
     }
 
     attribute_map = {
         'option': 'option',
-        'edits': 'edits',
-        'dismissed_suggestion_ids': 'dismissed_suggestion_ids'
+        'edits': 'edits'
     }
 
-    def __init__(self, option=None, edits=[], dismissed_suggestion_ids=[], local_vars_configuration=None):  # noqa: E501
+    def __init__(self, option=None, edits=[], local_vars_configuration=None):  # noqa: E501
         """StagedGroupSuggestionsRequest - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -52,15 +50,12 @@ class StagedGroupSuggestionsRequest(object):
 
         self._option = None
         self._edits = None
-        self._dismissed_suggestion_ids = None
         self.discriminator = None
 
         if option is not None:
             self.option = option
         if edits is not None:
             self.edits = edits
-        if dismissed_suggestion_ids is not None:
-            self.dismissed_suggestion_ids = dismissed_suggestion_ids
 
     @property
     def option(self):
@@ -107,29 +102,6 @@ class StagedGroupSuggestionsRequest(object):
         """
 
         self._edits = edits
-
-    @property
-    def dismissed_suggestion_ids(self):
-        """Gets the dismissed_suggestion_ids of this StagedGroupSuggestionsRequest.  # noqa: E501
-
-        The suggestions skipped in the wizard, which are left out.  # noqa: E501
-
-        :return: The dismissed_suggestion_ids of this StagedGroupSuggestionsRequest.  # noqa: E501
-        :rtype: list[str]
-        """
-        return self._dismissed_suggestion_ids
-
-    @dismissed_suggestion_ids.setter
-    def dismissed_suggestion_ids(self, dismissed_suggestion_ids):
-        """Sets the dismissed_suggestion_ids of this StagedGroupSuggestionsRequest.
-
-        The suggestions skipped in the wizard, which are left out.  # noqa: E501
-
-        :param dismissed_suggestion_ids: The dismissed_suggestion_ids of this StagedGroupSuggestionsRequest.  # noqa: E501
-        :type: list[str]
-        """
-
-        self._dismissed_suggestion_ids = dismissed_suggestion_ids
 
     def to_dict(self):
         """Returns the model properties as a dict"""

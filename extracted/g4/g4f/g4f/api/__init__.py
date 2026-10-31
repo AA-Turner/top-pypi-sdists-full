@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import inspect
 import logging
 import json
 import asyncio
@@ -87,7 +86,7 @@ import g4f.debug
 from g4f.client import AsyncClient, ChatCompletion, ImagesResponse
 from g4f.providers.response import BaseConversation, JsonConversation
 from g4f.client.helper import filter_none
-from g4f.config import DEFAULT_PORT, DEFAULT_TIMEOUT, DEFAULT_STREAM_TIMEOUT
+from g4f.config import DEFAULT_PORT, DEFAULT_TIMEOUT
 from g4f.image import EXTENSIONS_MAP, is_data_an_media, process_image, is_safe_url
 from g4f.image.copy_images import get_media_dir, copy_media, get_source_url, secure_filename
 from g4f.errors import (
@@ -101,7 +100,7 @@ from g4f.errors import (
 from g4f.cookies import read_cookie_files, get_cookies_dir
 from g4f.providers.types import ProviderType
 from g4f.providers.response import AudioResponse
-from g4f.providers.any_provider import AnyProvider
+from g4f.providers.any_provider import AnyProvider, clean_name
 from g4f.providers.any_model_map import (
     model_map,
     vision_models,
@@ -941,6 +940,19 @@ class Api:
             if self._models_cache is not None and (now - self._models_cache_time) < 300:
                 return self._models_cache
 
+            models_list = list(await AnyProvider.get_models())
+            # Drop outdated / irrelevant entries; prefer top g4f.space models.
+            try:
+                from g4f.Provider import ProviderLoader
+                from g4f.providers.provider_router import ProviderRouter
+                G4FSpace = ProviderLoader.from_name("G4FSpace")
+                # Load G4FSpace models from cache or network, with provider info
+                space_models = list(await ProviderRouter.get_provider_models(G4FSpace))
+                if space_models:
+                    space_models = list(dict.fromkeys([clean_name(m.split(":")[-1]) for m in space_models]))[:25]
+                    models_list = space_models + [m for m in models_list if m not in space_models]
+            except Exception as e:
+                debug.log(f"models: failed to load G4FSpace models: {e}")
             result = {
                 "object": "list",
                 "data": [
@@ -951,22 +963,8 @@ class Api:
                         "owned_by": "",
                         "image": isinstance(model, g4f.models.ImageModel),
                         "vision": isinstance(model, g4f.models.VisionModel),
-                        "provider": False,
                     }
-                    for model in AnyProvider.get_models()
-                ]
-                + [
-                    {
-                        "id": provider_name,
-                        "object": "model",
-                        "created": 0,
-                        "owned_by": getattr(provider, "label", ""),
-                        "image": bool(getattr(provider, "image_models", False)),
-                        "vision": bool(getattr(provider, "vision_models", False)),
-                        "provider": True,
-                    }
-                    for provider_name, provider in ProviderUtils.convert.items()
-                    if provider.working
+                    for model in models_list
                 ],
             }
             self._models_cache = result
@@ -989,14 +987,10 @@ class Api:
                 provider = AbstractClientFactory.create_provider(None, provider)
             except ProviderNotFoundError:
                 return ErrorResponse.from_message(f"Provider not found: {provider}", 404)
-            if not hasattr(provider, "get_models"):
-                models = getattr(provider, "models", [])
-            elif credentials is not None and credentials.credentials != "secret":
-                models = provider.get_models(api_key=credentials.credentials)
-            else:
-                models = provider.get_models()
-            if inspect.isawaitable(models):
-                models = await models
+            from g4f.providers.provider_router import ProviderRouter
+
+            provider_api_key = credentials.credentials if credentials and len(credentials.credentials) > 7 else None
+            models = await ProviderRouter.get_provider_models(provider, provider_api_key, refresh=True)
             return {
                 "object": "list",
                 "data": [
@@ -1251,6 +1245,11 @@ class Api:
 
                 if not config.stream:
                     result = await response
+                    try:
+                        from g4f.providers.provider_router import ProviderRouter
+                        ProviderRouter.record_used(config.model or AppConfig.model, getattr(provider, "__name__", str(provider)))
+                    except Exception:
+                        pass
                     trace.record_output(result)
                     trace.finish()
                     return Response(
@@ -1420,6 +1419,11 @@ class Api:
 
                 if not config.stream:
                     result = await response
+                    try:
+                        from g4f.providers.provider_router import ProviderRouter
+                        ProviderRouter.record_used(config.model or AppConfig.model, getattr(provider, "__name__", str(provider)))
+                    except Exception:
+                        pass
                     trace.record_output(result)
                     trace.finish()
                     text = result.choices[0].message.content if result.choices else ""
@@ -1605,6 +1609,11 @@ class Api:
 
                 if not config.stream:
                     result = await response
+                    try:
+                        from g4f.providers.provider_router import ProviderRouter
+                        ProviderRouter.record_used(config.model or AppConfig.model, getattr(provider, "__name__", str(provider)))
+                    except Exception:
+                        pass
                     trace.record_output(result)
                     trace.finish()
                     text = result.choices[0].message.content if result.choices else ""

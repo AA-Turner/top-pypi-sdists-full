@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from _helpers import REBASES, assert_proper_rotation
 
 from moyopy import Cell, MoyoDataset, Setting, SpaceGroup, operations_from_number
 
@@ -44,12 +45,6 @@ HALL_NUMBERS = {
     212: 508,
     213: 509,
 }
-REBASES = [
-    pytest.param(np.eye(3, dtype=int), id="identity"),
-    pytest.param(np.diag([-1, 1, 1]), id="axis-flip"),
-    pytest.param(np.array([[0, 1, 0], [1, 0, 0], [0, 0, 1]]), id="odd-permutation"),
-    pytest.param(np.array([[0, -1, 2], [1, 0, 1], [0, 0, -1]]), id="skew-left"),
-]
 
 
 def _operation_keys(rotations, translations):
@@ -72,8 +67,7 @@ def _transform_operations(rotations, translations, linear, origin):
 @pytest.mark.parametrize("pair", ENANTIOMORPHIC_PAIRS, ids=lambda pair: f"{pair[0]}-{pair[1]}")
 @pytest.mark.parametrize("mirrored", [False, True], ids=["original", "mirror"])
 @pytest.mark.parametrize("rebase", REBASES)
-@pytest.mark.parametrize("rotate_basis", [False, True])
-def test_enantiomorphic_handedness(pair, mirrored, rebase, rotate_basis):
+def test_enantiomorphic_handedness(pair, mirrored, rebase):
     number, mirror_number = pair
     expected_number = mirror_number if mirrored else number
     if number >= 195:
@@ -136,54 +130,64 @@ def test_enantiomorphic_handedness(pair, mirrored, rebase, rotate_basis):
             == target_keys
         )
 
-        dataset = MoyoDataset(cell, setting=setting, rotate_basis=rotate_basis, symprec=1e-5)
-        assert dataset.number == expected_number
-        assert dataset.hall_number == expected_hall_number
-        assert _operation_keys(dataset.operations.rotations, dataset.operations.translations) == (
-            _operation_keys(input_rotations, input_translations)
-        )
-        # Compare partitions, rather than arbitrary representative site indices.
-        same_orbit = np.equal.outer(dataset.orbits, dataset.orbits)
-        np.testing.assert_array_equal(same_orbit, np.equal.outer(numbers, numbers))
-        rotation = np.array(dataset.std_rotation_matrix)
-        np.testing.assert_allclose(rotation.T @ rotation, np.eye(3), atol=1e-8)
-        assert np.linalg.det(rotation) == pytest.approx(1)
-        if not rotate_basis:
-            np.testing.assert_allclose(rotation, np.eye(3), atol=1e-8)
-
-        for standardized, linear, shift in [
-            (dataset.std_cell, dataset.std_linear, dataset.std_origin_shift),
-            (dataset.prim_std_cell, dataset.prim_std_linear, dataset.prim_std_origin_shift),
-        ]:
-            assert np.linalg.det(standardized.basis) > 0
-            assert np.sign(np.linalg.det(linear)) == sign
-            np.testing.assert_allclose(
-                np.array(standardized.basis).T, rotation @ input_basis @ linear, atol=1e-8
-            )
-            transformed_positions = (input_positions - shift) @ np.linalg.inv(linear).T
-            differences = transformed_positions[:, None] - np.array(standardized.positions)
-            differences -= np.rint(differences)
-            matches = (np.linalg.norm(differences, axis=-1) < 1e-7) & (
-                numbers[:, None] == np.array(standardized.numbers)
-            )
-            assert np.all(matches.sum(axis=1) == 1)
-            assert (
-                _operation_keys(
-                    *_transform_operations(
-                        input_rotations, input_translations, linear, np.array(shift)
-                    )
+        # Identification is independent of rotate_basis; only datasets need both modes.
+        for rotate_basis in [False, True]:
+            try:
+                dataset = MoyoDataset(
+                    cell, setting=setting, rotate_basis=rotate_basis, symprec=1e-5
                 )
-                == target_keys
-            )
+                assert dataset.number == expected_number
+                assert dataset.hall_number == expected_hall_number
+                assert _operation_keys(
+                    dataset.operations.rotations, dataset.operations.translations
+                ) == (_operation_keys(input_rotations, input_translations))
+                # Compare partitions, rather than arbitrary representative site indices.
+                same_orbit = np.equal.outer(dataset.orbits, dataset.orbits)
+                np.testing.assert_array_equal(same_orbit, np.equal.outer(numbers, numbers))
+                rotation = np.array(dataset.std_rotation_matrix)
+                assert_proper_rotation(rotation, rotate_basis)
 
-        mapping = np.array(dataset.mapping_std_prim)
-        prim_positions = np.array(dataset.prim_std_cell.positions)[mapping]
-        expected_positions = (input_positions - dataset.prim_std_origin_shift) @ np.linalg.inv(
-            dataset.prim_std_linear
-        ).T
-        diff = prim_positions - expected_positions
-        np.testing.assert_allclose(diff - np.rint(diff), 0, atol=1e-7)
-        np.testing.assert_array_equal(np.array(dataset.prim_std_cell.numbers)[mapping], numbers)
+                for standardized, linear, shift in [
+                    (dataset.std_cell, dataset.std_linear, dataset.std_origin_shift),
+                    (
+                        dataset.prim_std_cell,
+                        dataset.prim_std_linear,
+                        dataset.prim_std_origin_shift,
+                    ),
+                ]:
+                    assert np.linalg.det(standardized.basis) > 0
+                    assert np.sign(np.linalg.det(linear)) == sign
+                    np.testing.assert_allclose(
+                        np.array(standardized.basis).T, rotation @ input_basis @ linear, atol=1e-8
+                    )
+                    transformed_positions = (input_positions - shift) @ np.linalg.inv(linear).T
+                    differences = transformed_positions[:, None] - np.array(standardized.positions)
+                    differences -= np.rint(differences)
+                    matches = (np.linalg.norm(differences, axis=-1) < 1e-7) & (
+                        numbers[:, None] == np.array(standardized.numbers)
+                    )
+                    assert np.all(matches.sum(axis=1) == 1)
+                    assert (
+                        _operation_keys(
+                            *_transform_operations(
+                                input_rotations, input_translations, linear, np.array(shift)
+                            )
+                        )
+                        == target_keys
+                    )
+
+                mapping = np.array(dataset.mapping_std_prim)
+                prim_positions = np.array(dataset.prim_std_cell.positions)[mapping]
+                expected_positions = (
+                    input_positions - dataset.prim_std_origin_shift
+                ) @ np.linalg.inv(dataset.prim_std_linear).T
+                diff = prim_positions - expected_positions
+                np.testing.assert_allclose(diff - np.rint(diff), 0, atol=1e-7)
+                np.testing.assert_array_equal(
+                    np.array(dataset.prim_std_cell.numbers)[mapping], numbers
+                )
+            except Exception as error:
+                raise AssertionError(f"setting={setting}, rotate_basis={rotate_basis}") from error
 
 
 @pytest.mark.parametrize("number,index,centering", [(5, 1, 2), (76, 2, 1)])
@@ -352,10 +356,7 @@ def test_refined_wyckoff_handedness(
         np.equal.outer(dataset.mapping_std_prim, dataset.mapping_std_prim), same_primitive_site
     )
     rotation = np.array(dataset.std_rotation_matrix)
-    np.testing.assert_allclose(rotation.T @ rotation, np.eye(3), atol=1e-8)
-    assert np.linalg.det(rotation) == pytest.approx(1)
-    if not rotate_basis:
-        np.testing.assert_allclose(rotation, np.eye(3), atol=1e-8)
+    assert_proper_rotation(rotation, rotate_basis)
     for cell, linear in [
         (dataset.std_cell, dataset.std_linear),
         (dataset.prim_std_cell, dataset.prim_std_linear),

@@ -138,6 +138,10 @@ Keyword arguments:
 - fs (dict; optional):
     Font style – Accepts CSS values or a dict for responsive styles.
 
+- fullWidth (boolean; optional):
+    Determines whether the component should take 100% width of its
+    container, `False` by default.
+
 - fw (number | dict; optional):
     Font weight – Accepts CSS values or a dict for responsive styles.
 
@@ -195,6 +199,13 @@ Keyword arguments:
     Determines whether component should be hidden in light color
     scheme with `display: none`.
 
+- loading (boolean; optional):
+    Displays loading indicator in the left or right section default
+    False.
+
+- loadingPosition (a value equal to: 'left', 'right'; optional):
+    Position of the loading indicator default 'right'.
+
 - loading_state (dict; optional):
     Object that holds the loading state object coming from
     dash-renderer. For use with dash<3.
@@ -234,9 +245,15 @@ Keyword arguments:
     Margin inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- mie (number; optional):
+    MarginInlineEnd, theme key: theme.spacing.
+
 - mih (string | number | dict; optional):
     Minimum height – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
+
+- mis (number; optional):
+    MarginInlineStart, theme key: theme.spacing.
 
 - miw (string | number | dict; optional):
     Minimum width – Accepts theme spacing keys, CSS values, or a dict
@@ -309,6 +326,12 @@ Keyword arguments:
     kept after the browser quit. session: window.sessionStorage, data
     is cleared once the browser quit.
 
+- pie (number; optional):
+    PaddingInlineEnd, theme key: theme.spacing.
+
+- pis (number; optional):
+    PaddingInlineStart, theme key: theme.spacing.
+
 - pl (string | number | dict; optional):
     Padding left – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
@@ -350,20 +373,12 @@ Keyword arguments:
         Determines whether dropdown and target elements should have
         accessible roles, `True` by default.
 
-    - hideDetached (boolean; optional):
-        If set, the dropdown is hidden when the element is hidden with
-        styles or not visible on the screen, `True` by default.
-
     - position (a value equal to: 'top', 'left', 'bottom', 'right', 'top-end', 'top-start', 'left-end', 'left-start', 'bottom-end', 'bottom-start', 'right-end', 'right-start'; optional):
         Dropdown position relative to the target element, `'bottom'`
         by default.
 
     - offset (number; optional):
         Offset of the dropdown element, `8` by default.
-
-    - positionDependencies (list of boolean | number | string | dict | lists; optional):
-        `useEffect` dependencies to force update dropdown position,
-        `[]` by default.
 
     - keepMounted (boolean; optional):
         If set dropdown will not be unmounted from the DOM when it is
@@ -492,7 +507,7 @@ Keyword arguments:
     - arrowRadius (number; optional):
         Arrow `border-radius` in px, `0` by default.
 
-    - arrowPosition (a value equal to: 'center', 'side'; optional):
+    - arrowPosition (a value equal to: 'center', 'side', 'merge'; optional):
         Arrow position.
 
     - withinPortal (boolean; optional):
@@ -532,6 +547,23 @@ Keyword arguments:
     - withOverlay (boolean; optional):
         Determines whether the overlay should be displayed when the
         dropdown is opened, `False` by default.
+
+    - hideDetached (boolean; optional):
+        If set, the dropdown is hidden when the element is hidden with
+        styles or not visible on the screen default True.
+
+    - preventPositionChangeWhenVisible (boolean; optional):
+        If `True`, the dropdown picks its side on open (flip runs
+        once, preferring the `position` prop) and then never changes
+        side — scrolling, resizing, and content size changes will not
+        flip the dropdown. The side is recalculated fresh on the next
+        open. Does not affect the `shift` middleware. Set to `False`
+        to keep flip active and allow the dropdown to re-flip on every
+        change. default True.
+
+    - clickOutsideCapture (boolean; optional):
+        If set, outside click listeners are registered in the capture
+        phase default False.
 
     - classNames (dict; optional):
         Adds custom CSS class names to inner elements of a component.
@@ -611,6 +643,12 @@ Keyword arguments:
     Adds inline styles directly to inner elements of a component.  See
     Styles API docs.
 
+- success (a list of or a singular dash component, string or number; optional):
+    Determines whether the input should have success styles.
+
+- successProps (dict with strings as keys and values of type boolean | number | string | dict | list; optional):
+    Props passed down to the `Input.Success` component.
+
 - swatches (list of strings; optional):
     An array of colors in one of the supported formats. Used to render
     swatches list below the color picker.
@@ -673,10 +711,14 @@ Keyword arguments:
     Determines whether the preview color swatch should be displayed in
     the left section of the input, `True` by default.
 
+- withSuccessStyles (boolean; optional):
+    Determines whether the input should have green border when the
+    `success` prop is set @,default,True.
+
 - wrapperProps (dict with strings as keys and values of type boolean | number | string | dict | list; optional):
     Props passed down to the root element."""
-    _children_props: typing.List[str] = ['popoverProps.children', 'popoverProps.middlewares.flip.boundary', 'eyeDropperIcon', 'label', 'description', 'error', 'leftSection', 'rightSection']
-    _base_nodes = ['eyeDropperIcon', 'label', 'description', 'error', 'leftSection', 'rightSection', 'children']
+    _children_props: typing.List[str] = ['popoverProps.children', 'popoverProps.middlewares.flip.boundary', 'eyeDropperIcon', 'label', 'description', 'error', 'success', 'leftSection', 'rightSection']
+    _base_nodes = ['eyeDropperIcon', 'label', 'description', 'error', 'success', 'leftSection', 'rightSection', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'ColorInput'
     PopoverPropsTransitionProps = TypedDict(
@@ -706,7 +748,7 @@ Keyword arguments:
             {
             "mainAxis": NotRequired[bool],
             "crossAxis": NotRequired[typing.Union[bool, Literal["alignment"]]],
-            "rootBoundary": NotRequired[typing.Union[Literal["viewport"], Literal["document"]]],
+            "rootBoundary": NotRequired[typing.Union[Literal["viewport"], Literal["layoutViewport"], Literal["document"]]],
             "elementContext": NotRequired[Literal["reference", "floating"]],
             "altBoundary": NotRequired[bool],
             "padding": NotRequired[typing.Union[NumberType]],
@@ -738,10 +780,8 @@ Keyword arguments:
             "trapFocus": NotRequired[bool],
             "closeOnEscape": NotRequired[bool],
             "withRoles": NotRequired[bool],
-            "hideDetached": NotRequired[bool],
             "position": NotRequired[Literal["top", "left", "bottom", "right", "top-end", "top-start", "left-end", "left-start", "bottom-end", "bottom-start", "right-end", "right-start"]],
             "offset": NotRequired[typing.Union[NumberType]],
-            "positionDependencies": NotRequired[typing.Sequence[typing.Any]],
             "keepMounted": NotRequired[bool],
             "transitionProps": NotRequired["PopoverPropsTransitionProps"],
             "width": NotRequired[typing.Union[str, NumberType]],
@@ -750,7 +790,7 @@ Keyword arguments:
             "arrowSize": NotRequired[NumberType],
             "arrowOffset": NotRequired[NumberType],
             "arrowRadius": NotRequired[NumberType],
-            "arrowPosition": NotRequired[Literal["center", "side"]],
+            "arrowPosition": NotRequired[Literal["center", "side", "merge"]],
             "withinPortal": NotRequired[bool],
             "portalProps": NotRequired[dict],
             "zIndex": NotRequired[typing.Union[str, NumberType]],
@@ -761,6 +801,9 @@ Keyword arguments:
             "floatingStrategy": NotRequired[Literal["absolute", "fixed"]],
             "overlayProps": NotRequired[dict],
             "withOverlay": NotRequired[bool],
+            "hideDetached": NotRequired[bool],
+            "preventPositionChangeWhenVisible": NotRequired[bool],
+            "clickOutsideCapture": NotRequired[bool],
             "classNames": NotRequired[dict],
             "styles": NotRequired[typing.Any],
             "unstyled": NotRequired[bool],
@@ -853,16 +896,22 @@ Keyword arguments:
         style: typing.Optional[typing.Any] = None,
         lightHidden: typing.Optional[bool] = None,
         darkHidden: typing.Optional[bool] = None,
+        mis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        mie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         wrapperProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
         readOnly: typing.Optional[bool] = None,
         label: typing.Optional[ComponentType] = None,
         description: typing.Optional[ComponentType] = None,
         error: typing.Optional[ComponentType] = None,
+        success: typing.Optional[ComponentType] = None,
         required: typing.Optional[bool] = None,
         withAsterisk: typing.Optional[bool] = None,
         labelProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
         descriptionProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
         errorProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
+        successProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
         inputWrapperOrder: typing.Optional[typing.Sequence[Literal["label", "input", "description", "error"]]] = None,
         leftSection: typing.Optional[ComponentType] = None,
         leftSectionWidth: typing.Optional[typing.Union[str, NumberType]] = None,
@@ -877,14 +926,18 @@ Keyword arguments:
         size: typing.Optional[typing.Optional[str]] = None,
         pointer: typing.Optional[bool] = None,
         withErrorStyles: typing.Optional[bool] = None,
+        withSuccessStyles: typing.Optional[bool] = None,
         placeholder: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
         inputProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
+        loading: typing.Optional[bool] = None,
+        loadingPosition: typing.Optional[Literal["left", "right"]] = None,
         value: typing.Optional[str] = None,
         format: typing.Optional[Literal["hex", "hexa", "rgba", "rgb", "hsl", "hsla"]] = None,
         withPicker: typing.Optional[bool] = None,
         swatches: typing.Optional[typing.Sequence[str]] = None,
         swatchesPerRow: typing.Optional[NumberType] = None,
+        fullWidth: typing.Optional[bool] = None,
         classNames: typing.Optional[dict] = None,
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
@@ -898,9 +951,9 @@ Keyword arguments:
         loading_state: typing.Optional["LoadingState"] = None,
         **kwargs
     ):
-        self._prop_names = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'closeOnColorSwatchClick', 'darkHidden', 'data-*', 'description', 'descriptionProps', 'disabled', 'disallowInput', 'display', 'error', 'errorProps', 'eyeDropperButtonProps', 'eyeDropperIcon', 'ff', 'fixOnBlur', 'flex', 'format', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'name', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'popoverProps', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'size', 'style', 'styles', 'swatches', 'swatchesPerRow', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withAsterisk', 'withErrorStyles', 'withEyeDropper', 'withPicker', 'withPreview', 'wrapperProps']
+        self._prop_names = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'closeOnColorSwatchClick', 'darkHidden', 'data-*', 'description', 'descriptionProps', 'disabled', 'disallowInput', 'display', 'error', 'errorProps', 'eyeDropperButtonProps', 'eyeDropperIcon', 'ff', 'fixOnBlur', 'flex', 'format', 'fs', 'fullWidth', 'fw', 'fz', 'h', 'hiddenFrom', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'loading', 'loadingPosition', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'name', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pie', 'pis', 'pl', 'placeholder', 'pointer', 'popoverProps', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'size', 'style', 'styles', 'success', 'successProps', 'swatches', 'swatchesPerRow', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withAsterisk', 'withErrorStyles', 'withEyeDropper', 'withPicker', 'withPreview', 'withSuccessStyles', 'wrapperProps']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'closeOnColorSwatchClick', 'darkHidden', 'data-*', 'description', 'descriptionProps', 'disabled', 'disallowInput', 'display', 'error', 'errorProps', 'eyeDropperButtonProps', 'eyeDropperIcon', 'ff', 'fixOnBlur', 'flex', 'format', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'name', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'popoverProps', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'size', 'style', 'styles', 'swatches', 'swatchesPerRow', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withAsterisk', 'withErrorStyles', 'withEyeDropper', 'withPicker', 'withPreview', 'wrapperProps']
+        self.available_properties = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'closeOnColorSwatchClick', 'darkHidden', 'data-*', 'description', 'descriptionProps', 'disabled', 'disallowInput', 'display', 'error', 'errorProps', 'eyeDropperButtonProps', 'eyeDropperIcon', 'ff', 'fixOnBlur', 'flex', 'format', 'fs', 'fullWidth', 'fw', 'fz', 'h', 'hiddenFrom', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'loading', 'loadingPosition', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'name', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pie', 'pis', 'pl', 'placeholder', 'pointer', 'popoverProps', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'size', 'style', 'styles', 'success', 'successProps', 'swatches', 'swatchesPerRow', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withAsterisk', 'withErrorStyles', 'withEyeDropper', 'withPicker', 'withPreview', 'withSuccessStyles', 'wrapperProps']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

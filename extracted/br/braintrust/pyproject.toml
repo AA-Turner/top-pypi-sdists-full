@@ -117,6 +117,8 @@ test = [
     "pytest==9.1.1",
     "pytest-asyncio==1.3.0",
     "pytest-vcr==1.0.2",
+    # conftest.py relies on vcrpy 8.5.0's aiohttp stream fixes (kevin1024/vcrpy#1055).
+    "vcrpy>=8.5.0",
 ]
 
 # -- Session-specific auxiliary deps -------------------------------------------
@@ -201,6 +203,11 @@ test-langchain = [
     "langchain-openai==1.1.14",
     "langchain-anthropic==1.4.6",
     "langgraph==1.1.6",
+]
+
+test-mcp-interop = [
+    "opentelemetry-instrumentation-mcp==0.62.4",
+    "langchain-mcp-adapters==0.3.2",
 ]
 
 test-deepagents = [
@@ -434,6 +441,10 @@ conflicts = [
         {group = "test-litellm"},
         {group = "test-mcp-v1"},
     ],
+    [
+        {group = "test-litellm"},
+        {group = "test-mcp-interop"},
+    ],
 ]
 
 # ---------------------------------------------------------------------------
@@ -487,6 +498,25 @@ latest = "livekit-agents==1.8.9"
 [tool.braintrust.matrix.pipecat-ai]
 latest = "pipecat-ai==1.14.0"
 "1.3.0" = "pipecat-ai==1.3.0"
+
+[tool.braintrust.matrix.mcp]
+latest = "mcp==2.3.0"
+"2.0.0" = "mcp==2.0.0"
+"1.30.0" = "mcp==1.30.0"
+"1.28.1" = "mcp==1.28.1"
+
+# Standalone FastMCP. 2.x and 3.x run on mcp 1.x; 4.x runs on mcp 2.x. Since
+# 3.4 the implementation ships in fastmcp-slim and fastmcp only pins it.
+[tool.braintrust.matrix.fastmcp]
+latest = "fastmcp==4.1.3"
+"4.0.0" = "fastmcp==4.0.0"
+"3.4.11" = "fastmcp==3.4.11"
+"3.0.0" = "fastmcp==3.0.0"
+"2.14.7" = "fastmcp==2.14.7"
+
+[tool.braintrust.matrix.fastmcp-slim]
+latest = "fastmcp-slim[client,server]==4.1.3"
+"3.4.11" = "fastmcp-slim[client,server]==3.4.11"
 
 [tool.braintrust.matrix.claude-agent-sdk]
 latest = "claude-agent-sdk==0.2.174"
@@ -711,6 +741,8 @@ instructor = "instructor"
 litellm = "litellm"
 livekit-agents = "livekit.agents"
 mistralai = "mistralai"
+mcp = "mcp"
+fastmcp = "fastmcp"
 huggingface-hub = "huggingface_hub"
 openai = "openai"
 openai-agents = "agents"

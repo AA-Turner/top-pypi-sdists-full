@@ -202,3 +202,46 @@ def get_internal_api_key() -> Optional[str]:
     except Exception as e:
         logger.debug(f"Failed to read internal key from {key_path}: {e}")
         return None
+
+
+# A Mac node's cluster credential (node_agent.py → sphere-api's node relay):
+# its own Ed25519 private key, or the legacy shared token. Lives ONLY in the
+# mode-600 secrets file next to the internal key -- never in the process
+# environment, because the environment comes from service definitions
+# (launchd plists, supervisord.conf) that are readable plain text and get
+# dumped by ordinary tooling (`plutil -p`, `launchctl print`, support
+# bundles). baconator 2026-10-07: a `plutil -p` of the node-agent plist put
+# its private key into a session transcript.
+MAC_NODE_PRIVATE_KEY_VAR = "FEATRIX_NODE_PRIVATE_KEY"
+MAC_NODE_WS_TOKEN_VAR = "FEATRIX_NODE_WS_TOKEN"
+
+
+def mac_secrets_location() -> str:
+    """Where get_node_cluster_credentials() reads (for error messages)."""
+    return str(_mac_secrets_path())
+
+
+def get_node_cluster_credentials() -> tuple[str, str]:
+    """``(private_key, legacy_ws_token)`` this Mac node joins the cluster with,
+    from the secrets file only. Either may be "" (the caller decides)."""
+    secrets = _read_config_file(_mac_secrets_path()) or {}
+    return ((secrets.get(MAC_NODE_PRIVATE_KEY_VAR.lower()) or "").strip(),
+            (secrets.get(MAC_NODE_WS_TOKEN_VAR.lower()) or "").strip())
+
+
+def internal_key_headers() -> dict:
+    """``{"X-Api-Key": <internal key>}`` for a Featrix-internal call to
+    sphere-api, or ``{}`` when this host has no key provisioned.
+
+    One owner for the header shape, so every direct internal reporter sends
+    what the router's auth middleware actually validates. Reporters that do NOT
+    go through node_outbox (which has its own ``auth=AUTH_FEATRIX_INTERNAL``
+    path) use this: watchdog/system_monitor alerts and crash shipping, the
+    vMotion and GPU-handoff lifecycle callbacks.
+
+    An empty dict is not an error here -- the caller decides. Telemetry skips
+    the send (nothing is owed to an unprovisioned host); a lifecycle callback
+    sends anyway so the failure is visible rather than silently dropped.
+    """
+    key = get_internal_api_key()
+    return {"X-Api-Key": key} if key else {}

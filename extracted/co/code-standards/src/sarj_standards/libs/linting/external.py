@@ -60,6 +60,7 @@ from .process import (
     RequestExecutor,
     ToolResolution,
     executor_capabilities,
+    raise_if_cancelled,
 )
 from .runner import GroupedPaths, accepts_hook_path, group_paths
 from .shell_policy import SHELLCHECK_ARGS
@@ -103,6 +104,8 @@ _NO_UPSTREAM_ESLINT_RULES = UpstreamESLintRules()
 
 
 _TIMEOUT = timedelta(minutes=15)
+# Eighth-second steps convert exactly to integer milliseconds in Node.
+_REACT_DOCTOR_TICKS_PER_SECOND = 8
 _ESLINT_ERROR = 2
 _DETEKT_FINDINGS = 2
 _MAX_STDOUT_BYTES = 16 * 1024 * 1024
@@ -1383,7 +1386,7 @@ def _react_doctor_budget_runner(runner: ProcessExecutor) -> ProcessExecutor:
         deadline = min(deadline, now + request.timeout_seconds)
         if request.deadline is not None:
             deadline = min(deadline, request.deadline)
-        remaining = deadline - now
+        remaining = int((deadline - now) * _REACT_DOCTOR_TICKS_PER_SECOND) / _REACT_DOCTOR_TICKS_PER_SECOND
         if remaining <= 0:
             raise subprocess.TimeoutExpired(request.argv, 0)
         argv = list(request.argv)
@@ -2429,7 +2432,7 @@ def ruff_project_groups(files: Sequence[str], root: Path) -> tuple[tuple[Path, P
     for raw_file in files:
         path = Path(raw_file).resolve()
         config = nearest(path.parent) or fallback
-        project = root if config is None else config.parent
+        project = root if config is None or config == fallback else config.parent
         grouped.setdefault((project, config), []).append(str(path))
     return tuple(
         (project, config, tuple(sorted(scoped_files)))
@@ -2687,6 +2690,7 @@ def _physical_memory_bytes() -> int | None:
 
 
 def _run_process(request: ProcessRequest) -> ProcessOutput:
+    raise_if_cancelled(request.cancellation)
     if request.deadline is not None and time.monotonic() >= request.deadline:
         raise subprocess.TimeoutExpired(request.argv, 0)
     executable = _analyzer_executable(request.argv[0])
@@ -2699,6 +2703,7 @@ def _run_process(request: ProcessRequest) -> ProcessOutput:
             stdin = resources.enter_context(tempfile.TemporaryFile())
             stdin.write(request.input_bytes)
             stdin.seek(0)
+        raise_if_cancelled(request.cancellation)
         process = subprocess.Popen(  # ruff: ignore[subprocess-without-shell-equals-true] -- fixed argv and shell stays disabled.
             [executable, *request.argv[1:]],
             cwd=request.cwd,
@@ -2796,6 +2801,7 @@ def _wait_for_process(
     if request.deadline is not None:
         deadline = min(deadline, request.deadline)
     while not exceeded.is_set():
+        raise_if_cancelled(request.cancellation)
         exited = _leader_exited(process)
         if exited is not False and all(not thread.is_alive() for thread in threads):
             if exceeded.is_set():

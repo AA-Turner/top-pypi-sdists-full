@@ -486,34 +486,11 @@ class ConversationResolver:
         of the structural config, so a responder turn can never skip them."""
 
         # ── HOW FAR BACK THIS CONVERSATION READS ────────────────────────────
-        # Loading a continuation has never had a bound: the whole rebuilt
-        # message list, forever. Right for a chat somebody opens and closes;
-        # wrong for a conversation that by construction never ends — a person's
-        # Personal Staff thread, continued by every text, every call and the
-        # app. The host decides the window (a setting, never a constant here)
-        # and answers None for every conversation it has no opinion about.
-        # Deliberately BEFORE the user turn is appended — the message the person
-        # just sent is not one of the turns a window may drop — and before the
-        # send boundary, so this is not a mutation between the resolver and the
-        # provider. A raise here is the host saying it could not read its own
-        # setting, and it takes the turn down rather than picking a window
-        # nobody chose; see matrx_ai/_ext.py for the contract.
-        from matrx_ai._ext import get_conversation_history_window
-
-        history_window = get_conversation_history_window()
-        if history_window is not None and config.messages:
-            bounded = await history_window(
-                conversation_id=conversation_id, messages=list(config.messages)
-            )
-            if bounded is not None and len(bounded) != len(config.messages):
-                vcprint(
-                    f"[ConversationResolver] {conversation_id}: the host bounded this "
-                    f"continuation's history to {len(bounded)} of "
-                    f"{len(config.messages)} persisted messages.",
-                    color="yellow",
-                )
-                config.messages.clear()
-                config.messages.extend(bounded)
+        # Not here (B2, 2026-10-30): the history window is a declared stage of the
+        # SEND BOUNDARY (``send_boundary._apply_history_window``), where the one cache
+        # gate decides when its cut may move. All this exit records is how much of the
+        # list is the persisted history, before this turn's input is appended.
+        history_len = len(config.messages or [])
 
         # A previous turn's one-turn model (carried here by the process cache)
         # never leaks into this turn: the conversation's own model comes back
@@ -539,6 +516,7 @@ class ConversationResolver:
         # Imported BEFORE the try: the except clause below names it, and a name
         # bound inside the try would not exist if the import itself failed.
         from matrx_ai.config.context_preflight import PromptTooLargeError
+        from matrx_ai.config.history_budget import HistoryWindowUnavailable
 
         try:
             from matrx_ai.config.send_boundary import STAGE_RESOLVE, prepare_for_send
@@ -570,7 +548,12 @@ class ConversationResolver:
                 cache_state=cache_state_dict,
                 user_input=user_input,
                 config_overrides=config_overrides,
+                history_len=history_len,
             )
+        except HistoryWindowUnavailable:
+            # NOT a shaping failure either: the host has a window for this conversation and could
+            # not read it. The turn fails loudly rather than run on a window nobody chose.
+            raise
         except PromptTooLargeError:
             # NOT a shaping failure: the prompt provably cannot fit the model's
             # window. Refusing here is the whole point — swallowing it would

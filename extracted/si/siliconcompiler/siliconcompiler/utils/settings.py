@@ -329,6 +329,13 @@ class SettingsManager:
                                   "Resetting.")
             data = {}
 
+        # Every accessor indexes a category as an object, so one that is not is
+        # dropped, as the system file's are.
+        for category in [name for name, entries in data.items() if not isinstance(entries, dict)]:
+            self.__logger.warning(f"Settings category '{category}' in {self.__filepath} is not "
+                                  "a JSON object. Ignoring.")
+            del data[category]
+
         with self.__settings_lock:
             self.__settings = data
 
@@ -598,10 +605,10 @@ class SettingsManager:
         Raises:
             TimeoutError: if the lock is not had in time. Nothing is read or
                 written.
-            ValueError: if the file is malformed or does not hold a JSON object.
-                The file is left as it is: unlike a plain load, which logs and
-                starts empty, a transaction will not replace a file it could not
-                read.
+            ValueError: if the file is malformed, or it or one of its categories
+                is not a JSON object. The file is left as it is: unlike a plain
+                load, which logs and drops what it cannot use, a transaction will
+                not replace a file it could not read.
             RuntimeError: on leaving the block in a child forked inside it.
                 Nothing is saved.
         """
@@ -638,6 +645,11 @@ class SettingsManager:
             if not isinstance(data, dict):
                 raise ValueError(f"Settings file {self.__filepath} does not hold a JSON "
                                  "object; fix or delete it")
+            unusable = sorted(name for name, entries in data.items()
+                              if not isinstance(entries, dict))
+            if unusable:
+                raise ValueError(f"Settings file {self.__filepath} has categories that are "
+                                 f"not JSON objects ({', '.join(unusable)}); fix or delete it")
 
             # Compared as text, not as dicts, because key order carries
             # meaning (see set): a re-set that only moves a key is a change.
@@ -1002,6 +1014,7 @@ def _add_parser(commands) -> None:
 
     # Imported here rather than at module scope: each of them imports this module.
     from siliconcompiler.package.cleanup import CACHE_SETTINGS
+    from siliconcompiler.scheduler.schedulernode import ISSUE_SETTINGS
     from siliconcompiler.scheduler.slurm import SLURM_SETTINGS
     from siliconcompiler.schema_support.option import OPTION_SETTINGS
     from siliconcompiler.schema_support.record import RECORD_SETTINGS
@@ -1009,7 +1022,7 @@ def _add_parser(commands) -> None:
 
     categories = {category.name: category for category in (
         CACHE_SETTINGS, RECORD_SETTINGS, SLURM_SETTINGS, OPTION_SETTINGS,
-        SHOWTASK_SETTINGS, OPENTASK_SETTINGS)}
+        SHOWTASK_SETTINGS, OPENTASK_SETTINGS, ISSUE_SETTINGS)}
     parser = commands.add_parser(
         "settings",
         help="settings kept in ~/.sc/settings.json",

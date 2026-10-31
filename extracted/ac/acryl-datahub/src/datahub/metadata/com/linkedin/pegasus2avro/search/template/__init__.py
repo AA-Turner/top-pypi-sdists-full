@@ -12,6 +12,16 @@ from ......schema_classes import FieldFactorClass
 from ......schema_classes import FieldFactorModifierClass
 from ......schema_classes import FieldValueScoreClass
 from ......schema_classes import HighlightFieldOverridesClass
+from ......schema_classes import RankingBooleanMatchClass
+from ......schema_classes import RankingBooleanOperatorClass
+from ......schema_classes import RankingBooleanValueClass
+from ......schema_classes import RankingKeywordMatchClass
+from ......schema_classes import RankingKeywordPresenceClass
+from ......schema_classes import RankingNormalizationClass
+from ......schema_classes import RankingNormalizationTypeClass
+from ......schema_classes import RankingSignalClass
+from ......schema_classes import RankingSignalKindClass
+from ......schema_classes import RankingValueAggregationClass
 from ......schema_classes import SearchFieldBoostClass
 from ......schema_classes import SearchFieldOverridesClass
 from ......schema_classes import SearchTemplateBoostClass
@@ -40,6 +50,16 @@ FieldFactor = FieldFactorClass
 FieldFactorModifier = FieldFactorModifierClass
 FieldValueScore = FieldValueScoreClass
 HighlightFieldOverrides = HighlightFieldOverridesClass
+RankingBooleanMatch = RankingBooleanMatchClass
+RankingBooleanOperator = RankingBooleanOperatorClass
+RankingBooleanValue = RankingBooleanValueClass
+RankingKeywordMatch = RankingKeywordMatchClass
+RankingKeywordPresence = RankingKeywordPresenceClass
+RankingNormalization = RankingNormalizationClass
+RankingNormalizationType = RankingNormalizationTypeClass
+RankingSignal = RankingSignalClass
+RankingSignalKind = RankingSignalKindClass
+RankingValueAggregation = RankingValueAggregationClass
 SearchFieldBoost = SearchFieldBoostClass
 SearchFieldOverrides = SearchFieldOverridesClass
 SearchTemplateBoost = SearchTemplateBoostClass

@@ -47,6 +47,7 @@ from langgraph_api.config import (
     STREAM_PUBLISH_RETRY_MAX_DURATION_SECS,
     STREAM_PUBLISH_RETRY_MAX_INTERVAL_SECS,
 )
+from langgraph_api.drain import GraphDrained
 from langgraph_api.errors import UserInterrupt, UserRollback
 from langgraph_api.graph import SYSTEM_ASSISTANT_IDS
 from langgraph_api.grpc.client import get_shared_client
@@ -385,6 +386,9 @@ def proto_to_run(proto_run: pb.Run) -> Run:
         ),
         "langsmith_session_name": proto_run.langsmith_session_name
         if proto_run.HasField("langsmith_session_name")
+        else None,
+        "cancel_reason": proto_run.cancel_reason
+        if proto_run.HasField("cancel_reason")
         else None,
     }
 
@@ -847,15 +851,17 @@ class Runs(Authenticated):
     @staticmethod
     async def next(
         wait: bool, limit: int = 1
-    ) -> AsyncIterator[tuple[Run, int, dict[str, Any] | None]]:
-        """Get the next run from the queue, the attempt number, and encryption context.
+    ) -> AsyncIterator[tuple[Run, int, int, dict[str, Any] | None]]:
+        """Get the next run from the queue, the attempt and drain counts, and encryption context.
 
-        1 is the first attempt, 2 is the first retry, etc.
+        1 is the first attempt, 2 is the first retry, etc. Drains count how
+        many times the run was cooperatively drained and re-queued; they are
+        handoffs, not failures, and don't count against the retry limit.
 
         Not exposed via API, no auth.
 
         Returns:
-            AsyncIterator of (run, attempt, encryption_context) tuples
+            AsyncIterator of (run, attempt, drains, encryption_context) tuples
         """
         request = pb.NextRunRequest(wait=wait, limit=limit)
 
@@ -865,7 +871,33 @@ class Runs(Authenticated):
         for run_with_attempt in response.runs:
             run = proto_to_run(run_with_attempt.run)
             encryption_context = extract_encryption_context(run_with_attempt)
-            yield run, run_with_attempt.attempt, encryption_context
+            yield (
+                run,
+                run_with_attempt.attempt,
+                run_with_attempt.drains,
+                encryption_context,
+            )
+
+    @staticmethod
+    async def requeue(
+        conn,  # Not used in gRPC implementation
+        run_id: UUID,
+        reason: str,
+    ) -> None:
+        """Re-queue a drained run: count the drain, then make it pending.
+
+        The core counts the drain before the status write so a claim can't
+        race the counter. Apart from the count, this is the retry path's
+        pending write, and like it, it is not fenced against a newer claim
+        of the run. Not exposed via API, no auth.
+        """
+        request = pb.RequeueRunRequest(
+            run_id=pb.UUID(value=str(run_id)),
+            reason=reason,
+        )
+
+        client = await get_shared_client()
+        await client.runs.Requeue(request)
 
     class Stream(Authenticated):
         """Stream operations for runs."""
@@ -1134,6 +1166,13 @@ class Runs(Authenticated):
                 # Signal done via gRPC (stops heartbeat and cleanup on server)
                 await Runs.mark_done(
                     run_id=run_id, thread_id=thread_id, resumable=resumable
+                )
+            except GraphDrained as e:
+                logger.info(
+                    "Run drained, will not signal done",
+                    run_id=run_id,
+                    thread_id=thread_id,
+                    reason=e.reason,
                 )
             except GrpcRetryableException:
                 logger.info(

@@ -12,6 +12,36 @@ use crate::utils::reflow::config::{AlignmentCoordinateSpace, Spacing};
 use crate::utils::reflow::helpers::pretty_segment_name;
 use crate::utils::reflow::reindent::IndentUnit;
 
+// The inline comment marker. Every dialect SQLFluff ships lexes "--" this way,
+// so no dialect lookup is needed to know that building one changes meaning.
+const INLINE_COMMENT_MARKER: &str = "--";
+
+/// Would removing the whitespace between these blocks start a comment?
+///
+/// Spacing configs such as `touch` are resolved against segments, but the fix
+/// they produce is applied to the raw file. Deleting the whitespace in
+/// `1 * - - 5` glues the two sign indicators into `--`, which the lexer then
+/// reads as an inline comment - so the rest of the line disappears without the
+/// file ever becoming unparsable.
+fn would_start_comment(prev_block: Option<&ReflowBlock>, next_block: Option<&ReflowBlock>) -> bool {
+    let (Some(prev_block), Some(next_block)) = (prev_block, next_block) else {
+        // A point at the very start or end of the file has nothing to fuse with.
+        return false;
+    };
+    let prev_raw = prev_block.segment().raw();
+    let next_raw = next_block.segment().raw();
+    let (Some(prev_last), Some(next_first)) = (prev_raw.chars().last(), next_raw.chars().next())
+    else {
+        // Zero length blocks (e.g. templated placeholders) have no characters
+        // to fuse, so they can't build a marker on their own.
+        return false;
+    };
+    let mut marker = String::with_capacity(2);
+    marker.push(prev_last);
+    marker.push(next_first);
+    marker == INLINE_COMMENT_MARKER
+}
+
 fn construct_alignment_whitespace(width: usize, indent_unit: IndentUnit) -> String {
     match indent_unit {
         IndentUnit::Tab => "\t".repeat(width),
@@ -149,6 +179,19 @@ pub fn determine_constraints(
         _ => {}
     }
 
+    // Prohibit stripping a newline which is the only thing keeping an inline
+    // comment marker apart. Both "touch" and "any" leave a point with no
+    // whitespace alone, so once the newline goes there is nothing between the
+    // blocks and `-` `-` fuses into `--`. Keeping the line break is the only
+    // outcome here which preserves the meaning of the file.
+    if strip_newlines
+        && (matches!(pre_constraint, Spacing::Touch | Spacing::Any)
+            || matches!(post_constraint, Spacing::Touch | Spacing::Any))
+        && would_start_comment(prev_block, next_block)
+    {
+        strip_newlines = false;
+    }
+
     (pre_constraint, post_constraint, strip_newlines)
 }
 
@@ -203,12 +246,10 @@ pub fn process_spacing(
     }
 
     if last_whitespace.len() >= 2 {
-        let seg = segment_buffer.last().unwrap();
-
         for ws in last_whitespace.iter().skip(1).cloned() {
             removal_buffer.push(ws.clone());
             result_buffer.push(LintResult::new(
-                seg.clone().into(),
+                ws.clone().into(),
                 vec![LintFix::delete(ws)],
                 "Unnecessary trailing whitespace.".to_owned().into(),
                 None,
@@ -381,6 +422,17 @@ fn determine_aligned_inline_spacing(
                     last_code_pos.working_loc_after(last_code.raw())
                 };
 
+                // Only siblings whose preceding code is on their own line tell us
+                // anything about alignment. When a sibling is the first code on its
+                // line, `last_code` is the trailing code of an *earlier* line, and
+                // its column is unrelated to where this sibling starts. Counting it
+                // inflates the target column and pads every other line to match.
+                // See https://github.com/sqlfluff/sqlfluff/issues/8256.
+                let sibling_line = position_line(sibling_pos, use_source_positions);
+                if loc.0 != sibling_line {
+                    continue;
+                }
+
                 let desired_line_pos = if indent_unit == IndentUnit::Tab {
                     last_code_pos
                         .end_point_marker()
@@ -484,6 +536,13 @@ pub fn handle_respace_inline_with_space(
     }
 
     if [pre_constraint, post_constraint].contains(&Spacing::Touch) {
+        if would_start_comment(prev_block, next_block) {
+            // Removing the whitespace would comment out the rest of the line.
+            // Leave it alone and don't raise a violation - there is no edit the
+            // user could make here which would satisfy the constraint.
+            return (segment_buffer, vec![]);
+        }
+
         segment_buffer.remove(ws_idx);
 
         let description = if let Some(next_block) = next_block {
@@ -810,6 +869,43 @@ mod tests {
     }
 
     #[test]
+    fn test_reflow_process_spacing_duplicate_whitespace_fix_anchors() {
+        // Ported from SQLFluff #8419: each duplicate-whitespace fix must anchor
+        // the whitespace it removes. The fixes anchored the last segment of the
+        // buffer instead of each `ws` being removed, so for three adjacent
+        // whitespaces both results pointed at the final segment and the middle
+        // one was never anchored.
+        let tables = Tables::default();
+        let w1 = SegmentBuilder::whitespace(tables.next_id(), " ");
+        let w2 = SegmentBuilder::whitespace(tables.next_id(), " ");
+        let w3 = SegmentBuilder::whitespace(tables.next_id(), " ");
+
+        let (buffer, _, results) =
+            super::process_spacing(&[w1.clone(), w2.clone(), w3.clone()], false);
+
+        // w1 is kept; w2 and w3 are pruned from the returned buffer.
+        assert_eq!(buffer.len(), 1);
+        assert_eq!(buffer[0].id(), w1.id());
+
+        // Each pruned whitespace is the anchor of its own result and delete fix,
+        // and the kept one is never targeted.
+        let anchors: Vec<u32> = results
+            .iter()
+            .flat_map(|result| {
+                result
+                    .anchor
+                    .iter()
+                    .map(|anchor| anchor.id())
+                    .chain(result.fixes.iter().map(|fix| fix.anchor().id()))
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+        assert_eq!(anchors.iter().filter(|&&id| id == w2.id()).count(), 2);
+        assert_eq!(anchors.iter().filter(|&&id| id == w3.id()).count(), 2);
+        assert!(anchors.iter().all(|&id| id != w1.id()));
+    }
+
+    #[test]
     fn test_reflow_sequence_respace_keeps_operator_in_unparsable() {
         // https://github.com/quarylabs/sqruff/issues/2624
         // When the right-hand side of a comparison fails to parse, `>=` ends up
@@ -823,6 +919,62 @@ mod tests {
         let out = seq.respace(&tables, false, Filter::All).raw();
         assert!(out.contains(">="), "operator should stay joined: {out:?}");
         assert!(!out.contains("> ="), "operator must not be split: {out:?}");
+    }
+
+    #[test]
+    fn test_reflow_respace_align_ignores_predecessor_on_another_line() {
+        // Regression test for https://github.com/sqlfluff/sqlfluff/issues/8256.
+        // With leading commas and the T-SQL `=` alias syntax, the first aliased
+        // column is the first code on its line, so the code preceding it is the
+        // trailing token of an *earlier* line (`SELECT`). Its column bore no
+        // relation to where that alias starts, but it was still counted when
+        // picking the alignment target, inflating the target column and padding
+        // every *other* line to match. That produced two spaces after the leading
+        // comma on aliased rows while non-aliased rows kept one.
+        //
+        // The commas must keep a single following space; alignment is achieved by
+        // padding before the `=` instead.
+        let config = FluffConfig::from_source(
+            r#"
+[sqruff]
+dialect = tsql
+
+[sqruff:layout:type:comma]
+line_position = leading
+
+[sqruff:layout:type:alias_operator]
+spacing_before = align
+align_within = select_clause
+align_scope = bracketed
+
+[sqruff:layout:type:alias_expression]
+spacing_before = align
+align_within = select_clause
+align_scope = bracketed
+"#,
+            None,
+        );
+
+        let sql = "SELECT\n    FirstCol = 'a'\n    , SecondCol = 'b'\n    , ThirdCol = 'c'\n    , t.NonaliasedCol\nFROM TestTable AS t\n";
+
+        let tables = Tables::default();
+        let root = parse_string_with_config(sql, &config);
+        let seq = ReflowSequence::from_root(&root, &config);
+        let result = seq.respace(&tables, false, Filter::All).raw();
+
+        // Every leading comma keeps exactly one following space.
+        assert!(
+            !result.contains(",  "),
+            "leading comma must keep a single following space: {result:?}"
+        );
+        // Alignment is still achieved, via padding before the `=`.
+        let operator_columns: std::collections::HashSet<usize> =
+            result.lines().filter_map(|line| line.find('=')).collect();
+        assert_eq!(
+            operator_columns.len(),
+            1,
+            "all `=` operators should align to one column: {result:?}"
+        );
     }
 
     #[derive(Debug, Clone, Copy, PartialEq)]
@@ -1003,6 +1155,45 @@ spacing_within = single:inline
         let new_seq = seq.respace(&Tables::default(), false, Filter::All);
 
         assert_eq!(new_seq.raw(), sql);
+    }
+
+    #[test]
+    fn test_reflow_respace_handles_zero_length_blocks() {
+        // Ported from SQLFluff #8395. A zero length block next to a `touch`
+        // constraint must not panic. Templated placeholders can render to an
+        // empty raw, so the check for a would-be `--` comment marker must not
+        // assume that both sides of the point have at least one character to
+        // inspect. (Upstream exercises this through the jinja templater, which
+        // needs Python here; this builds the blocks directly instead.)
+        let tables = Tables::default();
+        let config = FluffConfig::default();
+        let root = parse_ansi_string("select 1");
+        let reference = root.get_raw_segments()[0].clone();
+
+        let minus = SegmentBuilder::token(tables.next_id(), "-", SyntaxKind::Raw).finish();
+        let empty = SegmentBuilder::token(tables.next_id(), "", SyntaxKind::Placeholder).finish();
+
+        let minus_block = make_reflow_block(minus, &reference, &root, &config);
+        let empty_block = make_reflow_block(empty, &reference, &root, &config);
+
+        // Two sign indicators fuse into the "--" comment marker.
+        assert!(super::would_start_comment(
+            Some(&minus_block),
+            Some(&minus_block)
+        ));
+        // A zero length block on either side has no characters to fuse, so it
+        // can't build a marker on its own - and must not panic.
+        assert!(!super::would_start_comment(
+            Some(&minus_block),
+            Some(&empty_block)
+        ));
+        assert!(!super::would_start_comment(
+            Some(&empty_block),
+            Some(&minus_block)
+        ));
+        // A point at the very start or end of the file has nothing to fuse with.
+        assert!(!super::would_start_comment(None, Some(&minus_block)));
+        assert!(!super::would_start_comment(Some(&minus_block), None));
     }
 
     #[test]

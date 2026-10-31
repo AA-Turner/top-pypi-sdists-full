@@ -4,16 +4,20 @@ from langgraph_sdk.auth import Auth
 from starlette.responses import Response
 from starlette.routing import BaseRoute
 
-from langgraph_api import config
 from langgraph_api.auth.custom import handle_event as _handle_event
-from langgraph_api.encryption.middleware import (
-    decrypt_response,
-    decrypt_responses,
-    encrypt_request,
-)
 from langgraph_api.route import ApiRequest, ApiResponse, ApiRoute
-from langgraph_api.schema import STORE_ENCRYPTION_FIELDS
-from langgraph_api.store import get_store
+from langgraph_api.store import (
+    get_item as get_stored_item,
+)
+from langgraph_api.store import (
+    get_store,
+)
+from langgraph_api.store import (
+    put_item as put_stored_item,
+)
+from langgraph_api.store import (
+    search_items as search_stored_items,
+)
 from langgraph_api.utils import get_auth_ctx
 from langgraph_api.validation import (
     StoreDeleteRequest,
@@ -71,12 +75,6 @@ async def handle_event(
 async def put_item(request: ApiRequest):
     """Store or update an item."""
     payload = await request.json(StorePutRequest)
-    payload = await encrypt_request(
-        payload,
-        "store",
-        STORE_ENCRYPTION_FIELDS,
-        plaintext_for_core=config.USE_GRPC_STORE,
-    )
     namespace = tuple(payload["namespace"]) if payload.get("namespace") else ()
     if err := _validate_namespace(namespace):
         return err
@@ -90,7 +88,7 @@ async def put_item(request: ApiRequest):
     await handle_event("put", handler_payload)
     if err := _validate_namespace(handler_payload["namespace"]):
         return err
-    await (await get_store()).aput(
+    await put_stored_item(
         tuple(handler_payload["namespace"]),
         handler_payload["key"],
         handler_payload["value"],
@@ -120,21 +118,14 @@ async def get_item(request: ApiRequest):
     await handle_event("get", handler_payload)
     if err := _validate_namespace(handler_payload["namespace"]):
         return err
-    result = await (await get_store()).aget(
+    result = await get_stored_item(
         tuple(handler_payload["namespace"]),
         handler_payload["key"],
         refresh_ttl=handler_payload["refresh_ttl"],
     )
     if result is None:
         return ApiResponse(None)
-    return ApiResponse(
-        await decrypt_response(
-            result.dict(),
-            "store",
-            STORE_ENCRYPTION_FIELDS,
-            plaintext_from_core=config.USE_GRPC_STORE,
-        )
-    )
+    return ApiResponse(result)
 
 
 @retry_db
@@ -185,7 +176,7 @@ async def search_items(request: ApiRequest):
             handler_payload["filter"] = {"$and": [existing, auth_filter]}
         else:
             handler_payload["filter"] = auth_filter
-    items = await (await get_store()).asearch(
+    items = await search_stored_items(
         tuple(handler_payload["namespace"]),
         filter=handler_payload["filter"],
         limit=handler_payload["limit"],
@@ -193,16 +184,7 @@ async def search_items(request: ApiRequest):
         query=handler_payload["query"],
         refresh_ttl=handler_payload["refresh_ttl"],
     )
-    return ApiResponse(
-        {
-            "items": await decrypt_responses(
-                [item.dict() for item in items],
-                "store",
-                STORE_ENCRYPTION_FIELDS,
-                plaintext_from_core=config.USE_GRPC_STORE,
-            )
-        }
-    )
+    return ApiResponse({"items": items})
 
 
 @retry_db

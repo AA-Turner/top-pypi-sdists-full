@@ -3,7 +3,6 @@ name: ci
 on:
   push:
     branches: [master]
-    tags: ["v*"]
   pull_request:
     branches: [master]
 
@@ -650,140 +649,13 @@ jobs:
           python -c "from meshioplusplus import _core; assert not _core.__has_kahip__"
           python -m pytest tests/python/test_partition.py -v
 
-  # The Netgen backend of tetrahedralize (roadmap 6.7). Its own job, like
-  # KaHIP's: nglib is LGPL-2.1, bring-your-own and linked dynamically, so no
-  # default leg, wheel or WASM artifact carries it, and those legs exercise
-  # the named "rebuild with -DMESHIOPLUSPLUS_WITH_NETGEN=ON" error instead.
-  # Ubuntu 24.04 packages Netgen 6.2.2401 as libnglib-dev.
-  netgen:
-    name: Netgen tetrahedralize backend
-    needs: [lint]
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          lfs: false
-      - name: Initialise submodules
-        uses: ./.github/actions/init-submodules
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Install native libraries
-        run: |
-          sudo grep -rl 'packages.microsoft.com' /etc/apt/sources.list.d/ 2>/dev/null | xargs -r sudo rm -f
-          sudo apt-get update
-          sudo apt-get install -y libhdf5-dev zlib1g-dev libtbb-dev pkg-config libnglib-dev
-      - name: Install build tools
-        run: python -m pip install --upgrade pip pybind11 cmake ninja pytest
-      - name: Configure C++ tests with Netgen
-        run: >-
-          cmake -S . -B build-netgen -G Ninja
-          -DMESHIOPLUSPLUS_BUILD_TESTS=ON
-          -DMESHIOPLUSPLUS_BUILD_C_API=ON
-          -DMESHIOPLUSPLUS_BUILD_PYTHON=OFF
-          -DMESHIOPLUSPLUS_WITH_NETCDF=OFF
-          -DMESHIOPLUSPLUS_WITH_OCCT=OFF
-          -DMESHIOPLUSPLUS_WITH_NETGEN=ON
-      - name: Build
-        run: cmake --build build-netgen
-      - name: Run the tetrahedralize suite (Netgen live)
-        run: ctest --test-dir build-netgen -R "Tetrahedralize|CApi|Pipeline" --output-on-failure
-      - name: Install meshioplusplus with Netgen
-        run: >-
-          CMAKE_ARGS="-DMESHIOPLUSPLUS_WITH_NETGEN=ON -DMESHIOPLUSPLUS_WITH_OCCT=OFF"
-          pip install . -v
-      - name: Run the Python tetrahedralize suite
-        run: |
-          python -c "from meshioplusplus import _core; assert _core.__has_netgen__"
-          python -m pytest tests/python/test_tetrahedralize.py -v
-
-  # The MMG backend (roadmap 3.2): adapt, discretize_levelset, mesh_domain and
-  # move. Its own job, like Netgen's: MMG is LGPL-3.0 and bring-your-own, so no
-  # default leg, wheel, CLI binary or WASM artifact carries it, and those legs
-  # exercise the named "rebuild with -DMESHIOPLUSPLUS_WITH_MMG=ON" error
-  # instead. MMG 5.8 is built from source with build/build-mmg.sh, ELAS
-  # included so move runs too (GPL-3.0; this build is tested, never
-  # distributed), and cached by the script's pins.
-  mmg:
-    name: MMG backend
-    needs: [lint]
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          lfs: false
-      - name: Initialise submodules
-        uses: ./.github/actions/init-submodules
-      # The Python suite below converts LFS fixtures (the MCP format tests), so
-      # fetch them as the Python test job does.
-      - name: Compute the Git LFS cache key
-        run: git lfs ls-files -l | cut -d' ' -f1 | sort > .lfs-assets-id
-      - name: Restore the Git LFS object cache
-        uses: actions/cache@v4
-        with:
-          path: .git/lfs
-          key: lfs-${{ hashFiles('.lfs-assets-id') }}
-      - name: Fetch Git LFS content
-        id: lfs
-        run: bash tools/fetch-lfs.sh
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Install native libraries
-        run: |
-          sudo grep -rl 'packages.microsoft.com' /etc/apt/sources.list.d/ 2>/dev/null | xargs -r sudo rm -f
-          sudo apt-get update
-          sudo apt-get install -y libhdf5-dev zlib1g-dev pkg-config
-      - name: Install build tools
-        run: python -m pip install --upgrade pip pybind11 cmake ninja pytest
-      - name: Cache MMG
-        id: mmg-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/mmg-install
-          key: mmg-${{ runner.os }}-${{ hashFiles('build/build-mmg.sh') }}
-      - name: Build MMG 5.8 with ELAS
-        if: steps.mmg-cache.outputs.cache-hit != 'true'
-        run: build/build-mmg.sh "$HOME/mmg-install" --with-elas
-      # MMG and ELAS are shared libraries without an RPATH to each other.
-      - name: Put MMG on the library path
-        run: echo "LD_LIBRARY_PATH=$HOME/mmg-install/lib:$LD_LIBRARY_PATH" >> "$GITHUB_ENV"
-      - name: Configure C++ tests with MMG
-        run: >-
-          cmake -S . -B build-mmg -G Ninja
-          -DMESHIOPLUSPLUS_BUILD_TESTS=ON
-          -DMESHIOPLUSPLUS_BUILD_C_API=ON
-          -DMESHIOPLUSPLUS_BUILD_CLI=ON
-          -DMESHIOPLUSPLUS_BUILD_PYTHON=OFF
-          -DMESHIOPLUSPLUS_WITH_NETCDF=OFF
-          -DMESHIOPLUSPLUS_WITH_OCCT=OFF
-          -DMESHIOPLUSPLUS_WITH_MMG=ON
-          -Dmmg_DIR=$HOME/mmg-install/lib/cmake/mmg
-      - name: Build
-        run: cmake --build build-mmg
-      - name: Run the MMG suite (MMG live)
-        run: ctest --test-dir build-mmg -R "Mmg|CApi|Pipeline|Cli" --output-on-failure
-      - name: Install meshioplusplus with MMG
-        run: >-
-          CMAKE_ARGS="-DMESHIOPLUSPLUS_WITH_MMG=ON -DMESHIOPLUSPLUS_WITH_OCCT=OFF
-          -Dmmg_DIR=$HOME/mmg-install/lib/cmake/mmg"
-          pip install . -v
-      - name: Run the Python MMG suite
-        run: |
-          # The test extras the Python test job installs too. h5py is what the
-          # MCP tests need to read VTKHDF pieces through the Python fallback.
-          python -m pip install h5py netCDF4 foamlib
-          python -c "from meshioplusplus import _core; assert _core.__has_mmg__ and _core.__has_mmg_elas__"
-          python -m pytest tests/python/test_mmg.py tests/python/test_pipeline.py tests/python/test_mcp.py -v
-
   # The OpenCASCADE backend of fit_cad (roadmap 6.3). Its own job, like
-  # KaHIP's: OCCT is LGPL-2.1 and bring-your-own for source builds, so no
-  # default leg and no lean WASM build carries it, and those legs exercise
-  # the named "rebuild with -DMESHIOPLUSPLUS_WITH_OCCT=ON" error instead. The
-  # PyPI wheels, the release CLI binaries and the full WASM artifact link a
-  # static OpenCASCADE (wheels.yml, cli.yml, wasm.yml); this job tests the
-  # system-package route. Ubuntu 24.04's packages are OCCT 7.6, the supported
-  # floor; they export toolkit targets that link TBB, hence libtbb-dev.
+  # KaHIP's: OCCT is LGPL-2.1 and bring-your-own, so no default leg, wheel,
+  # lean WASM build or release CLI binary carries it, and those legs exercise
+  # the named "rebuild with -DMESHIOPLUSPLUS_WITH_OCCT=ON" error instead (the
+  # full WASM artifact links it, and wasm.yml tests that). Ubuntu
+  # 24.04's packages are OCCT 7.6, the supported floor; they export toolkit
+  # targets that link TBB, hence libtbb-dev.
   occt:
     name: OpenCASCADE fit_cad backend
     needs: [lint]
@@ -820,8 +692,8 @@ jobs:
           -DMESHIOPLUSPLUS_WITH_OCCT=ON
       - name: Build
         run: cmake --build build-occt
-      - name: Run the CAD suites (fit_cad, mesh_cad; OpenCASCADE cases live)
-        run: ctest --test-dir build-occt -R "FitCad|CApi.FitCad|CApi.StepAndIges|CApi.Brep|Step|CadRead|CadJson|AbiLayout|Pipeline|Registry|SparseSolve|BsplineLsq|MeshCad|Cdt2d|EdgeSampler|Predicates|TriangulatePolygon2d" --output-on-failure
+      - name: Run the fit_cad suites (OpenCASCADE cases live)
+        run: ctest --test-dir build-occt -R "FitCad|CApi.FitCad|CApi.StepAndIges|CApi.Brep|Step|CadRead|CadJson|AbiLayout|Pipeline|Registry" --output-on-failure
       - name: Run the native to-cad verb
         run: |
           python - <<'PY'
@@ -841,102 +713,9 @@ jobs:
       - name: Install meshioplusplus with OpenCASCADE
         run: CMAKE_ARGS="-DMESHIOPLUSPLUS_WITH_OCCT=ON" pip install . -v
       - name: Run the Python fit_cad suite
-        env:
-          MESHIOPLUSPLUS_FIT_CAD_GOLDENS: "1"
         run: |
           python -c "from meshioplusplus import _core; assert _core.__has_occt__"
-          python -m pytest tests/python/test_fit_cad.py tests/python/test_fit_cad_goldens.py tests/python/test_step.py tests/python/test_cad_json.py tests/python/test_mesh_cad.py -v
-
-  # fit_cad on the newest OpenCASCADE 7.x the backend supports (7.9, pinned in
-  # build/occt-recipe.sh as MIO_OCCT_PIN=7.9), built static from source into a
-  # cached prefix the way the release artifacts build 7.6. 7.6 and 7.9 differ
-  # where it shows (doc/spikes.md, "The OpenCASCADE dependency"), so every
-  # fit_cad change is checked on both; the golden digests are per version.
-  occt-79:
-    name: OpenCASCADE 7.9 fit_cad backend
-    needs: [lint]
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          lfs: false
-      - name: Initialise submodules
-        uses: ./.github/actions/init-submodules
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Install build tools
-        run: |
-          sudo grep -rl 'packages.microsoft.com' /etc/apt/sources.list.d/ 2>/dev/null | xargs -r sudo rm -f
-          sudo apt-get update
-          # From 7.8 the STEP and IGES toolkits sit on XCAF, whose closure
-          # reaches TKService, which includes X11 headers on Linux.
-          sudo apt-get install -y zlib1g-dev pkg-config libx11-dev
-          python -m pip install --upgrade pip pybind11 cmake ninja pytest
-      - name: Cache OpenCASCADE 7.9
-        id: occt79-cache
-        uses: actions/cache@v4
-        with:
-          path: occt79
-          key: occt-ci-7.9-${{ hashFiles('build/occt-recipe.sh', 'build/build-occt.sh', 'build/patches/OCCT-*.patch') }}
-      - name: Build OpenCASCADE 7.9
-        if: steps.occt79-cache.outputs.cache-hit != 'true'
-        env:
-          MIO_OCCT_PIN: "7.9"
-        run: sh build/build-occt.sh "$PWD/occt79"
-      - name: Configure C++ tests with OpenCASCADE 7.9
-        run: >-
-          cmake -S . -B build-occt -G Ninja
-          -DMESHIOPLUSPLUS_BUILD_TESTS=ON
-          -DMESHIOPLUSPLUS_BUILD_C_API=ON
-          -DMESHIOPLUSPLUS_BUILD_CLI=ON
-          -DMESHIOPLUSPLUS_BUILD_PYTHON=OFF
-          -DMESHIOPLUSPLUS_WITH_HDF5=OFF
-          -DMESHIOPLUSPLUS_WITH_NETCDF=OFF
-          -DMESHIOPLUSPLUS_REQUIRE_OCCT=ON
-          -DOpenCASCADE_DIR=$PWD/occt79/lib/cmake/opencascade
-      - name: Build
-        run: cmake --build build-occt
-      - name: Run the CAD suites (fit_cad, mesh_cad; OpenCASCADE 7.9)
-        run: ctest --test-dir build-occt -R "FitCad|CApi.FitCad|CApi.StepAndIges|CApi.Brep|Step|CadRead|CadJson|AbiLayout|Pipeline|Registry|SparseSolve|BsplineLsq|MeshCad|Cdt2d|EdgeSampler|Predicates|TriangulatePolygon2d" --output-on-failure
-      - name: Install meshioplusplus with OpenCASCADE 7.9
-        run: CMAKE_ARGS="-DMESHIOPLUSPLUS_REQUIRE_OCCT=ON -DOpenCASCADE_DIR=$PWD/occt79/lib/cmake/opencascade" pip install . -v
-      - name: Run the Python fit_cad suite
-        env:
-          MESHIOPLUSPLUS_FIT_CAD_GOLDENS: "1"
-        run: |
-          python -c "from meshioplusplus import _core; assert _core.__occt_version__.startswith('7.9')"
-          python -m pytest tests/python/test_fit_cad.py tests/python/test_fit_cad_goldens.py tests/python/test_step.py tests/python/test_cad_json.py tests/python/test_mesh_cad.py -v
-
-  # The release packages build OpenCASCADE 8.0.1 through vcpkg, which only tags
-  # run (packages.yml), so an 8.0 API break used to surface at release time
-  # (v17.21.0). This job compiles the sources that include OpenCASCADE headers
-  # against the 8.0.1 headers of conda-forge's occt package, pinned by SHA-256,
-  # on every pull request and push to master. Deprecation warnings do not fail
-  # it; errors do.
-  occt-80-syntax:
-    name: OpenCASCADE 8.0.1 syntax check
-    needs: [lint]
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          lfs: false
-      - name: Initialise submodules
-        uses: ./.github/actions/init-submodules
-      - name: Fetch the OpenCASCADE 8.0.1 headers
-        env:
-          OCCT_PKG: occt-8.0.1-novtk_h6e372de_101.conda
-          OCCT_SHA256: a614d7625a2e2278ff877eea340f1a3d980c691e0d3f8522a6da3fd28c38b2d4
-        run: |
-          command -v zstd >/dev/null || (sudo apt-get update && sudo apt-get install -y zstd)
-          curl -fsSL -o "$OCCT_PKG" "https://conda.anaconda.org/conda-forge/linux-64/$OCCT_PKG"
-          echo "$OCCT_SHA256  $OCCT_PKG" | sha256sum -c -
-          mkdir pkg occt80
-          unzip -q "$OCCT_PKG" -d pkg
-          zstd -dc pkg/pkg-occt-8.0.1-*.tar.zst | tar -x -C occt80
-      - name: Syntax-check the OpenCASCADE sources
-        run: sh tools/occt_syntax.sh "$PWD/occt80/include/opencascade"
+          python -m pytest tests/python/test_fit_cad.py tests/python/test_step.py tests/python/test_cad_json.py -v
 
   # The two read-only formats behind a library that is never a default
   # (v16.13.0): DOLFINx VTX `.bp` through ADIOS2 (Ubuntu's serial package) and
@@ -1281,12 +1060,6 @@ jobs:
   # (most C++ format code is reached through the pybind11 shims, so measuring
   # only the gtest binary would badly under-report it).
   #
-  # It runs only on pushes to `master` and on `v*` release tags, never on a
-  # pull request: the instrumented build is expensive, and its uploads exist
-  # for the Codecov baseline and badge rather than to gate a review. The job's
-  # `if:` is the enforcement; the `tags:` trigger above keeps release tags
-  # covered.
-  #
   # This works because pyproject.toml pins a persistent
   # `build-dir = "build/{wheel_tag}"`: the .gcno/.gcda files survive the pip
   # build instead of being discarded with a temporary directory.
@@ -1294,7 +1067,6 @@ jobs:
   coverage:
     name: Coverage (Python + C++)
     needs: [lint]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
     runs-on: ubuntu-latest
     # The `secrets` context is not allowed in step-level `if:` expressions
     # (referencing it there makes the whole workflow file invalid and GitHub
@@ -1319,9 +1091,9 @@ jobs:
           key: lfs-${{ hashFiles('.lfs-assets-id') }}
       # See tools/fetch-lfs.sh: this degrades gracefully (available=false,
       # not a failure) when the account's Git LFS budget is exhausted, so a
-      # billing condition does not turn the run red. Coverage is meaningless
-      # without the real fixtures, so every step below that needs them
-      # (through the two upload steps) is gated on this output.
+      # billing condition does not turn an unrelated PR's CI red. Coverage
+      # is meaningless without the real fixtures, so every step below that
+      # needs them (through the two upload steps) is gated on this output.
       - name: Fetch Git LFS content
         id: lfs
         run: bash tools/fetch-lfs.sh
@@ -1353,7 +1125,7 @@ jobs:
       # to_polars/write_dataset -- are exercised under coverage
       # instrumentation. The `interop` job runs the same tests but uploads no
       # coverage; without these installed here, that code is real and tested
-      # but shows up as 0% in the uploaded report, since instrumented +
+      # but shows up as 0% in the Codecov patch check, since instrumented +
       # uploaded is the only thing that counts. torch/jax are deliberately
       # absent (heavyweight wheels; to_torch/to_jax tests importorskip -- the
       # CuPy pattern, doc/ml.md).
@@ -1361,13 +1133,14 @@ jobs:
       - name: Install build and test deps
         run: |
           python -m pip install --upgrade pip
-          # `mcp<3` must match pyproject's [mcp] extra: this list installs the
+          # `mcp<2` must match pyproject's [mcp] extra: this list installs the
           # SDK directly rather than through the extra, so the bound there does
-          # NOT apply here. Keep the two in step. `hypothesis` runs
+          # NOT apply here and an unbounded `mcp` resolves 2.0.0, which removed
+          # mcp.server.fastmcp. Keep the two in step. `hypothesis` runs
           # test_properties.py, which importorskips it everywhere else
           # (roadmap §3: the determinism properties need one leg that runs them).
           pip install pytest pytest-codeblocks pytest-cov h5py netCDF4 pybind11 scikit-build-core cmake ninja \
-            pyvista trimesh pyarrow pandas polars zarr usd-core "mcp<3" starlette uvicorn httpx foamlib \
+            pyvista trimesh pyarrow pandas polars zarr usd-core "mcp<2" starlette uvicorn httpx foamlib \
             hypothesis
 
       # Cache the two Debug -O0 core builds (build-cpp-cov + the editable _core)
@@ -1401,9 +1174,9 @@ jobs:
       # the extension on first import during pytest -- that rebuild would race
       # the instrumented objects lcov is about to capture.
       # The OpenCASCADE backend is on in this job too: its code (and the Python
-      # and binding paths that only run with it) is part of what Codecov
-      # measures on master and release tags, and the occt job is where those
-      # suites run without instrumentation.
+      # and binding paths that only run with it) is part of the patch Codecov
+      # measures, and the occt job is where those suites run without
+      # instrumentation.
       - name: Build instrumented _core and run the Python tests
         if: steps.lfs.outputs.available != 'false'
         env:
@@ -1622,12 +1395,8 @@ jobs:
           # hdf5=1.14: conda-forge paraview 6.1.1 links libhdf5.so.310 but does
           # not constrain hdf5, so the solver picks 2.x (libhdf5.so.320) and
           # pvpython cannot start.
-          # vtk-base: the py312h1393585_1 build (picked from 2026-10-22) lacks
-          # libvtkcgns-9.7.so.1, which paraview 6.2.0 links, so pvpython exits
-          # 127. Pin the build that passed on master (2026-10-21) until
-          # conda-forge ships a fixed vtk-base; drop the pin then.
           create-args: >-
-            -c conda-forge python=3.12 paraview hdf5=1.14 vtk-base=9.7.0=py312h3887a20_1 cxx-compiler cmake ninja pybind11 scikit-build-core numpy pytest
+            -c conda-forge python=3.12 paraview hdf5=1.14 cxx-compiler cmake ninja pybind11 scikit-build-core numpy pytest
       - name: Build meshio++ into ParaView's environment
         env:
           CMAKE_ARGS: -DMESHIOPLUSPLUS_WITH_HDF5=OFF -DMESHIOPLUSPLUS_WITH_NETCDF=OFF
@@ -1685,14 +1454,9 @@ jobs:
   # job adds the gated half: FastMCP registration, tool calls, resources.
   # --------------------------------------------------------------------------
   mcp:
-    name: MCP server (${{ matrix.sdk }})
+    name: MCP server
     needs: [lint]
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        # The server supports both SDK majors (FastMCP in 1.x, MCPServer in 2.x).
-        sdk: ["mcp>=1.2,<2", "mcp>=2,<3"]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -1724,7 +1488,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           # httpx is Starlette's TestClient transport, used by test_mcp_http.py
-          pip install ".[mcp,dashboard]" "${{ matrix.sdk }}" pytest httpx
+          pip install ".[mcp,dashboard]" pytest httpx
 
       - name: MCP and HTTP front-end tests
         if: steps.lfs.outputs.available != 'false'

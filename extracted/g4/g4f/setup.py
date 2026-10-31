@@ -12,9 +12,9 @@ long_description = long_description.replace("[!NOTE]", "")
 INSTALL_REQUIRE = [
     "requests",
     "aiohttp",
-    "brotli",
     "pycryptodome",
     "nest-asyncio2",
+    "brotli>=1.2.1",
 ]
 
 EXTRA_REQUIRE = {
@@ -38,8 +38,6 @@ EXTRA_REQUIRE = {
         "setuptools",
         "markitdown[all]",
         "python-dotenv",
-        "wasmtime",
-        "numpy",
         "PyYAML",
         "pystray",
         "cryptography",
@@ -92,8 +90,13 @@ EXTRA_REQUIRE = {
         "pystray",
         "pillow",
         "cairosvg",
+        "python-xlib; sys_platform == 'linux'",
     ],
     "tracing": ["langfuse"],
+    "wasmtime": [
+        "wasmtime",
+        "numpy",
+    ],
 }
 
 DESCRIPTION = (

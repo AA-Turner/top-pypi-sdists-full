@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dominate
-Version: 2.9.1
+Version: 3.1.0
 Summary: Dominate is a Python library for creating and manipulating HTML documents using an elegant DOM API.
 Author: Jake Wharton
 Author-email: Tom Flanagan <tom@zkpq.ca>
@@ -13,19 +13,17 @@ Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 (LGP
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Text Processing :: Markup :: HTML
-Requires-Python: >=3.4
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-License-File: LICENSE.txt
 
 Dominate
 ========
@@ -33,9 +31,13 @@ Dominate
 `Dominate` is a Python library for creating and manipulating HTML documents using an elegant DOM API.
 It allows you to write HTML pages in pure Python very concisely, which eliminates the need to learn another template language, and lets you take advantage of the more powerful features of Python.
 
-![Python version](https://img.shields.io/pypi/pyversions/dominate.svg?style=flat)
+
+[![PyPI version](https://img.shields.io/pypi/v/dominate.svg?style=flat)](https://pypi.org/project/dominate/)
+[![PyPI downloads](https://img.shields.io/pypi/dm/dominate.svg?style=flat)](https://pypi.org/project/dominate/)
 [![Build status](https://github.com/Knio/dominate/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/Knio/dominate/actions/workflows/ci.yml?query=branch%3Amaster+)
 [![Coverage status](https://img.shields.io/coveralls/github/Knio/dominate/master.svg?style=flat)](https://coveralls.io/r/Knio/dominate?branch=master)
+[![Python version](https://img.shields.io/pypi/pyversions/dominate.svg?style=flat)](https://pypi.org/project/dominate/)
+
 
 Python:
 
@@ -101,15 +103,11 @@ The recommended way to install `dominate` is with
 
     pip install dominate
 
-[![PyPI version](https://img.shields.io/pypi/v/dominate.svg?style=flat)](https://pypi.org/project/dominate/)
-[![PyPI downloads](https://img.shields.io/pypi/dm/dominate.svg?style=flat)](https://pypi.org/project/dominate/)
-
-
 
 Developed By
 ------------
 
-* Tom Flanagan - <tom@zkpq.ca>
+* [Tom Flanagan](//github.com/Knio) - <tom@zkpq.ca>
 * Jake Wharton - <jakewharton@gmail.com>
 * [Brad Janke](//github.com/bradj)
 
@@ -278,7 +276,7 @@ print(header)
 <div id="header"></div>
 ```
 
-Or the children of a tag though an array-line interface:
+Or the children of a tag though an array-like interface:
 
 ```python
 header = div('Test')
@@ -585,7 +583,7 @@ print(d)
 Embedding HTML
 --------------
 
-If you need to embed a node of pre-formed HTML coming from a library such as markdown or the like, you can avoid escaped HTML by using the raw method from the dominate.util package:
+If you need to embed a node of pre-formed HTML coming from a library such as markdown or the like you can avoid escaped HTML by using the raw method from the dominate.util package:
 
 ```
 from dominate.util import raw
@@ -593,7 +591,7 @@ from dominate.util import raw
 td(raw('<a href="example.html">Example</a>'))
 ```
 
-Without the raw call, this code would render escaped HTML with lt, etc.
+Without the raw call, this code would render escaped HTML with lt, etc. The behavior of the previous block of code is the same as `td_element.innerHTML="<a href="example.html">Example</a>"` in JavaScript.
 
 
 SVG

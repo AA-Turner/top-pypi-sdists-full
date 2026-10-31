@@ -33,7 +33,7 @@ Detection covers two shapes of "structural bug slipped through":
    ``ImportError`` escaping the handler — Finding Zero's exact shape.
 2. The SAME class of bug caught by one of the handler's own broad
    ``except Exception`` blocks (several nodes — ``ai.scrape.web``,
-   ``ai.search.brave``, ``ai.generate_image``, ``ai.text_to_speech`` —
+   ``ai.generate_image``, ``ai.text_to_speech`` —
    convert ANY exception into a clean-looking ``Failure`` envelope whose
    message is ``f"{type(e).__name__}: {e}"``). A raised exception is caught
    here; a swallowed one is caught by inspecting the returned envelope.
@@ -165,9 +165,9 @@ class _FakeConfig:
     )
 
     def get_last_output(self) -> str:
-        # ai.extract reads the final text through this method, not
-        # final_response.text — matched here so extraction has real JSON to
-        # parse instead of failing the fixture, not the node, on a KeyError.
+        # A node reading the final text through this method (not
+        # final_response.text) gets real JSON to parse here, so a failure
+        # names the node, not the fixture.
         return '{"ok": true}'
 
 
@@ -305,33 +305,6 @@ def _fx_chat_manual(monkeypatch):
 
     _patch_execute_ai_request(monkeypatch)
     return ChatManualInput(model="claude-opus-4-7"), _ctx()
-
-
-@node_fixture("ai.extract")
-def _fx_extract(monkeypatch):
-    from matrx_ai.graph_nodes.extract_action import ExtractInput
-
-    _patch_execute_ai_request(monkeypatch)
-    return (
-        ExtractInput(model="gpt-5", text="the total is $5", instruction="extract the total"),
-        _ctx(),
-    )
-
-
-@node_fixture("ai.agent.tool_calling")
-def _fx_agent_tool_calling(monkeypatch):
-    from matrx_ai.graph_nodes.agent_loop_actions import AgentLoopInput
-
-    _patch_execute_ai_request(monkeypatch)
-    return AgentLoopInput(model="gpt-5", user_input="do the thing"), _ctx()
-
-
-@node_fixture("ai.agent.react")
-def _fx_agent_react(monkeypatch):
-    from matrx_ai.graph_nodes.agent_loop_actions import AgentLoopInput
-
-    _patch_execute_ai_request(monkeypatch)
-    return AgentLoopInput(model="gpt-5", user_input="reason about the thing"), _ctx()
 
 
 @node_fixture("ai.agent.start")
@@ -473,6 +446,62 @@ def _fx_generate_image(monkeypatch):
     return GenerateImageInput(model="dall-e-3", prompt="a red bicycle"), _ctx()
 
 
+@node_fixture("ai.image.edit")
+def _fx_image_edit(monkeypatch):
+    from matrx_ai.graph_nodes.image_edit_action import EditImageInput
+
+    _patch_execute_ai_request(monkeypatch)
+    return (
+        EditImageInput(
+            model="gpt-image-2.5-flare", prompt="make it blue", images=["https://example.com/a.png"]
+        ),
+        _ctx(),
+    )
+
+
+@node_fixture("ai.vision.read")
+def _fx_vision_read(monkeypatch):
+    from matrx_ai.graph_nodes.vision_action import VisionReadInput
+
+    _patch_execute_ai_request(monkeypatch)
+    return (
+        VisionReadInput(model="gpt-5-mini", images=["https://example.com/a.png"], mode="read_text"),
+        _ctx(),
+    )
+
+
+@node_fixture("ai.generate_music")
+def _fx_generate_music(monkeypatch):
+    from matrx_ai.graph_nodes.music_action import GenerateMusicInput
+
+    _patch_execute_ai_request(monkeypatch)
+    return GenerateMusicInput(model="eleven_music_v2_5", prompt="calm piano", duration_seconds=5), _ctx()
+
+
+@node_fixture("ai.generate_sound_effect")
+def _fx_generate_sound_effect(monkeypatch):
+    from matrx_ai.graph_nodes.sound_effect_action import GenerateSoundEffectInput
+
+    _patch_execute_ai_request(monkeypatch)
+    return GenerateSoundEffectInput(prompt="a door creaks open", duration_seconds=2), _ctx()
+
+
+@node_fixture("ai.voice_to_voice")
+def _fx_voice_to_voice(monkeypatch):
+    from matrx_ai.graph_nodes.voice_to_voice_action import VoiceToVoiceInput
+
+    _patch_execute_ai_request(monkeypatch)
+    return VoiceToVoiceInput(audio_source="https://example.com/speech.mp3"), _ctx()
+
+
+@node_fixture("ai.moderate")
+def _fx_moderate(monkeypatch):
+    from matrx_ai.graph_nodes.moderation_action import ModerateInput
+
+    _patch_execute_ai_request(monkeypatch)
+    return ModerateInput(text="have a nice day"), _ctx()
+
+
 @node_fixture("ai.text_to_speech")
 def _fx_tts(monkeypatch):
     from matrx_ai.graph_nodes.tts_action import TextToSpeechInput
@@ -519,106 +548,34 @@ def _fx_extend_video(monkeypatch):
     )
 
 
-def _image_pipeline_holders(monkeypatch) -> None:
-    """The three image-pipeline steps resolve their own mandates (2026-09-25)."""
-    from matrx_ai.graph_nodes.image_pipeline_actions import (
-        IMAGE_CONCEPT_MANDATE,
-        IMAGE_PROMPT_WRITE_MANDATE,
-        IMAGE_QC_JUDGE_MANDATE,
-    )
-    from matrx_ai.testing.holders import install_inline_holders
-
-    holder = {
-        "model": "holder-model",
-        "messages": [
-            {"role": "system", "content": "HOLDER"},
-            {"role": "user", "content": "The Holder's authored user turn."},
-        ],
-    }
-    install_inline_holders(
-        monkeypatch,
-        {
-            IMAGE_CONCEPT_MANDATE: holder,
-            IMAGE_PROMPT_WRITE_MANDATE: holder,
-            IMAGE_QC_JUDGE_MANDATE: holder,
-        },
-    )
-
-
-@node_fixture("ai.image.concept_generate")
-def _fx_image_concept_generate(monkeypatch):
-    _image_pipeline_holders(monkeypatch)
-    from matrx_ai.graph_nodes.image_pipeline_actions import ConceptGenerateInput
-
-    async def _fake_llm_to_pydantic(*, output_cls: type[BaseModel], **_kw: Any) -> BaseModel:
-        return _minimal_model(output_cls)
-
-    monkeypatch.setattr("matrx_ai.graph_nodes._strict_json.llm_to_pydantic", _fake_llm_to_pydantic)
-    return ConceptGenerateInput(topic="photosynthesis"), _ctx()
-
-
-@node_fixture("ai.image.prompt_write")
-def _fx_image_prompt_write(monkeypatch):
-    _image_pipeline_holders(monkeypatch)
-    from matrx_ai.graph_nodes.image_pipeline_actions import ImageConcept, PromptWriteInput
-
-    async def _fake_llm_to_pydantic(*, output_cls: type[BaseModel], **_kw: Any) -> BaseModel:
-        return _minimal_model(output_cls)
-
-    monkeypatch.setattr("matrx_ai.graph_nodes._strict_json.llm_to_pydantic", _fake_llm_to_pydantic)
-    concept = ImageConcept(name="Leaf cell", description="A cross-section of a leaf cell")
-    return PromptWriteInput(concept=concept), _ctx()
-
-
-@node_fixture("ai.image.qc_judge")
-def _fx_image_qc_judge(monkeypatch):
-    _image_pipeline_holders(monkeypatch)
-    from matrx_ai.graph_nodes.image_pipeline_actions import ImageQcInput, ImageQcVerdict
-
-    async def _fake_llm_messages_to_pydantic(
-        *, output_cls: type[BaseModel], **_kw: Any
-    ) -> BaseModel:
-        assert output_cls is ImageQcVerdict
-        return ImageQcVerdict(passed=True, confidence=0.9, reasoning="looks fine")
-
-    monkeypatch.setattr("matrx_ai.graph_nodes._strict_json.llm_messages_to_pydantic", _fake_llm_messages_to_pydantic
-    )
-    return (
-        # api_key set directly so the node never calls resolve_api_key
-        # (which would otherwise need a real env var); image_b64 skips the
-        # cloud-FileManager URL-resolution branch entirely.
-        ImageQcInput(image_b64="QUJD", api_key="test-key"),
-        _ctx(),
-    )
-
-
 @node_fixture("ai.judge.resolve")
 def _fx_judge_resolve(monkeypatch):
-    from matrx_ai.code_call_mandate_keys import ARM_RESOLVER_MANDATE
+    """The judge is the author's agent, run on Run Agent's seam (2026-10-29)."""
     from matrx_ai.graph_nodes.resolve_action import ResolveArmsInput
-    from matrx_ai.testing.holders import install_inline_holders
+    from matrx_ai.graph_nodes.shared import AiExecutionResult
 
-    install_inline_holders(
+    _patch_agent_host(
         monkeypatch,
-        {
-            ARM_RESOLVER_MANDATE: {
-                "model": "holder-model",
-                "messages": [
-                    {"role": "system", "content": "HOLDER"},
-                    {"role": "user", "content": "The Holder's authored user turn."},
-                ],
-            }
-        },
+        completed=AiExecutionResult(
+            conversation_id="c",
+            request_id="r",
+            iterations=1,
+            finish_reason="stop",
+            final_text="",
+            structured_output={
+                "verdict": "pick",
+                "winner_arm_index": 0,
+                "reasons": ["first"],
+                "confidence": 0.5,
+            },
+            metadata={},
+        ),
     )
-
-    async def _fake_llm_to_pydantic(*, output_cls: type[BaseModel], **_kw: Any) -> BaseModel:
-        return output_cls.model_validate(
-            {"verdict": "pick", "winner_arm_index": 0, "reasons": ["first"], "confidence": 0.5}
-        )
-
-    monkeypatch.setattr("matrx_ai.graph_nodes._strict_json.llm_to_pydantic", _fake_llm_to_pydantic)
     monkeypatch.setattr("matrx_ai.evaluators.ledger._model", lambda: None)
-    return ResolveArmsInput(job="j", arms=["a", "b"]), _ctx()
+    return (
+        ResolveArmsInput(job="j", arms=["a", "b"], agent_id="3c9e2f41-8a7b-4d6c-9e05-1f2a3b4c5d6e"),
+        _ctx(),
+    )
 
 
 @node_fixture("ai.transcribe")
@@ -648,19 +605,6 @@ def _fx_transcribe(monkeypatch):
 
     monkeypatch.setattr(stt_module, "execute_stt", _fake_execute_stt)
     return TranscribeInput(audio_source="/tmp/fake.wav"), _ctx()
-
-
-@node_fixture("ai.search.brave")
-def _fx_search_brave(monkeypatch):
-    from matrx_ai.graph_nodes.search_action import BraveSearchInput
-
-    async def _fake_async_brave_search(**_kw: Any) -> dict[str, Any]:
-        return {"web": {"results": []}, "news": {"results": []}}
-
-    monkeypatch.setitem(
-        _ext._registry, "brave_search", {"async_brave_search": _fake_async_brave_search}
-    )
-    return BraveSearchInput(query="photosynthesis"), _ctx()
 
 
 @node_fixture("ai.scrape.web")

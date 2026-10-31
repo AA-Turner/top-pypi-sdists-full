@@ -2,6 +2,8 @@
 A few helpful scripts used in the MultiPyVu module
 """
 
+import os
+import shutil
 import socket
 
 
@@ -26,3 +28,34 @@ def get_ip() -> str:
         except OSError:
             ip_address = '127.0.0.1'
     return ip_address
+
+
+def copy_examples(destination: str) -> str:
+    """
+    Copies the example scripts installed with MultiPyVu into a folder,
+    where they can be edited without being overwritten the next time
+    MultiPyVu is upgraded.  The folder is created if it does not exist,
+    and files in it with the same names as the examples are replaced.
+
+    Parameters:
+    -----------
+    destination : str
+        The folder to copy the examples into.
+
+    Returns:
+    --------
+    String with the full path to the copied examples
+    """
+    source = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                          'examples')
+    destination = os.path.abspath(destination)
+    # the __init__.py files are only there for packaging, and the logs
+    # and .dat files are left behind by running the examples in place
+    shutil.copytree(source,
+                    destination,
+                    ignore=shutil.ignore_patterns('__init__.py',
+                                                  '__pycache__',
+                                                  '*.log',
+                                                  '*.dat'),
+                    dirs_exist_ok=True)
+    return destination

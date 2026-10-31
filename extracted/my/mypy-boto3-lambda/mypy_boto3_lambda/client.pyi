@@ -470,7 +470,7 @@ class LambdaClient(BaseClient):
         self, **kwargs: Unpack[DeleteFunctionConcurrencyRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Removes a concurrent execution limit from a function.
+        Removes a concurrent execution limit from a Lambda Event Function.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/delete_function_concurrency.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lambda/client/#delete_function_concurrency)
@@ -625,8 +625,8 @@ class LambdaClient(BaseClient):
         self, **kwargs: Unpack[GetFunctionRequestTypeDef]
     ) -> GetFunctionResponseTypeDef:
         """
-        Returns information about the function or function version, with a link to
-        download the deployment package that's valid for 10 minutes.
+        Returns information about a Lambda Event Function or function version, with a
+        link to download the deployment package that's valid for 10 minutes.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/get_function.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lambda/client/#get_function)
@@ -875,7 +875,8 @@ class LambdaClient(BaseClient):
         self, **kwargs: Unpack[ListFunctionEventInvokeConfigsRequestTypeDef]
     ) -> ListFunctionEventInvokeConfigsResponseTypeDef:
         """
-        Retrieves a list of configurations for asynchronous invocation for a function.
+        Retrieves a list of configurations for asynchronous invocation for a Lambda
+        Event Function.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/list_function_event_invoke_configs.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lambda/client/#list_function_event_invoke_configs)
@@ -969,8 +970,8 @@ class LambdaClient(BaseClient):
     ) -> ListVersionsByFunctionResponseTypeDef:
         """
         Returns a list of <a
-        href="https://docs.aws.amazon.com/lambda/latest/dg/versioning-aliases.html">versions</a>,
-        with the version-specific configuration of each.
+        href="https://docs.aws.amazon.com/lambda/latest/dg/versioning-aliases.html">versions</a>
+        of a Lambda Event Function, with the version-specific configuration of each.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/list_versions_by_function.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lambda/client/#list_versions_by_function)
@@ -994,7 +995,7 @@ class LambdaClient(BaseClient):
         """
         Creates a <a
         href="https://docs.aws.amazon.com/lambda/latest/dg/versioning-aliases.html">version</a>
-        from the current code and configuration of a function.
+        from the current code and configuration of a Lambda Event Function.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/publish_version.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lambda/client/#publish_version)
@@ -1014,8 +1015,8 @@ class LambdaClient(BaseClient):
         self, **kwargs: Unpack[PutFunctionConcurrencyRequestTypeDef]
     ) -> ConcurrencyResponseTypeDef:
         """
-        Sets the maximum number of simultaneous executions for a function, and reserves
-        capacity for that concurrency level.
+        Sets the maximum number of simultaneous executions for a Lambda Event Function,
+        and reserves capacity for that concurrency level.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/put_function_concurrency.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lambda/client/#put_function_concurrency)
@@ -1037,9 +1038,9 @@ class LambdaClient(BaseClient):
         self, **kwargs: Unpack[PutFunctionRecursionConfigRequestTypeDef]
     ) -> PutFunctionRecursionConfigResponseTypeDef:
         """
-        Sets your function's <a
+        Sets the <a
         href="https://docs.aws.amazon.com/lambda/latest/dg/invocation-recursion.html">recursive
-        loop detection</a> configuration.
+        loop detection</a> configuration for a Lambda Event Function.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/put_function_recursion_config.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lambda/client/#put_function_recursion_config)
@@ -1254,7 +1255,7 @@ class LambdaClient(BaseClient):
         self, **kwargs: Unpack[UpdateFunctionUrlConfigRequestTypeDef]
     ) -> UpdateFunctionUrlConfigResponseTypeDef:
         """
-        Updates the configuration for a Lambda function URL.
+        Updates the configuration for a function URL of a Lambda Event Function.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/update_function_url_config.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lambda/client/#update_function_url_config)

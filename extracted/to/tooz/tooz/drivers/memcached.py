@@ -24,6 +24,7 @@ import socket
 import ssl
 from typing import Any, ParamSpec, TypeVar, cast
 
+from oslo_utils import netutils
 from oslo_utils import strutils
 from pymemcache import client as pymemcache_client
 
@@ -272,7 +273,10 @@ class MemcachedDriver(
     STILL_ALIVE = b"It's alive!"
 
     def __init__(
-        self, member_id: bytes, parsed_url: Any, options: dict[str, Any]
+        self,
+        member_id: bytes,
+        parsed_url: netutils.SplitResult,
+        options: dict[str, Any],
     ) -> None:
         super().__init__(member_id, parsed_url, options)
         self.host = (
@@ -508,12 +512,19 @@ class MemcachedDriver(
         group_members, cas = self.client.gets(encoded_group)
         if group_members is None:
             raise coordination.GroupNotCreated(group_id)
+        # Read the keys of the other members in one request: a member that
+        # stopped heartbeating has none.
+        alive = self.client.get_many(
+            [
+                self._encode_member_id(m)
+                for m in group_members
+                if m != self._member_id
+            ]
+        )
         actual_group_members = {}
         for m, v in group_members.items():
             # Never kick self from the group, we know we're alive
-            if m == self._member_id or self.client.get(
-                self._encode_member_id(m)
-            ):
+            if m == self._member_id or alive.get(self._encode_member_id(m)):
                 actual_group_members[m] = v
         if group_members != actual_group_members:
             # There are some dead members, update the group

@@ -10,22 +10,19 @@ from logging import getLogger
 from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
 from cachetools import TTLCache
-from pydantic import ConfigDict
-from pydantic.alias_generators import to_camel
 
-import apify_client._models as _client_models
-from apify_client._models import ActorChargeEvent as ClientActorChargeEvent
-from apify_client._models import FlatPricePerMonthActorPricingInfo as ClientFlatPricePerMonth
-from apify_client._models import FreeActorPricingInfo as ClientFree
-from apify_client._models import PayPerEventActorPricingInfo as ClientPayPerEvent
-from apify_client._models import PricePerDatasetItemActorPricingInfo as ClientPricePerDatasetItem
-from apify_client._models import PricingPerEvent as ClientPricingPerEvent
+from apify_client._models import (
+    FlatPricePerMonthActorPricingInfo,
+    FreeActorPricingInfo,
+    PayPerEventActorPricingInfo,
+    PricePerDatasetItemActorPricingInfo,
+)
 
 from apify._utils import ReentrantLock, docs_group, ensure_context
 from apify.storages import Dataset
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncGenerator
     from types import TracebackType
 
     from apify_client import ApifyClientAsync
@@ -50,7 +47,7 @@ _ensure_context = ensure_context('active')
 
 
 @asynccontextmanager
-async def charge_lock_if_charging() -> AsyncIterator[None]:
+async def charge_lock_if_charging() -> AsyncGenerator[None]:
     """Acquire the charge lock if a charging manager is active, otherwise proceed without locking.
 
     The lock keeps a limit reservation and the charge that follows it atomic. Only pay-per-event runs charge
@@ -66,133 +63,13 @@ async def charge_lock_if_charging() -> AsyncIterator[None]:
         yield
 
 
-# These are thin subclasses of the `apify-client` pricing models. The Apify platform serializes Actor
-# pricing info into the `APIFY_ACTOR_PRICING_INFO` env var (parsed by `Configuration.actor_pricing_info`),
-# but omits several fields that `apify-client` v3 marks as required (`apifyMarginPercentage`, `createdAt`,
-# `startedAt`, per-event `eventDescription`, and per-variant `trialMinutes` / `pricePerUnitUsd` / `unitName`).
-# Each subclass relaxes only those omitted fields to optional, so the env var deserializes without faking
-# values. Because every subclass is-a `apify-client` model, the API-returned `Run.pricing_info` (already an
-# `apify-client` instance) flows through the same code paths without conversion.
-
-
-@docs_group('Charging')
-class ActorChargeEvent(ClientActorChargeEvent):
-    """Definition of a single chargeable event in the pay-per-event pricing model."""
-
-    model_config = ConfigDict(alias_generator=to_camel)
-
-    event_description: str | None = None
-    """Human-readable description of the event.
-
-    Required in apify-client but omitted from the env var, so it is relaxed to optional.
-    """
-
-
-@docs_group('Charging')
-class PricingPerEvent(ClientPricingPerEvent):
-    """Pay-per-event pricing details - the chargeable events and their prices."""
-
-    model_config = ConfigDict(alias_generator=to_camel)
-
-    actor_charge_events: dict[str, ActorChargeEvent] | None = None
-    """Mapping of event name to its charge definition."""
-
-
-@docs_group('Charging')
-class FreeActorPricingInfo(ClientFree):
-    """Pricing info for an Actor offered free of charge."""
-
-    model_config = ConfigDict(alias_generator=to_camel)
-
-    apify_margin_percentage: float | None = None
-    """Apify's margin on the price, as a percentage."""
-
-    created_at: datetime | None = None
-    """Timestamp when this pricing info was created."""
-
-    started_at: datetime | None = None
-    """Timestamp when this pricing became effective."""
-
-
-@docs_group('Charging')
-class FlatPricePerMonthActorPricingInfo(ClientFlatPricePerMonth):
-    """Pricing info for an Actor billed at a flat monthly price."""
-
-    model_config = ConfigDict(alias_generator=to_camel)
-
-    apify_margin_percentage: float | None = None
-    """Apify's margin on the price, as a percentage."""
-
-    created_at: datetime | None = None
-    """Timestamp when this pricing info was created."""
-
-    started_at: datetime | None = None
-    """Timestamp when this pricing became effective."""
-
-    trial_minutes: int | None = None
-    """Length of the free trial period, in minutes."""
-
-    price_per_unit_usd: float | None = None
-    """Price per unit, in USD."""
-
-
-@docs_group('Charging')
-class PricePerDatasetItemActorPricingInfo(ClientPricePerDatasetItem):
-    """Pricing info for an Actor billed per dataset item produced."""
-
-    model_config = ConfigDict(alias_generator=to_camel)
-
-    apify_margin_percentage: float | None = None
-    """Apify's margin on the price, as a percentage."""
-
-    created_at: datetime | None = None
-    """Timestamp when this pricing info was created."""
-
-    started_at: datetime | None = None
-    """Timestamp when this pricing became effective."""
-
-    unit_name: str | None = None
-    """Name of the billed unit."""
-
-
-@docs_group('Charging')
-class PayPerEventActorPricingInfo(ClientPayPerEvent):
-    """Pricing info for an Actor billed per charged event."""
-
-    model_config = ConfigDict(alias_generator=to_camel)
-
-    apify_margin_percentage: float | None = None
-    """Apify's margin on the price, as a percentage."""
-
-    created_at: datetime | None = None
-    """Timestamp when this pricing info was created."""
-
-    started_at: datetime | None = None
-    """Timestamp when this pricing became effective."""
-
-    pricing_per_event: PricingPerEvent
-    """The pay-per-event pricing details."""
-
-
-ActorPricingInfoModel = ClientFree | ClientFlatPricePerMonth | ClientPricePerDatasetItem | ClientPayPerEvent
-"""Common supertype of both env-var-parsed SDK subclasses and the API-returned `Run.pricing_info`."""
-
-# apify-client ships these models with deferred forward refs (`__pydantic_complete__` is False), so the
-# subclasses must be rebuilt - with the `TieredPricing*` names in scope - before the env-var discriminated
-# union can validate standalone.
-_pricing_rebuild_namespace = vars(_client_models) | {
-    'ActorChargeEvent': ActorChargeEvent,
-    'PricingPerEvent': PricingPerEvent,
-}
-for _pricing_model in (
-    ActorChargeEvent,
-    PricingPerEvent,
-    FreeActorPricingInfo,
-    FlatPricePerMonthActorPricingInfo,
-    PricePerDatasetItemActorPricingInfo,
-    PayPerEventActorPricingInfo,
-):
-    _pricing_model.model_rebuild(_types_namespace=_pricing_rebuild_namespace)
+ActorPricingInfoModel = (
+    FreeActorPricingInfo
+    | FlatPricePerMonthActorPricingInfo
+    | PricePerDatasetItemActorPricingInfo
+    | PayPerEventActorPricingInfo
+)
+"""Pricing info of an Actor run, parsed from the env var or returned by the API."""
 
 
 @docs_group('Charging')
@@ -215,6 +92,9 @@ class ChargingManager(Protocol):
         """Charge for a specified number of events - sub-operations of the Actor.
 
         This is relevant only for the pay-per-event pricing model.
+
+        When `count` exceeds the remaining budget, the events that fit are charged plus one more, so that the platform
+        detects the exhausted budget and terminates the run. A run already strictly over budget charges nothing.
 
         Args:
             event_name: Name of the event to be charged for.
@@ -263,6 +143,9 @@ class ChargingManager(Protocol):
         Accounts for both the explicit event and the synthetic `DEFAULT_DATASET_ITEM_EVENT` event,
         so that the combined cost per item does not exceed the remaining budget.
 
+        When the budget cannot cover a single item, one item is still allowed through, so that the resulting overcharge
+        makes the platform terminate the run. A run that is already strictly over budget gets no items through.
+
         Args:
             items_count: The number of items to be pushed.
             event_name: The explicit event name to charge for each item.
@@ -270,7 +153,7 @@ class ChargingManager(Protocol):
                 If True, the synthetic event cost is included in the combined price.
 
         Returns:
-            Max number of items that can be pushed within the budget.
+            Max number of items to push.
         """
 
     def is_event_charge_limit_reached(self, event_name: str) -> bool:
@@ -366,9 +249,8 @@ class ChargingManagerImplementation(ChargingManager):
         else:
             self._pricing_model = pricing_info.pricing_model if pricing_info else None
 
-        # Load per-event pricing information. Check against the apify-client base so both env-var-parsed
-        # SDK subclasses and the API-returned model match.
-        if isinstance(pricing_info, ClientPayPerEvent):
+        # Load per-event pricing information
+        if isinstance(pricing_info, PayPerEventActorPricingInfo):
             actor_charge_events = pricing_info.pricing_per_event.actor_charge_events or {}
             for event_name, event_pricing in actor_charge_events.items():
                 if event_pricing.event_price_usd is None:
@@ -465,9 +347,7 @@ class ChargingManagerImplementation(ChargingManager):
                     chargeable_within_limit=self.compute_chargeable(),
                 )
 
-            # Determine the maximum amount of events that can be charged within the budget
-            max_chargeable = self.calculate_max_event_charge_count_within_limit(event_name)
-            charged_count = min(count, max_chargeable if max_chargeable is not None else count)
+            charged_count = self._compute_charged_count(event_name, count)
 
             if charged_count == 0:
                 return ChargeResult(
@@ -596,6 +476,9 @@ class ChargingManagerImplementation(ChargingManager):
         *,
         is_default_dataset: bool,
     ) -> int:
+        if self._pricing_model != 'PAY_PER_EVENT' or items_count == 0:
+            return items_count
+
         explicit_price = self._get_event_price(event_name)
         synthetic_price = self._get_event_price(DEFAULT_DATASET_ITEM_EVENT) if is_default_dataset else Decimal(0)
         combined_price = explicit_price + synthetic_price
@@ -605,7 +488,14 @@ class ChargingManagerImplementation(ChargingManager):
 
         result = (self._max_total_charge_usd - self.calculate_total_charged_amount()) / combined_price
         max_count = max(0, math.floor(result)) if result.is_finite() else items_count
-        return min(items_count, max_count)
+
+        if max_count >= items_count:
+            return items_count
+
+        if max_count > 0:
+            return max_count
+
+        return 1 if self.calculate_total_charged_amount() <= self._max_total_charge_usd else 0
 
     @_ensure_context
     def is_event_charge_limit_reached(self, event_name: str) -> bool:
@@ -660,6 +550,19 @@ class ChargingManagerImplementation(ChargingManager):
                 else Decimal('inf')
             ),
         )
+
+    def _compute_charged_count(self, event_name: str, count: int) -> int:
+        """Compute how many of `count` events to charge, given the remaining budget."""
+        max_chargeable = self.calculate_max_event_charge_count_within_limit(event_name)
+        if max_chargeable is None or count <= max_chargeable:
+            return count
+
+        # Overcharge by one event, so that the platform detects the exhausted budget and terminates the run. A run
+        # already strictly over budget gets no further charges.
+        if self.calculate_total_charged_amount() <= self._max_total_charge_usd:
+            return max_chargeable + 1
+
+        return 0
 
     def _get_event_price(self, event_name: str) -> Decimal:
         pricing_info = self._pricing_info.get(event_name)

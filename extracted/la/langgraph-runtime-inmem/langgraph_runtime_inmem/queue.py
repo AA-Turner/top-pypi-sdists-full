@@ -205,7 +205,7 @@ async def queue():
                     wait = run is None and last_stats_secs is not None
                     # try to get a run, handle it
                     run = None
-                    async for run, attempt in ops.Runs.next(
+                    async for run, attempt, encryption_context in ops.Runs.next(
                         wait=wait, limit=runners.qsize()
                     ):
                         runner = runners.get_nowait()
@@ -225,7 +225,12 @@ async def queue():
                             graph_id and graph.is_js_graph(graph_id)
                         ):
                             task = asyncio.create_task(
-                                worker.worker(run, attempt, loop),
+                                worker.worker(
+                                    run,
+                                    attempt,
+                                    loop,
+                                    encryption_context=encryption_context,
+                                ),
                                 name=task_name,
                             )
                             task.add_done_callback(
@@ -234,7 +239,12 @@ async def queue():
                             WORKERS.add(task)
                         else:
                             runner.submit(
-                                worker.worker(run, attempt, loop),
+                                worker.worker(
+                                    run,
+                                    attempt,
+                                    loop,
+                                    encryption_context=encryption_context,
+                                ),
                                 name=task_name,
                                 callback=functools.partial(cleanup, runner=runner),
                             )

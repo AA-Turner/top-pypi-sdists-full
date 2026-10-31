@@ -9,6 +9,7 @@ from anyscale.client.openapi_client.models import (
     ComputeTemplateConfig,
     DecoratedComputeTemplate,
     DecoratedComputeTemplateConfig,
+    HeadNodeOption,
     PhysicalResources,
     Resources,
     WorkerNodeType,
@@ -21,6 +22,7 @@ from anyscale.compute_config.models import (
     ComputeConfigType,
     ComputeConfigVersion,
     HeadNodeConfig,
+    HeadNodeOptionConfig,
     MarketType,
     MultiResourceComputeConfig,
     PhysicalResources as UserPhysicalResources,
@@ -196,6 +198,11 @@ class PrivateComputeConfigSDK(BaseSDK):
             _validate_free_pod_labels_on_vm_stack(
                 compute_config.head_node, compute_stack, "head_node", self.logger
             )
+        for option in compute_config.head_nodes or []:
+            assert isinstance(option, HeadNodeOptionConfig)
+            node_name = f"head_nodes[{option.name}]"
+            _validate_no_tpu_on_vm_stack(option, compute_stack, node_name)
+            _validate_free_pod_labels_on_vm_stack(option, compute_stack, node_name, self.logger)
 
         # Validate worker nodes
         if compute_config.worker_nodes:
@@ -285,6 +292,37 @@ class PrivateComputeConfigSDK(BaseSDK):
 
         return api_model
 
+    def _convert_head_nodes_to_api_model(
+        self,
+        head_nodes: List[HeadNodeOptionConfig],
+        *,
+        cloud_id: str,
+        cloud_resource_name: Optional[str] = None,
+        schedulable_by_default: bool,
+    ) -> ComputeNodeType:
+        # Each option converts like a head of its own: the first is the head, and all of them are its options.
+        converted = [
+            self._convert_head_node_config_to_api_model(
+                option,
+                cloud_id=cloud_id,
+                cloud_resource_name=cloud_resource_name,
+                schedulable_by_default=schedulable_by_default,
+            )
+            for option in head_nodes
+        ]
+        api_model = converted[0]
+        api_model.head_options = [
+            HeadNodeOption(
+                name=option.name,
+                # A free pod shape option sends its resources alone, where a head sends "custom" too.
+                instance_type=None if node.required_resources is not None else node.instance_type,
+                required_resources=node.required_resources,
+                advanced_configurations_json=node.advanced_configurations_json,
+            )
+            for option, node in zip(head_nodes, converted)
+        ]
+        return api_model
+
     def _convert_worker_node_group_configs_to_api_models(
         self,
         configs: Optional[List[Union[Dict, WorkerNodeGroupConfig]]],
@@ -365,18 +403,31 @@ class PrivateComputeConfigSDK(BaseSDK):
         if compute_config.max_resources:
             flags["max_resources"] = compute_config.max_resources
 
-        return CloudDeploymentComputeConfig(
-            cloud_deployment=compute_config.cloud_resource,
-            allowed_azs=compute_config.zones,
-            head_node_type=self._convert_head_node_config_to_api_model(
+        schedulable_by_default = (
+            not compute_config.worker_nodes and not compute_config.auto_select_worker_config
+        )
+        if compute_config.head_nodes:
+            assert all(
+                isinstance(option, HeadNodeOptionConfig) for option in compute_config.head_nodes
+            )
+            head_node_type = self._convert_head_nodes_to_api_model(
+                compute_config.head_nodes,  # type: ignore[arg-type]
+                cloud_id=cloud_id,
+                cloud_resource_name=compute_config.cloud_resource,
+                schedulable_by_default=schedulable_by_default,
+            )
+        else:
+            head_node_type = self._convert_head_node_config_to_api_model(
                 compute_config.head_node,
                 cloud_id=cloud_id,
                 cloud_resource_name=compute_config.cloud_resource,
-                schedulable_by_default=(
-                    not compute_config.worker_nodes
-                    and not compute_config.auto_select_worker_config
-                ),
-            ),
+                schedulable_by_default=schedulable_by_default,
+            )
+
+        return CloudDeploymentComputeConfig(
+            cloud_deployment=compute_config.cloud_resource,
+            allowed_azs=compute_config.zones,
+            head_node_type=head_node_type,
             worker_node_types=self._convert_worker_node_group_configs_to_api_models(
                 compute_config.worker_nodes,
             ),
@@ -492,7 +543,9 @@ class PrivateComputeConfigSDK(BaseSDK):
 
     def _convert_api_model_to_advanced_instance_config(
         self,
-        api_model: Union[DecoratedComputeTemplateConfig, ComputeNodeType, WorkerNodeType],
+        api_model: Union[
+            DecoratedComputeTemplateConfig, ComputeNodeType, WorkerNodeType, HeadNodeOption
+        ],
     ) -> Optional[Dict]:
         if api_model.advanced_configurations_json:
             return api_model.advanced_configurations_json
@@ -561,6 +614,33 @@ class PrivateComputeConfigSDK(BaseSDK):
             flags=flags or None,
             cloud_deployment=cloud_deployment,
         )
+
+    def _convert_api_model_to_head_nodes(
+        self, api_model: ComputeNodeType
+    ) -> Optional[List[HeadNodeOptionConfig]]:
+        if not api_model.head_options:
+            return None
+        head = self._convert_api_model_to_head_node_config(api_model)
+        return [
+            HeadNodeOptionConfig(
+                name=option.name,
+                instance_type=option.instance_type,
+                resources=head.resources,
+                required_resources=UserPhysicalResources.from_dict(
+                    option.required_resources.to_dict()
+                )
+                if option.required_resources is not None
+                else None,
+                labels=head.labels,
+                required_labels=head.required_labels,
+                advanced_instance_config=self._convert_api_model_to_advanced_instance_config(
+                    option
+                ),
+                flags=head.flags,
+                cloud_deployment=head.cloud_deployment,
+            )
+            for option in api_model.head_options
+        ]
 
     def _convert_api_models_to_worker_node_group_configs(
         self, api_models: List[WorkerNodeType]
@@ -656,13 +736,17 @@ class PrivateComputeConfigSDK(BaseSDK):
             if max_gpus:
                 max_resources["GPU"] = max_gpus
 
+        head_nodes = self._convert_api_model_to_head_nodes(api_model.head_node_type)
         return ComputeConfig(
             cloud=cloud_name,
             cloud_resource=api_model.cloud_deployment,
             zones=zones,
             advanced_instance_config=api_model.advanced_configurations_json or None,
             enable_cross_zone_scaling=enable_cross_zone_scaling,
-            head_node=self._convert_api_model_to_head_node_config(api_model.head_node_type),
+            head_node=None
+            if head_nodes
+            else self._convert_api_model_to_head_node_config(api_model.head_node_type),
+            head_nodes=head_nodes,
             worker_nodes=worker_nodes,
             min_resources=min_resources,
             max_resources=max_resources or None,
@@ -735,6 +819,7 @@ class PrivateComputeConfigSDK(BaseSDK):
             if max_gpus:
                 max_resources["GPU"] = max_gpus
 
+        head_nodes = self._convert_api_model_to_head_nodes(api_model_config.head_node_type)
         return ComputeConfigVersion(
             name=f"{api_model.name}:{api_model.version}",
             id=api_model.id,
@@ -745,9 +830,10 @@ class PrivateComputeConfigSDK(BaseSDK):
                     api_model_config
                 ),
                 enable_cross_zone_scaling=enable_cross_zone_scaling,
-                head_node=self._convert_api_model_to_head_node_config(
-                    api_model_config.head_node_type
-                ),
+                head_node=None
+                if head_nodes
+                else self._convert_api_model_to_head_node_config(api_model_config.head_node_type),
+                head_nodes=head_nodes,
                 worker_nodes=worker_nodes,  # type: ignore
                 min_resources=min_resources,
                 max_resources=max_resources or None,

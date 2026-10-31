@@ -187,6 +187,35 @@ class UniverseSettings(System.Object):
         """Initializes a new instance of the UniverseSettings class"""
         ...
 
+    def get_universe_mapping_mode_or_default(self, security_type: QuantConnect.SecurityType, market: str) -> QuantConnect.DataMappingMode:
+        """Helper method to determine the right data mapping mode to use by default"""
+        ...
+
+    def get_universe_normalization_mode_or_default(self, security_type: QuantConnect.SecurityType) -> QuantConnect.DataNormalizationMode:
+        """Helper method to determine the right data normalization mode to use by default"""
+        ...
+
+
+class _Typed_Universe_TryGetUniverse(typing.Generic[QuantConnect_Data_UniverseSelection_UniverseExtensions_TryGetUniverse_T]):
+    """"""
+
+    @overload
+    def __call__(self, result: typing.Optional[QuantConnect_Data_UniverseSelection_UniverseExtensions_TryGetUniverse_T]) -> typing.Tuple[bool, QuantConnect_Data_UniverseSelection_UniverseExtensions_TryGetUniverse_T]:
+        """
+        Gets the given universe as the requested type, checking the universe it decorates, if any
+        
+        :param result: The universe as the requested type, if any
+        :returns: True if the universe, or one it decorates, is of the requested type.
+        """
+        ...
+
+
+class _Universe_TryGetUniverse:
+    """"""
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Data_UniverseSelection_UniverseExtensions_TryGetUniverse_T]) -> QuantConnect.Data.UniverseSelection._Typed_Universe_TryGetUniverse[QuantConnect_Data_UniverseSelection_UniverseExtensions_TryGetUniverse_T]:
+        ...
+
 
 class BaseDataCollection(QuantConnect.Data.BaseData, typing.Iterable[QuantConnect.Data.BaseData]):
     """This type exists for transport of data as a single packet"""
@@ -482,6 +511,10 @@ class Universe(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         """
         ...
 
+    @property
+    def try_get_universe(self) -> QuantConnect.Data.UniverseSelection._Universe_TryGetUniverse:
+        ...
+
     def __init__(self, config: QuantConnect.Data.SubscriptionDataConfig) -> None:
         """
         Initializes a new instance of the Universe class
@@ -503,6 +536,22 @@ class Universe(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         :param utc_time: The current utc time
         :param security: The security to check if its ok to remove
         :returns: True if we can remove the security, false otherwise.
+        """
+        ...
+
+    def chained_to(self, second: QuantConnect.Data.UniverseSelection.Universe, configuration_per_symbol: bool) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe that logically is the result of wiring the two universes together such that
+        the first will produce subscriptions for the second and the second will only select on data that has
+        passed the first.
+        
+        NOTE: The first and second universe instances provided
+        to this method should not be manually added to the algorithm.
+        
+        :param second: The second universe in this 'chain'
+        :param configuration_per_symbol: True if each symbol as its own configuration, false otherwise
+        :returns: A new universe that can be added to the algorithm that represents invoking the first universe
+        and then the second universe using the outputs of the first.
         """
         ...
 
@@ -564,6 +613,20 @@ class Universe(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         :param utc_time: The current utc time
         :param data: The symbols to remain in the universe
         :returns: The data that passes the filter.
+        """
+        ...
+
+    def prefilter_using(self, first: QuantConnect.Data.UniverseSelection.Universe) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe that restricts the universe selection data to symbols that passed the
+        first universe's selection critera
+        
+        NOTE: The second universe instance provided to this method should not be manually
+        added to the algorithm. The first should still be manually (assuming no other changes).
+        
+        :param first: The universe providing the set of symbols used for filtered
+        :returns: A new universe that can be added to the algorithm that represents invoking the second
+        using the selections from the first as a filter.
         """
         ...
 

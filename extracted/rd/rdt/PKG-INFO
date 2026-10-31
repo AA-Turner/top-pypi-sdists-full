@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rdt
-Version: 2.0.0
+Version: 2.1.0
 Summary: Reversible Data Transforms
 Author-email: "DataCebo, Inc." <info@sdv.dev>
 License-Expression: BUSL-1.1
@@ -14,18 +14,16 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: <3.15,>=3.9
+Requires-Python: <3.15,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: numpy>=1.21.0; python_version < "3.10"
-Requires-Dist: numpy>=1.23.3; python_version >= "3.10" and python_version < "3.12"
+Requires-Dist: numpy>=1.23.3; python_version < "3.12"
 Requires-Dist: numpy>=1.26.0; python_version >= "3.12" and python_version < "3.13"
 Requires-Dist: numpy>=2.1.0; python_version >= "3.13" and python_version < "3.14"
 Requires-Dist: numpy>=2.3.2; python_version >= "3.14"
@@ -34,13 +32,11 @@ Requires-Dist: pandas<3,>=1.5.0; python_version >= "3.11" and python_version < "
 Requires-Dist: pandas<3,>=2.1.1; python_version >= "3.12" and python_version < "3.13"
 Requires-Dist: pandas<3,>=2.2.3; python_version >= "3.13" and python_version < "3.14"
 Requires-Dist: pandas<3,>=2.3.3; python_version >= "3.14"
-Requires-Dist: scipy>=1.7.3; python_version < "3.10"
-Requires-Dist: scipy>=1.9.2; python_version >= "3.10" and python_version < "3.12"
+Requires-Dist: scipy>=1.9.2; python_version < "3.12"
 Requires-Dist: scipy>=1.12.0; python_version >= "3.12" and python_version < "3.13"
 Requires-Dist: scipy>=1.14.1; python_version >= "3.13" and python_version < "3.14"
 Requires-Dist: scipy>=1.16.1; python_version >= "3.14"
-Requires-Dist: scikit-learn>=1.0.2; python_version < "3.10"
-Requires-Dist: scikit-learn>=1.1.0; python_version >= "3.10" and python_version < "3.11"
+Requires-Dist: scikit-learn>=1.1.0; python_version < "3.11"
 Requires-Dist: scikit-learn>=1.1.3; python_version >= "3.11" and python_version < "3.12"
 Requires-Dist: scikit-learn>=1.3.1; python_version >= "3.12" and python_version < "3.13"
 Requires-Dist: scikit-learn>=1.5.2; python_version >= "3.13" and python_version < "3.14"

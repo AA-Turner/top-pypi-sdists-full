@@ -62,6 +62,7 @@ pub struct Privacy {
     instances: Arc<[Instance]>,
     output: OutputRoot,
     concurrency: usize,
+    optimize: super::optimize::Optimize,
 }
 
 /// Downloaded assets retained by the document or resource that uses them.
@@ -110,7 +111,9 @@ impl Value for Preloads {}
 
 impl Privacy {
     /// Enabled instances are constructed in configuration order.
-    pub fn new(config: &Config, strict: bool) -> Self {
+    pub fn new(
+        config: &Config, strict: bool, optimize: super::optimize::Optimize,
+    ) -> Result<Self> {
         let mut instances = Vec::new();
         for (id, entry) in
             config.project.plugins.privacy.config.iter().enumerate()
@@ -128,6 +131,7 @@ impl Privacy {
                 hostname: config.project.site_url.as_deref().and_then(hostname),
                 strict,
                 agent: ureq::Agent::config_builder()
+                    .tls_config(download::tls_config()?)
                     .timeout_global(Some(Duration::from_secs(5)))
                     .build()
                     .into(),
@@ -140,11 +144,12 @@ impl Privacy {
             .map(|instance| instance.config.concurrency)
             .max()
             .unwrap_or(1);
-        Self {
+        Ok(Self {
             instances: instances.into(),
             output: config.output_root().clone(),
             concurrency,
-        }
+            optimize,
+        })
     }
 
     /// Local media dependencies are patched before minification and hashing.
@@ -307,6 +312,22 @@ impl Privacy {
                 },
             )
             .map(|asset: &Asset| asset.artifact.clone());
+        let optimize = self.optimize.clone();
+        let assets = if optimize.active() {
+            assets.map(concurrent(
+                optimize.concurrency(),
+                move |artifact: &Artifact| {
+                    let mut artifact = artifact.clone();
+                    artifact.contents = optimize.image(
+                        artifact.destination.as_str(),
+                        artifact.contents,
+                    )?;
+                    Ok::<_, anyhow::Error>(artifact)
+                },
+            ))
+        } else {
+            assets
+        };
         output::setup(self.output.clone(), &assets);
     }
 }
@@ -594,6 +615,7 @@ mod tests {
             instances: Arc::from([]),
             output: OutputRoot::prepare(directory.path()).unwrap(),
             concurrency: 1,
+            optimize: super::super::optimize::Optimize::default(),
         };
         let workflow = Workflow::<Id>::build(|workflow| {
             let assets = workflow.input::<Assets>();

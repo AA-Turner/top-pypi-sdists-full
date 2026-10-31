@@ -39,8 +39,8 @@ test("NestJS resolves patched Multer 2.x", () => {
     .map(Number);
   assert.equal(major, 2);
   assert.ok(
-    minor >= 3,
-    "Multer must be >=2.3.0 to address the benchmark alerts",
+    minor >= 4,
+    "Multer must be >=2.4.0 to address the benchmark alerts",
   );
 });
 

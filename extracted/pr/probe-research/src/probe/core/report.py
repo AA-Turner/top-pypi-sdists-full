@@ -994,6 +994,8 @@ def _collect_staff(*, family: str, reason: str, sid: str | None, facts: dict, ki
     }
     if kind is Kind.MANUAL:
         report["service_view"] = run_source("service_view", _service_view, STAFF_SOURCE_BUDGET_S, skipped)
+        report["codex_hooks"] = run_source("codex_hooks", lambda: _codex_hooks(allowed), STAFF_SOURCE_BUDGET_S * 2,
+                                           skipped)
     logs = run_source("logs", lambda: staff_logs(sid, allowed, include_session, now, skipped),
                       STAFF_SOURCE_BUDGET_S * 2, skipped) or {}
     report["logs"] = logs
@@ -1039,6 +1041,19 @@ def _service_view() -> dict:
     from probe.cli import service_calls
 
     return redact_tree(service_calls.view(timeout=STAFF_SOURCE_BUDGET_S), Scope.STAFF)
+
+
+def _codex_hooks(allowed: set[str]) -> dict:
+    """Which of Probe's hooks Codex runs, as `probe status` reads it (`codex_hooks`):
+    a session unknown to the service may be one whose hooks Codex skips. The
+    session that never heard them is named only when it is in `allowed`."""
+    from probe.cli import codex_hooks
+
+    snapshot = codex_hooks.status_snapshot()
+    unheard = snapshot.get("unheard_session")
+    if unheard and unheard.lower() not in allowed:
+        snapshot["unheard_session"] = "withheld"
+    return redact_tree(snapshot, Scope.STAFF)
 
 
 def _size(value: object) -> int:

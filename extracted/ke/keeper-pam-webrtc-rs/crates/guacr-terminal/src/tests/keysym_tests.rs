@@ -711,3 +711,21 @@ fn test_kitty_protocol_backspace_configurable() {
     let seq_bs = x11_keysym_to_kitty_sequence(0xFF08, true, None, 8, false, 1);
     assert_eq!(seq_bs, b"\x1b[8u");
 }
+
+#[test]
+fn test_kitty_level_one_ignores_key_releases() {
+    for keysym in [0x0061, 0x00E9, 0x010003BB, 0xFF0D, 0xFF51] {
+        assert!(
+            !x11_keysym_to_kitty_sequence(keysym, true, None, 127, false, 1).is_empty(),
+            "press of 0x{keysym:X} should encode at level 1"
+        );
+        assert!(
+            x11_keysym_to_kitty_sequence(keysym, false, None, 127, false, 1).is_empty(),
+            "release of 0x{keysym:X} must not encode at level 1"
+        );
+        assert!(
+            x11_keysym_to_kitty_sequence(keysym, false, None, 127, false, 2).ends_with(b":3u"),
+            "release of 0x{keysym:X} is reported as event type 3 at level 2"
+        );
+    }
+}

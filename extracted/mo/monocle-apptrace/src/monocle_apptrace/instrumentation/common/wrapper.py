@@ -13,6 +13,7 @@ from opentelemetry.trace.status import StatusCode
 from monocle_apptrace.instrumentation.common.constants import (
     ADD_NEW_WORKFLOW,
     AGENTIC_SPANS,
+    MONOCLE_SUPPRESS_SPANS,
     SPAN_START_TIME,
     SPAN_END_TIME,
 )
@@ -179,6 +180,9 @@ def monocle_wrapper_span_processor(tracer: Tracer, handler: SpanHandler, to_wrap
     auto_close_span = get_auto_close_span(to_wrap, kwargs)
     parent_span = get_current_monocle_span()
     with start_as_monocle_span(tracer, name, auto_close_span) as span:
+        if not span.is_recording():
+            # Unsampled trace: a NonRecordingSpan is never exported, so just run the call.
+            return wrapped(*args, **kwargs), None
         pre_process_span(name, tracer, handler, add_workflow_span, to_wrap, wrapped, instance, args, kwargs, span, source_path)
         
         if SpanHandler.is_root_span(span) or add_workflow_span or SpanHandler.is_remote_parent_span(span):
@@ -247,6 +251,10 @@ def monocle_iter_wrapper_span_processor(tracer: Tracer, handler: SpanHandler, to
     last_item = None
 
     with start_as_monocle_span(tracer, name, auto_close_span) as span:
+        if not span.is_recording():
+            # Unsampled trace: just run the call.
+            yield from wrapped(*args, **kwargs)
+            return
         pre_process_span(name, tracer, handler, add_workflow_span, to_wrap, wrapped, instance, args, kwargs, span, source_path)
 
         if SpanHandler.is_root_span(span) or add_workflow_span or SpanHandler.is_remote_parent_span(span):
@@ -338,7 +346,9 @@ def monocle_wrapper(tracer: Tracer, handler: SpanHandler, to_wrap, wrapped, inst
                 to_wrap = alternate_to_wrapp
         except Exception as e:
             logger.info(f"Warning: Error occurred in pre_tracing: {e}")
-        if to_wrap.get('skip_span', False) or handler.skip_span(to_wrap, wrapped, instance, args, kwargs):
+        if (get_value(MONOCLE_SUPPRESS_SPANS) is True
+                or to_wrap.get('skip_span', False)
+                or handler.skip_span(to_wrap, wrapped, instance, args, kwargs)):
             return_value = wrapped(*args, **kwargs)
         else:
             add_workflow_span = get_value(ADD_NEW_WORKFLOW) == True
@@ -370,7 +380,9 @@ def monocle_iter_wrapper(tracer: Tracer, handler: SpanHandler, to_wrap, wrapped,
                 to_wrap = alternate_to_wrapp
         except Exception as e:
             logger.info(f"Warning: Error occurred in pre_tracing: {e}")
-        if to_wrap.get('skip_span', False) or handler.skip_span(to_wrap, wrapped, instance, args, kwargs):
+        if (get_value(MONOCLE_SUPPRESS_SPANS) is True
+                or to_wrap.get('skip_span', False)
+                or handler.skip_span(to_wrap, wrapped, instance, args, kwargs)):
             for item in wrapped(*args, **kwargs):
                 yield item
         else:
@@ -411,6 +423,9 @@ async def amonocle_wrapper_span_processor(tracer: Tracer, handler: SpanHandler, 
     auto_close_span = get_auto_close_span(to_wrap, kwargs)
     parent_span = get_current_monocle_span()
     with start_as_monocle_span(tracer, name, auto_close_span) as span:
+        if not span.is_recording():
+            # Unsampled trace: just run the call.
+            return await wrapped(*args, **kwargs), None
         pre_process_span(name, tracer, handler, add_workflow_span, to_wrap, wrapped, instance, args, kwargs, span, source_path)
         
         if SpanHandler.is_root_span(span) or add_workflow_span or SpanHandler.is_remote_parent_span(span):
@@ -479,6 +494,11 @@ async def amonocle_iter_wrapper_span_processor(tracer: Tracer, handler: SpanHand
     last_item = None
 
     with start_as_monocle_span(tracer, name, auto_close_span) as span:
+        if not span.is_recording():
+            # Unsampled trace: just run the call.
+            async for item in wrapped(*args, **kwargs):
+                yield item
+            return
         pre_process_span(name, tracer, handler, add_workflow_span, to_wrap, wrapped, instance, args, kwargs, span, source_path)
 
         if SpanHandler.is_root_span(span) or add_workflow_span or SpanHandler.is_remote_parent_span(span):
@@ -576,7 +596,9 @@ async def amonocle_wrapper(tracer: Tracer, handler: SpanHandler, to_wrap, wrappe
                 to_wrap = alternate_to_wrapp
         except Exception as e:
             logger.info(f"Warning: Error occurred in pre_tracing: {e}")
-        if to_wrap.get('skip_span', False) or handler.skip_span(to_wrap, wrapped, instance, args, kwargs):
+        if (get_value(MONOCLE_SUPPRESS_SPANS) is True
+                or to_wrap.get('skip_span', False)
+                or handler.skip_span(to_wrap, wrapped, instance, args, kwargs)):
             return_value = await wrapped(*args, **kwargs)
         else:
             add_workflow_span = get_value(ADD_NEW_WORKFLOW) == True
@@ -608,7 +630,9 @@ async def amonocle_iter_wrapper(tracer: Tracer, handler: SpanHandler, to_wrap, w
                 to_wrap = alternate_to_wrapp
         except Exception as e:
             logger.info(f"Warning: Error occurred in pre_tracing: {e}")
-        if to_wrap.get('skip_span', False) or handler.skip_span(to_wrap, wrapped, instance, args, kwargs):
+        if (get_value(MONOCLE_SUPPRESS_SPANS) is True
+                or to_wrap.get('skip_span', False)
+                or handler.skip_span(to_wrap, wrapped, instance, args, kwargs)):
             async for item in wrapped(*args, **kwargs):
                 yield item
         else:

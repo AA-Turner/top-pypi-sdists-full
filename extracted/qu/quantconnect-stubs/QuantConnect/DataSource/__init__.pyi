@@ -1506,101 +1506,178 @@ class FINRAWeeklySummaryUniverse(QuantConnect.Data.UniverseSelection.BaseDataCol
 
 class Factors(QuantConnect.Data.DynamicData):
     """
-    Precomputed factors. One class serves both kinds of factor data:
-    linked factors for a single US Equity (subscribe with the Equity's Symbol)
-    and unlinked factors that aren't tied to a tradable security, such as US
-    Treasury yield curve rates (subscribe with UNLINKED).
-    Each data point behaves like a dictionary of factor name to value.
+    Factor values and positions. Subscribe with a security's Symbol to get each factor's value
+    for it and its position in it: how much of the security the factor holds, from the first
+    open after the data point's time. Subscribe with UNLINKED to get the unlinked
+    factors' market-wide series. Each data point behaves like a dictionary of factor name to
+    value, and position gives a factor's position. A data point holds the numbers
+    that are new at its time.
     """
 
     UNLINKED: str = "$UNLINKED"
     """Ticker for the unlinked factors subscription"""
 
-    ROC_1_DAY: str = "technical_roc_1d"
-    """1-day rate of change of the closing price: close<t> / close<t-1> - 1"""
-
-    VOLATILITY_21_DAY: str = "technical_volatility_21d"
-    """21-day realized volatility of daily returns: the standard deviation of 1-day closing-price returns over the trailing 21 days"""
-
-    VOLUME_Z_21_DAY: str = "technical_volume_z_21d"
-    """21-day volume z-score: the number of standard deviations the current trading volume sits above or below its trailing 21-day mean"""
-
-    FINRA_SHORT_SALE_VOLUME_SHORT_VOLUME_RATIO_SMA_21_DAY: str = "alternative_finra_short_sale_volume_short_volume_ratio_sma_21d"
-    """21-day simple moving average of the FINRA Reg SHO daily short volume ratio: the share (0-1) of a security's off-exchange reported volume executed as short sales during regular trading hours, aggregated from trades broker-dealers file with FINRA"""
-
-    SPECTRAL_TICK_FLOW_SIGNAL_EXECUTION_SCORE: str = "alternative_spectral_tick_flow_signal_execution_score"
-    """Algorithmic execution-flow intensity: the normalized strength of the strongest recurring intraday execution rhythm in the security's tick data, derived by QuantConnect's Fourier transform-like decomposition of daily US Equity trades (SpectralTickFlowSignal.ExecutionScore); a non-negative normalized score, higher meaning trade flow more strongly backed by an active, repeating execution signature."""
-
-    UST_YIELD_1_MONTH: str = "market_ust_yield_1m"
-    """1-month US Treasury yield curve rate"""
-
-    EARNING_YIELD: str = "fundamental_earning_yield"
-    """Trailing earnings yield: Morningstar's ValuationRatios.EarningYield, diluted EPS divided by price (the inverse trailing P/E), so higher values indicate cheaper stocks relative to trailing earnings."""
-
-    MFI_21_DAY: str = "technical_mfi_21d"
-    """21-day Money Flow Index: volume-weighted buying vs. selling pressure, from daily typical price changes signed and weighted by volume, accumulated over 21 sessions and bounded 0-100."""
-
-    MOM_12_MONTH: str = "technical_mom_12m"
-    """Twelve-month momentum skipping the most recent month: the stock's return over months t-11 through t-1, computed each session from LEAN's adjusted daily closes, from Jegadeesh and Titman (1993, JF), where higher values predicted higher returns"""
-
-    INT_MOM: str = "technical_int_mom"
-    """Intermediate momentum: the stock's return over months t-12 through t-7, computed each session from LEAN's adjusted daily closes, from Novy-Marx (2012, JFE), where higher values predicted higher returns"""
-
-    MOM_12_MONTH_OFF_SEASON: str = "technical_mom_12m_off_season"
-    """Momentum without the seasonal month: the mean of the monthly returns of months t-1 through t-10, which leaves out the current month and month t-11, the month one year before the coming month, computed each session from LEAN's adjusted daily closes, from Heston and Sadka (2008, JFE), where higher values predicted higher returns"""
-
-    VIX: str = "market_vix"
-    """CBOE Volatility Index (VIX) daily close: the market's expectation of 30-day S&P 500 volatility implied by index option prices, in annualized percentage points"""
-
-    WTI_CRUDE_OIL: str = "market_wti_crude_oil"
-    """WTI crude oil price: the daily mid close of Oanda's West Texas Oil CFD, in US dollars per barrel, a continuous quote that tracks the front NYMEX contract without roll jumps"""
-
-    MONETARY_CYCLE: str = "market_monetary_cycle"
-    """Monetary cycle: the monetary environment of Jensen, Mercer and Johnson (1996), +1 while the most recent change in the Federal Reserve's primary credit rate was a decrease (expansive) and -1 while it was an increase (restrictive), read from LEAN's risk-free interest rate model for every calendar day at midnight New York; the state flips on the day the model's rate changes"""
-
-    VOLUME_TREND: str = "technical_volume_trend"
-    """Volume trend: the slope of a regression of monthly volume on a linear time trend over the trailing 60 months, divided by the mean monthly volume over those months, computed each session from LEAN's split- and dividend-adjusted daily volume with 21 sessions to a month and at least 30 months required, from Haugen and Baker (1996, JFE), where higher values predicted lower returns"""
-
-    MOM_SEASON_SHORT: str = "technical_mom_season_short"
-    """Return seasonality last year: the stock's return over the 21 sessions from 252 to 231 sessions ago, the month one year before the coming month, computed each session from LEAN's adjusted daily closes, from Heston and Sadka (2008, JFE), where higher values predicted higher returns"""
-
-    ILLIQUIDITY: str = "technical_illiquidity"
-    """Amihud illiquidity: the mean over the past 12 months of the daily ratio of the absolute return to the dollar volume traded, computed each session from LEAN's adjusted daily bars, from Amihud (2002, JFM), where higher values predicted higher returns"""
-
-    M_2_GROWTH_1_MONTH: str = "market_m2_growth_1m"
-    """M2 money supply growth from one monthly release to the next: the Federal Reserve's seasonally adjusted monthly M2 over its value for the month before, minus one, from FRED's series M2SL as currently revised; each month's value is stamped at 13:00 New York on the fourth Tuesday of the following month, when the Federal Reserve's H.6 release publishes it"""
-
-    EQUITY_FACTOR_NAMES: typing.List[str] = ...
+    PAIR: str = "$PAIR"
     """
-    Column order of the per-Equity factor files, fixed by the dataset
-    specification so rows parse without header state
+    Start of the identifier cell of a pair row in the universe files, as in
+    $PAIR(KO R735QTJ8XC9X;PEP R735QTJ8XC9X)
     """
 
-    UNLINKED_FACTOR_NAMES: typing.List[str] = ...
+    HEDGE_RATIO_SUFFIX: str = "_hedge_ratio"
     """
-    Column order of the unlinked factor file, fixed by the dataset
-    specification so rows parse without header state
+    End of the name of a pairs factor's hedge ratio column, as in
+    closest_price_pairs_hedge_ratio
     """
+
+    POSITION_SUFFIX: str = "_position"
+    """End of the name of a factor's position column, as in roc_1d_position"""
+
+    ROC_1_DAY: str = "roc_1d"
+    """1-day rate of change of the close, close<t> / close<t-1> - 1, ranked each session among SPY's constituents. The factor holds the bottom tenth long and the top tenth short, equally weighted."""
+
+    VOLATILITY_21_DAY: str = "volatility_21d"
+    """21-day realized volatility, the standard deviation of the 1-day close-to-close returns over the trailing 21 days, ranked each session among SPY's constituents. The factor holds the top tenth long and the bottom tenth short, equally weighted."""
+
+    VOLUME_Z_21_DAY: str = "volume_z_21d"
+    """21-day volume z-score, the number of standard deviations the session's volume sits above or below its trailing 21-day mean, ranked each session among SPY's constituents. The factor holds the top tenth long and the bottom tenth short, equally weighted."""
+
+    FINRA_SHORT_SALE_VOLUME_SHORT_VOLUME_RATIO_SMA_21_DAY: str = "finra_short_sale_volume_short_volume_ratio_sma_21d"
+    """21-point mean of the FINRA Reg SHO daily short volume ratio, the share of a stock's off-exchange reported volume executed as short sales, ranked each session among SPY's constituents. The factor holds the bottom tenth long and the top tenth short, equally weighted."""
+
+    SPECTRAL_TICK_FLOW_SIGNAL_EXECUTION_SCORE: str = "spectral_tick_flow_signal_execution_score"
+    """Algorithmic execution-flow intensity, QuantConnect's Spectral Tick Flow Signal execution score: the normalized strength of the strongest recurring intraday execution rhythm in the stock's tick data, ranked each session among SPY's constituents. The factor holds the top tenth long and the bottom tenth short, equally weighted."""
+
+    UST_YIELD_1_MONTH: str = "ust_yield_1m"
+    """1-month US Treasury yield curve rate, as published daily at 16:30 New York time. The positions rank each of SPY's constituents on its sensitivity to the yield: the slope on the yield's daily change when the stock's daily returns over the past 21 sessions are regressed on SPY's return and that change. The factor holds the bottom tenth long and the top tenth short, equally weighted."""
+
+    EARNING_YIELD: str = "earning_yield"
+    """Trailing earnings yield, Morningstar's ValuationRatios.EarningYield: diluted EPS over price, ranked each session among SPY's constituents. The factor holds the bottom tenth long and the top tenth short, equally weighted."""
+
+    MFI_21_DAY: str = "mfi_21d"
+    """21-day Money Flow Index, the share of the typical price's money flow over 21 sessions that came on sessions the typical price rose, from 0 to 100, ranked each session among SPY's constituents. The factor holds the bottom tenth long and the top tenth short, equally weighted."""
+
+    MOM_12_MONTH: str = "mom_12m"
+    """Twelve-month momentum skipping the most recent month, the stock's return over months t-11 through t-1 with 21 sessions to a month, from Jegadeesh and Titman (1993, JF), ranked each session among SPY's constituents. The factor holds the bottom tenth long and the top tenth short, equally weighted."""
+
+    INT_MOM: str = "int_mom"
+    """Intermediate momentum, the stock's return over months t-12 through t-7 with 21 sessions to a month, from Novy-Marx (2012, JFE), ranked each session among SPY's constituents. The factor holds the bottom tenth long and the top tenth short, equally weighted."""
+
+    MOM_12_MONTH_OFF_SEASON: str = "mom_12m_off_season"
+    """Momentum without the seasonal month, the mean of the monthly returns of months t-1 through t-10 with 21 sessions to a month, from Heston and Sadka (2008, JFE), ranked each session among SPY's constituents. The factor holds the top tenth long and the bottom tenth short, equally weighted."""
+
+    VIX: str = "vix"
+    """CBOE Volatility Index (VIX), the market's expectation of 30-day S&P 500 volatility. The series is VIX's daily close. The positions rank each of SPY's constituents on its sensitivity to VIX: the slope on VIX's daily change when the stock's daily returns over the past 21 sessions are regressed on SPY's return and that change. The factor holds the top tenth long and the bottom tenth short, equally weighted."""
+
+    WTI_CRUDE_OIL: str = "wti_crude_oil"
+    """WTI crude oil price, the daily mid close of Oanda's West Texas Oil CFD in US dollars per barrel. The positions rank each of SPY's constituents on its sensitivity to the price: the slope on the price's daily change when the stock's daily returns over the past 21 sessions are regressed on SPY's return and that change. The factor holds the bottom tenth long and the top tenth short, equally weighted."""
+
+    MONETARY_CYCLE: str = "monetary_cycle"
+    """Monetary cycle, the monetary environment of Jensen, Mercer and Johnson (1996): +1 while the most recent change in the Federal Reserve's primary credit rate was a decrease and -1 while it was an increase, read from LEAN's risk-free interest rate model at midnight New York on every calendar day. The factor times SPY: it holds SPY short while the cycle is +1 and long while it's -1."""
+
+    VOLUME_TREND: str = "volume_trend"
+    """Volume trend, the slope of a regression of monthly volume on a linear time trend over the trailing 60 months over the mean monthly volume, with 21 sessions to a month and at least 30 months, from Haugen and Baker (1996, JFE), ranked each session among SPY's constituents. The factor holds the bottom tenth long and the top tenth short, equally weighted."""
+
+    MOM_SEASON_SHORT: str = "mom_season_short"
+    """Return seasonality last year, the stock's return over the 21 sessions from 252 to 231 sessions ago, from Heston and Sadka (2008, JFE), ranked each session among SPY's constituents. The factor holds the top tenth long and the bottom tenth short, equally weighted."""
+
+    ILLIQUIDITY: str = "illiquidity"
+    """Amihud illiquidity, the mean over the past 12 months of the daily ratio of the absolute return to the dollar volume traded, from Amihud (2002, JFM), ranked each session among SPY's constituents. The factor holds the top tenth long and the bottom tenth short, equally weighted."""
+
+    M_2_GROWTH_1_MONTH: str = "m2_growth_1m"
+    """M2 money supply growth from one monthly release to the next: the Federal Reserve's seasonally adjusted monthly M2 over its value for the month before, minus one, from FRED's series M2SL as currently revised, stamped at the midnight after the day the Federal Reserve's H.6 release first published it. The positions rank each of SPY's constituents on its sensitivity to the growth: the slope on the growth's change when the stock's returns between releases over the last 60 releases are regressed on SPY's return and that change. The factor holds the top tenth long and the bottom tenth short, equally weighted."""
+
+    GROSS_PROFITS_TO_ASSETS: str = "gross_profits_to_assets"
+    """Gross profits to assets from Novy-Marx (2013, JFE). It's annual revenue minus cost of revenue over total assets from Morningstar's annual accounts, and financial firms are left out. A fiscal year is used from six months after it ends, for twelve months. Formed at each month's last close and ranked each session among SPY's constituents. The factor holds the top tenth long and the bottom tenth short, equally weighted."""
+
+    RD_TO_MARKET_VALUE: str = "rd_to_market_value"
+    """R&D to market value from Chan, Lakonishok and Sougiannis (2001, JF). It's annual research and development expense from Morningstar's annual accounts over the month's market value, and a stock without R&D has no value. A fiscal year is used from six months after it ends, for twelve months. Formed at each month's last close and ranked each session among SPY's constituents. The factor holds the top tenth long and the bottom tenth short, equally weighted."""
+
+    OPERATING_PROFITABILITY_RD_ADJUSTED: str = "operating_profitability_rd_adjusted"
+    """R&D-adjusted operating profitability from Ball et al. (2016, JFE). It's annual revenue minus cost of revenue and SG&A over total assets, from Morningstar's annual accounts. Morningstar's SG&A leaves out R&D, so R&D isn't counted as an expense. A filing without book equity has no value, and financial firms are left out. A fiscal year is used from six months after it ends, for twelve months. Formed at each month's last close and ranked each session among SPY's constituents. The factor holds the top tenth long and the bottom tenth short, equally weighted."""
+
+    FABER_10_MONTH_SMA_SECTOR_ETFS: str = "faber_10_month_sma_sector_etfs"
+    """The 10-month moving average timing rule from Faber (2007, Journal of Wealth Management), on the eleven Select Sector SPDR ETFs. An ETF's value is its month-end close over the mean of its last ten month-end closes, minus one. The factor holds an ETF long while its value is positive and nothing otherwise."""
+
+    SALES_TO_PRICE: str = "sales_to_price"
+    """Sales to price from Barbee, Mukherji and Raines (1996, Financial Analysts Journal). It's annual revenue from Morningstar's annual accounts over the month's market value. A fiscal year is used from six months after it ends, for twelve months. Formed at each month's last close and ranked each session among SPY's constituents. The factor holds the top tenth long and the bottom tenth short, equally weighted."""
+
+    CASH_BASED_OPERATING_PROFITABILITY: str = "cash_based_operating_profitability"
+    """Cash-based operating profitability from Ball et al. (2016, JFE). Operating profitability is revenue minus cost of revenue and SG&A from Morningstar's annual accounts. The cash-based measure takes out the year's increase in receivables, inventory and prepaid assets and adds back the year's increase in deferred revenue, accounts payable and accrued expenses. It's then taken over total assets. A missing figure counts as zero. A stock without positive book equity or market value has no value, and financial firms are left out. A fiscal year is used from six months after it ends, for twelve months. Formed at each month's last close and ranked each session among SPY's constituents. The factor holds the top tenth long and the bottom tenth short, equally weighted."""
+
+    INVESTMENT_TO_REVENUE_VS_OWN_MEAN: str = "investment_to_revenue_vs_own_mean"
+    """Abnormal investment from Titman, Wei and Xie (2004, JFQA). It's annual capital expenditure over revenue from Morningstar's annual accounts, over the stock's own mean of that ratio across the past 36 months, which needs at least 24. A stock with revenue under $10 million has no value. A fiscal year is used from six months after it ends, for twelve months. Formed at each month's last close and ranked each session among SPY's constituents. The factor holds the bottom tenth long and the top tenth short, equally weighted."""
+
+    COMPOSITE_EQUITY_ISSUANCE_5_YEAR: str = "composite_equity_issuance_5y"
+    """Composite equity issuance from Daniel and Titman (2006, JF). It's the log growth of market value over the past 60 months minus the stock's return over them, so it measures the equity issued net of buybacks. Market value is Morningstar's at each month's end, and the return comes from adjusted closes. A stock priced at $5 or less has no value. Formed at each month's last close and ranked each session among SPY's constituents. The factor holds the bottom tenth long and the top tenth short, equally weighted."""
+
+    BID_ASK_SPREAD_CS: str = "bid_ask_spread_cs"
+    """Bid-ask spread from Amihud and Mendelson (1986, JFE) with the high-low estimator from Corwin and Schultz (2012, JF). Each session's estimate compares the ranges of that session and the one before with the range over both, on adjusted daily bars. A range with the high equal to the low, a price that isn't positive or no volume is replaced from the last good range and the close. A range with the high over 8 times the low is dropped, and a range is shifted to take in the prior close when that close lies outside it. Negative estimates count as 0. A month's value is the mean of its daily estimates and needs at least 12 of them. Formed at each month's last close and ranked each session among SPY's constituents. The factor holds the top tenth long and the bottom tenth short, equally weighted."""
+
+    VOLUME_SD_36_MONTH: str = "volume_sd_36m"
+    """The standard deviation of a stock's monthly share volume over the past 36 months from Chordia, Subrahmanyam and Anshuman (2001, JFE). A stock needs at least 24 of those months, and a month's volume is the sum of its unadjusted daily volumes. Only stocks that Morningstar lists on the NYSE at the formation are ranked. Formed at each month's last close and ranked each session among SPY's constituents. The factor holds the top tenth long and the bottom tenth short, equally weighted."""
+
+    SHORT_INTEREST: str = "short_interest"
+    """Short interest, from Dechow et al. (2001, JFE): the shares held short in FINRA's report over Morningstar's shares outstanding of the share class. Each month uses the report FINRA published in the month before on the 16th or later. Formed at the first update of SPY's constituents in each month and ranked then among them. The factor holds the fifth with the least short interest long and the fifth with the most short, equally weighted."""
+
+    INTANGIBLE_RETURN_BM: str = "intangible_return_bm"
+    """The intangible return on book-to-market, from Daniel and Titman (2006, JF). Each month the 60-month returns of SPY's constituents are regressed on their log book-to-market from 60 months before and on its change over the 60 months plus the return. The residual is the factor's value. Book equity is common stock equity from Morningstar's annual accounts, used from six months after the fiscal year ends for twelve months. Market value is Morningstar's at formation, and the ratio must be positive. Returns come from month-end closes adjusted for splits and dividends. Returns below the 1st percentile of the month's constituents or above the 99th are left out of the regression, and stocks at $5 or less are left out after it. Formed at each month's last close and ranked each session among SPY's constituents. The factor holds the top tenth long and the bottom tenth short, equally weighted."""
+
+    INTANGIBLE_RETURN_CFP: str = "intangible_return_cfp"
+    """The intangible return on cash flow to price, from Daniel and Titman (2006, JF). Each month the 60-month returns of SPY's constituents are regressed on their log cash flow to price from 60 months before and on its change over the 60 months plus the return. The residual is the factor's value. Cash flow is net income less discontinued operations plus depreciation and amortization, from Morningstar's annual accounts. Discontinued operations count as 0 when missing, and so does depreciation that's missing or from another period's cash flow statement. A fiscal year is used from six months after it ends for twelve months. Market value is Morningstar's at formation, and the ratio must be positive. Returns come from month-end closes adjusted for splits and dividends. Returns below the 1st percentile of the month's constituents or above the 99th are left out of the regression, and stocks at $5 or less are left out after it. Formed at each month's last close and ranked each session among SPY's constituents. The factor holds the bottom tenth long and the top tenth short, equally weighted."""
+
+    INVESTMENT_PPE_INVENTORY: str = "investment_ppe_inventory"
+    """Investment from Lyandres, Sun and Zhang (2008, RFS): the negative of the yearly change in gross PPE plus inventory over the total assets a year before. The figures are Morningstar's annual accounts from a 10-K, 20-F or 40-F filing. A fiscal year is used from 6 to 17 months after the month it ends and the latest one wins. Formed at each month's last close and carried to each session for SPY's constituents. Each constituent's position is the z-score of its value against all of its daily values so far. It needs 126 of them and is capped at 2 either way."""
+
+    MOM_SEASON_6_TO_10_YEAR: str = "mom_season_6_10y"
+    """Return seasonality from Heston and Sadka (2008, JFE): the mean of a stock's returns in the same calendar month as the coming one over the years 6 to 10 before. A month's return runs from the last adjusted close of the month before to its own last close, and the mean takes the years that have one. Formed at each month's last close and ranked then among SPY's constituents listed on the NYSE or AMEX. A stock keeps its rank until the next formation while it stays in SPY. The factor holds the top tenth long and the bottom tenth short, equally weighted."""
 
     @property
     def keys(self) -> typing.Iterable[str]:
-        """Names of the factors this data point carries a value for"""
+        """
+        Names of the factors this data point carries a value for. A position or a pairs
+        factor's hedge ratio isn't a factor of its own, so it isn't listed.
+        """
         ...
 
     @property
     def is_unlinked(self) -> bool:
         """
-        True when this data point carries the unlinked factors rather than a
-        tradable security's factors
+        True when this data point carries the unlinked factors rather than a tradable
+        security's factors
         """
+        ...
+
+    @property
+    def is_pair(self) -> bool:
+        """True when this data point is a universe file's row for a pair of securities"""
+        ...
+
+    @property
+    def a(self) -> QuantConnect.Symbol:
+        """The pair's first security on a pair row. A positive position holds it long."""
+        ...
+
+    @a.setter
+    def a(self, value: QuantConnect.Symbol) -> None:
+        ...
+
+    @property
+    def b(self) -> QuantConnect.Symbol:
+        """
+        The pair's second security on a pair row. A positive position holds it short, at the
+        hedge ratio's dollars for each dollar of a.
+        """
+        ...
+
+    @b.setter
+    def b(self, value: QuantConnect.Symbol) -> None:
         ...
 
     @property
     def end_time(self) -> datetime.datetime:
         """
-        Time the factor values became available. Linked values are stamped at the
-        Equity session close in New York time; unlinked values keep their source
-        series' native end time.
+        Time the numbers became known, in New York time. A position is held from the first
+        open after it. An unlinked value keeps its source series' own time.
         """
         ...
 
@@ -1610,7 +1687,8 @@ class Factors(QuantConnect.Data.DynamicData):
 
     def __getitem__(self, factor_name: str) -> float:
         """
-        Gets the value of the given factor, e.g. factors<Factors.Roc1Day>
+        Gets the value of the given factor, e.g. factors<Factors.Roc1Day>. On the unlinked
+        subscription it's the factor's market-wide series.
         
         :param factor_name: Name of the factor
         """
@@ -1652,6 +1730,23 @@ class Factors(QuantConnect.Data.DynamicData):
         """
         ...
 
+    def has_position(self, factor_name: str) -> bool:
+        """
+        Checks whether this data point carries the given factor's position
+        
+        :param factor_name: Name of the factor
+        """
+        ...
+
+    def hedge_ratio(self, factor_name: str) -> float:
+        """
+        Gets a pairs factor's hedge ratio on a pair row: the dollars of b held
+        against each dollar of a
+        
+        :param factor_name: Name of the pairs factor
+        """
+        ...
+
     def is_sparse_data(self) -> bool:
         """
         Indicates whether the data is sparse.
@@ -1661,11 +1756,20 @@ class Factors(QuantConnect.Data.DynamicData):
         """
         ...
 
+    def position(self, factor_name: str) -> float:
+        """
+        Gets the given factor's position, held from the first open after the data point's
+        time: 1 is long, -1 is short and 0 is none
+        
+        :param factor_name: Name of the factor
+        """
+        ...
+
     def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
         """
         Parses the data from the line provided and loads it into LEAN.
-        CSV format: "yyyyMMdd HH:mm" time column, then one column per factor in
-        EQUITY_FACTOR_NAMES or UNLINKED_FACTOR_NAMES order.
+        CSV format: a header line naming the columns, then a "yyyyMMdd HH:mm" time and a
+        column per factor on each line.
         
         :param config: Subscription configuration
         :param line: Line of data
@@ -1679,7 +1783,7 @@ class Factors(QuantConnect.Data.DynamicData):
         """
         Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
         
-        :returns: true for the per-Equity subscription, false for the unlinked one.
+        :returns: true for a security's subscription, false for the unlinked one.
         """
         ...
 
@@ -1696,26 +1800,19 @@ class Factors(QuantConnect.Data.DynamicData):
         Gets the value of the given factor if this data point carries one
         
         :param factor_name: Name of the factor
-        :param value: The factor value
+        :param value: The factor's value
         """
         ...
 
 
 class FactorsUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
     """
-    Universe selection data for the precomputed factors: the collection LEAN
-    delivers to the selection function holds one Factors row per
-    US Equity with the security's most recent factor values, plus one row
-    carrying the unlinked factors (check Factors.is_unlinked), so
-    a selection function can filter and rank the whole universe with both
-    per-security and market-wide context.
-    """
-
-    COLUMN_FACTOR_NAMES: typing.List[str] = ...
-    """
-    Column order of the universe files after the identifier column: the
-    per-Equity factors followed by the unlinked factors, fixed by the
-    dataset specification so rows parse without header state
+    Universe selection data for the factors: the collection LEAN delivers to the selection
+    function holds a Factors row per security or pair with a factor's value or
+    position. A row carries each factor's latest value for its target and the factor's
+    position in it at the next open. One more row carries the unlinked factors' values for
+    the session (check Factors.is_unlinked). A pair row gives its two
+    securities as Factors.a and Factors.b.
     """
 
     def clone(self) -> QuantConnect.Data.BaseData:
@@ -1724,8 +1821,8 @@ class FactorsUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
 
     def data_time_zone(self) -> typing.Any:
         """
-        Specifies the data time zone for this data type. Universe rows derive from
-        factor timestamps already converted to New York time.
+        Specifies the data time zone for this data type. The numbers are stamped in New York
+        time.
         
         :returns: The NodaTime.DateTimeZone of this data type.
         """
@@ -1758,9 +1855,9 @@ class FactorsUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
     def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
         """
         Parses the data from the line provided and loads it into LEAN.
-        CSV format: an identifier column (a security identifier, or
-        Factors.UNLINKED for the unlinked row), then one column per
-        factor in COLUMN_FACTOR_NAMES order.
+        CSV format: a header line naming the columns, then on each line an identifier and a
+        column per factor. The identifier is a security identifier, Factors.UNLINKED
+        for the unlinked row, or $PAIR(a;b) with the identifiers of a pair's two securities.
         
         :param config: Subscription configuration
         :param line: Line of data
@@ -2271,6 +2368,178 @@ class VIXCentralContango(QuantConnect.Data.BaseData):
         Converts the instance to a string
         
         :returns: String containing open, high, low, close.
+        """
+        ...
+
+
+class NasdaqDataLink(QuantConnect.Data.DynamicData):
+    """Nasdaq Data Link dataset"""
+
+    @property
+    def value_column_name(self) -> str:
+        """
+        Name of the column is going to be used for the field Value
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @value_column_name.setter
+    def value_column_name(self, value: str) -> None:
+        ...
+
+    is_auth_code_set: bool
+    """Flag indicating whether or not the Nasdaq Data Link auth code has been set yet"""
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """
+        The end time of this data. Some data covers spans (trade bars) and as such we want
+        to know the entire time span covered
+        """
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def period(self) -> datetime.timedelta:
+        """Gets a time span of one day"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Default NasdaqDataLink constructor uses Close as its value column"""
+        ...
+
+    @overload
+    def __init__(self, value_column_name: str) -> None:
+        """
+        Constructor for creating customized NasdaqDataLink instance which doesn't use close, price, settle or value as its value item.
+        
+        
+        This Class is protected.
+        
+        :param value_column_name: The name of the column we want to use as reference, the Value property
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Using the Nasdaq Data Link V3 API automatically set the URL for the dataset.
+        
+        :param config: Subscription configuration object
+        :param date: Date of the data file we're looking for
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: STRING API Url for Nasdaq Data Link.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: CSV line of data from the souce
+        :param date: Date of the requested line
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    @staticmethod
+    def set_auth_code(auth_code: str) -> None:
+        """
+        Set the auth code for the Nasdaq Data Link set to the QuantConnect auth code.
+        
+        :param auth_code: 
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+
+class QuandlBitfinexDownloaderProgram(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def quandl_bitfinex_downloader(from_date: typing.Union[datetime.datetime, datetime.date], api_key: str) -> None:
+        """Quandl Bitfinex Toolbox Project For LEAN Algorithmic Trading Engine."""
+        ...
+
+
+class NasdaqBitfinexDownloader(System.Object, QuantConnect.IDataDownloader):
+    """Nasdaq Bitfinex Data Downloader class"""
+
+    @property
+    def _api_key(self) -> str:
+        """This Field is protected."""
+        ...
+
+    @_api_key.setter
+    def _api_key(self, value: str) -> None:
+        ...
+
+    def __init__(self, api_key: str) -> None:
+        """
+        Initializes a new instance of the NasdaqBitfinexDownloader class
+        
+        :param api_key: The nasdaq api key
+        """
+        ...
+
+    def get(self, data_downloader_get_parameters: QuantConnect.DataDownloaderGetParameters) -> typing.Sequence[QuantConnect.Data.BaseData]:
+        """
+        Get historical data enumerable for Bitfinex from Nasdaq
+        
+        :param data_downloader_get_parameters: model class for passing in parameters for historical data
+        :returns: Enumerable of base data for this symbol.
+        """
+        ...
+
+
+class NasdaqBitfinexDownloaderProgram(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def nasdaq_bitfinex_downloader(from_date: typing.Union[datetime.datetime, datetime.date], api_key: str) -> None:
+        """Nasdaq Bitfinex Toolbox Project For LEAN Algorithmic Trading Engine."""
+        ...
+
+
+class QuandlBitfinexDownloader(QuantConnect.DataSource.NasdaqBitfinexDownloader):
+    """Quandl Bitfinex Data Downloader class"""
+
+    def __init__(self, api_key: str) -> None:
+        """
+        Initializes a new instance of the QuandlBitfinexDownloader class
+        
+        :param api_key: The quandl api key
         """
         ...
 
@@ -28102,6 +28371,866 @@ class SpectralTickFlowSignalUniverse(QuantConnect.Data.UniverseSelection.BaseDat
 
     def to_string(self) -> str:
         """Human-readable representation for debugging."""
+        ...
+
+
+class BLSEconomicSurveysJolts(QuantConnect.Data.BaseData):
+    """
+    BLS Job Openings and Labor Turnover Survey (JOLTS) data. Contains 8 non-seasonally-adjusted
+    series covering job openings, hires, quits, total separations, and layoffs for total nonfarm.
+    JOLTS is closely watched by the Federal Reserve as a gauge of labor market tightness.
+    The quit rate is considered a leading indicator of wage growth. Released monthly
+    (typically with a 2-month lag) by the Bureau of Labor Statistics.
+    """
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """
+        End time of this data point — the actual release date/time when this JOLTS data was published.
+        Overridden to decouple from Time (BaseData.EndTime setter overwrites Time).
+        Release dates are scraped from BLS schedule pages at https://www.bls.gov/schedule/{year}/home.htm
+        """
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def job_openings(self) -> typing.Optional[float]:
+        """Total nonfarm job openings level, NSA (JTU000000000000000JOL). Thousands."""
+        ...
+
+    @job_openings.setter
+    def job_openings(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def job_openings_rate(self) -> typing.Optional[float]:
+        """Total nonfarm job openings rate, NSA (JTU000000000000000JOR). Percent."""
+        ...
+
+    @job_openings_rate.setter
+    def job_openings_rate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def hires(self) -> typing.Optional[float]:
+        """Total nonfarm hires level, NSA (JTU000000000000000HIL). Thousands."""
+        ...
+
+    @hires.setter
+    def hires(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def hires_rate(self) -> typing.Optional[float]:
+        """Total nonfarm hires rate, NSA (JTU000000000000000HIR). Percent."""
+        ...
+
+    @hires_rate.setter
+    def hires_rate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def quits(self) -> typing.Optional[float]:
+        """Total nonfarm quits level, NSA (JTU000000000000000QUL). Thousands."""
+        ...
+
+    @quits.setter
+    def quits(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def quits_rate(self) -> typing.Optional[float]:
+        """Total nonfarm quits rate, NSA (JTU000000000000000QUR). Percent."""
+        ...
+
+    @quits_rate.setter
+    def quits_rate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def total_separations(self) -> typing.Optional[float]:
+        """Total nonfarm total separations level, NSA (JTU000000000000000TSL). Thousands."""
+        ...
+
+    @total_separations.setter
+    def total_separations(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def layoffs_and_discharges(self) -> typing.Optional[float]:
+        """Total nonfarm layoffs and discharges level, NSA (JTU000000000000000LDL). Thousands."""
+        ...
+
+    @layoffs_and_discharges.setter
+    def layoffs_and_discharges(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Default constructor required for LEAN deserialization."""
+        ...
+
+    @overload
+    def __init__(self, line: str) -> None:
+        """
+        Constructor that parses a CSV line into the data model.
+        
+        :param line: CSV line to parse
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Creates a copy of the instance."""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """BLS releases are in Eastern Time. JOLTS is released at 10:00 AM ET."""
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data type."""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """Return the URL/path string source of the file."""
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """JOLTS data is sparse — released monthly, so most days have no data."""
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """Parses the data from the line provided and loads it into LEAN."""
+        ...
+
+    def requires_mapping(self) -> bool:
+        """This is unlinked macro data, not tied to specific securities."""
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolutions for this data type."""
+        ...
+
+    def to_string(self) -> str:
+        """Returns a string representation for debugging."""
+        ...
+
+
+class BLSEconomicSurveysCpi(QuantConnect.Data.BaseData):
+    """
+    BLS Consumer Price Index (CPI) data. Contains 15 non-seasonally-adjusted CPI series
+    including headline CPI, core CPI, and major expenditure categories. CPI measures the
+    average change over time in the prices paid by urban consumers for a market basket of
+    consumer goods and services. Released monthly by the Bureau of Labor Statistics.
+    """
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """
+        End time of this data point — the actual release date/time when this CPI data was published.
+        Overridden to decouple from Time (BaseData.EndTime setter overwrites Time).
+        Release dates are scraped from BLS schedule pages at https://www.bls.gov/schedule/{year}/home.htm
+        """
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def all_items(self) -> typing.Optional[float]:
+        """
+        All items, U.S. city average, all urban consumers, NSA (CUUR0000SA0). Headline CPI index.
+        Base period: 1982-84=100.
+        """
+        ...
+
+    @all_items.setter
+    def all_items(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def core_cpi(self) -> typing.Optional[float]:
+        """
+        All items less food and energy (Core CPI), NSA (CUUR0000SA0L1E).
+        Base period: 1982-84=100.
+        """
+        ...
+
+    @core_cpi.setter
+    def core_cpi(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def food(self) -> typing.Optional[float]:
+        """
+        Food, NSA (CUUR0000SAF1).
+        Base period: 1982-84=100.
+        """
+        ...
+
+    @food.setter
+    def food(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def food_at_home(self) -> typing.Optional[float]:
+        """
+        Food at home, NSA (CUUR0000SAF11).
+        Base period: 1982-84=100.
+        """
+        ...
+
+    @food_at_home.setter
+    def food_at_home(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def food_away_from_home(self) -> typing.Optional[float]:
+        """
+        Food away from home, NSA (CUUR0000SEFV).
+        Base period: 1982-84=100.
+        """
+        ...
+
+    @food_away_from_home.setter
+    def food_away_from_home(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def energy(self) -> typing.Optional[float]:
+        """
+        Energy, NSA (CUUR0000SA0E).
+        Base period: 1982-84=100.
+        """
+        ...
+
+    @energy.setter
+    def energy(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def shelter(self) -> typing.Optional[float]:
+        """
+        Shelter, NSA (CUUR0000SAH1).
+        Base period: 1982-84=100.
+        """
+        ...
+
+    @shelter.setter
+    def shelter(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def rent_of_primary_residence(self) -> typing.Optional[float]:
+        """
+        Rent of primary residence, NSA (CUUR0000SEHA).
+        Base period: 1982-84=100.
+        """
+        ...
+
+    @rent_of_primary_residence.setter
+    def rent_of_primary_residence(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def gasoline(self) -> typing.Optional[float]:
+        """
+        Gasoline (all types), NSA (CUUR0000SETB01).
+        Base period: 1982-84=100.
+        """
+        ...
+
+    @gasoline.setter
+    def gasoline(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def medical_care(self) -> typing.Optional[float]:
+        """
+        Medical care, NSA (CUUR0000SAM).
+        Base period: 1982-84=100.
+        """
+        ...
+
+    @medical_care.setter
+    def medical_care(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def apparel(self) -> typing.Optional[float]:
+        """
+        Apparel, NSA (CUUR0000SAA).
+        Base period: 1982-84=100.
+        """
+        ...
+
+    @apparel.setter
+    def apparel(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def education_and_communication(self) -> typing.Optional[float]:
+        """
+        Education and communication, NSA (CUUR0000SAE).
+        Base period: 1982-84=100.
+        """
+        ...
+
+    @education_and_communication.setter
+    def education_and_communication(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def new_vehicles(self) -> typing.Optional[float]:
+        """
+        New vehicles, NSA (CUUR0000SETA01).
+        Base period: 1982-84=100.
+        """
+        ...
+
+    @new_vehicles.setter
+    def new_vehicles(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def used_cars_and_trucks(self) -> typing.Optional[float]:
+        """
+        Used cars and trucks, NSA (CUUR0000SETA02).
+        Base period: 1982-84=100.
+        """
+        ...
+
+    @used_cars_and_trucks.setter
+    def used_cars_and_trucks(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def college_tuition_and_fees(self) -> typing.Optional[float]:
+        """
+        College tuition and fees, NSA (CUUR0000SEEB01).
+        Base period: 1982-84=100.
+        """
+        ...
+
+    @college_tuition_and_fees.setter
+    def college_tuition_and_fees(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Default constructor required for LEAN deserialization."""
+        ...
+
+    @overload
+    def __init__(self, line: str) -> None:
+        """
+        Constructor that parses a CSV line into the data model.
+        CSV format: time,endtime,allitems,corecpi,food,foodathome,foodawayfromhome,energy,shelter,rentofprimaryresidence,gasoline,medicalcare,apparel,educationandcommunication,newvehicles,usedcarsandtrucks,collegetuitionandfees
+        
+        :param line: CSV line to parse
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Creates a copy of the instance.
+        
+        :returns: Clone of the instance.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Indicates the data time zone for this data source. BLS releases are in Eastern Time.
+        
+        :returns: The DateTimeZone of this data source.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """
+        Gets the default resolution for this data type.
+        
+        :returns: The default resolution.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL/path string source of the file. This will be converted to a stream.
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting
+        :returns: Subscription data source object pointing to the data location.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        CPI data is sparse — released monthly, so most days have no data.
+        
+        :returns: true because CPI is monthly data.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN.
+        
+        :param config: Subscription data config setup object
+        :param line: Line of the source document
+        :param date: Date of the requested data
+        :param is_live_mode: true if we're in live mode, false for backtesting
+        :returns: Instance of the class with parsed data.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        This is unlinked macro data, not tied to specific securities.
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """
+        Gets the supported resolutions for this data type.
+        
+        :returns: List of supported resolutions.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Returns a string representation for debugging.
+        
+        :returns: String representation of the data point.
+        """
+        ...
+
+
+class BLSEconomicSurveysPpi(QuantConnect.Data.BaseData):
+    """
+    BLS Producer Price Index (PPI) data. Contains 11 non-seasonally-adjusted PPI series
+    including the Final Demand framework (headline PPI), core PPI, and major commodity groups.
+    PPI measures the average change over time in the selling prices received by domestic producers.
+    It is a leading indicator of consumer inflation. Released monthly by the Bureau of Labor Statistics.
+    """
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """
+        End time of this data point — the actual release date/time when this PPI data was published.
+        Overridden to decouple from Time (BaseData.EndTime setter overwrites Time).
+        Release dates are scraped from BLS schedule pages at https://www.bls.gov/schedule/{year}/home.htm
+        """
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def final_demand(self) -> typing.Optional[float]:
+        """
+        Final demand, NSA (WPUFD4). Headline PPI index.
+        Base date: Nov 2009=100.
+        """
+        ...
+
+    @final_demand.setter
+    def final_demand(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def core_ppi(self) -> typing.Optional[float]:
+        """
+        Final demand less foods and energy (Core PPI), NSA (WPUFD49104).
+        Base date: Oct 2004=100.
+        """
+        ...
+
+    @core_ppi.setter
+    def core_ppi(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def final_demand_less_food_energy_trade(self) -> typing.Optional[float]:
+        """
+        Final demand less foods, energy, and trade services, NSA (WPUFD49116).
+        Base date: Aug 2013=100.
+        """
+        ...
+
+    @final_demand_less_food_energy_trade.setter
+    def final_demand_less_food_energy_trade(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def final_demand_goods(self) -> typing.Optional[float]:
+        """
+        Final demand goods, NSA (WPUFD41).
+        Base date: Nov 2009=100.
+        """
+        ...
+
+    @final_demand_goods.setter
+    def final_demand_goods(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def final_demand_services(self) -> typing.Optional[float]:
+        """
+        Final demand services, NSA (WPUFD42).
+        Base date: Nov 2009=100.
+        """
+        ...
+
+    @final_demand_services.setter
+    def final_demand_services(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def final_demand_construction(self) -> typing.Optional[float]:
+        """
+        Final demand construction, NSA (WPUFD43).
+        Base date: Nov 2009=100.
+        """
+        ...
+
+    @final_demand_construction.setter
+    def final_demand_construction(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def all_commodities(self) -> typing.Optional[float]:
+        """
+        All commodities, NSA (WPU00000000).
+        Base date: 1982=100.
+        """
+        ...
+
+    @all_commodities.setter
+    def all_commodities(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def farm_products(self) -> typing.Optional[float]:
+        """
+        Farm products, NSA (WPU01).
+        Base date: 1982=100.
+        """
+        ...
+
+    @farm_products.setter
+    def farm_products(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def processed_foods_and_feeds(self) -> typing.Optional[float]:
+        """
+        Processed foods and feeds, NSA (WPU02).
+        Base date: 1982=100.
+        """
+        ...
+
+    @processed_foods_and_feeds.setter
+    def processed_foods_and_feeds(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def crude_petroleum(self) -> typing.Optional[float]:
+        """
+        Crude petroleum (domestic), NSA (WPU0571).
+        Base date: 1982=100.
+        """
+        ...
+
+    @crude_petroleum.setter
+    def crude_petroleum(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def final_demand_goods_less_foods(self) -> typing.Optional[float]:
+        """Final demand goods less foods, NSA (WPUFD49112)."""
+        ...
+
+    @final_demand_goods_less_foods.setter
+    def final_demand_goods_less_foods(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Default constructor required for LEAN deserialization."""
+        ...
+
+    @overload
+    def __init__(self, line: str) -> None:
+        """
+        Constructor that parses a CSV line into the data model.
+        
+        :param line: CSV line to parse
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Creates a copy of the instance."""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """BLS releases are in Eastern Time."""
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data type."""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """Return the URL/path string source of the file."""
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """PPI data is sparse — released monthly, so most days have no data."""
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """Parses the data from the line provided and loads it into LEAN."""
+        ...
+
+    def requires_mapping(self) -> bool:
+        """This is unlinked macro data, not tied to specific securities."""
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolutions for this data type."""
+        ...
+
+    def to_string(self) -> str:
+        """Returns a string representation for debugging."""
+        ...
+
+
+class BLSEconomicSurveysCes(QuantConnect.Data.BaseData):
+    """
+    BLS Current Employment Statistics (CES) data from the Employment Situation report.
+    Contains 16 non-seasonally-adjusted series covering nonfarm payrolls, average hourly
+    earnings, average weekly hours, and employment across major industry sectors.
+    The Employment Situation report is the single most market-moving economic release.
+    Released monthly (typically first Friday) by the Bureau of Labor Statistics.
+    """
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """
+        End time of this data point — the actual release date/time when this employment data was published.
+        Overridden to decouple from Time (BaseData.EndTime setter overwrites Time).
+        Release dates are scraped from BLS schedule pages at https://www.bls.gov/schedule/{year}/home.htm
+        """
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def total_nonfarm(self) -> typing.Optional[float]:
+        """Total nonfarm, all employees, NSA (CEU0000000001). Thousands."""
+        ...
+
+    @total_nonfarm.setter
+    def total_nonfarm(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def total_private(self) -> typing.Optional[float]:
+        """Total private, all employees, NSA (CEU0500000001). Thousands."""
+        ...
+
+    @total_private.setter
+    def total_private(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def average_hourly_earnings(self) -> typing.Optional[float]:
+        """Average hourly earnings, all employees, total private, NSA (CEU0500000003). Dollars."""
+        ...
+
+    @average_hourly_earnings.setter
+    def average_hourly_earnings(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def average_weekly_hours(self) -> typing.Optional[float]:
+        """Average weekly hours, all employees, total private, NSA (CEU0500000002). Hours."""
+        ...
+
+    @average_weekly_hours.setter
+    def average_weekly_hours(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def average_weekly_earnings(self) -> typing.Optional[float]:
+        """Average weekly earnings, all employees, total private, NSA (CEU0500000011). Dollars."""
+        ...
+
+    @average_weekly_earnings.setter
+    def average_weekly_earnings(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def production_hourly_earnings(self) -> typing.Optional[float]:
+        """Average hourly earnings, production and nonsupervisory, total private, NSA (CEU0500000008). Dollars."""
+        ...
+
+    @production_hourly_earnings.setter
+    def production_hourly_earnings(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def production_employees(self) -> typing.Optional[float]:
+        """Production and nonsupervisory employees, total private, NSA (CEU0500000006). Thousands."""
+        ...
+
+    @production_employees.setter
+    def production_employees(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def manufacturing(self) -> typing.Optional[float]:
+        """Manufacturing, all employees, NSA (CEU3000000001). Thousands."""
+        ...
+
+    @manufacturing.setter
+    def manufacturing(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def goods_producing(self) -> typing.Optional[float]:
+        """Goods-producing, all employees, NSA (CEU0600000001). Thousands."""
+        ...
+
+    @goods_producing.setter
+    def goods_producing(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def private_service_providing(self) -> typing.Optional[float]:
+        """Private service-providing, all employees, NSA (CEU0800000001). Thousands."""
+        ...
+
+    @private_service_providing.setter
+    def private_service_providing(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def construction(self) -> typing.Optional[float]:
+        """Construction, all employees, NSA (CEU2000000001). Thousands."""
+        ...
+
+    @construction.setter
+    def construction(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def retail_trade(self) -> typing.Optional[float]:
+        """Retail trade, all employees, NSA (CEU4200000001). Thousands."""
+        ...
+
+    @retail_trade.setter
+    def retail_trade(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def financial_activities(self) -> typing.Optional[float]:
+        """Financial activities, all employees, NSA (CEU5500000001). Thousands."""
+        ...
+
+    @financial_activities.setter
+    def financial_activities(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def education_and_health_services(self) -> typing.Optional[float]:
+        """Education and health services, all employees, NSA (CEU6500000001). Thousands."""
+        ...
+
+    @education_and_health_services.setter
+    def education_and_health_services(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def leisure_and_hospitality(self) -> typing.Optional[float]:
+        """Leisure and hospitality, all employees, NSA (CEU7000000001). Thousands."""
+        ...
+
+    @leisure_and_hospitality.setter
+    def leisure_and_hospitality(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def mining_and_logging(self) -> typing.Optional[float]:
+        """Mining and logging, all employees, NSA (CEU1000000001). Thousands."""
+        ...
+
+    @mining_and_logging.setter
+    def mining_and_logging(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Default constructor required for LEAN deserialization."""
+        ...
+
+    @overload
+    def __init__(self, line: str) -> None:
+        """
+        Constructor that parses a CSV line into the data model.
+        CSV format: time,endtime,totalnonfarm,totalprivate,avghourlyrearnings,...,miningandlogging
+        
+        :param line: CSV line to parse
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Creates a copy of the instance."""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """BLS releases are in Eastern Time."""
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data type."""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """Return the URL/path string source of the file."""
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """CES data is sparse — released monthly, so most days have no data."""
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """Parses the data from the line provided and loads it into LEAN."""
+        ...
+
+    def requires_mapping(self) -> bool:
+        """This is unlinked macro data, not tied to specific securities."""
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolutions for this data type."""
+        ...
+
+    def to_string(self) -> str:
+        """Returns a string representation for debugging."""
         ...
 
 

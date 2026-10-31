@@ -23,7 +23,7 @@ from typing import NamedTuple
 import attrs
 
 from ._licenses import EXCEPTION_MAP, LICENSE_MAP
-from ._util import _determine_license_path, relative_from_root
+from ._util import determine_license_path, relative_from_root
 from .copyright import ReuseInfo, SourceType
 from .covered_files import iter_files
 from .exceptions import (
@@ -230,7 +230,7 @@ class Project:
         """
         # pylint: disable=too-many-branches
         original_path = Path(path)
-        path = _determine_license_path(path)
+        path = determine_license_path(path)
 
         # This means that only one 'source' of licensing/copyright information
         # is captured in ReuseInfo
@@ -364,17 +364,19 @@ class Project:
 
         return candidates
 
-    @classmethod
+    @staticmethod
     def _global_licensing_from_found(
-        cls, found: list[GlobalLicensingFound], root: StrPath
+        found: list[GlobalLicensingFound], root: StrPath
     ) -> GlobalLicensing:
         if len(found) == 1 and found[0].cls == ReuseDep5:
-            return ReuseDep5.from_file(found[0].path)
+            return ReuseDep5.from_file(found[0].path, Path(root))
         # This is an impossible scenario at time of writing.
         if not all(item.cls == ReuseTOML for item in found):
             raise NotImplementedError()
-        tomls = [ReuseTOML.from_file(item.path) for item in found]
-        return NestedReuseTOML(reuse_tomls=tomls, source=str(root))
+        tomls = [ReuseTOML.from_file(item.path, Path(root)) for item in found]
+        return NestedReuseTOML(
+            reuse_tomls=tomls, root=Path(root), source=str(root)
+        )
 
     def _identifier_of_license(self, path: Path) -> str:
         """Figure out the SPDX License identifier of a license given its path.

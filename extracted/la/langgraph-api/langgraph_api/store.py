@@ -14,6 +14,12 @@ from langgraph.store.base import BaseStore
 
 from langgraph_api import config, timing
 from langgraph_api.asyncio import as_asynccontextmanager
+from langgraph_api.encryption.middleware import (
+    decrypt_response,
+    encrypt_request,
+)
+from langgraph_api.encryption.shared import ENCRYPTION_CONTEXT_KEY
+from langgraph_api.feature_flags import IS_POSTGRES_BACKEND
 from langgraph_api.timing import profiled_import
 from langgraph_api.utils.config import run_in_executor
 
@@ -37,6 +43,71 @@ async def get_store() -> BaseStore:
         from langgraph_runtime.store import Store  # noqa: PLC0415
 
         return Store()
+
+
+# Go core encrypts the postgres built-in store, and custom stores own their data
+# format and remain plaintext here; only the in-memory store is encrypted here.
+def _bypass_store_encryption() -> bool:
+    return IS_POSTGRES_BACKEND or CUSTOM_STORE is not None
+
+
+def _bypass_store_decryption(item: dict[str, Any]) -> bool:
+    if CUSTOM_STORE is None:
+        return IS_POSTGRES_BACKEND
+    value = item.get("value")
+    return not isinstance(value, dict) or ENCRYPTION_CONTEXT_KEY not in value
+
+
+async def _decrypt_store_item(item: Any) -> dict[str, Any]:
+    data = item.dict()
+    return await decrypt_response(
+        data, "store", plaintext_from_core=_bypass_store_decryption(data)
+    )
+
+
+async def put_item(
+    namespace: tuple[str, ...],
+    key: str,
+    value: dict[str, Any],
+    *,
+    index: bool | list[str] | None,
+    ttl: float | None,
+) -> None:
+    payload = await encrypt_request(
+        {"value": value}, "store", plaintext_for_core=_bypass_store_encryption()
+    )
+    await (await get_store()).aput(
+        namespace, key, payload["value"], index=index, ttl=ttl
+    )
+
+
+async def get_item(
+    namespace: tuple[str, ...], key: str, *, refresh_ttl: bool | None
+) -> dict[str, Any] | None:
+    item = await (await get_store()).aget(namespace, key, refresh_ttl=refresh_ttl)
+    if item is None:
+        return None
+    return await _decrypt_store_item(item)
+
+
+async def search_items(
+    namespace: tuple[str, ...],
+    *,
+    filter: dict[str, Any] | None,
+    limit: int,
+    offset: int,
+    query: str | None,
+    refresh_ttl: bool | None,
+) -> list[dict[str, Any]]:
+    items = await (await get_store()).asearch(
+        namespace,
+        filter=filter,
+        limit=limit,
+        offset=offset,
+        query=query,
+        refresh_ttl=refresh_ttl,
+    )
+    return await asyncio.gather(*(_decrypt_store_item(item) for item in items))
 
 
 async def exit_store():
@@ -75,7 +146,7 @@ async def collect_store_from_env() -> None:
         return
     await logger.ainfo(
         f"Heads up! You are configuring a custom long-term memory store at {store_path}\n\n"
-        "This store will be used IN STEAD OF the default postgres + pgvector store."
+        "This store will be used IN STEAD OF the built-in (postgres + pgvector) store."
         "Some functionality, such as TTLs and vector search, may not be available."
         "Search performance & other capabilities will depend on the quality of your implementation."
     )

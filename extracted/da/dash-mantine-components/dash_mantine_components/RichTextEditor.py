@@ -291,6 +291,55 @@ Keyword arguments:
     - tasksLiftLabel (string; optional):
         Aria-label for task list lift task.
 
+    - imageUploadControlLabel (string; optional):
+        RichTextEditor.ImageUpload control aria-label.
+
+    - tableInsertControlLabel (string; optional):
+        RichTextEditor.TableInsert control aria-label.
+
+    - tableInsertLabel (optional):
+        A function to get RichTextEditor.TableInsert grid cell
+        aria-label based on selected size.
+
+    - tableDeleteControlLabel (string; optional):
+        RichTextEditor.TableDelete control aria-label.
+
+    - tableColumnBeforeControlLabel (string; optional):
+        RichTextEditor.TableColumnBefore control aria-label.
+
+    - tableColumnAfterControlLabel (string; optional):
+        RichTextEditor.TableColumnAfter control aria-label.
+
+    - tableColumnDeleteControlLabel (string; optional):
+        RichTextEditor.TableColumnDelete control aria-label.
+
+    - tableRowBeforeControlLabel (string; optional):
+        RichTextEditor.TableRowBefore control aria-label.
+
+    - tableRowAfterControlLabel (string; optional):
+        RichTextEditor.TableRowAfter control aria-label.
+
+    - tableRowDeleteControlLabel (string; optional):
+        RichTextEditor.TableRowDelete control aria-label.
+
+    - tableToggleHeaderRowControlLabel (string; optional):
+        RichTextEditor.TableToggleHeaderRow control aria-label.
+
+    - tableToggleHeaderColumnControlLabel (string; optional):
+        RichTextEditor.TableToggleHeaderColumn control aria-label.
+
+    - tableMergeCellsControlLabel (string; optional):
+        RichTextEditor.TableMergeCells control aria-label.
+
+    - tableSplitCellControlLabel (string; optional):
+        RichTextEditor.TableSplitCell control aria-label.
+
+    - detailsControlLabel (string; optional):
+        RichTextEditor.Details control aria-label.
+
+    - invisibleCharactersControlLabel (string; optional):
+        RichTextEditor.InvisibleCharacters control aria-label.
+
     - colorControlLabel (string; optional):
         An string containing '{color}' (replaced with the color) to go
         the color control label.
@@ -349,9 +398,15 @@ Keyword arguments:
     Margin inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- mie (number; optional):
+    MarginInlineEnd, theme key: theme.spacing.
+
 - mih (string | number | dict; optional):
     Minimum height – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
+
+- mis (number; optional):
+    MarginInlineStart, theme key: theme.spacing.
 
 - miw (string | number | dict; optional):
     Minimum width – Accepts theme spacing keys, CSS values, or a dict
@@ -424,6 +479,12 @@ Keyword arguments:
     memory, reset on page refresh. local: window.localStorage, data is
     kept after the browser quit. session: window.sessionStorage, data
     is cleared once the browser quit.
+
+- pie (number; optional):
+    PaddingInlineEnd, theme key: theme.spacing.
+
+- pis (number; optional):
+    PaddingInlineStart, theme key: theme.spacing.
 
 - pl (string | number | dict; optional):
     Padding left – Accepts theme spacing keys, CSS values, or a dict
@@ -745,6 +806,22 @@ Keyword arguments:
             "tasksControlLabel": NotRequired[str],
             "tasksSinkLabel": NotRequired[str],
             "tasksLiftLabel": NotRequired[str],
+            "imageUploadControlLabel": NotRequired[str],
+            "tableInsertControlLabel": NotRequired[str],
+            "tableInsertLabel": NotRequired[typing.Any],
+            "tableDeleteControlLabel": NotRequired[str],
+            "tableColumnBeforeControlLabel": NotRequired[str],
+            "tableColumnAfterControlLabel": NotRequired[str],
+            "tableColumnDeleteControlLabel": NotRequired[str],
+            "tableRowBeforeControlLabel": NotRequired[str],
+            "tableRowAfterControlLabel": NotRequired[str],
+            "tableRowDeleteControlLabel": NotRequired[str],
+            "tableToggleHeaderRowControlLabel": NotRequired[str],
+            "tableToggleHeaderColumnControlLabel": NotRequired[str],
+            "tableMergeCellsControlLabel": NotRequired[str],
+            "tableSplitCellControlLabel": NotRequired[str],
+            "detailsControlLabel": NotRequired[str],
+            "invisibleCharactersControlLabel": NotRequired[str],
             "colorControlLabel": NotRequired[str],
             "colorPickerColorLabel": NotRequired[str]
         }
@@ -832,6 +909,10 @@ Keyword arguments:
         style: typing.Optional[typing.Any] = None,
         lightHidden: typing.Optional[bool] = None,
         darkHidden: typing.Optional[bool] = None,
+        mis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        mie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         classNames: typing.Optional[dict] = None,
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
@@ -844,9 +925,9 @@ Keyword arguments:
         persistence_type: typing.Optional[Literal["local", "session", "memory"]] = None,
         **kwargs
     ):
-        self._prop_names = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'debounce', 'display', 'editable', 'extensions', 'ff', 'flex', 'focus', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'html', 'inset', 'json', 'labels', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'n_blur', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'selected', 'style', 'styles', 'ta', 'tabIndex', 'td', 'toolbar', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withCodeHighlightStyles', 'withTypographyStyles']
+        self._prop_names = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'debounce', 'display', 'editable', 'extensions', 'ff', 'flex', 'focus', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'html', 'inset', 'json', 'labels', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'n_blur', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pie', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'selected', 'style', 'styles', 'ta', 'tabIndex', 'td', 'toolbar', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withCodeHighlightStyles', 'withTypographyStyles']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'debounce', 'display', 'editable', 'extensions', 'ff', 'flex', 'focus', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'html', 'inset', 'json', 'labels', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'n_blur', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'selected', 'style', 'styles', 'ta', 'tabIndex', 'td', 'toolbar', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withCodeHighlightStyles', 'withTypographyStyles']
+        self.available_properties = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'debounce', 'display', 'editable', 'extensions', 'ff', 'flex', 'focus', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'html', 'inset', 'json', 'labels', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'n_blur', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pie', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'selected', 'style', 'styles', 'ta', 'tabIndex', 'td', 'toolbar', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withCodeHighlightStyles', 'withTypographyStyles']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

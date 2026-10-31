@@ -2287,6 +2287,175 @@ def clear_board_doctor_row(queue: str, key: str) -> None:
     retry_on_locked(_write)
 
 
+# ── `coord pr merge` one-shot CI re-run budget ──────────────────────────────
+#
+# A hand-opened PR has no `merge_queue` row, so `coord pr merge` cannot carry
+# a `ci_flaky_reruns` counter the way `coord merge`'s board path does — it
+# needs its OWN persisted "have we already spent this PR's one flaky
+# re-run?" marker, scoped per (repo, PR, commit) so a later push gets a
+# fresh budget. This is deliberately a separate `board_meta` row, not a
+# repurposing of `_BOARD_DOCTOR_ROWS_META_KEY`/`record_board_doctor_observation`
+# above: `coord.board_doctor.sweep`'s `clear_absent_rows` pass
+# (`coord/board_doctor.py`) deletes every tracked `(queue, key)` not present
+# in its OWN current sweep's row set, regardless of which `queue` wrote it —
+# a hand-opened PR is never one of board_doctor's rows, so a counter stored
+# there would be wiped by the very next sweep.
+#
+# The map is a single JSON `board_meta` row, so it is trimmed the same way
+# `record_board_doctor_decision`'s log is: a bound on the OLDEST-inserted
+# keys, not a true "merged PRs get removed" prune (there is no event that
+# tells this module a PR closed). Insertion order is preserved by Python's
+# dict and by `json.dumps`/`json.loads` round-tripping a dict in order, so
+# dropping from the front keeps the most-recently-recorded commits.
+_PR_MERGE_CI_RERUN_META_KEY = "pr_merge_ci_reruns"
+
+#: Cap on the number of (repo, PR, commit) budgets tracked at once — same
+#: "never allowed to grow the `board_meta` row without bound" rationale as
+#: :data:`BOARD_DOCTOR_LOG_LIMIT`.
+PR_MERGE_CI_RERUN_LIMIT = 1000
+
+
+def _pr_merge_ci_rerun_key(repo_slug: str, number: int, sha: str) -> str:
+    """One budget per (PR, commit) — a later push starts fresh."""
+    return f"{repo_slug}#{number}:{sha}"
+
+
+def _load_pr_merge_ci_reruns_raw(conn) -> dict[str, bool]:
+    row = sql.execute(
+        conn, "SELECT value FROM board_meta WHERE key = ?",
+        (_PR_MERGE_CI_RERUN_META_KEY,),
+    ).fetchone()
+    if row is None or not row["value"]:
+        return {}
+    try:
+        data = json.loads(row["value"])
+    except ValueError:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def pr_merge_ci_rerun_already_attempted(repo_slug: str, number: int, sha: str) -> bool:
+    """True once `coord pr merge` has already spent its one re-run for
+    *repo_slug*#*number* at *sha* — the idempotency half: a second
+    invocation observing the SAME still-red commit must refuse outright,
+    not trigger another re-run.
+
+    **Local-DB read only** — same limitation as :func:`board_doctor_row_state`:
+    this budget lives in ``board_meta`` on the canonical board (the daemon
+    host), so a thin-client `coord pr merge` invocation — the documented
+    way to run this command — would otherwise read an empty/stale local
+    copy and treat every PR as having a fresh budget, per-machine rather
+    than fleet-wide.
+    """
+    _thin_client_local_board_guard("pr_merge_ci_rerun_already_attempted")
+    key = _pr_merge_ci_rerun_key(repo_slug, number, sha)
+    return bool(_load_pr_merge_ci_reruns_raw(get_connection()).get(key))
+
+
+def record_pr_merge_ci_rerun(repo_slug: str, number: int, sha: str) -> None:
+    """Mark *repo_slug*#*number*@*sha*'s one `coord pr merge` re-run as spent."""
+    conn = get_connection()
+
+    def _write() -> None:
+        data = _load_pr_merge_ci_reruns_raw(conn)
+        data[_pr_merge_ci_rerun_key(repo_slug, number, sha)] = True
+        if len(data) > PR_MERGE_CI_RERUN_LIMIT:
+            data = dict(list(data.items())[-PR_MERGE_CI_RERUN_LIMIT:])
+        sql.upsert(
+            conn, "board_meta", ["key", "value"],
+            (_PR_MERGE_CI_RERUN_META_KEY, json.dumps(data)),
+            conflict_columns=["key"],
+        )
+        conn.commit()
+
+    retry_on_locked(_write)
+
+
+# ── Board-doctor smoke-requeue retries (#3810) ──────────────────────────────
+#
+# `coord.board_doctor_permissions.sweep_smoke_requeue` clears a work row
+# parked at the #2272 mute-leg budget (`coord.smoke.MUTE_SMOKE_LEG_BUDGET`)
+# so it re-enters the normal Test-stage dispatch scan, bounded by its own
+# `coord.smoke.BOARD_DOCTOR_REQUEUE_BUDGET` separate budget. That budget
+# cannot live in `test_reason` the way the #2272/#3315/#3737 tallies in
+# `coord.smoke` do: `coord.notify._record_smoke_verdict` overwrites
+# `test_reason` wholesale on every subsequent mute leg, discarding anything
+# else stored there. It also cannot live in the `_BOARD_DOCTOR_ROWS_META_KEY`
+# convergence counter above: `coord.board_doctor.sweep`'s `clear_absent_rows`
+# pass deletes any `(queue, key)` not present in its OWN current sweep's row
+# set, and clearing `test_state` makes the row stop matching
+# `coord.board_doctor.smoke_no_verdict_rows`'s detection predicate on the
+# very next sweep — wiping the counter at exactly the moment it needs to
+# persist. So, same rationale as the PR-merge-CI-rerun budget just above:
+# a separate `board_meta` row, keyed by assignment id so a later fresh
+# dispatch against the same issue gets a fresh budget.
+_BOARD_DOCTOR_SMOKE_REQUEUE_META_KEY = "board_doctor_smoke_requeues"
+
+#: Cap on the number of assignment-id budgets tracked at once — same
+#: "never allowed to grow the `board_meta` row without bound" rationale as
+#: :data:`PR_MERGE_CI_RERUN_LIMIT`.
+BOARD_DOCTOR_SMOKE_REQUEUE_LIMIT = 1000
+
+
+def _load_board_doctor_smoke_requeues_raw(conn) -> dict[str, int]:
+    row = sql.execute(
+        conn, "SELECT value FROM board_meta WHERE key = ?",
+        (_BOARD_DOCTOR_SMOKE_REQUEUE_META_KEY,),
+    ).fetchone()
+    if row is None or not row["value"]:
+        return {}
+    try:
+        data = json.loads(row["value"])
+    except ValueError:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def board_doctor_smoke_requeue_count(assignment_id: str) -> int:
+    """How many times board-doctor has already requeued *assignment_id* off
+    a #2272 mute-leg park (0 if never).
+
+    **Local-DB read only** — same limitation as
+    :func:`pr_merge_ci_rerun_already_attempted`: this budget lives in
+    ``board_meta`` on the canonical board (the daemon host), so a
+    thin-client read would otherwise see an empty/stale local copy.
+    """
+    _thin_client_local_board_guard("board_doctor_smoke_requeue_count")
+    data = _load_board_doctor_smoke_requeues_raw(get_connection())
+    try:
+        return int(data.get(assignment_id, 0))
+    except (TypeError, ValueError):  # pragma: no cover — only ints ever written
+        return 0
+
+
+def record_board_doctor_smoke_requeue(assignment_id: str) -> int:
+    """Increment and persist *assignment_id*'s board-doctor smoke-requeue
+    count, returning the new count."""
+    conn = get_connection()
+    result: dict[str, int] = {}
+
+    def _write() -> None:
+        data = _load_board_doctor_smoke_requeues_raw(conn)
+        try:
+            current = int(data.get(assignment_id, 0))
+        except (TypeError, ValueError):  # pragma: no cover
+            current = 0
+        new_count = current + 1
+        data[assignment_id] = new_count
+        if len(data) > BOARD_DOCTOR_SMOKE_REQUEUE_LIMIT:
+            data = dict(list(data.items())[-BOARD_DOCTOR_SMOKE_REQUEUE_LIMIT:])
+        sql.upsert(
+            conn, "board_meta", ["key", "value"],
+            (_BOARD_DOCTOR_SMOKE_REQUEUE_META_KEY, json.dumps(data)),
+            conflict_columns=["key"],
+        )
+        conn.commit()
+        result["count"] = new_count
+
+    retry_on_locked(_write)
+    return result["count"]
+
+
 def record_board_doctor_decision(entry: dict) -> None:
     """Append one row's sweep outcome to the decision log (#3758, #1478 spirit).
 
@@ -4580,10 +4749,22 @@ def test_reset_candidates(
 
 
 def reset_work_test_state(
-    repo_name: str, issue_number: int, *, assignment_id: str | None = None
+    repo_name: str,
+    issue_number: int,
+    *,
+    assignment_id: str | None = None,
 ) -> int:
-    """Clear a work-like row's Test-gate verdict (``test_state`` /
-    ``test_reason``) so the issue is re-testable.  Returns rows updated.
+    """Clear a work-like row's Test-gate verdict (``test_state`` AND
+    ``test_reason``, both wiped to ``NULL``) so the issue is re-testable.
+    Returns rows updated.
+
+    A caller that needs to bound its own retries of a row this clears
+    (e.g. :func:`coord.board_doctor_permissions.sweep_smoke_requeue`'s
+    #3810 requeue budget) must track that separately — persisting it in
+    ``test_reason`` does not survive: this function wipes it on every
+    call, and the Test-stage leg that follows a reset re-populates it via
+    :func:`coord.notify._record_smoke_verdict`, which itself overwrites
+    ``test_reason`` wholesale rather than appending to it.
 
     #3305: ``coord diagnose --stage test --reset`` must clear the row it
     diagnosed regardless of which ``WORK_LIKE_TYPES`` member it is — the
@@ -4639,7 +4820,9 @@ def reset_work_test_state(
         pass
 
     cur = sql.execute(
-        conn, f"UPDATE assignments SET test_state=NULL, test_reason=NULL WHERE {where}", params,
+        conn,
+        f"UPDATE assignments SET test_state=NULL, test_reason=NULL WHERE {where}",
+        params,
     )
     conn.commit()
     return cur.rowcount

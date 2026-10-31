@@ -43,7 +43,7 @@ TEST ?= tests/ ../runtime_inmem/tests/
 # has no [tool.pytest] — dropping pythonpath (e.g. apply_prerelease_version).
 PYTEST_ROOT_ARGS := --rootdir=. -c pyproject.toml
 PYTEST_WORKERS ?= 0
-AUTH_TEST ?= "tests/integration_tests/test_custom_auth.py"
+AUTH_TEST ?= tests/integration_tests/test_custom_auth.py tests/integration_tests/test_auth_mcp.py
 LANGGRAPH_HTTP ?= {"disable_mcp": false, "disable_a2a": false}
 LANGGRAPH_AES_KEY ?= '1234567890123456'
 BG_JOB_TIMEOUT_SECS ?= 86400
@@ -128,7 +128,13 @@ test-auth:
 test-with-server:
 	@bash -euo pipefail -c '$(MAKE) $(START_TARGET) LANGGRAPH_HTTP='\''$(LANGGRAPH_HTTP)'\'' & \
 	pid=$$!; \
-	cleanup() { kill $$pid >/dev/null 2>&1 || true; }; \
+	cleanup() { \
+		if [ -r /proc/$$pid/winpid ]; then \
+			taskkill //F //T //PID "$$(cat /proc/$$pid/winpid)" >/dev/null 2>&1 || true; \
+		else \
+			kill $$pid >/dev/null 2>&1 || true; \
+		fi; \
+	}; \
 	trap cleanup EXIT; \
 	for i in $$(seq 1 $(SERVER_START_TIMEOUT_SECS)); do \
 		if curl -sf "$(SERVER_HEALTH_URL)" >/dev/null; then \

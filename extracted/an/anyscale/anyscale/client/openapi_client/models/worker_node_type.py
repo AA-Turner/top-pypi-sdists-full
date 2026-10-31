@@ -44,6 +44,7 @@ class WorkerNodeType(object):
         'gcp_advanced_configurations_json': 'object',
         'advanced_configurations_json': 'object',
         'flags': 'object',
+        'head_options': 'list[HeadNodeOption]',
         'min_workers': 'int',
         'max_workers': 'int',
         'use_spot': 'bool',
@@ -62,13 +63,14 @@ class WorkerNodeType(object):
         'gcp_advanced_configurations_json': 'gcp_advanced_configurations_json',
         'advanced_configurations_json': 'advanced_configurations_json',
         'flags': 'flags',
+        'head_options': 'head_options',
         'min_workers': 'min_workers',
         'max_workers': 'max_workers',
         'use_spot': 'use_spot',
         'fallback_to_ondemand': 'fallback_to_ondemand'
     }
 
-    def __init__(self, name=None, instance_type=None, resources=None, physical_resources=None, required_resources=None, labels=None, required_labels=None, aws_advanced_configurations_json=None, gcp_advanced_configurations_json=None, advanced_configurations_json=None, flags=None, min_workers=None, max_workers=None, use_spot=False, fallback_to_ondemand=False, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, instance_type=None, resources=None, physical_resources=None, required_resources=None, labels=None, required_labels=None, aws_advanced_configurations_json=None, gcp_advanced_configurations_json=None, advanced_configurations_json=None, flags=None, head_options=None, min_workers=None, max_workers=None, use_spot=False, fallback_to_ondemand=False, local_vars_configuration=None):  # noqa: E501
         """WorkerNodeType - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -85,6 +87,7 @@ class WorkerNodeType(object):
         self._gcp_advanced_configurations_json = None
         self._advanced_configurations_json = None
         self._flags = None
+        self._head_options = None
         self._min_workers = None
         self._max_workers = None
         self._use_spot = None
@@ -112,6 +115,8 @@ class WorkerNodeType(object):
             self.advanced_configurations_json = advanced_configurations_json
         if flags is not None:
             self.flags = flags
+        if head_options is not None:
+            self.head_options = head_options
         if min_workers is not None:
             self.min_workers = min_workers
         if max_workers is not None:
@@ -375,6 +380,29 @@ class WorkerNodeType(object):
         """
 
         self._flags = flags
+
+    @property
+    def head_options(self):
+        """Gets the head_options of this WorkerNodeType.  # noqa: E501
+
+        Options for the head node, one of which runs as the head. They are ordered by an instance ranker with ray_node_type head, or by the default instance ranking when there is none. Each option sets its own instance type, required resources, and advanced configurations, and the head node's other settings apply to every option. The head node's own instance type, required resources, and advanced configurations are set from the first option. Only supported on the head node.  # noqa: E501
+
+        :return: The head_options of this WorkerNodeType.  # noqa: E501
+        :rtype: list[HeadNodeOption]
+        """
+        return self._head_options
+
+    @head_options.setter
+    def head_options(self, head_options):
+        """Sets the head_options of this WorkerNodeType.
+
+        Options for the head node, one of which runs as the head. They are ordered by an instance ranker with ray_node_type head, or by the default instance ranking when there is none. Each option sets its own instance type, required resources, and advanced configurations, and the head node's other settings apply to every option. The head node's own instance type, required resources, and advanced configurations are set from the first option. Only supported on the head node.  # noqa: E501
+
+        :param head_options: The head_options of this WorkerNodeType.  # noqa: E501
+        :type: list[HeadNodeOption]
+        """
+
+        self._head_options = head_options
 
     @property
     def min_workers(self):

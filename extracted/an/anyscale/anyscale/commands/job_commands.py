@@ -193,6 +193,17 @@ def job_cli() -> None:
     pass
 
 
+_RAW_ARGS_META_KEY = "anyscale.job_submit.raw_args"
+
+
+class _SubmitCommand(AnyscaleCommand):
+    def parse_args(self, ctx: click.Context, args: List[str]) -> List[str]:
+        # Keep the raw args, so that submit can find the args before "--".
+        # Do not use list(): in this module, list is the `job list` command.
+        ctx.meta[_RAW_ARGS_META_KEY] = args.copy()
+        return super().parse_args(ctx, args)
+
+
 @command_metadata(
     status=ReleaseStatus.GA,
     since="0.0.0",
@@ -230,7 +241,7 @@ def job_cli() -> None:
 @job_cli.command(
     name="submit",
     short_help="Submit a job.",
-    cls=AnyscaleCommand,
+    cls=_SubmitCommand,
 )
 @click.option("-n", "--name", required=False, default=None, help="Name of the job.")
 @click.option(
@@ -428,6 +439,18 @@ def submit(  # noqa: PLR0912 PLR0913 C901
 
         By default, this command submits the job asynchronously and exits. To wait for the job to complete, use the `--wait` flag.
     """
+
+    raw_args = click.get_current_context().meta.get(_RAW_ARGS_META_KEY, [])
+    if "--" in raw_args:
+        # Click puts the args before "--" and the args after it in entrypoint.
+        n_after = len(raw_args) - raw_args.index("--") - 1
+        before = entrypoint[: max(len(entrypoint) - n_after, 0)]
+        if before:
+            raise click.ClickException(
+                f'Unexpected arguments before "--": {" ".join(before)}. Put the entrypoint '
+                "after \"--\". Quote a wildcard in --exclude, for example -e 'number*.txt', "
+                "so that the shell does not expand it."
+            )
 
     job_controller = JobController()
     if len(entrypoint) == 1 and (

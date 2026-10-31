@@ -2494,16 +2494,17 @@ class FoundationalModel:
         target_column: str,
         predictor_id: Optional[str] = None,
     ) -> Optional[Predictor]:
-        """Find a trained SP for the given target column (and optional ID), or None."""
-        try:
-            predictors = self.list_predictors()
-            for p in predictors:
-                if predictor_id and p.id != predictor_id:
-                    continue
-                if p.target_column == target_column and p.status == 'done':
-                    return p
-        except Exception:
-            pass
+        """Find a trained SP for the given target column (and optional ID), or None.
+
+        A failed session lookup raises: swallowing it would silently route an
+        auto-routed predict to the foundation model (or report "no trained
+        SinglePredictor" for model_type="sp") although an SP exists.
+        """
+        for p in self.list_predictors():
+            if predictor_id and p.id != predictor_id:
+                continue
+            if p.target_column == target_column and p.status == 'done':
+                return p
         return None
 
     def _light_predict(

@@ -33,56 +33,27 @@ class PlanEvaluation(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'counts': 'PreviewCounts',
         'parity': 'PreviewParity',
         'errors': 'list[PlanError]'
     }
 
     attribute_map = {
-        'counts': 'counts',
         'parity': 'parity',
         'errors': 'errors'
     }
 
-    def __init__(self, counts=None, parity=None, errors=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, parity=None, errors=None, local_vars_configuration=None):  # noqa: E501
         """PlanEvaluation - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._counts = None
         self._parity = None
         self._errors = None
         self.discriminator = None
 
-        self.counts = counts
         self.parity = parity
         self.errors = errors
-
-    @property
-    def counts(self):
-        """Gets the counts of this PlanEvaluation.  # noqa: E501
-
-        What converting the draft creates, counted.  # noqa: E501
-
-        :return: The counts of this PlanEvaluation.  # noqa: E501
-        :rtype: PreviewCounts
-        """
-        return self._counts
-
-    @counts.setter
-    def counts(self, counts):
-        """Sets the counts of this PlanEvaluation.
-
-        What converting the draft creates, counted.  # noqa: E501
-
-        :param counts: The counts of this PlanEvaluation.  # noqa: E501
-        :type: PreviewCounts
-        """
-        if self.local_vars_configuration.client_side_validation and counts is None:  # noqa: E501
-            raise ValueError("Invalid value for `counts`, must not be `None`")  # noqa: E501
-
-        self._counts = counts
 
     @property
     def parity(self):

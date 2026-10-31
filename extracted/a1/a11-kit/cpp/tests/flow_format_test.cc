@@ -138,9 +138,70 @@ std::string ReadFile(const std::filesystem::path& path) {
   return buffer.str();
 }
 
+TEST(FlowFormat, DynamicParallelCountsPreserveSyntaxAndAreIdempotent) {
+  const std::string source = R"(
+flow main {
+in workers:int
+in rows:int stream
+out values:int stream
+for n in [1,2] parallel(workers+1){ n->values }
+rows | map it+1 parallel workers unordered ->values
+}
+)";
+  const auto formatted = Formatted(source);
+  EXPECT_EQ(Stream(source), Stream(formatted));
+  EXPECT_EQ(Tree(source), Tree(formatted));
+  EXPECT_EQ(Formatted(formatted), formatted);
+}
+
+TEST(FlowFormat, PortGroupsKeepDescriptionsAndLeadingCommentsTogether) {
+  const std::string source =
+      "flow main {\n"
+      "in value: string\n"
+      "\"Input description.\"\n"
+      "# Output description.\n"
+      "out result: string\n"
+      "}\n";
+  const auto formatted = Formatted(source);
+  EXPECT_EQ(formatted,
+            "flow main {\n"
+            "  in  value: string\n"
+            "    \"Input description.\"\n"
+            "\n"
+            "  # Output description.\n"
+            "  out result: string\n"
+            "}\n");
+  EXPECT_EQ(Tree(source), Tree(formatted));
+  EXPECT_EQ(Formatted(formatted), formatted);
+}
+
+TEST(FlowFormat, PortGroupsAreSeparatedWithoutColumnAlignment) {
+  const std::string source =
+      "flow main {\nIN value:string\nOUT result:string\n}\n";
+  FormatOptions options;
+  options.align_ports = false;
+  const auto formatted = Format(source, options);
+  ASSERT_TRUE(formatted.diagnostics.empty());
+  EXPECT_EQ(formatted.formatted,
+            "flow main {\n  IN value: string\n\n  OUT result: string\n}\n");
+  EXPECT_EQ(Tree(source), Tree(formatted.formatted));
+  EXPECT_EQ(Format(formatted.formatted, options).formatted,
+            formatted.formatted);
+}
+
+TEST(FlowFormat, OneDirectionOfPortsNeedsNoEmptyGroupSeparator) {
+  for (const auto* direction : {"in", "out"}) {
+    const auto source = absl::StrCat("flow main {\n", direction, " a:string\n",
+                                     direction, " b:string\n}\n");
+    const auto formatted = Formatted(source);
+    EXPECT_EQ(formatted.find("\n\n"), std::string::npos);
+    EXPECT_EQ(Tree(source), Tree(formatted));
+  }
+}
+
 TEST(FlowFormat, PlainPipelineBindingsPreserveTheirCompletionGroup) {
-  const std::string source = R"(flow main{in values:integer stream
-out kept:integer stream
+  const std::string source = R"(flow main{in values:int stream
+out kept:int stream
 forwarded=values
 |take until it==3
 ->kept,_
@@ -202,6 +263,7 @@ TEST(FlowFormat, IndentsBlocksAndSpacesTokensTheOneWay) {
   EXPECT_EQ(Formatted(source),
             "flow t {\n"
             "  in  a: string required\n"
+            "\n"
             "  out b: string\n"
             "  x = run act(p: a, q: \"s\") timeout 250ms\n"
             "  a | truncate 200 | where it != \"\" -> b\n"
@@ -222,16 +284,18 @@ TEST(FlowFormat, LinesUpARunOfPortDeclarations) {
       "  in  x: string\n"
       "  out yy: string\n"
       "}\n";
+  // A blank line means the author grouped them, so the second group
+  // lines up its own columns rather than the first group's.
   EXPECT_EQ(Formatted(source),
             "flow t {\n"
             "  in  question: string required \"What to find out.\"\n"
-            "  out answer:   string          \"The answer.\"\n"
-            "  out sources:  string stream   \"Where it came from.\"\n"
-            "  out read:     number\n"
             "\n"
-            // A blank line means the author grouped them, so the second group
-            // lines up its own columns rather than the first group's.
-            "  in  x:  string\n"
+            "  out answer:  string        \"The answer.\"\n"
+            "  out sources: string stream \"Where it came from.\"\n"
+            "  out read:    number\n"
+            "\n"
+            "  in  x: string\n"
+            "\n"
             "  out yy: string\n"
             "}\n");
 }
@@ -254,6 +318,7 @@ TEST(FlowFormat, KeepsTheBreaksTheAuthorWroteAndIndentsThem) {
   EXPECT_EQ(Formatted(source),
             "flow t {\n"
             "  in  a: string\n"
+            "\n"
             "  out b: string\n"
             "  pages\n"
             "    | collect\n"
@@ -267,27 +332,14 @@ TEST(FlowFormat, KeepsTheBreaksTheAuthorWroteAndIndentsThem) {
 
 TEST(FlowFormat, ABracketedGroupIndentsFromTheLineThatOpenedIt) {
   const std::string source =
-      "flow t {\n"
-      "  in  a: string\n"
-      "  llm = call interact(\n"
-      "interactions: a | map a11.sdk.Interaction{\n"
-      "role: \"user\",\n"
-      "content: [to_chunk(it)]\n"
-      "},\n"
-      "config: {}\n"
-      ")\n"
-      "}\n";
-  EXPECT_EQ(Formatted(source),
-            "flow t {\n"
-            "  in  a: string\n"
-            "  llm = call interact(\n"
-            "    interactions: a | map a11.sdk.Interaction{\n"
-            "      role: \"user\",\n"
-            "      content: [to_chunk(it)]\n"
-            "    },\n"
-            "    config: {}\n"
-            "  )\n"
-            "}\n");
+      "flow t {\n  in  a: string\n  llm = call interact(\ninteractions: a | "
+      "map a11::sdk::Interaction{\nrole: \"user\",\ncontent: "
+      "[std::to_chunk(it)]\n},\nconfig: {}\n)\n}\n";
+  EXPECT_EQ(
+      Formatted(source),
+      "flow t {\n  in  a: string\n  llm = call interact(\n    interactions: a "
+      "| map a11::sdk::Interaction{\n      role: \"user\",\n      content: "
+      "[std::to_chunk(it)]\n    },\n    config: {}\n  )\n}\n");
 }
 
 TEST(FlowFormat, AFoldArgumentOnTheNextLineIsIndentedUnderItsStage) {
@@ -304,6 +356,7 @@ TEST(FlowFormat, AFoldArgumentOnTheNextLineIsIndentedUnderItsStage) {
   EXPECT_EQ(Formatted(source),
             "flow t {\n"
             "  in  n: number stream\n"
+            "\n"
             "  out o: number\n"
             "  n | fold 0 as total,\n"
             "      total + it\n"
@@ -327,7 +380,8 @@ TEST(FlowFormat, ADescriptionOnItsOwnLineIsIndentedUnderWhatItDescribes) {
             "    \"What this is for.\"\n"
             "  in  question: string required\n"
             "    \"What to find out, at length.\"\n"
-            "  out answer:   string\n"
+            "\n"
+            "  out answer: string\n"
             "    \"The answer.\"\n"
             "}\n");
 }
@@ -482,6 +536,7 @@ TEST(FlowFormat, AFileThatIsAlreadyFormattedIsNotChanged) {
   const std::string source =
       "flow t {\n"
       "  in  a: string\n"
+      "\n"
       "  out b: string\n"
       "\n"
       "  a | count -> b\n"
@@ -505,9 +560,9 @@ declare flow render exported { in data: object
 out text: string stream }
 flow f exported {
   out result: string stream
-  let outcome=wait try run check()
-  let finished=drain node("existing")
-  (run lib.render(data:{"ok":outcome.ok}) via scratch).text|consume->result
+  outcome=take (wait try run check())
+  finished=take (close node("existing"))
+  (run lib::render(data:{"ok":outcome.ok}) via scratch).text|consume->result
 }
 )";
   const auto formatted = Format(source);

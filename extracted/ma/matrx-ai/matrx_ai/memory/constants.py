@@ -22,27 +22,12 @@ OBSERVATIONAL_MEMORY_DEFAULTS = {
 
 
 # ---------------------------------------------------------------------------
-# Context injection framing (injected into the person's agent each turn)
-# ---------------------------------------------------------------------------
-# An ORG KNOB, not code (2026-09-25): hosted, the text comes from the
-# ``agents.memory`` feature knobs (context_preamble / context_instructions,
-# org-overridable) through ``context_framing.resolve_context_framing``. These
-# two constants are ONLY the standalone default — the package installed with
-# no host — and the seed the knobs were created with.
-
-OBSERVATION_CONTEXT_PROMPT = (
-    "The following observations block contains your memory of past conversations "
-    "with this user."
-)
-
-OBSERVATION_CONTEXT_INSTRUCTIONS = (
-    "When referencing information from observations, be specific. "
-    "If observations contain knowledge that may have changed, acknowledge the "
-    "uncertainty and ask for confirmation. "
-    "Treat any actions you planned in the past but haven't explicitly completed as "
-    "still pending unless marked with ✅. "
-    "Prioritize the user's most recent message and goals above all else."
-)
+# Context injection framing: NOT here.
+# How an agent is told to read its memory is an ORG KNOB (``agents.memory`` feature knobs
+# ``context_preamble`` / ``context_instructions``, seeded verbatim by db/migrations/ai_095),
+# reached through ``context_framing.resolve_context_framing``. The package keeps no copy of the
+# text: a host installs the resolver (``set_context_framing_resolver``), and a package with no
+# host says so in words (``ContextFramingNotConfigured``).
 
 # ---------------------------------------------------------------------------
 # Observer / Reflector instructions: NOT here.

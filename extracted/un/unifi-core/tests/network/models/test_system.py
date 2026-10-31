@@ -267,15 +267,33 @@ class TestNetworkHealthFromController:
                     "num_user": 3,
                     "num_guest": 0,
                     "num_iot": 1,
-                    "rx_bytes": 1024,
-                    "tx_bytes": 2048,
+                    "rx_bytes": None,
+                    "tx_bytes": None,
+                    "rx_bytes_per_sec": 1024,
+                    "tx_bytes_per_sec": 2048,
                 },
             ),
-            ({"rx_bytes": 500, "tx_bytes": 700}, {"rx_bytes": 500, "tx_bytes": 700}),
+            (
+                {"rx_bytes": 500, "tx_bytes": 700},
+                {"rx_bytes": 500, "tx_bytes": 700, "rx_bytes_per_sec": None, "tx_bytes_per_sec": None},
+            ),
+            (
+                # An idle subsystem's rate of 0 stays a rate; it never falls back to the counter.
+                {"rx_bytes-r": 0, "tx_bytes-r": 0.0, "rx_bytes": 9_000_000_000, "tx_bytes": 7_000_000_000},
+                {"rx_bytes": 9_000_000_000, "tx_bytes": 7_000_000_000, "rx_bytes_per_sec": 0, "tx_bytes_per_sec": 0},
+            ),
+            ({"rx_bytes-r": 169791.5}, {"rx_bytes": None, "rx_bytes_per_sec": 169791.5}),
             ({}, {"subsystem": None, "rx_bytes": None}),
             (None, {"status": None}),
         ],
-        ids=["full_subsystem", "rx_tx_fallback_keys", "empty_dict_returns_defaults", "non_dict_returns_defaults"],
+        ids=[
+            "full_subsystem",
+            "cumulative_counters",
+            "zero_rate_stays_a_rate",
+            "fractional_rate",
+            "empty_dict_returns_defaults",
+            "non_dict_returns_defaults",
+        ],
     )
     def test_network_health_from_controller_fields(self, raw, expected) -> None:
         result = network_health_from_controller(raw)
@@ -686,13 +704,23 @@ class TestSpeedtestResultFromController:
                 {"time": 1700000000, "xput_download": 250.5, "xput_upload": 120.3, "latency": 12.4},
                 {"timestamp": 1700000000, "download_mbps": 250.5, "upload_mbps": 120.3, "latency_ms": 12.4},
             ),
-            ({"timestamp": 1234567890}, {"timestamp": 1234567890}),
+            (
+                {"time": 1793295096000, "xput_download": 314.0, "wan_networkgroup": "WAN2", "interface_name": "eth7"},
+                {
+                    "timestamp": 1793295096000,
+                    "download_mbps": 314.0,
+                    "wan_networkgroup": "WAN2",
+                    "interface_name": "eth7",
+                },
+            ),
+            ({"timestamp": 1234567890}, {"timestamp": 1234567890, "wan_networkgroup": None}),
             ({"download_mbps": 300.0}, {"download_mbps": 300.0}),
             ({}, {"timestamp": None, "download_mbps": None}),
             (None, {"timestamp": None}),
         ],
         ids=[
             "full_record",
+            "wan_identity",
             "timestamp_fallback",
             "download_fallback_key",
             "empty_dict_returns_defaults",

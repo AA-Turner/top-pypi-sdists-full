@@ -5,23 +5,30 @@ import glob
 import os
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Protocol, cast
+from typing import TYPE_CHECKING, Any, Final, Protocol, cast
 
 from tox.config.loader.api import apply_overrides_to_raw
 from tox.config.loader.ini.factor import active_factors
 from tox.config.loader.replacer import (
+    HostText,
     MatchError,
     MatchExpression,
     MatchRecursionError,
+    RawText,
     ReplaceReference,
+    RequirementLineCallbacks,
     find_replace_expr,
     load_posargs,
     replace,
     replace_env,
+    replace_program,
+    replace_requirement_lines,
 )
-from tox.config.loader.stringify import stringify
+from tox.config.loader.stringify import stringify, stringify_reference
 from tox.config.set_env import SetEnvReference
+from tox.config.sets import EnvConfigSet
 from tox.config.types import Command, EnvList
+from tox.tox_env.python.pip.req.file import protect_env_variables
 from tox.tox_env.python.pip.req_file import PythonConstraints, PythonDeps
 from tox.util.typing_compat import override
 
@@ -45,10 +52,21 @@ class _Directive(Protocol):
 
 
 class Unroll:
-    def __init__(self, conf: Config | None, loader: TomlLoader, args: ConfigLoadArgs) -> None:
+    def __init__(
+        self,
+        conf: Config | None,
+        loader: TomlLoader,
+        args: ConfigLoadArgs,
+        *,
+        program_depth: int | None,
+        requirement_entries: bool,
+    ) -> None:
         self.conf = conf
         self.loader = loader
         self.args = args
+        # Spreads can move the first program word through nested lists.
+        self._program_depth = program_depth
+        self.requirement_entries = requirement_entries
         self._refs: list[str] = []
         self.factors = active_factors(args.env_name)
 
@@ -60,8 +78,22 @@ class Unroll:
             return value
         if isinstance(value, str):
             if not skip_str and self.conf is not None:  # core config does not support string substitution
-                reference = TomlReplaceLoader(self.conf, self.loader)
-                value = replace(self.conf, reference, value, self.args)
+                reference: Final[TomlReplaceLoader] = TomlReplaceLoader(self.conf, self.loader)
+                if self.requirement_entries:
+                    value = replace_requirement_lines(
+                        self.conf,
+                        reference,
+                        value,
+                        self.args,
+                        callbacks=RequirementLineCallbacks(
+                            validate_options=PythonDeps.validate_requirement_options,
+                            protect_host_value=protect_env_variables,
+                        ),
+                    )
+                elif self._program_depth is not None:
+                    value = replace_program(self.conf, reference, value, self.args)
+                else:
+                    value = replace(self.conf, reference, value, self.args)
             return value
         if isinstance(value, list):
             return self._replace_list(value, depth, skip_str=skip_str)
@@ -71,9 +103,14 @@ class Unroll:
 
     def _replace_list(self, value: list[TomlTypes], depth: int, *, skip_str: bool) -> TomlTypes:
         # need to inspect every entry of the list to check for reference.
-        res_list: list[TomlTypes] = []
+        res_list: Final[list[TomlTypes]] = []
+        program_depth: Final[int | None] = self._program_depth
         for val in value:  # apply replacement for every entry
-            got = self(val, depth, skip_str=skip_str)
+            self._program_depth = self._entry_program_depth(program_depth, val, res_list)
+            try:
+                got = self(val, depth, skip_str=skip_str)
+            finally:
+                self._program_depth = program_depth
             if isinstance(got, SetEnvReference):
                 extending = isinstance(val, dict) and bool(val.get("extend"))
                 if got.shape != ("array" if extending else "table"):
@@ -82,6 +119,10 @@ class Unroll:
                 res_list.append(got)
             elif not (isinstance(val, dict) and val.get("replace") and val.get("extend")):
                 res_list.append(got)
+            elif val.get("marker"):
+                # A marked result is a table; extending it would add its keys as list entries.
+                msg = "a replace with extend=true cannot have a marker"
+                raise MatchError(msg)
             elif isinstance(got, str):
                 # ``extend`` spreads an iterable result (list, set of extras, ...) into the
                 # parent. A scalar string is the exception: iterating it would split it
@@ -92,6 +133,14 @@ class Unroll:
             else:
                 res_list.extend(cast("list[Any]", got))
         return res_list
+
+    @staticmethod
+    def _entry_program_depth(depth: int | None, entry: TomlTypes, before: list[TomlTypes]) -> int | None:
+        if depth == 1 and before not in ([], ["-"], ["!"]):
+            return None
+        if depth and not (isinstance(entry, dict) and entry.get("replace") and entry.get("extend")):
+            return depth - 1
+        return depth
 
     def _replace_dict(self, value: dict[str, TomlTypes], depth: int, *, skip_str: bool) -> TomlTypes:
         replace_type = value.get("replace")
@@ -116,7 +165,7 @@ class Unroll:
         return None
 
     def _replace_posargs(self, value: dict[str, TomlTypes], depth: int, *, skip_str: bool) -> TomlTypes:
-        got_posargs = load_posargs(cast("Config", self.conf), self.args)
+        got_posargs = load_posargs(cast("Config", self.conf), self.args, program_first=self._program_depth == 1)
         if got_posargs is None:
             return [self(v, depth, skip_str=skip_str) for v in cast("list[str]", value.get("default", []))]
         if validate(value.get("substitute", False), bool):
@@ -131,7 +180,10 @@ class Unroll:
             return MatchExpression([["env"], [name], _parse_arg(default)])
         # use a copy of the chain so this substitution's env references do not leak into
         # adjacent entries of the same value tree and spuriously trip the circular check (#2869)
-        return replace_env(self.conf, [name, validate(default, str)], self.args.copy())
+        result: Final[str] = replace_env(self.conf, [name, validate(default, str)], self.args.copy())
+        if self.requirement_entries and isinstance(result, HostText):
+            return result.protect(protect_env_variables)
+        return result
 
     def _replace_glob(self, value: dict[str, TomlTypes], depth: int, *, skip_str: bool) -> TomlTypes:
         # substitute the pattern and the fallback like the INI ``{glob:PATTERN:DEFAULT}`` form does
@@ -140,7 +192,13 @@ class Unroll:
         }
         if skip_str:  # set_env resolves it when read, seeing the keys next to it
             return MatchExpression([["glob"], *(_parse_arg(resolved.get(key, "")) for key in ("pattern", "default"))])
-        return _replace_glob_toml(self.conf, {**value, **resolved})
+        result: Final[list[TomlTypes] | str] = _replace_glob_toml(self.conf, {**value, **resolved})
+        if self.requirement_entries:
+            for entry in result if isinstance(result, list) else [result]:
+                if isinstance(entry, str) and (entry != "".join(entry.splitlines()) or entry.endswith("\\")):
+                    msg = "a globbed requirement path cannot contain a line break or end in a backslash"
+                    raise ValueError(msg)
+        return result
 
     def _replace_if(self, value: dict[str, TomlTypes], depth: int, *, skip_str: bool) -> TomlTypes:
         return _replace_if_toml(value, self, depth, self.factors, skip_str=skip_str)
@@ -176,7 +234,7 @@ class Unroll:
     @staticmethod
     def _to_raw(value: object) -> TomlTypes:
         if isinstance(value, (PythonDeps, PythonConstraints)):
-            value = value.lines()
+            value = value.lines(preserve_host_values=True)
         elif isinstance(value, Command):
             value = value.raw_args
         elif isinstance(value, list) and all(isinstance(entry, Command) for entry in value):
@@ -312,27 +370,37 @@ class TomlReplaceLoader(ReplaceReference):
 
     @override
     def __call__(self, value: str, conf_args: ConfigLoadArgs) -> str | None:
-        if match := _REFERENCE_PATTERN.search(value):
+        # Searching inside brace content mistakes JSON fields for references.
+        if match := _REFERENCE_PATTERN.match(value):
             settings = match.groupdict()
             exception: Exception | None = None
             try:
                 for src in self._config_value_sources(settings["section"], conf_args.env_name):
                     try:
-                        value = src.load(settings["key"], conf_args.chain)
+                        return self._load_reference_value(src, settings["key"], conf_args)
                     except KeyError as exc:  # if fails, keep trying maybe another source can satisfy
                         exception = exc
-                    else:
-                        return stringify(value)[0]
             except Exception as exc:  # ruff:ignore[blind-except]
                 exception = exc
             if exception is not None:
                 if isinstance(exception, KeyError):  # if the lookup failed replace - else keep
                     default = settings["default"]
                     if default is not None:
-                        return default
+                        return value.fragment(*match.span("default")) if isinstance(value, HostText) else default
                     return None  # keep original text, consistent with ini loader behavior
                 raise exception
         return None  # not a reference, such as the {} of a format string
+
+    @staticmethod
+    def _load_reference_value(src: ConfigSet | RawLoader, key: str, conf_args: ConfigLoadArgs) -> str:
+        if isinstance(src, RawLoader):
+            return RawText(stringify(src.load(key, conf_args.chain))[0])
+        return stringify_reference(
+            src.set_env_lines(conf_args.chain)
+            if isinstance(src, EnvConfigSet) and key in {"set_env", "setenv"}
+            else src.load(key, conf_args.chain),
+            constant=src.is_constant(key),
+        )
 
     def _config_value_sources(self, sec: str | None, current_env: str | None) -> Iterator[ConfigSet | RawLoader]:
         if sec is None:

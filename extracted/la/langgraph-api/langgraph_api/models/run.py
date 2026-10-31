@@ -12,10 +12,6 @@ from typing_extensions import TypedDict
 
 from langgraph_api import config as api_config
 from langgraph_api.auth.noop import UnauthenticatedUser
-from langgraph_api.encryption.middleware import encrypt_request
-from langgraph_api.encryption.shared import (
-    using_custom_encryption,
-)
 from langgraph_api.event_streaming.constants import EVENT_STREAMING_V2_CONFIG_KEY
 from langgraph_api.feature_flags import IS_POSTGRES_OR_GRPC_BACKEND
 from langgraph_api.graph import (
@@ -276,7 +272,7 @@ async def create_valid_run(
     if ctx:
         user = cast("BaseUser | None", ctx.user)
         user_id = get_user_id(user)
-        # Store user as-is; encryption middleware will serialize if needed.
+        # Store user as-is; persistence serializes it if needed.
         # UnauthenticatedUser is stored as None for consistency.
         configurable["langgraph_auth_user"] = (
             None if isinstance(user, UnauthenticatedUser) else user
@@ -294,8 +290,6 @@ async def create_valid_run(
         configurable["__request_start_time_ms__"] = request_start_time
     after_seconds = cast("int", payload.get("after_seconds", 0))
     configurable["__after_seconds__"] = after_seconds
-    # Note: encryption context is injected by encrypt_request → encrypt_json_if_needed
-    # as the __encryption_context__ marker. Worker reads it before decryption.
     put_time_start = time.time()
     if_not_exists = payload.get("if_not_exists", "reject")
 
@@ -311,30 +305,14 @@ async def create_valid_run(
         resolve_tracing_session_name(payload) if api_config.TRACING else None
     )
 
-    # We can't pass payload directly because config and context have
-    # been modified above (with auth context, checkpoint info, etc.)
-    fields_to_encrypt = {
-        "metadata": payload.get("metadata"),
-        "input": payload.get("input"),
-        "config": config,
-        "context": context,
-        "command": payload.get("command"),
-    }
-    encrypted = await encrypt_request(
-        fields_to_encrypt,
-        "run",
-        ["metadata", "input", "config", "context", "command"],
-        plaintext_for_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
-    )
-
     run_coro = Runs.put(
         conn,
         assistant_id,
         {
-            "input": encrypted.get("input"),
-            "command": encrypted.get("command"),
-            "config": encrypted.get("config"),
-            "context": encrypted.get("context"),
+            "input": payload.get("input"),
+            "command": payload.get("command"),
+            "config": config,
+            "context": context,
             "stream_mode": stream_mode,
             "interrupt_before": payload.get("interrupt_before"),
             "interrupt_after": payload.get("interrupt_after"),
@@ -346,7 +324,7 @@ async def create_valid_run(
             "checkpoint_during": payload.get("checkpoint_during", True),
             "durability": durability,
         },
-        metadata=encrypted.get("metadata"),
+        metadata=payload.get("metadata"),
         status="pending",
         user_id=user_id,
         thread_id=thread_id_,

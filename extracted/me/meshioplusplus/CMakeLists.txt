@@ -9,7 +9,7 @@ cmake_minimum_required(VERSION 3.15...3.30)
 # properties, and the find_package/pkg-config metadata of the C API.
 project(
   meshioplusplus_core
-  VERSION 17.23.0
+  VERSION 17.7.0
   LANGUAGES C CXX
   DESCRIPTION "C++ core for the meshio++ mesh I/O library")
 
@@ -108,9 +108,8 @@ option(MESHIOPLUSPLUS_WASM_THREADS
 # cross-compiles -- OpenCASCADE, zstd, lz4 and the bzip2 port -- and named
 # meshioplusplus_wasm_full[_mt]. Only under it are those libraries probed for
 # a wasm target, and only in the prefix build/build-wasm-deps.sh --full built
-# (on CMAKE_FIND_ROOT_PATH); the lean build never picks them up. KaHIP is in
-# the full artifact only; ADIOS2 and TecIO stay out of both
-# (doc/wasm.md#what-stays-out).
+# (on CMAKE_FIND_ROOT_PATH); the lean build never picks them up. KaHIP, ADIOS2
+# and TecIO stay out of both artifacts (doc/wasm.md#what-stays-out).
 option(MESHIOPLUSPLUS_WASM_FULL
   "Emscripten only: build the full wasm artifact (OpenCASCADE, zstd, lz4, bzip2)" OFF)
 if(MESHIOPLUSPLUS_WASM_FULL AND NOT EMSCRIPTEN)
@@ -242,42 +241,12 @@ endif()
 # always-available fallback. Bring-your-own install located via the in-repo
 # cmake/FindKaHIP.cmake (KAHIP_ROOT prefix / pkg-config) -- never vendored,
 # never auto-downloaded. Only the serial kaffpa interface is linked (no ParHIP,
-# hence no MPI). Under Emscripten the option only takes effect with an explicit
-# KAHIP_ROOT (the wasm full prefix, built by build-wasm-deps.sh --full): a host
-# library must not be picked up for a wasm target, and the Emscripten toolchain
-# re-roots every other lookup at the sysroot anyway.
+# hence no MPI). Never probed under Emscripten -- no port exists, and a host
+# library must not be picked up for a wasm target.
 option(MESHIOPLUSPLUS_WITH_KAHIP "Build the KaHIP partition backend" OFF)
-if(MESHIOPLUSPLUS_WITH_KAHIP AND (NOT EMSCRIPTEN OR KAHIP_ROOT OR DEFINED ENV{KAHIP_ROOT}))
+if(MESHIOPLUSPLUS_WITH_KAHIP AND NOT EMSCRIPTEN)
   list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
   find_package(KaHIP QUIET)
-endif()
-
-# Netgen (LGPL-2.1), the backend of the tetrahedralize operation (roadmap
-# 6.7): a closed triangle surface meshed into tetrahedra that keep its
-# triangles. OFF by default and bring-your-own, as KaHIP is: located via the
-# in-repo cmake/FindNetgen.cmake (NETGEN_ROOT or the system's libnglib-dev),
-# never vendored, never downloaded, and linked dynamically. Not under
-# Emscripten: no wasm build of Netgen is known, so tetrahedralize raises by
-# name in both WASM artifacts.
-option(MESHIOPLUSPLUS_WITH_NETGEN "Build the Netgen tetrahedralize backend" OFF)
-if(MESHIOPLUSPLUS_WITH_NETGEN AND NOT EMSCRIPTEN)
-  list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-  find_package(Netgen QUIET)
-endif()
-
-# MMG (LGPL-3.0), the backend of adapt, discretize_levelset, mesh_domain and
-# move (roadmap 3.2): mmg2d, mmgs and mmg3d adapt a simplicial mesh to a size
-# or a metric, embed a level set, mesh a planar domain and move a mesh. OFF by
-# default and bring-your-own, as Netgen is: found through the CMake package MMG
-# installs (mmg_DIR or CMAKE_PREFIX_PATH; build/build-mmg.sh makes one), never
-# vendored, never downloaded, linked dynamically only (the shared
-# Mmg::libmmg_so; a static-only install is refused), and absent from the
-# release wheels and CLI binaries. Not under Emscripten until the WASM probe of
-# roadmap 3.2.8: its operations raise by name in both WASM artifacts.
-option(MESHIOPLUSPLUS_WITH_MMG
-       "Build the MMG backend (adapt, discretize_levelset, mesh_domain, move)" OFF)
-if(MESHIOPLUSPLUS_WITH_MMG AND NOT EMSCRIPTEN)
-  find_package(mmg CONFIG QUIET)
 endif()
 
 # The official CGNS library (cgnslib / the CGNS Mid-Level Library). OFF by
@@ -328,21 +297,16 @@ elseif(TARGET adios2::cxx11)
 endif()
 
 # OpenCASCADE Technology (LGPL-2.1 with the OCCT exception), the CAD kernel of
-# the fit_cad operation (analytic, freeform, fillet and thread faces trimmed,
-# sewn into a solid, checked and written as STEP) and of STEP/IGES reading.
-# ON by default and found through OCCT's own CMake config (OpenCASCADE_DIR,
-# CMAKE_PREFIX_PATH) -- never auto-downloaded: a system install (7.6 or later)
-# links dynamically, and the static one build/build-occt.sh makes is linked
-# into the PyPI wheels and the release CLI binaries (THIRD_PARTY_NOTICES.md).
-# Where none is found, fit_cad falls back to its kernel-free native backend
-# and STEP/IGES reading throws Unsupported naming this flag;
-# MESHIOPLUSPLUS_REQUIRE_OCCT turns that into a configure error for the
-# artifacts that must carry the kernel. The lean WASM build never probes; the
-# full one links the wasm32 build of build-wasm-deps.sh --full (roadmap 6.2.1).
+# the fit_cad operation (analytic faces trimmed, sewn into a solid, checked and
+# written as STEP). OFF by default and bring-your-own through OCCT's own CMake
+# config (OpenCASCADE_DIR) -- never vendored, never auto-downloaded, linked
+# dynamically natively, and absent from the wheels, the lean WASM build and the
+# release CLI binaries; fit_cad throws Unsupported naming this flag where it is
+# absent. The full WASM artifact links it statically, from the wasm32 build
+# build-wasm-deps.sh --full makes (roadmap 6.2.1).
 # 7.6 is the floor (Ubuntu 24.04's packages); 7.8 renamed the STEP toolkits
 # into TKDESTEP, so the target list is picked by what exists.
-option(MESHIOPLUSPLUS_WITH_OCCT "Build the OpenCASCADE-backed fit_cad operation and STEP/IGES reading" ON)
-option(MESHIOPLUSPLUS_REQUIRE_OCCT "Fail the configure when OpenCASCADE is not found" OFF)
+option(MESHIOPLUSPLUS_WITH_OCCT "Build the OpenCASCADE-backed fit_cad operation and STEP/IGES reading" OFF)
 if(MESHIOPLUSPLUS_WITH_OCCT AND _mio_probe_optional)
   find_package(OpenCASCADE CONFIG QUIET)
   if(OpenCASCADE_FOUND AND OpenCASCADE_VERSION VERSION_LESS 7.6)
@@ -375,31 +339,6 @@ if(MESHIOPLUSPLUS_WITH_OCCT AND OpenCASCADE_FOUND)
       break()
     endif()
   endforeach()
-endif()
-# A static install (build/build-occt.sh, the wheels and CLI binaries) records
-# no dependencies on its targets: the toolkits reference one another in both
-# directions, which GNU ld resolves only inside a link group, and the system
-# libraries TKernel uses are named here. On Windows its headers must also be
-# told not to expect DLL imports.
-set(_mio_occt_link ${_mio_occt_libs})
-set(_mio_occt_defs "")
-if(_mio_occt_libs)
-  get_target_property(_mio_occt_type TKernel TYPE)
-  if(_mio_occt_type STREQUAL "STATIC_LIBRARY" AND NOT EMSCRIPTEN)
-    if(WIN32)
-      list(APPEND _mio_occt_link advapi32 gdi32 user32 wsock32 psapi)
-      set(_mio_occt_defs OCCT_STATIC_BUILD)
-    else()
-      if(NOT APPLE)
-        set(_mio_occt_link "-Wl,--start-group" ${_mio_occt_libs} "-Wl,--end-group")
-      endif()
-      find_package(Threads REQUIRED)
-      list(APPEND _mio_occt_link Threads::Threads ${CMAKE_DL_LIBS})
-      if(NOT APPLE)
-        list(APPEND _mio_occt_link m)
-      endif()
-    endif()
-  endif()
 endif()
 
 # TecIO (v16.13.0): Tecplot's own library, the only reader of `.szplt` (SZL)
@@ -755,10 +694,7 @@ if(MESHIOPLUSPLUS_BUILD_FUZZERS)
     set(_mio_sanitize_list "address;undefined")
   endif()
   if(NOT MESHIOPLUSPLUS_FUZZING_ENGINE)
-    # tests/fuzz/coverage_ignorelist.txt names the numeric kernels whose loops
-    # coverage would only slow down (the sanitizers still instrument them).
-    list(APPEND _mio_core_copts -fsanitize=fuzzer-no-link
-         "-fsanitize-coverage-ignorelist=${CMAKE_CURRENT_SOURCE_DIR}/tests/fuzz/coverage_ignorelist.txt")
+    list(APPEND _mio_core_copts -fsanitize=fuzzer-no-link)
   endif()
 endif()
 if(_mio_sanitize_list)
@@ -878,79 +814,6 @@ elseif(MESHIOPLUSPLUS_WITH_KAHIP)
                  "partition method 'kahip' will raise")
 endif()
 
-if(MESHIOPLUSPLUS_WITH_NETGEN AND NETGEN_FOUND)
-  message(STATUS "meshio++: Netgen tetrahedralize backend enabled (${NETGEN_LIBRARIES})")
-  list(APPEND _mio_core_defs MESHIOPLUSPLUS_HAS_NETGEN)
-  list(APPEND _mio_core_libs netgen::nglib)
-elseif(MESHIOPLUSPLUS_WITH_NETGEN)
-  message(STATUS "meshio++: Netgen requested but not found (set NETGEN_ROOT) - "
-                 "tetrahedralize will raise")
-endif()
-
-if(MESHIOPLUSPLUS_WITH_MMG AND TARGET Mmg::libmmg_so)
-  # The library file and the headers, read for what MMG was built with: the
-  # width of MMG5_int (roadmap 3.2.5.2) from mmgcmakedefines.h, and ELAS -- the
-  # linear-elasticity library move needs -- from libmmg's reference to its
-  # LS_elastic, since MMG's headers do not record USE_ELAS.
-  set(_mio_mmg_lib "")
-  get_target_property(_mio_mmg_configs Mmg::libmmg_so IMPORTED_CONFIGURATIONS)
-  foreach(_c IN LISTS _mio_mmg_configs)
-    get_target_property(_mio_mmg_lib Mmg::libmmg_so IMPORTED_LOCATION_${_c})
-    if(_mio_mmg_lib)
-      break()
-    endif()
-  endforeach()
-  get_target_property(_mio_mmg_incs Mmg::libmmg_so INTERFACE_INCLUDE_DIRECTORIES)
-  set(_mio_mmg_int64 "")
-  foreach(_inc IN LISTS _mio_mmg_incs)
-    if(EXISTS "${_inc}/mmg/common/mmgcmakedefines.h")
-      file(STRINGS "${_inc}/mmg/common/mmgcmakedefines.h" _mio_mmg_int64
-           REGEX "define MMG5_int int64_t")
-      break()
-    endif()
-  endforeach()
-  set(_mio_mmg_elas "")
-  if(_mio_mmg_lib AND EXISTS "${_mio_mmg_lib}")
-    file(STRINGS "${_mio_mmg_lib}" _mio_mmg_elas REGEX "LS_elastic" LIMIT_COUNT 1)
-  endif()
-  list(APPEND _mio_core_defs MESHIOPLUSPLUS_HAS_MMG)
-  list(APPEND _mio_core_libs Mmg::libmmg_so)
-  if(_mio_mmg_int64)
-    list(APPEND _mio_core_defs MESHIOPLUSPLUS_MMG_INT64)
-  endif()
-  if(_mio_mmg_elas)
-    list(APPEND _mio_core_defs MESHIOPLUSPLUS_HAS_MMG_ELAS)
-    # libmmg needs libElas (and its libCommons) but records no RPATH to them:
-    # link them by path, from beside libmmg, so every target resolves.
-    get_filename_component(_mio_mmg_libdir "${_mio_mmg_lib}" DIRECTORY)
-    find_library(MESHIOPLUSPLUS_ELAS_LIBRARY NAMES Elas HINTS "${_mio_mmg_libdir}" ENV ELAS_DIR
-                 PATH_SUFFIXES lib)
-    find_library(MESHIOPLUSPLUS_ELAS_COMMONS_LIBRARY NAMES Commons
-                 HINTS "${_mio_mmg_libdir}" ENV ELAS_DIR PATH_SUFFIXES lib)
-    foreach(_l MESHIOPLUSPLUS_ELAS_LIBRARY MESHIOPLUSPLUS_ELAS_COMMONS_LIBRARY)
-      if(${_l})
-        list(APPEND _mio_core_libs "${${_l}}")
-      endif()
-    endforeach()
-    # ...and let a target that reaches libmmg only through a shared library
-    # (the Fortran test, a consumer's executable) find them at link time.
-    if(UNIX AND NOT APPLE)
-      add_link_options("LINKER:-rpath-link,${_mio_mmg_libdir}")
-    endif()
-    set(_mio_mmg_with "with ELAS")
-  else()
-    set(_mio_mmg_with "without ELAS: move will raise")
-  endif()
-  message(STATUS "meshio++: MMG backend enabled (${_mio_mmg_lib}, ${_mio_mmg_with})")
-elseif(MESHIOPLUSPLUS_WITH_MMG AND TARGET Mmg::libmmg_a)
-  message(STATUS "meshio++: MMG found as a static library only - it is linked "
-                 "dynamically or not at all (rebuild it with BUILD_SHARED_LIBS=ON); "
-                 "adapt, discretize_levelset, mesh_domain and move will raise")
-elseif(MESHIOPLUSPLUS_WITH_MMG)
-  message(STATUS "meshio++: MMG requested but not found (set mmg_DIR) - "
-                 "adapt, discretize_levelset, mesh_domain and move will raise")
-endif()
-
 if(MESHIOPLUSPLUS_WITH_OCCT AND _mio_occt_libs)
   message(STATUS "meshio++: OpenCASCADE ${OpenCASCADE_VERSION} enabled (fit_cad, STEP/IGES reading)")
   list(APPEND _mio_core_defs MESHIOPLUSPLUS_HAS_OCCT)
@@ -959,14 +822,10 @@ if(MESHIOPLUSPLUS_WITH_OCCT AND _mio_occt_libs)
   # export toolkit targets without include directories: add them privately,
   # as system headers so their deprecation warnings stay theirs.
   list(APPEND _mio_core_sys_incs ${OpenCASCADE_INCLUDE_DIR})
-  list(APPEND _mio_core_defs ${_mio_occt_defs})
-  list(APPEND _mio_core_libs ${_mio_occt_link})
-elseif(MESHIOPLUSPLUS_REQUIRE_OCCT)
-  message(FATAL_ERROR "meshio++: MESHIOPLUSPLUS_REQUIRE_OCCT is set but OpenCASCADE 7.6 or later "
-                      "was not found (build one with build/build-occt.sh and set OpenCASCADE_DIR)")
-elseif(MESHIOPLUSPLUS_WITH_OCCT AND _mio_probe_optional)
-  message(STATUS "meshio++: OpenCASCADE not found (set OpenCASCADE_DIR) - fit_cad falls back to "
-                 "its kernel-free native backend and STEP/IGES reading will raise")
+  list(APPEND _mio_core_libs ${_mio_occt_libs})
+elseif(MESHIOPLUSPLUS_WITH_OCCT)
+  message(STATUS "meshio++: OpenCASCADE requested but not found (set OpenCASCADE_DIR) - "
+                 "fit_cad and STEP/IGES reading will raise")
 endif()
 
 # The full wasm artifact never drops a library it was asked for: a name in
@@ -1432,7 +1291,7 @@ if(MESHIOPLUSPLUS_INSTALL_CPP)
 
   # Shipped so a consumer with no FindKaHIP.cmake of its own can still resolve
   # the find_dependency(KaHIP) the generated config emits for a KaHIP build.
-  install(FILES cmake/FindKaHIP.cmake cmake/FindNetgen.cmake
+  install(FILES cmake/FindKaHIP.cmake
           DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/meshioplusplus)
   message(STATUS
     "meshio++: installing the C++ API (backends: ${MESHIOPLUSPLUS_INSTALL_CPP_BACKENDS})")
@@ -1444,7 +1303,7 @@ endif()
 # it reports what the build actually compiled in: `-DMESHIOPLUSPLUS_WITH_HDF5=OFF`
 # on a machine that happens to have HDF5 now correctly reports "no HDF5".
 # ---------------------------------------------------------------------------
-foreach(_f ZLIB ZSTD LZ4 LZMA BZIP2 KAHIP HDF5 NETCDF EIGEN JSON CGNSLIB ADIOS2 TECIO OCCT NETGEN MMG)
+foreach(_f ZLIB ZSTD LZ4 LZMA BZIP2 KAHIP HDF5 NETCDF EIGEN JSON CGNSLIB ADIOS2 TECIO OCCT)
   if("MESHIOPLUSPLUS_HAS_${_f}" IN_LIST _mio_core_defs)
     set(_mio_has_${_f} TRUE)
   else()
@@ -1504,12 +1363,6 @@ endif()
 if(_mio_has_KAHIP)
   string(APPEND MIO_PC_LIBS_PRIVATE " -lkahip")
 endif()
-if(_mio_has_NETGEN)
-  string(APPEND MIO_PC_LIBS_PRIVATE " -lnglib -lngcore")
-endif()
-if(_mio_has_MMG)
-  string(APPEND MIO_PC_LIBS_PRIVATE " -lmmg")
-endif()
 if(_mio_has_ADIOS2)
   string(APPEND MIO_PC_LIBS_PRIVATE " -l${_mio_adios2_pc_lib} -ladios2_core")
 endif()
@@ -1537,17 +1390,8 @@ if(MESHIOPLUSPLUS_BUILD_PYTHON)
 
   # LDFLAGS env-var seeding of CMAKE_MODULE_LINKER_FLAGS was tried first and
   # silently didn't apply to this MODULE target, hence targeting it directly.
-  # --exclude-libs keeps the static archives' symbols (libstdc++'s, and the
-  # static OpenCASCADE's of the wheels) out of the extension's dynamic symbol
-  # table: Python has often loaded the system libstdc++.so already (numpy links
-  # it), and exported copies of std::cout or the locale facet ids would be
-  # interposed by it, mixing two runtimes -- OpenCASCADE's first stream write
-  # then crashes in a facet of the other copy.
   if(MESHIOPLUSPLUS_STATIC_RUNTIME AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     target_link_options(_core PRIVATE -static-libgcc -static-libstdc++)
-    if(NOT APPLE)
-      target_link_options(_core PRIVATE -Wl,--exclude-libs,ALL)
-    endif()
   endif()
 
   # Land the extension next to the pure-Python package inside the wheel. The
@@ -1864,9 +1708,6 @@ endif()
 # the binary's name (meshioplusplus_fuzz_read_<format>, for OSS-Fuzz-style
 # per-format copies). The replay driver is the same harness with a main() that
 # feeds files, so any compiler runs the committed regression inputs in ctest.
-# The operation targets (tests/fuzz/fuzz_mesh_cad.cpp: mesh_cad_surface and
-# triangulate_polygon_2d, roadmap 6.1.5) take the target from the binary's
-# name the same way, and replay through meshioplusplus_fuzz_ops_replay.
 # --------------------------------------------------------------------------
 if(MESHIOPLUSPLUS_BUILD_FUZZERS)
   add_executable(meshioplusplus_fuzz_read tests/fuzz/fuzz_read.cpp)
@@ -1880,16 +1721,6 @@ if(MESHIOPLUSPLUS_BUILD_FUZZERS)
     target_compile_options(meshioplusplus_fuzz_read PRIVATE -fsanitize=fuzzer)
     target_link_options(meshioplusplus_fuzz_read PRIVATE -fsanitize=fuzzer)
   endif()
-  foreach(_op IN ITEMS mesh_cad_surface triangulate_polygon_2d)
-    add_executable(meshioplusplus_fuzz_${_op} tests/fuzz/fuzz_mesh_cad.cpp)
-    target_link_libraries(meshioplusplus_fuzz_${_op} PRIVATE meshioplusplus_core_obj)
-    if(MESHIOPLUSPLUS_FUZZING_ENGINE)
-      target_link_libraries(meshioplusplus_fuzz_${_op} PRIVATE ${_mio_fuzz_engine})
-    else()
-      target_compile_options(meshioplusplus_fuzz_${_op} PRIVATE -fsanitize=fuzzer)
-      target_link_options(meshioplusplus_fuzz_${_op} PRIVATE -fsanitize=fuzzer)
-    endif()
-  endforeach()
   if(MESHIOPLUSPLUS_WITH_HDF5 AND HDF5_FOUND)
     add_executable(meshioplusplus_fuzz_hdf5 tests/fuzz/fuzz_read.cpp tests/fuzz/hdf5_mutator.cpp)
     target_link_libraries(meshioplusplus_fuzz_hdf5 PRIVATE meshioplusplus_core_obj)
@@ -1911,36 +1742,19 @@ endif()
 if(MESHIOPLUSPLUS_BUILD_TESTS OR MESHIOPLUSPLUS_BUILD_FUZZERS)
   add_executable(meshioplusplus_fuzz_replay tests/fuzz/fuzz_read.cpp tests/fuzz/replay_main.cpp)
   target_link_libraries(meshioplusplus_fuzz_replay PRIVATE meshioplusplus_core_obj)
-  add_executable(meshioplusplus_fuzz_ops_replay tests/fuzz/fuzz_mesh_cad.cpp
-                 tests/fuzz/replay_main.cpp)
-  target_link_libraries(meshioplusplus_fuzz_ops_replay PRIVATE meshioplusplus_core_obj)
   add_executable(meshioplusplus_fuzz_seeds tests/fuzz/seed_main.cpp)
   target_link_libraries(meshioplusplus_fuzz_seeds PRIVATE meshioplusplus_core_obj)
 endif()
 if(MESHIOPLUSPLUS_BUILD_TESTS)
   # One ctest per format directory of minimized crash inputs. A format this
-  # build compiled out is skipped by the driver (exit 0 with a note). An
-  # op_<name> directory holds inputs of an operation target instead.
+  # build compiled out is skipped by the driver (exit 0 with a note).
   file(GLOB _mio_fuzz_regression_dirs LIST_DIRECTORIES true
        ${CMAKE_CURRENT_SOURCE_DIR}/tests/fuzz/regressions/*)
   foreach(_d IN LISTS _mio_fuzz_regression_dirs)
     if(IS_DIRECTORY ${_d})
       get_filename_component(_fmt ${_d} NAME)
-      if(_fmt MATCHES "^op_")
-        add_test(NAME fuzz_regression_${_fmt}
-                 COMMAND meshioplusplus_fuzz_ops_replay -format=${_fmt} ${_d})
-      else()
-        add_test(NAME fuzz_regression_${_fmt}
-                 COMMAND meshioplusplus_fuzz_replay -format=${_fmt} ${_d})
-      endif()
-      # The h5m input is a huge metadata allocation that HDF5 reports as an
-      # error only when null allocations are allowed, as the instrumented
-      # HDF5 campaign runs (fuzz.yml). Keep the sanitizer policy of the leg
-      # and allow null allocations for this one replay.
-      if(_fmt STREQUAL "h5m")
-        set_tests_properties(fuzz_regression_h5m PROPERTIES
-          ENVIRONMENT "ASAN_OPTIONS=detect_leaks=1:abort_on_error=1:strict_string_checks=1:allocator_may_return_null=1")
-      endif()
+      add_test(NAME fuzz_regression_${_fmt}
+               COMMAND meshioplusplus_fuzz_replay -format=${_fmt} ${_d})
     endif()
   endforeach()
 endif()

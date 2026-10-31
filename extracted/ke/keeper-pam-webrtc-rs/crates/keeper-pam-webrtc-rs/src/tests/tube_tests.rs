@@ -1234,3 +1234,94 @@ async fn test_backpressure_zombie_detection_logic() {
     println!("       time.sleep(1.5)");
     println!("       assert_no_orphaned_tasks()");
 }
+
+/// A closed tube must release its peer connection and its control channel.
+/// Handlers stored on the peer connection or a data channel that hold strong
+/// references back keep them alive after close, and with them the ICE agent's
+/// UDP sockets (one leak per session).
+#[tokio::test]
+async fn test_closed_tube_releases_peer_connection() {
+    let tube = Tube::new(
+        false,
+        None,
+        None,
+        None,
+        crate::tube_protocol::Capabilities::NONE,
+        None,
+    )
+    .expect("Failed to create tube");
+
+    let (signal_tx, _signal_rx) = mpsc::unbounded_channel();
+    let mut settings = HashMap::new();
+    settings.insert("conversationType".to_string(), serde_json::json!("tunnel"));
+    tokio::time::timeout(
+        Duration::from_secs(5),
+        tube.create_peer_connection(
+            None,
+            true,
+            false,
+            "TEST_MODE_KSM_CONFIG".to_string(),
+            "TEST_CALLBACK_TOKEN".to_string(),
+            "ms16.5.0",
+            settings,
+            signal_tx,
+            false,
+        ),
+    )
+    .await
+    .expect("timed out creating peer connection")
+    .expect("failed to create peer connection");
+
+    let control_channel = tokio::time::timeout(
+        Duration::from_secs(3),
+        tube.create_control_channel(
+            "TEST_MODE_KSM_CONFIG".to_string(),
+            "TEST_CALLBACK_TOKEN".to_string(),
+            "ms16.5.0",
+        ),
+    )
+    .await
+    .expect("timed out creating control channel")
+    .expect("failed to create control channel");
+    let weak_control = Arc::downgrade(&control_channel.data_channel);
+    drop(control_channel);
+
+    let (weak_connection, weak_rtc) = {
+        let guard = tube.peer_connection.load();
+        let connection = guard.as_ref().as_ref().expect("peer connection exists");
+        (
+            Arc::downgrade(connection),
+            Arc::downgrade(&connection.peer_connection),
+        )
+    };
+
+    let _ = tube.close(None).await;
+    assert!(
+        tube.control_channel.read().await.is_none(),
+        "close() left the tube's control channel reference in place"
+    );
+    drop(tube);
+
+    // close() hands the peer connection close to a spawned task; give it time.
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+    while (weak_rtc.upgrade().is_some()
+        || weak_connection.upgrade().is_some()
+        || weak_control.upgrade().is_some())
+        && tokio::time::Instant::now() < deadline
+    {
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+
+    assert!(
+        weak_connection.upgrade().is_none(),
+        "WebRTCPeerConnection still alive after the tube was closed and dropped"
+    );
+    assert!(
+        weak_rtc.upgrade().is_none(),
+        "RTCPeerConnection still alive after the tube was closed and dropped"
+    );
+    assert!(
+        weak_control.upgrade().is_none(),
+        "control data channel still alive after the tube was closed and dropped"
+    );
+}

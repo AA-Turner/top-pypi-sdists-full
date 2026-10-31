@@ -50,6 +50,9 @@ pub struct FluffConfig {
     pub(crate) indentation: FluffConfigIndentation,
     pub raw: HashMap<String, Value>,
     extra_config_path: Option<String>,
+    ignore_local_config: bool,
+    discover_file_config: bool,
+    overrides: HashMap<String, Value>,
     _configs: HashMap<String, HashMap<String, String>>,
     pub(crate) dialect: Dialect,
     sql_file_exts: Vec<String>,
@@ -94,7 +97,20 @@ impl FluffConfig {
             .as_map_mut()
             .unwrap()
             .insert("dialect".into(), Value::String(dialect.as_ref().into()));
+        self.overrides
+            .insert("dialect".into(), Value::String(dialect.as_ref().into()));
         Ok(())
+    }
+
+    /// Apply a CLI core setting, retaining it when resolving child configurations.
+    pub fn set_core_override(&mut self, key: &str, value: Value) {
+        self.raw
+            .get_mut("core")
+            .unwrap()
+            .as_map_mut()
+            .unwrap()
+            .insert(key.into(), value.clone());
+        self.overrides.insert(key.into(), value);
     }
 
     pub fn get(&self, key: &str, section: &str) -> &Value {
@@ -208,6 +224,7 @@ impl FluffConfig {
         normalize_implicit_indents_map(&mut configs, "configuration")
             .expect("invalid implicit_indents configuration");
         normalize_max_line_length_map(&mut configs, "configuration");
+        normalize_semicolon_newline_map(&mut configs, "configuration");
         normalize_max_parse_depth_map(&mut configs, "configuration")
             .expect("invalid max_parse_depth configuration");
         normalize_max_parse_nodes_map(&mut configs, "configuration")
@@ -268,6 +285,9 @@ impl FluffConfig {
             dialect: dialect
                 .expect("Dialect is disabled. Please enable the corresponding feature."),
             extra_config_path,
+            ignore_local_config: false,
+            discover_file_config: false,
+            overrides: HashMap::new(),
             _configs: HashMap::new(),
             indentation: indentation.unwrap_or_default(),
             sql_file_exts,
@@ -275,6 +295,16 @@ impl FluffConfig {
         };
         this.reflow = ReflowConfig::from_fluff_config(&this);
         this
+    }
+
+    /// Retain the discovery policy for consumers that discover files later.
+    pub fn with_ignore_local_config(mut self, ignore_local_config: bool) -> Self {
+        self.ignore_local_config = ignore_local_config;
+        self
+    }
+
+    pub fn ignore_local_config(&self) -> bool {
+        self.ignore_local_config
     }
 
     pub fn with_sql_file_exts(mut self, exts: Vec<String>) -> Self {
@@ -289,26 +319,64 @@ impl FluffConfig {
         ignore_local_config: bool,
         overrides: Option<HashMap<String, String>>,
     ) -> Result<FluffConfig, SQLFluffUserError> {
-        let loader = ConfigLoader {};
-        let mut config = loader.try_load_config_up_to_path(
-            ".",
+        Self::from_path(
+            Path::new("."),
+            extra_config_path,
+            ignore_local_config,
+            overrides,
+        )
+    }
+
+    /// Resolve global, ancestor and local settings, then explicit config and CLI overrides.
+    pub fn from_path(
+        path: &Path,
+        extra_config_path: Option<String>,
+        ignore_local_config: bool,
+        overrides: Option<HashMap<String, String>>,
+    ) -> Result<Self, SQLFluffUserError> {
+        let raw = ConfigLoader.try_load_config_up_to_path(
+            path,
             extra_config_path.clone(),
             ignore_local_config,
         )?;
-
+        let mut config =
+            Self::new(raw, extra_config_path, None).with_ignore_local_config(ignore_local_config);
+        config.discover_file_config = true;
         if let Some(overrides) = overrides
             && let Some(dialect) = overrides.get("dialect")
         {
-            let core = config
-                .entry("core".into())
-                .or_insert_with(|| Value::Map(HashMap::new()));
-
-            core.as_map_mut()
-                .unwrap()
-                .insert("dialect".into(), Value::String(dialect.clone().into()));
+            let dialect = DialectKind::from_str(dialect)
+                .map_err(|err| SQLFluffUserError::new(err.to_string()))?;
+            config
+                .override_dialect(dialect)
+                .map_err(SQLFluffUserError::new)?;
         }
+        Ok(config)
+    }
 
-        Ok(FluffConfig::new(config, extra_config_path, None))
+    pub(crate) fn discovers_file_config(&self) -> bool {
+        self.discover_file_config
+    }
+
+    /// In-memory configs remain self-contained; filesystem configs resolve each file anew.
+    pub fn make_child_from_path(&self, path: &Path) -> Result<Self, SQLFluffUserError> {
+        if !self.discover_file_config {
+            return Ok(self.clone());
+        }
+        let raw = ConfigLoader.try_load_config_up_to_path(
+            path,
+            self.extra_config_path.clone(),
+            self.ignore_local_config,
+        )?;
+        let overrides = HashMap::from_iter([("core".into(), Value::Map(self.overrides.clone()))]);
+        let mut child = Self::new(
+            nested_combine(vec![raw, overrides]),
+            self.extra_config_path.clone(),
+            None,
+        )
+        .with_ignore_local_config(self.ignore_local_config);
+        child.overrides = self.overrides.clone();
+        Ok(child)
     }
 
     /// Construct a config from a subset of common options.
@@ -395,6 +463,7 @@ impl FluffConfig {
         let mut elems = vec![(parts, value)];
         normalize_implicit_indents_elems(&mut elems, "inline configuration")?;
         normalize_max_line_length_elems(&mut elems, "inline configuration", false);
+        normalize_semicolon_newline_elems(&mut elems, "inline configuration");
         normalize_max_parse_depth_elems(&mut elems, "inline configuration")?;
         normalize_max_parse_nodes_elems(&mut elems, "inline configuration")?;
         for key in ["render_variant_limit", "runaway_limit"] {
@@ -463,12 +532,50 @@ impl ConfigLoader {
             .unwrap_or_else(|| path.to_path_buf())
     }
 
+    fn user_config_dir(
+        platform: &str,
+        home: Option<&Path>,
+        xdg_config_home: Option<&Path>,
+        local_app_data: Option<&Path>,
+    ) -> Option<PathBuf> {
+        // SQLFluff prefers this portable location on every platform.
+        if let Some(path) = home.map(|home| home.join(".config/sqruff"))
+            && path.is_dir()
+        {
+            return Some(path);
+        }
+
+        let xdg_path = || {
+            xdg_config_home
+                .filter(|path| !path.as_os_str().is_empty())
+                .map(Path::to_path_buf)
+                .or_else(|| home.map(|home| home.join(".config")))
+                .map(|path| path.join("sqruff"))
+        };
+        match platform {
+            "windows" => local_app_data
+                .filter(|path| !path.as_os_str().is_empty())
+                .map(Path::to_path_buf)
+                .or_else(|| home.map(|home| home.join("AppData/Local")))
+                .map(|path| path.join("sqruff").join("sqruff")),
+            "macos" => xdg_path()
+                .filter(|path| path.is_dir())
+                .or_else(|| home.map(|home| home.join("Library/Application Support/sqruff"))),
+            _ => xdg_path(),
+        }
+    }
+
     fn iter_config_locations_up_to_path(
         path: &Path,
         working_path: Option<&Path>,
         home_path: Option<&Path>,
-        _ignore_local_config: bool,
+        user_config_path: Option<&Path>,
+        ignore_local_config: bool,
     ) -> impl Iterator<Item = PathBuf> {
+        if ignore_local_config {
+            return Vec::new().into_iter();
+        }
+
         let mut given_path = std::path::absolute(path).unwrap();
         let working_path = working_path
             .map(|path| std::path::absolute(path).unwrap())
@@ -480,20 +587,33 @@ impl ConfigLoader {
 
         let resolve = |path: &Path| path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
         let mut paths = Vec::new();
+        if let Some(path) = user_config_path.filter(|path| path.is_dir()) {
+            paths.push(resolve(path));
+        }
 
         let home_path = home_path
             .map(|path| std::path::absolute(path).unwrap())
             .or_else(Self::user_home_dir)
             .map(|path| std::path::absolute(path).unwrap());
-        if let Some(home_path) = home_path
-            && let Ok(relative_path) = working_path.strip_prefix(&home_path)
-        {
-            let mut path_to_visit = home_path;
-            paths.push(resolve(&path_to_visit));
-            for component in relative_path.components() {
-                path_to_visit.push(component.as_os_str());
-                if path_to_visit != working_path {
-                    paths.push(resolve(&path_to_visit));
+        if let Some(home_path) = home_path {
+            let home = resolve(&home_path);
+            if paths.last() != Some(&home) {
+                paths.push(home);
+            }
+            // SQLFluff also loads ancestors between home (or its common ancestor
+            // with the target) and the target, including projects outside home.
+            if let Some(common) = common_path::common_path(&given_path, &home_path)
+                && common != given_path
+            {
+                let mut ancestors: Vec<_> = given_path
+                    .ancestors()
+                    .skip(1)
+                    .take_while(|path| **path != common)
+                    .map(resolve)
+                    .collect();
+                ancestors.reverse();
+                for path in ancestors {
+                    paths.push(path);
                 }
             }
         }
@@ -501,9 +621,7 @@ impl ConfigLoader {
         if let Some(mut path_to_visit) = common_path::common_path(&given_path, &working_path) {
             loop {
                 let path = resolve(&path_to_visit);
-                if paths.last() != Some(&path) {
-                    paths.push(path);
-                }
+                paths.push(path);
                 if path_to_visit == given_path {
                     break;
                 }
@@ -526,6 +644,12 @@ impl ConfigLoader {
             paths.push(resolve(&given_path));
         }
 
+        // Keep the final occurrence: the working-directory stack has precedence
+        // over the parent stack, just as in SQLFluff's nested_combine().
+        let mut seen = std::collections::HashSet::new();
+        paths.reverse();
+        paths.retain(|path| seen.insert(path.clone()));
+        paths.reverse();
         paths.into_iter()
     }
 
@@ -550,8 +674,22 @@ impl ConfigLoader {
         let mut config_stack = if ignore_local_config {
             Vec::new()
         } else {
-            let configs =
-                Self::iter_config_locations_up_to_path(path, None, None, ignore_local_config);
+            let home = Self::user_home_dir();
+            let user_config = Self::user_config_dir(
+                std::env::consts::OS,
+                home.as_deref(),
+                std::env::var_os("XDG_CONFIG_HOME")
+                    .as_deref()
+                    .map(Path::new),
+                std::env::var_os("LOCALAPPDATA").as_deref().map(Path::new),
+            );
+            let configs = Self::iter_config_locations_up_to_path(
+                path,
+                None,
+                home.as_deref(),
+                user_config.as_deref(),
+                false,
+            );
             configs
                 .map(|path| self.try_load_config_at_path(path))
                 .collect::<Result<Vec<_>, _>>()?
@@ -675,6 +813,7 @@ impl ConfigLoader {
             &config_reference(config_path),
             is_toml_config(config_path),
         );
+        normalize_semicolon_newline_elems(&mut elems, &config_reference(config_path));
         normalize_max_parse_depth_elems(&mut elems, &config_reference(config_path))?;
         normalize_max_parse_nodes_elems(&mut elems, &config_reference(config_path))?;
         for key in ["render_variant_limit", "runaway_limit"] {
@@ -939,6 +1078,78 @@ fn normalize_max_line_length_map(configs: &mut HashMap<String, Value>, logging_r
     warn_max_line_length_migration(logging_reference, new_exists, false);
     if !new_exists {
         core.insert("max_line_length".into(), old_value);
+    }
+}
+
+fn warn_semicolon_newline_migration(logging_reference: &str, rule: &str, duplicate: bool) {
+    if duplicate {
+        log::warn!(
+            "Config file {logging_reference} sets deprecated `rules:{rule}:semicolon_newline` \
+             and `rules:convention.terminator:multiline_newline`; the new value takes precedence."
+        );
+    } else {
+        log::warn!(
+            "Config file {logging_reference} uses deprecated `rules:{rule}:semicolon_newline`; \
+             migrate it to `rules:convention.terminator:multiline_newline`."
+        );
+    }
+}
+
+fn normalize_semicolon_newline_elems(
+    elems: &mut Vec<(Vec<String>, Value)>,
+    logging_reference: &str,
+) {
+    for rule in ["L052", "l052", "convention.terminator"] {
+        let is_old = |path: &[String]| path == ["rules", rule, "semicolon_newline"];
+        if elems.iter().any(|(path, _)| is_old(path)) {
+            let new_exists = elems
+                .iter()
+                .any(|(path, _)| path == &["rules", "convention.terminator", "multiline_newline"]);
+            warn_semicolon_newline_migration(logging_reference, rule, new_exists);
+            if new_exists {
+                elems.retain(|(path, _)| !is_old(path));
+            } else {
+                for (path, _) in elems.iter_mut().filter(|(path, _)| is_old(path)) {
+                    *path = vec![
+                        "rules".into(),
+                        "convention.terminator".into(),
+                        "multiline_newline".into(),
+                    ];
+                }
+            }
+        }
+    }
+}
+
+fn normalize_semicolon_newline_map(configs: &mut HashMap<String, Value>, logging_reference: &str) {
+    let Some(rules) = configs.get_mut("rules").and_then(Value::as_map_mut) else {
+        return;
+    };
+    for rule in ["L052", "l052", "convention.terminator"] {
+        let Some(old_value) = rules
+            .get_mut(rule)
+            .and_then(Value::as_map_mut)
+            .and_then(|options| options.remove("semicolon_newline"))
+        else {
+            continue;
+        };
+        if rules
+            .get(rule)
+            .and_then(Value::as_map)
+            .is_some_and(HashMap::is_empty)
+        {
+            rules.remove(rule);
+        }
+        let options = rules
+            .entry("convention.terminator".into())
+            .or_insert_with(|| Value::Map(HashMap::new()))
+            .as_map_mut()
+            .expect("rule config must be a map");
+        let new_exists = options.contains_key("multiline_newline");
+        warn_semicolon_newline_migration(logging_reference, rule, new_exists);
+        options
+            .entry("multiline_newline".into())
+            .or_insert(old_value);
     }
 }
 
@@ -1214,8 +1425,9 @@ fn collect_toml_config_elems(
                 collect_toml_config_elems(table, section_path, config_path, buff);
             }
             value => {
-                let mut value = toml_value_to_config_value(value);
                 let key = toml_config_key_path(&section_path, name);
+                let mut value =
+                    toml_value_to_config_value(value, is_typed_templater_context_key_path(&key));
                 if !is_jinja_context_key_path(&key) {
                     if matches!(
                         name.as_str(),
@@ -1256,7 +1468,41 @@ fn toml_config_key_path(section_path: &[String], key: &str) -> Vec<String> {
     }
 }
 
-fn toml_value_to_config_value(value: &toml::Value) -> Value {
+fn is_typed_templater_context_key_path(key_path: &[String]) -> bool {
+    matches!(key_path, [section, templater, context, ..]
+        if section == "templater" && context == "context"
+            && matches!(templater.as_str(), "jinja" | "python" | "dbt"))
+}
+
+/// Match Python's string representation of TOML dates and times, including
+/// its space separator, UTC offset, and microsecond precision.
+fn toml_datetime_to_string(value: &toml::value::Datetime) -> String {
+    let mut result = value.date.map(|date| date.to_string()).unwrap_or_default();
+    if let Some(time) = value.time {
+        if value.date.is_some() {
+            result.push(' ');
+        }
+        result.push_str(&format!(
+            "{:02}:{:02}:{:02}",
+            time.hour,
+            time.minute,
+            time.second.unwrap_or(0)
+        ));
+        let microseconds = time.nanosecond.unwrap_or(0) / 1_000;
+        if microseconds > 0 {
+            result.push_str(&format!(".{microseconds:06}"));
+        }
+    }
+    if let Some(offset) = value.offset {
+        result.push_str(&match offset {
+            toml::value::Offset::Z => "+00:00".to_owned(),
+            offset => offset.to_string(),
+        });
+    }
+    result
+}
+
+fn toml_value_to_config_value(value: &toml::Value, preserve_array_types: bool) -> Value {
     match value {
         toml::Value::String(value) => Value::String(value.clone().into()),
         toml::Value::Integer(value) => {
@@ -1264,8 +1510,14 @@ fn toml_value_to_config_value(value: &toml::Value) -> Value {
         }
         toml::Value::Float(value) => Value::Float(*value),
         toml::Value::Boolean(value) => Value::Bool(*value),
-        toml::Value::Datetime(value) => Value::String(value.to_string().into()),
-        // Config arrays contain strings, matching values loaded from INI files.
+        toml::Value::Datetime(value) => Value::String(toml_datetime_to_string(value).into()),
+        toml::Value::Array(values) if preserve_array_types => Value::Array(
+            values
+                .iter()
+                .map(|value| toml_value_to_config_value(value, true))
+                .collect(),
+        ),
+        // Ordinary config arrays retain INI-compatible string coercion.
         toml::Value::Array(values) => Value::Array(
             values
                 .iter()
@@ -1274,6 +1526,7 @@ fn toml_value_to_config_value(value: &toml::Value) -> Value {
                         toml::Value::String(value) => value.clone(),
                         toml::Value::Boolean(true) => "True".to_owned(),
                         toml::Value::Boolean(false) => "False".to_owned(),
+                        toml::Value::Datetime(value) => toml_datetime_to_string(value),
                         value => value.to_string(),
                     };
                     Value::String(value.into())
@@ -1283,7 +1536,12 @@ fn toml_value_to_config_value(value: &toml::Value) -> Value {
         toml::Value::Table(values) => Value::Map(
             values
                 .iter()
-                .map(|(key, value)| (key.clone(), toml_value_to_config_value(value)))
+                .map(|(key, value)| {
+                    (
+                        key.clone(),
+                        toml_value_to_config_value(value, preserve_array_types),
+                    )
+                })
                 .collect(),
         ),
     }
@@ -1466,6 +1724,7 @@ mod tests {
             &nested.join("query.sql"),
             Some(&root),
             Some(&root),
+            None,
             false,
         )
         .collect::<Vec<_>>();
@@ -1478,6 +1737,209 @@ mod tests {
                 nested.canonicalize().unwrap(),
             ]
         );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn test_user_config_directory_platform_defaults() {
+        let root = temp_config_dir("appdir-defaults");
+        let home = root.join("home");
+        let xdg = root.join("xdg");
+        let local = root.join("local");
+        for (platform, xdg_path, local_path, expected) in [
+            ("linux", None, None, home.join(".config/sqruff")),
+            ("linux", Some(xdg.as_path()), None, xdg.join("sqruff")),
+            (
+                "macos",
+                None,
+                None,
+                home.join("Library/Application Support/sqruff"),
+            ),
+            (
+                "windows",
+                None,
+                None,
+                home.join("AppData/Local/sqruff/sqruff"),
+            ),
+            (
+                "windows",
+                Some(xdg.as_path()),
+                Some(local.as_path()),
+                local.join("sqruff/sqruff"),
+            ),
+            (
+                "linux",
+                Some(Path::new("")),
+                None,
+                home.join(".config/sqruff"),
+            ),
+        ] {
+            assert_eq!(
+                ConfigLoader::user_config_dir(platform, Some(&home), xdg_path, local_path),
+                Some(expected.clone()),
+                "{platform}"
+            );
+            assert!(
+                !expected.exists(),
+                "discovery should not create directories"
+            );
+        }
+        assert_eq!(
+            ConfigLoader::user_config_dir("linux", None, None, None),
+            None
+        );
+        assert_eq!(
+            ConfigLoader::user_config_dir("linux", None, Some(&xdg), None),
+            Some(xdg.join("sqruff"))
+        );
+        assert_eq!(
+            ConfigLoader::user_config_dir("windows", None, None, Some(&local)),
+            Some(local.join("sqruff/sqruff"))
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn test_portable_user_config_directory_takes_precedence() {
+        let root = temp_config_dir("appdir-portable");
+        let home = root.join("home");
+        let portable = home.join(".config/sqruff");
+        let xdg = root.join("xdg");
+        let local = root.join("local");
+        fs::create_dir_all(&portable).unwrap();
+        fs::create_dir_all(xdg.join("sqruff")).unwrap();
+
+        for platform in ["linux", "macos", "windows"] {
+            assert_eq!(
+                ConfigLoader::user_config_dir(platform, Some(&home), Some(&xdg), Some(&local)),
+                Some(portable.clone())
+            );
+        }
+
+        fs::remove_dir_all(&portable).unwrap();
+        assert_eq!(
+            ConfigLoader::user_config_dir("macos", Some(&home), Some(&xdg), None),
+            Some(xdg.join("sqruff"))
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn test_global_and_project_config_precedence() {
+        let root = temp_config_dir("global-precedence");
+        let app = root.join("app");
+        let home = root.join("home");
+        let working = root.join("project");
+        let nested = working.join("nested");
+        for path in [&app, &home, &nested] {
+            fs::create_dir_all(path).unwrap();
+        }
+        fs::write(
+            app.join(".sqruff"),
+            "[sqruff]\ndialect = postgres\n[sqruff:bar]\nfoo = app\n\
+             [sqruff:templater:dbt]\nproject_dir = project\n",
+        )
+        .unwrap();
+        fs::write(home.join(".sqruff.ini"), "[sqruff:bar]\nfoo = home\n").unwrap();
+        fs::write(
+            working.join("sqruff.toml"),
+            "[tool.sqlfluff.bar]\nfoo = 'project'\n",
+        )
+        .unwrap();
+        fs::write(nested.join(".sqlfluff"), "[sqlfluff:bar]\nfoo = nested\n").unwrap();
+
+        let locations = ConfigLoader::iter_config_locations_up_to_path(
+            &nested.join("query.sql"),
+            Some(&working),
+            Some(&home),
+            Some(&app),
+            false,
+        )
+        .collect::<Vec<_>>();
+        assert_eq!(
+            locations,
+            [&app, &home, &working, &nested]
+                .map(|path| path.canonicalize().unwrap())
+                .to_vec()
+        );
+        let mut config = HashMap::new();
+        for (location, expected) in locations
+            .into_iter()
+            .zip(["app", "home", "project", "nested"])
+        {
+            config = nested_combine(vec![
+                config,
+                ConfigLoader.try_load_config_at_path(location).unwrap(),
+            ]);
+            assert_eq!(config["bar"]["foo"].as_string(), Some(expected));
+            assert_eq!(config["core"]["dialect"].as_string(), Some("postgres"));
+        }
+        assert_eq!(
+            config["templater"]["dbt"]["project_dir"].as_string(),
+            app.canonicalize().unwrap().join("project").to_str()
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn test_ignoring_local_config_skips_global_and_project_locations() {
+        let root = temp_config_dir("ignore-global");
+        let paths = ConfigLoader::iter_config_locations_up_to_path(
+            &root,
+            Some(&root),
+            Some(&root),
+            Some(&root),
+            true,
+        )
+        .collect::<Vec<_>>();
+        assert!(paths.is_empty());
+        fs::write(root.join(".sqruff"), "[sqruff]\ndialect = postgres\n").unwrap();
+        let extra = root.join("extra.cfg");
+        fs::write(&extra, "[sqruff]\nmax_line_length = 91\n").unwrap();
+        let config = ConfigLoader
+            .try_load_config_up_to_path(&root, Some(extra.to_string_lossy().into_owned()), true)
+            .unwrap();
+        assert_eq!(config["core"]["max_line_length"].as_int(), Some(91));
+        assert!(!config["core"].as_map().unwrap().contains_key("dialect"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn test_home_config_is_loaded_outside_home_directory() {
+        let root = temp_config_dir("global-home");
+        let home = root.join("home");
+        let working = root.join("project");
+        let nested = working.join("nested");
+        fs::create_dir_all(&home).unwrap();
+        fs::create_dir_all(&nested).unwrap();
+        fs::write(home.join(".sqruff"), "[sqruff]\ndialect = postgres\n").unwrap();
+        fs::write(working.join(".sqruff"), "[sqruff]\nmax_line_length = 91\n").unwrap();
+
+        let locations = ConfigLoader::iter_config_locations_up_to_path(
+            &nested.join("query.sql"),
+            Some(&working),
+            Some(&home),
+            None,
+            false,
+        )
+        .collect::<Vec<_>>();
+        assert_eq!(
+            locations,
+            vec![
+                home.canonicalize().unwrap(),
+                working.canonicalize().unwrap(),
+                nested.canonicalize().unwrap(),
+            ]
+        );
+
+        let configs = locations
+            .into_iter()
+            .map(|path| ConfigLoader.try_load_config_at_path(path).unwrap())
+            .collect();
+        let config = nested_combine(configs);
+        assert_eq!(config["core"]["dialect"].as_string(), Some("postgres"));
+        assert_eq!(config["core"]["max_line_length"].as_int(), Some(91));
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -1502,6 +1964,7 @@ mod tests {
             &working.join("query.sql"),
             Some(&working),
             Some(&home),
+            None,
             false,
         )
         .collect::<Vec<_>>();
@@ -2349,6 +2812,200 @@ capitalisation_policy = "upper"
                 .get("max_line_length")
                 .is_none()
         );
+    }
+
+    fn assert_semicolon_newline_migrated(config: &FluffConfig, expected: bool) {
+        let rules = config.raw["rules"].as_map().unwrap();
+        assert_eq!(
+            rules["convention.terminator"]["multiline_newline"].as_bool(),
+            Some(expected)
+        );
+        assert!(
+            !rules["convention.terminator"]
+                .as_map()
+                .unwrap()
+                .contains_key("semicolon_newline")
+        );
+        assert!(!rules.contains_key("L052"));
+        assert!(!rules.contains_key("l052"));
+    }
+
+    #[test]
+    fn test_semicolon_newline_migrates_from_ini_and_toml() {
+        for rule in ["L052", "convention.terminator"] {
+            for namespace in ["sqruff", "sqlfluff"] {
+                for value in [true, false] {
+                    let ini = format!("[{namespace}:rules:{rule}]\nsemicolon_newline = {value}\n");
+                    let toml = format!(
+                        "[tool.{namespace}.rules.\"{rule}\"]\nsemicolon_newline = {value}\n"
+                    );
+                    for (source, path) in [(&ini, None), (&toml, Some(Path::new("pyproject.toml")))]
+                    {
+                        let config = FluffConfig::from_source(source, path);
+                        assert_semicolon_newline_migrated(&config, value);
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_semicolon_newline_migrates_raw_config_and_prefers_modern_value() {
+        for rule in ["L052", "convention.terminator"] {
+            for value in [true, false] {
+                for modern in [None, Some(!value)] {
+                    let mut rules = HashMap::from([(
+                        rule.to_string(),
+                        Value::Map(HashMap::from([(
+                            "semicolon_newline".into(),
+                            Value::Bool(value),
+                        )])),
+                    )]);
+                    if let Some(modern) = modern {
+                        rules
+                            .entry("convention.terminator".into())
+                            .or_insert_with(|| Value::Map(HashMap::new()))
+                            .as_map_mut()
+                            .unwrap()
+                            .insert("multiline_newline".into(), Value::Bool(modern));
+                    }
+                    let config = FluffConfig::new(
+                        HashMap::from([("rules".into(), Value::Map(rules))]),
+                        None,
+                        None,
+                    );
+                    assert_semicolon_newline_migrated(&config, modern.unwrap_or(value));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_semicolon_newline_migrates_inline_config() {
+        for rule in ["L052", "convention.terminator"] {
+            let mut config = FluffConfig::default();
+            for value in [true, false] {
+                config
+                    .process_inline_config(&format!(
+                        "-- sqlfluff:rules:{rule}:semicolon_newline:{value}"
+                    ))
+                    .unwrap();
+                assert_semicolon_newline_migrated(&config, value);
+            }
+        }
+    }
+
+    #[test]
+    fn test_modern_semicolon_newline_option_wins_in_config_files() {
+        for rule in ["L052", "convention.terminator"] {
+            for (source, path) in [
+                (
+                    format!(
+                        "[sqruff:rules:convention.terminator]\nmultiline_newline = false\n[sqruff:rules:{rule}]\nsemicolon_newline = true\n"
+                    ),
+                    None,
+                ),
+                (
+                    format!(
+                        "[tool.sqruff.rules.\"convention.terminator\"]\nmultiline_newline = false\n{}semicolon_newline = true\n",
+                        if rule == "L052" {
+                            "[tool.sqruff.rules.L052]\n"
+                        } else {
+                            ""
+                        }
+                    ),
+                    Some(Path::new("pyproject.toml")),
+                ),
+            ] {
+                assert_semicolon_newline_migrated(&FluffConfig::from_source(&source, path), false);
+            }
+        }
+    }
+
+    #[test]
+    fn test_toml_nested_templater_context_arrays() {
+        for templater in ["jinja", "python", "dbt"] {
+            let source = format!(
+                r#"[tool.sqlfluff.core]
+dialect = "ansi"
+rules = [1, 2]
+[tool.sqlfluff.templater.{templater}]
+ordinary_list = [1, 2]
+[tool.sqlfluff.templater.{templater}.context]
+bundle = {{metrics = [{{name = "count", enabled = true, weight = 2}}]}}
+values = [1, "123", true, [2, 3], {{name = "nested"}}]
+"#
+            );
+            let loaded = ConfigLoader::from_source(&source, Some(Path::new("pyproject.toml")));
+            let context = &loaded["templater"][templater]["context"];
+            let expected_bundle: Value = serde_json::from_value(serde_json::json!({
+                "metrics": [{"name": "count", "enabled": true, "weight": 2}]
+            }))
+            .unwrap();
+            assert_eq!(context["bundle"], expected_bundle, "{templater}");
+            let expected_values: Value = serde_json::from_value(serde_json::json!(
+                [1, "123", true, [2, 3], {"name": "nested"}]
+            ))
+            .unwrap();
+            assert_eq!(context["values"], expected_values, "{templater}");
+            let strings = Value::Array(vec![Value::String("1".into()), Value::String("2".into())]);
+            assert_eq!(loaded["core"]["rules"], strings);
+            assert_eq!(loaded["templater"][templater]["ordinary_list"], strings);
+
+            let patch: Value = serde_json::from_value(serde_json::json!({
+                "templater": {templater: {"context": {"bundle": {"extra": "kept"}}}}
+            }))
+            .unwrap();
+            let merged = nested_combine(vec![loaded, patch.as_map().unwrap().clone()]);
+            let bundle = &merged["templater"][templater]["context"]["bundle"];
+            assert_eq!(bundle["metrics"], expected_bundle["metrics"]);
+            assert_eq!(bundle["extra"].as_string(), Some("kept"));
+        }
+    }
+
+    #[test]
+    fn test_toml_other_templater_context_lists_remain_strings() {
+        for templater in ["sqlmesh", "custom"] {
+            let source = format!("[tool.sqruff.templater.{templater}.context]\nvalues = [1, 2]\n");
+            let loaded = ConfigLoader::from_source(&source, Some(Path::new("sqruff.toml")));
+            assert_eq!(
+                loaded["templater"][templater]["context"]["values"],
+                Value::Array(vec![Value::String("1".into()), Value::String("2".into())])
+            );
+        }
+    }
+
+    #[test]
+    fn test_toml_templater_context_temporal_arrays() {
+        for templater in ["jinja", "python", "dbt"] {
+            for (literal, expected) in [
+                ("2026-09-12", "2026-09-12"),
+                ("12:34:56", "12:34:56"),
+                ("2026-09-12T12:34:56", "2026-09-12 12:34:56"),
+                ("2026-09-12T12:34:56Z", "2026-09-12 12:34:56+00:00"),
+                ("12:34:56.12", "12:34:56.120000"),
+                (
+                    "2026-09-12T12:34:56.123456789-05:30",
+                    "2026-09-12 12:34:56.123456-05:30",
+                ),
+            ] {
+                let source = format!(
+                    "[tool.sqlfluff.templater.{templater}.context]\nscalar = {literal}\nvalues = [{literal}, [{literal}], {{value = {literal}}}]\nbundle = {{values = [{literal}]}}\n"
+                );
+                let loaded = ConfigLoader::from_source(&source, Some(Path::new("pyproject.toml")));
+                let context = &loaded["templater"][templater]["context"];
+                assert_eq!(context["scalar"].as_string(), Some(expected));
+                let expected_values: Value = serde_json::from_value(serde_json::json!(
+                    [expected, [expected], {"value": expected}]
+                ))
+                .unwrap();
+                assert_eq!(context["values"], expected_values, "{templater}: {literal}");
+                assert_eq!(
+                    context["bundle"]["values"],
+                    Value::Array(vec![Value::String(expected.into())])
+                );
+            }
+        }
     }
 
     #[test]

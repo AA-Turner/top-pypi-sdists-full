@@ -292,24 +292,50 @@ class PrivateJobSDK(WorkloadSDK):
             priority=config.priority,
         )
 
+    def _cloud_name_or_id(self, cloud_id: str) -> str:
+        cloud = self.client.get_cloud(cloud_id=cloud_id)
+        return cloud.name if cloud is not None else cloud_id
+
     def create_job_queue_config(
-        self, provided_job_queue_config: JobQueueConfig
+        self,
+        provided_job_queue_config: JobQueueConfig,
+        *,
+        cloud_id: str,
+        compute_config_id: str,
     ) -> CreateJobQueueConfig:
+        """Build the job queue config, resolving its compute config name in the job's cloud.
+
+        The backend accepts the queue only if that compute config is the job's own
+        (`compute_config_id`), so any other one fails here instead.
+        """
         job_queue_spec: Optional[JobQueueSpec] = None
 
         provided_job_queue_spec = provided_job_queue_config.job_queue_spec
 
         if provided_job_queue_spec:
-            compute_config_id = (
-                self._resolve_compute_config_id(provided_job_queue_spec.compute_config)
-                if provided_job_queue_spec.compute_config
-                else None
-            )
+            queue_compute_config_id = None
+            queue_compute_config = provided_job_queue_spec.compute_config
+            if queue_compute_config:
+                queue_compute_config_id = self.client.get_compute_config_id(
+                    compute_config_name=queue_compute_config, cloud_id=cloud_id
+                )
+                if queue_compute_config_id is None:
+                    raise ValueError(
+                        f"The job queue's compute config '{queue_compute_config}' was not found "
+                        f"in the job's cloud ('{self._cloud_name_or_id(cloud_id)}')."
+                    )
+                if queue_compute_config_id != compute_config_id:
+                    raise ValueError(
+                        f"The job queue's compute config '{queue_compute_config}' does not match "
+                        "the job's compute config in the job's cloud "
+                        f"('{self._cloud_name_or_id(cloud_id)}'). Use the job's compute config "
+                        "and version, or leave it unset to use the job's."
+                    )
 
             job_queue_spec = JobQueueSpec(
                 job_queue_name=provided_job_queue_spec.name,
                 execution_mode=provided_job_queue_spec.execution_mode,
-                compute_config_id=compute_config_id,
+                compute_config_id=queue_compute_config_id,
                 max_concurrency=provided_job_queue_spec.max_concurrency,
                 idle_timeout_sec=provided_job_queue_spec.idle_timeout_s,
                 auto_termination_threshold_job_count=provided_job_queue_spec.auto_termination_threshold_job_count,
@@ -339,6 +365,16 @@ class PrivateJobSDK(WorkloadSDK):
             compute_config=config.compute_config, cloud=config.cloud
         )
 
+        # Resolved first so a bad queue compute config fails before any upload or image build.
+        job_queue_config: Optional[CreateJobQueueConfig] = None
+
+        provided_job_queue_config = config.job_queue_config
+
+        if provided_job_queue_config:
+            job_queue_config = self.create_job_queue_config(
+                provided_job_queue_config, cloud_id=cloud_id, compute_config_id=compute_config_id
+            )
+
         project_id = self.client.get_project_id(parent_cloud_id=cloud_id, name=config.project)
 
         # Resolve connection names to IDs
@@ -351,13 +387,6 @@ class PrivateJobSDK(WorkloadSDK):
             compute_config_id=compute_config_id,
             connection_ids=connection_ids,
         )
-
-        job_queue_config: Optional[CreateJobQueueConfig] = None
-
-        provided_job_queue_config = config.job_queue_config
-
-        if provided_job_queue_config:
-            job_queue_config = self.create_job_queue_config(provided_job_queue_config)
 
         job: InternalProductionJob = self.client.submit_job(
             CreateInternalProductionJob(

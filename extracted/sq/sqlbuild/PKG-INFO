@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: sqlbuild
-Version: 0.186.1
+Version: 0.186.2
 Requires-Dist: duckdb>=2.0.0
 Requires-Dist: filelock>=3.20.3
 Requires-Dist: orjson>=3.11.7
 Requires-Dist: polyglot-sql-chio==0.13.10
 Requires-Dist: pydantic-settings>=2,<3
 Requires-Dist: pyyaml>=6.0.2
-Requires-Dist: sqlbuild-cli==0.186.1
+Requires-Dist: sqlbuild-cli==0.186.2
 Requires-Dist: google-cloud-bigquery>=3.37.0 ; extra == 'bigquery'
 Requires-Dist: clickhouse-connect>=0.15 ; extra == 'clickhouse'
 Requires-Dist: dagster>=1.13.0 ; extra == 'dagster'

@@ -33,14 +33,14 @@ from contextlib import contextmanager
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
-from trilogy.constants import logger
+from trilogy.constants import MagicConstants, logger
 from trilogy.core.assertions import (
     AssertionPlan,
     AssertionTerm,
     plan_assertion,
     substitute,
 )
-from trilogy.core.enums import DatasourceState
+from trilogy.core.enums import DatasourceState, Modifier
 from trilogy.core.models.author import ConceptRef, Grain
 from trilogy.core.models.datasource import Address, Datasource, DatasourceAssertion
 from trilogy.core.models.environment import Environment
@@ -84,6 +84,11 @@ def pinned_datasource(
     pinned = datasource.duplicate()
     pinned.address = address
     pinned.status = DatasourceState.PUBLISHED
+    if pinned.non_partial_for is None:
+        # A `~key` with no `complete where` holds part of the key's domain but
+        # every row of its own; those rows are the population being checked.
+        for column in pinned.columns:
+            column.modifiers = [m for m in column.modifiers if m != Modifier.PARTIAL]
     key = datasource.identifier
     others = [k for k in environment.datasources if k != key]
     with hidden_datasources(environment, others):
@@ -100,10 +105,6 @@ def pinned_datasource(
 
 def _render(expr: Any) -> str:
     return Renderer().to_string(expr)
-
-
-def _literal(value: Any) -> Any:
-    return float(value) if isinstance(value, Decimal) else value
 
 
 #: One assertion's share of a merged read: its group keys and its terms.
@@ -147,9 +148,7 @@ def _fetch_sides(
     for row in rows:
         for offset, (index, term, _) in enumerate(columns):
             group = tuple(row[position[k.address]] for k in requests[index][0])
-            sides[index].setdefault(group, {})[term.placeholder] = _literal(
-                row[width + offset]
-            )
+            sides[index].setdefault(group, {})[term.placeholder] = row[width + offset]
     return sides
 
 
@@ -271,7 +270,7 @@ def collect_prior_values(executor: Executor, datasource: Datasource) -> PriorVal
 def _describe_group(keys: list[ConceptRef], group: GroupKey) -> str:
     if not keys:
         return ""
-    pairs = ", ".join(f"{_render(k)} = {v!r}" for k, v in zip(keys, group))
+    pairs = ", ".join(f"{_render(k)} = {_shown(v)}" for k, v in zip(keys, group))
     return f" for {pairs}"
 
 
@@ -280,8 +279,23 @@ def _label(term: AssertionTerm) -> str:
     return f"prior({rendered})" if term.prior else rendered
 
 
+def _shown(value: Any) -> str:
+    return format(value, "f") if isinstance(value, Decimal) else repr(value)
+
+
 def _describe_values(terms: list[AssertionTerm], values: dict[str, Any]) -> str:
-    return ", ".join(f"{_label(t)} = {values[t.placeholder]!r}" for t in terms)
+    return ", ".join(f"{_label(t)} = {_shown(values[t.placeholder])}" for t in terms)
+
+
+def _substituted(plan: AssertionPlan, group: GroupKey, values: dict[str, Any]) -> Any:
+    """The template as a constant: its terms and its ``by`` keys are this
+    group's values. A key left in place would be read from whatever the
+    constant query found in scope, not from the group."""
+    keys = {
+        k.address: MagicConstants.NULL if v is None else v
+        for k, v in zip(plan.group_keys, group)
+    }
+    return substitute(plan.template, {**values, **keys})
 
 
 def _holds(executor: Executor, conditions: list[Any]) -> list[bool]:
@@ -295,7 +309,11 @@ def _holds(executor: Executor, conditions: list[Any]) -> list[bool]:
         )
         result = executor.execute_ephemeral(f"select {items};")
         row = result.fetchone() if result is not None else None
-        held.extend(row is not None and row[i] is True for i in range(len(chunk)))
+        # SQLite and MySQL return a boolean as 1/0.
+        held.extend(
+            row is not None and row[i] is not None and bool(row[i])
+            for i in range(len(chunk))
+        )
     return held
 
 
@@ -312,7 +330,7 @@ def _check_one(
         return []
     previous_side = prior_values or {}
     failures: list[str] = []
-    to_check: list[tuple[str, dict[str, Any]]] = []
+    to_check: list[tuple[str, GroupKey, dict[str, Any]]] = []
     spelled = _render(assertion.condition)
     groups = list(new_values) + [g for g in previous_side if g not in new_values]
     for group in groups:
@@ -349,11 +367,11 @@ def _check_one(
                 where,
             )
             continue
-        to_check.append((where, values))
+        to_check.append((where, group, values))
     verdicts = _holds(
-        executor, [substitute(plan.template, values) for _, values in to_check]
+        executor, [_substituted(plan, group, values) for _, group, values in to_check]
     )
-    for (where, values), held in zip(to_check, verdicts):
+    for (where, _, values), held in zip(to_check, verdicts):
         if not held:
             failures.append(
                 f"`{spelled}`{where}: {_describe_values(plan.terms, values)}"

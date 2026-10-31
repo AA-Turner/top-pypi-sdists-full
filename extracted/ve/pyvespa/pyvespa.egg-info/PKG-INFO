@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyvespa
-Version: 1.2.9
+Version: 1.2.10
 Summary: Python API for vespa.ai
 Author: Thiago G. Martins, Thomas Thoresen
 Maintainer-email: Thomas Thoresen <thomas@vespa.ai>
@@ -210,15 +210,14 @@ Project-URL: homepage, https://pypi.org/project/pyvespa
 Project-URL: repository, https://github.com/vespa-engine/pyvespa
 Keywords: vespa,search engine,data science
 Classifier: License :: OSI Approved :: Apache Software License
-Requires-Python: <3.16,>=3.10
+Requires-Python: <3.16,>=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: httpr>=0.6.0
+Requires-Dist: httpr>=0.7.8
 Requires-Dist: docker
 Requires-Dist: jinja2
 Requires-Dist: cryptography>=50.0.0
 Requires-Dist: tenacity>=8.4.1
-Requires-Dist: typing_extensions
 Requires-Dist: python-dateutil
 Requires-Dist: fastcore>=1.7.8
 Requires-Dist: lxml
@@ -229,7 +228,7 @@ Requires-Dist: httpx[http2]
 Provides-Extra: vespacli
 Requires-Dist: vespacli; extra == "vespacli"
 Provides-Extra: build
-Requires-Dist: setuptools==83.0.0; extra == "build"
+Requires-Dist: setuptools==84.1.0; extra == "build"
 Requires-Dist: build==1.5.0; extra == "build"
 Requires-Dist: twine==5.1.1; extra == "build"
 Requires-Dist: toml==0.10.2; extra == "build"
@@ -279,8 +278,8 @@ Requires-Dist: papermill; extra == "notebooks"
 Requires-Dist: ipywidgets; extra == "notebooks"
 Requires-Dist: matplotlib; extra == "notebooks"
 Provides-Extra: mteb
-Requires-Dist: mteb<3,>=2.12.30; python_version >= "3.10" and extra == "mteb"
-Requires-Dist: simplejson; python_version >= "3.10" and extra == "mteb"
+Requires-Dist: mteb<3,>=2.12.30; extra == "mteb"
+Requires-Dist: simplejson; extra == "mteb"
 Provides-Extra: dev
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: vespacli; extra == "dev"

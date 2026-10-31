@@ -904,6 +904,7 @@ from agilicus_api.model.totp_enrollment import TOTPEnrollment
 from agilicus_api.model.totp_enrollment_answer import TOTPEnrollmentAnswer
 from agilicus_api.model.totp_enrollment_spec import TOTPEnrollmentSpec
 from agilicus_api.model.totp_enrollment_status import TOTPEnrollmentStatus
+from agilicus_api.model.tags import Tags
 from agilicus_api.model.template_extraction import TemplateExtraction
 from agilicus_api.model.template_path import TemplatePath
 from agilicus_api.model.time_interval_metrics import TimeIntervalMetrics

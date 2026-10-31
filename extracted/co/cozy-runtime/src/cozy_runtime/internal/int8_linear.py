@@ -140,6 +140,12 @@ def native(torch: ModuleType, index: int) -> Op | None:
     return op
 
 
+def prime(torch: ModuleType, index: int) -> None:
+    """Opens the op on this card on its own thread at device init, beside the weight fill: its
+    first ask (`native`) waits for it rather than serve a fallback (`kernel_ready.prime`)."""
+    kernel_ready.prime(f"{NATIVE} cuda:{index}", partial(_library, torch, index))
+
+
 def _library(torch: ModuleType, index: int, wait: bool) -> prebuilt.Prebuilt:
     """`native`'s opener: the library once each format it serves passes its probe here."""
     sm = capability(torch, index)
@@ -203,13 +209,13 @@ def _probe_kitchen(torch: ModuleType, index: int, module: ModuleType) -> verify.
     out_features, width = 520, 1024
     data = torch.randint(-127, 128, (out_features, width), generator=generator, device=device,
                          dtype=torch.int8)  # fmt: skip
-    scale = torch.rand(out_features, generator=generator, device=device).add_(0.5).mul_(1e-3)
+    scale = torch.rand(out_features, generator=generator, device=device, dtype=torch.float32).add_(0.5).mul_(1e-3)
     weight = data.double() * scale.double()[:, None]
     errors: dict[str, tuple[float, float]] = {}
     for name, dtype in (("bf16", torch.bfloat16), ("fp16", torch.float16)):
-        bias = torch.randn(out_features, generator=generator, device=device).to(dtype)
+        bias = torch.randn(out_features, generator=generator, device=device, dtype=torch.float32).to(dtype)
         for m in (3, 300):
-            x = torch.randn(m, width, generator=generator, device=device).to(dtype)
+            x = torch.randn(m, width, generator=generator, device=device, dtype=torch.float32).to(dtype)
             got = module.int8_linear(
                 x, data, scale, bias, dtype, convrot=True, convrot_groupsize=CONVROT_GROUP
             )
@@ -291,7 +297,7 @@ def quantize(torch: ModuleType, x: Tensor) -> PreQuantized | None:
 
 #: The quantize kernel's prologue codes (`cozy_int8::Prologue`).
 NORMS = {None: 0, "layer": 1, "rms": 2}
-ACTIVATIONS = {None: 0, "gelu": 1, "gelu_tanh": 2, "situ": 3}
+ACTIVATIONS = {None: 0, "gelu": 1, "gelu_tanh": 2, "situ": 3, "swiglu": 4}
 #: The gated activations: x holds [hidden | gate] halves, and the operand is half its width.
 GATED = frozenset({"situ"})
 
@@ -306,14 +312,22 @@ def prologue(
     scale: Tensor | None,
     shift: Tensor | None,
     activation: str | None,
+    up: Tensor | None = None,
 ) -> PreQuantized | None:
     """`activation(norm(x) * (1 + scale) + shift)`, rotated and quantized in one pass, when each
     of `consumers` is an un-hooked leaf of the rows' width taking int8.convrot's operand and the
     op serves this card; else None. A gated activation (`GATED`) reads x's [hidden | gate] halves
-    alone: the rows are half x's width."""
+    alone: the rows are half x's width. `swiglu` reads x as the gate rows and `up` as the up rows
+    of the same shape, alone: `silu(x) * up` as an eager SwiGLU rounds it."""
     gated = activation in GATED
     if gated and (norm is not None or scale is not None or shift is not None or x.shape[-1] % 2):
         raise ValueError(f"int8_rows: {activation} takes [hidden | gate] rows, no norm or tables")
+    if (activation == "swiglu") != (up is not None) or (
+        up is not None and (norm is not None or scale is not None or shift is not None)
+    ):
+        raise ValueError("int8_rows: swiglu takes gate and up rows, no norm or tables")
+    if up is not None and (up.shape != x.shape or up.dtype != x.dtype or not up.is_cuda):
+        return None
     width = x.shape[-1] // 2 if gated else x.shape[-1]
     if not x.is_cuda or x.dtype not in _HALF or _OPS.get(x.get_device()) is None:
         return None
@@ -332,7 +346,7 @@ def prologue(
             return None
     try:
         payload, row_scale = _LIBS[x.get_device()].int8_quantize(
-            x, scale, shift, NORMS[norm], eps, ACTIVATIONS[activation]
+            x, scale, shift, NORMS[norm], eps, ACTIVATIONS[activation], up
         )
     except Exception as exc:
         failed(OP, x.get_device(), exc)

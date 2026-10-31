@@ -5,7 +5,8 @@ These commands handle SCIM-specific functionality like enforcing
 user group permissions after SCIM is enabled.
 """
 
-from typing import Dict, List
+import re
+from typing import Dict, List, Optional
 
 import click
 from rich.console import Console
@@ -24,6 +25,19 @@ from anyscale.commands.util import AnyscaleCommand
 
 
 log = BlockLogger()
+
+# The server reports the acknowledgment as a query parameter, which is the right
+# vocabulary for an SDK or raw-API caller but not for someone at a terminal.
+_ACK_PARAM_PATTERN = re.compile(r"acknowledge_user_removal_count=(\d+)")
+
+
+def _rewrite_acknowledgment_hint(message: str) -> str:
+    """Point a server-side acknowledgment hint at the CLI flag that supplies it.
+
+    Any message without the parameter passes through untouched, so a change to
+    the server wording costs the operator the flag name, not the error.
+    """
+    return _ACK_PARAM_PATTERN.sub(r"--acknowledge-user-removal-count \1", message)
 
 
 def _format_permission_diff(result: Dict) -> str:
@@ -128,7 +142,17 @@ def scim_cli() -> None:
     help="Preview permission changes without applying them. "
     "Shows only actual changes from users' perspective.",
 )
-def enforce_group_permissions(dry_run: bool) -> None:
+@click.option(
+    "--acknowledge-user-removal-count",
+    type=click.IntRange(min=1),
+    default=None,
+    help="Exact number of users this run removes. Required only when the run "
+    "would remove more users than the organization's safe limit, or every user. "
+    "The error for a refused run reports the count to pass.",
+)
+def enforce_group_permissions(
+    dry_run: bool, acknowledge_user_removal_count: Optional[int]
+) -> None:
     """
     Migrate an organization from direct user permissions to SCIM group-based permissions.
 
@@ -146,6 +170,11 @@ def enforce_group_permissions(dry_run: bool) -> None:
 
     Use --dry-run to preview the exact changes before applying them.
     """
+    if dry_run and acknowledge_user_removal_count is not None:
+        raise click.UsageError(
+            "--acknowledge-user-removal-count cannot be combined with --dry-run."
+        )
+
     client = AnyscaleClient()
 
     try:
@@ -198,7 +227,10 @@ def enforce_group_permissions(dry_run: bool) -> None:
         )
 
         log.info("Starting SCIM permission migration...")
-        response = client.migrate_scim_permissions(dry_run=False)
+        response = client.migrate_scim_permissions(
+            dry_run=False,
+            acknowledge_user_removal_count=acknowledge_user_removal_count,
+        )
 
         result = response.get("result", response)
         errors = result.get("errors", [])
@@ -213,8 +245,9 @@ def enforce_group_permissions(dry_run: bool) -> None:
     except (click.ClickException, click.Abort):
         raise
     except Exception as e:  # noqa: BLE001
-        log.error(f"Failed to migrate SCIM permissions: {e}")
-        raise click.ClickException(str(e))
+        message = _rewrite_acknowledgment_hint(str(e))
+        log.error(f"Failed to migrate SCIM permissions: {message}")
+        raise click.ClickException(message)
 
 
 def _analyze_permissions(result: Dict) -> List[Dict]:

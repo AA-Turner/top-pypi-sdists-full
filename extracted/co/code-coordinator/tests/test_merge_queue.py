@@ -4498,9 +4498,32 @@ class TestScopedReviewCandidate:
         entry = self._voided_entry()
         assert mq.find_scoped_review_candidate(entry, board) is None
 
-    def test_returns_none_when_verdict_was_request_changes(self) -> None:
+    def test_finds_candidate_when_verdict_was_request_changes(self) -> None:
+        """A `request-changes` verdict is an eligible candidate when the
+        caller opts into it via `verdicts=` — it's then the caller's own
+        gate (`only_bounded_fix_since_review`) that decides whether the
+        delta since it is actually just the bounded fix round the review
+        asked for. The default stays approve-only (see
+        `test_returns_none_when_verdict_was_neither_approve_nor_request_changes`'s
+        sibling default-arg test) so an unscoped caller like
+        `review_reaffirm` can never match a non-approval by accident."""
         work = self._work("w1")
         review = self._review("w1", verdict="request-changes")
+        board = self._board(completed=[work, review])
+        entry = self._voided_entry()
+        assert mq.find_scoped_review_candidate(entry, board) is None
+        assert (
+            mq.find_scoped_review_candidate(
+                entry, board, verdicts=("approve", "request-changes"),
+            )
+            is review
+        )
+
+    def test_returns_none_when_verdict_was_neither_approve_nor_request_changes(
+        self,
+    ) -> None:
+        work = self._work("w1")
+        review = self._review("w1", verdict="needs-info")
         board = self._board(completed=[work, review])
         entry = self._voided_entry()
         assert mq.find_scoped_review_candidate(entry, board) is None
@@ -4934,6 +4957,32 @@ class TestScopedReviewCandidate:
         board = self._board(completed=[work, review, fix_work])
         entry = self._voided_entry()
         assert mq.intervening_work_since_review(entry, board, review) == []
+
+    # ── #3787: end-to-end bounce-fix re-review scoping ──────────────────────
+
+    def test_request_changes_plus_bounded_fix_round_is_a_scoped_candidate(self) -> None:
+        """The full chain a fix-round completion walks — a prior
+        `request-changes` review followed by a single DONE, chain-linked
+        fix-round leg — is both a scoped-review candidate (once the caller
+        opts into `verdicts=("approve", "request-changes")`) AND passes the
+        bounded-fix guardrail, so the re-review scopes to the fix delta
+        instead of the whole PR."""
+        work = self._work("w1")
+        review = self._review("w1", verdict="request-changes", dispatched_at=100.0)
+        fix_round = Assignment(
+            machine_name="m1", repo_name="api", issue_number=1,
+            issue_title="[fix-1] t", assignment_id="fix1", type="work",
+            status="done", branch="worker/w1",
+            review_of_assignment_id="w1", dispatched_at=200.0,
+        )
+        board = self._board(completed=[work, review, fix_round])
+        entry = self._voided_entry()
+
+        found = mq.find_scoped_review_candidate(
+            entry, board, verdicts=("approve", "request-changes"),
+        )
+        assert found is review
+        assert mq.only_bounded_fix_since_review(entry, board, found) is True
 
 
 class TestPassesMergeGates:
@@ -11632,6 +11681,44 @@ class TestProcessCiFlakyAutoRerun:
         assert "ci_flaky_rerun" not in kinds
         assert items[0].error == "checks failed: build (failure)"
 
+    def test_transiently_cancelled_check_is_rerun_then_a_still_pending_sweep_is_a_no_op(
+        self,
+    ) -> None:
+        """#3808's black-box acceptance: a required check cancelled by a
+        GitHub Actions `cancel-in-progress` concurrency group (real job
+        steps ran, so #1892's verdictless classification does not apply)
+        is swept through this same #2252 bucket — one re-run triggered —
+        and a second sweep that observes the re-run still in flight (not
+        yet resolved) must not trigger a second re-run or merge early."""
+        c = _check("cargo-test-gtk", conclusion="cancelled")
+        c.run_id = "999"
+        items = [_q("w1", pr=99)]
+        gh = FakeGh()
+        ci = self._Ci(checks=[c])
+
+        # Sweep 1: transiently-cancelled -> one scoped re-run triggered.
+        events = process(items, gh, ci_store=ci)
+        assert items[0].ci_flaky_reruns == 1
+        assert ci.rerun_failed_calls == [("acme/api", 99)]
+        assert "ci_flaky_rerun" in [e.kind for e in events]
+        assert gh.merge_calls == []
+
+        # Sweep 2: the triggered re-run hasn't resolved yet — still pending,
+        # not yet failed or passed. Must be a no-op: no second re-run call,
+        # no merge, budget untouched.
+        pending = _check("cargo-test-gtk", status="in_progress", conclusion=None)
+        pending.run_id = "999"
+        ci._checks = [pending]
+        events = process(items, gh, ci_store=ci)
+
+        assert ci.rerun_failed_calls == [("acme/api", 99)]  # unchanged
+        assert items[0].ci_flaky_reruns == 1  # unchanged
+        assert gh.merge_calls == []
+        kinds = [e.kind for e in events]
+        assert "ci_flaky_rerun" not in kinds
+        assert "checks_failed" not in kinds
+        assert "checks_pending" in kinds
+
     def test_a_check_that_never_reported_is_untouched_by_this_path(self) -> None:
         """#1904/#2244: zero reported checks is a DIFFERENT condition — a
         re-run of nothing produces nothing but latency, so this path must
@@ -11698,6 +11785,112 @@ class TestProcessCiFlakyAutoRerun:
         assert items[0].state == PENDING
         assert items[0].ci_flaky_reruns == 0
         assert ci.rerun_failed_calls == []
+        kinds = [e.kind for e in events]
+        assert "checks_failed" in kinds
+        assert "ci_flaky_rerun" not in kinds
+
+
+class TestProcessCiFlakyShiftAutoRerun:
+    """#3809: once #2252's own one-rerun budget (`ci_flaky_reruns`) is
+    spent and a check is STILL red on the next read, #2252 treats that as
+    "confirmed real" unconditionally. That's right for a genuine
+    regression (the same test fails every run) but wrong for an
+    environment-flaky suite whose failing subset *shifts* between runs —
+    #2510's ci-fix dispatch would otherwise go looking for a bug in a test
+    that was never actually broken (the refund-loop pathology #3745 and
+    #3760 describe). A shifted read gets its own small, separate rerun
+    budget (`MAX_CI_FLAKY_SHIFT_RERUNS`) instead of a fix leg; a
+    deterministic same-name failure still falls straight through to
+    `checks_failed`, identical to #2252 (covered by
+    `TestProcessCiFlakyAutoRerun.test_fails_again_spends_the_attempt_identical_to_today`)."""
+
+    _Ci = TestProcessCiFlakyAutoRerun._Ci
+
+    @staticmethod
+    def _audit_rows(coord_db, event_type: str = "ci_flake_shift_detected") -> list:
+        return coord_db.execute(
+            "SELECT * FROM audit_log WHERE event_type = ?", (event_type,)
+        ).fetchall()
+
+    def test_shifting_subset_failure_triggers_another_rerun_not_a_fix_leg(
+        self, coord_db
+    ) -> None:
+        from coord.merge_queue import MAX_CI_FLAKY_RERUNS
+        items = [_q("w1", pr=99)]
+        gh = FakeGh()
+        build_fail = _check("build", conclusion="failure", run_id="999")
+        ci = self._Ci(checks=[build_fail])
+
+        # Tick 1: red -> #2252's own first-rerun budget is spent.
+        process(items, gh, ci_store=ci)
+        assert items[0].ci_flaky_reruns == MAX_CI_FLAKY_RERUNS
+        assert ci.rerun_failed_calls == [("acme/api", 99)]
+
+        # Tick 2: still red, but a DIFFERENT check failed this time — the
+        # failing subset shifted, not a repeat of the same failure. Must
+        # rerun again (via the #3809 shift budget), never dispatch a fix.
+        e2e_fail = _check("e2e", conclusion="failure", run_id="998")
+        ci._checks = [e2e_fail]
+        events = process(items, gh, ci_store=ci)
+
+        assert gh.merge_calls == []
+        assert ci.rerun_failed_calls == [("acme/api", 99), ("acme/api", 99)]
+        kinds = [e.kind for e in events]
+        assert "ci_flaky_rerun" in kinds
+        assert "checks_failed" not in kinds
+        assert items[0].ci_flaky_pending  # stashed for the next read
+        pending = json.loads(items[0].ci_flaky_pending)
+        assert pending["checks"] == [{"name": "e2e", "conclusion": "failure"}]
+        assert pending["shift_reruns"] == 1
+
+        rows = self._audit_rows(coord_db)
+        assert len(rows) == 1
+        assert rows[0]["tier"] == "operational"
+        assert rows[0]["category"] == "ci"
+        details = json.loads(rows[0]["details_json"])
+        assert details["previously_failing"] == ["build"]
+        assert details["shifted_names"] == ["build", "e2e"]
+        assert details["shift_reruns"] == 1
+
+    def test_shift_budget_exhausted_eventually_falls_through_to_checks_failed(
+        self,
+    ) -> None:
+        """Bounded, not infinite: a required check that is ITSELF
+        chronically flaky must eventually surface rather than rerun
+        forever — this action only owns "don't loop a doomed fix leg",
+        not "never ask a human" (that escalation is a sibling action,
+        C4, per #3760)."""
+        from coord.merge_queue import (
+            MAX_CI_FLAKY_RERUNS,
+            MAX_CI_FLAKY_SHIFT_RERUNS,
+        )
+        items = [_q("w1", pr=99)]
+        gh = FakeGh()
+        names = ["build", "e2e", "lint", "perf"]
+        ci = self._Ci(checks=[_check(names[0], conclusion="failure", run_id="1")])
+
+        # Tick 1: #2252's own first-rerun budget is spent.
+        process(items, gh, ci_store=ci)
+        assert items[0].ci_flaky_reruns == MAX_CI_FLAKY_RERUNS
+
+        # Each further tick shifts to a brand-new failing name, consuming
+        # the #3809 shift budget one rerun at a time.
+        for i in range(MAX_CI_FLAKY_SHIFT_RERUNS):
+            ci._checks = [_check(names[i + 1], conclusion="failure", run_id=str(i + 2))]
+            events = process(items, gh, ci_store=ci)
+            kinds = [e.kind for e in events]
+            assert "ci_flaky_rerun" in kinds, f"rerun {i} should still be budgeted"
+            assert "checks_failed" not in kinds
+
+        # The shift budget is now exhausted. One more shift must stop
+        # re-running and fall through, exactly like a confirmed-real
+        # failure — never loop forever on a chronically-flaky gate.
+        ci._checks = [_check(names[-1] + "-again", conclusion="failure", run_id="99")]
+        calls_before = len(ci.rerun_failed_calls)
+        events = process(items, gh, ci_store=ci)
+
+        assert len(ci.rerun_failed_calls) == calls_before  # no further rerun
+        assert items[0].ci_flaky_pending == ""
         kinds = [e.kind for e in events]
         assert "checks_failed" in kinds
         assert "ci_flaky_rerun" not in kinds

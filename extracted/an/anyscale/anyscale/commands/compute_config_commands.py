@@ -225,7 +225,6 @@ def archive_compute_config(
         "(--compute-config-id/--id), one of which is required."
     ),
     cls=AnyscaleCommand,
-    hidden=True,
 )
 @click.option(
     "-n",

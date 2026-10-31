@@ -112,7 +112,7 @@ class TextQuery(object):
     def contains(self):
         """Gets the contains of this TextQuery.  # noqa: E501
 
-        Property contains this value as a substring. The value should not have opening and closing wildcard characters.  # noqa: E501
+        Property contains this value as a case-insensitive substring.  # noqa: E501
 
         :return: The contains of this TextQuery.  # noqa: E501
         :rtype: str
@@ -123,7 +123,7 @@ class TextQuery(object):
     def contains(self, contains):
         """Sets the contains of this TextQuery.
 
-        Property contains this value as a substring. The value should not have opening and closing wildcard characters.  # noqa: E501
+        Property contains this value as a case-insensitive substring.  # noqa: E501
 
         :param contains: The contains of this TextQuery.  # noqa: E501
         :type: str

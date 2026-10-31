@@ -107,6 +107,8 @@ from .ScrollArea import ScrollArea
 from .ScrollAreaAutosize import ScrollAreaAutosize
 from .RangeSlider import RangeSlider
 from .Slider import Slider
+from .Splitter import Splitter
+from .SplitterPane import SplitterPane
 from .Stepper import Stepper
 from .StepperCompleted import StepperCompleted
 from .StepperStep import StepperStep
@@ -151,10 +153,12 @@ from .Kbd import Kbd
 from .Loader import Loader
 from .LoadingOverlay import LoadingOverlay
 from .Mark import Mark
+from .Marquee import Marquee
 from .NumberFormatter import NumberFormatter
 from .Overlay import Overlay
 from .Pagination import Pagination
 from .Paper import Paper
+from .Pill import Pill
 from .Rating import Rating
 from .RingProgress import RingProgress
 from .SegmentedControl import SegmentedControl
@@ -199,7 +203,7 @@ from .RichTextEditor import RichTextEditor
 from .RichTextEditor import RichTextEditor
 from .DirectionProvider import DirectionProvider
 from .MantineProvider import MantineProvider
-from .TypographyStylesProvider import TypographyStylesProvider
+from .Typography import Typography
 
 __all__ = [
     "AreaChart",
@@ -311,6 +315,8 @@ __all__ = [
     "ScrollAreaAutosize",
     "RangeSlider",
     "Slider",
+    "Splitter",
+    "SplitterPane",
     "Stepper",
     "StepperCompleted",
     "StepperStep",
@@ -355,10 +361,12 @@ __all__ = [
     "Loader",
     "LoadingOverlay",
     "Mark",
+    "Marquee",
     "NumberFormatter",
     "Overlay",
     "Pagination",
     "Paper",
+    "Pill",
     "Rating",
     "RingProgress",
     "SegmentedControl",
@@ -403,5 +411,5 @@ __all__ = [
     "RichTextEditor",
     "DirectionProvider",
     "MantineProvider",
-    "TypographyStylesProvider"
+    "Typography"
 ]

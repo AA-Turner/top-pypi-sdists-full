@@ -496,14 +496,15 @@ def _pandas_to_arrow_table(dataframe: Any) -> pa.Table:
 
 
 def _query_input_to_arrow_table(query_input: QueryInput) -> pa.Table:
+    # polars is optional here: a polars DataFrame input can only exist if polars is installed.
     try:
         import polars as pl
     except ImportError:
-        raise missing_dependency_exception("chalkpy[runtime]")
+        pl = None
 
     if isinstance(query_input, DataFrame):
         return query_input.to_pyarrow()
-    elif isinstance(query_input, pl.DataFrame):
+    elif pl is not None and isinstance(query_input, pl.DataFrame):
         return query_input.to_arrow()
     elif isinstance(query_input, pa.Table):
         return query_input
@@ -545,7 +546,7 @@ def _offline_query_inputs_should_be_uploaded(
     try:
         import polars as pl
     except ImportError:
-        raise missing_dependency_exception("chalkpy[runtime]")
+        pl = None
     if isinstance(inputs, (list, tuple)):
         if len(inputs) > row_limit:
             return True
@@ -558,7 +559,7 @@ def _offline_query_inputs_should_be_uploaded(
             num_rows = max(len(v) if hasattr(v, "__len__") else 1 for v in single_input.values())
         elif isinstance(single_input, DataFrame):
             num_rows = single_input.shape[0]
-        elif isinstance(single_input, pl.DataFrame):
+        elif pl is not None and isinstance(single_input, pl.DataFrame):
             num_rows = single_input.height
         elif is_pandas_dataframe(single_input):
             num_rows = single_input.shape[0]
@@ -2898,6 +2899,17 @@ https://docs.chalk.ai/cli/apply
                 stacklevel=2,
             )
 
+        if store_offline and self._resolve_branch(branch) is not None:
+            warnings.warn(
+                (
+                    "Branch deployments read from the online and offline stores but never write to them, so "
+                    + "`store_offline=True` has no effect on a branch: this query's results won't be stored "
+                    + "offline. Run the query without a branch to store its results."
+                ),
+                UserWarning,
+                stacklevel=2,
+            )
+
         lower_bound = _convert_datetime_or_timedelta_param("lower_bound", lower_bound)
         upper_bound = _convert_datetime_or_timedelta_param("upper_bound", upper_bound)
         lower_bound_inserted_at = _convert_datetime_or_timedelta_param(
@@ -2906,11 +2918,6 @@ https://docs.chalk.ai/cli/apply
         upper_bound_inserted_at = _convert_datetime_or_timedelta_param(
             "upper_bound_inserted_at", upper_bound_inserted_at
         )
-        try:
-            import polars as pl
-        except ImportError:
-            raise missing_dependency_exception("chalkpy[runtime]")
-        del pl  # unused
 
         if len(output) == 0 and len(required_output) == 0 and query_name is None:
             raise ValueError("Either 'output' or 'required_output' must be specified.")

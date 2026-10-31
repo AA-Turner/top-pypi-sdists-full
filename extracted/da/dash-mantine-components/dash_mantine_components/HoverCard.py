@@ -38,7 +38,7 @@ Keyword arguments:
 - arrowOffset (number; optional):
     Arrow offset in px, `5` by default.
 
-- arrowPosition (a value equal to: 'center', 'side'; optional):
+- arrowPosition (a value equal to: 'center', 'side', 'merge'; optional):
     Arrow position.
 
 - arrowRadius (number; optional):
@@ -55,15 +55,21 @@ Keyword arguments:
     Adds custom CSS class names to inner elements of a component.  See
     Styles API docs.
 
+- clickOutsideCapture (boolean; optional):
+    If set, outside click listeners are registered in the capture
+    phase default False.
+
 - clickOutsideEvents (list of strings; optional):
-    Events that trigger outside clicks.
+    Not supported by `HoverCard`: outside press is always detected
+    with the `pointerdown` event. Use `closeOnClickOutside` to disable
+    it.
 
 - closeDelay (number; optional):
     Close delay in ms.
 
 - closeOnClickOutside (boolean; optional):
-    Determines whether dropdown should be closed on outside clicks,
-    `True` by default.
+    Determines whether the dropdown should be closed when the user
+    presses outside of the target and the dropdown @,default,True.
 
 - closeOnEscape (boolean; optional):
     Determines whether dropdown should be closed when `Escape` key is
@@ -75,6 +81,11 @@ Keyword arguments:
 - disabled (boolean; optional):
     If set, popover dropdown will not be rendered.
 
+- events (dict; optional):
+    Determines which events open the dropdown. Fields that are not
+    specified keep their default values. default { \"hover\": True,
+    \"Focus\": True, \"touch\": False }.
+
 - floatingStrategy (a value equal to: 'absolute', 'fixed'; optional):
     Changes floating ui [position
     strategy](https://floating-ui.com/docs/usefloating#strategy),
@@ -82,7 +93,15 @@ Keyword arguments:
 
 - hideDetached (boolean; optional):
     If set, the dropdown is hidden when the element is hidden with
-    styles or not visible on the screen, `True` by default.
+    styles or not visible on the screen default True.
+
+- initiallyOpened (boolean; optional):
+    Initial opened state.
+
+- interactive (boolean; optional):
+    If set, the dropdown stays open while the pointer travels from the
+    target to the dropdown and remains over it. Set it if the dropdown
+    contains interactive content. default False.
 
 - keepMounted (boolean; optional):
     If set dropdown will not be unmounted from the DOM when it is
@@ -225,17 +244,33 @@ Keyword arguments:
     Dropdown position relative to the target element, `'bottom'` by
     default.
 
-- positionDependencies (list of boolean | number | string | dict | lists; optional):
-    `useEffect` dependencies to force update dropdown position, `[]`
-    by default.
+- preventPositionChangeWhenVisible (boolean; optional):
+    If `True`, the dropdown picks its side on open (flip runs once,
+    preferring the `position` prop) and then never changes side —
+    scrolling, resizing, and content size changes will not flip the
+    dropdown. The side is recalculated fresh on the next open. Does
+    not affect the `shift` middleware. Set to `False` to keep flip
+    active and allow the dropdown to re-flip on every change. default
+    True.
 
 - radius (number; optional):
     Key of `theme.radius` or any valid CSS value to set border-radius,
     `theme.defaultRadius` by default.
 
 - returnFocus (boolean; optional):
-    Determines whether focus should be automatically returned to
-    control when dropdown closes, `False` by default.
+    Determines whether focus should be returned to the target when the
+    dropdown closes. Ignored when focus activation is enabled
+    (`events.focus`, the default), otherwise moving focus away from
+    the target would return it and reopen the dropdown. `Escape`
+    pressed inside the dropdown always returns focus to the target.
+    default False.
+
+- role (a value equal to: 'dialog', 'tooltip'; optional):
+    Accessible relation between the target and the dropdown. `dialog`
+    sets `aria-haspopup`, `aria-expanded` and `aria-controls` on the
+    target, `tooltip` sets `aria-describedby` instead and should be
+    used if the dropdown contains only descriptive content. default
+    'dialog'.
 
 - shadow (optional):
     Key of `theme.shadows` or any other valid CSS `box-shadow` value.
@@ -337,7 +372,7 @@ Keyword arguments:
             {
             "mainAxis": NotRequired[bool],
             "crossAxis": NotRequired[typing.Union[bool, Literal["alignment"]]],
-            "rootBoundary": NotRequired[typing.Union[Literal["viewport"], Literal["document"]]],
+            "rootBoundary": NotRequired[typing.Union[Literal["viewport"], Literal["layoutViewport"], Literal["document"]]],
             "elementContext": NotRequired[Literal["reference", "floating"]],
             "altBoundary": NotRequired[bool],
             "padding": NotRequired[typing.Union[NumberType]],
@@ -372,17 +407,20 @@ Keyword arguments:
     def __init__(
         self,
         children: typing.Optional[ComponentType] = None,
+        initiallyOpened: typing.Optional[bool] = None,
         openDelay: typing.Optional[NumberType] = None,
         closeDelay: typing.Optional[NumberType] = None,
+        events: typing.Optional[dict] = None,
+        interactive: typing.Optional[bool] = None,
+        role: typing.Optional[Literal["dialog", "tooltip"]] = None,
         closeOnClickOutside: typing.Optional[bool] = None,
         clickOutsideEvents: typing.Optional[typing.Sequence[str]] = None,
+        returnFocus: typing.Optional[bool] = None,
         trapFocus: typing.Optional[bool] = None,
         closeOnEscape: typing.Optional[bool] = None,
         withRoles: typing.Optional[bool] = None,
-        hideDetached: typing.Optional[bool] = None,
         position: typing.Optional[Literal["top", "right", "bottom", "left", "top-end", "top-start", "right-end", "right-start", "bottom-end", "bottom-start", "left-end", "left-start"]] = None,
         offset: typing.Optional[typing.Union[NumberType]] = None,
-        positionDependencies: typing.Optional[typing.Sequence[typing.Any]] = None,
         keepMounted: typing.Optional[bool] = None,
         transitionProps: typing.Optional["TransitionProps"] = None,
         width: typing.Optional[typing.Union[str, NumberType]] = None,
@@ -391,17 +429,19 @@ Keyword arguments:
         arrowSize: typing.Optional[NumberType] = None,
         arrowOffset: typing.Optional[NumberType] = None,
         arrowRadius: typing.Optional[NumberType] = None,
-        arrowPosition: typing.Optional[Literal["center", "side"]] = None,
+        arrowPosition: typing.Optional[Literal["center", "side", "merge"]] = None,
         withinPortal: typing.Optional[bool] = None,
         portalProps: typing.Optional[dict] = None,
         zIndex: typing.Optional[typing.Union[str, NumberType]] = None,
         radius: typing.Optional[typing.Union[str, NumberType]] = None,
         shadow: typing.Optional[typing.Optional[str]] = None,
         disabled: typing.Optional[bool] = None,
-        returnFocus: typing.Optional[bool] = None,
         floatingStrategy: typing.Optional[Literal["absolute", "fixed"]] = None,
         overlayProps: typing.Optional[dict] = None,
         withOverlay: typing.Optional[bool] = None,
+        hideDetached: typing.Optional[bool] = None,
+        preventPositionChangeWhenVisible: typing.Optional[bool] = None,
+        clickOutsideCapture: typing.Optional[bool] = None,
         classNames: typing.Optional[dict] = None,
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
@@ -412,9 +452,9 @@ Keyword arguments:
         loading_state: typing.Optional["LoadingState"] = None,
         **kwargs
     ):
-        self._prop_names = ['children', 'id', 'aria-*', 'arrowOffset', 'arrowPosition', 'arrowRadius', 'arrowSize', 'attributes', 'classNames', 'clickOutsideEvents', 'closeDelay', 'closeOnClickOutside', 'closeOnEscape', 'data-*', 'disabled', 'floatingStrategy', 'hideDetached', 'keepMounted', 'loading_state', 'middlewares', 'offset', 'openDelay', 'overlayProps', 'portalProps', 'position', 'positionDependencies', 'radius', 'returnFocus', 'shadow', 'styles', 'tabIndex', 'transitionProps', 'trapFocus', 'unstyled', 'variant', 'width', 'withArrow', 'withOverlay', 'withRoles', 'withinPortal', 'zIndex']
+        self._prop_names = ['children', 'id', 'aria-*', 'arrowOffset', 'arrowPosition', 'arrowRadius', 'arrowSize', 'attributes', 'classNames', 'clickOutsideCapture', 'clickOutsideEvents', 'closeDelay', 'closeOnClickOutside', 'closeOnEscape', 'data-*', 'disabled', 'events', 'floatingStrategy', 'hideDetached', 'initiallyOpened', 'interactive', 'keepMounted', 'loading_state', 'middlewares', 'offset', 'openDelay', 'overlayProps', 'portalProps', 'position', 'preventPositionChangeWhenVisible', 'radius', 'returnFocus', 'role', 'shadow', 'styles', 'tabIndex', 'transitionProps', 'trapFocus', 'unstyled', 'variant', 'width', 'withArrow', 'withOverlay', 'withRoles', 'withinPortal', 'zIndex']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['children', 'id', 'aria-*', 'arrowOffset', 'arrowPosition', 'arrowRadius', 'arrowSize', 'attributes', 'classNames', 'clickOutsideEvents', 'closeDelay', 'closeOnClickOutside', 'closeOnEscape', 'data-*', 'disabled', 'floatingStrategy', 'hideDetached', 'keepMounted', 'loading_state', 'middlewares', 'offset', 'openDelay', 'overlayProps', 'portalProps', 'position', 'positionDependencies', 'radius', 'returnFocus', 'shadow', 'styles', 'tabIndex', 'transitionProps', 'trapFocus', 'unstyled', 'variant', 'width', 'withArrow', 'withOverlay', 'withRoles', 'withinPortal', 'zIndex']
+        self.available_properties = ['children', 'id', 'aria-*', 'arrowOffset', 'arrowPosition', 'arrowRadius', 'arrowSize', 'attributes', 'classNames', 'clickOutsideCapture', 'clickOutsideEvents', 'closeDelay', 'closeOnClickOutside', 'closeOnEscape', 'data-*', 'disabled', 'events', 'floatingStrategy', 'hideDetached', 'initiallyOpened', 'interactive', 'keepMounted', 'loading_state', 'middlewares', 'offset', 'openDelay', 'overlayProps', 'portalProps', 'position', 'preventPositionChangeWhenVisible', 'radius', 'returnFocus', 'role', 'shadow', 'styles', 'tabIndex', 'transitionProps', 'trapFocus', 'unstyled', 'variant', 'width', 'withArrow', 'withOverlay', 'withRoles', 'withinPortal', 'zIndex']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

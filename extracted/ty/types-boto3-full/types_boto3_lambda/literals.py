@@ -50,6 +50,7 @@ __all__ = (
     "GetDurableExecutionStatePaginatorName",
     "InvocationTypeType",
     "InvokeModeType",
+    "KafkaEventSourceMappingConsumptionModeType",
     "KafkaSchemaRegistryAuthTypeType",
     "KafkaSchemaValidationAttributeType",
     "LambdaServiceName",
@@ -152,6 +153,7 @@ GetDurableExecutionHistoryPaginatorName = Literal["get_durable_execution_history
 GetDurableExecutionStatePaginatorName = Literal["get_durable_execution_state"]
 InvocationTypeType = Literal["DryRun", "Event", "RequestResponse"]
 InvokeModeType = Literal["BUFFERED", "RESPONSE_STREAM"]
+KafkaEventSourceMappingConsumptionModeType = Literal["Queue", "Stream"]
 KafkaSchemaRegistryAuthTypeType = Literal[
     "BASIC_AUTH", "CLIENT_CERTIFICATE_TLS_AUTH", "OAUTHBEARER_AUTH", "SERVER_ROOT_CA_CERTIFICATE"
 ]

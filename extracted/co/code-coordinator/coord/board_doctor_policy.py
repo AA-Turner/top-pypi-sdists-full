@@ -11,8 +11,9 @@ Why the allowlist below is NOT empty
 -------------------------------------
 A cause belongs on the auto-action allowlist only once there is a
 known-safe, reviewed-in-advance fix for it — never as a pre-approved
-guess. #3760 (C3) names exactly two such causes, each wired below via
-:func:`_register_auto_action`:
+guess. #3760 (C3) started this allowlist with two such causes; a third
+(``CAUSE_SMOKE_NO_VERDICT``, #3810) has since joined it the same way, each
+wired below via :func:`_register_auto_action`:
 
 * ``CAUSE_CEILING_BLOCKED_MERGEABLE`` (minted by
   `coord.board_doctor._reclassify_ceiling_blocked`, never by
@@ -24,12 +25,18 @@ guess. #3760 (C3) names exactly two such causes, each wired below via
 * ``queue_diagnose.CAUSE_PR_MERGED`` — the row's PR already merged, so
   there is nothing left for the queue to track; ``drive_queue_remove``
   clears it.
+* ``CAUSE_SMOKE_NO_VERDICT`` — a smoke leg that exhausted #2272's
+  mute-leg retry budget without ever producing a parseable verdict.
+  ``sweep_smoke_requeue`` clears it, bounded by its own
+  `coord.smoke.BOARD_DOCTOR_REQUEUE_BUDGET` so a leg that keeps muting
+  after each requeue escalates to a human instead of looping forever.
 
 Every other mechanical cause stays off this allow-list until it has the
 same kind of reviewed, narrowly-scoped evidence behind it — a wrong
 auto-action default is worse than an extra, harmless alert — so
-:data:`ALLOWLIST` growing beyond these two is a deliberate, one-at-a-time
-decision, not a bulk promotion of a whole existing cause bucket.
+:data:`ALLOWLIST` growing beyond these entries is a deliberate,
+one-at-a-time decision, not a bulk promotion of a whole existing cause
+bucket.
 
 :func:`_register_auto_action` also checks every new entry's action name
 against `coord.board_doctor_permissions.SAFE_TIER_ACTIONS` (#3745's C2
@@ -117,15 +124,19 @@ from coord.board_doctor import (
     ALERT_SKIPPED,
     CAUSE_BASELINE_RED,
     CAUSE_CEILING_BLOCKED_MERGEABLE,
+    CAUSE_SMOKE_NO_VERDICT,
     TIER_ALERT,
     TIER_AUTO,
     StuckRow,
 )
 from coord.board_doctor_permissions import (
     SAFE_TIER_ACTIONS,
+    SweepPermissionError,
+    SweepWriteNotConfirmedError,
     authorize_sweep_action,
     dispatch_sweep_action,
 )
+from coord.drive_queue import parse_key as _parse_row_key
 
 if TYPE_CHECKING:  # pragma: no cover — typing only
     from coord.config import Config
@@ -245,19 +256,21 @@ def _board_doctor_stage(queue: str) -> str:
     return f"board-doctor:{queue}"
 
 
-def _parse_row_key(key: str) -> tuple[str, int] | None:
-    """``"repo#issue"`` -> ``(repo, issue)``, or ``None`` if unparseable.
-
-    Same split every C3/C4 reader of ``row.key`` already does
-    (:func:`escalation_alert_dispatcher`, :func:`dismiss_resolved_escalation`)
-    — kept here as one function so a C3 auto-action handler answers the
-    same "what repo/issue is this row" question the same way C4 already
-    does, rather than re-deriving the split a third time.
-    """
-    repo_name, _, issue_text = key.rpartition("#")
-    if not repo_name or not issue_text.isdigit():
-        return None
-    return repo_name, int(issue_text)
+#: ``"repo#issue"`` -> ``(repo, issue)``, or ``None`` if unparseable — this
+#: module's own name for :func:`coord.drive_queue.parse_key`, which already
+#: lives next to :func:`coord.drive_queue.entry_key` (the inverse, building
+#: the same keys). Every C3/C4 reader of a ``row.key``-shaped string in this
+#: module and in `coord.board_doctor` (:func:`escalation_alert_dispatcher`,
+#: :func:`dismiss_resolved_escalation`,
+#: :func:`coord.board_doctor._refresh_ceiling_blocked_settled_rows`,
+#: :func:`coord.board_doctor._reclassify_ceiling_blocked`,
+#: :func:`coord.board_doctor._withdraw_rows_for_blocked_streaks`) calls this
+#: one alias (#3807) rather than re-deriving the split — before #3807 three
+#: of those re-derived it inline with ``int()`` in a ``try``, which (unlike
+#: ``str.isdigit()``) accepts a leading ``-``, so e.g. ``"repo#-5"`` parsed
+#: on some paths and not others. Keeping this as a plain import (not a
+#: wrapper function) means there is exactly one implementation in the
+#: codebase, not two that happen to agree today.
 
 
 def _requeue_ceiling_blocked_mergeable(row: StuckRow) -> bool:
@@ -308,18 +321,85 @@ def _clear_merged_row(row: StuckRow) -> bool:
     confirmed remove whose driver session could not be stopped
     (``driver_ok=False``) still counts as a successful removal here —
     `sweep_drive_queue_remove` already logged that loudly on its own.
+
+    A row whose #1757 deploy gate is armed or fired but not yet released
+    makes `sweep_drive_queue_remove` raise :class:`SweepPermissionError`
+    (`_refuse_if_remove_would_release_gate`) rather than remove anything.
+    That refusal is caught HERE, not left to propagate: `sweep`'s dispatch
+    call site (`coord.board_doctor.sweep`) has no `try` around it — unlike
+    its own `_alert_action` — so an uncaught exception would abort the
+    entire sweep, leaving every row ordered after this one unclassified and
+    `clear_absent_rows` never run. Swallowing it and returning `False`
+    instead reports `"auto-dispatch-noop"` for this row (recorded as a
+    decision, same as any other no-op) and lets the rest of the sweep
+    proceed; the row's own count keeps climbing toward the convergence
+    limit, where C4 escalates it to a human instead of this action
+    silently starving the sweep on every run until someone notices.
     """
     parsed = _parse_row_key(row.key)
     if parsed is None:
         return False
     repo_name, issue_number = parsed
-    result = dispatch_sweep_action("drive_queue_remove", repo_name, issue_number)
-    if not result.get("removed"):
-        import click  # noqa: PLC0415
+    import click  # noqa: PLC0415
 
+    try:
+        result = dispatch_sweep_action("drive_queue_remove", repo_name, issue_number)
+    except SweepPermissionError as exc:
+        click.echo(
+            f"warning: board-doctor remove refused for {repo_name}#"
+            f"{issue_number}: {exc}",
+            err=True,
+        )
+        return False
+    if not result.get("removed"):
         click.echo(
             f"warning: board-doctor remove no-op for {repo_name}#"
             f"{issue_number} — row was not found in the drive queue",
+            err=True,
+        )
+        return False
+    return True
+
+
+def _requeue_smoke_no_verdict(row: StuckRow) -> bool:
+    """#3760 Action 5: re-dispatch a smoke leg that produced no verdict (#2244).
+
+    Mirrors :func:`_clear_merged_row`'s shape rather than
+    :func:`_requeue_ceiling_blocked_mergeable`'s: `sweep_smoke_requeue`
+    (`coord.board_doctor_permissions`) bounds its own retries via
+    `coord.smoke.BOARD_DOCTOR_REQUEUE_BUDGET` and can raise
+    `SweepWriteNotConfirmedError` if a clear it attempted does not read back
+    confirmed — both land here as an honest ``False`` (``"auto-dispatch-noop"``)
+    rather than a crash, same defensive handling as `SweepPermissionError`
+    gets every other dispatch call in this module.
+
+    Returns ``True`` only when `sweep_smoke_requeue` confirms
+    ``requeued=True``. A row already at the requeue budget, a row whose
+    `test_state` this already cleared (the next sweep no longer selects it
+    at all, since :func:`coord.board_doctor.smoke_no_verdict_rows` re-reads
+    live `test_state`), an unconfirmed write, or an unparseable key all
+    report `"auto-dispatch-noop"` instead of a false success — the row stays
+    selected so its convergence counter keeps climbing toward escalation.
+    """
+    parsed = _parse_row_key(row.key)
+    if parsed is None:
+        return False
+    repo_name, issue_number = parsed
+    import click  # noqa: PLC0415
+
+    try:
+        result = dispatch_sweep_action("smoke_requeue", repo_name, issue_number)
+    except (SweepPermissionError, SweepWriteNotConfirmedError) as exc:
+        click.echo(
+            f"warning: board-doctor smoke-requeue refused for {repo_name}#"
+            f"{issue_number}: {exc}",
+            err=True,
+        )
+        return False
+    if not result.get("requeued"):
+        click.echo(
+            f"warning: board-doctor smoke-requeue no-op for {repo_name}#"
+            f"{issue_number}: {result.get('detail')}",
             err=True,
         )
         return False
@@ -335,6 +415,11 @@ _register_auto_action(
     queue_diagnose.CAUSE_PR_MERGED,
     "drive_queue_remove",
     _clear_merged_row,
+)
+_register_auto_action(
+    CAUSE_SMOKE_NO_VERDICT,
+    "smoke_requeue",
+    _requeue_smoke_no_verdict,
 )
 
 
@@ -401,6 +486,38 @@ def _alert_fallback(row: StuckRow) -> bool:
     return True
 
 
+#: #3777: the #2972/#3454 ceiling check below exists to stop a BLIND
+#: relaunch loop — dispatching another fix-it leg with no better reason
+#: than "the cause is still alert-eligible" (vimcode#2018's ~14 legs/$31
+#: overnight). A HIGH-confidence diagnosed merge-conflict is not that: the
+#: diagnosis itself is new evidence the ceiling's own ``remaining_fix_rounds``
+#: exhaustion never saw, and the targeted remedy (a conflict-fix rebase) is
+#: a single bounded leg, not an open-ended retry stream. Every other cause,
+#: and every confidence below `CONFIDENCE_HIGH`, stays governed by the
+#: ceiling exactly as before.
+_CEILING_BYPASS_CAUSES = frozenset({queue_diagnose.CAUSE_MERGE_CONFLICT})
+
+
+def _ceiling_bypass_eligible(row: StuckRow) -> bool:
+    """True for a row the #2972 ceiling must not stop `_investigate` dispatching.
+
+    Requires :attr:`StuckRow.fresh` (#3777): the bypass exists because a
+    high-confidence diagnosed merge-conflict is new evidence the ceiling's
+    blind-relaunch guard was never meant to stop — but `row.cause`/
+    `row.confidence` only carry that meaning when this sweep itself just
+    computed them from a live probe. A row rebuilt by
+    :func:`coord.board_doctor._episode_stuck_row` from `block_log` carries
+    whatever cause/confidence were stored whenever the episode concluded,
+    which can be arbitrarily stale (e.g. the PR has since merged) — that is
+    not new evidence, so it must not bypass anything.
+    """
+    return (
+        row.fresh
+        and row.cause in _CEILING_BYPASS_CAUSES
+        and row.confidence == queue_diagnose.CONFIDENCE_HIGH
+    )
+
+
 def _investigate(row: StuckRow) -> bool:
     """#3769's C1 wiring: dispatch a fix-it leg for an alert-eligible
     cause instead of paging a human outright.
@@ -441,7 +558,12 @@ def _investigate(row: StuckRow) -> bool:
     investigate-dispatched legs on top of that (vimcode#2018's ~14 legs/$31
     overnight is exactly the failure mode this guards against). A
     ceiling-blocked row falls straight to :func:`_alert_fallback`, the same
-    as a declined machine pin.
+    as a declined machine pin — UNLESS :func:`_ceiling_bypass_eligible` says
+    otherwise (#3777): a HIGH-confidence diagnosed merge-conflict still gets
+    one targeted fix-it leg even past the ceiling, since that diagnosis is
+    the fleet's strongest signal the row is not actually out of options, and
+    the ceiling's own point is to stop a blind relaunch, not a leg a fresh
+    diagnosis specifically calls for.
 
     Finally, :func:`_investigate_tier_enabled` gates the whole tier on the
     global kill switch (config-level and the ``--no-investigate`` sweep
@@ -471,15 +593,23 @@ def _investigate(row: StuckRow) -> bool:
     from coord.state import build_board  # noqa: PLC0415
 
     if fix_round_ceiling_blocked_for_issue(repo_name, issue_number):
+        if not _ceiling_bypass_eligible(row):
+            click.echo(
+                f"warning: board-doctor NOT investigating {repo_name}#{issue_number} "
+                "— its drive-queue row already gave up on the fix-round ceiling "
+                "(#2972/#3454); falling back to the alert tier instead of "
+                "dispatching another fix-it leg (#3756)",
+                err=True,
+            )
+            _alert_fallback(row)
+            return False
         click.echo(
-            f"warning: board-doctor NOT investigating {repo_name}#{issue_number} "
-            "— its drive-queue row already gave up on the fix-round ceiling "
-            "(#2972/#3454); falling back to the alert tier instead of "
-            "dispatching another fix-it leg (#3756)",
+            f"warning: board-doctor bypassing the fix-round ceiling for "
+            f"{repo_name}#{issue_number} — a fresh high-confidence diagnosed "
+            f"{row.cause} is new evidence, not the blind relaunch #3454 "
+            "guards against (#3777); continuing to the investigate tier",
             err=True,
         )
-        _alert_fallback(row)
-        return False
 
     try:
         config = resolve_and_load_config(None)
@@ -812,23 +942,15 @@ def escalation_alert_dispatcher(row: StuckRow) -> bool | str:
 
     from coord.state import get_drive_escalation, record_drive_escalation  # noqa: PLC0415
 
-    repo_name, _, issue_text = row.key.rpartition("#")
-    if not repo_name:
+    parsed = _parse_row_key(row.key)
+    if parsed is None:
         click.echo(
             f"warning: board-doctor alert dropped — unparseable row key "
             f"{row.key!r} (expected 'repo#issue')",
             err=True,
         )
         return False
-    try:
-        issue_number = int(issue_text)
-    except ValueError:
-        click.echo(
-            f"warning: board-doctor alert dropped — unparseable row key "
-            f"{row.key!r} (expected 'repo#issue')",
-            err=True,
-        )
-        return False
+    repo_name, issue_number = parsed
 
     stage = _board_doctor_stage(row.queue)
 
@@ -884,13 +1006,10 @@ def dismiss_resolved_escalation(queue: str, key: str) -> None:
 
     from coord.state import dismiss_drive_escalation, get_drive_escalation  # noqa: PLC0415
 
-    repo_name, _, issue_text = key.rpartition("#")
-    if not repo_name:
+    parsed = _parse_row_key(key)
+    if parsed is None:
         return
-    try:
-        issue_number = int(issue_text)
-    except ValueError:
-        return
+    repo_name, issue_number = parsed
 
     try:
         existing = get_drive_escalation(repo_name, issue_number)

@@ -105,6 +105,7 @@ API_ROUTERS = (
     api.task_runs.router,
     api.flow_run_states.router,
     api.task_run_states.router,
+    api.observed_states.router,
     api.deployments.router,
     api.saved_searches.router,
     api.logs.router,
@@ -1127,7 +1128,7 @@ class SubprocessASGIServer:
             assert self.port is not None, "Port must be provided or available"
             help_message = (
                 f"Starting temporary server on {self.address}\nSee "
-                "https://docs.prefect.io/v3/concepts/server#how-to-guides "
+                "https://www.prefect.io/docs/v3/concepts/server#how-to-guides "
                 "for more information on running a dedicated Prefect server."
             )
             subprocess_server_logger.info(help_message)

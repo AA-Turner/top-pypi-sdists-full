@@ -9,7 +9,9 @@
 # SPDX-FileCopyrightText: 2022 Florian Snow <florian@familysnow.net>
 # SPDX-FileCopyrightText: 2022 Yaman Qalieh
 # SPDX-FileCopyrightText: 2024 Rivos Inc.
+# SPDX-FileCopyrightText: 2025 Jan Gietzel <jan.gietzel@gmail.com>
 # SPDX-FileCopyrightText: © 2020 Liferay, Inc. <https://liferay.com>
+# SPDX-FileCopyrightText: 2026 Lily A.N. <minekpo1@murena.io>
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -21,14 +23,18 @@ import os
 import sys
 from collections.abc import Collection, Iterable, Sequence
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import click
 from jinja2 import Environment, FileSystemLoader, Template
 from jinja2.exceptions import TemplateNotFound
 
 from .._annotate import add_header_to_file
-from .._util import _determine_license_path, _determine_license_suffix_path
+from .._util import (
+    determine_license_path,
+    determine_license_suffix_path,
+    relative_from_root,
+)
 from ..comment import (
     NAME_STYLE_MAP,
     CommentStyle,
@@ -46,12 +52,35 @@ from ..copyright import (
 )
 from ..exceptions import YearRangeParseError
 from ..extract import HEURISTICS_CHUNK_SIZE, detect_encoding, detect_newline
+from ..global_licensing import GlobalLicensing
 from ..i18n import _
 from ..project import Project
 from .common import ClickObj, MutexOption, spdx_identifier
 from .main import main
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _is_annotated_by_precedence(
+    path: Path,
+    skip_global_precedences: Collection[str],
+    global_licensing: GlobalLicensing | None,
+) -> str | Literal[False]:
+    """Return the path of the global licensing file (read: REUSE.toml file)
+    which annotates *path* for one of the given precedences.
+    """
+    if global_licensing is not None:
+        global_info_dicts = global_licensing.reuse_info_of(
+            relative_from_root(Path(path), global_licensing.root)
+        )
+        for precedence, global_infos in global_info_dicts.items():
+            for global_info in global_infos:
+                if (
+                    global_info.contains_info()
+                    and precedence.value in skip_global_precedences
+                ):
+                    return str(global_info.source_path)
+    return False
 
 
 def test_mandatory_option_required(
@@ -94,7 +123,7 @@ def all_paths(
                 }
     else:
         result = set(paths)
-    return [_determine_license_path(path) for path in result if path.is_file()]
+    return [determine_license_path(path) for path in result if path.is_file()]
 
 
 def verify_paths_comment_style(
@@ -282,6 +311,8 @@ _STYLE_MUTEX = [
     "fallback_dot_license",
     "skip_unrecognised",
 ]
+_REPLACE_MUTEX = ["no_replace", "replace_license"]
+_SKIP_GLOBAL_MUTEX = ["skip_global", "skip_precedence"]
 
 _HELP = (
     _("Add copyright and licensing into the headers of files.")
@@ -412,8 +443,20 @@ _HELP = (
 )
 @click.option(
     "--no-replace",
+    cls=MutexOption,
+    mutually_exclusive=_REPLACE_MUTEX,
     is_flag=True,
     help=_("Do not replace the first header in the file; just add a new one."),
+)
+@click.option(
+    "--replace-license",
+    cls=MutexOption,
+    mutually_exclusive=_REPLACE_MUTEX,
+    is_flag=True,
+    help=_(
+        "Replace existing SPDX-License-Identifiers,"
+        " instead of adding onto them."
+    ),
 )
 @click.option(
     "--force-dot-license",
@@ -447,6 +490,24 @@ _HELP = (
     is_flag=True,
     help=_("Skip files that already contain REUSE information."),
 )
+@click.option(
+    "--skip-global",
+    cls=MutexOption,
+    mutually_exclusive=_SKIP_GLOBAL_MUTEX,
+    is_flag=True,
+    help=_("Skip files that are covered by REUSE.toml or .reuse/dep5."),
+)
+@click.option(
+    "--skip-precedence",
+    cls=MutexOption,
+    mutually_exclusive=_SKIP_GLOBAL_MUTEX,
+    type=click.Choice(["aggregate", "closest", "override"]),
+    multiple=True,
+    help=_(
+        "Skip files that are covered by REUSE.toml or .reuse/dep5 with a"
+        " specific precedence level, repeatable."
+    ),
+)
 @click.argument(
     "paths",
     # TRANSLATORS: You may translate this. Please preserve capital letters.
@@ -470,10 +531,13 @@ def annotate(
     multi_line: bool,
     recursive: bool,
     no_replace: bool,
+    replace_license: bool,
     force_dot_license: bool,
     fallback_dot_license: bool,
     skip_unrecognised: bool,
     skip_existing: bool,
+    skip_global: bool,
+    skip_precedence: Collection[Literal["aggregate", "closest", "override"]],
     paths: Sequence[Path],
 ) -> None:
     # pylint: disable=too-many-arguments,too-many-locals,missing-function-docstring
@@ -491,6 +555,8 @@ def annotate(
     reuse_info = get_reuse_info(
         copyrights, licenses, contributors, copyright_prefix, years_tuple
     )
+    if skip_global:
+        skip_precedence = ["aggregate", "closest", "override"]
 
     result = 0
     for path in paths:
@@ -502,8 +568,25 @@ def annotate(
             if encoding is not None
             else os.linesep
         )
+
+        # Skip files by precedence.
+        if skip_precedence:
+            skip_path = _is_annotated_by_precedence(
+                path, skip_precedence, project.global_licensing
+            )
+            if skip_path:
+                sys.stdout.write(
+                    _(
+                        "Skipped file '{path}' which is already covered"
+                        " by '{source}'"
+                    ).format(path=path, source=skip_path)
+                )
+                sys.stdout.write("\n")
+                continue
+
+        # Write .license file instead.
         if encoding is None or is_uncommentable(path) or force_dot_license:
-            new_path = _determine_license_suffix_path(path)
+            new_path = determine_license_suffix_path(path)
             if encoding is None:
                 _LOGGER.info(
                     _(
@@ -514,6 +597,7 @@ def annotate(
                 encoding = "utf_8"
             path = Path(new_path)
             path.touch()
+
         result += add_header_to_file(
             path=path,
             reuse_info=reuse_info,
@@ -528,6 +612,7 @@ def annotate(
             fallback_dot_license=fallback_dot_license,
             merge_copyrights=merge_copyrights,
             replace=not no_replace,
+            replace_license=replace_license,
             out=sys.stdout,
         )
 

@@ -61,7 +61,7 @@ class Config:
     tax_pnl_history = "/tax-pnl-history"
     ledger_history = "/ledger-history"
     screeners_config = "/screeners/config"
-    screeners_query = "/screeners/query"
+    screeners_standard = "/screeners/standard"
     screeners_candlestick = "/screeners/candlestick"
     screeners_technical = "/screeners/technical"
     futures_chain = "/futures-chain"
@@ -137,7 +137,7 @@ class FyersServiceSync:
             self.api_logger.debug({"URL": URL,"data": json.dumps(data),"message": e})
             return self.error_resp
 
-    def get_call(self, api: str, header: str, data=None, data_flag=False) -> dict:
+    def get_call(self, api: str, header: str, data=None, data_flag=False, base_url=None) -> dict:
         """
         Makes a GET request to the specified API.
 
@@ -146,12 +146,15 @@ class FyersServiceSync:
             header: The authorization header for the request.
             data: The data to send in the request query parameters.
             data_flag: A flag indicating whether to use custom data URLs.
+            base_url: The base URL to use instead of the default ones.
 
         Returns:
             The response JSON as a dictionary, or the response object if an error occurs.
         """
         try:
-            if data_flag:
+            if base_url:
+                URL = base_url + api
+            elif data_flag:
                 URL = Config.DATA_API + api
             else:
                 URL = Config.API + api  
@@ -414,7 +417,7 @@ class FyersServiceAsync:
             return self.error_resp
 
     async def get_async_call(
-        self, api: str, header: str, params=None, data_flag=False
+        self, api: str, header: str, params=None, data_flag=False, base_url=None
     ) -> dict:
         """
         Makes an asynchronous GET request to the specified API.
@@ -424,12 +427,15 @@ class FyersServiceAsync:
             header: The authorization header for the request.
             params: The query parameters to send with the request.
             data_flag: A flag indicating whether to use custom data URLs.
+            base_url: The base URL to use instead of the default ones.
 
         Returns:
             The response JSON as a dictionary, or the response object if an error occurs.
         """
         try:
-            if data_flag:
+            if base_url:
+                URL = base_url + api
+            elif data_flag:
                 URL = Config.DATA_API + api
             else:
                 URL = Config.API + api
@@ -2034,64 +2040,83 @@ class FyersModel:
             The response JSON as a dictionary.
         """
         if self.is_async:
-            response = self.service.get_async_call(Config.screeners_config, self.header)
+            response = self.service.get_async_call(
+                Config.screeners_config, self.header, base_url=Config.API
+            )
         else:
-            response = self.service.get_call(Config.screeners_config, self.header)
+            response = self.service.get_call(
+                Config.screeners_config, self.header, base_url=Config.API
+            )
         return response
 
-    def screeners_query(self, data) -> dict:
+    def screeners_standard(self, data) -> dict:
         """
-        Retrieves screeners query based on the provided data.
+        Retrieves standard screener data based on the provided data.
 
         Args:
-            data (dict): A dictionary containing the screeners query details.
-            - screener (str): The screener to use.
+            data (dict): A dictionary containing the screener query details.
+            - screener_id (str): The screener to use.
             - universe (str): The universe to use.
             - fields (str): The fields to use.
             - order_by (str): The field to order by.
             - order (str): The order to use.
+            - timeframe (str): The timeframe to use.
+            - expiry (int): The expiry to use.
+            - option_type (str): The option type to use.
 
         Returns:
             The response JSON as a dictionary.
         """
         if self.is_async:
-            response = self.service.get_async_call(Config.screeners_query, self.header, data)
+            response = self.service.get_async_call(
+                Config.screeners_standard, self.header, data, base_url=Config.API
+            )
         else:
-            response = self.service.get_call(Config.screeners_query, self.header, data)
+            response = self.service.get_call(
+                Config.screeners_standard, self.header, data, base_url=Config.API
+            )
         return response
 
     def screeners_candlestick(self, data) -> dict:
         """
-        Retrieves screeners query based on the provided data.
+        Retrieves candlestick screener data based on the provided data.
 
         Args:
-            data (dict): A dictionary containing the screeners query details.
-            - screener (str): The screener to use.
+            data (dict): A dictionary containing the screener query details.
+            - screener_id (str): The screener to use.
 
         Returns:
             The response JSON as a dictionary.
         """
         if self.is_async:
-            response = self.service.get_async_call(Config.screeners_candlestick, self.header, data)
+            response = self.service.get_async_call(
+                Config.screeners_candlestick, self.header, data, base_url=Config.API
+            )
         else:
-            response = self.service.get_call(Config.screeners_candlestick, self.header, data)
+            response = self.service.get_call(
+                Config.screeners_candlestick, self.header, data, base_url=Config.API
+            )
         return response
 
     def screeners_technical(self, data) -> dict:
         """
-        Retrieves screeners query based on the provided data.
+        Retrieves technical screener data based on the provided data.
 
         Args:
-            data (dict): A dictionary containing the screeners query details.
-            - screener (str): The screener to use.
+            data (dict): A dictionary containing the screener query details.
+            - screener_id (str): The screener to use.
 
         Returns:
             The response JSON as a dictionary.
         """
         if self.is_async:
-            response = self.service.get_async_call(Config.screeners_technical, self.header, data)
+            response = self.service.get_async_call(
+                Config.screeners_technical, self.header, data, base_url=Config.API
+            )
         else:
-            response = self.service.get_call(Config.screeners_technical, self.header, data)
+            response = self.service.get_call(
+                Config.screeners_technical, self.header, data, base_url=Config.API
+            )
         return response
 
     def futures_chain(self, data=None) -> dict:

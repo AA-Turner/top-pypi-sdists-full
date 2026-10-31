@@ -163,12 +163,18 @@ Keyword arguments:
     Margin inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- mie (number; optional):
+    MarginInlineEnd, theme key: theme.spacing.
+
 - mih (string | number | dict; optional):
     Minimum height – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
 
 - minWidth (string | number; required):
     `min-width` of the `Table` at which it should become scrollable.
+
+- mis (number; optional):
+    MarginInlineStart, theme key: theme.spacing.
 
 - miw (string | number | dict; optional):
     Minimum width – Accepts theme spacing keys, CSS values, or a dict
@@ -217,6 +223,12 @@ Keyword arguments:
 - pe (string | number | dict; optional):
     Padding inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
+
+- pie (number; optional):
+    PaddingInlineEnd, theme key: theme.spacing.
+
+- pis (number; optional):
+    PaddingInlineStart, theme key: theme.spacing.
 
 - pl (string | number | dict; optional):
     Padding left – Accepts theme spacing keys, CSS values, or a dict
@@ -281,6 +293,21 @@ Keyword arguments:
     - overscrollBehavior (optional):
         Defines `overscroll-behavior` of the viewport.
         https://developer.mozilla.org/en-US/docs/Web/CSS/overscroll-behavior.
+
+    - startScrollPosition (dict; optional):
+        Initial scroll position set on mount. Type: dictionary with
+        optional `x` and `y` number properties.
+
+        `startScrollPosition` is a dict with keys:
+
+        - x (number; optional)
+
+        - y (number; optional)
+
+    - verticalScrollbarPosition (a value equal to: 'left', 'right'; optional):
+        Pins the vertical scrollbar to a physical side (`left` or
+        `right`) regardless of direction. By default, the scrollbar
+        follows the inline-end edge (right in LTR, left in RTL).
 
     - hiddenFrom (string; optional):
         Breakpoint above which the component is hidden with `display:
@@ -505,6 +532,18 @@ Keyword arguments:
         Determines whether component should be hidden in dark color
         scheme with `display: none`.
 
+    - mis (number; optional):
+        MarginInlineStart, theme key: theme.spacing.
+
+    - mie (number; optional):
+        MarginInlineEnd, theme key: theme.spacing.
+
+    - pis (number; optional):
+        PaddingInlineStart, theme key: theme.spacing.
+
+    - pie (number; optional):
+        PaddingInlineEnd, theme key: theme.spacing.
+
     - classNames (dict; optional):
         Adds custom CSS class names to inner elements of a component.
         See Styles API docs.
@@ -556,6 +595,14 @@ Keyword arguments:
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
     _type = 'TableScrollContainer'
+    ScrollAreaPropsStartScrollPosition = TypedDict(
+        "ScrollAreaPropsStartScrollPosition",
+            {
+            "x": NotRequired[NumberType],
+            "y": NotRequired[NumberType]
+        }
+    )
+
     ScrollAreaProps = TypedDict(
         "ScrollAreaProps",
             {
@@ -565,6 +612,8 @@ Keyword arguments:
             "scrollbars": NotRequired[typing.Union[bool, Literal["x"], Literal["y"], Literal["xy"]]],
             "offsetScrollbars": NotRequired[typing.Union[bool, Literal["x"], Literal["y"], Literal["present"]]],
             "overscrollBehavior": NotRequired[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["auto"], Literal["none"], Literal["contain"]]],
+            "startScrollPosition": NotRequired["ScrollAreaPropsStartScrollPosition"],
+            "verticalScrollbarPosition": NotRequired[Literal["left", "right"]],
             "hiddenFrom": NotRequired[str],
             "visibleFrom": NotRequired[str],
             "mod": NotRequired[typing.Union[str, dict, typing.Sequence[typing.Union[str, dict]]]],
@@ -622,6 +671,10 @@ Keyword arguments:
             "style": NotRequired[typing.Union[typing.Any]],
             "lightHidden": NotRequired[bool],
             "darkHidden": NotRequired[bool],
+            "mis": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
+            "mie": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
+            "pis": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
+            "pie": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
             "classNames": NotRequired[dict],
             "styles": NotRequired[typing.Any],
             "unstyled": NotRequired[bool],
@@ -704,14 +757,18 @@ Keyword arguments:
         style: typing.Optional[typing.Any] = None,
         lightHidden: typing.Optional[bool] = None,
         darkHidden: typing.Optional[bool] = None,
+        mis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        mie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         id: typing.Optional[typing.Union[str, dict]] = None,
         tabIndex: typing.Optional[NumberType] = None,
         loading_state: typing.Optional["LoadingState"] = None,
         **kwargs
     ):
-        self._prop_names = ['children', 'id', 'aria-*', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inset', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxHeight', 'mb', 'me', 'mih', 'minWidth', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'scrollAreaProps', 'style', 'ta', 'tabIndex', 'td', 'top', 'tt', 'type', 'visibleFrom', 'w']
+        self._prop_names = ['children', 'id', 'aria-*', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inset', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxHeight', 'mb', 'me', 'mie', 'mih', 'minWidth', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pie', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'scrollAreaProps', 'style', 'ta', 'tabIndex', 'td', 'top', 'tt', 'type', 'visibleFrom', 'w']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['children', 'id', 'aria-*', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inset', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxHeight', 'mb', 'me', 'mih', 'minWidth', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'scrollAreaProps', 'style', 'ta', 'tabIndex', 'td', 'top', 'tt', 'type', 'visibleFrom', 'w']
+        self.available_properties = ['children', 'id', 'aria-*', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inset', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxHeight', 'mb', 'me', 'mie', 'mih', 'minWidth', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pie', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'scrollAreaProps', 'style', 'ta', 'tabIndex', 'td', 'top', 'tt', 'type', 'visibleFrom', 'w']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

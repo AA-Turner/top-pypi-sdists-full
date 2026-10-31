@@ -189,9 +189,15 @@ Keyword arguments:
     Margin inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- mie (number; optional):
+    MarginInlineEnd, theme key: theme.spacing.
+
 - mih (string | number | dict; optional):
     Minimum height – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
+
+- mis (number; optional):
+    MarginInlineStart, theme key: theme.spacing.
 
 - miw (string | number | dict; optional):
     Minimum width – Accepts theme spacing keys, CSS values, or a dict
@@ -241,6 +247,12 @@ Keyword arguments:
     Padding inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- pie (number; optional):
+    PaddingInlineEnd, theme key: theme.spacing.
+
+- pis (number; optional):
+    PaddingInlineStart, theme key: theme.spacing.
+
 - pl (string | number | dict; optional):
     Padding left – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
@@ -267,6 +279,10 @@ Keyword arguments:
 - py (string | number | dict; optional):
     Padding block – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
+
+- radius (number; optional):
+    Key of `theme.radius` or any valid CSS value to set border-radius
+    default 0.
 
 - right (string | number | dict; optional):
     Right offset – Accepts CSS values or a dict for responsive styles.
@@ -306,6 +322,9 @@ Keyword arguments:
     Width – Accepts theme spacing keys, CSS values, or a dict for
     responsive styles.
 
+- withBorder (boolean; optional):
+    Adds border to the root element default False.
+
 - withCopyButton (boolean; optional):
     Determines whether copy button should be displayed, `True` by
     default.
@@ -313,9 +332,17 @@ Keyword arguments:
 - withExpandButton (boolean; optional):
     Determines whether to show the expand button, `False` by default.
 
+- withFirstLineIndentation (boolean; optional):
+    If set, indentation of the first line of the code is preserved. By
+    default, it is removed along with the rest of the leading and
+    trailing whitespace. default False.
+
 - withHeader (boolean; optional):
     Determines whether header with file names and copy button should
-    be rendered, `True` by default."""
+    be rendered, `True` by default.
+
+- withLineNumbers (boolean; optional):
+    Determines whether line numbers should be displayed default False."""
     _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
@@ -343,6 +370,10 @@ Keyword arguments:
         collapseCodeLabel: typing.Optional[str] = None,
         withExpandButton: typing.Optional[bool] = None,
         withCopyButton: typing.Optional[bool] = None,
+        radius: typing.Optional[typing.Union[str, NumberType]] = None,
+        withBorder: typing.Optional[bool] = None,
+        withLineNumbers: typing.Optional[bool] = None,
+        withFirstLineIndentation: typing.Optional[bool] = None,
         hiddenFrom: typing.Optional[str] = None,
         visibleFrom: typing.Optional[str] = None,
         mod: typing.Optional[typing.Union[str, dict, typing.Sequence[typing.Union[str, dict]]]] = None,
@@ -400,6 +431,10 @@ Keyword arguments:
         style: typing.Optional[typing.Any] = None,
         lightHidden: typing.Optional[bool] = None,
         darkHidden: typing.Optional[bool] = None,
+        mis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        mie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         classNames: typing.Optional[dict] = None,
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
@@ -410,9 +445,9 @@ Keyword arguments:
         loading_state: typing.Optional["LoadingState"] = None,
         **kwargs
     ):
-        self._prop_names = ['id', 'activeTab', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'code', 'collapseCodeLabel', 'copiedLabel', 'copyLabel', 'darkHidden', 'data-*', 'defaultExpanded', 'display', 'expandCodeLabel', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inset', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxCollapsedHeight', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withCopyButton', 'withExpandButton', 'withHeader']
+        self._prop_names = ['id', 'activeTab', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'code', 'collapseCodeLabel', 'copiedLabel', 'copyLabel', 'darkHidden', 'data-*', 'defaultExpanded', 'display', 'expandCodeLabel', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inset', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxCollapsedHeight', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pie', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'right', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withBorder', 'withCopyButton', 'withExpandButton', 'withFirstLineIndentation', 'withHeader', 'withLineNumbers']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['id', 'activeTab', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'code', 'collapseCodeLabel', 'copiedLabel', 'copyLabel', 'darkHidden', 'data-*', 'defaultExpanded', 'display', 'expandCodeLabel', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inset', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxCollapsedHeight', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withCopyButton', 'withExpandButton', 'withHeader']
+        self.available_properties = ['id', 'activeTab', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'code', 'collapseCodeLabel', 'copiedLabel', 'copyLabel', 'darkHidden', 'data-*', 'defaultExpanded', 'display', 'expandCodeLabel', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inset', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxCollapsedHeight', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pie', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'right', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withBorder', 'withCopyButton', 'withExpandButton', 'withFirstLineIndentation', 'withHeader', 'withLineNumbers']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

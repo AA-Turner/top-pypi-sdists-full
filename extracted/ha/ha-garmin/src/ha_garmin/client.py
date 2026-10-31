@@ -12,7 +12,7 @@ import ssl
 import time
 from datetime import UTC, date, datetime, timedelta, tzinfo
 from datetime import timezone as fixed_timezone
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import quote, unquote, urlsplit
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -29,6 +29,7 @@ from .const import (
     BODY_COMPOSITION_URL,
     CALENDAR_EVENTS_URL,
     CALENDAR_URL,
+    DAILY_HEART_RATE_URL,
     DAILY_STEPS_URL,
     DEFAULT_HEADERS,
     DEVICE_LAST_USED_URL,
@@ -698,6 +699,30 @@ def _workout_detail_fields(workout: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in fields.items() if v is not None}
 
 
+def _latest_heart_rate_sample(data: dict[str, Any]) -> dict[str, Any]:
+    """The newest sample in a dailyHeartRate response, or {} if it has none.
+
+    heartRateValues are [UTC epoch ms, bpm] pairs, about every 2 minutes up
+    to the last watch sync; bpm is None where the watch measured nothing.
+    """
+    for pair in reversed(data.get("heartRateValues") or []):
+        if not isinstance(pair, list) or len(pair) != 2:
+            continue
+        timestamp, bpm = pair
+        if (
+            isinstance(timestamp, (int, float))
+            and not isinstance(timestamp, bool)
+            and isinstance(bpm, int)
+            and not isinstance(bpm, bool)
+            and bpm > 0
+        ):
+            return {
+                "latestHeartRate": bpm,
+                "latestHeartRateTime": datetime.fromtimestamp(timestamp / 1000, UTC),
+            }
+    return {}
+
+
 def _trim_goal_event(event: dict[str, Any]) -> dict[str, Any]:
     """Trim a training plan's goal event to the fields that matter.
 
@@ -1177,6 +1202,9 @@ class GarminClient:
         # Slow-changing data fetched at most once per _SLOW_CACHE_SECONDS:
         # key -> (monotonic fetch time, value).
         self._slow_cache: dict[str, tuple[float, Any]] = {}
+        # Latest heart rate sample and the watch sync it was fetched after.
+        self._latest_heart_rate: dict[str, Any] = {}
+        self._latest_heart_rate_sync: Any = None
         # Per-activity lookups that only need one API call per new activity.
         self._summary_fields_cache = _PerActivityCache(
             self._EBIKE_FIELDS_EMPTY_RETRY_LIMIT
@@ -2115,6 +2143,41 @@ class GarminClient:
         self._learn_utc_offset(data)
         return data
 
+    async def get_daily_heart_rate(self, target_date: date) -> dict[str, Any]:
+        """Get a day's heart rate: resting/min/max and the sampled values."""
+        profile = await self.get_user_profile()
+        url = f"{DAILY_HEART_RATE_URL}/{quote(profile.display_name, safe='')}"
+        params = {"date": target_date.isoformat()}
+        data = await self._request("GET", url, params=params)
+        return data if isinstance(data, dict) else {}
+
+    async def get_latest_heart_rate(self) -> dict[str, Any]:
+        """The newest heart rate sample and when it was measured (UTC).
+
+        Returns {"latestHeartRate": bpm, "latestHeartRateTime": datetime},
+        or {} without samples. Right after midnight today has none yet, so
+        yesterday's last sample is used. Samples only reach Garmin when the
+        watch syncs, so this is never live heart rate.
+        """
+        today = self.today()
+        for day in (today, today - timedelta(days=1)):
+            sample = _latest_heart_rate_sample(await self.get_daily_heart_rate(day))
+            if sample:
+                return sample
+        return {}
+
+    async def get_daily_summary(self, target_date: date) -> dict[str, Any]:
+        """Get Garmin's daily summary for any date, as Garmin returns it.
+
+        Steps, distance, calories, heart rate, stress, Body Battery,
+        intensity minutes, respiration and floors for that day; one API call.
+        For a past day this is the final summary, including data the watch
+        synced after midnight.
+        """
+        if not isinstance(target_date, date):
+            raise ValueError(f"target_date must be a date, got {target_date!r}")
+        return await self._get_user_summary_raw(target_date)
+
     async def _get_sleep_data_raw(
         self, target_date: date | None = None
     ) -> dict[str, Any]:
@@ -3010,10 +3073,17 @@ class GarminClient:
 
     # ========== Multi-Coordinator Fetch Methods ==========
 
-    async def fetch_core_data(self, target_date: date | None = None) -> dict[str, Any]:
+    async def fetch_core_data(
+        self, target_date: date | None = None, *, latest_heart_rate: bool = False
+    ) -> dict[str, Any]:
         """Fetch core data: summary, daily steps, sleep.
 
-        API calls: get_user_summary, get_daily_steps, get_sleep_data (3 calls)
+        With latest_heart_rate, also latestHeartRate and latestHeartRateTime
+        (see get_latest_heart_rate), re-fetched only after a new watch sync,
+        since samples can't change in between.
+
+        API calls: get_user_summary, get_daily_steps, get_sleep_data (3 calls),
+                   plus get_latest_heart_rate (1-2) per new sync if asked
         """
         if target_date is None:
             target_date = self.today()
@@ -3201,7 +3271,25 @@ class GarminClient:
             "avgSkinTempDeviationC": skin_temp_deviation,
             "skinTempCalibrationDays": skin_temp_calibration_days,
         }
+        if latest_heart_rate:
+            data.update(
+                await self._latest_heart_rate_since_sync(
+                    summary_raw.get("lastSyncTimestampGMT")
+                )
+            )
         return _add_computed_fields(data)
+
+    async def _latest_heart_rate_since_sync(self, last_sync: Any) -> dict[str, Any]:
+        """Latest heart rate, fetched again only when the watch has synced.
+
+        A failed fetch leaves the cache as it was, so the next poll retries.
+        """
+        if last_sync is None or last_sync != self._latest_heart_rate_sync:
+            sample = await self._safe_call(self.get_latest_heart_rate)
+            if sample is not None:
+                self._latest_heart_rate = sample
+                self._latest_heart_rate_sync = last_sync
+        return self._latest_heart_rate
 
     # How many recent activities to pull for `lastActivities`. Consumers (e.g.
     # the Home Assistant integration) derive a rolling-week count from this
@@ -3512,11 +3600,16 @@ class GarminClient:
         }
         return _add_computed_fields(data)
 
-    async def fetch_goals_data(self) -> dict[str, Any]:
+    async def fetch_goals_data(self, *, lifetime_totals: bool = True) -> dict[str, Any]:
         """Fetch goals data: goals, badges, lifetime totals.
 
+        lifetimeTotalsHidden is True when Garmin refused the lifetime totals
+        because they aren't shown in the user's profile (see
+        _lifetime_totals); lifetimeTotals is then empty.
+
         API calls: get_goals×3, get_earned_badges (4 calls), plus
-                   get_lifetime_totals at most once an hour
+                   get_lifetime_totals at most once an hour unless
+                   lifetime_totals is False
         """
         active_goals = await self._safe_call(self.get_goals, "active")
         future_goals = await self._safe_call(self.get_goals, "future")
@@ -3570,11 +3663,35 @@ class GarminClient:
             "badges": badges,
             "userPoints": user_points,
             "userLevel": user_level,
-            "lifetimeTotals": await self._cached_safe_call(
-                "lifetime_totals", self.get_lifetime_totals
-            )
-            or {},
+            **(
+                await self._lifetime_totals()
+                if lifetime_totals
+                else {"lifetimeTotals": {}, "lifetimeTotalsHidden": False}
+            ),
         }
+
+    async def _lifetime_totals(self) -> dict[str, Any]:
+        """Lifetime totals, and whether Garmin hides them.
+
+        Garmin answers 403 unless "Lifetime Totals" is shown in the user's
+        profile (Account Settings > Public Profile > Show in profile; the
+        profile can stay private); that is reported as lifetimeTotalsHidden.
+        Only real totals are cached (hourly): a hidden or failed answer is
+        asked again on the next poll, so changing the setting shows at once.
+        """
+        cached = self._slow_cache.get("lifetime_totals")
+        if cached and time.monotonic() - cached[0] < _SLOW_CACHE_SECONDS:
+            return cast(dict[str, Any], cached[1])
+        try:
+            totals = await self.get_lifetime_totals()
+        except GarminAPIError as err:
+            if err.status_code == 403:
+                return {"lifetimeTotals": {}, "lifetimeTotalsHidden": True}
+            _LOGGER.warning("API call get_lifetime_totals failed: %s", err)
+            return {"lifetimeTotals": {}, "lifetimeTotalsHidden": False}
+        result = {"lifetimeTotals": totals, "lifetimeTotalsHidden": False}
+        self._slow_cache["lifetime_totals"] = (time.monotonic(), result)
+        return result
 
     async def fetch_gear_data(self, timezone: str | None = None) -> dict[str, Any]:
         """Fetch gear data: gear, defaults, stats, alarms, solar, devices, sensors.

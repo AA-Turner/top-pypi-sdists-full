@@ -20,9 +20,10 @@ from durabletask.task import (
 )
 
 from .._executors import OrchestrationAgentExecutor
-from .._models import AgentSessionId, DurableAgentSession
-from .._shim import DurableAIAgent
+from .._json_payload import JsonPayload
+from .._shim import build_agent_task
 from .context import WorkflowOrchestrationContext
+from .naming import workflow_name_from_orchestrator, workflow_orchestrator_name
 
 logger = logging.getLogger(__name__)
 
@@ -30,9 +31,29 @@ logger = logging.getLogger(__name__)
 class DurableTaskWorkflowContext:
     """Adapter that maps ``OrchestrationContext`` to :class:`WorkflowOrchestrationContext`."""
 
-    def __init__(self, context: OrchestrationContext) -> None:
+    def __init__(
+        self,
+        context: OrchestrationContext,
+        *,
+        supports_event_streaming: bool = True,
+        entity_version: int = 1,
+    ) -> None:
+        """Wrap a durabletask orchestration context.
+
+        Args:
+            context: The durabletask orchestration context to adapt.
+            entity_version: Recorded orchestration name's entity address generation.
+            supports_event_streaming: Whether the host can publish the accumulating
+                workflow event log. Defaults to ``True`` for the standalone
+                DurableTask host. Azure Functions passes ``False`` because the
+                Durable Functions custom status is capped at 16 KB by the WebJobs
+                extension, and publishing the event log would overflow that cap and
+                fail the orchestrator.
+        """
         self._context = context
-        self._executor = OrchestrationAgentExecutor(context)
+        self._executor = OrchestrationAgentExecutor(context, entity_version=entity_version)
+        self._entity_version = entity_version
+        self._supports_event_streaming = supports_event_streaming
 
     # -- Properties -----------------------------------------------------------
 
@@ -46,10 +67,11 @@ class DurableTaskWorkflowContext:
 
     @property
     def supports_event_streaming(self) -> bool:
-        # The standalone DurableTask host exposes the event timeline to clients via
-        # DurableWorkflowClient.stream_workflow, and its DTS backend imposes no 16 KB
-        # custom-status cap, so the full accumulated event stream is published.
-        return True
+        # Host-dependent; see the constructor docstring. The standalone DurableTask
+        # host exposes the event timeline to clients via
+        # DurableWorkflowClient.stream_workflow, and its DTS backend imposes no
+        # 16 KB custom-status cap, so the full event stream is published there.
+        return self._supports_event_streaming
 
     @property
     def current_utc_datetime(self) -> datetime:
@@ -57,17 +79,38 @@ class DurableTaskWorkflowContext:
 
     # -- Agent / Activity dispatch --------------------------------------------
 
-    def prepare_agent_task(self, executor_id: str, message: str, orchestration_instance_id: str) -> Any:
-        session_id = AgentSessionId(name=executor_id, key=orchestration_instance_id)
-        session = DurableAgentSession(durable_session_id=session_id)
-        agent = DurableAIAgent(self._executor, executor_id)
-        return agent.run(message, session=session)
+    def prepare_agent_task(
+        self,
+        executor_id: str,
+        message: str,
+        orchestration_instance_id: str,
+        context_messages: list[dict[str, Any]] | None = None,
+        context_message_ids: list[str] | None = None,
+    ) -> Any:
+        return build_agent_task(
+            self._executor,
+            executor_id,
+            message,
+            orchestration_instance_id,
+            context_messages,
+            context_message_ids,
+        )
 
     def prepare_activity_task(self, activity_name: str, input_json: str) -> Any:
         return cast(Any, self._context.call_activity(activity_name, input=input_json))
 
     def call_sub_orchestrator(self, name: str, input: Any, instance_id: str | None = None) -> Any:
-        return cast(Any, self._context.call_sub_orchestrator(name, input=input, instance_id=instance_id))
+        if self._entity_version == 2:
+            logical_name = workflow_name_from_orchestrator(name)
+            if logical_name is None:
+                raise ValueError(f"Expected a DAFX workflow orchestration name, got {name!r}.")
+            name = workflow_orchestrator_name(logical_name, entity_version=self._entity_version)
+        return cast(
+            Any,
+            self._context.call_sub_orchestrator(
+                name, input=input, instance_id=instance_id, return_type=cast(Any, JsonPayload)
+            ),
+        )
 
     # -- Composite tasks ------------------------------------------------------
 
@@ -80,7 +123,7 @@ class DurableTaskWorkflowContext:
     # -- External events / timers ---------------------------------------------
 
     def wait_for_external_event(self, name: str) -> Any:
-        return cast(Any, self._context).wait_for_external_event(name)
+        return cast(Any, self._context).wait_for_external_event(name, data_type=JsonPayload)
 
     def create_timer(self, fire_at: datetime) -> Any:
         return cast(Any, self._context).create_timer(fire_at)

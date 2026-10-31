@@ -2,7 +2,7 @@ use crate::error::{XIOError, XIOResult};
 use crate::write::pyconv::*;
 
 use std::borrow::Cow;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
 use std::sync::LazyLock;
 
 use pyo3::ffi;
@@ -11,6 +11,8 @@ use pyo3::types::{PyBool, PyDate, PyDateTime, PyDict, PyFloat, PyTuple, PyList, 
 use rust_xlsxwriter::{Workbook, Worksheet, Format, ExcelDateTime, RowNum, ColNum};
 
 pub static DEFAULT_FORMAT: LazyLock<Format> = LazyLock::new(Format::default);
+
+// TODO: make more relevant naming of the structs
 
 #[pyclass(from_py_object, get_all, set_all)]
 #[derive(Clone, Debug, PartialEq)]
@@ -398,13 +400,13 @@ impl XIOFormat {
 // so cloning a worksheet handle never copies grown caches.
 #[derive(Default)]
 struct WorksheetCaches {
+    // shared by all handle clones, refreshed by add_worksheet
+    worksheet: AtomicPtr<Worksheet>,
     col_hints: Vec<ColTypeHint>,
     col_formats_setted: Vec<Option<Format>>,
     row_formats_setted: Vec<Option<Format>>,
     // Set during a GIL-released write: handles are cloneable raw pointers, so pyo3's borrow flag can't guard them
     busy: AtomicBool,
-    // Set when a later add_worksheet moved this worksheet in memory, leaving handle pointers dangling
-    stale: AtomicBool,
 }
 
 fn col_at(col: ColNum, offset: usize) -> XIOResult<ColNum> {
@@ -461,7 +463,6 @@ fn resolve_format_cache<'a>(
 #[pyclass(from_py_object, weakref)]
 #[derive(Clone)]
 pub struct XIOWWorksheet {
-    worksheet: *mut Worksheet,
     caches: *mut WorksheetCaches,
     options: XIOWOptions,
     datatype_format_bindings: *const [Option<Format>; ColTypeHint::COUNT],
@@ -473,14 +474,16 @@ impl XIOWWorksheet {
 
     #[inline(always)]
     fn worksheet_ref(&self) -> &Worksheet {
-        assert!(!self.worksheet.is_null(), "ERROR: Something went wrong. Cannot use worksheet which is deallocated!!!");
-        unsafe { &*self.worksheet }
+        let ptr = self.caches_refmut().worksheet.load(Ordering::Acquire);
+        assert!(!ptr.is_null(), "ERROR: Something went wrong. Cannot use worksheet which is deallocated!!!");
+        unsafe { &*ptr }
     }
 
     #[inline(always)]
     fn worksheet_refmut(&self) -> &mut Worksheet {
-        assert!(!self.worksheet.is_null(), "ERROR: Something went wrong. Cannot use worksheet which is deallocated!!!");
-        unsafe { &mut *self.worksheet }
+        let ptr = self.caches_refmut().worksheet.load(Ordering::Acquire);
+        assert!(!ptr.is_null(), "ERROR: Something went wrong. Cannot use worksheet which is deallocated!!!");
+        unsafe { &mut *ptr }
     }
 
     #[inline(always)]
@@ -490,16 +493,11 @@ impl XIOWWorksheet {
     }
 
     fn new(
-        worksheet: &mut Worksheet,
-        name: String,
         options: XIOWOptions,
         caches: *mut WorksheetCaches,
         datatype_format_bindings: *const [Option<Format>; ColTypeHint::COUNT],
     ) -> Self {
-        // already validated in add_worksheet
-        let _ = worksheet.set_name(name);
         Self {
-            worksheet: worksheet as *mut Worksheet,
             caches,
             options,
             datatype_format_bindings,
@@ -516,12 +514,6 @@ impl XIOWWorksheet {
 
     fn ensure_usable(&self) -> PyResult<()> {
         let caches = self.caches_refmut();
-        if caches.stale.load(Ordering::Acquire) {
-            return Err(XIOError::state(
-                "Worksheet handle is invalidated: another worksheet was added to the workbook after it. \
-                 Write a worksheet completely before adding the next one",
-            ).into());
-        }
         if caches.busy.load(Ordering::Acquire) {
             return Err(XIOError::state("Worksheet is being written from another thread").into());
         }
@@ -983,33 +975,30 @@ impl XIOWWorkbook {
             return Err(XIOError::state("Cannot add a worksheet while another worksheet is being written").into());
         }
 
-        // validate first, so a bad name doesn't leave a half-added worksheet
-        Worksheet::new().set_name(&name).map_err(|e| XIOError::xlsx("set worksheet name", e))?;
-
         let ws_options = options.unwrap_or(self.options.clone());
         let worksheet = if ws_options.constant_memory {
             self.workbook.add_worksheet_with_constant_memory()
         } else {
             self.workbook.add_worksheet()
         };
+        worksheet.set_name(name).map_err(|e| XIOError::xlsx("set worksheet name", e))?;
 
         let mut caches = Box::new(WorksheetCaches::default());
         let caches_ptr: *mut WorksheetCaches = caches.as_mut();
         self.worksheet_caches.push(caches);
 
         let sheet = XIOWWorksheet::new(
-            worksheet,
-            name,
             ws_options,
             caches_ptr,
             self.datatype_format_bindings.as_ref() as *const _,
         );
-        // the workbook's Vec<Worksheet> may have been reallocated, moving the earlier worksheets
-        for (idx, handle) in self.worksheets.iter().enumerate() {
-            if !std::ptr::eq(&self.workbook.worksheets()[idx], handle.worksheet) {
-                handle.caches_refmut().stale.store(true, Ordering::Release);
-            }
+        
+        // refresh pointers cause they can be moved
+        let rs_sheets = self.workbook.worksheets();
+        for (idx, caches) in self.worksheet_caches.iter().enumerate() {
+            caches.worksheet.store(&rs_sheets[idx] as *const Worksheet as *mut Worksheet, Ordering::Release);
         }
+
         self.worksheets.push(sheet.clone());
 
         Ok(sheet)

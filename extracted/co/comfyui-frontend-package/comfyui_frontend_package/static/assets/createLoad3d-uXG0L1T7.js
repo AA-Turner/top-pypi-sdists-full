@@ -1,0 +1,1 @@
+import{t as e}from"./createLoad3d-Dvjberv5.js";export{e as createLoad3d};

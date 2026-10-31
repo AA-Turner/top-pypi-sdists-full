@@ -78,7 +78,6 @@ if typing.TYPE_CHECKING:
     from .data_frame_request_out_columns_item import DataFrameRequestOutColumnsItem
     from .data_frame_request_out_data_item_item import DataFrameRequestOutDataItemItem
     from .data_frame_request_out_index_item import DataFrameRequestOutIndexItem
-    from .data_frame_unknown_format_error import DataFrameUnknownFormatError
     from .database_column_info import DatabaseColumnInfo
     from .database_compute_settings_response_out import DatabaseComputeSettingsResponseOut
     from .database_data_response import DatabaseDataResponse
@@ -98,9 +97,11 @@ if typing.TYPE_CHECKING:
     from .dimension_properties import DimensionProperties
     from .duplicate_asset_response_out import DuplicateAssetResponseOut
     from .email_draft_response_out import EmailDraftResponseOut
+    from .email_message_response_out import EmailMessageResponseOut
     from .email_search_response_out import EmailSearchResponseOut
     from .email_search_result_out import EmailSearchResultOut
-    from .file_too_large_error import FileTooLargeError
+    from .file_backed_sheet_response_out import FileBackedSheetResponseOut
+    from .file_backed_workbook_response_out import FileBackedWorkbookResponseOut
     from .folder_response import FolderResponse
     from .general_agent_async_invoke_response_out import GeneralAgentAsyncInvokeResponseOut
     from .general_agent_config import GeneralAgentConfig
@@ -155,6 +156,10 @@ if typing.TYPE_CHECKING:
     from .prompt_message_type import PromptMessageType
     from .public_asset_out import PublicAssetOut
     from .public_collab_agent_config_in import PublicCollabAgentConfigIn
+    from .public_figure_config_in import PublicFigureConfigIn
+    from .public_session_computer_in import PublicSessionComputerIn
+    from .public_session_computer_in_scope import PublicSessionComputerInScope
+    from .public_session_setup_step_in import PublicSessionSetupStepIn
     from .public_skill_config_in import PublicSkillConfigIn
     from .publish_asset_response_out import PublishAssetResponseOut
     from .read_capabilities_out import ReadCapabilitiesOut
@@ -184,6 +189,12 @@ if typing.TYPE_CHECKING:
     from .ssh_key_list_response_out import SshKeyListResponseOut
     from .ssh_key_out import SshKeyOut
     from .structured_data_extractor_response import StructuredDataExtractorResponse
+    from .studio_token_request_in import StudioTokenRequestIn
+    from .studio_token_request_in_access import StudioTokenRequestInAccess
+    from .studio_token_request_in_audience import StudioTokenRequestInAudience
+    from .studio_token_response_out import StudioTokenResponseOut
+    from .studio_token_response_out_access_type import StudioTokenResponseOutAccessType
+    from .studio_token_response_out_audience import StudioTokenResponseOutAudience
     from .table_row_data import TableRowData
     from .text_content import TextContent
     from .text_format_model import TextFormatModel
@@ -200,6 +211,7 @@ if typing.TYPE_CHECKING:
     from .tool_result_content import ToolResultContent
     from .tool_result_content_content import ToolResultContentContent
     from .tool_use_content import ToolUseContent
+    from .update_asset_config_response_out import UpdateAssetConfigResponseOut
     from .update_workspace_disclaimer_in import UpdateWorkspaceDisclaimerIn
     from .update_workspace_tool_registry_tool_in import UpdateWorkspaceToolRegistryToolIn
     from .user_info_out import UserInfoOut
@@ -298,7 +310,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DataFrameRequestOutColumnsItem": ".data_frame_request_out_columns_item",
     "DataFrameRequestOutDataItemItem": ".data_frame_request_out_data_item_item",
     "DataFrameRequestOutIndexItem": ".data_frame_request_out_index_item",
-    "DataFrameUnknownFormatError": ".data_frame_unknown_format_error",
     "DatabaseColumnInfo": ".database_column_info",
     "DatabaseComputeSettingsResponseOut": ".database_compute_settings_response_out",
     "DatabaseDataResponse": ".database_data_response",
@@ -318,9 +329,11 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DimensionProperties": ".dimension_properties",
     "DuplicateAssetResponseOut": ".duplicate_asset_response_out",
     "EmailDraftResponseOut": ".email_draft_response_out",
+    "EmailMessageResponseOut": ".email_message_response_out",
     "EmailSearchResponseOut": ".email_search_response_out",
     "EmailSearchResultOut": ".email_search_result_out",
-    "FileTooLargeError": ".file_too_large_error",
+    "FileBackedSheetResponseOut": ".file_backed_sheet_response_out",
+    "FileBackedWorkbookResponseOut": ".file_backed_workbook_response_out",
     "FolderResponse": ".folder_response",
     "GeneralAgentAsyncInvokeResponseOut": ".general_agent_async_invoke_response_out",
     "GeneralAgentConfig": ".general_agent_config",
@@ -373,6 +386,10 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PromptMessageType": ".prompt_message_type",
     "PublicAssetOut": ".public_asset_out",
     "PublicCollabAgentConfigIn": ".public_collab_agent_config_in",
+    "PublicFigureConfigIn": ".public_figure_config_in",
+    "PublicSessionComputerIn": ".public_session_computer_in",
+    "PublicSessionComputerInScope": ".public_session_computer_in_scope",
+    "PublicSessionSetupStepIn": ".public_session_setup_step_in",
     "PublicSkillConfigIn": ".public_skill_config_in",
     "PublishAssetResponseOut": ".publish_asset_response_out",
     "ReadCapabilitiesOut": ".read_capabilities_out",
@@ -402,6 +419,12 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SshKeyListResponseOut": ".ssh_key_list_response_out",
     "SshKeyOut": ".ssh_key_out",
     "StructuredDataExtractorResponse": ".structured_data_extractor_response",
+    "StudioTokenRequestIn": ".studio_token_request_in",
+    "StudioTokenRequestInAccess": ".studio_token_request_in_access",
+    "StudioTokenRequestInAudience": ".studio_token_request_in_audience",
+    "StudioTokenResponseOut": ".studio_token_response_out",
+    "StudioTokenResponseOutAccessType": ".studio_token_response_out_access_type",
+    "StudioTokenResponseOutAudience": ".studio_token_response_out_audience",
     "TableRowData": ".table_row_data",
     "TextContent": ".text_content",
     "TextFormatModel": ".text_format_model",
@@ -418,6 +441,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ToolResultContent": ".tool_result_content",
     "ToolResultContentContent": ".tool_result_content_content",
     "ToolUseContent": ".tool_use_content",
+    "UpdateAssetConfigResponseOut": ".update_asset_config_response_out",
     "UpdateWorkspaceDisclaimerIn": ".update_workspace_disclaimer_in",
     "UpdateWorkspaceToolRegistryToolIn": ".update_workspace_tool_registry_tool_in",
     "UserInfoOut": ".user_info_out",
@@ -540,7 +564,6 @@ __all__ = [
     "DataFrameRequestOutColumnsItem",
     "DataFrameRequestOutDataItemItem",
     "DataFrameRequestOutIndexItem",
-    "DataFrameUnknownFormatError",
     "DatabaseColumnInfo",
     "DatabaseComputeSettingsResponseOut",
     "DatabaseDataResponse",
@@ -560,9 +583,11 @@ __all__ = [
     "DimensionProperties",
     "DuplicateAssetResponseOut",
     "EmailDraftResponseOut",
+    "EmailMessageResponseOut",
     "EmailSearchResponseOut",
     "EmailSearchResultOut",
-    "FileTooLargeError",
+    "FileBackedSheetResponseOut",
+    "FileBackedWorkbookResponseOut",
     "FolderResponse",
     "GeneralAgentAsyncInvokeResponseOut",
     "GeneralAgentConfig",
@@ -615,6 +640,10 @@ __all__ = [
     "PromptMessageType",
     "PublicAssetOut",
     "PublicCollabAgentConfigIn",
+    "PublicFigureConfigIn",
+    "PublicSessionComputerIn",
+    "PublicSessionComputerInScope",
+    "PublicSessionSetupStepIn",
     "PublicSkillConfigIn",
     "PublishAssetResponseOut",
     "ReadCapabilitiesOut",
@@ -644,6 +673,12 @@ __all__ = [
     "SshKeyListResponseOut",
     "SshKeyOut",
     "StructuredDataExtractorResponse",
+    "StudioTokenRequestIn",
+    "StudioTokenRequestInAccess",
+    "StudioTokenRequestInAudience",
+    "StudioTokenResponseOut",
+    "StudioTokenResponseOutAccessType",
+    "StudioTokenResponseOutAudience",
     "TableRowData",
     "TextContent",
     "TextFormatModel",
@@ -660,6 +695,7 @@ __all__ = [
     "ToolResultContent",
     "ToolResultContentContent",
     "ToolUseContent",
+    "UpdateAssetConfigResponseOut",
     "UpdateWorkspaceDisclaimerIn",
     "UpdateWorkspaceToolRegistryToolIn",
     "UserInfoOut",

@@ -2784,6 +2784,7 @@ def authorize(
     open_browser: bool = True,
     install_code: str | None = None,
     minted: dict | None = None,
+    allow_browser_approval: bool = True,
 ) -> tuple[dict[str, dict], list[str]]:
     """Run ONE browser approval covering everything the user ticked, and persist
     every credential it mints.
@@ -2816,6 +2817,11 @@ def authorize(
 
     if not grants:
         return {}, []
+
+    # Recorder callers explicitly forbid device approval. Configure/repair
+    # can need capture alone, so the remaining grants cannot identify a switch.
+    if minted is None and install_code is None and not allow_browser_approval:
+        return {}, ["Couldn't prepare recording with this Mac's saved sign-in. Refresh your account and try again."]
 
     try:
         source = agent_source()
@@ -3403,6 +3409,9 @@ def pair_capture(source: str, *, base_url: str, open_browser: bool = True, sign_
     agent's folder goes too."""
     from probe.cli.capabilities import agent_target
     from probe.cli.capture import clear_stray_pi_killswitch
+    from probe._shared.telemetry import DESKTOP_HUMAN_ENV
+
+    desktop = os.environ.get(DESKTOP_HUMAN_ENV) == "1"
 
     label = agent_label(source)
     lines = [f"Pairing {label}'s session capture (the daemon records from it)."]
@@ -3412,7 +3421,8 @@ def pair_capture(source: str, *, base_url: str, open_browser: bool = True, sign_
             base_url=base_url,
             capture_sources=[source],
             open_browser=open_browser,
-            minted=mint_from_sign_in("capture", base_url=base_url, source=source) if sign_in else None,
+            minted=mint_from_sign_in("capture", base_url=base_url, source=source) if sign_in or desktop else None,
+            allow_browser_approval=not desktop,
         )
         lines.extend(messages)
     except Exception as exc:  # noqa: BLE001 - every failure reads as "not paired" in apply_recorder

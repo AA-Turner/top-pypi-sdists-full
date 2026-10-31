@@ -165,6 +165,11 @@ WORKSPACE_TERMINATE_EXAMPLE = """\
 Terminating workspace 'my-workspace'
 """
 
+WORKSPACE_DELETE_EXAMPLE = """\
+Deleting workspace 'my-workspace' in project 'my-project' on cloud 'my-cloud' cannot be undone. If it is a KubeRay workspace, its files are deleted too. Continue? [y/N]: y
+Workspace 'my-workspace' (ID: expwrk_abc123) has been deleted.
+"""
+
 WORKSPACE_STATUS_EXAMPLE = """\
 STARTING
 """
@@ -399,6 +404,10 @@ IMAGE_ARCHIVE_EXAMPLE = """\
 Image 'my-image' archived successfully.
 """
 
+IMAGE_UNARCHIVE_EXAMPLE = """\
+Image 'my-image' unarchived successfully.
+"""
+
 AGGREGATED_INSTANCE_USAGE_DOWNLOAD_CSV_EXAMPLE = """\
 Download complete! File saved to 'aggregated_instance_usage_2024-09-01_2024-09-30.zip'
 """
@@ -584,6 +593,11 @@ SERVICE_LIST_EXAMPLE = """\
 ┡━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━┩
 │ my-service │ service2_abc123 │ RUNNING       │ someone@myorg.com │ default │ 2026-01-01 10:30:00 │
 └────────────┴─────────────────┴───────────────┴───────────────────┴─────────┴─────────────────────┘
+"""
+
+SERVICE_UPDATE_TRAFFIC_POLICY_EXAMPLE = """\
+Updated the traffic policy of service service2_abc123.
+View the service in the UI at https://console.anyscale.com/services/service2_abc123
 """
 
 SERVICE_TAGS_ADD_EXAMPLE = """\

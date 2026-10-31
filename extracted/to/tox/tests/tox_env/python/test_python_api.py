@@ -4,7 +4,7 @@ import sys
 import sysconfig
 from pathlib import Path
 from types import SimpleNamespace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from pytest_mock import MockerFixture
 
     from tests.conftest import PatchPrevPy
-    from tox.pytest import ToxProjectCreator
+    from tox.pytest import ToxProject, ToxProjectCreator, ToxRunOutcome
 
 
 def test_requirements_txt(tox_project: ToxProjectCreator) -> None:
@@ -68,6 +68,42 @@ def test_conflicting_base_python_factor_no_ignore(tox_project: ToxProjectCreator
     project = tox_project({"tox.ini": ini})
     result = project.run("c", "-e", "unit-py3.10-2.16", "-k", "base_python", raise_on_config_fail=False)
     result.assert_failed(code=-1)
+
+
+@pytest.mark.parametrize(
+    ("files", "env"),
+    [
+        pytest.param(
+            {"tox.ini": "[testenv:py311]\npackage=skip\nbase_python = {env:TOXPYTHON:python3.11}"},
+            "py311",
+            id="empty-environment-variable",
+        ),
+        pytest.param({"tox.ini": "[testenv:magic]\npackage=skip\nbase_python ="}, "magic", id="empty-ini"),
+        pytest.param({"tox.toml": '[env.magic]\npackage = "skip"\nbase_python = ""'}, "magic", id="empty-toml"),
+        pytest.param(
+            {"tox.toml": '[env.magic]\npackage = "skip"\nbase_python = ["", " "]'},
+            "magic",
+            id="blank-toml-list",
+        ),
+    ],
+)
+def test_empty_base_python_fails(
+    tox_project: ToxProjectCreator, monkeypatch: pytest.MonkeyPatch, files: dict[str, str], env: str
+) -> None:
+    monkeypatch.setenv("TOXPYTHON", "")
+    result: Final[ToxRunOutcome] = tox_project(files).run(
+        "c", "-e", env, "-k", "base_python", raise_on_config_fail=False
+    )
+    result.assert_failed(code=-1)
+    assert f"base_python for env {env} is empty" in result.out
+
+
+def test_blank_base_python_entries_skipped(tox_project: ToxProjectCreator) -> None:
+    result: Final[ToxRunOutcome] = tox_project({
+        "tox.toml": '[env.magic]\npackage = "skip"\nbase_python = ["", "python3"]'
+    }).run("c", "-e", "magic", "-k", "base_python")
+    result.assert_success()
+    assert "base_python = python3\n" in result.out
 
 
 def test_validate_base_python_conflicting_factors_ignore() -> None:
@@ -559,17 +595,28 @@ commands = [["python", "-c", "print('ok')"]]
     assert f"python{py_ver}" in result.out
 
 
-def test_default_base_python_falls_back_to_sys_executable(tox_project: ToxProjectCreator) -> None:
-    toml = """\
+@pytest.mark.parametrize(
+    ("default_base_python", "expected"),
+    [
+        pytest.param("", sys.executable, id="unset"),
+        pytest.param("default_base_python = []", "base_python = \n", id="empty-list"),
+    ],
+)
+def test_base_python_when_default_unset_or_empty(
+    tox_project: ToxProjectCreator, default_base_python: str, expected: str
+) -> None:
+    result: Final[ToxRunOutcome] = tox_project({
+        "tox.toml": f"""\
 env_list = ["lint"]
 
 [env_run_base]
 package = "skip"
+{default_base_python}
 commands = [["python", "-c", "print('ok')"]]
 """
-    result = tox_project({"tox.toml": toml}).run("c", "-e", "lint", "-k", "base_python")
+    }).run("c", "-e", "lint", "-k", "base_python")
     result.assert_success()
-    assert sys.executable in result.out
+    assert expected in result.out
 
 
 @pytest.mark.parametrize(
@@ -745,21 +792,102 @@ def test_base_python_file(
     assert f"base_python = {expected}\n" in result.out
 
 
+_BASE_PYTHON_FILE_INI: Final[str] = "[testenv:mypy]\npackage=skip\nbase_python_file=.python-version\n"
+
+
 @pytest.mark.parametrize(
     ("extra_files", "error_fragment"),
     [
         pytest.param({}, "no valid Python version found", id="not-found"),
         pytest.param({".python-version": "# just a comment\n"}, "no valid Python version found", id="empty"),
+        pytest.param({".python-version": {"nested": "3.12"}}, "is not a regular file", id="directory"),
     ],
 )
 def test_base_python_file_error(
-    tox_project: ToxProjectCreator, extra_files: dict[str, str], error_fragment: str
+    tox_project: ToxProjectCreator, extra_files: dict[str, str | dict[str, str]], error_fragment: str
 ) -> None:
-    ini = "[testenv:mypy]\npackage=skip\nbase_python_file=.python-version\n"
-    project = tox_project({"tox.ini": ini, **extra_files})
-    result = project.run("c", "-e", "mypy", "-k", "base_python", raise_on_config_fail=False)
+    project: Final[ToxProject] = tox_project({"tox.ini": _BASE_PYTHON_FILE_INI, **extra_files})
+    result: Final[ToxRunOutcome] = project.run("c", "-e", "mypy", "-k", "base_python", raise_on_config_fail=False)
     result.assert_failed(code=-1)
     assert error_fragment in result.out
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        pytest.param("a" * 8192, id="long-text"),
+        pytest.param(f"{' ' * 8192}{_PY_VER}", id="long-whitespace-prefix"),
+    ],
+)
+def test_base_python_file_long_line(tox_project: ToxProjectCreator, line: str) -> None:
+    project = tox_project({"tox.ini": "[testenv:mypy]\npackage=skip\nbase_python_file=.python-version\n"})
+    (project.path / ".python-version").write_text(line)
+    result = project.run("c", "-e", "mypy", "-k", "base_python", raise_on_config_fail=False)
+    result.assert_failed(code=-1)
+    assert "exceeds 1024 characters" in result.out
+    assert line[:1025] not in result.out
+
+
+def test_base_python_file_not_utf8(tox_project: ToxProjectCreator) -> None:
+    project = tox_project({"tox.ini": "[testenv:mypy]\npackage=skip\nbase_python_file=.python-version\n"})
+    (project.path / ".python-version").write_bytes(b"\xff\xfe\xfa\x80\n")
+    result = project.run("c", "-e", "mypy", "-k", "base_python", raise_on_config_fail=False)
+    result.assert_failed(code=-1)
+    assert "base_python_file: cannot read '.python-version'" in result.out
+
+
+@pytest.mark.parametrize(
+    "ignored_line",
+    [
+        pytest.param(f"#{'x' * 8192}", id="long-comment"),
+        pytest.param(f"{' ' * 8192}# comment", id="indented-long-comment"),
+        pytest.param(" " * 8192, id="long-blank"),
+    ],
+)
+def test_base_python_file_long_ignored_line(tox_project: ToxProjectCreator, ignored_line: str) -> None:
+    project = tox_project({"tox.ini": "[testenv:mypy]\npackage=skip\nbase_python_file=.python-version\n"})
+    (project.path / ".python-version").write_text(f"{ignored_line}\n{_PY_VER}\n")
+    result = project.run("c", "-e", "mypy", "-k", "base_python")
+    result.assert_success()
+    assert f"base_python = {_PY_VER}\n" in result.out
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        pytest.param("bin/python3\n", id="relative-path"),
+        pytest.param("/usr/bin/python3\n", id="absolute-path"),
+        pytest.param("evil\n", id="program-name"),
+        pytest.param("system\n", id="no-version"),
+        pytest.param("https://user:ghp_SECRET@github.com\n", id="secret-not-echoed"),
+    ],
+)
+def test_base_python_file_rejects_non_version(tox_project: ToxProjectCreator, content: str) -> None:
+    project: Final[ToxProject] = tox_project({"tox.ini": _BASE_PYTHON_FILE_INI, ".python-version": content})
+    result: Final[ToxRunOutcome] = project.run("c", "-e", "mypy", "-k", "base_python", raise_on_config_fail=False)
+    result.assert_failed(code=-1)
+    assert "'.python-version' does not contain a Python version specifier" in result.out
+    assert content.strip() not in result.out
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param("3.12", id="major-minor"),
+        pytest.param("3.12.1", id="micro"),
+        pytest.param("python3", id="python-major"),
+        pytest.param("py312", id="py-shorthand"),
+        pytest.param("pypy3.10", id="pypy"),
+        pytest.param("cpython3.13t", id="free-threaded"),
+        pytest.param("3.14t", id="free-threaded-no-implementation"),
+        pytest.param("PyPy3.10", id="case-insensitive-implementation"),
+    ],
+)
+def test_base_python_file_accepts_version_spec(tox_project: ToxProjectCreator, value: str) -> None:
+    project: Final[ToxProject] = tox_project({"tox.ini": _BASE_PYTHON_FILE_INI, ".python-version": f"{value}\n"})
+    result: Final[ToxRunOutcome] = project.run("c", "-e", "mypy", "-k", "base_python")
+    result.assert_success()
+    assert f"base_python = {value}\n" in result.out
 
 
 def test_base_python_file_conflict(tox_project: ToxProjectCreator) -> None:

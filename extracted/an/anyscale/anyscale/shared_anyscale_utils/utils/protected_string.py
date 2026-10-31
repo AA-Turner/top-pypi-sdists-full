@@ -3,9 +3,6 @@
 # To avoid blowing up on the printing of a string value, place the following at the beginning of imports:
 # import anyscale.utils.protected_string
 # anyscale.utils.protected_string.FAIL_ON_MISUSE = False
-#
-# When testing routers, please pass in a JSON object with the string & let pydantic construct the ProtectedString
-# See test_users_router.py::test_login_user for some examples.
 
 import copy
 import hashlib
@@ -19,25 +16,7 @@ from anyscale.shared_anyscale_utils.conf import ANYSCALE_ENV
 FAIL_ON_MISUSE = ANYSCALE_ENV != "production"
 
 
-class FastApiMixIn:
-    @classmethod
-    def __get_validators__(cls) -> Any:
-        yield cls.validate
-
-    @classmethod
-    def __modify_schema__(cls, field_schema: Any) -> Any:
-        # __modify_schema__ should mutate the dict it receives in place, the
-        # returned value will be ignored
-        field_schema.update({"type": "string"})
-
-    @classmethod
-    def validate(cls, v: Any) -> Any:
-        if not isinstance(v, str):
-            raise TypeError("string required")
-        return cls(v)  # type: ignore
-
-
-class ProtectedString(FastApiMixIn):
+class ProtectedString:
     def __init__(self, s: Union[str, "ProtectedString"]):
         if isinstance(s, ProtectedString):
             self._UNSAFE_DO_NOT_USE: str = s._UNSAFE_DO_NOT_USE  # noqa: SLF001

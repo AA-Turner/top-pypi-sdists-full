@@ -1,11 +1,13 @@
 import collections
 import copy
 import fnmatch
+import hashlib
 import itertools
 import operator
 import os
 import re
 import sys
+from pathlib import Path
 
 import sphinx
 import sphinx.environment
@@ -46,6 +48,10 @@ _OBJ_MAP = {
         PythonException,
     )
 }
+
+
+def _hash_files(paths):
+    return {path: hashlib.sha256(Path(path).read_bytes()).hexdigest() for path in paths}
 
 
 def _expand_wildcard_placeholder(original_module, originals_map, placeholder):
@@ -399,12 +405,9 @@ class Mapper:
             top_level_file.write(content.render(pages=pages).encode("utf-8"))
 
     def _need_to_load(self, files):
-        last_files = getattr(self.app.env, "autoapi_source_files", [])
-        self.app.env.autoapi_source_files = files
-
-        last_mtime = getattr(self.app.env, "autoapi_max_mtime", 0)
-        this_mtime = max(os.path.getmtime(file) for _, file in files)
-        self.app.env.autoapi_max_mtime = this_mtime
+        last_hashes = getattr(self.app.env, "autoapi_source_hashes", None)
+        this_hashes = _hash_files(path for _, path in files)
+        self.app.env.autoapi_source_hashes = this_hashes
 
         if not self.app.config.autoapi_keep_files:
             return True
@@ -412,9 +415,7 @@ class Mapper:
         if self.app.env.config_status != sphinx.environment.CONFIG_OK:
             return True
 
-        return (
-            set(last_files) != set(files) or not last_mtime or last_mtime < this_mtime
-        )
+        return last_hashes != this_hashes
 
     def _find_files(self, patterns, dirs, ignore):
         for dir_ in dirs:

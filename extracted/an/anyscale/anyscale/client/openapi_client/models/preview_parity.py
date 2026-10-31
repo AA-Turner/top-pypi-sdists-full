@@ -33,7 +33,6 @@ class PreviewParity(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'unchanged': 'int',
         'gained': 'int',
         'lost': 'int',
         'examples': 'list[ParityExample]',
@@ -46,7 +45,6 @@ class PreviewParity(object):
     }
 
     attribute_map = {
-        'unchanged': 'unchanged',
         'gained': 'gained',
         'lost': 'lost',
         'examples': 'examples',
@@ -58,13 +56,12 @@ class PreviewParity(object):
         'service_accounts_changed': 'service_accounts_changed'
     }
 
-    def __init__(self, unchanged=None, gained=None, lost=None, examples=None, unconverted_rows=None, explained=0, people_unchanged=None, people_changed=None, service_accounts_unchanged=None, service_accounts_changed=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, gained=None, lost=None, examples=None, unconverted_rows=None, explained=0, people_unchanged=None, people_changed=None, service_accounts_unchanged=None, service_accounts_changed=None, local_vars_configuration=None):  # noqa: E501
         """PreviewParity - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._unchanged = None
         self._gained = None
         self._lost = None
         self._examples = None
@@ -76,7 +73,6 @@ class PreviewParity(object):
         self._service_accounts_changed = None
         self.discriminator = None
 
-        self.unchanged = unchanged
         self.gained = gained
         self.lost = lost
         self.examples = examples
@@ -87,31 +83,6 @@ class PreviewParity(object):
         self.people_changed = people_changed
         self.service_accounts_unchanged = service_accounts_unchanged
         self.service_accounts_changed = service_accounts_changed
-
-    @property
-    def unchanged(self):
-        """Gets the unchanged of this PreviewParity.  # noqa: E501
-
-        How many users and groups keep exactly their access.  # noqa: E501
-
-        :return: The unchanged of this PreviewParity.  # noqa: E501
-        :rtype: int
-        """
-        return self._unchanged
-
-    @unchanged.setter
-    def unchanged(self, unchanged):
-        """Sets the unchanged of this PreviewParity.
-
-        How many users and groups keep exactly their access.  # noqa: E501
-
-        :param unchanged: The unchanged of this PreviewParity.  # noqa: E501
-        :type: int
-        """
-        if self.local_vars_configuration.client_side_validation and unchanged is None:  # noqa: E501
-            raise ValueError("Invalid value for `unchanged`, must not be `None`")  # noqa: E501
-
-        self._unchanged = unchanged
 
     @property
     def gained(self):

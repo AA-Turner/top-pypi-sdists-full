@@ -22,11 +22,13 @@
 #include <vector>
 
 #include "a11/flow/diagnostic.h"
+#include "a11/flow/limits.h"
 
 namespace a11::flow {
 
 /// What the formatter is allowed to decide.
 ///
+/// Input and output declarations form separate groups with a blank line.
 /// The fixed style keeps formatting consistent across projects.
 struct FormatOptions {
   /// Spaces per block level. Repository Flow files use two.
@@ -41,9 +43,6 @@ struct FormatResult {
   /// and equal to the input, unchanged, when the file does not parse.
   std::string formatted;
   bool changed = false;
-  // One edit that turns the input into `formatted`, trimmed to the part that
-  // actually differs, so an editor applying it does not move the cursor or lose
-  // a selection over a file that only changed at the bottom.
   /// One edit that turns the input into `formatted`, trimmed to the part that
   /// actually differs, so an editor applying it does not move the cursor or
   /// lose a selection over a file that only changed at the bottom. Empty when
@@ -85,7 +84,9 @@ struct FormatResult {
 ///   input, comments included -- the only difference being trailing whitespace
 ///   trimmed from inside a comment. Whitespace is all it may touch, and this is
 ///   what says so rather than promising it.
-FormatResult Format(std::string_view source, FormatOptions options = {});
+FormatResult Format(std::string_view source, FormatOptions options = {},
+                    CompilationLimits limits = {},
+                    CompilationBudget* absl_nullable budget = nullptr);
 
 }  // namespace a11::flow
 

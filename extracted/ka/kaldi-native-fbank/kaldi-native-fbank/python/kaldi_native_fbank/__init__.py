@@ -6,8 +6,10 @@ from _kaldi_native_fbank import (
     MelBanks,
     MelBanksOptions,
     MfccOptions,
+    NemoFbankOptions,
     OnlineFbank,
     OnlineMfcc,
+    OnlineNemoFbank,
     OnlineRawAudioSamples,
     OnlineWhisperFbank,
     RawAudioSamplesOptions,
@@ -17,4 +19,4 @@ from _kaldi_native_fbank import (
     StftResult,
     WhisperFeatureOptions,
 )
-__version__ = '1.22.4'
+__version__ = '1.22.5'

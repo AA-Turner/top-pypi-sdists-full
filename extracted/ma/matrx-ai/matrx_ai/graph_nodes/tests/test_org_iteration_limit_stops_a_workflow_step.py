@@ -2,7 +2,7 @@
 
 Use case: a bookkeeping firm sets "Workflows › Agent step iteration limit" to 3 so a
 month-end reconciliation workflow can never let an agent grind through a hundred tool
-rounds on one invoice. Its reconciliation step (an "Agent with Tools" and a "Run Agent"
+rounds on one invoice. Its reconciliation step (a "Custom AI Call" and a "Run Agent"
 step, neither with a limit of its own) must run with 3 — not the 100 that used to be
 frozen in the node input — and when the agent hits 3 the run's failure must name that
 setting, so the person reading the run knows exactly which knob stopped it.
@@ -18,7 +18,6 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-
 from matrx_graph.actions.decorator import resolve_action_executor
 from matrx_graph.types.node_spec import EmptyConfig
 from matrx_graph.types.result import Failure, Success
@@ -74,14 +73,14 @@ def _patch_provider_recording(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]
 
 
 @pytest.mark.asyncio
-async def test_tool_calling_step_runs_under_the_orgs_limit_and_names_it(
+async def test_custom_ai_call_step_runs_under_the_orgs_limit_and_names_it(
     monkeypatch: pytest.MonkeyPatch, firm_limit_is_three: list[str | None]
 ) -> None:
-    inputs, ctx = NODE_FIXTURES["ai.agent.tool_calling"](monkeypatch)
+    inputs, ctx = NODE_FIXTURES["ai.chat.manual"](monkeypatch)
     ctx.app = ctx.app.with_overrides(organization_id=FIRM_ORG)
     seen = _patch_provider_recording(monkeypatch)
 
-    result = await resolve_action_executor("ai.agent.tool_calling").execute(
+    result = await resolve_action_executor("ai.chat.manual").execute(
         ctx, inputs, EmptyConfig()
     )
 
@@ -114,12 +113,12 @@ async def test_run_agent_step_sends_the_orgs_limit_to_the_host(
 async def test_a_limit_the_author_set_on_the_step_wins_and_is_not_blamed_on_the_setting(
     monkeypatch: pytest.MonkeyPatch, firm_limit_is_three: list[str | None]
 ) -> None:
-    inputs, ctx = NODE_FIXTURES["ai.agent.tool_calling"](monkeypatch)
+    inputs, ctx = NODE_FIXTURES["ai.chat.manual"](monkeypatch)
     ctx.app = ctx.app.with_overrides(organization_id=FIRM_ORG)
     inputs.max_iterations = 7
     seen = _patch_provider_recording(monkeypatch)
 
-    result = await resolve_action_executor("ai.agent.tool_calling").execute(
+    result = await resolve_action_executor("ai.chat.manual").execute(
         ctx, inputs, EmptyConfig()
     )
 
@@ -133,10 +132,10 @@ async def test_a_limit_the_author_set_on_the_step_wins_and_is_not_blamed_on_the_
 async def test_a_step_that_finishes_is_untouched(
     monkeypatch: pytest.MonkeyPatch, firm_limit_is_three: list[str | None]
 ) -> None:
-    inputs, ctx = NODE_FIXTURES["ai.agent.tool_calling"](monkeypatch)
+    inputs, ctx = NODE_FIXTURES["ai.chat.manual"](monkeypatch)
     ctx.app = ctx.app.with_overrides(organization_id=FIRM_ORG)
 
-    result = await resolve_action_executor("ai.agent.tool_calling").execute(
+    result = await resolve_action_executor("ai.chat.manual").execute(
         ctx, inputs, EmptyConfig()
     )
 

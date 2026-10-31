@@ -13,14 +13,18 @@
 #
 
 import errno
+import http.server
+import json
 import logging
 import os
 import pickle
+import threading
 from functools import partial
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 
 from lithops.constants import (
     LOCALHOST,
@@ -38,6 +42,8 @@ from lithops.job.job import (
 )
 from lithops.job.partitioner import CHUNK_THRESHOLD, create_partitions
 from lithops.job.serialize import SerializeIndependent, create_module_data
+from lithops.storage.backends.localhost.localhost import LocalhostStorageBackend
+from lithops.storage.storage import Storage
 from lithops.storage.utils import (
     CloudObject,
     CloudObjectLocal,
@@ -70,14 +76,24 @@ class _NoCall:
 
 
 class _CapturingSerializer:
+    """
+    Records (inc_modules, exc_modules, [func] + iterdata) of the last job. The
+    function is dumped first and on its own, then the data
+    """
     last = None
 
     def __init__(self, preinstalls):
         self.preinstalls = preinstalls
+        self.objs = []
 
-    def __call__(self, objs, inc_modules, exc_modules):
-        type(self).last = (inc_modules, exc_modules, objs)
-        return ([b'func'] + [b'data'] * (len(objs) - 1), set())
+    def dumps(self, objs):
+        strs = [b'data'] * len(objs) if self.objs else [b'func']
+        self.objs.extend(objs)
+        return strs
+
+    def module_paths(self, objs, inc_modules, exc_modules, source='Objects'):
+        type(self).last = (inc_modules, exc_modules, self.objs)
+        return set()
 
 
 def _job_config(
@@ -226,14 +242,14 @@ class TestCreateMapJob:
         assert job.chunksize == 7
 
     def test_serverless_clamps_timeout(self):
-        cfg = _job_config(mode=SERVERLESS, backend='ibm_cf')
+        cfg = _job_config(mode=SERVERLESS, backend='openwhisk')
         job = _make_map_job(config=cfg, execution_timeout=100)
         assert job.runtime_memory == 256
         assert job.runtime_timeout == 30
         assert job.execution_timeout == 25
 
     def test_serverless_keeps_timeout_below_runtime(self):
-        cfg = _job_config(mode=SERVERLESS, backend='ibm_cf')
+        cfg = _job_config(mode=SERVERLESS, backend='openwhisk')
         job = _make_map_job(config=cfg, execution_timeout=10, runtime_memory=512)
         assert job.runtime_memory == 512
         assert job.execution_timeout == 10
@@ -450,11 +466,16 @@ class TestLargePayloadAndCache:
     def test_large_payload_uploads_data(self, monkeypatch, fresh_function_cache):
         class _Big:
             def __init__(self, preinstalls):
-                pass
+                self.func_dumped = False
 
-            def __call__(self, objs, inc, exc):
-                payload = b'x' * (MAX_DATA_IN_PAYLOAD + 1)
-                return ([b'f'] + [payload] * (len(objs) - 1), set())
+            def dumps(self, objs):
+                if not self.func_dumped:
+                    self.func_dumped = True
+                    return [b'f']
+                return [b'x' * (MAX_DATA_IN_PAYLOAD + 1)] * len(objs)
+
+            def module_paths(self, objs, inc, exc, source='Objects'):
+                return set()
 
         monkeypatch.setattr('lithops.job.job.SerializeIndependent', _Big)
         storage = _storage()
@@ -658,37 +679,38 @@ class TestSerializeIndependent:
 
     def test_include_modules_none_skips_manager(self):
         ser = SerializeIndependent([['os', True]])
-        strs, paths = ser([_echo, 1], None, [])
+        strs = ser.dumps([_echo, 1])
+        paths = ser.module_paths([_echo, 1], None, [])
         assert len(strs) == 2
         assert paths == set()
         assert pickle.loads(strs[1]) == 1
 
     def test_explicit_include_skips_missing_file(self):
         ser = SerializeIndependent([['os', True]])
-        _, paths = ser([_echo], ['no-such-module.py'], [])
+        paths = ser.module_paths([_echo], ['no-such-module.py'], [])
         assert paths == set()
 
     def test_explicit_include_existing_py_file(self, tmp_path):
         mod = tmp_path / 'custom.py'
         mod.write_text('x = 1\n')
         ser = SerializeIndependent([['os', True]])
-        _, paths = ser([_echo], [str(mod)], [])
+        paths = ser.module_paths([_echo], [str(mod)], [])
         assert os.path.abspath(str(mod)) in paths
 
     def test_explicit_include_skips_preinstalled(self):
         ser = SerializeIndependent([['json', True]])
-        _, paths = ser([_echo], ['json.decoder'], [])
+        paths = ser.module_paths([_echo], ['json.decoder'], [])
         assert paths == set()
 
     def test_explicit_include_importable_module(self):
         ser = SerializeIndependent([['os', True]])
-        _, paths = ser([_echo], ['json'], [])
+        paths = ser.module_paths([_echo], ['json'], [])
         assert paths
         assert any('json' in p for p in paths)
 
     def test_explicit_include_missing_module(self):
         ser = SerializeIndependent([['os', True]])
-        _, paths = ser([_echo], ['definitely_not_a_module_xyz'], [])
+        paths = ser.module_paths([_echo], ['definitely_not_a_module_xyz'], [])
         assert paths == set()
 
     def test_class_without_call_raises(self):
@@ -711,6 +733,37 @@ class TestSerializeIndependent:
         mods = ser._module_inspect({'fn': _echo, 'n': 1})
         assert _echo.__module__.split('.')[0] in mods
 
+    def test_module_used_only_by_a_nested_function_is_found(self):
+        """
+        The global names of an inner function belong to the module of the
+        outer one, such as the __main__ of a script, not to the serializer's
+        """
+        namespace = {'__name__': '__main__', 'helper_mod_xyz': json}
+        exec(
+            'def outer():\n'
+            '    def inner():\n'
+            '        return helper_mod_xyz.dumps(1)\n'
+            '    return inner()\n',
+            namespace
+        )
+        ser = SerializeIndependent([['os', True]])
+        assert 'json' in ser._module_inspect(namespace['outer'])
+
+    def test_recursive_functions_are_inspected_once(self):
+        namespace = {'__name__': '__main__', 'helper_mod_xyz': json}
+        exec(
+            'def fact(n):\n'
+            '    return 1 if n < 2 else n * fact(n - 1)\n'
+            'def ping(n):\n'
+            '    return pong(n - 1) if n else helper_mod_xyz.dumps(n)\n'
+            'def pong(n):\n'
+            '    return ping(n - 1) if n else 0\n',
+            namespace
+        )
+        ser = SerializeIndependent([['os', True]])
+        assert ser._module_inspect(namespace['fact']) == {'__main__'}
+        assert 'json' in ser._module_inspect(namespace['pong'])
+
     def test_cython_function_name_inspects_globals(self):
         class cython_function_or_method:
             __globals__ = {'__file__': '/tmp/foo.pyx'}
@@ -721,7 +774,8 @@ class TestSerializeIndependent:
 
     def test_empty_include_inspects_function(self):
         ser = SerializeIndependent([['os', True]])
-        strs, paths = ser([_echo], [], ['lithops'])
+        strs = ser.dumps([_echo])
+        paths = ser.module_paths([_echo], [], ['lithops'])
         assert len(strs) == 1
         assert isinstance(paths, set)
 
@@ -733,7 +787,7 @@ class TestSerializeIndependent:
                 'lithops.job.serialize.ModuleDependencyAnalyzer'
             ) as mda:
                 mda.return_value.get_and_clear_paths.return_value = set()
-                _, paths = ser([_echo], [], [])
+                paths = ser.module_paths([_echo], [], [])
         assert '/opt/ext.so' in paths
 
         with patch('importlib.util.find_spec', return_value=spec):
@@ -741,7 +795,7 @@ class TestSerializeIndependent:
                 'lithops.job.serialize.ModuleDependencyAnalyzer'
             ) as mda:
                 mda.return_value.get_and_clear_paths.return_value = set()
-                _, excluded = ser([_echo], [], ['ext.so'])
+                excluded = ser.module_paths([_echo], [], ['ext.so'])
         assert '/opt/ext.so' not in excluded
 
     def test_find_spec_exception_is_swallowed(self):
@@ -751,7 +805,7 @@ class TestSerializeIndependent:
                 'lithops.job.serialize.ModuleDependencyAnalyzer'
             ) as mda:
                 mda.return_value.get_and_clear_paths.return_value = {'/m'}
-                _, paths = ser([_echo], [], [])
+                paths = ser.module_paths([_echo], [], [])
         assert '/m' in paths
 
 
@@ -782,8 +836,42 @@ class TestCreateModuleData:
         assert all('\\' not in k for k in posix_keys)
 
 
-def _head(headers):
-    return MagicMock(headers=headers)
+def _head(headers, status_code=200):
+    return MagicMock(headers=headers, status_code=status_code)
+
+
+class _UrlHandler(http.server.BaseHTTPRequestHandler):
+    """Serves DATA at /data, a redirect to it at /redirect and a 404 elsewhere"""
+    DATA = b'0123456789' * 10
+
+    def do_HEAD(self):
+        if self.path == '/redirect':
+            self.send_response(302)
+            self.send_header('Location', '/data')
+            self.send_header('Content-Length', '0')
+        elif self.path == '/data':
+            self.send_response(200)
+            self.send_header('Content-Length', str(len(self.DATA)))
+            self.send_header('Accept-Ranges', 'bytes')
+        else:
+            self.send_response(404)
+            self.send_header('Content-Length', '9')
+        self.end_headers()
+
+    def log_message(self, *args):
+        pass
+
+
+@pytest.fixture
+def url_server():
+    server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), _UrlHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f'http://127.0.0.1:{server.server_address[1]}'
+    finally:
+        server.shutdown()
+        server.server_close()
 
 
 class _LogCatcher(logging.Handler):
@@ -811,6 +899,45 @@ class TestCreatePartitions:
             [],
             [],
         )
+
+    @pytest.mark.parametrize('newline, minimum', [('\n', 2), ('\r\n', 3)])
+    def test_a_chunk_is_longer_than_the_newline(self, tmp_path, newline, minimum):
+        """
+        A chunk reads the newline length early, so only the first one then
+        starts at byte 0, which is how a worker tells the first chunk apart
+        """
+        path = tmp_path / 'data.txt'
+        path.write_bytes(b'x' * 10)
+        parts, _ = create_partitions({}, _storage(), [{'obj': str(path)}], 1, None, newline)
+        assert parts[0]['obj'].chunk_size == minimum
+        assert [p['obj'].data_byte_range[0] == 0 for p in parts] == [True] + [False] * (len(parts) - 1)
+
+    def test_partitions_are_taken_back_as_they_are(self):
+        """
+        The retrying executor partitions before invoking. Partitioned again,
+        each of its partitions cost a request to learn its size
+        """
+        storage = _storage()
+        storage.storage.list_objects.return_value = [
+            {'Key': 'p/a.txt', 'Size': 2}, {'Key': 'p/b.txt', 'Size': 300},
+        ]
+        parts, ppo = create_partitions(
+            {}, storage, [{'obj': 'localhost://bucket/p/', 'n': 1}], 100, None, '\n'
+        )
+        assert ppo == [1, 3]
+
+        again = _storage()
+        assert create_partitions({}, again, parts, 100, None, '\n') == (parts, [1, 3])
+        again.storage.list_objects.assert_not_called()
+        again.storage.head_object.assert_not_called()
+
+        # A CloudObject of the user's own is no partition, and is sized
+        again.storage.head_object.return_value = {'content-length': '2'}
+        parts, _ = create_partitions(
+            {}, again, [{'obj': CloudObject('localhost', 'bucket', 'k')}], None, None, '\n'
+        )
+        again.storage.head_object.assert_called_once_with('bucket', 'k')
+        assert parts[0]['obj'].total_size == 2
 
     @pytest.mark.parametrize('path', [
         r'C:\\data\\a.txt', 'C:/data/a.txt', r'\\\\server\\share\\a.txt',
@@ -1207,9 +1334,11 @@ class TestCreatePartitions:
                 None,
                 None,
             )
+        # the listing prefix is the pattern up to its first wildcard, with
+        # no '/' added: 'dir/foo/' would leave out 'dir/foo1'
         args = fake.list_objects.call_args[0]
         assert args[0] == 'bucket'
-        assert args[1] == 'dir/foo/'
+        assert args[1] == 'dir/foo'
         assert args[2] == 'dir/foo*'
         assert '\\' not in args[2]
         assert len(parts) == 1
@@ -1229,7 +1358,7 @@ class TestCreatePartitions:
             )
         args = fake.list_objects.call_args[0]
         assert args[0] == 'bucket'
-        assert args[1] == 'pre/'
+        assert args[1] == 'pre'
         assert args[2] == 'pre*/file'
         assert '\\' not in args[2]
 
@@ -1246,6 +1375,210 @@ class TestCreatePartitions:
         )
         assert parts == []
         assert ppo == [0]
+
+    def test_url_head_follows_redirects(self, url_server):
+        """The redirect itself has no content: sized as it was, the map had no calls"""
+        parts, ppo = create_partitions(
+            {}, _storage(), [{'obj': f'{url_server}/redirect'}], None, 4, None
+        )
+        assert ppo == [4]
+        assert parts[0]['obj'].total_size == len(_UrlHandler.DATA)
+        assert parts[0]['obj'].url == f'{url_server}/redirect'
+
+    def test_url_error_status_raises(self, url_server):
+        """The error page was sized and processed as if it were the object"""
+        url = f'{url_server}/missing'
+        with pytest.raises(requests.HTTPError, match=f'{url} returned HTTP 404'):
+            create_partitions({}, _storage(), [{'obj': url}], None, 4, None)
+
+    @pytest.mark.parametrize('accept_ranges', ['none', 'None', ''])
+    def test_url_without_byte_ranges_uses_full_object(self, accept_ranges):
+        """Every partition of a server that ignores ranges read the whole object"""
+        headers = {'content-length': '100', 'accept-ranges': accept_ranges}
+        with patch(
+            'lithops.job.partitioner.requests.head', return_value=_head(headers)
+        ) as head:
+            parts, ppo = create_partitions(
+                {}, _storage(), [{'obj': 'http://example.com/a'}], 10, 4, None
+            )
+        head.assert_called_once_with('http://example.com/a', allow_redirects=True)
+        assert ppo == [1]
+        assert parts[0]['obj'].data_byte_range is None
+        assert parts[0]['obj'].chunk_size == 100
+
+    def test_url_byte_ranges_header_is_case_insensitive(self):
+        headers = {'content-length': '100', 'accept-ranges': 'Bytes'}
+        with patch(
+            'lithops.job.partitioner.requests.head', return_value=_head(headers)
+        ):
+            _, ppo = create_partitions(
+                {}, _storage(), [{'obj': 'http://example.com/a'}], 10, None, None
+            )
+        assert ppo == [10]
+
+    @pytest.mark.parametrize('size, number', [(9, 6), (100, 30), (1000, 64), (64, 64)])
+    @pytest.mark.parametrize('newline', [None, '\n'])
+    def test_chunk_number_is_the_number_of_chunks(self, tmp_path, size, number, newline):
+        """It took ceil(size / number) as chunk size, which leaves fewer chunks"""
+        path = tmp_path / 'data.txt'
+        path.write_bytes(b'x' * size)
+        minimum = 2 if newline else 1
+        expected = min(number, size // minimum)
+
+        headers = {'content-length': str(size), 'accept-ranges': 'bytes'}
+        with patch(
+            'lithops.job.partitioner.requests.head', return_value=_head(headers)
+        ):
+            url_parts, url_ppo = create_partitions(
+                {}, _storage(), [{'obj': 'http://example.com/a'}], None, number, newline
+            )
+        internal = _storage()
+        internal.storage.head_object.return_value = {'content-length': str(size)}
+        storage_parts, storage_ppo = create_partitions(
+            {}, internal, [{'obj': 'localhost://bucket/a'}], None, number, newline
+        )
+        path_parts, path_ppo = create_partitions(
+            {}, _storage(), [{'obj': str(path)}], None, number, newline
+        )
+
+        assert url_ppo == storage_ppo == path_ppo == [expected]
+        for parts in (url_parts, storage_parts):
+            assert [(p['obj'].data_byte_range, p['obj'].chunk_size) for p in parts] == [
+                (p['obj'].data_byte_range, p['obj'].chunk_size) for p in path_parts
+            ]
+        chunk_sizes = [p['obj'].chunk_size for p in path_parts]
+        assert sum(chunk_sizes) == size
+        assert max(chunk_sizes) - min(chunk_sizes) <= 1
+        assert min(chunk_sizes) >= minimum
+        assert [p['obj'].total_parts for p in path_parts] == [expected] * expected
+
+    @pytest.mark.parametrize('newline', [None, '\n'])
+    def test_chunk_number_partitions_reassemble_the_object(self, tmp_path, newline):
+        from lithops.worker.jobrunner import JobRunner
+
+        data = b''.join(b'%d\n' % i for i in range(200))
+        path = tmp_path / 'data.txt'
+        path.write_bytes(data)
+        parts, ppo = create_partitions({}, _storage(), [{'obj': str(path)}], None, 7, newline)
+        assert ppo == [7]
+
+        runner = JobRunner.__new__(JobRunner)
+        pieces = []
+        for part in parts:
+            loaded = {'obj': part['obj']}
+            runner._load_object(loaded)
+            pieces.append(loaded['obj'].data_stream.read())
+        assert b''.join(pieces) == data
+
+    def test_chunk_number_above_the_size_makes_one_byte_chunks(self, tmp_path):
+        path = tmp_path / 'data.txt'
+        path.write_bytes(b'abc')
+        parts, ppo = create_partitions({}, _storage(), [{'obj': str(path)}], None, 6, None)
+        assert ppo == [3]
+        assert [p['obj'].data_byte_range for p in parts] == [(0, 0), (1, 1), (2, 2)]
+
+    def test_missing_path_raises(self, tmp_path):
+        """A mistyped path was dropped, and the map ran without it"""
+        present = tmp_path / 'a.txt'
+        present.write_bytes(b'data')
+        missing = tmp_path / 'typo.txt'
+        with pytest.raises(FileNotFoundError, match='typo.txt') as excinfo:
+            create_partitions(
+                {}, _storage(), [{'obj': str(present)}, {'obj': str(missing)}], None, None, None
+            )
+        assert excinfo.value.filename == str(missing)
+
+    def test_paths_without_files_raise(self, tmp_path):
+        """As an empty bucket does, rather than a map of no calls"""
+        empty = tmp_path / 'empty'
+        (empty / 'sub').mkdir(parents=True)
+        with pytest.raises(Exception, match='No objects found'):
+            create_partitions({}, _storage(), [{'obj': str(empty)}], None, None, None)
+
+
+
+class TestPartitionGlobsOnLocalhostStorage:
+    """
+    Glob iterdata used to work on aws_s3 and ibm_cos only: the pattern is now
+    matched by Storage.list_objects, so it works on every storage backend
+    """
+
+    @pytest.fixture
+    def internal(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(
+            'lithops.storage.backends.localhost.localhost.LITHOPS_TEMP_DIR',
+            str(tmp_path),
+        )
+        backend = LocalhostStorageBackend({})
+        for key in [
+            'dir/a.csv', 'dir/b.csv', 'dir/x.txt', 'dir/sub/c.csv',
+            'dir/foo1', 'dir/foo2.txt',
+            'pre1/file', 'pre2/file', 'pre2/other',
+            'data1/x.csv', 'data2/sub/y.csv', 'datafile',
+            'lit[1].csv', 'lit1.csv',
+        ]:
+            backend.put_object('b', key, b'0123456789')
+        storage = Storage.__new__(Storage)
+        storage.backend = 'localhost'
+        storage.storage_handler = backend
+        internal = MagicMock()
+        internal.backend = 'localhost'
+        internal.storage = storage
+        return internal
+
+    @staticmethod
+    def _keys(internal, obj):
+        parts, _ = create_partitions({}, internal, [{'obj': obj}], None, None, None)
+        return sorted(p['obj'].key for p in parts)
+
+    @pytest.mark.parametrize('obj, keys', [
+        ('localhost://b/dir/*.csv', ['dir/a.csv', 'dir/b.csv']),
+        ('localhost://b/dir/foo*', ['dir/foo1', 'dir/foo2.txt']),
+        ('localhost://b/pre*/file', ['pre1/file', 'pre2/file']),
+        ('localhost://b/dir/**/*.csv', ['dir/a.csv', 'dir/b.csv', 'dir/sub/c.csv']),
+        ('b/*.csv', ['lit1.csv', 'lit[1].csv']),
+        # a folder pattern takes everything inside the folders it matches,
+        # but not an object named like them
+        ('localhost://b/data*/', ['data1/x.csv', 'data2/sub/y.csv']),
+    ])
+    def test_glob(self, internal, obj, keys):
+        assert self._keys(internal, obj) == keys
+
+    def test_glob_without_matches(self, internal):
+        with pytest.raises(Exception, match='No objects found'):
+            self._keys(internal, 'localhost://b/dir/*.parquet')
+
+    @pytest.mark.parametrize('obj, keys', [
+        ('localhost://b/dir/a.csv', ['dir/a.csv']),
+        ('localhost://b/dir/', [
+            'dir/a.csv', 'dir/b.csv', 'dir/foo1', 'dir/foo2.txt', 'dir/sub/c.csv', 'dir/x.txt',
+        ]),
+        ('localhost://b/dir/sub/', ['dir/sub/c.csv']),
+        # only a '*' makes a pattern: anything else is a literal key
+        ('localhost://b/lit[1].csv', ['lit[1].csv']),
+    ])
+    def test_no_glob_is_unchanged(self, internal, obj, keys):
+        assert self._keys(internal, obj) == keys
+
+    def test_key_with_question_mark_is_a_literal_key(self):
+        internal = _storage()
+        internal.storage.head_object.return_value = {'content-length': '5'}
+        parts, _ = create_partitions({}, internal, [{'obj': 'localhost://b/dir/a?.csv'}], None, None, None)
+        internal.storage.head_object.assert_called_once_with('b', 'dir/a?.csv')
+        internal.storage.list_objects.assert_not_called()
+        assert parts[0]['obj'].key == 'dir/a?.csv'
+
+    @pytest.mark.parametrize('obj, prefix, pattern', [
+        ('localhost://b/dir/*.csv', 'dir/', 'dir/*.csv'),
+        ('localhost://b/dir/a?b*', 'dir/a', 'dir/a?b*'),
+        ('localhost://b/data*/', 'data', 'data*/*/**'),
+    ])
+    def test_glob_listing_prefix(self, obj, prefix, pattern):
+        """The listing is narrowed to what comes before the first wildcard"""
+        internal = _storage()
+        internal.storage.list_objects.return_value = [{'Key': 'k', 'Size': 1}]
+        create_partitions({}, internal, [{'obj': obj}], None, None, None)
+        internal.storage.list_objects.assert_called_once_with('b', prefix, pattern)
 
 
 class TestJobExports:

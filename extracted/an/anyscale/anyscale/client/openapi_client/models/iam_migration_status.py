@@ -35,26 +35,22 @@ class IamMigrationStatus(object):
     openapi_types = {
         'state': 'IamMigrationState',
         'option': 'IamMigrationOption',
-        'converted_at': 'datetime',
-        'converted_by': 'IamMigrationPrincipal',
         'all_users_group_id': 'str',
-        'trigger': 'OrganizationPermissionMigrationTrigger',
-        'restore_available': 'bool',
+        'service_accounts_group_id': 'str',
+        'admin_group_id': 'str',
         'conversion_incomplete': 'bool'
     }
 
     attribute_map = {
         'state': 'state',
         'option': 'option',
-        'converted_at': 'converted_at',
-        'converted_by': 'converted_by',
         'all_users_group_id': 'all_users_group_id',
-        'trigger': 'trigger',
-        'restore_available': 'restore_available',
+        'service_accounts_group_id': 'service_accounts_group_id',
+        'admin_group_id': 'admin_group_id',
         'conversion_incomplete': 'conversion_incomplete'
     }
 
-    def __init__(self, state=None, option=None, converted_at=None, converted_by=None, all_users_group_id=None, trigger=None, restore_available=False, conversion_incomplete=False, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, state=None, option=None, all_users_group_id=None, service_accounts_group_id=None, admin_group_id=None, conversion_incomplete=False, local_vars_configuration=None):  # noqa: E501
         """IamMigrationStatus - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -62,27 +58,21 @@ class IamMigrationStatus(object):
 
         self._state = None
         self._option = None
-        self._converted_at = None
-        self._converted_by = None
         self._all_users_group_id = None
-        self._trigger = None
-        self._restore_available = None
+        self._service_accounts_group_id = None
+        self._admin_group_id = None
         self._conversion_incomplete = None
         self.discriminator = None
 
         self.state = state
         if option is not None:
             self.option = option
-        if converted_at is not None:
-            self.converted_at = converted_at
-        if converted_by is not None:
-            self.converted_by = converted_by
         if all_users_group_id is not None:
             self.all_users_group_id = all_users_group_id
-        if trigger is not None:
-            self.trigger = trigger
-        if restore_available is not None:
-            self.restore_available = restore_available
+        if service_accounts_group_id is not None:
+            self.service_accounts_group_id = service_accounts_group_id
+        if admin_group_id is not None:
+            self.admin_group_id = admin_group_id
         if conversion_incomplete is not None:
             self.conversion_incomplete = conversion_incomplete
 
@@ -135,52 +125,6 @@ class IamMigrationStatus(object):
         self._option = option
 
     @property
-    def converted_at(self):
-        """Gets the converted_at of this IamMigrationStatus.  # noqa: E501
-
-        When the conversion ran.  # noqa: E501
-
-        :return: The converted_at of this IamMigrationStatus.  # noqa: E501
-        :rtype: datetime
-        """
-        return self._converted_at
-
-    @converted_at.setter
-    def converted_at(self, converted_at):
-        """Sets the converted_at of this IamMigrationStatus.
-
-        When the conversion ran.  # noqa: E501
-
-        :param converted_at: The converted_at of this IamMigrationStatus.  # noqa: E501
-        :type: datetime
-        """
-
-        self._converted_at = converted_at
-
-    @property
-    def converted_by(self):
-        """Gets the converted_by of this IamMigrationStatus.  # noqa: E501
-
-        The user who ran it.  # noqa: E501
-
-        :return: The converted_by of this IamMigrationStatus.  # noqa: E501
-        :rtype: IamMigrationPrincipal
-        """
-        return self._converted_by
-
-    @converted_by.setter
-    def converted_by(self, converted_by):
-        """Sets the converted_by of this IamMigrationStatus.
-
-        The user who ran it.  # noqa: E501
-
-        :param converted_by: The converted_by of this IamMigrationStatus.  # noqa: E501
-        :type: IamMigrationPrincipal
-        """
-
-        self._converted_by = converted_by
-
-    @property
     def all_users_group_id(self):
         """Gets the all_users_group_id of this IamMigrationStatus.  # noqa: E501
 
@@ -204,50 +148,50 @@ class IamMigrationStatus(object):
         self._all_users_group_id = all_users_group_id
 
     @property
-    def trigger(self):
-        """Gets the trigger of this IamMigrationStatus.  # noqa: E501
+    def service_accounts_group_id(self):
+        """Gets the service_accounts_group_id of this IamMigrationStatus.  # noqa: E501
 
-        What moved the organization to role bindings: keep, organize or fresh, the migration wizard's options, or new_organization for one created on them. Empty while legacy.  # noqa: E501
+        The Service accounts group, which holds every service account of the organization; its members follow the organization and cannot be added or removed by hand. Empty while the organization has none.  # noqa: E501
 
-        :return: The trigger of this IamMigrationStatus.  # noqa: E501
-        :rtype: OrganizationPermissionMigrationTrigger
+        :return: The service_accounts_group_id of this IamMigrationStatus.  # noqa: E501
+        :rtype: str
         """
-        return self._trigger
+        return self._service_accounts_group_id
 
-    @trigger.setter
-    def trigger(self, trigger):
-        """Sets the trigger of this IamMigrationStatus.
+    @service_accounts_group_id.setter
+    def service_accounts_group_id(self, service_accounts_group_id):
+        """Sets the service_accounts_group_id of this IamMigrationStatus.
 
-        What moved the organization to role bindings: keep, organize or fresh, the migration wizard's options, or new_organization for one created on them. Empty while legacy.  # noqa: E501
+        The Service accounts group, which holds every service account of the organization; its members follow the organization and cannot be added or removed by hand. Empty while the organization has none.  # noqa: E501
 
-        :param trigger: The trigger of this IamMigrationStatus.  # noqa: E501
-        :type: OrganizationPermissionMigrationTrigger
+        :param service_accounts_group_id: The service_accounts_group_id of this IamMigrationStatus.  # noqa: E501
+        :type: str
         """
 
-        self._trigger = trigger
+        self._service_accounts_group_id = service_accounts_group_id
 
     @property
-    def restore_available(self):
-        """Gets the restore_available of this IamMigrationStatus.  # noqa: E501
+    def admin_group_id(self):
+        """Gets the admin_group_id of this IamMigrationStatus.  # noqa: E501
 
-        Whether the caller can restore the structure recorded at conversion: the organization was converted with the migration wizard and the caller is an Organization owner.  # noqa: E501
+        The organization admin group, Organization owners: frozen, bound as Organization owner, with no service accounts, no other role and at least one member. Empty while the organization has none.  # noqa: E501
 
-        :return: The restore_available of this IamMigrationStatus.  # noqa: E501
-        :rtype: bool
+        :return: The admin_group_id of this IamMigrationStatus.  # noqa: E501
+        :rtype: str
         """
-        return self._restore_available
+        return self._admin_group_id
 
-    @restore_available.setter
-    def restore_available(self, restore_available):
-        """Sets the restore_available of this IamMigrationStatus.
+    @admin_group_id.setter
+    def admin_group_id(self, admin_group_id):
+        """Sets the admin_group_id of this IamMigrationStatus.
 
-        Whether the caller can restore the structure recorded at conversion: the organization was converted with the migration wizard and the caller is an Organization owner.  # noqa: E501
+        The organization admin group, Organization owners: frozen, bound as Organization owner, with no service accounts, no other role and at least one member. Empty while the organization has none.  # noqa: E501
 
-        :param restore_available: The restore_available of this IamMigrationStatus.  # noqa: E501
-        :type: bool
+        :param admin_group_id: The admin_group_id of this IamMigrationStatus.  # noqa: E501
+        :type: str
         """
 
-        self._restore_available = restore_available
+        self._admin_group_id = admin_group_id
 
     @property
     def conversion_incomplete(self):

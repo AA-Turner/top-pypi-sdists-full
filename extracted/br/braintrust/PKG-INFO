@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: braintrust
-Version: 0.48.1
+Version: 0.49.1
 Summary: SDK for integrating Braintrust
 Author-email: Braintrust <sdk@braintrustdata.com>
 License-Expression: MIT
@@ -124,8 +124,8 @@ Available extras:
 
 ## Documentation
 
-- Python SDK docs: https://www.braintrust.dev/docs/reference/sdks/python
-- Braintrust docs: https://www.braintrust.dev/docs
+- Python SDK docs: https://docs.braintrust.dev/sdks/python/versions/latest
+- Braintrust docs: https://docs.braintrust.dev
 - Repo publishing guide: https://github.com/braintrustdata/braintrust-sdk-python/blob/main/docs/publishing.md
 - Source code: https://github.com/braintrustdata/braintrust-sdk-python/tree/main/py
 

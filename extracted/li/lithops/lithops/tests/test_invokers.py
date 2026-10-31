@@ -94,10 +94,11 @@ class TestCreateInvoker:
         faas_cls.assert_called_once_with('cfg', 'ex', 'store', handler, 'monitor')
         assert result is faas_cls.return_value
 
-    def test_unknown_backend_type_returns_none(self):
+    def test_unknown_backend_type_raises(self):
         handler = MagicMock()
         handler.get_backend_type.return_value = 'mystery'
-        assert create_invoker('cfg', 'ex', 'store', handler, 'monitor') is None
+        with pytest.raises(KeyError):
+            create_invoker('cfg', 'ex', 'store', handler, 'monitor')
 
 
 def _matching_runtime_meta():
@@ -144,8 +145,8 @@ def _bare_invoker(**attrs):
         },
         compute_handler=MagicMock(),
         internal_storage=MagicMock(),
-        config={'lithops': {'mode': SERVERLESS, 'backend': 'ibm_cf'}, 'ibm_cf': {}},
-        backend='ibm_cf',
+        config={'lithops': {'mode': SERVERLESS, 'backend': 'openwhisk'}, 'openwhisk': {}},
+        backend='openwhisk',
         include_function=False,
         telemetry=MagicMock(),
         job_monitor=MagicMock(),
@@ -281,6 +282,23 @@ class TestBatchInvoker:
         futures = inv.run_job(job)
         inv.job_monitor.start.assert_called_once_with(futures)
 
+    @pytest.mark.parametrize('mode', [LOCALHOST, SERVERLESS])
+    def test_only_the_localhost_mode_takes_an_interpreter_path_as_runtime(self, mode):
+        """The path of a local interpreter can hold any character, such as an @"""
+        interpreter = os.path.join(os.path.abspath(os.sep), 'opt', 'python@3.12', 'bin', 'python3')
+        handler = MagicMock()
+        handler.get_runtime_info.return_value = {'runtime_name': interpreter, 'max_workers': 1}
+        config = {
+            'lithops': {'mode': mode, 'backend': 'localhost', 'storage': 'localhost', 'telemetry': False},
+            'localhost': {'storage_bucket': 'test-bucket'},
+        }
+        if mode == LOCALHOST:
+            inv = BatchInvoker(config, 'sess-0', MagicMock(), handler, MagicMock())
+            assert inv.runtime_name == interpreter
+        else:
+            with pytest.raises(AssertionError, match='not valid'):
+                BatchInvoker(config, 'sess-0', MagicMock(), handler, MagicMock())
+
 
 class TestFaaSInvokerHelpers:
 
@@ -334,6 +352,8 @@ class TestFaaSInvokerHelpers:
         assert left == [other, other]
         assert inv.running_workers == 4
         inv.job_monitor.close_jobs.assert_not_called()
+        # The job settles on the calls dropped here, with no grace to wait
+        inv.job_monitor.discard_calls.assert_called_once_with({'M000': 4})
 
     def test_discard_pending_forgets_workers_when_no_other_job_is_queued(self):
         """
@@ -347,11 +367,22 @@ class TestFaaSInvokerHelpers:
         failed = _job(chunksize=1)
         failed.job_key = 'sess-0/M000'
         inv._queue_call_ranges(failed, range(2))
-        inv.discard_pending({'sess-0/M000'}, {'M000'})
+        inv.discard_pending({'sess-0/M000'})
         assert inv.running_workers == 0
         assert inv.pending_calls_q.empty()
         assert inv.job_monitor.token_bucket_q.empty()
-        inv.job_monitor.close_jobs.assert_called_once_with({'M000'})
+        # Every job invoked so far, not only the ones waited on
+        inv.job_monitor.close_jobs.assert_called_once_with()
+
+    def test_discard_pending_closes_the_jobs_before_emptying_the_bucket(self):
+        """A token handed back before the jobs are closed would outlive the reset"""
+        inv = self._faas()
+        inv.running_workers = 4
+        inv.job_monitor.close_jobs.side_effect = (
+            lambda *args: inv.job_monitor.token_bucket_q.put('#')
+        )
+        inv.discard_pending({'sess-0/M000'})
+        assert inv.job_monitor.token_bucket_q.empty()
 
     def test_a_restart_forgets_tokens_handed_back_after_the_stop(self):
         """
@@ -368,7 +399,7 @@ class TestFaaSInvokerHelpers:
                 patch.object(inv, '_invoke_direct'):
             inv.compute_handler = MagicMock()
             inv._invoke_job(_job(chunksize=1, total_calls=2))
-        assert inv.job_monitor.token_bucket_q.qsize() == 1
+        assert inv.job_monitor.token_bucket_q.empty()
 
     def test_queue_call_ranges_chunks_ids(self):
         inv = self._faas()
@@ -402,6 +433,92 @@ class TestFaaSInvokerHelpers:
         assert queued_job is job
         assert list(ids) == [0, 1]
         assert inv.job_monitor.token_bucket_q.get_nowait() == '#'
+
+    def test_invoke_task_fails_the_calls_when_the_invocation_raises(self):
+        """A raised error must end the wait for the chunk and return its token"""
+        inv = self._faas()
+        inv.compute_handler.invoke.side_effect = RuntimeError('provider rejected request')
+        job = _job()
+        job.futures = [MagicMock(ready=False, success=False, done=False) for _ in range(2)]
+        inv._invoke_task(job, [0])
+        job.futures[0]._set_ready.assert_called_once()
+        status = job.futures[0]._set_ready.call_args[0][0]
+        assert status['exception'] is True
+        assert status['call_id'] == '00000'
+        job.futures[1]._set_ready.assert_not_called()
+        assert inv.pending_calls_q.empty()
+        assert inv.job_monitor.token_bucket_q.get_nowait() == '#'
+        # The invoker returned the token, so no worker of the monitor owes it
+        inv.job_monitor.discard_calls.assert_called_once_with({'M000': 1})
+
+    def test_an_error_that_does_not_pickle_still_reaches_the_future(self):
+        class Unpicklable(Exception):
+            def __reduce__(self):
+                raise TypeError('cannot pickle')
+
+        inv = self._faas()
+        inv.compute_handler.invoke.side_effect = Unpicklable('provider rejected request')
+        job = _job(total_calls=1, metadata={'func_name': 'fn'})
+        futures = inv._build_futures(job)
+        inv._invoke_task(job, [0])
+        with pytest.raises(RuntimeError, match='provider rejected request'):
+            futures[0].status()
+
+    def test_the_remote_invoker_payload_is_json(self):
+        """The futures built before invoking are not part of it: aws_lambda json.dumps it"""
+        import json
+        inv = self._faas()
+        inv.remote_invoker = True
+        inv.compute_handler.invoke.return_value = 'act-1'
+        job = _job()
+        inv._build_futures(job)
+        inv._invoke_job(job)
+        payload = inv.compute_handler.invoke.call_args[0][0]
+        assert 'futures' not in payload['job']
+        json.dumps(payload)
+
+    def test_a_failed_invocation_reaches_the_future_as_its_exception(self):
+        inv = self._faas()
+        inv.compute_handler.invoke.side_effect = RuntimeError('provider rejected request')
+        job = _job(total_calls=1, metadata={'func_name': 'fn'})
+        inv.storage_config = {'backend': 'localhost', 'localhost': {'storage_bucket': 'bkt'}}
+        futures = inv._build_futures(job)
+        inv._invoke_task(job, [0])
+        assert futures[0].ready
+        with pytest.raises(RuntimeError, match='provider rejected request'):
+            futures[0].status()
+
+    def test_a_failed_sync_invocation_reaches_the_returned_futures(self, tmp_path, monkeypatch):
+        """Inside a worker the invoker waits for the invocation, so the futures must exist by then"""
+        from concurrent.futures import ThreadPoolExecutor
+        monkeypatch.setattr('lithops.invokers.LOGS_DIR', str(tmp_path))
+        inv = self._faas()
+        inv.sync = True
+        inv.should_run = True
+        inv.max_workers = 10
+        inv.executor = ThreadPoolExecutor(2)
+        inv.include_function = False
+        inv.telemetry = MagicMock()
+        inv.storage_config = {'backend': 'localhost', 'localhost': {'storage_bucket': 'bkt'}}
+        inv.compute_handler.invoke.side_effect = RuntimeError('provider rejected request')
+        futures = inv._run_job(_job(total_calls=1, data_byte_ranges=[(0, 1)]))
+        inv.executor.shutdown()
+        assert futures[0].ready
+        with pytest.raises(RuntimeError, match='provider rejected request'):
+            futures[0].status()
+
+    def test_a_restart_closes_the_jobs_invoked_before_the_stop(self):
+        """Their workers no longer count, so the monitor must not hand their tokens back"""
+        inv = self._faas(max_workers=10)
+        inv._start_async_invokers = MagicMock()
+        inv._invoke_direct = MagicMock()
+        inv.should_run = True
+        inv._invoke_job(_job(job_id='M000'))
+        inv.job_monitor.close_jobs.assert_not_called()
+
+        inv.should_run = False
+        inv._invoke_job(_job(job_id='M001'))
+        inv.job_monitor.close_jobs.assert_called_once_with()
 
     def test_invoke_job_queues_all_when_at_max_workers(self):
         inv = self._faas()
@@ -467,7 +584,8 @@ class TestFaaSInvokerHelpers:
         thread = Thread.return_value
         assert thread.daemon is True
         assert thread.start.call_count == FaaSInvoker.ASYNC_INVOKERS
-        assert inv.job_monitor.token_bucket_q.qsize() == FaaSInvoker.ASYNC_INVOKERS
+        # A token of their own would be a worker beyond max_workers
+        assert inv.job_monitor.token_bucket_q.empty()
         assert len(inv.invokers) == FaaSInvoker.ASYNC_INVOKERS
 
     def test_invoke_task_uses_data_byte_strs_when_no_data_key(self):
@@ -626,19 +744,19 @@ class TestFaaSInvokerInit:
         return handler
 
     def _config(self, **backend):
-        ibm_cf = {
+        openwhisk = {
             'invoke_pool_threads': 4,
             'remote_invoker': False,
         }
-        ibm_cf.update(backend)
+        openwhisk.update(backend)
         return {
             'lithops': {
                 'mode': SERVERLESS,
-                'backend': 'ibm_cf',
+                'backend': 'openwhisk',
                 'storage': 'localhost',
                 'telemetry': False,
             },
-            'ibm_cf': ibm_cf,
+            'openwhisk': openwhisk,
             'localhost': {'storage_bucket': 'test-bucket'},
         }
 
@@ -722,6 +840,11 @@ class TestFaaSTokenBucketLoop:
         try:
             inv._start_async_invokers()
             inv._queue_call_ranges(job, range(2))
+            time.sleep(0.1)
+            assert invoked == []
+            assert inv.pending_calls_q.qsize() == 2
+
+            inv.job_monitor.token_bucket_q.put('#')
             _wait_until(lambda: len(invoked) == 1)
             with lock:
                 assert invoked == [['00000']]
@@ -735,8 +858,9 @@ class TestFaaSTokenBucketLoop:
             inv.stop()
             inv.executor.shutdown(wait=True)
 
-    def test_overflow_beyond_max_workers_waits_for_tokens(self):
-        """10 workers, 20 calls: first wave runs now, the rest wait for tokens."""
+    @pytest.mark.parametrize('max_workers', [10, 1])
+    def test_overflow_beyond_max_workers_waits_for_tokens(self, max_workers):
+        """max_workers run now, the rest of the 20 calls wait for tokens."""
         invoked = []
         lock = threading.Lock()
 
@@ -745,10 +869,9 @@ class TestFaaSTokenBucketLoop:
                 invoked.append(list(payload['call_ids']))
             return 'act-1'
 
-        max_workers = 10
         total_calls = 20
         async_invokers = FaaSInvoker.ASYNC_INVOKERS
-        first_wave = max_workers + async_invokers
+        first_wave = max_workers
         leftover = total_calls - first_wave
 
         inv = self._live_faas(
@@ -763,10 +886,11 @@ class TestFaaSTokenBucketLoop:
         try:
             inv._invoke_job(job)
             _wait_until(lambda: len(invoked) == first_wave)
+            time.sleep(0.1)
             assert inv.pending_calls_q.qsize() == leftover
             with lock:
                 ids = [call_id for chunk in invoked for call_id in chunk]
-            assert len(set(ids)) == first_wave
+            assert len(set(ids)) == len(ids) == first_wave
 
             for _ in range(leftover):
                 inv.job_monitor.token_bucket_q.put('#')
@@ -826,7 +950,11 @@ class TestFaaSTokenBucketLoop:
         )
         try:
             inv._invoke_job(job)
-            # 2 direct workers + 1 primed async worker = 3 invokes, 6 calls
+            _wait_until(lambda: len(invoked) == 2)
+            time.sleep(0.1)
+            assert len(invoked) == 2
+            assert inv.pending_calls_q.qsize() == 2
+            inv.job_monitor.token_bucket_q.put('#')
             _wait_until(lambda: len(invoked) == 3)
             assert inv.pending_calls_q.qsize() == 1
             inv.job_monitor.token_bucket_q.put('#')
@@ -948,7 +1076,6 @@ class TestFaaSTokenBucketLoop:
             return 'act-1'
 
         inv = self._live_faas()
-        inv.max_workers = 0
         inv.compute_handler.invoke.side_effect = invoke
         job = _job(total_calls=1, chunksize=1)
         try:

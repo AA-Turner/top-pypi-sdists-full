@@ -17,6 +17,7 @@ from anyscale.api_utils.job_util import _get_job_run_id
 from anyscale.api_utils.logs_util import decode_log_bytes
 from anyscale.cli_logger import BlockLogger
 from anyscale.client.openapi_client.models import (
+    ExperimentalWorkspace,
     LogDownloadConfig,
     LogDownloadRequest,
     LogDownloadResult,
@@ -84,7 +85,7 @@ class LogsController(BaseController):
         state = getattr(decorated_job, "state", None)
         return getattr(state, "kuberay_cr_id", None)
 
-    def get_cluster_id_for_workspace(self, workspace_id: str):
+    def get_workspace_for_logs(self, workspace_id: str) -> ExperimentalWorkspace:
         try:
             workspace = (
                 self.api_client.get_workspace_api_v2_experimental_workspaces_workspace_id_get(
@@ -98,7 +99,7 @@ class LogsController(BaseController):
                 raise click.ClickException(
                     f"Workspace {workspace_id} does not have an associated cluster."
                 )
-            return workspace_result.cluster_id
+            return workspace_result
         except Exception as e:  # noqa: BLE001
             if isinstance(e, click.ClickException):
                 raise
@@ -245,20 +246,26 @@ class LogsController(BaseController):
             show_progress_bar=False,
         )
 
+    def warn_if_cluster_running(self, state: Optional[str]) -> None:
+        if state == SessionState.RUNNING:
+            self.log.warning(
+                "The latest 24 hours of logs are not guaranteed if the cluster is still running. "
+                "If so, please view logs via the Anyscale UI or Ray dashboard."
+            )
+
     def get_log_group(
         self,
         filter: LogFilter,  # noqa: A002
         page_size: Optional[int],
         ttl_seconds: Optional[int],
         timeout: timedelta,
+        is_kuberay: bool = False,
     ) -> LogGroup:
-        if filter.cluster_id:
+        # A KubeRay cluster has no session row for this lookup to find; the listing
+        # below resolves its kcr_ id on its own.
+        if filter.cluster_id and not is_kuberay:
             cluster: Cluster = self.anyscale_api_client.get_cluster(filter.cluster_id).result
-            if cluster.state == SessionState.RUNNING:
-                self.log.warning(
-                    "The latest 24 hours of logs are not guaranteed if the cluster is still running. "
-                    "If so, please view logs via the Anyscale UI or Ray dashboard."
-                )
+            self.warn_if_cluster_running(cluster.state)
         chunks, bearer_token = self._list_log_chunks(
             log_filter=filter,
             page_size=page_size,
@@ -298,8 +305,11 @@ class LogsController(BaseController):
         write_to_stdout: bool = False,
         unpack: bool = True,
         resource_id: Optional[str] = None,
+        is_kuberay: bool = False,
     ) -> None:
-        log_group = self.get_log_group(filter, page_size, ttl_seconds, timeout)
+        log_group = self.get_log_group(
+            filter, page_size, ttl_seconds, timeout, is_kuberay=is_kuberay
+        )
         self.console.log(
             f"Discovered {len(log_group.get_files())} log files across {len(log_group.get_chunks())} chunks."
         )

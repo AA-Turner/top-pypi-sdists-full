@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from anyscale._private.models.model_base import ResultIterator
 from anyscale._private.sdk import sdk_command
@@ -10,6 +10,7 @@ from anyscale.service.models import (
     ServiceSortOrder,
     ServiceState,
     ServiceStatus,
+    TrafficPolicy,
 )
 
 
@@ -121,6 +122,70 @@ def rollback(
     """
     return _private_sdk.rollback(  # type: ignore
         name=name, cloud=cloud, project=project, max_surge_percent=max_surge_percent
+    )
+
+
+_UPDATE_TRAFFIC_POLICY_EXAMPLE = """
+import anyscale
+from anyscale.service.models import StaticTrafficPolicy, TrafficPolicy, TrafficPolicyType
+
+anyscale.service.update_traffic_policy(
+    name="my-service",
+    traffic_policy=TrafficPolicy(
+        type=TrafficPolicyType.STATIC,
+        static=StaticTrafficPolicy(weights={"vm-aws-us-west-2": 3, "k8s-aws-us-east-2": 1}),
+    ),
+)
+
+# Split only version v2 evenly; the other versions keep their policy.
+anyscale.service.update_traffic_policy(
+    name="my-service",
+    traffic_policy=TrafficPolicy(type=TrafficPolicyType.EQUAL),
+    version_names=["v2"],
+)
+"""
+
+_UPDATE_TRAFFIC_POLICY_ARG_DOCSTRINGS = {
+    "name": "Name of the service. When running in a workspace, this defaults to the workspace name.",
+    "traffic_policy": "How the service splits its traffic and capacity across the cloud resources it runs on. Replaces the policy of each version in `version_names`.",
+    "version_names": "Names of the versions whose policy to replace. If not provided, the policy of every version of the service is replaced, including a version that is rolling out.",
+    "cloud": "The Anyscale Cloud of this workload. If not provided, the organization default will be used (or, if running in a workspace, the cloud of the workspace).",
+    "project": "Named project to use for the service. If not provided, the default project for the cloud will be used (or, if running in a workspace, the project of the workspace).",
+}
+
+
+@sdk_command(
+    _SERVICE_SDK_SINGLETON_KEY,
+    PrivateServiceSDK,
+    doc_py_example=_UPDATE_TRAFFIC_POLICY_EXAMPLE,
+    arg_docstrings=_UPDATE_TRAFFIC_POLICY_ARG_DOCSTRINGS,
+)
+def update_traffic_policy(
+    name: Optional[str] = None,
+    *,
+    traffic_policy: Union[TrafficPolicy, Dict[str, Any]],
+    version_names: Optional[List[str]] = None,
+    cloud: Optional[str] = None,
+    project: Optional[str] = None,
+    _private_sdk: Optional[PrivateServiceSDK] = None,
+) -> str:
+    """Update the traffic policy of a service without deploying it.
+
+    The policy sets how a service on several cloud resources splits its traffic and
+    capacity across them. It replaces the policy of the versions in `version_names`, or
+    of every version of the service when `version_names` is not provided. It also
+    applies during a rollout.
+
+    This command is asynchronous, so it always returns immediately.
+
+    Returns the id of the updated service.
+    """
+    return _private_sdk.update_traffic_policy(  # type: ignore
+        name=name,
+        traffic_policy=traffic_policy,
+        version_names=version_names,
+        cloud=cloud,
+        project=project,
     )
 
 

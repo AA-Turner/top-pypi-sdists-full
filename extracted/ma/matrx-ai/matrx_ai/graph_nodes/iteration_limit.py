@@ -1,7 +1,7 @@
 """How many agent-loop iterations one workflow step may take — an ORGANIZATION'S setting.
 
 Every agent-running workflow node (``ai.agent.start``, ``ai.mandate.start``,
-``ai.agent.produce``, ``ai.agent.tool_calling``, ``ai.agent.react``, ``ai.chat``,
+``ai.agent.produce``, ``ai.chat.manual``, ``ai.chat``,
 ``ai.conversation.continue``, ``ai.agent.assign``) used to carry
 ``max_iterations: int = 100`` in its input schema — an opinion frozen in code, so no
 organization could say "our workflow agents stop at 20". It is now the knob

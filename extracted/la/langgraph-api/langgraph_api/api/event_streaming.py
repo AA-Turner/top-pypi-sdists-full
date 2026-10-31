@@ -28,16 +28,18 @@ from uuid import uuid4
 
 import orjson
 import structlog
+from starlette.exceptions import HTTPException
 from starlette.responses import Response
 from starlette.websockets import WebSocketDisconnect
 
 from langgraph_api.event_streaming.service import ThreadRunManager
 from langgraph_api.event_streaming.session import _is_supported_channel
-from langgraph_api.event_streaming.types import Subscription
+from langgraph_api.event_streaming.types import ErrorResponse, Subscription
 from langgraph_api.feature_flags import IS_POSTGRES_OR_GRPC_BACKEND
 from langgraph_api.route import ApiRoute, ApiWebSocketRoute
 from langgraph_api.serde import json_dumpb
 from langgraph_api.sse import EventSourceResponse
+from langgraph_api.utils import validate_uuid
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -63,6 +65,19 @@ logger = structlog.stdlib.get_logger(__name__)
 # connection, vs. the unbounded set this replaces.
 _DELIVERED_DEDUP_WINDOW = 2048
 
+# Final frame on SSE and WebSocket when the thread-stream consumer stops
+# without being cancelled. A thread stream has no natural end, so that always
+# means the read failed. The message is fixed because the exception text can
+# carry raw backend errors; the consumer has already logged it.
+_THREAD_STREAM_FAILED_DATA = json_dumpb(
+    ErrorResponse(
+        type="error",
+        id=None,
+        error="unknown_error",
+        message="Thread event stream failed.",
+    )
+)
+
 
 def _json_response(content: Any, *, status_code: int = 200) -> Response:
     """JSON response backed by the repo's orjson helper.
@@ -85,6 +100,7 @@ def _make_manager(
     send_event: Any = None,
     *,
     headers: Mapping[str, str] | None = None,
+    replay_buffer: bool = True,
 ) -> ThreadRunManager:
     # Auth context is propagated via ``ApiRoute``'s ``with_user`` wrapper
     # — ops reads it off the context var, so we don't thread it through
@@ -95,6 +111,7 @@ def _make_manager(
         threads=Threads,
         send_event=send_event,
         headers=headers,
+        replay_buffer=replay_buffer,
     )
 
 
@@ -126,8 +143,16 @@ async def _thread_events(request: Request) -> Response:
         The filter applies for the lifetime of the connection; closing the
         connection unsubscribes. No state is persisted server-side beyond the
         connection.
+
+        If reading the thread's event stream fails, the server ends the
+        stream with a final ``event: error`` frame carrying a protocol error
+        (``"type": "error"``, ``"id": null``, ``"error": "unknown_error"``).
+
+        A thread the caller isn't allowed to read returns 403 or 404 before
+        the stream starts, and a malformed thread ID returns 422.
     """
     thread_id = request.path_params["thread_id"]
+    thread_uuid = validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
     try:
         body = orjson.loads(await request.body())
     except Exception:
@@ -200,6 +225,10 @@ async def _thread_events(request: Request) -> Response:
         else None
     )
 
+    # Checked here, before the 200, because clients retry a 200 that ends in
+    # an error instead of giving up.
+    auth_filters = await Threads.Stream.check_thread_stream_auth(thread_uuid)
+
     # Bounded LRU dedup: ``recent_eids`` is the eviction order, ``delivered``
     # is the O(1) membership view. When the deque hits its cap, the oldest
     # entry rolls off; we mirror that on ``delivered`` to keep them in sync.
@@ -224,7 +253,10 @@ async def _thread_events(request: Request) -> Response:
         pending_events.append(event)
         flush_pending.set()
 
-    manager = _make_manager(thread_id, send_event=on_event)
+    # SSE never replays from the session's buffer: it has no subscribe or
+    # reconnect commands, and ``start_thread_stream`` replays from the
+    # thread's event stream.
+    manager = _make_manager(thread_id, send_event=on_event, replay_buffer=False)
 
     filter_sub = Subscription(
         id=str(uuid4()),
@@ -247,16 +279,15 @@ async def _thread_events(request: Request) -> Response:
     # outbound events; the thread-level reader always replays from the
     # beginning so namespace-scoped projections see history. See
     # ``ThreadRunManager.start_thread_stream`` for the rationale.
-    manager.start_thread_stream()
+    manager.start_thread_stream(auth_filters=auth_filters)
 
     async def body_iter():
         try:
             while True:
                 # Race ``flush_pending`` against the thread-stream consumer
-                # ending. If the consumer dies (transient join_event_streaming
-                # error, or normal shutdown), we want this loop to exit
-                # rather than wedge forever waiting for events that will
-                # never arrive.
+                # ending. If the consumer stops (its read failed or its
+                # source ended), we want this loop to exit rather than
+                # wedge forever waiting for events that will never arrive.
                 flush_task = asyncio.create_task(flush_pending.wait())
                 done_task = asyncio.create_task(manager.wait_for_thread_stream_end())
                 try:
@@ -293,6 +324,8 @@ async def _thread_events(request: Request) -> Response:
                         str(sse_id).encode() if isinstance(sse_id, int) else None,
                     )
                 if stream_finished:
+                    if manager.thread_stream_failed:
+                        yield (b"error", _THREAD_STREAM_FAILED_DATA)
                     break
         finally:
             await manager.close()
@@ -359,33 +392,70 @@ async def _thread_command(request: Request) -> Response:
 # ---------------------------------------------------------------------------
 
 
+async def _close_for_failed_access_check(websocket: WebSocket, exc: Exception) -> None:
+    if isinstance(exc, HTTPException) and exc.status_code < 500:
+        await websocket.close(code=4000 + exc.status_code)
+        return
+    logger.exception("Thread stream access check failed")
+    await websocket.send_text(_THREAD_STREAM_FAILED_DATA.decode())
+    await websocket.close(code=1011, reason="thread stream ended")
+
+
 async def _thread_websocket(websocket: WebSocket) -> None:
     """Full-duplex protocol connection scoped to a thread.
 
     Supports ``run.start``, ``input.respond``, ``subscription.subscribe``,
     ``subscription.unsubscribe``, ``agent.getTree``.
+
+    A 4xx from the thread's access check closes the socket with 4000 plus the
+    status (4403, 4422). A 404 can be a thread the client minted and has yet
+    to create, so the socket then waits for a ``run.start``, which checks
+    access like any run start, and closes with 4404 if another command comes
+    first. Any other failure of the check, a 5xx included, gets the stream
+    error frame and a 1011 close, as when the stream fails later.
     """
     thread_id = websocket.path_params["thread_id"]
+    # Browsers report a refused upgrade only as a 1006 close, so accept first
+    # to make the close code readable.
     await websocket.accept()
+    try:
+        thread_uuid = validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
+    except HTTPException as exc:
+        await _close_for_failed_access_check(websocket, exc)
+        return
+    awaiting_thread = False
+    auth_filters: Any = None
+    try:
+        auth_filters = await Threads.Stream.check_thread_stream_auth(thread_uuid)
+    except Exception as exc:
+        if not (isinstance(exc, HTTPException) and exc.status_code == 404):
+            await _close_for_failed_access_check(websocket, exc)
+            return
+        awaiting_thread = True
 
     async def ws_send_event(event: dict[str, Any]) -> None:
         await websocket.send_text(orjson.dumps(event).decode("utf-8"))
 
     manager = _make_manager(thread_id, send_event=ws_send_event)
-    manager.start_thread_stream()
 
-    # Watchdog: when the thread-stream consumer ends (transient
-    # ``join_event_streaming`` failure or normal shutdown), close the socket so
-    # the client sees a clean disconnect instead of an open connection
-    # that will never deliver another event. ``receive_text`` below
-    # raises ``WebSocketDisconnect`` once the close lands, exiting the
-    # loop through its existing handler.
+    # Watchdog: when the thread-stream consumer stops, send the error frame
+    # (if it wasn't cancelled) and close the socket, instead of leaving the
+    # client on an open connection that will never deliver another event.
+    # ``receive_text`` below raises ``WebSocketDisconnect`` once the close
+    # lands, exiting the loop through its existing handler.
     async def _stream_watchdog() -> None:
         await manager.wait_for_thread_stream_end()
+        if manager.thread_stream_failed:
+            with contextlib.suppress(Exception):
+                await websocket.send_text(_THREAD_STREAM_FAILED_DATA.decode())
         with contextlib.suppress(Exception):
             await websocket.close(code=1011, reason="thread stream ended")
 
-    watchdog = asyncio.create_task(_stream_watchdog())
+    def start_stream(filters: Any) -> asyncio.Task[None]:
+        manager.start_thread_stream(auth_filters=filters)
+        return asyncio.create_task(_stream_watchdog())
+
+    watchdog = None if awaiting_thread else start_stream(auth_filters)
 
     try:
         while True:
@@ -418,16 +488,30 @@ async def _thread_websocket(websocket: WebSocket) -> None:
                 )
                 continue
 
+            if awaiting_thread and payload["method"] != "run.start":
+                await websocket.close(code=4404)
+                return
             response = await manager.handle_command(payload)
             await websocket.send_text(orjson.dumps(response).decode("utf-8"))
+            if awaiting_thread and response.get("type") == "success":
+                try:
+                    auth_filters = await Threads.Stream.check_thread_stream_auth(
+                        thread_uuid
+                    )
+                except Exception as exc:
+                    await _close_for_failed_access_check(websocket, exc)
+                    return
+                watchdog = start_stream(auth_filters)
+                awaiting_thread = False
     except WebSocketDisconnect:
         pass
     except Exception:
         logger.exception("Protocol WebSocket error")
     finally:
-        watchdog.cancel()
-        with contextlib.suppress(asyncio.CancelledError, Exception):
-            await watchdog
+        if watchdog is not None:
+            watchdog.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await watchdog
         await manager.close()
 
 

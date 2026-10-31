@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-paramiko
-Version: 5.0.0.20261021
+Version: 5.1.0.20261030
 Summary: Typing stubs for paramiko
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -13,7 +13,7 @@ Classifier: Typing :: Stubs Only
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: cryptography>=37.0.0
+Requires-Dist: cryptography>=47.0.0
 Dynamic: license-file
 
 ## Typing stubs for paramiko
@@ -22,7 +22,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`paramiko`](https://github.com/paramiko/paramiko) package. It can be used by type checkers
 to check code that uses `paramiko`. This version of
 `types-paramiko` aims to provide accurate annotations for
-`paramiko==5.0.*`.
+`paramiko==5.1.*`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -33,9 +33,9 @@ directory.
 
 This package was tested with the following type checkers:
 * [mypy](https://www.mypy-lang.org/) 2.4.0
-* [pyrefly](https://pyrefly.org/) 1.3.2
+* [pyrefly](https://pyrefly.org/) 1.4.0
 * [pyright](https://microsoft.github.io/pyright/) 1.1.414
-* [ty](https://docs.astral.sh/ty/) 0.0.86
+* [ty](https://docs.astral.sh/ty/) 0.0.91
 
 It was generated from typeshed commit
-[`1a879f4f14924194b7daebedb243314f790f878d`](https://github.com/python/typeshed/commit/1a879f4f14924194b7daebedb243314f790f878d).
+[`0bf68a8adc769b3ee7fc693f100139d2aaf76de8`](https://github.com/python/typeshed/commit/0bf68a8adc769b3ee7fc693f100139d2aaf76de8).

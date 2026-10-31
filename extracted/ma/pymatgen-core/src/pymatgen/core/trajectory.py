@@ -21,12 +21,14 @@ from pymatgen.io.ase import NO_ASE_ERR, AseAtomsAdaptor
 if NO_ASE_ERR is None:
     from ase.io.trajectory import Trajectory as AseTrajectory
 else:
-    AseTrajectory = None
+    AseTrajectory = None  # type: ignore[assignment]
 
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
     from typing import Any, Self
+
+    from ase.io.trajectory import TrajectoryReader
 
     from pymatgen.util.typing import PathLike, SitePropsType
 
@@ -210,6 +212,10 @@ class Trajectory(MSONable):
         # Convert to position mode if not already
         self.to_positions()
 
+        # Accept numpy integers (e.g. from np.arange or np.argmin) like Python ints
+        if isinstance(frames, np.integer):
+            frames = int(frames)
+
         # For integer input, return the structure at that frame
         if isinstance(frames, int):
             if frames >= len(self):
@@ -249,7 +255,7 @@ class Trajectory(MSONable):
                 selected = [idx for idx in frames if idx < len(self)]
 
                 if len(selected) < len(frames):
-                    bad_frames = [idx for idx in frames if idx > len(self)]
+                    bad_frames = [idx for idx in frames if idx >= len(self)]
                     raise IndexError(f"index={bad_frames} out of range, trajectory only has {len(self)} frames")
 
             coords = self.coords[selected]
@@ -566,19 +572,21 @@ class Trajectory(MSONable):
             Trajectory: containing the structures or molecules in the file.
         """
         filename = str(Path(filename).expanduser().resolve())
+        # Match patterns against the file name only; "vasprun*.xml*" can never match a full path
+        basename = Path(filename).name
         structures = []
 
-        if fnmatch(filename, "*XDATCAR*"):
+        if fnmatch(basename, "*XDATCAR*"):
             from pymatgen.io.vasp.outputs import Xdatcar
 
             structures = Xdatcar(filename).structures
 
-        elif fnmatch(filename, "vasprun*.xml*"):
+        elif fnmatch(basename, "vasprun*.xml*"):
             from pymatgen.io.vasp.outputs import Vasprun
 
             structures = Vasprun(filename).structures
 
-        elif fnmatch(filename, "*.traj"):
+        elif fnmatch(basename, "*.traj"):
             if NO_ASE_ERR is None:
                 return cls.from_ase(  # type:ignore[return-value]
                     filename,
@@ -588,7 +596,7 @@ class Trajectory(MSONable):
                 )
             raise ImportError("ASE is required to read .traj files. pip install ase")
 
-        elif fnmatch(filename, "*.json*"):
+        elif fnmatch(basename, "*.json*"):
             from monty.serialization import loadfn
 
             return loadfn(filename, **kwargs)
@@ -607,7 +615,7 @@ class Trajectory(MSONable):
         len2: int,
     ) -> tuple[np.ndarray, bool]:
         """Helper function to combine trajectory lattice."""
-        if lat1.ndim == lat2.ndim == 2:
+        if lat1.ndim == lat2.ndim == 2 and np.allclose(lat1, lat2):
             constant_lat = True
             lat = lat1
         else:
@@ -732,7 +740,7 @@ class Trajectory(MSONable):
     @classmethod
     def from_ase(
         cls,
-        trajectory: str | Path | AseTrajectory,
+        trajectory: str | Path | TrajectoryReader,
         constant_lattice: bool | None = None,
         store_frame_properties: bool = True,
         property_map: dict[str, str] | None = None,
@@ -758,7 +766,7 @@ class Trajectory(MSONable):
                 `constant_lattice = None`.
             additional_fields (Sequence of str, defaults to ["temperature", "velocities"]) :
                 Optional other fields to save in the pymatgen .Trajectory.
-                Valid options are "temperature" and "velocities".
+                Valid options are "temperature" and "velocities" (stored as a site property in A/fs).
 
         Returns:
             pymatgen .Trajectory
@@ -780,11 +788,11 @@ class Trajectory(MSONable):
         converter = adaptor.get_structure if (is_pbc := any(trajectory[0].pbc)) else adaptor.get_molecule
 
         for atoms in trajectory:
-            site_properties = {}
-            if "velocities" in additional_fields:
-                site_properties["velocities"] = atoms.get_velocities()
-
-            structures.append(converter(atoms, site_properties=site_properties))  # type:ignore[arg-type]
+            # The adaptor converts ASE momenta into a "velocities" site property in A/fs
+            struct = converter(atoms)  # type:ignore[arg-type]
+            if "velocities" not in additional_fields and "velocities" in struct.site_properties:
+                struct.remove_site_property("velocities")
+            structures.append(struct)  # type:ignore[arg-type]
 
             if store_frame_properties and atoms.calc:
                 props = {v: atoms.calc.get_property(k) for k, v in property_map.items()}
@@ -793,26 +801,28 @@ class Trajectory(MSONable):
 
                 frame_properties.append(props)
 
-        if constant_lattice is None:
-            constant_lattice = all(
-                np.all(np.abs(ref_struct.lattice.matrix - structures[j].lattice.matrix)) < lattice_match_tol
-                for i, ref_struct in enumerate(structures)
-                for j in range(i + 1, len(structures))
-            )
-
+        # Frames without a calculator have no properties to store
+        frame_props = frame_properties or None
         if is_pbc:
-            return cls.from_structures(structures, constant_lattice=constant_lattice, frame_properties=frame_properties)
+            # Molecules have no lattice, so constant_lattice is only inferred for periodic trajectories
+            if constant_lattice is None:
+                constant_lattice = all(
+                    np.all(np.abs(ref_struct.lattice.matrix - structures[j].lattice.matrix) < lattice_match_tol)
+                    for i, ref_struct in enumerate(structures)
+                    for j in range(i + 1, len(structures))
+                )
+            return cls.from_structures(structures, constant_lattice=constant_lattice, frame_properties=frame_props)
         return cls.from_molecules(
             structures,  # type:ignore[arg-type]
             constant_lattice=constant_lattice,
-            frame_properties=frame_properties,
+            frame_properties=frame_props,
         )
 
     def to_ase(
         self,
         property_map: dict[str, str] | None = None,
         ase_traj_file: str | Path | None = None,
-    ) -> AseTrajectory:
+    ) -> TrajectoryReader:
         """
         Convert a pymatgen .Trajectory to an ASE .Trajectory.
 
@@ -854,13 +864,13 @@ class Trajectory(MSONable):
 
         frame_props = self.frame_properties or [{} for _ in range(len(self))]
         for idx, structure in enumerate(self):
-            atoms = adaptor.get_atoms(structure, msonable=False, velocities=structure.site_properties.get("velocities"))
+            atoms = adaptor.get_atoms(structure, msonable=False)
 
             props: dict[str, Any] = {k: frame_props[idx][v] for k, v in property_map.items() if v in frame_props[idx]}
 
             # Ensure that `charges` and `magmoms` are not lost from AseAtomsAdaptor
             for k in ("charges", "magmoms"):
-                if k in atoms.calc.implemented_properties or k in atoms.calc.results:
+                if atoms.calc is not None and (k in atoms.calc.implemented_properties or k in atoms.calc.results):
                     props[k] = atoms.calc.get_property(k)
 
             atoms.calc = SinglePointCalculator(atoms=atoms, **props)

@@ -60,6 +60,8 @@ const LANGSMITH_API_KEY = __ENV.LANGSMITH_API_KEY;
 const LOAD_SIZE = parseInt(__ENV.LOAD_SIZE || '500');
 const LEVELS = parseInt(__ENV.LEVELS || '2');
 const PLATEAU_DURATION = parseInt(__ENV.PLATEAU_DURATION || '300');
+// Iterations per VU instead of a timed ramp, so every VU's thread ends at the same depth.
+const ITERATIONS = parseInt(__ENV.ITERATIONS || '0');
 const P95_RUN_DURATION = __ENV.P95_RUN_DURATION; // Expected P95 run duration in milliseconds
 const profile = get_profile(__ENV);
 const BENCHMARK_TYPE = profile.benchmarkType;
@@ -89,12 +91,9 @@ function getP95RunDuration(mode) {
 // Test configuration
 export let options = {
   scenarios: {
-    constant_load: {
-      executor: 'ramping-vus',
-      startVUs: 1,
-      stages,
-      gracefulRampDown: '120s',
-    },
+    constant_load: ITERATIONS > 0
+      ? { executor: 'per-vu-iterations', vus: LOAD_SIZE, iterations: ITERATIONS, maxDuration: __ENV.MAX_DURATION || '2h' }
+      : { executor: 'ramping-vus', startVUs: 1, stages, gracefulRampDown: '120s' },
   },
   thresholds: {
     'run_duration': [`p(95)<${getP95RunDuration('single')}`],

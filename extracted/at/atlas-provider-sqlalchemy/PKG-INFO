@@ -1,18 +1,17 @@
 Metadata-Version: 2.4
 Name: atlas-provider-sqlalchemy
-Version: 0.5.2
+Version: 0.6.0
 Summary: Load sqlalchemy models into an Atlas project.
 License-File: LICENSE
 Author: Your Name
 Author-email: you@example.com
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.11,<4.0
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Requires-Dist: sqlalchemy (>=2.0.41,<3.0.0)
 Requires-Dist: typer (>0.9.0,<=1.0.0)
 Description-Content-Type: text/markdown

@@ -10,7 +10,7 @@ import typing
 import uuid
 from collections import defaultdict
 from collections.abc import AsyncIterator, Sequence
-from contextlib import AsyncExitStack, asynccontextmanager
+from contextlib import AsyncExitStack, aclosing, asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal, cast
 from uuid import UUID, uuid4
@@ -75,29 +75,172 @@ LANGGRAPH_PY_MINOR = tuple(map(int, __version__.split(".")[:2]))
 USE_NEW_INTERRUPTS = LANGGRAPH_PY_MINOR >= (0, 6)
 
 
-async def _decrypt_response(data: dict, model: str, fields: list[str]) -> dict:
+async def _decrypt_from_storage(data: dict, model: str) -> dict:
     from langgraph_api.encryption.middleware import decrypt_response  # noqa: PLC0415
 
-    return await decrypt_response(data, model, fields, plaintext_from_core=False)  # type: ignore[arg-type]
+    return await decrypt_response(data, model, plaintext_from_core=False)  # type: ignore[arg-type]
 
 
-async def _encrypt_request(data: dict, model: str, fields: list[str]) -> dict:
+async def _encrypt_for_storage(data: dict, model: str) -> dict:
     from langgraph_api.encryption.middleware import encrypt_request  # noqa: PLC0415
 
-    return await encrypt_request(data, model, fields, plaintext_for_core=False)  # type: ignore[arg-type]
+    return await encrypt_request(data, model, plaintext_for_core=False)  # type: ignore[arg-type]
 
 
-def _using_custom_encryption() -> bool:
-    from langgraph_api.encryption.shared import (  # noqa: PLC0415
-        using_custom_encryption,
+def _using_encryption() -> bool:
+    from langgraph_api.encryption.shared import using_encryption  # noqa: PLC0415
+
+    return using_encryption()
+
+
+def _thread_has_next(conn: InMemConnectionProto) -> dict[UUID, bool]:
+    """Whether each thread's graph has next steps, as of its latest snapshot.
+
+    Kept beside the threads rather than on them, because thread dicts are returned
+    to callers as they are and this is internal. A missing entry means unknown.
+    """
+    return conn.store.setdefault("thread_has_next", {})
+
+
+def _thread_failed(conn: InMemConnectionProto) -> dict[UUID, bool]:
+    """Whether each thread's last reported run failed.
+
+    Kept beside the threads for the same reason as ``_thread_has_next``: it is
+    internal, and a missing entry means unknown.
+    """
+    return conn.store.setdefault("thread_failed", {})
+
+
+def _thread_failure(exception: BaseException | None) -> BaseException | None:
+    """The exception if the run really failed, and None for a user cancel or rollback.
+
+    Those are not failures, so they don't belong in the thread's error; the reason
+    for a cancel is recorded on the run instead (``cancel_reason``).
+    """
+    from langgraph_api.errors import UserInterrupt  # noqa: PLC0415
+
+    return None if isinstance(exception, UserInterrupt) else exception
+
+
+def _derive_thread_status(
+    *,
+    has_active_runs: bool,
+    failed: bool | None,
+    has_next: bool | None,
+    existing_status: ThreadStatus,
+) -> ThreadStatus:
+    """The one rule for a thread's status from known facts.
+
+    busy if a run is active; otherwise error if the last run failed; otherwise
+    interrupted if the graph has next steps; otherwise keep ``existing_status``
+    when ``failed`` or ``has_next`` is still unknown (None); otherwise idle.
+
+    A leftover busy with no active runs becomes idle.
+    """
+    if has_active_runs:
+        return "busy"
+    if failed:
+        return "error"
+    if has_next:
+        return "interrupted"
+    if failed is None or has_next is None:
+        if existing_status == "busy":
+            return "idle"
+        return existing_status
+    return "idle"
+
+
+def _thread_status(
+    conn: InMemConnectionProto,
+    thread_id: UUID,
+    *,
+    failed: bool | None = None,
+    has_next: bool | None = None,
+) -> ThreadStatus:
+    """The one rule for a thread's status, used by every write that changes it.
+
+    A nil ``failed`` or ``has_next`` means the caller doesn't know the fact, so it is
+    read from what is stored on the thread; a fact still missing from the store is
+    unknown and keeps the thread's current status (see ``_derive_thread_status``).
+    """
+    has_active_runs = any(
+        r["thread_id"] == thread_id and r["status"] in ("pending", "running")
+        for r in conn.store["runs"]
+    )
+    if failed is None and thread_id in _thread_failed(conn):
+        failed = _thread_failed(conn)[thread_id]
+    if has_next is None and thread_id in _thread_has_next(conn):
+        has_next = _thread_has_next(conn)[thread_id]
+    existing_status: ThreadStatus = "idle"
+    for thread in conn.store["threads"]:
+        if thread["thread_id"] == thread_id:
+            existing_status = thread["status"]
+            break
+    return _derive_thread_status(
+        has_active_runs=has_active_runs,
+        failed=failed,
+        has_next=has_next,
+        existing_status=existing_status,
     )
 
-    return using_custom_encryption()
+
+async def _save_thread_status(
+    conn: InMemConnectionProto,
+    thread_id: UUID,
+    thread: dict[str, Any],
+    stored_thread: dict[str, Any],
+    checkpoint: CheckpointPayload | None,
+    exception: BaseException | None,
+    now: datetime,
+) -> None:
+    """Write a thread's status and error from the facts this update knows.
+
+    Every writer derives the status from the thread's facts with the same rule.
+    Without a checkpoint there is nothing to replace values, interrupts and
+    has_next with, so the thread keeps the ones it already has. has_next is
+    recorded only once the thread is saved, so a failed save can't leave the two
+    apart.
+    """
+    from langgraph_api.serde import json_dumpb, json_loads  # noqa: PLC0415
+
+    failure = _thread_failure(exception)
+    has_next = None if checkpoint is None else bool(checkpoint["next"])
+
+    update: dict = {
+        "updated_at": now,
+        "state_updated_at": now,
+        "status": _thread_status(
+            conn, thread_id, failed=failure is not None, has_next=has_next
+        ),
+        "error": json_loads(json_dumpb(failure)) if failure else None,
+    }
+    if checkpoint is not None:
+        update["values"] = json_loads(json_dumpb(checkpoint["values"]))
+        update["interrupts"] = json_loads(
+            json_dumpb(
+                {
+                    t["id"]: [_patch_interrupt(i) for i in t["interrupts"]]
+                    for t in checkpoint["tasks"]
+                    if t.get("interrupts")
+                }
+            )
+        )
+    thread.update(update)
+    if _using_encryption():
+        encrypted_thread = await _encrypt_for_storage(thread, "thread")
+        stored_thread.clear()
+        stored_thread.update(encrypted_thread)
+    # Recorded only once the thread is saved, so a failed save can't leave the
+    # facts apart from the thread.
+    if has_next is not None:
+        _thread_has_next(conn)[thread_id] = has_next
+    _thread_failed(conn)[thread_id] = failure is not None
 
 
 def _run_stream_mode_matches(event_mode: str, stream_mode: list[str] | None) -> bool:
     """Return True if a published run-stream event matches the join filter."""
-    if not stream_mode:
+    # A run's error is its outcome, not a selectable mode, so no filter drops it.
+    if not stream_mode or event_mode == "error":
         return True
     if event_mode in stream_mode:
         return True
@@ -118,6 +261,12 @@ def _ensure_uuid(id_: str | uuid.UUID | None) -> uuid.UUID:
     if id_ is None:
         return uuid4()
     return id_
+
+
+def _ensure_datetime(value: datetime | str | None) -> datetime | None:
+    if value is None or isinstance(value, datetime):
+        return value
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
 def _snapshot_defaults():
@@ -205,6 +354,11 @@ class Assistants(Authenticated):
 
         # Get all assistants and filter them
         assistants = conn.store["assistants"]
+        if _using_encryption():
+            assistants = [
+                await _decrypt_from_storage(assistant, "assistant")
+                for assistant in assistants
+            ]
         filtered_assistants = [
             assistant
             for assistant in assistants
@@ -272,10 +426,15 @@ class Assistants(Authenticated):
 
         async def _yield_result():
             for assistant in conn.store["assistants"]:
-                if assistant["assistant_id"] == assistant_id and (
-                    not filters or _check_filter_match(assistant["metadata"], filters)
+                plaintext = (
+                    await _decrypt_from_storage(assistant, "assistant")
+                    if _using_encryption()
+                    else copy.deepcopy(assistant)
+                )
+                if plaintext["assistant_id"] == assistant_id and (
+                    not filters or _check_filter_match(plaintext["metadata"], filters)
                 ):
-                    yield copy.deepcopy(assistant)
+                    yield plaintext
 
         return _yield_result()
 
@@ -299,18 +458,7 @@ class Assistants(Authenticated):
 
         assistant_id = _ensure_uuid(assistant_id)
         metadata = metadata if metadata is not None else {}
-        custom_encryption = _using_custom_encryption()
-        if custom_encryption:
-            decrypted = await _decrypt_response(
-                {"config": config, "context": context, "metadata": metadata},
-                "assistant",
-                ["config", "context", "metadata"],
-            )
-            config, context, metadata = (
-                decrypted["config"],
-                decrypted["context"],
-                decrypted["metadata"],
-            )
+        encryption_enabled = _using_encryption()
         filters = await Assistants.handle_event(
             ctx,
             "create",
@@ -344,10 +492,10 @@ class Assistants(Authenticated):
         )
         if existing_assistant:
             existing_metadata = existing_assistant["metadata"]
-            if custom_encryption:
+            if encryption_enabled:
                 existing_metadata = (
-                    await _decrypt_response(
-                        {"metadata": existing_metadata}, "assistant", ["metadata"]
+                    await _decrypt_from_storage(
+                        {"metadata": existing_metadata}, "assistant"
                     )
                 )["metadata"]
             if filters and not _check_filter_match(existing_metadata, filters):
@@ -361,7 +509,11 @@ class Assistants(Authenticated):
             elif if_exists == "do_nothing":
 
                 async def _yield_existing():
-                    yield existing_assistant
+                    yield (
+                        await _decrypt_from_storage(existing_assistant, "assistant")
+                        if encryption_enabled
+                        else existing_assistant
+                    )
 
                 return _yield_existing()
 
@@ -389,18 +541,18 @@ class Assistants(Authenticated):
             "name": name,
             "description": description,
         }
-        if custom_encryption and not system:
-            new_assistant = await _encrypt_request(
-                new_assistant, "assistant", ["config", "context", "metadata"]
-            )
-            new_version = await _encrypt_request(
-                new_version, "assistant", ["config", "context", "metadata"]
-            )
+        if encryption_enabled and not system:
+            new_assistant = await _encrypt_for_storage(new_assistant, "assistant")
+            new_version = await _encrypt_for_storage(new_version, "assistant")
         conn.store["assistants"].append(new_assistant)
         conn.store["assistant_versions"].append(new_version)
 
         async def _yield_new():
-            yield new_assistant
+            yield (
+                await _decrypt_from_storage(new_assistant, "assistant")
+                if encryption_enabled and not system
+                else new_assistant
+            )
 
         return _yield_new()
 
@@ -438,18 +590,7 @@ class Assistants(Authenticated):
         assistant_id = _ensure_uuid(assistant_id)
         metadata = metadata if metadata is not None else {}
         config = config if config is not None else {}
-        custom_encryption = _using_custom_encryption()
-        if custom_encryption:
-            decrypted = await _decrypt_response(
-                {"config": config, "context": context, "metadata": metadata},
-                "assistant",
-                ["config", "context", "metadata"],
-            )
-            config, context, metadata = (
-                decrypted["config"],
-                decrypted["context"],
-                decrypted["metadata"],
-            )
+        encryption_enabled = _using_encryption()
         filters = await Assistants.handle_event(
             ctx,
             "update",
@@ -487,10 +628,8 @@ class Assistants(Authenticated):
                 status_code=404, detail=f"Assistant {assistant_id} not found"
             )
         stored_assistant = assistant
-        if custom_encryption:
-            assistant = await _decrypt_response(
-                assistant, "assistant", ["config", "context", "metadata"]
-            )
+        if encryption_enabled:
+            assistant = await _decrypt_from_storage(assistant, "assistant")
         if filters and not _check_filter_match(assistant["metadata"], filters):
             raise HTTPException(
                 status_code=404, detail=f"Assistant {assistant_id} not found"
@@ -525,11 +664,9 @@ class Assistants(Authenticated):
                 description if description is not None else assistant.get("description")
             ),
         }
-        if custom_encryption:
-            new_version_entry = await _encrypt_request(
-                new_version_entry,
-                "assistant",
-                ["config", "context", "metadata"],
+        if encryption_enabled:
+            new_version_entry = await _encrypt_for_storage(
+                new_version_entry, "assistant"
             )
         conn.store["assistant_versions"].append(new_version_entry)
 
@@ -552,7 +689,11 @@ class Assistants(Authenticated):
         )
 
         async def _yield_updated():
-            yield stored_assistant
+            yield (
+                await _decrypt_from_storage(stored_assistant, "assistant")
+                if encryption_enabled
+                else stored_assistant
+            )
 
         return _yield_updated()
 
@@ -591,18 +732,31 @@ class Assistants(Authenticated):
                     status_code=404,
                     detail=f"Assistant with ID {assistant_id} not found",
                 )
-            elif filters and not _check_filter_match(assistant["metadata"], filters):
+            plaintext_assistant = (
+                await _decrypt_from_storage(assistant, "assistant")
+                if _using_encryption()
+                else assistant
+            )
+            if filters and not _check_filter_match(
+                plaintext_assistant["metadata"], filters
+            ):
                 raise HTTPException(
                     status_code=404,
                     detail=f"Assistant with ID {assistant_id} not found",
                 )
 
             if delete_threads:
-                threads_to_delete = [
-                    t["thread_id"]
-                    for t in conn.store["threads"]
-                    if t.get("metadata", {}).get("assistant_id") == str(assistant_id)
-                ]
+                threads_to_delete = []
+                for thread in conn.store["threads"]:
+                    plaintext_thread = (
+                        await _decrypt_from_storage(thread, "thread")
+                        if _using_encryption()
+                        else thread
+                    )
+                    if plaintext_thread.get("metadata", {}).get("assistant_id") == str(
+                        assistant_id
+                    ):
+                        threads_to_delete.append(thread["thread_id"])
                 for thread_id in threads_to_delete:
                     try:
                         async for _ in await Threads.delete(conn, thread_id, ctx=ctx):
@@ -670,7 +824,10 @@ class Assistants(Authenticated):
             raise HTTPException(
                 status_code=404, detail=f"Assistant {assistant_id} not found"
             )
-        elif filters and not _check_filter_match(assistant["metadata"], filters):
+        stored_assistant = assistant
+        if _using_encryption():
+            assistant = await _decrypt_from_storage(assistant, "assistant")
+        if filters and not _check_filter_match(assistant["metadata"], filters):
             raise HTTPException(
                 status_code=404, detail=f"Assistant {assistant_id} not found"
             )
@@ -689,6 +846,8 @@ class Assistants(Authenticated):
                 detail=f"Version {version} not found for assistant {assistant_id}",
             )
 
+        if _using_encryption():
+            version_data = await _decrypt_from_storage(version_data, "assistant")
         assistant.update(
             {
                 "config": version_data["config"],
@@ -701,6 +860,11 @@ class Assistants(Authenticated):
         )
 
         async def _yield_updated():
+            if _using_encryption():
+                stored_assistant.clear()
+                stored_assistant.update(
+                    await _encrypt_for_storage(assistant, "assistant")
+                )
             yield assistant
 
         return _yield_updated()
@@ -729,13 +893,24 @@ class Assistants(Authenticated):
             raise HTTPException(
                 status_code=404, detail=f"Assistant {assistant_id} not found"
             )
-        versions = [
-            v
-            for v in conn.store["assistant_versions"]
-            if v["assistant_id"] == assistant_id
-            and (not metadata or is_jsonb_contained(v["metadata"], metadata))
-            and (not filters or _check_filter_match(v["metadata"], filters))
-        ]
+        versions = []
+        for version in conn.store["assistant_versions"]:
+            if version["assistant_id"] != assistant_id:
+                continue
+            plaintext_version = (
+                await _decrypt_from_storage(version, "assistant")
+                if _using_encryption()
+                else version
+            )
+            if metadata and not is_jsonb_contained(
+                plaintext_version["metadata"], metadata
+            ):
+                continue
+            if filters and not _check_filter_match(
+                plaintext_version["metadata"], filters
+            ):
+                continue
+            versions.append(plaintext_version)
 
         # Previously, the name was not included in the assistant_versions table. So we should add them here.
         description = assistant.get("description")
@@ -781,6 +956,8 @@ class Assistants(Authenticated):
 
         count = 0
         for assistant in conn.store["assistants"]:
+            if _using_encryption():
+                assistant = await _decrypt_from_storage(assistant, "assistant")
             if (
                 (not graph_id or assistant["graph_id"] == graph_id)
                 and (not name or name.lower() in assistant["name"].lower())
@@ -799,15 +976,26 @@ def is_jsonb_contained(superset: dict[str, Any], subset: dict[str, Any]) -> bool
     Implements Postgres' @> (containment) operator for dictionaries.
     Returns True if superset contains all key/value pairs from subset.
     """
-    for key, value in subset.items():
-        if key not in superset:
-            return False
-        if isinstance(value, dict) and isinstance(superset[key], dict):
-            if not is_jsonb_contained(superset[key], value):
-                return False
-        elif superset[key] != value:
-            return False
-    return True
+    if not isinstance(superset, dict):
+        return False
+    return all(
+        key in superset and _is_jsonb_value_contained(superset[key], value)
+        for key, value in subset.items()
+    )
+
+
+def _is_jsonb_value_contained(superset: Any, subset: Any) -> bool:
+    """Implements Postgres' @> semantics for arbitrary JSON values."""
+    if isinstance(subset, dict):
+        return isinstance(superset, dict) and is_jsonb_contained(superset, subset)
+    if isinstance(subset, list):
+        return isinstance(superset, list) and all(
+            any(_is_jsonb_value_contained(item, sub_item) for item in superset)
+            for sub_item in subset
+        )
+    if isinstance(superset, bool) or isinstance(subset, bool):
+        return superset is subset
+    return superset == subset
 
 
 def bytes_decoder(obj):
@@ -886,6 +1074,14 @@ def _patch_interrupt(
         }
 
 
+def _nbytes(value: Any) -> int:
+    if isinstance(value, bytes | bytearray | memoryview):
+        return len(value)
+    if isinstance(value, tuple | list):
+        return sum(_nbytes(item) for item in value)
+    return 0
+
+
 class Threads(Authenticated):
     resource = "threads"
 
@@ -903,9 +1099,14 @@ class Threads(Authenticated):
         sort_order: str | None = None,
         select: list[ThreadSelectField] | None = None,
         extract: dict[str, str] | None = None,
+        exclude_metadata: list[dict[str, Any]] | None = None,
         ctx: Auth.types.BaseAuthContext | None = None,
     ) -> tuple[AsyncIterator[Thread], int]:
         threads = conn.store["threads"]
+        if _using_encryption():
+            threads = [
+                await _decrypt_from_storage(thread, "thread") for thread in threads
+            ]
         filtered_threads: list[Thread] = []
         metadata = metadata if metadata is not None else {}
         values = values if values is not None else {}
@@ -939,6 +1140,12 @@ class Threads(Authenticated):
                 continue
 
             if metadata and not is_jsonb_contained(thread["metadata"], metadata):
+                continue
+
+            if exclude_metadata and any(
+                is_jsonb_contained(thread["metadata"], excluded)
+                for excluded in exclude_metadata
+            ):
                 continue
 
             if (
@@ -1014,6 +1221,8 @@ class Threads(Authenticated):
             ),
             None,
         )
+        if matching_thread and _using_encryption():
+            matching_thread = await _decrypt_from_storage(matching_thread, "thread")
         if not matching_thread or (
             filters and not _check_filter_match(matching_thread["metadata"], filters)
         ):
@@ -1071,6 +1280,52 @@ class Threads(Authenticated):
         return _yield_result()
 
     @staticmethod
+    async def storage(
+        conn: InMemConnectionProto,
+        thread_id: UUID | str,
+        ctx: Auth.types.BaseAuthContext | None = None,
+    ) -> dict[str, Any]:
+        """Bytes a thread's checkpoints occupy in memory, per table and per channel.
+
+        Same shape as the postgres runtime's report, so one endpoint serves both.
+        Raises 404 if the thread doesn't exist or the auth handler hides it.
+        """
+        await Threads.get(conn, thread_id, ctx=ctx)
+        thread_id = str(thread_id)
+        saver = Checkpointer()
+        by_channel: dict[str, dict[str, int]] = {}
+        for (tid, _ns, channel, _version), blob in list(saver.blobs.items()):
+            if tid != thread_id:
+                continue
+            entry = by_channel.setdefault(channel, {"versions": 0, "bytes": 0})
+            entry["versions"] += 1
+            entry["bytes"] += _nbytes(blob)
+        checkpoint_count = checkpoint_bytes = 0
+        if thread_id in saver.storage:
+            for checkpoints in saver.storage[thread_id].values():
+                for stored in checkpoints.values():
+                    checkpoint_count += 1
+                    checkpoint_bytes += _nbytes(stored)
+        write_count = write_bytes = 0
+        for (tid, _ns, _checkpoint_id), writes in list(saver.writes.items()):
+            if tid != thread_id:
+                continue
+            for write in writes.values():
+                write_count += 1
+                write_bytes += _nbytes(write)
+        channel_bytes = sum(entry["bytes"] for entry in by_channel.values())
+        return {
+            "total_bytes": checkpoint_bytes + channel_bytes + write_bytes,
+            "checkpoints": {"count": checkpoint_count, "bytes": checkpoint_bytes},
+            "channel_values": {
+                "count": sum(entry["versions"] for entry in by_channel.values()),
+                "bytes": channel_bytes,
+                "by_channel": by_channel,
+            },
+            "pending_writes": {"count": write_count, "bytes": write_bytes},
+        }
+
+    @staticmethod
     async def put(
         conn: InMemConnectionProto | Any,
         thread_id: UUID | str,
@@ -1103,8 +1358,13 @@ class Threads(Authenticated):
         )
 
         if existing_thread:
+            plaintext_existing = (
+                await _decrypt_from_storage(existing_thread, "thread")
+                if _using_encryption()
+                else existing_thread
+            )
             if filters and not _check_filter_match(
-                existing_thread["metadata"], filters
+                plaintext_existing["metadata"], filters
             ):
                 # Should we use a different status code here?
                 raise HTTPException(
@@ -1117,7 +1377,7 @@ class Threads(Authenticated):
             elif if_exists == "do_nothing":
 
                 async def _yield_existing():
-                    yield existing_thread
+                    yield plaintext_existing
 
                 return _yield_existing()
         # Create new thread
@@ -1134,7 +1394,12 @@ class Threads(Authenticated):
         }
 
         # Add to store
-        conn.store["threads"].append(new_thread)
+        stored_thread = (
+            await _encrypt_for_storage(new_thread, "thread")
+            if _using_encryption()
+            else new_thread
+        )
+        conn.store["threads"].append(stored_thread)
 
         async def _yield_new():
             yield new_thread
@@ -1167,14 +1432,21 @@ class Threads(Authenticated):
                 "update",
                 Auth.types.ThreadsUpdate(thread_id=thread_id, metadata=metadata),
             )
-            if not filters or _check_filter_match(
-                thread_list[thread_idx]["metadata"], filters
-            ):
-                thread = copy.deepcopy(thread_list[thread_idx])
+            stored_thread = thread_list[thread_idx]
+            thread = (
+                await _decrypt_from_storage(stored_thread, "thread")
+                if _using_encryption()
+                else copy.deepcopy(stored_thread)
+            )
+            if not filters or _check_filter_match(thread["metadata"], filters):
                 thread.setdefault("state_updated_at", thread.get("updated_at"))
                 thread["metadata"] = {**thread["metadata"], **metadata}
                 thread["updated_at"] = datetime.now(UTC)
-                thread_list[thread_idx] = thread
+                thread_list[thread_idx] = (
+                    await _encrypt_for_storage(thread, "thread")
+                    if _using_encryption()
+                    else thread
+                )
 
                 async def thread_iterator() -> AsyncIterator[Thread]:
                     yield thread
@@ -1196,16 +1468,7 @@ class Threads(Authenticated):
         # This does not accept the auth context since it's only used internally
     ) -> None:
         """Set the status of a thread."""
-        from langgraph_api.serde import json_dumpb, json_loads  # noqa: PLC0415
-
         thread_id = _ensure_uuid(thread_id)
-
-        async def has_pending_runs(conn_: InMemConnectionProto, tid: UUID) -> bool:
-            """Check if thread has any pending runs."""
-            return any(
-                run["status"] in ("pending", "running") and run["thread_id"] == tid
-                for run in conn_.store["runs"]
-            )
 
         # Find the thread
         thread = next(
@@ -1221,40 +1484,19 @@ class Threads(Authenticated):
             raise HTTPException(
                 status_code=404, detail=f"Thread {thread_id} not found."
             )
+        stored_thread = thread
+        if _using_encryption():
+            thread = await _decrypt_from_storage(thread, "thread")
 
-        # Determine has_next from checkpoint
-        has_next = False if checkpoint is None else bool(checkpoint["next"])
-
-        # Determine base status
-        if exception:
-            status = "error"
-        elif has_next:
-            status = "interrupted"
-        else:
-            status = "idle"
-
-        # Check for pending runs and update to busy if found
-        if await has_pending_runs(conn, thread_id):
-            status = "busy"
-
-        # Update thread
-        now = datetime.now(UTC)
-        update: dict = {
-            "updated_at": now,
-            "state_updated_at": now,
-            "status": status,
-            "error": json_loads(json_dumpb(exception)) if exception else None,
-        }
-        # Without a checkpoint there is nothing to replace values and interrupts
-        # with, so keep the ones the thread already has.
-        if checkpoint is not None:
-            update["values"] = checkpoint["values"]
-            update["interrupts"] = {
-                t["id"]: [_patch_interrupt(i) for i in t["interrupts"]]
-                for t in checkpoint["tasks"]
-                if t.get("interrupts")
-            }
-        thread.update(update)
+        await _save_thread_status(
+            conn,
+            thread_id,
+            thread,
+            stored_thread,
+            checkpoint,
+            exception,
+            datetime.now(UTC),
+        )
 
     @staticmethod
     async def set_joint_status(
@@ -1280,23 +1522,17 @@ class Threads(Authenticated):
             exception: Exception that occurred (affects thread status)
         """
         # No auth since it's internal
-        from langgraph_api.errors import UserInterrupt, UserRollback  # noqa: PLC0415
-        from langgraph_api.serde import json_dumpb, json_loads  # noqa: PLC0415
-
         thread_id = _ensure_uuid(thread_id)
         run_id = _ensure_uuid(run_id)
-
-        def _thread_has_active_runs() -> bool:
-            return any(
-                r["thread_id"] == thread_id and r["status"] in ("pending", "running")
-                for r in conn.store["runs"]
-            )
 
         thread = next(
             (t for t in conn.store["threads"] if t["thread_id"] == thread_id), None
         )
         if thread is None:
             raise HTTPException(status_code=404, detail=f"Thread {thread_id} not found")
+        stored_thread = thread
+        if _using_encryption():
+            thread = await _decrypt_from_storage(thread, "thread")
 
         run = next(
             (
@@ -1309,47 +1545,16 @@ class Threads(Authenticated):
         if run is None:
             raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
 
-        has_next = bool(checkpoint and checkpoint["next"])
-        if exception and not isinstance(exception, UserInterrupt | UserRollback):
-            base_thread_status: ThreadStatus = "error"
-        elif has_next:
-            base_thread_status = "interrupted"
-        else:
-            base_thread_status = "idle"
-
         now = datetime.now(UTC)
 
         if run_status == "rollback":
             await Runs.delete(conn, run_id, thread_id=run["thread_id"])
-            final_thread_status: ThreadStatus = (
-                "busy" if _thread_has_active_runs() else base_thread_status
-            )
-
         else:
             run.update({"status": run_status, "updated_at": now})
-
-            if run_status in ("pending", "running") or _thread_has_active_runs():
-                final_thread_status = "busy"
-            else:
-                final_thread_status = base_thread_status
         thread["metadata"]["graph_id"] = graph_id
-        update: dict = {
-            "updated_at": now,
-            "state_updated_at": now,
-            "status": final_thread_status,
-            "error": json_loads(json_dumpb(exception)) if exception else None,
-        }
-        # Without a checkpoint (a run that ended before writing one, or a
-        # rollback) there is nothing to replace values and interrupts with, so
-        # keep the ones the thread already has.
-        if checkpoint is not None:
-            update["values"] = checkpoint["values"]
-            update["interrupts"] = {
-                t["id"]: [_patch_interrupt(i) for i in t["interrupts"]]
-                for t in checkpoint["tasks"]
-                if t.get("interrupts")
-            }
-        thread.update(update)
+        await _save_thread_status(
+            conn, thread_id, thread, stored_thread, checkpoint, exception, now
+        )
 
     @staticmethod
     async def delete(
@@ -1359,21 +1564,23 @@ class Threads(Authenticated):
     ) -> AsyncIterator[UUID]:
         """Delete a thread by ID and cascade delete all associated runs."""
         thread_list = conn.store["threads"]
-        thread_idx = None
         thread_id = _ensure_uuid(thread_id)
 
         # Find the thread to delete
-        for idx, thread in enumerate(thread_list):
-            if thread["thread_id"] == thread_id:
-                thread_idx = idx
+        thread = None
+        for candidate in thread_list:
+            if candidate["thread_id"] == thread_id:
+                thread = candidate
                 break
         filters = await Threads.handle_event(
             ctx,
             "delete",
             Auth.types.ThreadsDelete(thread_id=thread_id),
         )
-        if (filters and not _check_filter_match(thread["metadata"], filters)) or (
-            thread_idx is None
+        if thread is not None and _using_encryption():
+            thread = await _decrypt_from_storage(thread, "thread")
+        if thread is None or (
+            filters and not _check_filter_match(thread["metadata"], filters)
         ):
             raise HTTPException(
                 status_code=404, detail=f"Thread with ID {thread_id} not found"
@@ -1388,15 +1595,16 @@ class Threads(Authenticated):
         ]
         await _delete_checkpoints_for_thread(thread_id, conn)
 
-        if thread_idx is not None:
-            # Remove the thread from the store
-            deleted_thread = thread_list.pop(thread_idx)
+        for index, candidate in enumerate(thread_list):
+            if candidate["thread_id"] == thread_id:
+                thread_list.pop(index)
+                _thread_has_next(conn).pop(thread_id, None)
+                _thread_failed(conn).pop(thread_id, None)
 
-            # Return an async iterator with the deleted thread_id
-            async def id_iterator() -> AsyncIterator[UUID]:
-                yield deleted_thread["thread_id"]
+                async def id_iterator() -> AsyncIterator[UUID]:
+                    yield thread_id
 
-            return id_iterator()
+                return id_iterator()
 
         # If thread not found, return empty iterator
         async def empty_iterator() -> AsyncIterator[UUID]:
@@ -1511,25 +1719,58 @@ class Threads(Authenticated):
 
             if not original_thread:
                 return _empty_generator()
+            if _using_encryption():
+                original_thread = await _decrypt_from_storage(original_thread, "thread")
             if read_filters and not _check_filter_match(
                 original_thread["metadata"], read_filters
             ):
                 return _empty_generator()
 
-            # Create new thread with copied metadata
+            # The copy gets the original's checkpoints below, so it starts where the
+            # original stands: same values, interrupts and error, and the same fact
+            # about whether its graph has next steps. Its status comes from those,
+            # by the usual rule: the original's runs are not the copy's. Missing
+            # facts keep the original's status (except a stale busy → idle).
             now = datetime.now(tz=UTC)
+            src_failed = (
+                _thread_failed(conn)[thread_id]
+                if thread_id in _thread_failed(conn)
+                else None
+            )
+            src_has_next = (
+                _thread_has_next(conn)[thread_id]
+                if thread_id in _thread_has_next(conn)
+                else None
+            )
             new_thread: Thread = {
                 "thread_id": new_thread_id,
                 "created_at": now,
                 "updated_at": now,
                 "state_updated_at": now,
                 "metadata": copy.deepcopy(original_thread["metadata"]),
-                "status": "idle",
+                "status": _derive_thread_status(
+                    has_active_runs=False,
+                    failed=src_failed,
+                    has_next=src_has_next,
+                    existing_status=original_thread["status"],
+                ),
                 "config": {},
+                "values": copy.deepcopy(original_thread.get("values")),
+                "interrupts": copy.deepcopy(original_thread.get("interrupts", {})),
+                "error": copy.deepcopy(original_thread.get("error")),
             }
-
             # Add new thread to store
-            conn.store["threads"].append(new_thread)
+            conn.store["threads"].append(
+                await _encrypt_for_storage(new_thread, "thread")
+                if _using_encryption()
+                else new_thread
+            )
+            if thread_id in _thread_has_next(conn):
+                _thread_has_next(conn)[new_thread_id] = _thread_has_next(conn)[
+                    thread_id
+                ]
+            if thread_id in _thread_failed(conn):
+                _thread_failed(conn)[new_thread_id] = _thread_failed(conn)[thread_id]
 
             from langgraph_api import config as api_config  # noqa: PLC0415
 
@@ -1936,7 +2177,41 @@ class Threads(Authenticated):
             metadata: MetadataInput = None,
             ctx: Auth.types.BaseAuthContext | None = None,
         ) -> list[StateSnapshot]:
-            """Get the history of a thread."""
+            """Get the history of a thread.
+
+            Kept for langgraph-api versions that predate ``iterate``.
+            """
+            return [
+                state
+                async for state in Threads.State.iterate(
+                    conn,
+                    config=config,
+                    limit=limit,
+                    before=before,
+                    metadata=metadata,
+                    ctx=ctx,
+                )
+            ]
+
+        @staticmethod
+        async def iterate(
+            conn: InMemConnectionProto,
+            *,
+            config: Config,
+            limit: int = 1,
+            before: str | Checkpoint | None = None,
+            metadata: MetadataInput = None,
+            ctx: Auth.types.BaseAuthContext | None = None,
+            incremental: bool = False,
+            channels: Sequence[str] | None = None,
+        ) -> AsyncIterator[StateSnapshot]:
+            """Yield the history of a thread.
+
+            With ``incremental``, checkpoints load in growing pages, so a
+            caller that stops early does not load the rest of ``limit``.
+            ``channels`` is accepted for parity with the gRPC runtime; the
+            in-memory checkpointer always loads whole checkpoints.
+            """
             from langgraph_api.graph import get_graph  # noqa: PLC0415
             from langgraph_api.store import get_store  # noqa: PLC0415
             from langgraph_api.utils import fetchone  # noqa: PLC0415
@@ -1955,7 +2230,7 @@ class Threads(Authenticated):
             # Parse thread metadata and config
             thread_metadata = thread["metadata"]
             if not _check_filter_match(thread_metadata, filters):
-                return []
+                return
 
             thread_config = cast(dict[str, Any], thread["config"])
             thread_config = {
@@ -1984,16 +2259,27 @@ class Threads(Authenticated):
                         else before
                     )
 
-                    states = [
-                        state
-                        async for state in graph.aget_state_history(
+                    if incremental:
+                        from langgraph_api.state import (  # noqa: PLC0415
+                            iter_state_history,
+                        )
+
+                        history = iter_state_history(
+                            graph,
+                            config,
+                            limit=limit,
+                            filter=metadata,
+                            before=before_param,
+                        )
+                    else:
+                        history = graph.aget_state_history(
                             config, limit=limit, filter=metadata, before=before_param
                         )
-                    ]
-
-                    return states
-
-            return []
+                    async with aclosing(history) as states:
+                        async for state in states:
+                            yield state
+                            # Drop the entry before the next page loads.
+                            del state
 
     class Stream(Authenticated):
         resource = "threads"
@@ -2055,9 +2341,16 @@ class Threads(Authenticated):
             last_event_id: str | None = None,
             stream_modes: list[ThreadStreamMode],
             ctx: Auth.types.BaseAuthContext | None = None,
+            auth_filters: Auth.types.FilterType | None = None,
         ) -> AsyncIterator[tuple[bytes, bytes, bytes | None, str | None]]:
-            """Stream the thread output."""
-            await Threads.Stream.check_thread_stream_auth(thread_id, ctx)
+            """Stream the thread output.
+
+            ``auth_filters`` comes from a ``check_thread_stream_auth`` the
+            caller already ran, so the read handler doesn't run twice. With
+            ``None``, the check runs here.
+            """
+            if auth_filters is None:
+                await Threads.Stream.check_thread_stream_auth(thread_id, ctx)
 
             from langgraph_api.utils.stream_codec import (  # noqa: PLC0415
                 decode_stream_message,
@@ -2257,7 +2550,11 @@ class Threads(Authenticated):
         async def check_thread_stream_auth(
             thread_id: UUID,
             ctx: Auth.types.BaseAuthContext | None = None,
-        ) -> None:
+        ) -> Auth.types.FilterType:
+            """Raise 403/404 for a thread the caller can't read.
+
+            Returns the auth filters for ``join_event_streaming``.
+            """
             async with connect() as conn:
                 filters = await Threads.Stream.handle_event(
                     ctx,
@@ -2270,6 +2567,7 @@ class Threads(Authenticated):
                     )
                     if not thread:
                         raise HTTPException(status_code=404, detail="Thread not found")
+            return filters or {}
 
     @staticmethod
     async def count(
@@ -2278,6 +2576,7 @@ class Threads(Authenticated):
         metadata: MetadataInput = None,
         values: MetadataInput = None,
         status: ThreadStatus | None = None,
+        exclude_metadata: list[dict[str, Any]] | None = None,
         ctx: Auth.types.BaseAuthContext | None = None,
     ) -> int:
         """Get count of threads."""
@@ -2298,10 +2597,18 @@ class Threads(Authenticated):
 
         count = 0
         for thread in threads:
+            if _using_encryption():
+                thread = await _decrypt_from_storage(thread, "thread")
             if filters and not _check_filter_match(thread["metadata"], filters):
                 continue
 
             if metadata and not is_jsonb_contained(thread["metadata"], metadata):
+                continue
+
+            if exclude_metadata and any(
+                is_jsonb_contained(thread["metadata"], excluded)
+                for excluded in exclude_metadata
+            ):
                 continue
 
             if (
@@ -2397,7 +2704,9 @@ class Runs(Authenticated):
         return {}
 
     @staticmethod
-    async def next(wait: bool, limit: int = 1) -> AsyncIterator[tuple[Run, int]]:
+    async def next(
+        wait: bool, limit: int = 1
+    ) -> AsyncIterator[tuple[Run, int, dict[str, Any] | None]]:
         """Get the next run from the queue, and the attempt number.
         1 is the first attempt, 2 is the first retry, etc."""
         now = datetime.now(UTC)
@@ -2434,9 +2743,15 @@ class Runs(Authenticated):
 
                 if thread is None:
                     await logger.awarning(
-                        "Unexpected missing thread in Runs.next",
+                        "Dropping orphaned run with missing thread",
                         thread_id=run["thread_id"],
+                        run_id=run_id,
                     )
+                    conn.store["runs"] = [
+                        stored_run
+                        for stored_run in conn.store["runs"]
+                        if stored_run["run_id"] != run_id
+                    ]
                     continue
 
                 if run["status"] != "pending":
@@ -2448,11 +2763,21 @@ class Runs(Authenticated):
                     if run["thread_id"] == thread_id
                 ):
                     continue
-                # Increment attempt counter
+                stored_run = run
+                encryption_context = None
+                if _using_encryption():
+                    from langgraph_runtime_inmem.encryption import (  # noqa: PLC0415
+                        extract_blob_encryption_context,
+                    )
+
+                    encryption_context = extract_blob_encryption_context(
+                        run.get("kwargs", {}).get("config")
+                    )
+                    run = await _decrypt_from_storage(run, "run")
+                # Claim only after decryption succeeds, so failures remain retryable.
                 attempt = await conn.retry_counter.increment(run_id)
-                # Set run as "running"
-                run["status"] = "running"
-                yield run, attempt
+                stored_run["status"] = "running"
+                yield run, attempt, encryption_context
 
     @asynccontextmanager
     @staticmethod
@@ -2548,17 +2873,9 @@ class Runs(Authenticated):
         if not assistant:
             return _empty_generator()
 
-        custom_encryption = _using_custom_encryption()
-        if custom_encryption:
-            assistant = await _decrypt_response(
-                assistant, "assistant", ["metadata", "config", "context"]
-            )
-            kwargs = await _decrypt_response(
-                kwargs, "run", ["input", "command", "config", "context"]
-            )
-            metadata = (
-                await _decrypt_response({"metadata": metadata}, "run", ["metadata"])
-            )["metadata"]
+        encryption_enabled = _using_encryption()
+        if encryption_enabled:
+            assistant = await _decrypt_from_storage(assistant, "assistant")
 
         thread_id = _ensure_uuid(thread_id) if thread_id else None
         run_id = _ensure_uuid(run_id) if run_id else None
@@ -2593,11 +2910,10 @@ class Runs(Authenticated):
             existing_thread = next(
                 (t for t in conn.store["threads"] if t["thread_id"] == thread_id), None
             )
-        if custom_encryption and existing_thread:
-            existing_thread = await _decrypt_response(
+        if encryption_enabled and existing_thread:
+            existing_thread = await _decrypt_from_storage(
                 existing_thread,
                 "thread",
-                ["metadata", "config"],
             )
         # Automatically enforce assistant ownership for non-system assistants
         # by calling the user's assistant read auth handler.
@@ -2617,6 +2933,8 @@ class Runs(Authenticated):
             # Reject if the user doesn't own the thread
             if not _check_filter_match(existing_thread["metadata"], filters):
                 return _empty_generator()
+
+        _reject_existing_run(conn.store["runs"], run_id)
 
         if not existing_thread and (thread_id is None or if_not_exists == "create"):
             # Create new thread
@@ -2685,7 +3003,11 @@ class Runs(Authenticated):
 
                 async def _return_inflight():
                     for run in inflight_runs:
-                        yield run
+                        yield (
+                            await _decrypt_from_storage(run, "run")
+                            if encryption_enabled
+                            else run
+                        )
 
                 return _return_inflight()
 
@@ -2749,33 +3071,35 @@ class Runs(Authenticated):
             created_at=datetime.now(UTC) + timedelta(seconds=after_seconds),
             updated_at=datetime.now(UTC),
             langsmith_session_name=langsmith_session_name,
+            cancel_reason=None,
         )
-        if custom_encryption:
+        stored_run = new_run
+        encrypted_thread = None
+        if encryption_enabled:
             # Unlike Go core, in-memory workers read nested run kwargs and thread
             # config directly from the store, so those containers must stay readable.
-            encrypted_thread = await _encrypt_request(
+            encrypted_thread = await _encrypt_for_storage(
                 thread if not existing_thread else existing_thread,
                 "thread",
-                ["metadata"],
             )
+            stored_run = copy.deepcopy(new_run)
+            stored_run = Run(**await _encrypt_for_storage(stored_run, "run"))
+        _reject_existing_run(conn.store["runs"], run_id)
+        if encrypted_thread is not None:
             stored_thread = next(
                 t
                 for t in conn.store["threads"]
                 if t["thread_id"] == encrypted_thread["thread_id"]
             )
             stored_thread.update(encrypted_thread)
-            new_run["kwargs"] = await _encrypt_request(
-                new_run["kwargs"],
-                "run",
-                ["input", "config", "context", "command"],
-            )
-            new_run = Run(**await _encrypt_request(new_run, "run", ["metadata"]))
-        conn.store["runs"].append(new_run)
+        conn.store["runs"].append(stored_run)
 
         async def _yield_new():
             yield new_run
             for r in inflight_runs:
-                yield r
+                yield (
+                    await _decrypt_from_storage(r, "run") if encryption_enabled else r
+                )
 
         return _yield_new()
 
@@ -2809,7 +3133,11 @@ class Runs(Authenticated):
                     )
                     if not thread:
                         return
-                yield matching_run
+                yield (
+                    await _decrypt_from_storage(matching_run, "run")
+                    if _using_encryption()
+                    else matching_run
+                )
 
         return _yield_result()
 
@@ -2968,6 +3296,7 @@ class Runs(Authenticated):
         stream_manager = get_stream_manager()
         coros = []
         cancelable_runs = []
+        pending_thread_ids: set[UUID] = set()
 
         for run in candidate_runs:
             run_id = run["run_id"]
@@ -2976,34 +3305,26 @@ class Runs(Authenticated):
                 data=action.encode(),
                 reason=reason,
             )
-            coros.append(stream_manager.put(run_id, thread_id, control_message))
+            # Cancels by status or assistant have no thread_id; the worker listens on the run's own.
+            coros.append(stream_manager.put(run_id, run["thread_id"], control_message))
 
-            queues = stream_manager.get_queues(run_id, thread_id)
+            queues = stream_manager.get_queues(run_id, run["thread_id"])
 
             if run["status"] in ("pending", "running"):
                 cancelable_runs.append(run)
+                if run["status"] == "pending":
+                    pending_thread_ids.add(run["thread_id"])
                 if action == "rollback" and run["status"] == "running":
+                    # Its worker finalizes the rollback; staying "running" holds the thread's next run until then.
                     pass
                 elif queues or action != "rollback":
-                    if run["status"] == "pending":
-                        thread = next(
-                            (
-                                t
-                                for t in conn.store["threads"]
-                                if t["thread_id"] == run["thread_id"]
-                            ),
-                            None,
-                        )
-                        if thread:
-                            thread["status"] = "idle"
-                            thread["updated_at"] = datetime.now(tz=UTC)
                     run["status"] = "interrupted"
+                    run["cancel_reason"] = reason
                     run["updated_at"] = datetime.now(tz=UTC)
                 else:
                     await logger.ainfo(
                         "Eagerly deleting pending run with rollback action",
                         run_id=str(run_id),
-                        status=run["status"],
                     )
                     coros.append(Runs.delete(conn, run_id, thread_id=run["thread_id"]))
             else:
@@ -3024,6 +3345,17 @@ class Runs(Authenticated):
 
         if coros:
             await asyncio.gather(*coros)
+
+        # Cancelling a pending run changes which runs are active on its thread, so
+        # re-derive the thread's status. Nothing else about the thread changed.
+        if pending_thread_ids:
+            for thread in conn.store["threads"]:
+                if thread["thread_id"] in pending_thread_ids:
+                    thread["status"] = _thread_status(
+                        conn,
+                        thread["thread_id"],
+                    )
+                    thread["updated_at"] = datetime.now(tz=UTC)
 
         await logger.ainfo(
             "Cancelled runs",
@@ -3046,6 +3378,8 @@ class Runs(Authenticated):
     ) -> AsyncIterator[Run]:
         """List all runs by thread."""
         runs = conn.store["runs"]
+        if _using_encryption():
+            runs = [await _decrypt_from_storage(run, "run") for run in runs]
         metadata = {}
         thread_id = _ensure_uuid(thread_id)
         filters = await Runs.handle_event(
@@ -3359,6 +3693,7 @@ class Crons(Authenticated):
         ctx = ctx or get_auth_ctx()
         user_id = ctx.user.identity if ctx is not None else None
         cron_id = cron_id or uuid7()
+        end_time = _ensure_datetime(end_time)
 
         try:
             thread_id = UUID(str(thread_id)) if thread_id else None
@@ -3375,6 +3710,15 @@ class Crons(Authenticated):
 
         metadata = metadata if metadata is not None else {}
         payload = payload if payload is not None else {}
+        from langgraph_api.encryption.context import (  # noqa: PLC0415
+            get_encryption_context,
+        )
+        from langgraph_api.encryption.shared import (  # noqa: PLC0415
+            BLOB_ENCRYPTION_CONTEXT_KEY,
+        )
+
+        if encryption_context := get_encryption_context():
+            payload = {**payload, BLOB_ENCRYPTION_CONTEXT_KEY: encryption_context}
         config = payload.get("config")
         if config is None:
             config = {}
@@ -3431,6 +3775,8 @@ class Crons(Authenticated):
                 status_code=404,
                 detail=f"Assistant '{assistant_id}' not found",
             )
+        if assistant and _using_encryption():
+            assistant = await _decrypt_from_storage(assistant, "assistant")
         if assistant_filters and not _check_filter_match(
             assistant.get("metadata", {}), assistant_filters
         ):
@@ -3461,6 +3807,8 @@ class Crons(Authenticated):
                     status_code=404,
                     detail=f"Thread with ID '{thread_id}' not found. Please verify the ID is correct and the thread hasn't been deleted or expired.",
                 )
+            if thread and _using_encryption():
+                thread = await _decrypt_from_storage(thread, "thread")
             if thread_filters and not _check_filter_match(
                 thread.get("metadata", {}), thread_filters
             ):
@@ -3475,8 +3823,13 @@ class Crons(Authenticated):
             None,
         )
         if existing_cron:
+            plaintext_cron = (
+                await _decrypt_from_storage(existing_cron, "cron")
+                if _using_encryption()
+                else existing_cron
+            )
             if filters and not _check_filter_match(
-                existing_cron.get("metadata", {}), filters
+                plaintext_cron.get("metadata", {}), filters
             ):
 
                 async def _empty():
@@ -3486,7 +3839,7 @@ class Crons(Authenticated):
                 return _empty()
 
             async def _yield_existing():
-                yield existing_cron
+                yield plaintext_cron
 
             return _yield_existing()
 
@@ -3507,7 +3860,11 @@ class Crons(Authenticated):
             "created_at": now,
             "updated_at": now,
         }
-        conn.store["crons"].append(new_cron)
+        conn.store["crons"].append(
+            await _encrypt_for_storage(new_cron, "cron")
+            if _using_encryption()
+            else new_cron
+        )
 
         async def _yield_new():
             yield new_cron
@@ -3532,6 +3889,7 @@ class Crons(Authenticated):
         from langgraph_api.utils import get_auth_ctx, next_cron_date  # noqa: PLC0415
 
         ctx = ctx or get_auth_ctx()
+        end_time = _ensure_datetime(end_time)
         request_data = Auth.types.CronsUpdate(
             cron_id=cron_id,
             schedule=schedule,
@@ -3569,6 +3927,9 @@ class Crons(Authenticated):
                 status_code=404,
                 detail=f"Cron '{cron_id}' not found",
             )
+        stored_cron = cron
+        if _using_encryption():
+            cron = await _decrypt_from_storage(cron, "cron")
         if filters and not _check_filter_match(cron.get("metadata", {}), filters):
             raise HTTPException(
                 status_code=404,
@@ -3621,6 +3982,10 @@ class Crons(Authenticated):
             cron["payload"] = merged
 
         cron["updated_at"] = datetime.now(UTC)
+        if _using_encryption():
+            encrypted_cron = await _encrypt_for_storage(cron, "cron")
+            stored_cron.clear()
+            stored_cron.update(encrypted_cron)
 
         async def _yield_updated():
             yield cron
@@ -3643,11 +4008,16 @@ class Crons(Authenticated):
 
         async def _yield_result():
             for cron in conn.store["crons"]:
+                plaintext = (
+                    await _decrypt_from_storage(cron, "cron")
+                    if _using_encryption()
+                    else copy.deepcopy(cron)
+                )
                 if str(cron["cron_id"]) == str(cron_id) and (
                     not filters
-                    or _check_filter_match(cron.get("metadata", {}), filters)
+                    or _check_filter_match(plaintext.get("metadata", {}), filters)
                 ):
-                    yield copy.deepcopy(cron)
+                    yield plaintext
 
         return _yield_result()
 
@@ -3665,14 +4035,18 @@ class Crons(Authenticated):
 
         original_len = len(conn.store["crons"])
         if filters:
-            conn.store["crons"] = [
-                c
-                for c in conn.store["crons"]
-                if not (
-                    str(c["cron_id"]) == str(cron_id)
-                    and _check_filter_match(c.get("metadata", {}), filters)
+            retained = []
+            for cron in conn.store["crons"]:
+                plaintext = (
+                    await _decrypt_from_storage(cron, "cron")
+                    if _using_encryption()
+                    else cron
                 )
-            ]
+                if str(cron["cron_id"]) != str(cron_id) or not _check_filter_match(
+                    plaintext.get("metadata", {}), filters
+                ):
+                    retained.append(cron)
+            conn.store["crons"] = retained
         else:
             conn.store["crons"] = [
                 c for c in conn.store["crons"] if str(c["cron_id"]) != str(cron_id)
@@ -3690,17 +4064,35 @@ class Crons(Authenticated):
     async def next(
         conn: InMemConnectionProto,
         ctx: Auth.types.BaseAuthContext | None = None,
-    ) -> AsyncIterator[Cron]:
+    ) -> AsyncIterator[tuple[Cron, dict[str, Any] | None]]:
         now = datetime.now(UTC)
         for cron in conn.store["crons"]:
             if not cron.get("enabled", False):
                 continue
-            if cron.get("end_time") is not None and cron["end_time"] < now:
+            end_time = _ensure_datetime(cron.get("end_time"))
+            if end_time is not None and end_time < now:
                 continue
             if cron["next_run_date"] > now:
                 continue
+            from langgraph_runtime_inmem.encryption import (  # noqa: PLC0415
+                extract_blob_encryption_context,
+            )
+
+            encryption_context = extract_blob_encryption_context(cron.get("payload"))
+            plaintext = (
+                await _decrypt_from_storage(cron, "cron")
+                if _using_encryption()
+                else cron
+            )
             # The scheduler mutates the payload to build each run; handing out the stored dict breaks every later fire.
-            yield {**cron, "payload": copy.deepcopy(cron["payload"]), "now": now}
+            yield (
+                {
+                    **plaintext,
+                    "payload": copy.deepcopy(plaintext["payload"]),
+                    "now": now,
+                },
+                encryption_context,
+            )
 
     @staticmethod
     async def set_next_run_date(
@@ -3755,6 +4147,8 @@ class Crons(Authenticated):
             )
 
         crons = conn.store["crons"]
+        if _using_encryption():
+            crons = [await _decrypt_from_storage(cron, "cron") for cron in crons]
         # First pass: filter on cron-level criteria
         filtered_crons = [
             c
@@ -3776,7 +4170,11 @@ class Crons(Authenticated):
                 if c.get("thread_id") is not None
             }
             threads_by_id = {
-                str(t["thread_id"]): t
+                str(t["thread_id"]): (
+                    await _decrypt_from_storage(t, "thread")
+                    if _using_encryption()
+                    else t
+                )
                 for t in conn.store["threads"]
                 if str(t["thread_id"]) in cron_thread_ids
             }
@@ -3875,6 +4273,8 @@ class Crons(Authenticated):
         # First pass: cron-level filtering
         filtered_crons = []
         for c in conn.store["crons"]:
+            if _using_encryption():
+                c = await _decrypt_from_storage(c, "cron")
             if assistant_id is not None and str(c["assistant_id"]) != str(assistant_id):
                 continue
             if thread_id is not None and str(c.get("thread_id")) != str(thread_id):
@@ -3894,7 +4294,11 @@ class Crons(Authenticated):
                 if c.get("thread_id") is not None
             }
             threads_by_id = {
-                str(t["thread_id"]): t
+                str(t["thread_id"]): (
+                    await _decrypt_from_storage(t, "thread")
+                    if _using_encryption()
+                    else t
+                )
                 for t in conn.store["threads"]
                 if str(t["thread_id"]) in cron_thread_ids
             }
@@ -4153,6 +4557,11 @@ def _check_filter_match(
                 return False
 
     return True
+
+
+def _reject_existing_run(runs: Sequence[Run], run_id: UUID | None) -> None:
+    if any(run["run_id"] == run_id for run in runs):
+        raise HTTPException(status_code=409, detail=f"Run {run_id} already exists")
 
 
 async def _empty_generator():

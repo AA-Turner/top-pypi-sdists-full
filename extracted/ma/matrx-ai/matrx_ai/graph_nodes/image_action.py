@@ -37,7 +37,7 @@ from matrx_ai.graph_nodes.mandates import (
     WORKFLOW_STEP_INTELLIGENCE_MANDATE,
     hold_step,
 )
-from matrx_ai.graph_nodes.shared import AiUsage, _extract_usage
+from matrx_ai.graph_nodes.shared import AiUsage, _extract_usage, failed_turn_failure
 
 
 class GenerateImageInput(BaseModel):
@@ -327,6 +327,9 @@ async def ai_generate_image(
             mandate_key=WORKFLOW_STEP_INTELLIGENCE_MANDATE,
         )
 
+        turn_failed = failed_turn_failure(completed, code="generation_failed", model=inputs.model)
+        if turn_failed is not None:
+            return turn_failed
         response = getattr(completed, "final_response", None)
         images = _shape_image_blocks(response)
 

@@ -7,7 +7,7 @@ resolver = "2"
 members = ["crates/*"]
 
 [workspace.package]
-version = "0.20.1"
+version = "0.20.2"
 edition = "2024"
 license = "MIT"
 authors = ["Mykhailo Chalyi <mike@chaliy.name>", "Everruns"]
@@ -22,7 +22,7 @@ categories = ["command-line-utilities", "parser-implementations"]
 # into the identical wasmtime version. Runtime build: no Cranelift, Pulley
 # interpreter only; Cranelift is added as a build-dependency by the artifact
 # crate. 48.x is the newest line supporting the pinned rustc 1.95.
-wasmtime = { version = "=48.0.7", default-features = false, features = ["runtime", "std", "pulley", "async"] }
+wasmtime = { version = "=48.0.8", default-features = false, features = ["runtime", "std", "pulley", "async"] }
 # Async runtime
 # Base features are WASM-compatible; crates needing more (rt-multi-thread, fs, net, process)
 # add them in their own Cargo.toml or via [target.'cfg(...)'.dependencies].
@@ -73,7 +73,7 @@ fancy-regex = "0.19"
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
 chrono-tz = "0.10"
 # In-process terminal screen model (terminal feature)
-vt100 = "0.16"
+vt100 = "0.18"
 
 # Compression
 flate2 = "1"

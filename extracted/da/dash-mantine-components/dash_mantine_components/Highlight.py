@@ -26,11 +26,15 @@ Highlight
 
 Keyword arguments:
 
-- children (string; optional):
-    Content.
+- children (string; required):
+    String in which to highlight substrings.
 
 - id (string; optional):
     Unique ID to identify this component in Dash callbacks.
+
+- accentInsensitive (boolean; optional):
+    Perform accent-insensitive matching. When enabled, cafe will match
+    cafe, café, cafè, etc. default True.
 
 - aria-* (string; optional):
     Wild card aria attributes.
@@ -74,6 +78,9 @@ Keyword arguments:
     Color – Accepts theme color keys, CSS values, or a dict for
     responsive styles.
 
+- caseInsensitive (boolean; optional):
+    Perform case-insensitive matching. default True.
+
 - className (string; optional):
     Class added to the root element, if applicable.
 
@@ -81,9 +88,11 @@ Keyword arguments:
     Adds custom CSS class names to inner elements of a component.  See
     Styles API docs.
 
-- color (optional):
-    Key of `theme.colors` or any valid CSS color, passed to `Mark`
-    component `color` prop, `yellow` by default.
+- color (string; optional):
+    Default background color for all highlighted text. Key of
+    `theme.colors` or any valid CSS color, passed to `Mark` component.
+    Can be overridden per term when using HighlightTerm objects.
+    default 'yellow'.
 
 - darkHidden (boolean; optional):
     Determines whether component should be hidden in dark color scheme
@@ -131,13 +140,14 @@ Keyword arguments:
     Breakpoint above which the component is hidden with `display:
     none`.
 
-- highlight (string | list of strings; required):
-    Substring or an array of substrings to highlight in `children`.
+- highlight (boolean | number | string | dict | list; required):
+    Substring(s) to highlight in `children`. Can be a string for a
+    single term, a list of strings for multiple terms with the same
+    color, or a list of dictionaries for multiple terms with custom
+    colors.
 
 - highlightStyles (dict; optional):
-    Styles applied to `mark` elements.  Note CSS properties are
-    camelCase,  for example `highlightStyles={\"backgroundColor\":
-    \"blue\"}`.
+    Styles applied to `mark` elements.
 
     `highlightStyles` is a dict with keys:
 
@@ -205,9 +215,15 @@ Keyword arguments:
     Margin inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- mie (number; optional):
+    MarginInlineEnd, theme key: theme.spacing.
+
 - mih (string | number | dict; optional):
     Minimum height – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
+
+- mis (number; optional):
+    MarginInlineStart, theme key: theme.spacing.
 
 - miw (string | number | dict; optional):
     Minimum width – Accepts theme spacing keys, CSS values, or a dict
@@ -256,6 +272,12 @@ Keyword arguments:
 - pe (string | number | dict; optional):
     Padding inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
+
+- pie (number; optional):
+    PaddingInlineEnd, theme key: theme.spacing.
+
+- pis (number; optional):
+    PaddingInlineStart, theme key: theme.spacing.
 
 - pl (string | number | dict; optional):
     Padding left – Accepts theme spacing keys, CSS values, or a dict
@@ -308,6 +330,9 @@ Keyword arguments:
     Text decoration – Accepts CSS values or a dict for responsive
     styles.
 
+- textWrap (a value equal to: 'wrap', 'nowrap', 'balance', 'pretty', 'stable'; optional):
+    Controls `text-wrap` CSS property.
+
 - top (string | number | dict; optional):
     Top offset – Accepts CSS values or a dict for responsive styles.
 
@@ -331,18 +356,15 @@ Keyword arguments:
 
 - w (string | number | dict; optional):
     Width – Accepts theme spacing keys, CSS values, or a dict for
-    responsive styles."""
+    responsive styles.
+
+- wholeWord (boolean; optional):
+    Only match whole words (adds word boundaries to regex). When
+    enabled, 'the' will not match 'there'. default False."""
     _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
     _type = 'Highlight'
-    HighlightStyles = TypedDict(
-        "HighlightStyles",
-            {
-
-        }
-    )
-
     LoadingState = TypedDict(
         "LoadingState",
             {
@@ -365,21 +387,21 @@ Keyword arguments:
     def __init__(
         self,
         children: typing.Optional[ComponentType] = None,
-        highlight: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        highlight: typing.Optional[typing.Union[str, typing.Sequence[str], typing.Sequence[typing.Dict[str, typing.Any]]]] = None,
         color: typing.Optional[typing.Optional[str]] = None,
-        highlightStyles: typing.Optional["HighlightStyles"] = None,
+        highlightStyles: typing.Optional[typing.Dict[str, typing.Any]] = None,
+        wholeWord: typing.Optional[bool] = None,
+        caseInsensitive: typing.Optional[bool] = None,
+        accentInsensitive: typing.Optional[bool] = None,
         id: typing.Optional[typing.Union[str, dict]] = None,
         tabIndex: typing.Optional[NumberType] = None,
         loading_state: typing.Optional["LoadingState"] = None,
-        size: typing.Optional[typing.Optional[str]] = None,
-        lineClamp: typing.Optional[NumberType] = None,
-        truncate: typing.Optional[typing.Union[bool, Literal["end"], Literal["start"]]] = None,
-        inline: typing.Optional[bool] = None,
-        inherit: typing.Optional[bool] = None,
-        gradient: typing.Optional["Gradient"] = None,
-        span: typing.Optional[bool] = None,
+        className: typing.Optional[str] = None,
+        style: typing.Optional[typing.Any] = None,
         hiddenFrom: typing.Optional[str] = None,
         visibleFrom: typing.Optional[str] = None,
+        lightHidden: typing.Optional[bool] = None,
+        darkHidden: typing.Optional[bool] = None,
         mod: typing.Optional[typing.Union[str, dict, typing.Sequence[typing.Union[str, dict]]]] = None,
         m: typing.Optional[typing.Union[str, NumberType, dict]] = None,
         my: typing.Optional[typing.Union[str, NumberType, dict]] = None,
@@ -388,6 +410,8 @@ Keyword arguments:
         mb: typing.Optional[typing.Union[str, NumberType, dict]] = None,
         ms: typing.Optional[typing.Union[str, NumberType, dict]] = None,
         me: typing.Optional[typing.Union[str, NumberType, dict]] = None,
+        mis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        mie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         ml: typing.Optional[typing.Union[str, NumberType, dict]] = None,
         mr: typing.Optional[typing.Union[str, NumberType, dict]] = None,
         p: typing.Optional[typing.Union[str, NumberType, dict]] = None,
@@ -397,6 +421,8 @@ Keyword arguments:
         pb: typing.Optional[typing.Union[str, NumberType, dict]] = None,
         ps: typing.Optional[typing.Union[str, NumberType, dict]] = None,
         pe: typing.Optional[typing.Union[str, NumberType, dict]] = None,
+        pis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         pl: typing.Optional[typing.Union[str, NumberType, dict]] = None,
         pr: typing.Optional[typing.Union[str, NumberType, dict]] = None,
         bd: typing.Optional[typing.Union[str, NumberType, dict]] = None,
@@ -431,20 +457,24 @@ Keyword arguments:
         inset: typing.Optional[typing.Union[str, NumberType, dict]] = None,
         display: typing.Optional[typing.Union[dict, Literal["flex"], Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["none"], Literal["block"], Literal["inline"], Literal["run-in"], Literal["-ms-flexbox"], Literal["-ms-grid"], Literal["-webkit-flex"], Literal["flow"], Literal["flow-root"], Literal["grid"], Literal["ruby"], Literal["table"], Literal["ruby-base"], Literal["ruby-base-container"], Literal["ruby-text"], Literal["ruby-text-container"], Literal["table-caption"], Literal["table-cell"], Literal["table-column"], Literal["table-column-group"], Literal["table-footer-group"], Literal["table-header-group"], Literal["table-row"], Literal["table-row-group"], Literal["-ms-inline-flexbox"], Literal["-ms-inline-grid"], Literal["-webkit-inline-flex"], Literal["inline-block"], Literal["inline-flex"], Literal["inline-grid"], Literal["inline-list-item"], Literal["inline-table"], Literal["contents"], Literal["list-item"]]] = None,
         flex: typing.Optional[typing.Union[str, NumberType, dict]] = None,
-        className: typing.Optional[str] = None,
-        style: typing.Optional[typing.Any] = None,
-        lightHidden: typing.Optional[bool] = None,
-        darkHidden: typing.Optional[bool] = None,
+        inherit: typing.Optional[bool] = None,
+        inline: typing.Optional[bool] = None,
         classNames: typing.Optional[dict] = None,
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
         variant: typing.Optional[str] = None,
         attributes: typing.Optional[typing.Any] = None,
+        span: typing.Optional[bool] = None,
+        size: typing.Optional[typing.Optional[str]] = None,
+        lineClamp: typing.Optional[NumberType] = None,
+        truncate: typing.Optional[typing.Union[bool, Literal["end"], Literal["start"]]] = None,
+        gradient: typing.Optional["Gradient"] = None,
+        textWrap: typing.Optional[Literal["wrap", "nowrap", "balance", "pretty", "stable"]] = None,
         **kwargs
     ):
-        self._prop_names = ['children', 'id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'color', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'gradient', 'h', 'hiddenFrom', 'highlight', 'highlightStyles', 'inherit', 'inline', 'inset', 'left', 'lh', 'lightHidden', 'lineClamp', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'size', 'span', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'truncate', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w']
+        self._prop_names = ['children', 'id', 'accentInsensitive', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'caseInsensitive', 'className', 'classNames', 'color', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'gradient', 'h', 'hiddenFrom', 'highlight', 'highlightStyles', 'inherit', 'inline', 'inset', 'left', 'lh', 'lightHidden', 'lineClamp', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pie', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'size', 'span', 'style', 'styles', 'ta', 'tabIndex', 'td', 'textWrap', 'top', 'truncate', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'wholeWord']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['children', 'id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'color', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'gradient', 'h', 'hiddenFrom', 'highlight', 'highlightStyles', 'inherit', 'inline', 'inset', 'left', 'lh', 'lightHidden', 'lineClamp', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'size', 'span', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'truncate', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w']
+        self.available_properties = ['children', 'id', 'accentInsensitive', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'caseInsensitive', 'className', 'classNames', 'color', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'gradient', 'h', 'hiddenFrom', 'highlight', 'highlightStyles', 'inherit', 'inline', 'inset', 'left', 'lh', 'lightHidden', 'lineClamp', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pie', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'size', 'span', 'style', 'styles', 'ta', 'tabIndex', 'td', 'textWrap', 'top', 'truncate', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'wholeWord']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()
@@ -455,6 +485,9 @@ Keyword arguments:
             if k not in args:
                 raise TypeError(
                     'Required argument `' + k + '` was not specified.')
+
+        if 'children' not in _explicit_args:
+            raise TypeError('Required argument children was not specified.')
 
         super(Highlight, self).__init__(children=children, **args)
 

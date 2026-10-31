@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: dbt-mcp
-Version: 2.9.0
+Version: 2.10.0
 Summary: A MCP (Model Context Protocol) server for interacting with dbt resources.
 Project-URL: Documentation, https://docs.getdbt.com/docs/dbt-ai/about-mcp
 Project-URL: Issues, https://github.com/dbt-labs/dbt-mcp/issues
@@ -223,7 +223,7 @@ Requires-Python: <3.15,>=3.12
 Requires-Dist: adbc-driver-flightsql>=1.8.0
 Requires-Dist: adbc-driver-manager>=1.8.0
 Requires-Dist: anyio>=4.14.2
-Requires-Dist: authlib~=1.6.7
+Requires-Dist: authlib<1.10.0,>=1.6.7
 Requires-Dist: cachetools<8,>=5
 Requires-Dist: dbt-artifacts-parser>=0.13.2
 Requires-Dist: dbt-protos~=1.0.431

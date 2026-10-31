@@ -1118,15 +1118,18 @@ class ResolverInput(_message.Message):
     ) -> None: ...
 
 class ResolverOutput(_message.Message):
-    __slots__ = ("feature", "df")
+    __slots__ = ("feature", "df", "relationship")
     FEATURE_FIELD_NUMBER: _ClassVar[int]
     DF_FIELD_NUMBER: _ClassVar[int]
+    RELATIONSHIP_FIELD_NUMBER: _ClassVar[int]
     feature: FeatureReference
     df: DataFrameType
+    relationship: FeatureReference
     def __init__(
         self,
         feature: _Optional[_Union[FeatureReference, _Mapping]] = ...,
         df: _Optional[_Union[DataFrameType, _Mapping]] = ...,
+        relationship: _Optional[_Union[FeatureReference, _Mapping]] = ...,
     ) -> None: ...
 
 class ResolverAsSymbolicValue(_message.Message):

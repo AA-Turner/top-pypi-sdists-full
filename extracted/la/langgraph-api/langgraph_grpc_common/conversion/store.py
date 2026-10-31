@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, cast
 
@@ -61,11 +62,9 @@ def _ensure_index_config(
 def _ttl_to_proto_minutes(ttl: float | None) -> int:
     if ttl is None:
         return 0
-    if ttl != int(ttl):
-        raise ValueError(
-            f"gRPC store only supports integer-minute TTL; got fractional ttl={ttl}"
-        )
-    return int(ttl)
+    # The API accepts fractional minutes but the store keeps whole minutes;
+    # round up so items never expire earlier than requested.
+    return math.ceil(ttl)
 
 
 # Ordered comparisons compare the *text* form of the field (value->>key); $eq/$ne
@@ -178,6 +177,7 @@ def op_to_proto(
             "key": str(op.key),
             "value_json": orjson.dumps(op.value),
             "ttlMinutes": _ttl_to_proto_minutes(op.ttl),
+            "ttlMinutesExact": op.ttl or 0.0,
         }
         if vectors is not None:
             put_kwargs["vectors"] = list(vectors)
@@ -227,7 +227,9 @@ def op_from_proto(msg: store_pb2.Op) -> Op:
     if kind == "put":
         p = msg.put
         ttl: float | None = None
-        if p.ttlMinutes:
+        if p.ttlMinutesExact:
+            ttl = p.ttlMinutesExact
+        elif p.ttlMinutes:
             ttl = float(p.ttlMinutes)
         return PutOp(
             namespace=tuple(p.namespace),

@@ -29,6 +29,14 @@ Keyword arguments:
 - id (string; optional):
     Unique ID to identify this component in Dash callbacks.
 
+- allowDragDismiss (boolean; optional):
+    Determines whether notifications can be dismissed by dragging left
+    or right default True.
+
+- allowScrollDismiss (boolean; optional):
+    Determines whether notifications can be dismissed with horizontal
+    scroll gesture while hovered default True.
+
 - aria-* (string; optional):
     Wild card aria attributes.
 
@@ -133,6 +141,12 @@ Keyword arguments:
 - inset (string | number | dict; optional):
     Inset – Accepts CSS values or a dict for responsive styles.
 
+- layout (a value equal to: 'default', 'stacked'; optional):
+    Controls how notifications are positioned in the stack,
+    `'default'` – standard vertical list, `'stacked'` – only first
+    notification is fully visible, rest are stacked behind default
+    'default'.
+
 - left (string | number | dict; optional):
     Left offset – Accepts CSS values or a dict for responsive styles.
 
@@ -187,9 +201,15 @@ Keyword arguments:
     Margin inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- mie (number; optional):
+    MarginInlineEnd, theme key: theme.spacing.
+
 - mih (string | number | dict; optional):
     Minimum height – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
+
+- mis (number; optional):
+    MarginInlineStart, theme key: theme.spacing.
 
 - miw (string | number | dict; optional):
     Minimum width – Accepts theme spacing keys, CSS values, or a dict
@@ -234,6 +254,12 @@ Keyword arguments:
     Padding – Accepts theme spacing keys, CSS values, or a dict for
     responsive styles.
 
+- pauseResetOnHover (a value equal to: 'all', 'notification'; optional):
+    Determines which notifications should pause auto close on hover,
+    `'all'` – pauses auto close for all notifications when any
+    notification is hovered, `'notification'` – pauses auto close only
+    for the hovered notification default 'all'.
+
 - pb (string | number | dict; optional):
     Padding bottom – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
@@ -241,6 +267,12 @@ Keyword arguments:
 - pe (string | number | dict; optional):
     Padding inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
+
+- pie (number; optional):
+    PaddingInlineEnd, theme key: theme.spacing.
+
+- pis (number; optional):
+    PaddingInlineStart, theme key: theme.spacing.
 
 - pl (string | number | dict; optional):
     Padding left – Accepts theme spacing keys, CSS values, or a dict
@@ -321,13 +353,20 @@ Keyword arguments:
     - autoClose (number | boolean; optional):
         Determines whether notification should be closed
         automatically, number is auto close timeout in ms, overrides
-        `autoClose` from `Notifications`.
+        `autoClose` from `NotificationContainer`.
 
-    - action (a value equal to: 'show', 'update'; required):
+    - action (a value equal to: 'show', 'update'; optional):
         action.
 
     - position (a value equal to: 'top-left', 'top-right', 'bottom-left', 'bottom-right', 'top-center', 'bottom-center'; optional):
         Position on the screen to display the notification.
+
+    - withAutoCloseProgress (boolean; optional):
+        Determines whether a progress line that fills up until the
+        notification auto closes is displayed at the bottom of every
+        notification, can be overwritten for individual notifications
+        in `notifications.show` and `notifications.update` functions
+        default False.
 
     - hiddenFrom (string; optional):
         Breakpoint above which the component is hidden with `display:
@@ -552,6 +591,18 @@ Keyword arguments:
         Determines whether component should be hidden in dark color
         scheme with `display: none`.
 
+    - mis (number; optional):
+        MarginInlineStart, theme key: theme.spacing.
+
+    - mie (number; optional):
+        MarginInlineEnd, theme key: theme.spacing.
+
+    - pis (number; optional):
+        PaddingInlineStart, theme key: theme.spacing.
+
+    - pie (number; optional):
+        PaddingInlineEnd, theme key: theme.spacing.
+
     - classNames (dict; optional):
         Adds custom CSS class names to inner elements of a component.
         See Styles API docs.
@@ -608,6 +659,10 @@ Keyword arguments:
     Width – Accepts theme spacing keys, CSS values, or a dict for
     responsive styles.
 
+- withAutoCloseProgress (boolean; optional):
+    Determines whether notifications display an auto-close progress
+    bar.
+
 - withinPortal (boolean; optional):
     Determines whether notifications container should be rendered
     inside `Portal`, `True` by default.
@@ -632,8 +687,9 @@ Keyword arguments:
             "id": NotRequired[str],
             "message": typing.Any,
             "autoClose": NotRequired[typing.Union[NumberType, bool]],
-            "action": Literal["show", "update"],
+            "action": NotRequired[Literal["show", "update"]],
             "position": NotRequired[Literal["top-left", "top-right", "bottom-left", "bottom-right", "top-center", "bottom-center"]],
+            "withAutoCloseProgress": NotRequired[bool],
             "hiddenFrom": NotRequired[str],
             "visibleFrom": NotRequired[str],
             "mod": NotRequired[typing.Union[str, dict, typing.Sequence[typing.Union[str, dict]]]],
@@ -691,6 +747,10 @@ Keyword arguments:
             "style": NotRequired[typing.Union[typing.Any]],
             "lightHidden": NotRequired[bool],
             "darkHidden": NotRequired[bool],
+            "mis": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
+            "mie": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
+            "pis": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
+            "pie": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
             "classNames": NotRequired[dict],
             "styles": NotRequired[typing.Any],
             "unstyled": NotRequired[bool],
@@ -724,6 +784,11 @@ Keyword arguments:
         hideNotifications: typing.Optional[typing.Sequence[str]] = None,
         clean: typing.Optional[bool] = None,
         cleanQueue: typing.Optional[bool] = None,
+        allowDragDismiss: typing.Optional[bool] = None,
+        allowScrollDismiss: typing.Optional[bool] = None,
+        pauseResetOnHover: typing.Optional[Literal["all", "notification"]] = None,
+        layout: typing.Optional[Literal["default", "stacked"]] = None,
+        withAutoCloseProgress: typing.Optional[bool] = None,
         hiddenFrom: typing.Optional[str] = None,
         visibleFrom: typing.Optional[str] = None,
         mod: typing.Optional[typing.Union[str, dict, typing.Sequence[typing.Union[str, dict]]]] = None,
@@ -781,6 +846,10 @@ Keyword arguments:
         style: typing.Optional[typing.Any] = None,
         lightHidden: typing.Optional[bool] = None,
         darkHidden: typing.Optional[bool] = None,
+        mis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        mie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         classNames: typing.Optional[dict] = None,
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
@@ -791,9 +860,9 @@ Keyword arguments:
         loading_state: typing.Optional["LoadingState"] = None,
         **kwargs
     ):
-        self._prop_names = ['id', 'aria-*', 'attributes', 'autoClose', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clean', 'cleanQueue', 'containerWidth', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'hideNotifications', 'inset', 'left', 'lh', 'lightHidden', 'limit', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'notificationMaxHeight', 'opacity', 'p', 'pb', 'pe', 'pl', 'portalProps', 'pos', 'position', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'sendNotifications', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'transitionDuration', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withinPortal', 'zIndex']
+        self._prop_names = ['id', 'allowDragDismiss', 'allowScrollDismiss', 'aria-*', 'attributes', 'autoClose', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clean', 'cleanQueue', 'containerWidth', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'hideNotifications', 'inset', 'layout', 'left', 'lh', 'lightHidden', 'limit', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'notificationMaxHeight', 'opacity', 'p', 'pauseResetOnHover', 'pb', 'pe', 'pie', 'pis', 'pl', 'portalProps', 'pos', 'position', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'sendNotifications', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'transitionDuration', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withAutoCloseProgress', 'withinPortal', 'zIndex']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['id', 'aria-*', 'attributes', 'autoClose', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clean', 'cleanQueue', 'containerWidth', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'hideNotifications', 'inset', 'left', 'lh', 'lightHidden', 'limit', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'notificationMaxHeight', 'opacity', 'p', 'pb', 'pe', 'pl', 'portalProps', 'pos', 'position', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'sendNotifications', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'transitionDuration', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withinPortal', 'zIndex']
+        self.available_properties = ['id', 'allowDragDismiss', 'allowScrollDismiss', 'aria-*', 'attributes', 'autoClose', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clean', 'cleanQueue', 'containerWidth', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'hideNotifications', 'inset', 'layout', 'left', 'lh', 'lightHidden', 'limit', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'notificationMaxHeight', 'opacity', 'p', 'pauseResetOnHover', 'pb', 'pe', 'pie', 'pis', 'pl', 'portalProps', 'pos', 'position', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'sendNotifications', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'transitionDuration', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withAutoCloseProgress', 'withinPortal', 'zIndex']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

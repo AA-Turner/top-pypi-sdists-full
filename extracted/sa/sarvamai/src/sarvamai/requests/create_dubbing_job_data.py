@@ -34,5 +34,5 @@ class CreateDubbingJobDataParams(typing_extensions.TypedDict):
     pace_preset: typing_extensions.NotRequired[str]
     model_tier: typing_extensions.NotRequired[str]
     """
-    Echo of the requested quality tier (`plus`/`lite`), or null when the service default was used.
+    Echo of the requested quality tier (`plus`/`lite`/`auto`), or null when the service default was used.
     """

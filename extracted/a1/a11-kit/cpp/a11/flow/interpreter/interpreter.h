@@ -37,6 +37,8 @@
 
 #include "a11/actions/registry.h"
 #include "a11/flow/diagnostic.h"
+#include "a11/flow/limits.h"
+#include "a11/flow/runtime.h"
 #include "a11/flow/values.h"
 #include "a11/net/wire_stream.h"
 #include "sdk/flow/actions/policy.h"
@@ -47,6 +49,9 @@ namespace a11::flow::interpreter {
 struct Source {
   std::string text;
   std::string name;
+  std::vector<std::string> source_roots = {};
+  CompilationLimits limits = {};
+  bool single_item_slots = true;
 };
 
 /// How to run it.
@@ -105,6 +110,9 @@ struct RunOptions {
    * given a stream and no session would send its calls and never hear back.
    */
   std::shared_ptr<service::Session> session;
+
+  /// Frame cache capacity and invocation-wide frame budget.
+  FrameOptions frames;
 };
 
 /// What came of it.

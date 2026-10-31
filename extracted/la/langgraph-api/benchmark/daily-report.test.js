@@ -7,7 +7,7 @@ import {
   ERROR_ATTENTION,
   buildDigest,
   collectRuns,
-  describeBenchmark,
+  NIGHTS,
   describeThreshold,
   errorStreak,
   figureChanges,
@@ -17,6 +17,7 @@ import {
   readApiVersion,
   toolLine,
 } from './daily-report.js';
+import { PHONE_WIDTH, footer, widestCodeLine } from './slack.js';
 
 const healthyMetrics = {
   totalRuns: 133000,
@@ -72,7 +73,7 @@ test('crossed thresholds are red, and say which', () => {
   );
   assert.match(text, /^🔴 .* · 0 of 1 passed · wait_write failed$/m);
   assert.match(text, /^\*Failed:\* wait_write: p95 5\.58s \(limit 3s\), successful runs 133,000 \(floor 172,500\)$/m);
-  assert.match(text, /^\*Pass:\* p95 < 3s, at least 172,500 successful runs, request errors < 1% · ▲ better/m);
+  assert.doesNotMatch(text, /\*Pass:\*/, 'the pass bar lives in REPORTS.md, not in every post');
   assert.doesNotMatch(text, /http_req_failed|run_duration|count>/, 'raw k6 names must not leak into the report');
 });
 
@@ -82,8 +83,15 @@ test('a run that produced no summary still reports, and is red', () => {
   const { text, thread } = buildDigest([run('wait_write', { stepOutcome: 'failure', summary: null })], base);
   assert.match(text, /^🔴/);
   assert.match(text, /^\*Failed:\* wait_write: no results produced, step finished as `failure`$/m);
-  assert.match(text, /^wait_write\s+-\s+-\s+-\s*$/m);
-  assert.match(thread[0], /wait_write: no results, step finished as `failure`/);
+  assert.match(text, /^wait\s+-$/m);
+  assert.match(thread[0], /wait_write: no results produced, step finished as `failure`/);
+});
+
+test('a failed new revision is named as the reason, not as a skipped step', () => {
+  const failed = run('wait_write', { stepOutcome: 'skipped', summary: null, revisionError: 'Deployment failed with status: BUILD_FAILED' });
+  const { text, thread } = buildDigest([failed], base);
+  assert.match(text, /^\*Failed:\* wait_write: no results, the new revision failed: Deployment failed with status: BUILD_FAILED$/m);
+  assert.match(thread[0], /wait_write: no results, the new revision failed: Deployment failed/);
 });
 
 test('a runner with no artifact at all is a failed run, not a shorter table', () => {
@@ -120,7 +128,8 @@ test('total outage is red and does not advertise its latency', () => {
   );
   assert.match(text, /^🔴/);
   assert.match(text, /wait_write: no run succeeded/);
-  assert.match(text, /^wait_write\s+438\s+438\s+-\s*$/m, 'the p95 cell is blank, not a sub-millisecond number');
+  assert.match(text, /^wait\s+-$/m, 'the p95 cell is blank, not a sub-millisecond number');
+  assert.match(thread[0], /^wait_write: 438 runs, 438 failed · /m);
   assert.doesNotMatch(`${text}\n${thread[0]}`, /0\.00/, 'must not present sub-millisecond latency as a result');
 });
 
@@ -148,7 +157,7 @@ test('failed requests get their own line; a handful is noted, many turn the dot 
   const many = buildDigest([run('wait_write', { summary: { metrics: { ...healthyMetrics, errors: { byStatus: { 500: 2, 503: 600, other: 0 } } } } })], base).text;
   assert.match(many, /^🟡 .* · 1 of 1 passed · errors in wait_write$/m);
   assert.match(many, /^\*Errors:\* wait_write HTTP 500 × 2, HTTP 503 × 600$/m);
-  assert.match(many, new RegExp(`🟡 ${ERROR_ATTENTION}\\+ failed requests or a regression`));
+  assert.ok(ERROR_ATTENTION <= 600, 'the yellow above comes from the error count');
 });
 
 test('errors on consecutive nights are counted as a streak', () => {
@@ -162,14 +171,36 @@ test('errors on consecutive nights are counted as a streak', () => {
     [run('threads_search_metadata', { summary: { metrics: withErrors }, history: [withErrors, withErrors, withErrors] })],
     base
   );
-  assert.match(text, /^\*Errors:\* threads_search HTTP 500 × 92, 4th night in a row$/m);
+  assert.match(text, /^\*Errors:\* threads_search HTTP 500 × 92, 4\+ nights in a row$/m);
 
   const manual = buildDigest(
     [run('threads_search_metadata', { summary: { metrics: withErrors }, history: [withErrors, withErrors, withErrors] })],
     { ...base, manual: true }
   ).text;
   assert.match(manual, /^🟡 \*Daily Benchmark · Aug 17\* · manual run · API/m, 'a dispatched run is marked so nobody reads it as the nightly');
-  assert.match(manual, /HTTP 500 × 92, 4 runs in a row$/m, 'a same-day rerun does not count itself as a night');
+  assert.match(manual, /HTTP 500 × 92, 4\+ runs in a row$/m, 'a same-day rerun does not count itself as a night');
+  const bounded = buildDigest(
+    [run('threads_search_metadata', { summary: { metrics: withErrors }, history: [withErrors, withErrors, clean] })],
+    base
+  ).text;
+  assert.match(bounded, /HTTP 500 × 92, 3rd night in a row$/m, 'a clean night inside the history ends the streak, so the count is exact');
+});
+
+test('a streak that reaches the oldest fetched night is a floor, not a count', () => {
+  const withErrors = { ...healthyMetrics, errors: { byStatus: { 500: 92 } } };
+  const all = [withErrors, withErrors, withErrors];
+  const nightly = buildDigest([run('threads_search_metadata', { summary: { metrics: withErrors }, history: all })], base).text;
+  assert.match(nightly, /^\*Errors:\* threads_search HTTP 500 × 92, 4\+ nights in a row$/m);
+  const manual = buildDigest([run('threads_search_metadata', { summary: { metrics: withErrors }, history: all })], { ...base, manual: true }).text;
+  assert.match(manual, /HTTP 500 × 92, 4\+ runs in a row$/m);
+});
+
+test('p95 and average moving together on one runner is one regression, not two', () => {
+  const past = nights([4, 4.1, 4.2, 4.1, 4, 4.1, 4], () => ({ averageDuration: 2.5 }));
+  const tonight = { ...healthyMetrics, p95Duration: 5.5, averageDuration: 2.9 };
+  const { text } = buildDigest([run('wait_write', { summary: { metrics: tonight }, history: past })], base);
+  assert.match(text, /^🟡 .* · 1 regression$/m);
+  assert.match(text, /^\*Regressed:\* wait_write p95 4\.1 → 5\.5 s \(\+34%\), avg \+16%$/m);
 });
 
 test('message survives values that would break a hand-built JSON payload', () => {
@@ -238,8 +269,8 @@ test('missing durations are blank cells, not a fast run', () => {
     [run('wait_write', { summary: { metrics: { totalRuns: 5, successfulRuns: 5, failedRuns: 0, successRate: 100 } } })],
     base
   );
-  assert.match(text, /^wait_write\s+5\s+0\s+-\s*$/m);
-  assert.match(thread[0], /^wait_write\s+-\s+-\s+-$/m);
+  assert.match(text, /^wait\s+-$/m);
+  assert.match(thread[0], /^wait\s+-\s+-\s+-$/m);
 });
 
 // Both of these were shell before: `ls -t summary_*.json | head -1` and an awk
@@ -286,7 +317,7 @@ test('the success-rate floor is strict, and the boundary is pinned', () => {
   assert.equal(isHealthy({ stepOutcome: 'success', metrics: metrics(98.999) }), false);
 });
 
-test('the digest reads verdict, table, how-to-read, then the thread and artifacts', () => {
+test('the digest is the verdict, one table and a footer; the numbers and load go to the thread', () => {
   const thresholds = {
     run_duration: { 'p(95)<13000': { ok: true } },
     successful_runs: { 'count>73929': { ok: true } },
@@ -301,47 +332,61 @@ test('the digest reads verdict, table, how-to-read, then the thread and artifact
     ],
     base
   );
-  const lines = text.split('\n');
-  assert.equal(lines[0], '🟢 *Daily Benchmark · Aug 17* · API 0.14.0 · 3 of 3 passed · all quiet');
-  assert.equal(
-    lines[1],
-    'k6: 1,000 virtual users (threads_search 300), 2×60 s ramp, 5 min hold, closed model. Paths: run and wait, run and stream, thread CRUD + metadata search. Measures per-iteration latency (avg, p95) and failed requests by status. Same load nightly on a fresh revision, so a change is the server.',
-    'the second line states the mechanics for a developer outside the team'
-  );
-  assert.equal(lines[2], '*Regressed:* not checked, 0 of 5 nights of history');
-  assert.deepEqual(lines.slice(3, 8), [
+  assert.deepEqual(text.split('\n'), [
+    '🟢 *Daily Benchmark · Aug 17* · API 0.14.0 · 3 of 3 passed · all quiet',
     '```',
-    '                     runs  failed  p95 s ',
-    'wait_write        133,000       0    5.6 ',
-    'stream_write      133,000       0    4.0 ',
-    'threads_search     31,188      92    9.2 ',
+    '       p95 s last 10',
+    'wait     5.6 ▄',
+    'stream   4.0 ▄',
+    'search   9.2 ▄',
+    '```',
+    '_0 of 5 nights of history, no change flags yet_',
+    footer('daily-benchmark', 'https://github.com/x/y/actions/runs/1'),
   ]);
-  assert.equal(lines[8], '```');
-  assert.equal(
-    lines[9],
-    '*Pass:* p95 < 13s, at least 73,929 successful runs, request errors < 1% · ▲ better ▼ worse than the last 5+ nights · 🟢 quiet · 🟡 10+ failed requests or a regression · 🔴 a run failed'
-  );
-  assert.equal(lines[10], '*Thread:* per-run detail and how to read · <https://github.com/x/y/actions/runs/1|Artifacts:> results and charts');
-  assert.equal(lines.length, 11, 'nothing else in the channel message');
+  assert.ok(text.split('\n').filter((line) => !line.startsWith('<')).every((line) => line.length <= 100), 'no line is a paragraph');
 
   assert.match(thread[0], /^\*Per run\*/);
-  assert.match(thread[0], /^wait_write\s+2\.57\s+5\.58\s+5\.50$/m);
-  assert.match(thread[0], /^threads_search keeps its threads between nights on purpose, so its table grows\.$/m);
-  assert.match(thread[0], /^\*How to read\*\n• \*Tests:\* wait_write = start a run and wait for its result · stream_write = .* · threads_search = .*\.\n• \*Load:\* 1,000 users, search 300, held 5 min after a 2-step ramp\.$/m, 'the long explanation ends the thread');
-  assert.doesNotMatch(text, /Threads are kept|How to read/, 'neither the growing-table note nor the guide is in the channel message');
+  assert.match(thread[0], /^wait\s+2\.57\s+5\.58\s+5\.50$/m);
+  assert.match(thread[0], /^threads_search: 31,188 runs, 92 failed · no history to compare$/m);
+  assert.match(thread[0], /^\*Load:\* 1,000 users, search 300, held 5 min after a 2-step ramp\.$/m);
+  assert.doesNotMatch(`${text}\n${thread[0]}`, /k6:|How to read|closed model/, 'the mechanics live in REPORTS.md');
 });
 
-test('the scale-to-zero variant carries its own suffix and opens the description with its own sentence', () => {
-  const { text } = buildDigest([run('wait_write')], { ...base, titleSuffix: ' (Scale to Zero)', goal: 'Cold start after scaling to zero.' });
+test('the scale-to-zero variant carries its own suffix and links its own section', () => {
+  const { text } = buildDigest([run('wait_write')], { ...base, titleSuffix: ' (Scale to Zero)', docsAnchor: 'scale-to-zero' });
   assert.match(text, /^🟢 \*Daily Benchmark \(Scale to Zero\) · Aug 17\*/);
-  assert.match(text, /^Cold start after scaling to zero\. k6: closed model\. Paths: run and wait\. Measures/m);
+  assert.match(text, /REPORTS\.md#scale-to-zero\|What is this\?>/);
 });
 
-test('the description is built from the load that ran, not a fixed sentence', () => {
-  const load = { loadSize: '100', levels: '3', plateauDuration: '90' };
-  assert.match(describeBenchmark([run('stream_write', { load })]), /^k6: 300 virtual users, 3×60 s ramp, 90s hold, closed model\. Paths: run and stream\./);
-  assert.match(describeBenchmark([run('wait_write', { load }), run('stream_write', { load: { ...load, loadSize: '50' } })]), /^k6: 300 virtual users \(stream_write 150\), 3×60 s ramp/);
-  assert.doesNotMatch(describeBenchmark([run('wait_write')]), /users|ramp|undefined|NaN/, 'no load, no invented numbers');
+test('the doc link points at the commit that ran, so a branch dispatch links a page that exists', () => {
+  const saved = process.env.GITHUB_SHA;
+  const savedRepo = process.env.GITHUB_REPOSITORY;
+  process.env.GITHUB_SHA = 'abc123';
+  delete process.env.GITHUB_REPOSITORY;
+  try {
+    assert.match(
+      buildDigest([run('wait_write')], base).text,
+      /<https:\/\/github\.com\/langchain-ai\/langchainplus\/blob\/abc123\/langgraph-api\/api\/benchmark\/REPORTS\.md#daily-benchmark\|What is this\?>/,
+    );
+  } finally {
+    if (saved === undefined) delete process.env.GITHUB_SHA;
+    else process.env.GITHUB_SHA = saved;
+    if (savedRepo === undefined) delete process.env.GITHUB_REPOSITORY;
+    else process.env.GITHUB_REPOSITORY = savedRepo;
+  }
+});
+
+test('the trend and the flags share one window of ten nights, tonight included', () => {
+  assert.equal(NIGHTS, 10);
+  const history = nights([5, 5, 5, 5, 5, 5, 5, 5, 5, 20, 20, 20, 20, 20]);
+  const { text } = buildDigest([run('wait_write', { summary: { metrics: { ...healthyMetrics, p95Duration: 5 } }, history })], base);
+  assert.match(text, /^\s+p95 s last 10$/m);
+  assert.match(text, /^wait\s+5\.0 ▄{10}$/m, 'the slow nights older than the window are off the chart');
+  assert.match(text, /all quiet/, 'and they are not tonight\'s baseline either');
+
+  const step = nights([5, 5, 5, 20, 20, 20, 20, 20, 20]);
+  const { text: stepped } = buildDigest([run('wait_write', { summary: { metrics: { ...healthyMetrics, p95Duration: 5 } }, history: step })], base);
+  assert.match(stepped, /^wait\s+5\.0 ██████▁▁▁▁$/m, 'oldest night on the left, tonight the rightmost bar');
 });
 
 test('an unknown threshold falls back to the raw k6 expression', () => {
@@ -381,25 +426,24 @@ test('tonight is compared with past nights inside each figure\'s own band, and o
   const { text } = buildDigest([run('wait_write', { summary: { metrics: { ...healthyMetrics, p95Duration: 15.0 } }, history: past })], base);
   assert.match(text, /^🟡 .* · 1 of 1 passed · 1 regression$/m);
   assert.match(text, /^\*Regressed:\* wait_write p95 7\.8 → 15\.0 s \(\+92%\)$/m);
-  assert.match(text, /^wait_write\s+133,000\s+0\s+15\.0▼$/m);
+  assert.match(text, /^wait\s+15\.0 [▁-█]+$/m, 'the Regressed line says it; the row carries no arrow');
 
-  const faster = buildDigest([run('wait_write', { summary: { metrics: { ...healthyMetrics, p95Duration: 3.0 } }, history: past })], base).text;
-  assert.match(faster, /^🟢 .* · all quiet$/m, 'an improvement is good news, not attention');
-  assert.match(faster, /^\*Regressed:\* none$/m);
-  assert.match(faster, /^\*Improved:\* wait_write p95 7\.8 → 3\.0 s \(-62%\)$/m);
-  assert.match(faster, /3\.0▲/);
+  const faster = buildDigest([run('wait_write', { summary: { metrics: { ...healthyMetrics, p95Duration: 3.0 } }, history: past })], base);
+  assert.match(faster.text, /^🟢 .* · all quiet$/m, 'an improvement is good news, not attention');
+  assert.doesNotMatch(faster.text, /Regressed:|Improved:/, 'nothing regressed, so no line');
+  assert.match(faster.thread[0], /^\*Improved:\* wait_write p95 7\.8 → 3\.0 s \(-62%\)$/m);
+  assert.match(faster.text, /^wait\s+3\.0 [▁-█]+$/m);
 
   const four = buildDigest([run('wait_write', { summary: { metrics: { ...healthyMetrics, p95Duration: 15.0 } }, history: past.slice(0, 4) })], base).text;
-  assert.match(four, /^\*Regressed:\* not checked, 4 of 5 nights of history$/m);
-  assert.match(four, /^wait_write\s+133,000\s+0\s+15\.0 $/m, 'no arrow on the cell');
+  assert.match(four, /^_4 of 5 nights of history, no change flags yet_$/m);
+  assert.match(four, /^wait\s+15\.0 /m);
 });
 
 test('run count is compared in the thread but never flagged', () => {
   const past = nights([5, 5, 5, 5, 5, 5], () => ({ totalRuns: 100000 }));
   const { text, thread } = buildDigest([run('wait_write', { summary: { metrics: { ...healthyMetrics, p95Duration: 5, totalRuns: 130000 } }, history: past })], base);
-  assert.match(text, /^\*Regressed:\* none$/m);
-  assert.doesNotMatch(text, /Improved:/);
-  assert.match(thread[0], /^wait_write vs 6 nights: p95 \+0\.0% · avg \+0\.0% · runs \+30\.0%$/m);
+  assert.doesNotMatch(text, /Regressed:|Improved:/);
+  assert.match(thread[0], /^wait_write: 130,000 runs, 0 failed · vs 6 nights: p95 \+0\.0% · avg \+0\.0% · runs \+30\.0%$/m);
 });
 
 test('an outage night compares runs, never its failed-request latency', () => {
@@ -408,14 +452,14 @@ test('an outage night compares runs, never its failed-request latency', () => {
   const changes = figureChanges(outage, past);
   assert.deepEqual(changes.map((c) => c.label), ['runs']);
   const { thread } = buildDigest([run('wait_write', { stepOutcome: 'failure', summary: { metrics: outage }, history: past })], base);
-  assert.match(thread[0], /^wait_write vs 6 nights: runs -97\.0%$/m);
+  assert.match(thread[0], /^wait_write: 4,000 runs, 0 failed · vs 6 nights: runs -97\.0%$/m);
 });
 
 test('one previous night is not a baseline', () => {
   assert.deepEqual(figureChanges(healthyMetrics, [healthyMetrics]), []);
   assert.deepEqual(figureChanges(healthyMetrics, []), []);
   const { thread } = buildDigest([run('wait_write', { history: [healthyMetrics] })], base);
-  assert.match(thread[0], /^wait_write: no history to compare$/m);
+  assert.match(thread[0], /^wait_write: 133,000 runs, 0 failed · no history to compare$/m);
 });
 
 test('the tool line appears only when the test machine is a visible share of latency', () => {
@@ -460,4 +504,15 @@ test('collectRuns reads one artifact directory per runner and marks the missing 
   assert.deepEqual(runs[1].history.map((m) => m.p95Duration), [112, 111]);
   assert.deepEqual(runs[2].history, []);
   assert.deepEqual(collectRuns(path.join(root, 'nowhere'), undefined).map((r) => r.stepOutcome), ['missing', 'missing', 'missing']);
+});
+
+test('every table line in the channel message and the thread fits a phone', () => {
+  const past = nights([5, 5.2, 4.9, 5.1, 5, 5.3, 4.8, 5, 5.2, 4.9, 5.1, 5, 5.3, 4.8]);
+  const worst = { ...healthyMetrics, totalRuns: 1234567, p95Duration: 13.24, averageDuration: 10.01, p95SuccessDuration: 13.2 };
+  const { text, thread } = buildDigest(
+    ['wait_write', 'stream_write', 'threads_search_metadata'].map((type) => run(type, { summary: { metrics: worst }, history: past })),
+    base
+  );
+  assert.ok(widestCodeLine(text) <= PHONE_WIDTH, `channel table is ${widestCodeLine(text)} wide`);
+  assert.ok(widestCodeLine(thread[0]) <= PHONE_WIDTH, `thread table is ${widestCodeLine(thread[0])} wide`);
 });

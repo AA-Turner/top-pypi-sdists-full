@@ -44,7 +44,9 @@ from anyscale.sdk.anyscale_client.models import (
     ServiceConfig as ExternalAPIServiceConfig,
     ServiceEventCurrentState,
     ServiceSortField,
+    StaticTrafficPolicy as APIStaticTrafficPolicy,
     TracingConfig as APITracingConfg,
+    TrafficPolicy as APITrafficPolicy,
 )
 from anyscale.sdk.anyscale_client.rest import ApiException
 from anyscale.service.models import (
@@ -57,8 +59,10 @@ from anyscale.service.models import (
     ServiceStatus,
     ServiceStatusChecklist,
     ServiceVersionStatus,
+    StaticTrafficPolicy,
     StatusChecklistItem,
     TracingConfig,
+    TrafficPolicy,
     VersionChecklist,
 )
 from anyscale.shared_anyscale_utils.constants import SERVICE_VERSION_ID_TRUNCATED_LEN
@@ -74,6 +78,24 @@ MAX_PAGE_SIZE = 50
 # Advisory version check only. The backend checks the running Serve capability.
 # Confirm the release cutoff before publishing the Ray 2.60 update.
 IN_PLACE_ROLLBACK_MIN_RAY_VERSION = (2, 60)
+
+
+def _to_api_traffic_policy(traffic_policy: TrafficPolicy) -> APITrafficPolicy:
+    static = traffic_policy.static
+    assert static is None or isinstance(static, StaticTrafficPolicy)
+    return APITrafficPolicy(
+        # The API's policy types are lowercase.
+        type=traffic_policy.type.lower(),
+        static=APIStaticTrafficPolicy(weights=static.weights) if static is not None else None,
+    )
+
+
+def _from_api_traffic_policy(traffic_policy: APITrafficPolicy) -> TrafficPolicy:
+    static = traffic_policy.static
+    return TrafficPolicy(
+        type=traffic_policy.type,
+        static=StaticTrafficPolicy(weights=static.weights) if static is not None else None,
+    )
 
 
 class PrivateServiceSDK(WorkloadSDK):
@@ -340,6 +362,11 @@ class PrivateServiceSDK(WorkloadSDK):
                 "Cluster-level options such as image and compute config "
                 "are ignored when performing an in_place update."
             )
+        if config.traffic_policy is not None:
+            self.logger.warning(
+                "traffic_policy is ignored when performing an in_place update. "
+                "Use update_traffic_policy to change it."
+            )
 
         existing_config: ProductionServiceV2VersionModel = existing_service.primary_version
         self._warn_if_in_place_rollback_unsupported(existing_config.build_id)
@@ -486,6 +513,11 @@ class PrivateServiceSDK(WorkloadSDK):
             if config.tracing_config.sampling_ratio is not None:
                 tracing_config.sampling_ratio = config.tracing_config.sampling_ratio
 
+        traffic_policy = None
+        if config.traffic_policy is not None:
+            assert isinstance(config.traffic_policy, TrafficPolicy)
+            traffic_policy = _to_api_traffic_policy(config.traffic_policy)
+
         connection_ids = self.resolve_connection_ids(config.connections)
         return ApplyProductionServiceV2Model(
             name=name,
@@ -501,6 +533,7 @@ class PrivateServiceSDK(WorkloadSDK):
                 access=AccessConfig(use_bearer_token=config.query_auth_token_enabled),
                 protocols=Protocols(grpc=self._build_grpc_protocol_config(config)),
                 env_vars=config.env_vars,
+                traffic_policy=traffic_policy,
             ),
             ray_gcs_external_storage_config=ray_gcs_external_storage_config,
             tracing_config=tracing_config,
@@ -993,6 +1026,36 @@ class PrivateServiceSDK(WorkloadSDK):
 
         return model.id
 
+    def update_traffic_policy(
+        self,
+        name: Optional[str] = None,
+        *,
+        traffic_policy: Union[TrafficPolicy, Dict[str, Any]],
+        version_names: Optional[List[str]] = None,
+        cloud: Optional[str] = None,
+        project: Optional[str] = None,
+    ) -> str:
+        if isinstance(traffic_policy, dict):
+            traffic_policy = TrafficPolicy.from_dict(traffic_policy)
+        if not isinstance(traffic_policy, TrafficPolicy):
+            raise TypeError("'traffic_policy' must be a TrafficPolicy or corresponding dict.")
+        if version_names is not None:
+            if not isinstance(version_names, list) or not all(
+                isinstance(version_name, str) for version_name in version_names
+            ):
+                raise TypeError("'version_names' must be a List[str].")
+            if not version_names:
+                raise ValueError(
+                    "'version_names' must name at least one version. Leave it unset to "
+                    "update every version."
+                )
+
+        model = self._resolve_to_service_model(name=name, cloud=cloud, project=project)
+        self.client.update_service_traffic_policy(
+            model.id, _to_api_traffic_policy(traffic_policy), version_names
+        )
+        return model.id
+
     def terminate(
         self,
         id: Optional[str] = None,  # noqa: A002
@@ -1121,6 +1184,9 @@ class PrivateServiceSDK(WorkloadSDK):
                 else None,
                 tracing_config=tracing_config,
                 connections=connections,
+                traffic_policy=_from_api_traffic_policy(model.traffic_policy)
+                if model.traffic_policy is not None
+                else None,
             ),
         )
 

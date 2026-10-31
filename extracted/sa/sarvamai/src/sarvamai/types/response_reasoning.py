@@ -11,12 +11,12 @@ from .summary import Summary
 class ResponseReasoning(UniversalBaseModel):
     effort: typing.Optional[ResponseReasoningEffort] = pydantic.Field(default=None)
     """
-    `low`, `high`, or `max`. On **`glm5.3`** specifically, sending the literal string `max` returns `400` — omit the field instead to get `max`-level reasoning. **`deepseekv4.1-flash`** accepts `max` directly on this route.
+    `low`, `high`, or `max`. On **`glm5.3`** and **`glm5.3-flash`**, sending the literal string `max` returns `400`; omitting the field gives `max` on `glm5.3` and `high` on `glm5.3-flash`. **`deepseekv4.1-flash-1017`**, **`deepseekv4-pro`**, **`kimi-k3`**, **`mimo-v2.6-flash`**, and **`mimo-v2.6-pro`** accept `max` directly on this route. `none` turns thinking off on `deepseekv4-pro`, `mimo-v2.6-flash`, and `mimo-v2.6-pro`. `gemma4` accepts `low` or `high`; omitting it means no reasoning.
     """
 
     summary: typing.Optional[Summary] = pydantic.Field(default=None)
     """
-    `auto` or `detailed`. A reasoning item is returned on `glm5.3` even when this is omitted.
+    `auto` or `detailed`. Without it, the reasoning item's `summary` is empty; read the trace from `content[0].text`.
     """
 
     if IS_PYDANTIC_V2:

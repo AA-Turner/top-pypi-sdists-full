@@ -377,13 +377,16 @@ impl Tube {
         // Set up ICE connection state monitoring with TURN detection
         let tube_id_for_ice = self.id.clone();
         let conversation_id_for_ice = self.original_conversation_id.clone();
-        let pc_for_analysis = Arc::clone(&connection_arc.peer_connection);
-        let connection_arc_for_ice_signals = Arc::clone(&connection_arc); // Clone for ICE state signaling
+        // Weak: this handler is stored on the peer connection itself, so strong
+        // references here would keep the closed peer connection, and its ICE
+        // sockets, alive for the life of the process.
+        let pc_for_analysis = Arc::downgrade(&connection_arc.peer_connection);
+        let connection_arc_for_ice_signals = Arc::downgrade(&connection_arc);
         connection_arc.peer_connection.on_ice_connection_state_change(Box::new(move |state| {
             let tube_id_for_ice_log = tube_id_for_ice.clone();
             let conversation_id_for_ice_log = conversation_id_for_ice.clone();
-            let pc_for_candidate_analysis = Arc::clone(&pc_for_analysis);
-            let connection_for_ice_signals = Arc::clone(&connection_arc_for_ice_signals);
+            let pc_for_candidate_analysis = pc_for_analysis.clone();
+            let connection_for_ice_signals = connection_arc_for_ice_signals.clone();
 
             Box::pin(async move {
                 let conv_id_str = conversation_id_for_ice_log.as_deref().unwrap_or("-");
@@ -410,6 +413,9 @@ impl Tube {
                             }
 
                             // Get local and remote descriptions
+                            let Some(pc_for_candidate_analysis) = pc_for_candidate_analysis.upgrade() else {
+                                return;
+                            };
                             let local_desc = pc_for_candidate_analysis.local_description().await;
                             let remote_desc = pc_for_candidate_analysis.remote_description().await;
 
@@ -452,13 +458,17 @@ impl Tube {
                         warn!("ICE connection failed (tube_id: {}, conversation_id: {})", tube_id_for_ice_log, conv_id_str);
                         // Signal Python to release database proxy locks - ICE failures may not trigger
                         // peer connection state changes, so we need to signal here
-                        connection_for_ice_signals.send_connection_state_changed("failed");
+                        if let Some(connection) = connection_for_ice_signals.upgrade() {
+                            connection.send_connection_state_changed("failed");
+                        }
                     },
                     webrtc::ice_transport::ice_connection_state::RTCIceConnectionState::Disconnected => {
                         info!("ICE connection disconnected (tube_id: {}, conversation_id: {})", tube_id_for_ice_log, conv_id_str);
                         // Signal Python to release database proxy locks - ICE disconnects may not trigger
                         // peer connection state changes, so we need to signal here
-                        connection_for_ice_signals.send_connection_state_changed("disconnected");
+                        if let Some(connection) = connection_for_ice_signals.upgrade() {
+                            connection.send_connection_state_changed("disconnected");
+                        }
                     },
                     _ => {}
                 }
@@ -2539,6 +2549,10 @@ impl Tube {
             let mut guard = self.data_channels.write().await;
             guard.drain().collect()
         };
+        // The control channel is also in data_channels (closed below). Drop this
+        // extra reference too: its handlers hold the tube and the peer connection,
+        // and closing a data channel does not clear its handlers.
+        self.control_channel.write().await.take();
 
         let channel_count = channels.len();
         if channel_count > 0 {

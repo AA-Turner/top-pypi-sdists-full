@@ -25,10 +25,11 @@ from pydantic import (
     Field,
     GetJsonSchemaHandler,
     GetPydanticSchema,
+    JsonValue,
     model_validator,
 )
 from pydantic.json_schema import JsonSchemaValue
-from pydantic_core import core_schema
+from pydantic_core import core_schema, to_jsonable_python
 
 from matrx_ai.config.citations import NormalizedCitation
 from matrx_ai.config.remarks import RemarkItem
@@ -52,7 +53,10 @@ ReferenceName = Annotated[str | None, BeforeValidator(validate_reference_name)]
 
 class _MessagePartBase(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    # Stored in JSONB, so it is JSON: a UUID or datetime handed over is taken in its JSON form.
+    metadata: Annotated[dict[str, JsonValue], BeforeValidator(to_jsonable_python)] = Field(
+        default_factory=dict
+    )
 
     @classmethod
     def __get_pydantic_json_schema__(

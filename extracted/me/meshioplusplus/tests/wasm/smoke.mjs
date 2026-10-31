@@ -2162,26 +2162,6 @@ step('estimateError: zero on a linear field, nonzero and markable on a quadratic
     // marking_value for "fraction" is rejected.
     assert.throws(() => m.estimateError(e1.mesh, 'error:zz'));
     assert.throws(() => m.estimateError(quadField, 'f', 'zz', 'fraction', 1.5));
-
-    // Roadmap 6.10.2: the indicator becomes a per-point size field.
-    const s = m.errorSize(e1.mesh, { targetError: 1e-3 });
-    assert.equal(s.numCells + s.numSkipped, 2);
-    assert.equal(s.mesh.point_data.size.length, 12);
-    assert.ok(s.minSize > 0 && s.minSize <= s.maxSize);
-    const b = m.errorSize(e1.mesh, { targetError: 1e-3, minSize: 0.5, maxSize: 0.75, output: 'h' });
-    assert.ok(b.mesh.point_data.h.every((v) => v >= 0.5 && v <= 0.75));
-    assert.throws(() => m.errorSize(e1.mesh, {}), /targetError/);
-    assert.throws(() => m.errorSize(e1.mesh, { targetError: 0 }), /target_error/);
-    assert.throws(() => m.errorSize(e1.mesh, { targetError: 1e-3, bogus: 1 }), /bogus/);
-    assert.throws(() => m.errorSize(quadField, { targetError: 1e-3 }), /error:zz/);
-
-    // Roadmap 3.2.1: a conforming mesh reports nothing and flags no point.
-    const c = m.checkConformity(e1.mesh);
-    assert.equal(c.conforming, true);
-    assert.equal(c.interfaceMode, 'conforming');
-    assert.ok(c.mesh.point_data['conformity:hanging'].every((v) => Number(v) === 0));
-    assert.throws(() => m.checkConformity(e1.mesh, { tolerance: -1 }), /tolerance/);
-    assert.throws(() => m.checkConformity(e1.mesh, { bogus: 1 }), /bogus/);
 });
 
 step('convertSurfaceOps: gradient is a chainable pipeline step', () => {
@@ -2243,27 +2223,8 @@ step('partition: refined hexahedra decompose into 2 balanced pieces', () => {
     }
 });
 
-step('partition: kahip runs in the full artifact, stays compiled out of the lean pair', () => {
-    if (!full) {
-        assert.throws(() => m.partition(cube, 2, 'kahip'), /MESHIOPLUSPLUS_WITH_KAHIP/);
-        return;
-    }
-    assert.equal(m.hasKahip(), true, 'the full artifact links KaHIP');
-    const grid = m.refine(cube);  // 8 hexahedra, as in the SFC step above
-    const pieces = m.partition(grid, 2, 'kahip');
-    assert.equal(pieces.length, 2);
-    let total = 0;
-    for (const piece of pieces) {
-        assert.equal(piece.mesh.cells.length, grid.cells.length);
-        total += piece.mesh.cells[0].data.length / 8;
-    }
-    assert.equal(total, 8);
-    const labels = m.partitionLabels(grid, 2, 'kahip');
-    assert.equal(labels.length, 1);
-    assert.equal(labels[0].length, 8);
-    for (const p of labels[0]) {
-        assert.ok(p >= 0 && p < 2);
-    }
+step('partition: kahip is compiled out of both WASM builds and says so', () => {
+    assert.throws(() => m.partition(cube, 2, 'kahip'), /MESHIOPLUSPLUS_WITH_KAHIP/);
 });
 
 // The unit cube as a closed, outward-wound triangle surface: the distance
@@ -2297,111 +2258,6 @@ step('grid builds a lattice from nothing', () => {
     assert.equal(m.grid([0, 0, 0]).points.length, 0);
 });
 
-step('the parametric generators build meshes and refuse bad requests', () => {
-    const box = m.box([2, 2, 2], null, null, 'tetra', 2);
-    assert.equal(box.cells[0].type, 'tetra10');
-    const sphere = m.uvSphere(1, 8, 4, null, 'quad');
-    assert.deepEqual(sphere.cells.map((c) => c.type), ['quad', 'triangle']);
-    assert.equal(m.rectangle([3, 2], null, null, 'triangle', 'center').points.length, 18 * 3);
-    assert.equal(m.icosaSphere(1, 1).points.length, 42 * 3);
-    assert.equal(m.disk(1, 3, null, 'triangle').cells[0].type, 'triangle');
-    assert.equal(m.cylinder(1, 1, 2, 2, null, 'wedge').cells[0].type, 'wedge');
-    assert.deepEqual(m.referenceCells(['tetra', 'wedge']).cells.map((c) => c.type),
-        ['tetra', 'wedge']);
-    assert.equal(m.referenceCells(null, true).cells.length, 7);
-    // The planar domains: closed-form point counts, and an annulus sector keeps
-    // its seam apart where a full ring welds it.
-    assert.equal(m.referenceTriangle(3).points.length, 10 * 3);
-    assert.equal(m.ngon(5, 1, 2).points.length, 16 * 3);
-    assert.equal(m.annulus(0.5, 1, 12, 3).points.length, 48 * 3);
-    assert.equal(m.annulus(0.5, 1, 6, 2, Math.PI / 2).points.length, 21 * 3);
-    assert.equal(m.lshape(3).points.length, 40 * 3);
-    assert.equal(m.plateWithHole(0.25, 1, 3, 2).points.length, 36 * 3);
-    assert.equal(m.honeycomb([3, 2]).points.length, 22 * 3);
-    assert.equal(m.line(4, null, [0, 0, 2]).points.length, 5 * 3);
-    assert.equal(m.circle(1, 6, null, 2).points.length, 12 * 3);
-    assert.equal(m.helix(1, 1, 2, 10).points.length, 11 * 3);
-    assert.equal(m.spherePoints(7).points.length, 7 * 3);
-    assert.equal(m.boxPoints(7, null, null, 3).points.length, 7 * 3);
-    assert.equal(m.tetraSphere(1, 1).points.length, 10 * 3);
-    assert.equal(m.octaSphere(1, 1).points.length, 18 * 3);
-    assert.equal(m.cubeSphere(1, 2).points.length, 26 * 3);
-    assert.equal(m.geoSphere(1, 2).points.length, 42 * 3);
-    assert.equal(m.torus(1, 0.25, 6, 4).points.length, 24 * 3);
-    assert.equal(m.moebius(1, 0.5, 6, 2).points.length, 18 * 3);
-    assert.equal(m.tube(1, 1, 6, 2).points.length, 18 * 3);
-    assert.equal(m.cone(1, 1, 6, 2).points.length, 20 * 3);
-    assert.equal(m.capsule(0.5, 1, 6, 1, 2).points.length, 26 * 3);
-    assert.equal(m.boxSurface([1, 2, 3]).points.length, 24 * 3);
-    assert.equal(m.platonic('dodecahedron').points.length, 20 * 3);
-    assert.equal(m.ball(1, 1).points.length, 27 * 3);
-    assert.equal(m.sphericalShell(0.5, 1, 2, 1).points.length, 52 * 3);
-    assert.equal(m.pipe(0.5, 1, 1, 6, 1, 2).points.length, 36 * 3);
-    assert.equal(m.fichera(1).points.length, 26 * 3);
-    assert.equal(m.solidTorus(1, 0.25, 2, 5).points.length, 45 * 3);
-    assert.equal(m.box(null, null, null, 'hexahedron', 2, 20000000, true).points.length, 27 * 3);
-    assert.throws(() => m.platonic('sphere'));
-    assert.throws(() => m.plateWithHole(0.9));
-    assert.throws(() => m.box([2, 2, 2], null, null, 'blob'));
-    assert.throws(() => m.box([100, 100, 100], null, null, 'hexahedron', 1, 1000));
-});
-
-step('octree is fine only where the skin is', () => {
-    const tree = m.octree(cubeSurface, null, 0, 3,
-        [-0.5, -0.5, -0.5, 1.5, 1.5, 1.5], 0, 0, 0, 0, 'face', 'inside', 'pseudonormal',
-        false, false, 20000000, 'off');
-    assert.equal(tree.dimension, 3);
-    assert.ok(tree.numLeaves > 0);
-    assert.equal(tree.finestLevel, 3);
-    assert.equal(tree.mesh.cells[0].type, 'hexahedron');
-    assert.throws(() => m.octree(cubeSurface, null, 0, 3, null, 0, 0, 0, 0, 'diagonal'));
-    const conforming = m.octree(cubeSurface, null, 0, 3,
-        [-0.5, -0.5, -0.5, 1.5, 1.5, 1.5], 0, 0, 0, 0, 'face', 'all', 'pseudonormal',
-        false, false, 20000000, 'off', 'templates');
-    assert.equal(conforming.numHanging, 0);
-    assert.throws(() => m.octree(cubeSurface, null, 0, 3, null, 0, 0, 0, 0, 'face', 'all',
-        'pseudonormal', false, false, 20000000, 'off', 'wedges'));
-});
-
-step('octreeMesh meshes the inside of a skin', () => {
-    // The default output: conforming tetrahedra fitted to the closed cube.
-    const tet = m.octreeMesh(cubeSurface, { maxSize: 0.5, minSize: 0.125 });
-    assert.equal(tet.output, 'tet');
-    assert.ok(tet.mesh.cells.length > 0);
-    for (const block of tet.mesh.cells) assert.equal(block.type, 'tetra');
-    assert.ok(tet.numTetrahedra > 0);
-    assert.equal(tet.numHexahedra, 0);
-    assert.equal(tet.numCells, tet.numTetrahedra);
-    assert.equal(tet.numInverted, 0);
-    assert.ok(tet.minDihedral > 0);
-    assert.ok(tet.numLeaves > 0);
-    assert.ok(Array.isArray(tet.leavesPerLevel) && tet.leavesPerLevel.length > 0);
-    assert.equal(tet.rootCells.length, 3);
-    assert.equal(tet.origin.length, 3);
-    assert.ok(Array.isArray(tet.warnings));
-    assert.ok(Array.isArray(tet.timings));
-    for (const t of tet.timings) {
-        assert.equal(typeof t[0], 'string');
-        assert.equal(typeof t[1], 'number');
-    }
-    assert.equal(typeof tet.guaranteeApplies, 'boolean');
-    assert.ok('sdf:distance' in tet.mesh.point_data);
-
-    // Castellated: the inside leaves as hexahedra.
-    const cast = m.octreeMesh(cubeSurface,
-        { output: 'castellated', maxSize: 0.5, minSize: 0.125 });
-    assert.equal(cast.output, 'castellated');
-    assert.equal(cast.mesh.cells[0].type, 'hexahedron');
-    assert.ok(cast.numHexahedra > 0);
-    assert.equal(cast.numTetrahedra, 0);
-    assert.equal(cast.hausdorffToSkin, -1);
-
-    assert.throws(() => m.octreeMesh(cubeSurface, { bogus: 1 }), /bogus/);
-    assert.throws(() => m.octreeMesh(cubeSurface, { output: 'prism' }));
-    assert.throws(() => m.octreeMesh(cubeSurface, { minSize: 1, maxSize: 0.5 }));
-    assert.throws(() => m.octreeMesh(cubeSurface, { bounds: [0, 0, 0] }), /bounds/);
-});
-
 step('voxelize keeps the whole box, the shell, or the interior', () => {
     const q = m.surfaceWatertightCheck(cubeSurface);
     assert.equal(q.watertight, true);
@@ -2419,13 +2275,6 @@ step('voxelize keeps the whole box, the shell, or the interior', () => {
 
     // An unknown fill fails by name rather than silently defaulting.
     assert.throws(() => m.voxelize(cubeSurface, [2, 2, 2], 0, null, 0, 0, 'solid'));
-
-    // 2-D pixels in an explicit plane; an unknown plane is refused.
-    const flat = m.voxelize(cubeSurface, [4, 2, 0], 0, null, 0, 0, 'all', 'pseudonormal',
-        false, 20000000, 'off', 'yz');
-    assert.deepEqual(Array.from(flat.dims), [4, 2, 1]);
-    assert.throws(() => m.voxelize(cubeSurface, [4, 2, 0], 0, null, 0, 0, 'all',
-        'pseudonormal', false, 20000000, 'off', 'uv'));
 });
 
 step('sampleDistance matches the cube\'s closed form', () => {
@@ -2568,15 +2417,11 @@ step('every binding is reachable through the wrapper', () => {
         'topologicalDimension',
         'availableFormats',
         'hasOcct',
-        'hasNetgen',
-        'hasMmg',
-        'tetrahedralize',
         'hasZstd',
         'hasLz4',
         'hasBzip2',
         'buildFlavour',
         'fitCad',
-        'refinePatches',
         'withProvenance',
         'provenanceBegin',
         'provenanceEnd',
@@ -2614,7 +2459,6 @@ step('every binding is reachable through the wrapper', () => {
         'gradient',
         'hessian',
         'estimateError',
-        'errorSize',
         'cropBbox',
         'cropPlane',
         'cropPredicate',
@@ -2633,8 +2477,6 @@ step('every binding is reachable through the wrapper', () => {
         // that takes no input mesh: it creates one.
         'grid',
         'voxelize',
-        'octree',
-        'octreeMesh',
         'surfaceWatertightCheck',
         'sampleDistance',
         'distanceToSurface',
@@ -2771,99 +2613,25 @@ step('availableFormats reports what this build can read and write', () => {
 
 step('the stays-out set is exactly what this artifact reports (roadmap 6.2.4)', () => {
     // One table per artifact: what each links, and what neither does. KaHIP
-    // (the full artifact only), ADIOS2 (vtx), TecIO
+    // (no port, and a partitioner in every bundle), ADIOS2 (vtx), TecIO
     // (szplt, redistribution terms), the Kokkos backend and memory mapping
-    // stay out of the lean pair; the full artifact adds OpenCASCADE, the codecs
-    // and KaHIP.
+    // stay out of both; the full artifact adds OpenCASCADE and the codecs.
     const expected = full
-        ? { hasOcct: true, hasZstd: true, hasLz4: true, hasBzip2: true, hasKahip: true }
-        : { hasOcct: false, hasZstd: false, hasLz4: false, hasBzip2: false, hasKahip: false };
+        ? { hasOcct: true, hasZstd: true, hasLz4: true, hasBzip2: true }
+        : { hasOcct: false, hasZstd: false, hasLz4: false, hasBzip2: false };
     for (const [name, value] of Object.entries(expected))
         assert.equal(m[name](), value, name);
     assert.equal(m.hasCgnslib(), true);
-    // Roadmap 6.7: no WebAssembly build of Netgen, in either artifact, so
-    // "auto" is the native octree backend (its boundary fitted) and "netgen"
-    // is refused by name.
-    assert.equal(m.hasNetgen(), false);
-    // Roadmap 3.2.8: no WebAssembly build of MMG yet, in either artifact.
-    assert.equal(m.hasMmg(), false);
-    const ico = m.icosaSphere(1, 2);
-    const tet = m.tetrahedralize(ico);
-    assert.equal(tet.backend, 'octree');
-    assert.equal(tet.boundaryPreserved, false);
-    assert.ok(tet.numTetrahedra > 0 && tet.hausdorffToSurface > 0, 'octree tetrahedra');
-    assert.ok(tet.warnings.some((w) => /MESHIOPLUSPLUS_WITH_NETGEN/.test(w)), 'fallback warned');
-    assert.throws(() => m.tetrahedralize(ico, { backend: 'netgen' }), /MESHIOPLUSPLUS_WITH_NETGEN/);
-    assert.throws(() => m.tetrahedralize(ico, { grading: 2 }), /grading/);
-    assert.throws(() => m.tetrahedralize(ico, { backend: 'tetgen' }), /backend/);
-    assert.throws(() => m.tetrahedralize(ico, { bogus: 1 }), /bogus/);
     assert.ok(['seq', 'openmp'].includes(m.parallelBackend()));
     const { readers, writers } = m.availableFormats();
     for (const fmt of ['vtx', 'szplt'])
         assert.ok(!readers.includes(fmt) && !writers.includes(fmt), fmt);
+    assert.throws(() => m.partition(cube, 2, 'kahip'), /MESHIOPLUSPLUS_WITH_KAHIP/);
     if (!full) {
         // The lean artifact names the full one rather than a CMake flag.
         m.FS.writeFile('/lean.step', 'ISO-10303-21;\nEND-ISO-10303-21;\n');
         assert.throws(() => m.readMesh('/lean.step'), /full: true/);
-        assert.throws(() => m.fitCad(cubeSurface, { backend: 'occt' }), /full: true/);
-        // Without OpenCASCADE, fitCad runs the kernel-free native backend.
-        const native = m.fitCad(cubeSurface, { stepPath: '/lean_cube.step' });
-        assert.equal(native.backend, 'native');
-        assert.equal(native.valid, true);
-        assert.equal(native.numPlane, 6);
-        assert.ok(m.FS.readFile('/lean_cube.step', { encoding: 'utf8' }).includes('PLANE('));
-    }
-    // fitCad's refinement (v17.11.0) needs no OpenCASCADE: both artifacts.
-    const plain = m.fitCad(cubeSurface, { backend: 'native' });
-    assert.equal(plain.refined, false);
-    assert.equal(plain.refinementKept, false);
-    assert.equal(plain.numRefineSplits, 0);
-    const refined = m.fitCad(cubeSurface, {
-        backend: 'native',
-        refineSegmentation: true,
-        maxRefineIterations: 5,
-        ransacSeed: 3,
-        allowMerge: true,
-        allowSplit: true,
-    });
-    assert.equal(refined.refined, true);
-    assert.equal(refined.numPlane, 6);
-    assert.ok(Math.abs(refined.explainedAreaFraction - 1) < 1e-12);
-    assert.throws(() => m.fitCad(cubeSurface, { ransacSeed: 0.5 }), /2\^53/);
-    // The Phase 3 options and report (v17.11.0): closed on every backend,
-    // the deviation NaN unless measured, and an option out of range refused.
-    assert.equal(plain.closed, true);
-    assert.ok(Number.isNaN(plain.hausdorffMax));
-    assert.equal(plain.numSnappedJunctions, 0);
-    const general = m.fitCad(cubeSurface, {
-        backend: 'native',
-        freeformGeneral: true,
-        freeformTolerance: 0,
-        freeformSmoothing: 1e-10,
-        maxFreeformPoles: 20,
-        maxFreeformIterations: 5,
-        maxFreeformSplits: 0,
-        sewTolerance: 0,
-        extendSurfaces: true,
-        snapJunctions: true,
-        faceDeviation: true,
-    });
-    assert.equal(general.closed, true);
-    assert.equal(general.numFreeformGeneral, 0);
-    assert.equal(plain.numConstrainedPrimitives, 0);
-    assert.equal(plain.numConstraintGroups, 0);
-    const constrained = m.fitCad(cubeSurface, { backend: 'native', constrainPrimitives: true });
-    assert.equal(constrained.numFaces, 6);
-    assert.equal(constrained.numDemoted, 0);
-    assert.ok(constrained.numConstrainedPrimitives >= 0 && constrained.numConstrainedPrimitives <= 6);
-    assert.throws(() => m.fitCad(cubeSurface, { maxFreeformPoles: 3 }), /max_freeform_poles/);
-    assert.throws(() => m.fitCad(cubeSurface, { sewTolerance: -1 }), /sew_tolerance/);
-    if (m.hasOcct()) {
-        const snapped = m.fitCad(cubeSurface, { snapJunctions: true, faceDeviation: true });
-        assert.equal(snapped.closed, true);
-        assert.ok(snapped.numSnappedJunctions > 0);
-        assert.ok(Number.isFinite(snapped.hausdorffMax));
-        assert.ok('fit_cad:face_hausdorff' in snapped.mesh.field_data);
+        assert.throws(() => m.fitCad(cubeSurface), /full: true/);
     }
 });
 
@@ -3561,151 +3329,6 @@ step('igaRefine, igaSample, igaEvaluate: a NURBS model refined exactly and writt
     const s = m.igaSample(mesh.info);
     assert.equal(s.info.format, 'mfem');
     assert.equal(s.mesh.cells[0].type, 'quad9');
-});
-
-step('meshCadSurface: a trimmed CAD JSON face triangulated and reported', () => {
-    m.FS.writeFile('/triangle.cad.json', JSON.stringify({
-        breps: [{
-            brep_id: 1,
-            faces: [{
-                brep_id: 2,
-                surface: {
-                    is_trimmed: true, degrees: [1, 1], knot_vectors: [[0, 2], [0, 2]],
-                    control_points: [[1, [0, 0, 0, 1]], [2, [2, 0, 0, 1]], [3, [0, 2, 0, 1]], [4, [2, 2, 0, 1]]],
-                },
-                boundary_loops: [{
-                    loop_type: 'outer',
-                    trimming_curves: [[[0, 0], [1.5, 0]], [[1.5, 0], [0, 1.5]], [[0, 1.5], [0, 0]]].map(([a, b], i) => ({
-                        trim_index: i, curve_direction: true,
-                        parameter_curve: {
-                            degree: 1, knot_vector: [0, 0, 1, 1], active_range: [0, 1],
-                            control_points: [[[a[0], a[1], 0, 1]], [[b[0], b[1], 0, 1]]],
-                        },
-                    })),
-                }],
-            }],
-            edges: [],
-        }],
-    }));
-    const read = m.readMeshSelective('/triangle.cad.json', { info: true });
-    const r = m.meshCadSurface(read.info, { targetSize: 0.1 });
-    assert.equal(r.numFaces, 1);
-    assert.equal(r.numFailed, 0);
-    assert.ok(r.numTriangles > 100);
-    assert.equal(r.numPoints, r.mesh.points.length / 3);
-    assert.ok(r.minAngleDeg > 10);
-    assert.equal(r.faces[0].status, 'ok');
-    assert.deepEqual(r.warnings, []);
-    assert.equal(r.mesh.cells[0].type, 'triangle');
-    assert.throws(() => m.meshCadSurface(read.info, { targetSize: 0 }), /target_size/);
-    assert.throws(() => m.meshCadSurface(read.info, { targetSize: 0.1, bogus: 1 }), /bogus/);
-    // Roadmap 6.10.1: projected back onto its face, the mesh does not move.
-    const back = m.projectToCad(r.mesh, read.info);
-    assert.equal(back.numProjected, r.numPoints);
-    assert.ok(back.maxMove < 1e-12);
-    assert.ok(back.numOnCurves >= 0 && back.numOnCurves <= back.numOnEdges);
-    assert.deepEqual(back.outsideTrim, []);
-    assert.throws(() => m.projectToCad(read, read.info), /cad:face/);
-    assert.throws(() => m.projectToCad(r.mesh, read.info, { bogus: 1 }), /bogus/);
-    // Roadmap 6.9: layers grown from the triangle are wedges.
-    const bl = m.boundaryLayer(r.mesh, { firstHeight: 0.01, numLayers: 2 });
-    assert.ok(bl.numWedges > 0 && bl.minScaledJacobian > 0);
-    assert.throws(() => m.boundaryLayer(r.mesh, { numLayers: 2 }), /firstHeight/);
-    assert.equal(bl.numFewerLayers, 0);
-    assert.ok(bl.numFrontCrossings >= 0);
-    // Roadmap 6.9.1: a layers collapse, smoothed normals, no front test.
-    const bl2 = m.boundaryLayer(r.mesh, {
-        firstHeight: 0.01, numLayers: 2, collapse: 'layers', normalSmoothIterations: 2,
-        frontCheck: false,
-    });
-    assert.ok(bl2.numWedges > 0);
-    assert.equal(bl2.numFrontCrossings, 0);
-    assert.throws(() => m.boundaryLayer(r.mesh, { firstHeight: 0.01, collapse: 'rows' }),
-        /collapse/);
-    assert.throws(
-        () => m.boundaryLayer(r.mesh, { firstHeight: 0.01, normalSmoothIterations: 5000 }),
-        /normal_smooth_iterations/);
-    // v17.15.0: refined to 25 degrees and smoothed; the two 45-degree corners
-    // are reported, every angle counted.
-    const q = m.meshCadSurface(read.info, {
-        targetSize: 0.1, minAngle: 25, smoothIterations: 2, smoothMethod: 'odt',
-    });
-    assert.ok(q.minAngleDeg >= 25 - 1e-9);
-    assert.ok(q.numSmoothed > 0);
-    assert.equal(q.angleHistogram.length, 18);
-    assert.equal(q.angleHistogram.reduce((a, b) => a + b, 0), 3 * q.numTriangles);
-    assert.equal(q.faces[0].corners.length, 2);
-    for (const c of q.faces[0].corners) {
-        assert.equal(c.pole, false);
-        assert.ok(Math.abs(c.angleDeg - 45) < 1e-9);
-    }
-    assert.ok(Math.abs(q.faces[0].minInputAngleDeg - 45) < 1e-9);
-    assert.throws(() => m.meshCadSurface(read.info, { targetSize: 0.1, smoothMethod: 'none' }),
-                  /smoothMethod/);
-    assert.throws(() => m.meshCadSurface(read.info, { targetSize: 0.1, minAngle: 60 }),
-                  /min_angle/);
-    // v17.16.0: curved triangles, their nodes on the geometry.
-    for (const [order, type] of [[2, 'triangle6'], [3, 'triangle10']]) {
-        const c = m.meshCadSurface(read.info, { targetSize: 0.1, order });
-        assert.equal(c.numTriangles, r.numTriangles);
-        assert.ok(c.numPoints > r.numPoints);
-        assert.equal(c.numCurvedStraightened, 0);
-        assert.ok(c.mesh.cells.some((b) => b.type === type));
-    }
-    assert.equal(r.numCurvedStraightened, 0);
-    assert.throws(() => m.meshCadSurface(read.info, { targetSize: 0.1, order: 4 }), /order/);
-    // v17.18.0: a size field and pole rings are accepted; a flat face with no
-    // other face has no curvature nor gap to size by, so the mesh is the same.
-    const z = m.meshCadSurface(read.info, {
-        targetSize: 0.1, curvatureDeviation: 0.01, cellsAcrossGaps: 2, grading: 1.3, poleRings: 2,
-    });
-    assert.equal(z.numFailed, 0);
-    assert.equal(z.numTriangles, r.numTriangles);
-    assert.throws(() => m.meshCadSurface(read.info, { targetSize: 0.1, grading: 0.5 }), /grading/);
-    assert.throws(() => m.meshCadSurface(read.info, { targetSize: 0.1, poleRings: 9 }), /pole_rings/);
-    // v17.19.0: a size given to face 0 refines it.
-    const g = m.meshCadSurface(read.info, { targetSize: 0.1, faceSizes: { 0: 0.025 } });
-    assert.equal(g.numFailed, 0);
-    assert.ok(g.numTriangles > 4 * r.numTriangles);
-    assert.deepEqual(g.virtualEdges, []);
-    assert.ok(Array.isArray(g.faces[0].limitedByEdges));
-    assert.throws(() => m.meshCadSurface(read.info, { targetSize: 0.1, faceSizes: { 7: 0.025 } }),
-                  /face_sizes/);
-    // v17.20.0: a planar face is never flattened, and nothing is a sliver.
-    const x = m.meshCadSurface(read.info, {
-        targetSize: 0.1, reparamConditionNumber: 4, modelTolerances: true, virtualFaces: true,
-    });
-    assert.equal(x.numFailed, 0);
-    assert.equal(x.numTriangles, r.numTriangles);
-    assert.deepEqual(x.reparametrised, []);
-    assert.deepEqual(x.mergedFaces, []);
-    assert.deepEqual(x.toleranceUses, []);
-    assert.deepEqual(x.loppedCorners, []);
-    // Corner lopping at 20 degrees: the two 45-degree corners, under the
-    // straight-segment bound.
-    const l = m.meshCadSurface(read.info, { targetSize: 0.1, minAngle: 20, lopCorners: true });
-    assert.equal(l.loppedCorners.length, 2);
-    for (const c of l.loppedCorners) {
-        assert.ok(Math.abs(c.angleDeg - 45) < 1e-9);
-        assert.ok(c.statedBoundDeg > 20.7 && c.guaranteed && c.reason === '');
-    }
-    assert.throws(() => m.meshCadSurface(read.info, { targetSize: 0.1, reparamConditionNumber: 0.5 }),
-                  /reparam_condition_number/);
-    // A metric error without a metric background is refused (roadmap 6.10.2).
-    assert.throws(() => m.meshCadSurface(read.info, { targetSize: 0.1, metricError: 1 }),
-                  /metric_background/);
-    // Quads (roadmap 6.8) and untangling (6.6.3).
-    const quads = m.meshCadSurface(read.info, { targetSize: 0.1, minAngle: 25, quads: 'dominant' });
-    assert.ok(quads.numQuads > 0 && quads.minQuadScaledJacobian > 0);
-    assert.equal(quads.minMetricAngle, 0);
-    assert.throws(() => m.meshCadSurface(read.info, { targetSize: 0.1, quads: 'hex' }), /quads/);
-    const greedy = m.meshCadSurface(read.info,
-                               { targetSize: 0.1, minAngle: 25, quads: 'dominant', quadPairs: 'greedy' });
-    assert.ok(greedy.numQuads > 0 && greedy.numLeftoverTriangles >= quads.numLeftoverTriangles);
-    assert.throws(() => m.meshCadSurface(read.info, { targetSize: 0.1, quads: 'dominant', quadPairs: 'best' }),
-                  /quadPairs/);
-    assert.throws(() => m.meshCadSurface(read.info, { targetSize: 0.1, untangle: true }), /untangle/);
-    assert.equal(m.meshCadSurface(read.info, { targetSize: 0.1, order: 2, untangle: true }).numUntangled, 0);
 });
 
 step('info: the mdpa blocks a mesh cannot hold round-trip through info', () => {
@@ -5592,19 +5215,6 @@ step('featureEdges, hausdorffDistance, editRegions, matchPeriodicNodes', () => {
     assert.throws(() => m.segment(cubeSurface, 200));
     assert.throws(() => m.fitPrimitives(sg.mesh, 'segment:patch', 1e-3, true, 0.9, ['blob']));
 
-    // refinePatches (both artifacts): a box segmented at its creases is left
-    // alone, six planes explaining all of it.
-    const rp = m.refinePatches(sg.mesh, { ransacSeed: 7, types: ['plane'] });
-    assert.equal(rp.numPatches, 6);
-    assert.equal(rp.numPrimitive, 6);
-    assert.ok(Math.abs(rp.explainedAreaFraction - 1) < 1e-12);
-    assert.equal(rp.stop, 'unchanged');
-    assert.ok('segment:patch' in rp.mesh.cell_data);
-    assert.throws(() => m.refinePatches(cubeSurface), /segment:patch/);
-    assert.throws(() => m.refinePatches(sg.mesh, { bogus: 1 }), /bogus/);
-    assert.throws(() => m.refinePatches(sg.mesh, { ransacSeed: 2 ** 53 + 2 }), /2\^53/);
-    assert.throws(() => m.refinePatches(sg.mesh, { ransacSeed: -1 }), /2\^53/);
-
     const h = m.hausdorffDistance(cubeSurface, cubeSurface, 2);
     assert.ok(Math.abs(h.distance) < 1e-12); // face samples: rounding, not exactly 0
     assert.equal(h.numSamplesA, 8 + 12 * 4);
@@ -5688,28 +5298,6 @@ step('tessellate: curved tetra10 + quad9, pass-through line', () => {
     assert.deepEqual(tsFlat.mesh.cells.map((c) => c.type), ['line', 'tetra10', 'quad9']);
     assert.throws(() => m.tessellate(curvedMesh, -1), /levels/);
     assert.throws(() => m.tessellate(curvedMesh, 1.5), /levels/);
-});
-
-step('extrude, revolve and mirror (roadmap 3.1.2, 3.1.3, 3.2.5)', () => {
-    const rect = m.rectangle([3, 2]);
-    const e = m.extrude(rect, { numLayers: 4 });
-    assert.equal(e.numHexahedra, 24);
-    assert.equal(e.mesh.points.length, m.box([3, 2, 4]).points.length);
-    assert.ok(e.mesh.regions.some((r) => r.name === 'top' && r.kind === 'side'));
-    assert.throws(() => m.extrude(rect, { direction: [0, 1, 0] }), /parallel/);
-    assert.throws(() => m.extrude(rect, { bogus: 1 }), /bogus/);
-    const v = m.revolve(rect, { numLayers: 8 });
-    assert.equal(v.full, true);
-    assert.equal(v.numOnAxis, 3);
-    assert.equal(v.numWedges, 16);
-    assert.throws(() => m.revolve(rect, { numLayers: 2 }), /3 steps/);
-    const box = m.box([2, 2, 2], null, null, 'tetra');
-    const mr = m.mirror(box);
-    assert.equal(mr.numFlippedCells, 48);
-    const k = m.mirror(box, { keepOriginal: true });
-    assert.equal(k.numPointsOnPlane, 9);
-    assert.equal(k.mesh.points.length, (2 * 27 - 9) * 3);
-    assert.throws(() => m.mirror(box, { normal: [0, 0, 0] }), /normal/);
 });
 
 step('findInterface, contactPairs and splitInterface', () => {

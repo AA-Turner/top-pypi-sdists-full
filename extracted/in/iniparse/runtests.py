@@ -1,12 +1,20 @@
 #!/usr/bin/env python
 
-import sys
-import tests
+import doctest
+import os
+import unittest
+
+from iniparse import config
+from iniparse import ini
+
+
+def load_tests(loader, tests, pattern):
+    tests_dir = os.path.join(os.path.dirname(__file__), "tests")
+    package_tests = loader.discover(start_dir=tests_dir)
+    tests.addTests(package_tests)
+    tests.addTests((doctest.DocTestSuite(config), doctest.DocTestSuite(ini)))
+    return tests
+
 
 if __name__ == '__main__':
-    if len(sys.argv) == 2 and sys.argv[1] == '-g':
-        import unittestgui
-        unittestgui.main('tests.Suite')
-    else:
-        import unittest
-        unittest.main(defaultTest='tests.Suite')
+    unittest.main()

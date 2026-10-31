@@ -1109,6 +1109,27 @@ def test_a_run_nobody_watches_keeps_the_browser_approval(isolate, monkeypatch):
     assert consents == [] and minted == [False]
 
 
+def test_desktop_recorder_switch_reuses_sign_in_without_terminal_consent(isolate, monkeypatch):
+    """A human's app click is not unattended just because the CLI uses --json."""
+    monkeypatch.setenv("PROBE_DESKTOP_HUMAN", "1")
+    consents, minted = [], []
+    held = {"key": False}
+
+    def provision(base_url, **kw):
+        minted.append(kw.get("sign_in"))
+        held["key"] = True
+        return []
+
+    monkeypatch.setattr("probe.cli.companion.provision_daemon", provision)
+    applied, _, _ = _recorder(
+        monkeypatch, chosen=session_marker.RECORDER_DAEMON, key=lambda: held["key"],
+        consents=consents, yes=True,
+    )
+    assert minted == [True]
+    assert consents == []
+    assert applied == [("claude_code", "daemon"), ("codex", "daemon")]
+
+
 def test_declining_the_daemons_consent_mints_and_moves_nothing(isolate, monkeypatch):
     minted: list = []
     monkeypatch.setattr("probe.cli.companion.provision_daemon", lambda base, **_kw: minted.append(base) or [])

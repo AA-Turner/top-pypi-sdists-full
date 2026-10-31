@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nornir
-Version: 3.6.0
+Version: 3.6.1
 Summary: Pluggable multi-threaded framework with inventory management to help operate collections of devices
 Author: David Barroso
 Author-email: David Barroso <dbarrosop@dravetech.com>
@@ -11,6 +11,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Requires-Dist: ruamel-yaml>=0.17
 Requires-Python: >=3.10
 Project-URL: Repository, https://github.com/nornir-automation/nornir
@@ -30,7 +31,7 @@ What Nornir brings to the table is that it takes care of dealing with your inven
 
 ## Install
 
-Please note that Nornir requires Python 3.10 or higher. Install Nornir with pip.
+ Install Nornir with pip.
 
 ```bash
 pip install nornir

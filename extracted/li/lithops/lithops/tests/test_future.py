@@ -22,7 +22,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import lithops
+from lithops.executors import FunctionExecutor
 from lithops.future import ResponseFuture, _pickle_from_encoded, _stats_from_prefixed_keys
+from lithops.utils import FuturesList
 
 
 class HasAmbiguousTruthValue:
@@ -126,7 +128,7 @@ class TestResponseFutureState:
 
     def test_set_mapreduce_does_not_advance_unsuccessful_future(self):
         future = _future()
-        future._set_invoked()
+        future._set_state(ResponseFuture.State.Invoked)
         future._set_mapreduce()
         assert future.invoked
         assert future._produce_output is False
@@ -190,7 +192,7 @@ class TestResponseFutureState:
 
     def test_set_exception_marks_unfinished_future_unknown(self):
         future = _future()
-        future._set_invoked()
+        future._set_state(ResponseFuture.State.Invoked)
         future._set_exception()
         assert future._read is True
         assert future.done
@@ -202,6 +204,21 @@ class TestResponseFutureState:
         future._set_exception()
         assert future._state == ResponseFuture.State.Done
         assert future._read is True
+
+    def test_pickling_a_producer_leaves_its_consumers_out(self):
+        """
+        A chained job pickles its producers into its input: their consumers,
+        with the results the client downloaded, used to travel along
+        """
+        producer = _future()
+        size = len(pickle.dumps(producer))
+        consumer = _future(job_id='M001')
+        consumer._call_output = b'x' * 10**6
+        FunctionExecutor._disable_iterdata_output(FuturesList([producer]), [consumer])
+
+        assert len(pickle.dumps(producer)) < size + 100
+        assert pickle.loads(pickle.dumps(producer))._consumers == []
+        assert producer._consumers == [[consumer]]
 
     def test_futures_property_tracks_new_futures(self):
         future = _future()
@@ -238,7 +255,7 @@ class TestResponseFutureStatusAndResult:
 
     def test_poll_check_only_returns_without_waiting(self):
         future = _future()
-        future._set_invoked()
+        future._set_state(ResponseFuture.State.Invoked)
         storage = MagicMock()
         storage.get_storage_config.return_value = STORAGE_CONFIG
         storage.get_call_status.return_value = None
@@ -247,7 +264,7 @@ class TestResponseFutureStatusAndResult:
 
     def test_poll_retries_until_status_appears(self, monkeypatch):
         future = _future()
-        future._set_invoked()
+        future._set_state(ResponseFuture.State.Invoked)
         storage = MagicMock()
         storage.get_storage_config.return_value = STORAGE_CONFIG
         storage.get_call_status.side_effect = [None, None, _end_status(result=_encode(9))]
@@ -260,7 +277,7 @@ class TestResponseFutureStatusAndResult:
 
     def test_status_creates_internal_storage_when_missing(self):
         future = _future()
-        future._set_invoked()
+        future._set_state(ResponseFuture.State.Invoked)
         with patch('lithops.future.InternalStorage') as storage_cls:
             inst = storage_cls.return_value
             inst.get_storage_config.return_value = STORAGE_CONFIG
@@ -272,7 +289,7 @@ class TestResponseFutureStatusAndResult:
 
     def test_status_refetches_init_call_status(self):
         future = _future()
-        future._set_invoked()
+        future._set_state(ResponseFuture.State.Invoked)
         future._call_status = {'type': '__init__', 'activation_id': 'boot'}
         storage = MagicMock()
         storage.get_storage_config.return_value = STORAGE_CONFIG
@@ -283,7 +300,7 @@ class TestResponseFutureStatusAndResult:
 
     def test_exception_is_reraised_by_default(self):
         future = _future()
-        future._set_invoked()
+        future._set_state(ResponseFuture.State.Invoked)
         storage = MagicMock()
         storage.get_storage_config.return_value = STORAGE_CONFIG
         storage.get_call_status.return_value = _end_status(
@@ -296,7 +313,7 @@ class TestResponseFutureStatusAndResult:
 
     def test_exception_can_be_suppressed(self):
         future = _future()
-        future._set_invoked()
+        future._set_state(ResponseFuture.State.Invoked)
         storage = MagicMock()
         storage.get_storage_config.return_value = STORAGE_CONFIG
         storage.get_call_status.return_value = _end_status(
@@ -308,7 +325,7 @@ class TestResponseFutureStatusAndResult:
 
     def test_handler_exception_strips_marker_argument(self):
         future = _future()
-        future._set_invoked()
+        future._set_state(ResponseFuture.State.Invoked)
         storage = MagicMock()
         storage.get_storage_config.return_value = STORAGE_CONFIG
         storage.get_call_status.return_value = _end_status(
@@ -327,7 +344,7 @@ class TestResponseFutureStatusAndResult:
         with throw_except=False
         """
         future = _future()
-        future._set_invoked()
+        future._set_state(ResponseFuture.State.Invoked)
         storage = MagicMock()
         storage.get_storage_config.return_value = STORAGE_CONFIG
         status = _end_status()
@@ -350,7 +367,7 @@ class TestResponseFutureStatusAndResult:
         except SystemExit:
             exc_info = sys.exc_info()
         future = _future()
-        future._set_invoked()
+        future._set_state(ResponseFuture.State.Invoked)
         storage = MagicMock()
         storage.get_storage_config.return_value = STORAGE_CONFIG
         storage.get_call_status.return_value = _end_status(
@@ -362,7 +379,7 @@ class TestResponseFutureStatusAndResult:
 
     def test_pickle_fail_wraps_exception_dict(self):
         future = _future()
-        future._set_invoked()
+        future._set_state(ResponseFuture.State.Invoked)
         storage = MagicMock()
         storage.get_storage_config.return_value = STORAGE_CONFIG
         storage.get_call_status.return_value = _end_status(
@@ -376,7 +393,7 @@ class TestResponseFutureStatusAndResult:
     def test_new_futures_wraps_a_single_response_future(self):
         nested = _future()
         future = _future()
-        future._set_invoked()
+        future._set_state(ResponseFuture.State.Invoked)
         storage = MagicMock()
         storage.get_storage_config.return_value = STORAGE_CONFIG
         storage.get_call_status.return_value = _end_status(
@@ -392,7 +409,7 @@ class TestResponseFutureStatusAndResult:
     def test_new_futures_keeps_a_list(self):
         nested = [_future(), _future()]
         future = _future()
-        future._set_invoked()
+        future._set_state(ResponseFuture.State.Invoked)
         storage = MagicMock()
         storage.get_storage_config.return_value = STORAGE_CONFIG
         storage.get_call_status.return_value = _end_status(
@@ -405,7 +422,7 @@ class TestResponseFutureStatusAndResult:
 
     def test_result_polls_output_then_unpickles(self, monkeypatch):
         future = _future()
-        future._set_invoked()
+        future._set_state(ResponseFuture.State.Invoked)
         future._call_status = _end_status()
         future._set_state(ResponseFuture.State.Success)
         storage = MagicMock()
@@ -417,7 +434,7 @@ class TestResponseFutureStatusAndResult:
 
     def test_result_missing_output_raises_by_default(self, monkeypatch):
         future = _future()
-        future._set_invoked()
+        future._set_state(ResponseFuture.State.Invoked)
         future._call_status = _end_status()
         future._set_state(ResponseFuture.State.Success)
         storage = MagicMock()
@@ -428,7 +445,7 @@ class TestResponseFutureStatusAndResult:
 
     def test_result_missing_output_can_be_suppressed(self, monkeypatch):
         future = _future()
-        future._set_invoked()
+        future._set_state(ResponseFuture.State.Invoked)
         future._call_status = _end_status()
         future._set_state(ResponseFuture.State.Success)
         storage = MagicMock()
@@ -441,7 +458,7 @@ class TestResponseFutureStatusAndResult:
 
     def test_result_creates_storage_when_not_done(self):
         future = _future()
-        future._set_invoked()
+        future._set_state(ResponseFuture.State.Invoked)
         with patch('lithops.future.InternalStorage') as storage_cls:
             inst = storage_cls.return_value
             inst.get_storage_config.return_value = STORAGE_CONFIG

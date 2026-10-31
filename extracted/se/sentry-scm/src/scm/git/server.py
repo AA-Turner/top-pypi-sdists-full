@@ -2,12 +2,12 @@ from collections.abc import Callable, Mapping, Sequence
 from urllib.parse import urlsplit
 
 from scm.errors import ErrorCode, GitProviderNotSupported, GitTokenRejected, GitTokenUnavailable, SCMCodedError
-from scm.git.grant import verify_grant
+from scm.git.grant import require_public_keys, verify_grant
 from scm.git.relay import GitRelay, ResponseBody, authorize_request
 from scm.git.types import GRANT_HEADER, GetToken, Readable
 from scm.helpers import initialize_provider
 from scm.rpc.types import StreamResponse
-from scm.secret import Secret, require_secrets
+from scm.secret import Secret
 from scm.types import GetGitRemoteProtocol, Provider, Repository, RepositoryId
 
 # The status of each refusal GitServer answers itself. None is a 401: on a 401 git asks the user for credentials,
@@ -28,15 +28,18 @@ _STATUS: dict[ErrorCode, int] = {
     "provider_not_found": 404,
     "git_provider_not_supported": 404,
     "client_closed_request": 499,
-    # Sentry's record of the repository is incomplete.
+    # Misconfigured: Sentry's record of the repository is incomplete, or the provider's host is one the relay does
+    # not send a token to. No retry can succeed, so these are not a 502 or a 503, which a client retries.
     "malformed_external_id": 500,
     "missing_repository_path": 500,
-    # The provider cannot be reached safely, or failed.
-    "git_remote_not_https": 502,
+    "git_remote_not_https": 500,
+    "git_remote_refused": 500,
+    "resource_certificate_invalid": 500,
+    # The provider failed, or Sentry could not get or use a token for it.
     "git_token_rejected": 502,
     "git_token_unavailable": 502,
     "resource_bad_gateway": 502,
-    "resource_certificate_invalid": 502,
+    # Temporary, so a retry can succeed.
     "resource_service_unavailable": 503,
     "resource_gateway_timeout": 504,
 }
@@ -44,6 +47,11 @@ _STATUS: dict[ErrorCode, int] = {
 
 class GitServer:
     """Serves a git endpoint: checks each request against its grant, then relays it with a provider token.
+
+    Grants are verified against ``public_keys``, the Ed25519 public keys in PEM whose private keys sign them; see
+    ``scm.git.grant``. The keys are checked when the server is built: an empty list, or one holding anything but
+    Ed25519 public keys in PEM, raises ``GitGrantKeyError`` from the constructor, since no grant could verify against
+    it. That is the server's misconfiguration rather than a refusal, so the server never answers a request with it.
 
     The order of the checks matters. The grant is verified, and the request's route and repository checked
     against it, before the repository and its provider are looked up or a token fetched, so a request the grant
@@ -58,9 +66,11 @@ class GitServer:
     message leaves out where the request was going, so ``emit_error`` also gets what the request had resolved
     when it failed, as tags: ``repository_id`` as requested, then ``organization_id`` and ``referrer`` once the
     grant is verified, ``operation``, ``provider`` and ``remote_host``. A tag is missing when the request failed
-    before it was known. A client closing its request is not reported, since there is nothing to fix. Any other
-    exception, such as an adapter refusing a host or the token supplier failing, reaches the caller unchanged, so
-    the caller can answer it the way it answers the same error elsewhere.
+    before it was known. A client closing its request is not reported, since there is nothing to fix. A coded error
+    that ``get_token`` raises is answered and reported like a refusal, so the token supplier can say how it failed: a
+    ``ResourceServiceUnavailable`` becomes a 503, which the client retries. Any other exception, such as an error of
+    the token supplier that is not coded, or one of the relay's adapter that its ``map_error`` leaves alone, reaches
+    the caller unchanged, so the caller can answer it the way it answers the same error elsewhere.
 
     Every count is tagged with the grant's ``referrer`` once the grant is verified, so Sentry can tell a coding
     job's clone from Seer's own fetch or push.
@@ -74,7 +84,7 @@ class GitServer:
 
     def __init__(
         self,
-        secrets: Sequence[Secret],
+        public_keys: Sequence[str],
         fetch_repository: Callable[[int, RepositoryId], Repository | None],
         fetch_provider: Callable[[int, Repository], Provider | None],
         get_token: GetToken,
@@ -83,9 +93,7 @@ class GitServer:
         relay: GitRelay,
     ) -> None:
         # Fail when the server is built rather than on every request, because no grant could ever verify.
-        if not secrets or not all(secrets):
-            raise ValueError("GitServer needs at least one secret, and none may be empty.")
-        self.secrets = require_secrets(secrets, parameter="secrets")
+        self.public_keys = require_public_keys(public_keys)
         self.fetch_repository = fetch_repository
         self.fetch_provider = fetch_provider
         self.get_token = get_token
@@ -118,7 +126,7 @@ class GitServer:
         context = {"repository_id": str(repository_id)}
         referrer_tag: dict[str, str] = {}
         try:
-            grant = verify_grant(self.secrets, grant_token.reveal())
+            grant = verify_grant(self.public_keys, grant_token.reveal())
             context["organization_id"] = str(grant.organization_id)
             referrer_tag["referrer"] = context["referrer"] = grant.referrer
             operation = authorize_request(grant, repository_id, method, route, query)
@@ -140,6 +148,15 @@ class GitServer:
             if token is None:
                 raise GitTokenUnavailable(
                     detail=f"Sentry could not get a {repository['provider_name']} token for this repository."
+                )
+            if not isinstance(token, Secret):
+                # A plain string, from code the type checker does not see. Every frame from here to the provider
+                # would show it in an error report; dropped before refusing it, so this error's report does not.
+                token_type = type(token).__name__
+                del token
+                raise TypeError(
+                    f"get_token must return an scm.Secret, not {token_type}. Wrap the token in scm.Secret where you "
+                    "read it."
                 )
             response = self.relay.forward(
                 remote, token, method=method, route=route, query=query, headers=headers, body=counted_body

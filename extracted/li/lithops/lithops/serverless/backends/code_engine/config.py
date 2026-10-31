@@ -34,6 +34,8 @@ ENTRYPOINT_SCRIPT = '/lithops/lithopsentry.py'
 PYTHON_BIN = '/usr/local/bin/python'
 METADATA_JOBRUN_NAME = 'lithops-runtime-metadata'
 JOB_RUN_POLL_INTERVAL = 2
+JOB_RUN_TIMEOUT = 600
+JOB_DEF_DELETE_TIMEOUT = 300
 PROJECT_POLL_INTERVAL = 10
 PROJECT_READY_TIMEOUT = 600
 
@@ -61,9 +63,8 @@ BASE_URL_V2 = 'https://api.{}.codeengine.cloud.ibm.com/v2'
 
 REQ_PARAMS = ('iam_api_key', 'resource_group_id')
 
-# Default runtime image for auto-built runtimes.
-# CE jobs override the container command; the gunicorn CMD is kept for custom
-# runtimes that start the container without JOB_INDEX (legacy Knative path).
+# Default runtime image for auto-built runtimes. The job definition overrides the
+# container command with `python /lithops/lithopsentry.py`; the CMD runs the same.
 DOCKERFILE_DEFAULT = """
 RUN apt-get update && apt-get install -y \
         zip \
@@ -71,10 +72,7 @@ RUN apt-get update && apt-get install -y \
 
 RUN pip install --upgrade --ignore-installed setuptools six pip \
     && pip install --upgrade --no-cache-dir --ignore-installed \
-        gunicorn \
         pika \
-        flask \
-        gevent \
         ibm-cos-sdk \
         ibm-cloud-sdk-core \
         ibm-vpc \
@@ -89,9 +87,6 @@ RUN pip install --upgrade --ignore-installed setuptools six pip \
         tblib \
         psutil
 
-ENV PORT=8080
-ENV CONCURRENCY=1
-ENV TIMEOUT=600
 ENV PYTHONUNBUFFERED=TRUE
 
 ENV APP_HOME=/lithops
@@ -100,7 +95,7 @@ WORKDIR $APP_HOME
 COPY lithops_codeengine.zip .
 RUN unzip lithops_codeengine.zip && rm lithops_codeengine.zip
 
-CMD ["sh", "-c", "exec gunicorn --bind :$PORT --workers $CONCURRENCY --timeout $TIMEOUT lithopsentry:proxy"]
+CMD ["python", "lithopsentry.py"]
 """
 
 

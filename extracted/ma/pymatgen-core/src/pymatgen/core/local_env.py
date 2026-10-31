@@ -23,7 +23,7 @@ from monty.serialization import loadfn
 from ruamel.yaml import YAML
 from scipy.spatial import Voronoi
 
-from pymatgen.core import Element, IStructure, PeriodicNeighbor, PeriodicSite, Site, Species, Structure
+from pymatgen.core import Element, IStructure, PeriodicNeighbor, PeriodicSite, Site, Species, Structure, get_el_sp
 
 from .bond_valence import BV_PARAMS, BVAnalyzer
 from .graphs import StructureGraph
@@ -116,14 +116,16 @@ class ValenceIonicRadiusEvaluator:
             return after if after - skey < skey - before else before
 
         for idx, site in enumerate(self._structure):
-            if isinstance(site.specie, Element):
-                radius = site.specie.atomic_radius
+            # Zero-valence species (e.g. noble gases) have no ionic radius, so use the atomic radius
+            if isinstance(site.specie, Element) or round(site.specie.oxi_state) == 0:
+                element = site.specie if isinstance(site.specie, Element) else site.specie.element
+                radius = element.atomic_radius
                 # Handle elements with no atomic_radius
                 # by using calculated values instead.
                 if radius is None:
-                    radius = site.specie.atomic_radius_calculated
+                    radius = element.atomic_radius_calculated
                 if radius is None:
-                    raise ValueError(f"cannot assign radius to element {site.specie}")
+                    raise ValueError(f"cannot assign radius to element {element}")
                 radii.append(radius)
                 continue
 
@@ -639,7 +641,8 @@ class NearNeighbors:
             # coordination number and coordination pattern based
             # on the (current) structure of this graph.
             order_parameters = [self.get_local_order_parameters(structure, n) for n in range(len(structure))]
-            structure.add_site_property("order_parameters", order_parameters)
+            # decorate a copy so the input structure is not mutated
+            structure = structure.copy(site_properties={"order_parameters": order_parameters})
 
         struct_graph = StructureGraph.from_local_env_strategy(
             structure, self, weights=weights, edge_properties=edge_properties
@@ -726,7 +729,8 @@ class VoronoiNN(NearNeighbors):
         self.tol = tol
         self.cutoff = cutoff
         self.allow_pathological = allow_pathological
-        self.targets = targets
+        # a single Element/Species is accepted as target, but is used as a list below
+        self.targets = [targets] if isinstance(targets, Element | Species) else targets
         self.weight = weight
         self.extra_nn_info = extra_nn_info
         self.compute_adj_neighbors = compute_adj_neighbors
@@ -1042,6 +1046,8 @@ class VoronoiNN(NearNeighbors):
         targets = structure.elements if self.targets is None else self.targets
 
         # Extract the NN info
+        if not nns:  # no neighbors among the target elements
+            return []
         siw = []
         max_weight = max(nn[self.weight] for nn in nns.values())
         for nstats in nns.values():
@@ -1096,7 +1102,8 @@ class IsayevNN(VoronoiNN):
         self.tol = tol
         self.cutoff = cutoff
         self.allow_pathological = allow_pathological
-        self.targets = targets
+        # a single Element/Species is accepted as target, but is used as a list below
+        self.targets = [targets] if isinstance(targets, Element | Species) else targets
         self.extra_nn_info = extra_nn_info
         self.compute_adj_neighbors = compute_adj_neighbors
 
@@ -1153,6 +1160,8 @@ class IsayevNN(VoronoiNN):
         site = structure[n]
 
         # Extract the NN info
+        if not nns:  # no neighbors among the target elements
+            return []
         siw = []
         max_weight = max(nn["area"] for nn in nns.values())
         for nstats in nns.values():
@@ -1228,7 +1237,7 @@ class JmolNN(NearNeighbors):
 
         Args:
             tol (float): tolerance parameter for bond determination
-                Defaults to 0.56.
+                Defaults to 0.45.
             min_bond_distance (float): minimum bond distance for consideration
                 Defaults to 0.4.
             el_radius_updates (dict): symbol->float to override default atomic
@@ -1403,7 +1412,7 @@ class MinimumDistanceNN(NearNeighbors):
                         "site_index": self._get_original_site(structure, nn),
                     }
                 )
-        else:
+        elif neighs_dists:
             min_dist = min(nn.nn_distance for nn in neighs_dists)
             for nn in neighs_dists:
                 dist = nn.nn_distance
@@ -1541,6 +1550,8 @@ class OpenBabelNN(NearNeighbors):
             # coordination number and coordination pattern based
             # on the (current) structure of this graph.
             order_parameters = [self.get_local_order_parameters(structure, n) for n in range(len(structure))]
+            # decorate a copy so the input molecule is not mutated
+            structure = structure.copy()
             structure.add_site_property("order_parameters", order_parameters)
 
         return MoleculeGraph.from_local_env_strategy(structure, self)
@@ -1579,7 +1590,7 @@ class OpenBabelNN(NearNeighbors):
         output = []
         for info in sites:
             orig_site = structure[info["site_index"]]
-            info["site"] = Site(orig_site.species, orig_site._coords, properties=orig_site.properties)
+            info["site"] = Site(orig_site.species, orig_site.coords, properties=orig_site.properties)
             output.append(info)
         return output
 
@@ -1697,6 +1708,8 @@ class CovalentBondNN(NearNeighbors):
             # coordination number and coordination pattern based
             # on the (current) structure of this graph.
             order_parameters = [self.get_local_order_parameters(structure, n) for n in range(len(structure))]
+            # decorate a copy so the input molecule is not mutated
+            structure = structure.copy()
             structure.add_site_property("order_parameters", order_parameters)
 
         return MoleculeGraph.from_local_env_strategy(structure, self)
@@ -1735,7 +1748,7 @@ class CovalentBondNN(NearNeighbors):
         output = []
         for info in sites:
             orig_site = structure[info["site_index"]]
-            info["site"] = Site(orig_site.species, orig_site._coords, properties=orig_site.properties)
+            info["site"] = Site(orig_site.species, orig_site.coords, properties=orig_site.properties)
             output.append(info)
         return output
 
@@ -1818,6 +1831,8 @@ class MinimumOKeeffeNN(NearNeighbors):
                 el2 = neigh.species_string
             rel_dists_neighs.append([dist / get_okeeffe_distance_prediction(eln, el2), neigh])
 
+        if not rel_dists_neighs:  # no neighbors within cutoff
+            return []
         siw = []
         min_rel_dist = min(reldist for reldist, neigh in rel_dists_neighs)
         for rel_dist, site in rel_dists_neighs:
@@ -1894,6 +1909,8 @@ class MinimumVIRENN(NearNeighbors):
 
         reldists_neighs = [[nn.nn_distance / (vire.radii[nn.species_string] + rn), nn] for nn in neighs_dists]
 
+        if not reldists_neighs:  # no neighbors within cutoff
+            return []
         siw = []
         min_reldist = min(reldist for reldist, _neigh in reldists_neighs)
         for reldist, s in reldists_neighs:
@@ -2418,7 +2435,7 @@ class LocalStructOrderParams:
         """Number of neighbors encountered during the most recent order parameter calculation.
         A value of -1 indicates that no such calculation has yet been performed for this instance.
         """
-        return len(self._last_nneigh)
+        return self._last_nneigh
 
     def compute_trigonometric_terms(self, thetas, phis):
         """Compute trigonometric terms that are required to calculate
@@ -2841,7 +2858,7 @@ class LocalStructOrderParams:
         n: int,
         indices_neighs: list[int] | None = None,
         tol: float = 0.0,
-        target_spec: Species | None = None,
+        target_spec: SpeciesLike | None = None,
     ):
         """
         Compute all order parameters of site n.
@@ -2873,8 +2890,8 @@ class LocalStructOrderParams:
                 to determine if a particular pair is
                 considered neighbors; this is relevant only in the case
                 when Voronoi polyhedra are used to determine coordination
-            target_spec (Species): target species to be considered
-                when calculating the order
+            target_spec (SpeciesLike): target species (e.g. "O", Element("O")) to be
+                considered when calculating the order
                 parameters of site n; None includes all species of input
                 structure.
 
@@ -2910,10 +2927,12 @@ class LocalStructOrderParams:
         # Note that we adopt the same way of accessing sites here as in
         # VoronoiNN; that is, not via the sites iterator.
         centsite = structure[n]
+        if target_spec is not None:
+            target_spec = get_el_sp(target_spec)
         if indices_neighs is not None:
             neighsites = [structure[index] for index in indices_neighs]
         elif self._voroneigh:
-            vnn = VoronoiNN(tol=tol, targets=target_spec)
+            vnn = VoronoiNN(tol=tol, targets=None if target_spec is None else [target_spec])
             neighsites = vnn.get_nn(structure, n)
         else:
             # Structure.get_sites_in_sphere --> also other periodic images
@@ -2926,7 +2945,7 @@ class LocalStructOrderParams:
             if target_spec is None:
                 neighsites = list(neighsitestmp)
             else:
-                neighsites[:] = [site for site in neighsitestmp if site.specie.symbol == target_spec]
+                neighsites[:] = [site for site in neighsitestmp if site.specie.symbol == target_spec.symbol]
         n_neighbors = len(neighsites)
         self._last_nneigh = n_neighbors
 
@@ -3161,25 +3180,27 @@ class LocalStructOrderParams:
                                             np.dot(xtwoaxis, cast("np.ndarray", yaxis)),
                                             np.dot(xtwoaxis, xaxis),
                                         )
-                                # South pole contributions of m.
-                                if (
-                                    typ
-                                    in {
-                                        "tri_bipyr",
-                                        "sq_bipyr",
-                                        "pent_bipyr",
-                                        "hex_bipyr",
-                                        "oct_max",
-                                        "sq_plan_max",
-                                        "hex_plan_max",
-                                        "see_saw_rect",
-                                    }
-                                    and (param := self._params[idx]) is not None
-                                    and thetam >= param["min_SPP"]
-                                ):
-                                    tmp = param["IGW_SPP"] * (thetam * ipi - 1.0)
-                                    qsp_theta[idx][j][kc] += math.exp(-0.5 * tmp * tmp)
-                                    norms[idx][j][kc] += 1
+                                # South pole contributions of m (for every requested OP type,
+                                # not only the last one in self._types).
+                                for idx, typ in enumerate(self._types):
+                                    if (
+                                        typ
+                                        in {
+                                            "tri_bipyr",
+                                            "sq_bipyr",
+                                            "pent_bipyr",
+                                            "hex_bipyr",
+                                            "oct_max",
+                                            "sq_plan_max",
+                                            "hex_plan_max",
+                                            "see_saw_rect",
+                                        }
+                                        and (param := self._params[idx]) is not None
+                                        and thetam >= param["min_SPP"]
+                                    ):
+                                        tmp = param["IGW_SPP"] * (thetam * ipi - 1.0)
+                                        qsp_theta[idx][j][kc] += math.exp(-0.5 * tmp * tmp)
+                                        norms[idx][j][kc] += 1
 
                                 # Contributions of j-i-m angle and
                                 # angles between plane j-i-k and i-m vector.
@@ -3738,9 +3759,9 @@ class EconNN(NearNeighbors):
         if self.cation_anion and oxi_state is not None:
             # filter out neighbor of like charge (except for neutral sites)
             if oxi_state >= 0:
-                neighbors = [n for n in neighbors if n.oxi_state <= 0]
+                neighbors = [nghbr for nghbr in neighbors if nghbr.specie.oxi_state <= 0]
             elif oxi_state < 0:
-                neighbors = [nghbr for nghbr in neighbors if nghbr.oxi_state >= 0]
+                neighbors = [nghbr for nghbr in neighbors if nghbr.specie.oxi_state >= 0]
 
         if self.use_fictive_radius:
             # calculate fictive ionic radii
@@ -4016,7 +4037,7 @@ class CrystalNN(NearNeighbors):
 
         # sort nearest neighbors from highest to lowest weight
         nn = sorted(nn, key=lambda x: x["weight"], reverse=True)
-        if nn[0]["weight"] == 0:
+        if not nn or nn[0]["weight"] == 0:
             return self.transform_to_length(self.NNData([], {0: 1.0}, {0: []}), length)
 
         # renormalize weights so the highest weight is 1.0

@@ -34,7 +34,7 @@ class ApplyPolicyResult(object):
     """
     openapi_types = {
         'added': 'list[PolicyRoleBinding]',
-        'removed': 'list[str]'
+        'removed': 'list[PolicyRoleBinding]'
     }
 
     attribute_map = {
@@ -82,9 +82,10 @@ class ApplyPolicyResult(object):
     def removed(self):
         """Gets the removed of this ApplyPolicyResult.  # noqa: E501
 
+        The bindings the apply revoked, each with what it granted and to whom. A revocation names a binding the policy never mentioned, so reporting the id alone would leave the caller unable to say what access was taken away.  # noqa: E501
 
         :return: The removed of this ApplyPolicyResult.  # noqa: E501
-        :rtype: list[str]
+        :rtype: list[PolicyRoleBinding]
         """
         return self._removed
 
@@ -92,9 +93,10 @@ class ApplyPolicyResult(object):
     def removed(self, removed):
         """Sets the removed of this ApplyPolicyResult.
 
+        The bindings the apply revoked, each with what it granted and to whom. A revocation names a binding the policy never mentioned, so reporting the id alone would leave the caller unable to say what access was taken away.  # noqa: E501
 
         :param removed: The removed of this ApplyPolicyResult.  # noqa: E501
-        :type: list[str]
+        :type: list[PolicyRoleBinding]
         """
 
         self._removed = removed

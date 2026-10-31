@@ -74,9 +74,16 @@ Keyword arguments:
 - deduplicateCssVariables (boolean; optional):
     Determines whether CSS variables should be deduplicated: if CSS
     variable has the same value as in default theme, it is not added
-    in the runtime. @,default,`True`.
+    in the runtime. @,default,True.
 
-- defaultColorScheme (a value equal to: 'auto', 'dark', 'light'; optional):
+- deduplicateInlineStyles (boolean; optional):
+    Determines whether inline styles with identical content should be
+    deduplicated using React 19 style hoisting. When enabled,
+    components with the same responsive style props share a single
+    `<style />` tag instead of each generating their own.
+    @,default,False.
+
+- defaultColorScheme (a value equal to: 'light', 'dark', 'auto'; optional):
     Default color scheme value used when `colorSchemeManager` cannot
     retrieve value from external storage, `light` by default.
 
@@ -84,9 +91,14 @@ Keyword arguments:
     Environment at which the provider is used, `'test'` environment
     disables all transitions and portals.
 
-- forceColorScheme (a value equal to: 'dark', 'light'; optional):
+- forceColorScheme (a value equal to: 'light', 'dark'; optional):
     Forces color scheme value, if set, MantineProvider ignores
     `colorSchemeManager` and `defaultColorScheme`.
+
+- getRootElement (boolean | number | string | dict | list; optional):
+    Function to resolve root element to set
+    `data-mantine-color-scheme` attribute, must return undefined on
+    server, `() => document.documentElement` by default.
 
 - getStyleNonce (boolean | number | string | dict | list; optional):
     getStyleNonce is a function to generate
@@ -103,401 +115,29 @@ Keyword arguments:
 
     - styles (optional)
 
-- theme (dict; optional):
+- theme (list; optional):
     Theme override object.
 
-    `theme` is a dict with keys:
-
-    - focusRing (a value equal to: 'auto', 'always', 'never'; optional):
-        Controls focus ring styles. Supports the following options: -
-        `auto` – focus ring is displayed only when the user navigates
-        with keyboard (default value) - `always` – focus ring is
-        displayed when the user navigates with keyboard and mouse -
-        `never` – focus ring is always hidden (not recommended).
-
-    - scale (number; optional):
-        Rem units scale, change if you customize font-size of `<html
-        />` element default value is `1` (for `100%`/`16px` font-size
-        on `<html />`).
-
-    - fontSmoothing (boolean; optional):
-        Determines whether `font-smoothing` property should be set on
-        the body, `True` by default.
-
-    - white (string; optional):
-        White color.
-
-    - black (string; optional):
-        Black color.
-
-    - colors (dict with strings as keys and values of type dict with strings as keys and values of type string; optional):
-        Object of colors, key is color name, value is an array of at
-        least 10 strings (colors).
-
-    - primaryShade (dict; optional):
-        Index of theme.colors[color]. Primary shade is used in all
-        components to determine which color from theme.colors[color]
-        should be used. Can be either a number (0–9) or an object to
-        specify different color shades for light and dark color
-        schemes. Default value `{ light: 6, dark: 8 }`  For example, {
-        primaryShade: 6 } // shade 6 is used both for dark and light
-        color schemes { primaryShade: { light: 6, dark: 7 } } //
-        different shades for dark and light color schemes.
-
-        `primaryShade` is a dict with keys:
-
-        - light (a value equal to: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9; optional)
-
-        - dark (a value equal to: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9; optional)
-
-    - primaryColor (string; optional):
-        Key of `theme.colors`, hex/rgb/hsl values are not supported.
-        Determines which color will be used in all components by
-        default. Default value – `blue`.
-
-    - variantColorResolver (dict; optional):
-        Function to resolve colors based on variant. Can be used to
-        deeply customize how colors are applied to `Button`,
-        `ActionIcon`, `ThemeIcon` and other components that use colors
-        from theme.
-
-        `variantColorResolver` is a dict with keys:
-
-
-    - autoContrast (boolean; optional):
-        Determines whether text color must be changed based on the
-        given `color` prop in filled variant For example, if you pass
-        `color=\"blue.1\"` to Button component, text color will be
-        changed to `var(--mantine-color-black)` Default value –
-        `False`.
-
-    - luminanceThreshold (number; optional):
-        Determines which luminance value is used to determine if text
-        color should be light or dark. Used only if
-        `theme.autoContrast` is set to `True`. Default value is `0.3`.
-
-    - fontFamily (string; optional):
-        Font-family used in all components, system fonts by default.
-
-    - fontFamilyMonospace (string; optional):
-        Monospace font-family, used in code and other similar
-        components, system fonts by default.
-
-    - headings (dict; optional):
-        Controls various styles of h1-h6 elements, used in Typography
-        and Title components.
-
-        `headings` is a dict with keys:
-
-        - fontFamily (string; optional)
-
-        - fontWeight (string; optional)
-
-        - textWrap (a value equal to: 'wrap', 'nowrap', 'balance', 'pretty', 'stable'; optional)
-
-        - sizes (dict; optional)
-
-            `sizes` is a dict with keys:
-
-            - h1 (dict; optional)
-
-                `h1` is a dict with keys:
-
-                - fontSize (string; optional)
-
-                - fontWeight (string; optional)
-
-                - lineHeight (string; optional)
-
-            - h2 (dict; optional)
-
-                `h2` is a dict with keys:
-
-                - fontSize (string; optional)
-
-                - fontWeight (string; optional)
-
-                - lineHeight (string; optional)
-
-            - h3 (dict; optional)
-
-                `h3` is a dict with keys:
-
-                - fontSize (string; optional)
-
-                - fontWeight (string; optional)
-
-                - lineHeight (string; optional)
-
-            - h4 (dict; optional)
-
-                `h4` is a dict with keys:
-
-                - fontSize (string; optional)
-
-                - fontWeight (string; optional)
-
-                - lineHeight (string; optional)
-
-            - h5 (dict; optional)
-
-                `h5` is a dict with keys:
-
-                - fontSize (string; optional)
-
-                - fontWeight (string; optional)
-
-                - lineHeight (string; optional)
-
-            - h6 (dict; optional)
-
-                `h6` is a dict with keys:
-
-                - fontSize (string; optional)
-
-                - fontWeight (string; optional)
-
-                - lineHeight (string; optional)
-
-    - radius (dict with strings as keys and values of type string; optional):
-        Object of values that are used to set `border-radius` in all
-        components that support it.
-
-    - defaultRadius (number; optional):
-        Key of `theme.radius` or any valid CSS value. Default
-        `border-radius` used by most components.
-
-    - spacing (dict with strings as keys and values of type string; optional):
-        Object of values that are used to set various CSS properties
-        that control spacing between elements.
-
-    - fontSizes (dict with strings as keys and values of type string; optional):
-        Object of values that are used to control `font-size` property
-        in all components.
-
-    - lineHeights (dict with strings as keys and values of type string; optional):
-        Object of values that are used to control `line-height`
-        property in `Text` component.
-
-    - breakpoints (dict with strings as keys and values of type string; optional):
-        Object of values that are used to control breakpoints in all
-        components, values are expected to be defined in em.
-
-    - shadows (dict with strings as keys and values of type string; optional):
-        Object of values that are used to add `box-shadow` styles to
-        components that support `shadow` prop.
-
-    - respectReducedMotion (boolean; optional):
-        Determines whether user OS settings to reduce motion should be
-        respected, `False` by default.
-
-    - cursorType (a value equal to: 'default', 'pointer'; optional):
-        Determines which cursor type will be used for interactive
-        elements - `default` – cursor that is used by native HTML
-        elements, for example, `input[type=\"checkbox\"]` has `cursor:
-        default` styles - `pointer` – sets `cursor: pointer` on
-        interactive elements that do not have these styles by default.
-
-    - defaultGradient (dict; optional):
-        Default gradient configuration for components that support
-        `variant=\"gradient\"`.
-
-        `defaultGradient` is a dict with keys:
-
-        - from (string; optional)
-
-        - to (string; optional)
-
-        - deg (number; optional)
-
-    - activeClassName (string; optional):
-        Class added to the elements that have active styles, for
-        example, `Button` and `ActionIcon`.
-
-    - focusClassName (string; optional):
-        Class added to the elements that have focus styles, for
-        example, `Button` or `ActionIcon`. Overrides `theme.focusRing`
-        property.
-
-    - components (dict; optional):
-        Allows adding `classNames`, `styles` and `defaultProps` to any
-        component.
-
-        `components` is a dict with strings as keys and values of type
-        dict with keys:
-
-        - classNames (boolean | number | string | dict | list; optional)
-
-        - styles (boolean | number | string | dict | list; optional)
-
-        - vars (boolean | number | string | dict | list; optional)
-
-        - defaultProps (boolean | number | string | dict | list; optional)
-
-    - other (dict with strings as keys and values of type boolean | number | string | dict | list; optional):
-        Any other properties that you want to access with the theme
-        objects.
+- useV8CssVariablesResolver (boolean; optional):
+    Whether to use the Mantine v8 CSS variables resolver for
+    compatibility with Mantine v8.
 
 - withCssVariables (boolean; optional):
     Determines whether theme CSS variables should be added to given
-    `cssVariablesSelector` @,default,`True`.
+    `cssVariablesSelector` @,default,True.
 
 - withGlobalClasses (boolean; optional):
     Determines whether global classes should be added with `<style />`
     tag. Global classes are required for `hiddenFrom`/`visibleFrom`
-    and `lightHidden`/`darkHidden` props to work. @,default,`True`.
+    and `lightHidden`/`darkHidden` props to work. @,default,True.
 
 - withStaticClasses (boolean; optional):
     Determines whether components should have static classes, for
-    example, `mantine-Button-root`. @,default,`True`."""
+    example, `mantine-Button-root`. @,default,True."""
     _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
     _type = 'MantineProvider'
-    ThemePrimaryShade = TypedDict(
-        "ThemePrimaryShade",
-            {
-            "light": NotRequired[Literal[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]],
-            "dark": NotRequired[Literal[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]]
-        }
-    )
-
-    ThemeVariantColorResolver = TypedDict(
-        "ThemeVariantColorResolver",
-            {
-
-        }
-    )
-
-    ThemeHeadingsSizesH1 = TypedDict(
-        "ThemeHeadingsSizesH1",
-            {
-            "fontSize": NotRequired[str],
-            "fontWeight": NotRequired[str],
-            "lineHeight": NotRequired[str]
-        }
-    )
-
-    ThemeHeadingsSizesH2 = TypedDict(
-        "ThemeHeadingsSizesH2",
-            {
-            "fontSize": NotRequired[str],
-            "fontWeight": NotRequired[str],
-            "lineHeight": NotRequired[str]
-        }
-    )
-
-    ThemeHeadingsSizesH3 = TypedDict(
-        "ThemeHeadingsSizesH3",
-            {
-            "fontSize": NotRequired[str],
-            "fontWeight": NotRequired[str],
-            "lineHeight": NotRequired[str]
-        }
-    )
-
-    ThemeHeadingsSizesH4 = TypedDict(
-        "ThemeHeadingsSizesH4",
-            {
-            "fontSize": NotRequired[str],
-            "fontWeight": NotRequired[str],
-            "lineHeight": NotRequired[str]
-        }
-    )
-
-    ThemeHeadingsSizesH5 = TypedDict(
-        "ThemeHeadingsSizesH5",
-            {
-            "fontSize": NotRequired[str],
-            "fontWeight": NotRequired[str],
-            "lineHeight": NotRequired[str]
-        }
-    )
-
-    ThemeHeadingsSizesH6 = TypedDict(
-        "ThemeHeadingsSizesH6",
-            {
-            "fontSize": NotRequired[str],
-            "fontWeight": NotRequired[str],
-            "lineHeight": NotRequired[str]
-        }
-    )
-
-    ThemeHeadingsSizes = TypedDict(
-        "ThemeHeadingsSizes",
-            {
-            "h1": NotRequired["ThemeHeadingsSizesH1"],
-            "h2": NotRequired["ThemeHeadingsSizesH2"],
-            "h3": NotRequired["ThemeHeadingsSizesH3"],
-            "h4": NotRequired["ThemeHeadingsSizesH4"],
-            "h5": NotRequired["ThemeHeadingsSizesH5"],
-            "h6": NotRequired["ThemeHeadingsSizesH6"]
-        }
-    )
-
-    ThemeHeadings = TypedDict(
-        "ThemeHeadings",
-            {
-            "fontFamily": NotRequired[str],
-            "fontWeight": NotRequired[str],
-            "textWrap": NotRequired[Literal["wrap", "nowrap", "balance", "pretty", "stable"]],
-            "sizes": NotRequired["ThemeHeadingsSizes"]
-        }
-    )
-
-    ThemeDefaultGradient = TypedDict(
-        "ThemeDefaultGradient",
-            {
-            "from": NotRequired[str],
-            "to": NotRequired[str],
-            "deg": NotRequired[NumberType]
-        }
-    )
-
-    ThemeComponents = TypedDict(
-        "ThemeComponents",
-            {
-            "classNames": NotRequired[typing.Any],
-            "styles": NotRequired[typing.Any],
-            "vars": NotRequired[typing.Any],
-            "defaultProps": NotRequired[typing.Any]
-        }
-    )
-
-    Theme = TypedDict(
-        "Theme",
-            {
-            "focusRing": NotRequired[Literal["auto", "always", "never"]],
-            "scale": NotRequired[NumberType],
-            "fontSmoothing": NotRequired[bool],
-            "white": NotRequired[str],
-            "black": NotRequired[str],
-            "colors": NotRequired[typing.Dict[typing.Union[str, float, int], typing.Dict[typing.Union[str, float, int], str]]],
-            "primaryShade": NotRequired[typing.Union[Literal[1], Literal[2], Literal[3], Literal[4], Literal[5], Literal[6], Literal[7], Literal[8], Literal[9], "ThemePrimaryShade"]],
-            "primaryColor": NotRequired[str],
-            "variantColorResolver": NotRequired["ThemeVariantColorResolver"],
-            "autoContrast": NotRequired[bool],
-            "luminanceThreshold": NotRequired[NumberType],
-            "fontFamily": NotRequired[str],
-            "fontFamilyMonospace": NotRequired[str],
-            "headings": NotRequired["ThemeHeadings"],
-            "radius": NotRequired[typing.Dict[typing.Union[str, float, int], str]],
-            "defaultRadius": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
-            "spacing": NotRequired[typing.Dict[typing.Union[str, float, int], str]],
-            "fontSizes": NotRequired[typing.Dict[typing.Union[str, float, int], str]],
-            "lineHeights": NotRequired[typing.Dict[typing.Union[str, float, int], str]],
-            "breakpoints": NotRequired[typing.Dict[typing.Union[str, float, int], str]],
-            "shadows": NotRequired[typing.Dict[typing.Union[str, float, int], str]],
-            "respectReducedMotion": NotRequired[bool],
-            "cursorType": NotRequired[Literal["default", "pointer"]],
-            "defaultGradient": NotRequired["ThemeDefaultGradient"],
-            "activeClassName": NotRequired[str],
-            "focusClassName": NotRequired[str],
-            "components": NotRequired[typing.Dict[typing.Union[str, float, int], "ThemeComponents"]],
-            "other": NotRequired[typing.Dict[typing.Union[str, float, int], typing.Any]]
-        }
-    )
-
     ColorSchemeManager = TypedDict(
         "ColorSchemeManager",
             {
@@ -530,25 +170,27 @@ Keyword arguments:
         children: typing.Optional[ComponentType] = None,
         id: typing.Optional[typing.Union[str, dict]] = None,
         getStyleNonce: typing.Optional[typing.Any] = None,
-        theme: typing.Optional["Theme"] = None,
+        getRootElement: typing.Optional[typing.Any] = None,
+        useV8CssVariablesResolver: typing.Optional[bool] = None,
+        theme: typing.Optional[typing.Sequence] = None,
         colorSchemeManager: typing.Optional["ColorSchemeManager"] = None,
-        defaultColorScheme: typing.Optional[Literal["auto", "dark", "light"]] = None,
-        forceColorScheme: typing.Optional[Literal["dark", "light"]] = None,
+        defaultColorScheme: typing.Optional[Literal["light", "dark", "auto"]] = None,
+        forceColorScheme: typing.Optional[Literal["light", "dark"]] = None,
         cssVariablesSelector: typing.Optional[str] = None,
         withCssVariables: typing.Optional[bool] = None,
         deduplicateCssVariables: typing.Optional[bool] = None,
-        getRootElement: typing.Optional[typing.Any] = None,
         classNamesPrefix: typing.Optional[str] = None,
         cssVariablesResolver: typing.Optional["CssVariablesResolver"] = None,
         withStaticClasses: typing.Optional[bool] = None,
         withGlobalClasses: typing.Optional[bool] = None,
         stylesTransform: typing.Optional["StylesTransform"] = None,
+        deduplicateInlineStyles: typing.Optional[bool] = None,
         env: typing.Optional[Literal["default", "test"]] = None,
         **kwargs
     ):
-        self._prop_names = ['children', 'id', 'classNamesPrefix', 'colorSchemeManager', 'cssVariablesResolver', 'cssVariablesSelector', 'deduplicateCssVariables', 'defaultColorScheme', 'env', 'forceColorScheme', 'getStyleNonce', 'stylesTransform', 'theme', 'withCssVariables', 'withGlobalClasses', 'withStaticClasses']
+        self._prop_names = ['children', 'id', 'classNamesPrefix', 'colorSchemeManager', 'cssVariablesResolver', 'cssVariablesSelector', 'deduplicateCssVariables', 'deduplicateInlineStyles', 'defaultColorScheme', 'env', 'forceColorScheme', 'getRootElement', 'getStyleNonce', 'stylesTransform', 'theme', 'useV8CssVariablesResolver', 'withCssVariables', 'withGlobalClasses', 'withStaticClasses']
         self._valid_wildcard_attributes =            []
-        self.available_properties = ['children', 'id', 'classNamesPrefix', 'colorSchemeManager', 'cssVariablesResolver', 'cssVariablesSelector', 'deduplicateCssVariables', 'defaultColorScheme', 'env', 'forceColorScheme', 'getStyleNonce', 'stylesTransform', 'theme', 'withCssVariables', 'withGlobalClasses', 'withStaticClasses']
+        self.available_properties = ['children', 'id', 'classNamesPrefix', 'colorSchemeManager', 'cssVariablesResolver', 'cssVariablesSelector', 'deduplicateCssVariables', 'deduplicateInlineStyles', 'defaultColorScheme', 'env', 'forceColorScheme', 'getRootElement', 'getStyleNonce', 'stylesTransform', 'theme', 'useV8CssVariablesResolver', 'withCssVariables', 'withGlobalClasses', 'withStaticClasses']
         self.available_wildcard_properties =            []
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

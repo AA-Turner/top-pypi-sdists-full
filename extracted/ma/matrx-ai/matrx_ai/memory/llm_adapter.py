@@ -69,21 +69,18 @@ def _extract_response_text(response: Any) -> str:
     content. Concatenate all TextContent.text values defensively in case the
     provider returns multiple segments.
     """
+    from matrx_ai.config.message_config import content_text
+
     messages = getattr(response, "messages", None) or []
     for msg in reversed(messages):
         role = getattr(msg, "role", None)
         if role and role != "assistant":
             continue
-        content = getattr(msg, "content", None) or []
-        parts: list[str] = []
-        for item in content:
-            text_val = getattr(item, "text", None)
-            if isinstance(text_val, str) and text_val:
-                parts.append(text_val)
-            elif isinstance(item, dict) and isinstance(item.get("text"), str):
-                parts.append(item["text"])
-        if parts:
-            return "".join(parts)
+        # Text blocks only: a ``thinking`` block keeps the model's reasoning under ``text``, and the
+        # Observer/Reflector's output is parsed and WRITTEN INTO MEMORY.
+        text = content_text(getattr(msg, "content", None) or [], sep="")
+        if text:
+            return text
     return ""
 
 

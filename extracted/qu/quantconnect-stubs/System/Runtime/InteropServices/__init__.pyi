@@ -2447,6 +2447,9 @@ class NFloat(System.Numerics.IBinaryFloatingPointIeee754[System_Runtime_InteropS
     def __eq__(self, right: System.Runtime.InteropServices.NFloat) -> bool:
         ...
 
+    def __float__(self) -> float:
+        ...
+
     @overload
     def __ge__(self, right: System.Runtime.InteropServices.NFloat) -> bool:
         ...
@@ -2481,6 +2484,9 @@ class NFloat(System.Numerics.IBinaryFloatingPointIeee754[System_Runtime_InteropS
         ...
 
     def __init__(self, value: float) -> None:
+        ...
+
+    def __int__(self) -> int:
         ...
 
     def __isub__(self, right: System.Runtime.InteropServices.NFloat) -> System.Runtime.InteropServices.NFloat:

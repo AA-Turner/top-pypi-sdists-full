@@ -33,6 +33,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 WORKFLOWS = REPO_ROOT / ".github" / "workflows"
 RUN_WORKFLOW = WORKFLOWS / "sandbox-case-run.yml"
 SMOKE_WORKFLOW = WORKFLOWS / "sandbox-case-run-smoke.yml"
+PIN_BUMP_WORKFLOW = WORKFLOWS / "saas-sandbox-pin-bump.yml"
 SETUP_ACTION = REPO_ROOT / ".github" / "actions" / "setup-saas-sandbox" / "action.yml"
 REFERENCE_CASE = (
     REPO_ROOT
@@ -99,7 +100,7 @@ def test_dispatch_and_call_inputs_match():
 
 def test_no_expression_is_spliced_into_a_shell_script():
     """Inputs reach the shell through `env`, never through `${{ }}` in `run:`."""
-    for path in (RUN_WORKFLOW, SMOKE_WORKFLOW, SETUP_ACTION):
+    for path in (RUN_WORKFLOW, SMOKE_WORKFLOW, PIN_BUMP_WORKFLOW, SETUP_ACTION):
         for step in _steps(path):
             assert "${{" not in step.get("run", ""), (path.name, step.get("name"))
 
@@ -122,6 +123,24 @@ def test_the_sandbox_token_is_revoked_before_the_target_is_checked_out():
     assert steps[revoke]["if"].startswith("always()")
     token_step = next(step for step in steps if step.get("id") == "sandbox-token")
     assert token_step["with"]["skip-token-revoke"] is True
+
+
+@needs_jq
+@pytest.mark.parametrize("ref", ["", "c" * 40])
+def test_sandbox_ref_replaces_the_pin(tmp_path, ref):
+    """`sandbox_ref` reaches the setup action, which uses it instead of the pin."""
+    (step,) = [step for step in _steps(RUN_WORKFLOW) if step.get("id") == "sandbox"]
+    assert step["with"]["ref"] == "${{ inputs.sandbox_ref }}"
+    (pin_step,) = [step for step in _steps(SETUP_ACTION) if step.get("id") == "pin"]
+    (tmp_path / ".github").mkdir()
+    (tmp_path / ".github" / "saas-sandbox-ref").write_text("a" * 40 + "\n")
+
+    completed, outputs = _run_script(
+        pin_step["run"], {"REF_INPUT": ref}, tmp_path / "out", cwd=tmp_path
+    )
+
+    assert completed.returncode == 0, completed.stdout
+    assert outputs == {"ref": ref or "a" * 40}
 
 
 def test_the_sandbox_pin_is_one_full_sha():
@@ -182,6 +201,7 @@ _VALID_INPUTS = {
     "CASE_ROOT": "regression_cases",
     "RESULT_ARTIFACT_NAME": "sandbox-case-result",
     "REQUEST_ID": "",
+    "SANDBOX_REF_INPUT": "",
 }
 
 
@@ -224,6 +244,8 @@ def test_valid_inputs_resolve_the_target_and_case(tmp_path):
         {"CASE_REF": "main"},
         {"RESULT_ARTIFACT_NAME": "Bad Name"},
         {"REQUEST_ID": "a b"},
+        {"SANDBOX_REF_INPUT": "main"},
+        {"SANDBOX_REF_INPUT": "39702d93"},
     ],
 )
 def test_invalid_inputs_stop_the_run(tmp_path, changes):

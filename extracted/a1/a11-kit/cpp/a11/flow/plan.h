@@ -89,8 +89,6 @@ struct DtoPlan {
   bool exported = false;
   std::string description;
   std::vector<FieldPlan> fields;
-  // Whether the shape holds bytes anywhere in it, directly or through another
-  // shape it names.
   /// Whether the shape holds bytes anywhere in it, directly or through another
   /// shape it names.
   ///
@@ -127,8 +125,13 @@ struct HeaderPlan {
 /// runtime and grows out of these, rather than being a second description of
 /// them.
 struct StepPlan {
+  bool scope_barrier = false;
+  std::string optional_binding;
+  std::vector<std::string> serial_sources;
+  std::vector<std::string> destinations;
+  std::string continuation_parent;
   /// The kind of statement, as `a11.flow.plan`'s `Step.kind` spells it: `call`,
-  /// `pipe`, `skip`, `wait`, `drain`, `cancel`, `fail`, `for`, `repeat`, `if`,
+  /// `pipe`, `skip`, `wait`, `close`, `cancel`, `fail`, `for`, `repeat`, `if`,
   /// `capture`.
   std::string kind;
   /// The name this step is known by: a bound name, or `action`, `for`, `if`
@@ -140,10 +143,13 @@ struct StepPlan {
   std::string action;
   std::string mode;
   std::string node_map;
+  std::string pipeline_input;
+  std::string pipeline_output;
   std::optional<absl::Duration> timeout;
+  bool has_deadline = false;
   bool tolerant = false;
   bool tee = false;
-  /// For a `pipe`/`skip`/`wait`/`drain`: what it reads and what it writes, as a
+  /// For a `pipe`/`skip`/`wait`/`close`: what it reads and what it writes, as a
   /// reader would say them -- `search.hits | truncate 200` -> `brief.pages`.
   std::string source;
   std::string destination;
@@ -169,6 +175,7 @@ struct FlowPlan {
   bool interface_only = false;
   bool ambiguous = false;
   bool imported = false;
+  bool registerable = true;
   std::string module;
   bool exported = false;
   std::string binding_name;

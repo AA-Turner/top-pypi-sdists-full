@@ -4,12 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "fluentcron"
-version = "0.2.0"
+version = "0.3.0"
 description = "A fluent interface for constructing crontab schedules"
 authors = [{ name = "thelab", email = "thelabdev@thelab.co" }]
 license = { text = "ISC" }
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 dependencies = []
 
 [project.urls]
@@ -19,10 +19,10 @@ Repository = "https://gitlab.com/thelabnyc/fluentcron"
 
 [dependency-groups]
 dev = [
-    "mypy (>=1.19.1)",
-    "ruff (>=0.15.0)",
-    "coverage (>=7.13.3)",
-    "tox (>=4.34.1)",
+    "mypy (>=2.4.0)",
+    "ruff (>=0.17.3)",
+    "coverage (>=7.17.0)",
+    "tox (>=4.67.2)",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -41,7 +41,7 @@ from_first = true
 from-first = true
 
 [tool.mypy]
-python_version = "3.13"
+python_version = "3.14"
 plugins = []
 
 # Strict mode, see mypy --help

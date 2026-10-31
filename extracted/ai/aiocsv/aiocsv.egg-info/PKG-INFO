@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiocsv
-Version: 1.4.1
+Version: 1.4.2
 Author-email: Mikołaj Kuranowski <mkuranowski+pypackages@gmail.com>
 Project-URL: Homepage, https://github.com/MKuranowski/aiocsv
 Keywords: async,asynchronous,csv,tsv
@@ -8,7 +8,7 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Framework :: AsyncIO
 Classifier: Programming Language :: Python :: 3 :: Only
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: typing_extensions
@@ -21,7 +21,7 @@ Asynchronous CSV reading and writing.
 
 ## Installation
 
-`pip install aiocsv`. Python 3.10+ is required.
+`pip install aiocsv`. Python 3.11+ is required.
 
 This module contains an extension written in C. Pre-build binaries
 may not be available for your configuration. You might need a C compiler

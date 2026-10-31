@@ -104,8 +104,9 @@ class OCIObjectStorageBackend:
             logger.debug('OSS Object {} uploaded to bucket {} - Size: {}'.format(
                 key, bucket_name, sizeof_fmt(len(data))))
         except oci.exceptions.ServiceError as e:
-            logger.debug("ServiceError in put_object: %s", str(e))
-            raise StorageNoSuchKeyError(bucket_name, key)
+            if e.status == 404:
+                raise StorageNoSuchKeyError(bucket_name, key)
+            raise
 
     def get_object(self, bucket_name, key, stream=False, extra_get_args={}):
         '''
@@ -255,20 +256,26 @@ class OCIObjectStorageBackend:
         :return: A list of dictionaries containing the keys and sizes of the objects that match the given
             prefix and match pattern
         :rtype: list of dict
-        :raises StorageNoSuchKeyError: If the specified bucket does not exist or there is a service error
+        :raises StorageNoSuchKeyError: If the specified bucket does not exist
         '''
         prefix = '' if prefix is None else prefix
         try:
-            res = self.os_client.list_objects(
-                self.namespace, bucket_name, prefix=prefix, limit=1000, fields="name,size"
-            )
-            obj_list = [{'Key': obj.name, 'Size': obj.size} for obj in res.data.objects]
-
-            return obj_list
+            obj_list = []
+            next_start = None
+            while True:
+                res = self.os_client.list_objects(
+                    self.namespace, bucket_name, prefix=prefix, start=next_start,
+                    limit=1000, fields="name,size"
+                )
+                obj_list.extend({'Key': obj.name, 'Size': obj.size} for obj in res.data.objects)
+                if res.data.next_start_with is None:
+                    return obj_list
+                next_start = res.data.next_start_with
 
         except oci.exceptions.ServiceError as e:
-            logger.debug("ServiceError in list_objects: %s", str(e))
-            raise StorageNoSuchKeyError(bucket_name, prefix)
+            if e.status == 404:
+                raise StorageNoSuchKeyError(bucket_name, prefix)
+            raise
 
     def list_keys(self, bucket_name, prefix=None):
         '''

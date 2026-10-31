@@ -7,14 +7,25 @@ from nornir.core.task import AggregatedResult, Task
 
 
 class SerialRunner:
-    """
-    SerialRunner runs the task over each host one after the other without any parellelization
-    """
+    """Runner that executes the task over each host sequentially without parallelization."""
 
     def __init__(self) -> None:
         pass
 
     def run(self, task: Task, hosts: list[Host]) -> AggregatedResult:
+        """Run the task against each host, one after the other.
+
+        A host whose task raises does not stop the ones after it: the exception is
+        recorded in that host's result instead of propagating.
+
+        Arguments:
+            task: Task to run. Each host gets its own copy of it
+            hosts: Hosts to run the task against
+
+        Returns:
+            :obj:`nornir.core.task.AggregatedResult`: The results, keyed by host name.
+
+        """
         result = AggregatedResult(task.name)
         for host in hosts:
             result[host.name] = task.copy().start(host)
@@ -22,17 +33,31 @@ class SerialRunner:
 
 
 class ThreadedRunner:
-    """
-    ThreadedRunner runs the task over each host using threads
+    """Runner that executes the task over each host using threads.
 
     Arguments:
         num_workers: number of threads to use
+
     """
 
     def __init__(self, num_workers: int = 20) -> None:
         self.num_workers = num_workers
 
     def run(self, task: Task, hosts: list[Host]) -> AggregatedResult:
+        """Run the task against the hosts, ``num_workers`` of them at a time.
+
+        The call returns once every host is done. A host whose task raises does not
+        affect the others: the exception is recorded in that host's result instead of
+        propagating.
+
+        Arguments:
+            task: Task to run. Each host gets its own copy of it
+            hosts: Hosts to run the task against
+
+        Returns:
+            :obj:`nornir.core.task.AggregatedResult`: The results, keyed by host name.
+
+        """
         result = AggregatedResult(task.name)
         futures = []
         with ThreadPoolExecutor(self.num_workers) as pool:

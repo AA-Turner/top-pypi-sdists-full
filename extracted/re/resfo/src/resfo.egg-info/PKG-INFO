@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: resfo
-Version: 5.0.1
+Version: 5.0.2
 Summary: A (lazy) parser and writer for reservoir simulator fortran output format.
 Author-email: Equinor <fg_sib-scout@equinor.com>
 Maintainer-email: Eivind Jahren <ejah@equinor.com>

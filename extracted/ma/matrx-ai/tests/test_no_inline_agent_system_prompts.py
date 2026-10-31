@@ -42,13 +42,10 @@ ALLOWLIST = {
 #: Known inline prompts still in the package. THIS LIST ONLY SHRINKS — each row
 #: is a D20 conversion item: the prompt belongs on a builtin agent behind a
 #: Mandate, so an admin can read it, version it and rebind it.
-#: ``graph_nodes/extract_action.py`` — the extraction analyzer instruction,
-#: invisible to this guard until 2026-09-11 because it carries no
-#: ``system_instruction`` token. Its runtime call is now held by
-#: ``workflow.step_intelligence``; the PROMPT still has to move.
-PENDING_CONVERSION = {
-    Path("graph_nodes/extract_action.py"),
-}
+#: (``graph_nodes/extract_action.py``'s extraction-analyzer prompt left this list
+#: on 2026-10-29: Extract with AI was folded into Ask AI, whose system channel is
+#: only ever the author's own ``system_instruction``.)
+PENDING_CONVERSION: set[Path] = set()
 
 _AUTHORED = (ast.Constant, ast.JoinedStr)
 

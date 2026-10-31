@@ -31,13 +31,11 @@ class GroupSuggestionKind(object):
     CLUSTER = "cluster"
     MERGE_SAME_MEMBERS = "merge_same_members"
     MERGE_SAME_BINDINGS = "merge_same_bindings"
-    REDUNDANT_DIRECT = "redundant_direct"
-    COVERED_BY_BROADER = "covered_by_broader"
     ADD_TO_GROUP = "add_to_group"
     EMPTY_GROUP = "empty_group"
     SINGLE_MEMBER_GROUP = "single_member_group"
 
-    allowable_values = [CLUSTER, MERGE_SAME_MEMBERS, MERGE_SAME_BINDINGS, REDUNDANT_DIRECT, COVERED_BY_BROADER, ADD_TO_GROUP, EMPTY_GROUP, SINGLE_MEMBER_GROUP]  # noqa: E501
+    allowable_values = [CLUSTER, MERGE_SAME_MEMBERS, MERGE_SAME_BINDINGS, ADD_TO_GROUP, EMPTY_GROUP, SINGLE_MEMBER_GROUP]  # noqa: E501
 
     """
     Attributes:

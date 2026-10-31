@@ -108,8 +108,27 @@ cdef extern from "<symengine/basic.h>" namespace "SymEngine":
     ctypedef map[RCP[Integer], unsigned] map_integer_uint "SymEngine::map_integer_uint"
     cdef struct RCPIntegerKeyLess
     cdef struct RCPBasicKeyLess
-    ctypedef set[rcp_const_basic] set_basic "SymEngine::set_basic"
-    ctypedef multiset[rcp_const_basic] multiset_basic "SymEngine::multiset_basic"
+    cdef cppclass set_basic "SymEngine::set_basic":
+        cppclass iterator:
+            rcp_const_basic& operator*()
+            iterator operator++() nogil
+            iterator operator--() nogil
+            bint operator==(iterator) nogil
+            bint operator!=(iterator) nogil
+        iterator begin() nogil
+        iterator end() nogil
+        iterator insert(rcp_const_basic&) nogil
+
+    cdef cppclass multiset_basic "SymEngine::multiset_basic":
+        cppclass iterator:
+            rcp_const_basic& operator*()
+            iterator operator++() nogil
+            iterator operator--() nogil
+            bint operator==(iterator) nogil
+            bint operator!=(iterator) nogil
+        iterator begin() nogil
+        iterator end() nogil
+        iterator insert(rcp_const_basic&) nogil
 
     cdef cppclass Basic:
         string __str__() nogil except +
@@ -133,6 +152,7 @@ cdef extern from "<symengine/basic.h>" namespace "SymEngine":
     RCP[const Rational] rcp_static_cast_Rational "SymEngine::rcp_static_cast<const SymEngine::Rational>"(rcp_const_basic &b) nogil
     RCP[const Complex] rcp_static_cast_Complex "SymEngine::rcp_static_cast<const SymEngine::Complex>"(rcp_const_basic &b) nogil
     RCP[const Number] rcp_static_cast_Number "SymEngine::rcp_static_cast<const SymEngine::Number>"(rcp_const_basic &b) nogil
+    RCP[const Dummy] rcp_static_cast_Dummy "SymEngine::rcp_static_cast<const SymEngine::Dummy>"(rcp_const_basic &b) nogil
     RCP[const Add] rcp_static_cast_Add "SymEngine::rcp_static_cast<const SymEngine::Add>"(rcp_const_basic &b) nogil
     RCP[const Mul] rcp_static_cast_Mul "SymEngine::rcp_static_cast<const SymEngine::Mul>"(rcp_const_basic &b) nogil
     RCP[const Pow] rcp_static_cast_Pow "SymEngine::rcp_static_cast<const SymEngine::Pow>"(rcp_const_basic &b) nogil
@@ -180,7 +200,7 @@ cdef extern from "<symengine/symbol.h>" namespace "SymEngine":
         Symbol(string name) nogil
         string get_name() nogil
     cdef cppclass Dummy(Symbol):
-        pass
+        size_t get_index()
 
 cdef extern from "<symengine/number.h>" namespace "SymEngine":
     cdef cppclass Number(Basic):
@@ -322,6 +342,7 @@ cdef extern from "<symengine/basic.h>" namespace "SymEngine":
     rcp_const_basic make_rcp_Symbol "SymEngine::make_rcp<const SymEngine::Symbol>"(string name) nogil
     rcp_const_basic make_rcp_Dummy "SymEngine::make_rcp<const SymEngine::Dummy>"() nogil
     rcp_const_basic make_rcp_Dummy "SymEngine::make_rcp<const SymEngine::Dummy>"(string name) nogil
+    rcp_const_basic make_rcp_Dummy "SymEngine::make_rcp<const SymEngine::Dummy>"(string &name, size_t index) nogil
     rcp_const_basic make_rcp_PySymbol "SymEngine::make_rcp<const SymEngine::PySymbol>"(string name, PyObject * pyobj, bool use_pickle) except +
     rcp_const_basic make_rcp_Constant "SymEngine::make_rcp<const SymEngine::Constant>"(string name) nogil
     rcp_const_basic make_rcp_Infty "SymEngine::make_rcp<const SymEngine::Infty>"(RCP[const Number] i) nogil
@@ -769,6 +790,7 @@ cdef extern from "<symengine/prime_sieve.h>" namespace "SymEngine":
         unsigned next_prime() nogil
 
 cdef extern from "<symengine/visitor.h>" namespace "SymEngine":
+    bool has_basic(const Basic &b, const Basic &x) nogil except +
     bool has_symbol(const Basic &b, const Basic &x) nogil except +
     rcp_const_basic coeff(const Basic &b, const Basic &x, const Basic &n) nogil except +
     set_basic free_symbols(const Basic &b) nogil except +

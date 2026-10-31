@@ -138,7 +138,7 @@ class ViewRenderedGrid(ViewWinTkTable.ViewTkTable):
         self.options = self.modelXbrl.modelManager.cntlr.config.setdefault("viewRenderedGridOptions", {})  # type: ignore[union-attr]
         self.openBreakdownLines = self.options.setdefault("openBreakdownLines", 5) # ensure there is a default entry
         self.ignoreDimValidity = BooleanVar(value=self.options.setdefault("ignoreDimValidity", True))
-        formulaEvaluatorInit()  # type: ignore[no-untyped-call] # one-time module initialization
+        formulaEvaluatorInit()  # one-time module initialization
         self.conceptMessageIssued = False
         self.tblMenuEntries: dict[str, str] = {}
 
@@ -214,7 +214,7 @@ class ViewRenderedGrid(ViewWinTkTable.ViewTkTable):
         # remove old widgets
         self.viewFrame.clearGrid()
 
-        layoutTable(self)  # type: ignore[no-untyped-call]
+        layoutTable(self)
 
         lytMdlTblMdl = self.lytMdlTblMdl  # type: ignore[attr-defined]
         if len(lytMdlTblMdl.lytMdlTableSets) == 0 or len(lytMdlTblMdl.lytMdlTableSets[0].lytMdlTables) == 0:

@@ -81,6 +81,9 @@ class DecisionQuestion(KindSubModel):
     #: ``score``  → an ORDERED list of 2–10 level descriptions.
     #: ``noul``   → optional clarifying text under the keys ``true``/``false``.
     criteria: dict[str, str] | list[str] | None = None
+    #: What the author wants the decision to take into account (optional). A typed field, never
+    #: appended to ``instructions`` by a caller: every renderer shows it via :meth:`rendered_instructions`.
+    guidance: str | None = None
     #: The author's hint to the consumer, never a gate this code applies.
     suggested_threshold: float | None = Field(default=None, ge=0.0, le=1.0)
 
@@ -129,6 +132,13 @@ class DecisionQuestion(KindSubModel):
                     f"got {sorted(unknown)}."
                 )
         return self
+
+    def rendered_instructions(self) -> str:
+        """The instruction a model reads: the question, then the author's guidance when given."""
+        guidance = (self.guidance or "").strip()
+        if not guidance:
+            return self.instructions
+        return f"{self.instructions}\n\nTake into account: {guidance}"
 
     def score_levels(self) -> list[str]:
         """The ordered level descriptions of a score question (``[]`` otherwise)."""

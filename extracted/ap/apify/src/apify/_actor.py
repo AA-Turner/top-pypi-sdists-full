@@ -5,9 +5,10 @@ import json
 import math
 import sys
 import warnings
+from contextlib import AsyncExitStack, ExitStack
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
-from functools import cached_property
+from functools import cached_property, partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast, overload
 
@@ -21,6 +22,7 @@ from crawlee.errors import ServiceConflictError
 from crawlee.events import (
     Event,
     EventAbortingData,
+    EventCrawlerStatusData,
     EventExitData,
     EventListener,
     EventMigratingData,
@@ -35,8 +37,15 @@ from apify._charging import (
     ChargingManagerImplementation,
     charge_lock_if_charging,
 )
+from apify._child_runs import ChildRunRegistry
 from apify._configuration import Configuration
-from apify._consts import EVENT_LISTENERS_TIMEOUT, EXIT_CODE_ERROR_USER_FUNCTION_THREW, ActorEnvVars, ApifyEnvVars
+from apify._consts import (
+    EVENT_LISTENERS_TIMEOUT,
+    EXIT_CODE_ERROR_USER_FUNCTION_THREW,
+    STATUS_MESSAGE_UPDATE_TIMEOUT,
+    ActorEnvVars,
+    ApifyEnvVars,
+)
 from apify._crypto import decrypt_input_secrets, load_private_key
 from apify._proxy_configuration import ProxyConfiguration
 from apify._utils import docs_group, docs_name, ensure_context, get_system_info, is_running_in_ipython
@@ -49,13 +58,14 @@ from apify.storages import Dataset, KeyValueStore, RequestQueue
 
 if TYPE_CHECKING:
     import logging
-    from collections.abc import Callable, MutableMapping
+    from collections.abc import Awaitable, Callable, MutableMapping
     from decimal import Decimal
     from types import TracebackType
     from typing import Self
 
     from apify_client._literals import ActorPermissionLevel
     from apify_client._models import Run
+    from apify_client._resource_clients import RunClientAsync
     from crawlee._types import JsonSerializable
     from crawlee.proxy_configuration import _NewUrlFunction
 
@@ -64,6 +74,16 @@ if TYPE_CHECKING:
 MainReturnType = TypeVar('MainReturnType')
 
 _ensure_context = ensure_context('_active')
+
+
+def _warn_max_items_deprecated() -> None:
+    warnings.warn(
+        '`max_items` is deprecated and will be removed in version 5.0.0. It works only with legacy pay-per-result '
+        'Actors. Use `max_total_charge_usd` instead.',
+        FutureWarning,
+        # This helper, the SDK method, and its `ensure_context` wrapper sit between the warning and the caller.
+        stacklevel=4,
+    )
 
 
 @docs_name('Actor')
@@ -151,6 +171,11 @@ class _ActorType:
         # Keep track of all used state stores to persist their values on exit
         self._use_state_stores: set[str | None] = set()
 
+        self._child_run_registry = ChildRunRegistry(self.open_key_value_store)
+
+        self._internal_listeners = ExitStack()
+        """Removes the listeners the Actor registered on the event manager, when the Actor leaves its context."""
+
         self._active = False
         """Whether the Actor instance is currently active (initialized and within context)."""
 
@@ -160,6 +185,9 @@ class _ActorType:
         self._is_exiting = False
         """Whether the Actor is currently exiting."""
 
+        self._status_message_lock = asyncio.Lock()
+        """Serializes forwarded crawler status messages with the terminal status message."""
+
     async def __aenter__(self) -> Self:
         """Enter the Actor context.
 
@@ -168,6 +196,8 @@ class _ActorType:
         - Sets up local or cloud storage clients depending on whether the Actor runs locally or on the Apify platform.
         - Configures the event manager and starts periodic state persistence.
         - Initializes the charging manager for handling charging events.
+        - Loads the named child runs recorded by an earlier attempt of this Actor run.
+        - On the Apify platform, forwards the status messages of Crawlee crawlers to the run status message.
         - Configures logging after all core services are registered.
 
         This method must be called exactly once per Actor instance. Re-initializing an Actor or having multiple
@@ -195,30 +225,51 @@ class _ActorType:
         # Update the global Actor proxy to refer to this instance.
         cast('Proxy', Actor).__wrapped__ = self  # ty: ignore[invalid-assignment]
         self._is_exiting = False
+        self._status_message_lock = asyncio.Lock()
 
         # Initialize the storage client and register it in the service locator.
         _ = self._storage_client
         self.log.debug('Storage client initialized')
 
-        # Initialize the event manager and register it in the service locator.
-        await self.event_manager.__aenter__()
-        self.log.debug('Event manager initialized')
+        # Undoes the initialization if it fails, since a failed `__aenter__` gets no `__aexit__`.
+        async with AsyncExitStack() as rollback:
+            # Initialize the event manager and register it in the service locator.
+            await self.event_manager.__aenter__()
+            rollback.push_async_callback(self.event_manager.__aexit__, None, None, None)
+            # Only the platform emits `ABORTING`, and it does so through `ApifyEventManager`.
+            if isinstance(self.event_manager, ApifyEventManager):
+                remove_listener = self.event_manager._on_internal(  # noqa: SLF001
+                    event=Event.ABORTING, listener=self._abort_child_runs
+                )
+                self._internal_listeners.callback(remove_listener)
+            rollback.callback(self._internal_listeners.close)
+            self.log.debug('Event manager initialized')
 
-        # Initialize the charging manager.
-        try:
+            # Initialize the charging manager.
             await self._charging_manager_implementation.__aenter__()
-        except BaseException:
-            # Exit the already-entered event manager so its recurring tasks do not leak.
-            await self.event_manager.__aexit__(None, None, None)
-            raise
-        self.log.debug('Charging manager initialized')
+            rollback.push_async_callback(self._charging_manager_implementation.__aexit__, None, None, None)
+            self.log.debug('Charging manager initialized')
 
-        # Mark initialization as complete and update global state.
-        self._active = True
+            # Mark initialization as complete and update global state.
+            self._active = True
 
-        if not Actor.is_at_home():
-            # Make sure that the input related KVS is initialized to ensure that the input aware client is used
-            await self.open_key_value_store()
+            def deactivate() -> None:
+                self._active = False
+
+            rollback.callback(deactivate)
+
+            if not Actor.is_at_home():
+                # Make sure that the input related KVS is initialized to ensure that the input aware client is used
+                await self.open_key_value_store()
+
+            await self._child_run_registry.load()
+
+            # The Actor context now owns everything entered above, and `__aexit__` leaves it.
+            rollback.pop_all()
+
+        if self.is_at_home():
+            self.event_manager.on(event=Event.CRAWLER_STATUS, listener=self._forward_crawler_status)
+
         return self
 
     async def __aexit__(
@@ -235,6 +286,7 @@ class _ActorType:
         so interrupt and cancellation semantics are preserved. Otherwise, the Actor exits cleanly. In every
         case the Actor:
 
+        - Stops forwarding crawler status messages to the run status message.
         - Cancels periodic `PERSIST_STATE` events.
         - Sends a final `PERSIST_STATE` event.
         - Waits for all event listeners to finish.
@@ -266,10 +318,14 @@ class _ActorType:
         self._is_exiting = True
         self.log.info('Exiting Actor', extra={'exit_code': self.exit_code})
 
+        # Stop forwarding crawler status messages, so that none of them overwrites the terminal one.
+        self.event_manager.off(event=Event.CRAWLER_STATUS, listener=self._forward_crawler_status)
+
         async def finalize() -> None:
             if self.status_message is not None:
                 try:
-                    await self.set_status_message(self.status_message, is_terminal=True)
+                    async with self._status_message_lock:
+                        await self.set_status_message(self.status_message, is_terminal=True)
                 except Exception:
                     self.log.exception('Failed to set terminal status message')
 
@@ -300,6 +356,7 @@ class _ActorType:
         except TimeoutError:
             self.log.exception('Actor cleanup timed out')
         finally:
+            self._internal_listeners.close()
             self._active = False
 
         if reraise_control_flow:
@@ -369,6 +426,24 @@ class _ActorType:
         if not self._apify_client:
             self._apify_client = self.new_client()
         return self._apify_client
+
+    @property
+    @_ensure_context
+    def child_runs(self) -> dict[str, RunClientAsync]:
+        """Clients for the named child runs of this Actor run, keyed by the run name.
+
+        Every run started by `Actor.start`, `Actor.call`, `Actor.start_task` or `Actor.call_task` with a `run_name` is
+        included, even one started before a migration or resurrection of this Actor run. Runs started without a
+        `run_name` are not tracked. Each client points to the current run under its name:
+
+        ```python
+        run = await Actor.child_runs['my-child'].wait_for_finish()
+        ```
+
+        A run started or reattached with a custom `token` since the last migration or resurrection of this Actor run
+        uses that token. Any other run uses the default client.
+        """
+        return self._child_run_registry.run_clients(self.apify_client)
 
     @cached_property
     def configuration(self) -> Configuration:
@@ -808,6 +883,9 @@ class _ActorType:
 
         This is relevant only for the pay-per-event pricing model.
 
+        When `count` exceeds the remaining budget, the events that fit are charged plus one more, so that the platform
+        detects the exhausted budget and terminates the run. A run already strictly over budget charges nothing.
+
         Args:
             event_name: Name of the event to be charged for.
             count: Number of events to charge for.
@@ -943,6 +1021,8 @@ class _ActorType:
         timeout: timedelta | Literal['inherit'] | None = None,
         force_permission_level: ActorPermissionLevel | None = None,
         webhooks: list[Webhook] | None = None,
+        run_name: str | None = None,
+        abort_with_parent: bool = False,
     ) -> Run:
         """Run an Actor on the Apify platform.
 
@@ -956,9 +1036,10 @@ class _ActorType:
             content_type: The content type of the input.
             build: Specifies the Actor build to run. It can be either a build tag or build number. By default,
                 the run uses the build specified in the default run configuration for the Actor (typically latest).
-            max_items: Maximum number of dataset items you are charged for, for pay-per-result Actors. It caps the
-                charge, not the output, so the run can return fewer or more items than this.
-            max_total_charge_usd: A limit on the total charged amount for pay-per-event Actors.
+            max_items: Deprecated, use `max_total_charge_usd` instead. Will be removed in version 5.0.0. Works only with
+                legacy pay-per-result Actors.
+            max_total_charge_usd: A limit on the total charged amount, in USD. Once the run exceeds it, the platform
+                aborts the run, which takes a few seconds, so the final charge can slightly overshoot the limit.
             restart_on_error: If true, the Actor run process will be restarted whenever it exits with
                 a non-zero status code.
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
@@ -971,14 +1052,32 @@ class _ActorType:
             webhooks: Optional ad-hoc webhooks (https://docs.apify.com/webhooks/ad-hoc-webhooks) associated with
                 the Actor run which can be used to receive a notification, e.g. when the Actor finished or failed.
                 If you already have a webhook set up for the Actor or task, you do not have to add it again here.
+            run_name: Optional name of the child run, unique within this Actor run. A named run is recorded in the
+                default key-value store, so after a migration or resurrection of this Actor the same call reattaches
+                to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
+                resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
+                run `FAILED` or no longer exists. Using `run_name` to attach to a run of a different Actor, task or
+                with a different input raises a `ValueError`.
+            abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
+                aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
+                call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
+                starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this Actor run leaves
+                the child running.
 
         Returns:
             Info about the started Actor run
         """
+        if abort_with_parent and run_name is None:
+            raise ValueError('`abort_with_parent` requires `run_name`, since only named child runs are tracked.')
+
+        if max_items is not None:
+            _warn_max_items_deprecated()
+
         client = self.new_client(token=token) if token else self.apify_client
 
         actor_client = client.actor(actor_id)
-        return await actor_client.start(
+        start_run = partial(
+            actor_client.start,
             run_input=run_input,
             content_type=content_type,
             build=build,
@@ -990,6 +1089,25 @@ class _ActorType:
             force_permission_level=force_permission_level,
             webhooks=to_client_representations(webhooks),
         )
+
+        if run_name is None:
+            return await start_run()
+
+        run, _ = await self._find_or_start_child_run(
+            run_name,
+            actor_id=actor_id,
+            run_input=run_input,
+            client=client,
+            start_run=start_run,
+            build=build,
+            max_items=max_items,
+            max_total_charge_usd=max_total_charge_usd,
+            restart_on_error=restart_on_error,
+            memory_mbytes=memory_mbytes,
+            timeout=timeout,
+            abort_with_parent=abort_with_parent,
+        )
+        return run
 
     @_ensure_context
     async def abort(
@@ -1056,16 +1174,22 @@ class _ActorType:
             timeout: New timeout for the resurrected run. By default, the resurrected run uses the same timeout as
                 before. Using `inherit` will set timeout of the resurrected run to the time remaining from this Actor
                 timeout.
-            max_items: Maximum number of items that the resurrected pay-per-result run will return. By default, the
-                resurrected run uses the same limit as before. The limit can only be increased.
-            max_total_charge_usd: Maximum cost for the resurrected pay-per-event run in USD. By default, the resurrected
-                run uses the same limit as before. The limit can only be increased.
+            max_items: Deprecated, use `max_total_charge_usd` instead. Will be removed in version 5.0.0. Works only with
+                legacy pay-per-result Actors. By default, the resurrected run uses the same limit as before. The limit
+                can only be increased.
+            max_total_charge_usd: A limit on the total charged amount of the resurrected run, in USD. Once the run
+                exceeds it, the platform aborts the run, which takes a few seconds, so the final charge can slightly
+                overshoot the limit. By default, the resurrected run uses the same limit as before. The limit can only
+                be increased.
             restart_on_error: If true, the resurrected run process will be restarted whenever it exits with a non-zero
                 status code. By default, the resurrected run uses the same setting as before.
 
         Returns:
             Info about the resurrected Actor run.
         """
+        if max_items is not None:
+            _warn_max_items_deprecated()
+
         client = self.new_client(token=token) if token else self.apify_client
 
         return await client.run(run_id).resurrect(
@@ -1095,6 +1219,8 @@ class _ActorType:
         webhooks: list[Webhook] | None = None,
         wait: timedelta | None = None,
         logger: logging.Logger | Literal['default'] | None = 'default',
+        run_name: str | None = None,
+        abort_with_parent: bool = False,
     ) -> Run:
         """Start an Actor on the Apify Platform and wait for it to finish before returning.
 
@@ -1107,9 +1233,10 @@ class _ActorType:
             content_type: The content type of the input.
             build: Specifies the Actor build to run. It can be either a build tag or build number. By default,
                 the run uses the build specified in the default run configuration for the Actor (typically latest).
-            max_items: Maximum number of dataset items you are charged for, for pay-per-result Actors. It caps the
-                charge, not the output, so the run can return fewer or more items than this.
-            max_total_charge_usd: A limit on the total charged amount for pay-per-event Actors.
+            max_items: Deprecated, use `max_total_charge_usd` instead. Will be removed in version 5.0.0. Works only with
+                legacy pay-per-result Actors.
+            max_total_charge_usd: A limit on the total charged amount, in USD. Once the run exceeds it, the platform
+                aborts the run, which takes a few seconds, so the final charge can slightly overshoot the limit.
             restart_on_error: If true, the Actor run process will be restarted whenever it exits with
                 a non-zero status code.
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
@@ -1126,32 +1253,147 @@ class _ActorType:
             logger: Logger used to redirect logs from the Actor run. Using "default" literal means that a predefined
                 default logger will be used. Setting `None` will disable any log propagation. Passing custom logger
                 will redirect logs to the provided logger.
+            run_name: Optional name of the child run, unique within this Actor run. A named run is recorded in the
+                default key-value store, so after a migration or resurrection of this Actor the same call reattaches
+                to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
+                resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
+                run `FAILED` or no longer exists. Using `run_name` to attach to a run of a different Actor, task or
+                with a different input raises a `ValueError`.
+            abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
+                aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
+                call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
+                starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this Actor run leaves
+                the child running.
 
         Returns:
             Info about the started Actor run.
         """
+        if abort_with_parent and run_name is None:
+            raise ValueError('`abort_with_parent` requires `run_name`, since only named child runs are tracked.')
+
+        if max_items is not None:
+            _warn_max_items_deprecated()
+
         client = self.new_client(token=token) if token else self.apify_client
 
         actor_client = client.actor(actor_id)
-        run = await actor_client.call(
-            run_input=run_input,
-            content_type=content_type,
-            build=build,
-            max_items=max_items,
-            max_total_charge_usd=max_total_charge_usd,
-            restart_on_error=restart_on_error,
-            memory_mbytes=memory_mbytes,
-            run_timeout=self._resolve_run_timeout(timeout),
-            force_permission_level=force_permission_level,
-            webhooks=to_client_representations(webhooks),
-            wait_duration=wait,
-            logger=logger,
-        )
+
+        if run_name is None:
+            run = await actor_client.call(
+                run_input=run_input,
+                content_type=content_type,
+                build=build,
+                max_items=max_items,
+                max_total_charge_usd=max_total_charge_usd,
+                restart_on_error=restart_on_error,
+                memory_mbytes=memory_mbytes,
+                run_timeout=self._resolve_run_timeout(timeout),
+                force_permission_level=force_permission_level,
+                webhooks=to_client_representations(webhooks),
+                wait_duration=wait,
+                logger=logger,
+            )
+        else:
+            started_run, is_new = await self._find_or_start_child_run(
+                run_name,
+                actor_id=actor_id,
+                run_input=run_input,
+                client=client,
+                start_run=partial(
+                    actor_client.start,
+                    run_input=run_input,
+                    content_type=content_type,
+                    build=build,
+                    max_items=max_items,
+                    max_total_charge_usd=max_total_charge_usd,
+                    restart_on_error=restart_on_error,
+                    memory_mbytes=memory_mbytes,
+                    run_timeout=self._resolve_run_timeout(timeout),
+                    force_permission_level=force_permission_level,
+                    webhooks=to_client_representations(webhooks),
+                ),
+                build=build,
+                max_items=max_items,
+                max_total_charge_usd=max_total_charge_usd,
+                restart_on_error=restart_on_error,
+                memory_mbytes=memory_mbytes,
+                timeout=timeout,
+                abort_with_parent=abort_with_parent,
+            )
+            # The earlier attempt of this call already streamed the log of a reattached or resurrected run.
+            run = await self._wait_for_child_run(
+                run_name, client.run(started_run.id), started_run, wait=wait, logger=logger, from_start=is_new
+            )
 
         if run is None:
             raise RuntimeError(f'Failed to call Actor with ID "{actor_id}".')
 
         return run
+
+    async def _find_or_start_child_run(
+        self,
+        name: str,
+        *,
+        actor_id: str | None = None,
+        task_id: str | None = None,
+        run_input: Any,
+        client: ApifyClientAsync,
+        start_run: Callable[[], Awaitable[Run]],
+        build: str | None,
+        max_items: int | None,
+        max_total_charge_usd: Decimal | None,
+        restart_on_error: bool | None,
+        memory_mbytes: int | None,
+        timeout: timedelta | Literal['inherit'] | None,
+        abort_with_parent: bool,
+    ) -> tuple[Run, bool]:
+        return await self._child_run_registry.find_or_start(
+            name,
+            actor_id=actor_id,
+            task_id=task_id,
+            run_input=run_input,
+            client=client,
+            start_run=start_run,
+            resurrect_run=lambda run_id: client.run(run_id).resurrect(
+                build=build,
+                memory_mbytes=memory_mbytes,
+                run_timeout=self._resolve_run_timeout(timeout),
+                max_items=max_items,
+                max_total_charge_usd=max_total_charge_usd,
+                restart_on_error=restart_on_error,
+            ),
+            abort_with_parent=abort_with_parent,
+        )
+
+    async def _abort_child_runs(self) -> None:
+        await self._child_run_registry.abort_runs_with_parent(self.apify_client)
+
+    async def _wait_for_child_run(
+        self,
+        name: str,
+        run_client: RunClientAsync,
+        run: Run,
+        *,
+        wait: timedelta | None,
+        logger: logging.Logger | Literal['default'] | None,
+        from_start: bool,
+    ) -> Run | None:
+        if run.status == 'SUCCEEDED':
+            return run
+
+        if not logger:
+            finished_run = await run_client.wait_for_finish(wait_duration=wait)
+        else:
+            to_logger = None if logger == 'default' else logger
+            status_redirector = await run_client.get_status_message_watcher(to_logger=to_logger)
+            streamed_log = await run_client.get_streamed_log(to_logger=to_logger, from_start=from_start)
+
+            async with status_redirector, streamed_log:
+                finished_run = await run_client.wait_for_finish(wait_duration=wait)
+
+        if finished_run is not None:
+            await self._child_run_registry.update(name, finished_run)
+        return finished_run
 
     @_ensure_context
     async def start_task(
@@ -1161,11 +1403,14 @@ class _ActorType:
         *,
         build: str | None = None,
         max_items: int | None = None,
+        max_total_charge_usd: Decimal | None = None,
         restart_on_error: bool | None = None,
         memory_mbytes: int | None = None,
         timeout: timedelta | Literal['inherit'] | None = None,
         webhooks: list[Webhook] | None = None,
         token: str | None = None,
+        run_name: str | None = None,
+        abort_with_parent: bool = False,
     ) -> Run:
         """Start an Actor task on the Apify Platform.
 
@@ -1181,8 +1426,10 @@ class _ActorType:
             token: The Apify API token to use for this request (defaults to the `APIFY_TOKEN` environment variable).
             build: Specifies the Actor build to run. It can be either a build tag or build number. By default,
                 the run uses the build specified in the default run configuration for the Actor (typically latest).
-            max_items: Maximum number of dataset items you are charged for, for pay-per-result Actors. It caps the
-                charge, not the output, so the run can return fewer or more items than this.
+            max_items: Deprecated, use `max_total_charge_usd` instead. Will be removed in version 5.0.0. Works only with
+                legacy pay-per-result Actors.
+            max_total_charge_usd: A limit on the total charged amount, in USD. Once the run exceeds it, the platform
+                aborts the run, which takes a few seconds, so the final charge can slightly overshoot the limit.
             restart_on_error: If true, the Task run process will be restarted whenever it exits with
                 a non-zero status code.
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
@@ -1193,21 +1440,59 @@ class _ActorType:
             webhooks: Optional webhooks (https://docs.apify.com/webhooks) associated with the Actor run, which can
                 be used to receive a notification, e.g. when the Actor finished or failed. If you already have
                 a webhook set up for the Actor, you do not have to add it again here.
+            run_name: Optional name of the child run, unique within this Actor run. A named run is recorded in the
+                default key-value store, so after a migration or resurrection of this Actor the same call reattaches
+                to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
+                resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
+                run `FAILED` or no longer exists. Using `run_name` to attach to a run of a different Actor, task or
+                with a different input raises a `ValueError`.
+            abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
+                aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
+                call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
+                starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this Actor run leaves
+                the child running.
 
         Returns:
             Info about the started Actor run.
         """
+        if abort_with_parent and run_name is None:
+            raise ValueError('`abort_with_parent` requires `run_name`, since only named child runs are tracked.')
+
+        if max_items is not None:
+            _warn_max_items_deprecated()
+
         client = self.new_client(token=token) if token else self.apify_client
         task_client = client.task(task_id)
-        return await task_client.start(
+        start_run = partial(
+            task_client.start,
             task_input=task_input,
             build=build,
             max_items=max_items,
+            max_total_charge_usd=max_total_charge_usd,
             restart_on_error=restart_on_error,
             memory_mbytes=memory_mbytes,
             run_timeout=self._resolve_run_timeout(timeout),
             webhooks=to_client_representations(webhooks),
         )
+
+        if run_name is None:
+            return await start_run()
+
+        run, _ = await self._find_or_start_child_run(
+            run_name,
+            task_id=task_id,
+            run_input=task_input,
+            client=client,
+            start_run=start_run,
+            build=build,
+            max_items=max_items,
+            max_total_charge_usd=max_total_charge_usd,
+            restart_on_error=restart_on_error,
+            memory_mbytes=memory_mbytes,
+            timeout=timeout,
+            abort_with_parent=abort_with_parent,
+        )
+        return run
 
     @_ensure_context
     async def call_task(
@@ -1217,12 +1502,15 @@ class _ActorType:
         *,
         build: str | None = None,
         max_items: int | None = None,
+        max_total_charge_usd: Decimal | None = None,
         restart_on_error: bool | None = None,
         memory_mbytes: int | None = None,
         timeout: timedelta | Literal['inherit'] | None = None,
         webhooks: list[Webhook] | None = None,
         wait: timedelta | None = None,
         token: str | None = None,
+        run_name: str | None = None,
+        abort_with_parent: bool = False,
     ) -> Run:
         """Start an Actor task on the Apify Platform and wait for it to finish before returning.
 
@@ -1237,8 +1525,10 @@ class _ActorType:
             token: The Apify API token to use for this request (defaults to the `APIFY_TOKEN` environment variable).
             build: Specifies the Actor build to run. It can be either a build tag or build number. By default,
                 the run uses the build specified in the default run configuration for the Actor (typically latest).
-            max_items: Maximum number of dataset items you are charged for, for pay-per-result Actors. It caps the
-                charge, not the output, so the run can return fewer or more items than this.
+            max_items: Deprecated, use `max_total_charge_usd` instead. Will be removed in version 5.0.0. Works only with
+                legacy pay-per-result Actors.
+            max_total_charge_usd: A limit on the total charged amount, in USD. Once the run exceeds it, the platform
+                aborts the run, which takes a few seconds, so the final charge can slightly overshoot the limit.
             restart_on_error: If true, the Task run process will be restarted whenever it exits with
                 a non-zero status code.
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit specified
@@ -1250,23 +1540,71 @@ class _ActorType:
                 be used to receive a notification, e.g. when the Actor finished or failed. If you already have
                 a webhook set up for the Actor, you do not have to add it again here.
             wait: The maximum time the server waits for the run to finish. If not provided, waits indefinitely.
+            run_name: Optional name of the child run, unique within this Actor run. A named run is recorded in the
+                default key-value store, so after a migration or resurrection of this Actor the same call reattaches
+                to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
+                resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
+                run `FAILED` or no longer exists. Using `run_name` to attach to a run of a different Actor, task or
+                with a different input raises a `ValueError`.
+            abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
+                aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
+                call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
+                starts, resurrects or reattaches no run. A hard abort, a timeout or a crash of this Actor run leaves
+                the child running.
 
         Returns:
             Info about the started Actor run.
         """
+        if abort_with_parent and run_name is None:
+            raise ValueError('`abort_with_parent` requires `run_name`, since only named child runs are tracked.')
+
+        if max_items is not None:
+            _warn_max_items_deprecated()
+
         client = self.new_client(token=token) if token else self.apify_client
 
         task_client = client.task(task_id)
-        run = await task_client.call(
-            task_input=task_input,
-            build=build,
-            max_items=max_items,
-            restart_on_error=restart_on_error,
-            memory_mbytes=memory_mbytes,
-            run_timeout=self._resolve_run_timeout(timeout),
-            webhooks=to_client_representations(webhooks),
-            wait_duration=wait,
-        )
+
+        if run_name is None:
+            run = await task_client.call(
+                task_input=task_input,
+                build=build,
+                max_items=max_items,
+                max_total_charge_usd=max_total_charge_usd,
+                restart_on_error=restart_on_error,
+                memory_mbytes=memory_mbytes,
+                run_timeout=self._resolve_run_timeout(timeout),
+                webhooks=to_client_representations(webhooks),
+                wait_duration=wait,
+            )
+        else:
+            started_run, _ = await self._find_or_start_child_run(
+                run_name,
+                task_id=task_id,
+                run_input=task_input,
+                client=client,
+                start_run=partial(
+                    task_client.start,
+                    task_input=task_input,
+                    build=build,
+                    max_items=max_items,
+                    max_total_charge_usd=max_total_charge_usd,
+                    restart_on_error=restart_on_error,
+                    memory_mbytes=memory_mbytes,
+                    run_timeout=self._resolve_run_timeout(timeout),
+                    webhooks=to_client_representations(webhooks),
+                ),
+                build=build,
+                max_items=max_items,
+                max_total_charge_usd=max_total_charge_usd,
+                restart_on_error=restart_on_error,
+                memory_mbytes=memory_mbytes,
+                timeout=timeout,
+                abort_with_parent=abort_with_parent,
+            )
+            run = await self._wait_for_child_run(
+                run_name, client.run(started_run.id), started_run, wait=wait, logger=None, from_start=False
+            )
 
         if run is None:
             raise RuntimeError(f'Failed to call Task with ID "{task_id}".')
@@ -1443,12 +1781,15 @@ class _ActorType:
     ) -> Run | None:
         """Set the status message for the current Actor run.
 
+        The status message is cosmetic, so a failed or timed-out update is logged as a warning and never raises.
+
         Args:
             status_message: The status message to set to the run.
             is_terminal: Set this flag to True if this is the final status message of the Actor run.
 
         Returns:
-            The updated Actor run object.
+            The updated Actor run object, or `None` when no run was updated: when running locally, or when the update
+            failed or timed out.
         """
         if not self.is_at_home():
             title = 'Terminal status message' if is_terminal else 'Status message'
@@ -1456,21 +1797,24 @@ class _ActorType:
             return None
 
         # If is_at_home() is True, config.actor_run_id is always set
-        if not self.configuration.actor_run_id:
+        run_id = self.configuration.actor_run_id
+        if not run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
-        run_client = self.apify_client.run(self.configuration.actor_run_id)
-        run = await run_client.update(
-            status_message=status_message,
-            is_status_message_terminal=is_terminal,
-        )
+        run_client = self.apify_client.run(run_id)
+        update = run_client.update(status_message=status_message, is_status_message_terminal=is_terminal)
 
-        if run is None:
-            raise RuntimeError(
-                f'Failed to set status message for Actor run with ID "{self.configuration.actor_run_id}".'
+        try:
+            return await asyncio.wait_for(update, STATUS_MESSAGE_UPDATE_TIMEOUT.total_seconds())
+        except TimeoutError:
+            self.log.warning(
+                f'Failed to set status message for Actor run with ID "{run_id}": '
+                f'the update timed out after {STATUS_MESSAGE_UPDATE_TIMEOUT.total_seconds():g}s.'
             )
+        except Exception as exc:
+            self.log.warning(f'Failed to set status message for Actor run with ID "{run_id}": {exc}')
 
-        return run
+        return None
 
     @_ensure_context
     async def create_proxy_configuration(
@@ -1558,6 +1902,21 @@ class _ActorType:
         self._use_state_stores.add(kvs_name)
         kvs = await self.open_key_value_store(name=kvs_name)
         return await kvs.get_auto_saved_value(key or self._ACTOR_STATE_KEY, default_value)
+
+    async def _forward_crawler_status(self, event_data: EventCrawlerStatusData) -> None:
+        """Set a crawler status message as the run status message on the Apify platform.
+
+        Messages that arrive once the Actor is exiting are dropped, and the terminal message waits for an update that
+        is already in flight, so no forwarded message can overwrite the terminal one. Each update is bounded by
+        `STATUS_MESSAGE_UPDATE_TIMEOUT`, so a slow or unavailable API can't hold up the crawler or the Actor exit.
+        """
+        try:
+            async with self._status_message_lock:
+                if self._is_exiting:
+                    return
+                await self.set_status_message(event_data.message)
+        except Exception:
+            self.log.warning('Failed to forward the crawler status message to the Actor run', exc_info=True)
 
     async def _save_actor_state(self) -> None:
         async def safe_persist(kvs_name: str | None) -> None:

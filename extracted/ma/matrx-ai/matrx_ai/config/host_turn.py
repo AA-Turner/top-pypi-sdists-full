@@ -18,9 +18,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from matrx_ai.config.message_config import UnifiedMessage, host_authored_user_turn
+
+#: Content-block types that are words. A host turn's words are its ``text``; attachments are never words.
+_TEXT_BLOCK_TYPES = frozenset({"text", "input_text"})
 
 
 class HostTurn(BaseModel):
@@ -34,11 +37,37 @@ class HostTurn(BaseModel):
         default_factory=dict,
         description="Extra stamps for the stored message (e.g. revision_key).",
     )
+    attachments: list[dict[str, Any]] = Field(  # api-any-ok: content blocks in the user_input item shape
+        default_factory=list,
+        description=(
+            "The PERSON's own attachments (files, images, audio) this turn carries before its text, as "
+            "content blocks in the user_input item shape ({'type': 'input_file', ...}). They are hers, so "
+            "the stored turn records them as her content; the host's words stay in `text` only."
+        ),
+    )
+
+    @field_validator("attachments")
+    @classmethod
+    def _attachments_are_not_words(cls, value: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        words = [b.get("type") for b in value if b.get("type") in _TEXT_BLOCK_TYPES]
+        if words:
+            raise ValueError(
+                "a host turn's attachments are the person's files, never words: put the host's line in "
+                f"`text` (found text blocks: {words})"
+            )
+        return value
 
     def to_message(self) -> UnifiedMessage:
-        """The stored turn: empty ``user_content``, ``authored_by: host``, plus this turn's stamps."""
+        """The stored turn: ``authored_by: host`` plus this turn's stamps. With no attachments ``user_content``
+        is empty (the person said nothing); the person's attachments ride before the text and are recorded
+        in ``user_content`` as hers."""
         message = host_authored_user_turn(self.text, reason=self.reason)
         message.metadata.update(self.metadata)
+        if self.attachments:
+            # Files FIRST, then the host's line: the order a person's files and words reach the
+            # provider (Anthropic wire, wave 19 live A/B), so a converted ``user_input`` sends the same turn.
+            message.content[:0] = UnifiedMessage.parse_content(self.attachments)
+            message.user_content = UnifiedMessage.parse_content(self.attachments)
         return message
 
 

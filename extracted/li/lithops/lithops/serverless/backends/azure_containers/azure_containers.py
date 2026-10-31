@@ -21,6 +21,7 @@ import copy
 import logging
 import hashlib
 import shutil
+import threading
 import subprocess as sp
 from azure.storage.queue import QueueServiceClient
 
@@ -32,6 +33,12 @@ from lithops.constants import COMPUTE_CLI_MSG
 from . import config
 
 logger = logging.getLogger(__name__)
+
+DOCS_URL = 'https://lithops-cloud.github.io/docs/source/compute_config/azure_containers.html#installation'
+
+# Errors of the container app deploy that another attempt cannot fix
+ENV_NOT_FOUND_ERRORS = ('ManagedEnvironmentNotFound',)
+NON_RETRYABLE_DEPLOY_ERRORS = ENV_NOT_FOUND_ERRORS + ('ResourceGroupNotFound', 'AuthorizationFailed', 'az login')
 
 
 class AzureContainerAppBackend:
@@ -84,7 +91,8 @@ class AzureContainerAppBackend:
                 shell=True,
                 encoding='UTF-8',
                 stdout=sp.PIPE if capture else None,
-                stderr=sp.PIPE if capture else None,
+                # Always captured: the error code in it decides whether a deploy is retried
+                stderr=sp.PIPE,
                 stdin=sp.DEVNULL,
                 check=True,
             )
@@ -94,6 +102,9 @@ class AzureContainerAppBackend:
             if detail:
                 err_msg += f'\n{detail}'
             raise Exception(err_msg) from e
+
+        if debug and completed.stderr and completed.stderr.strip():
+            logger.debug(completed.stderr.strip())
 
         if not (return_json or return_result):
             return None
@@ -108,6 +119,23 @@ class AzureContainerAppBackend:
                 ) from e
         return result.replace('"', '')
 
+    def _run_deployment_command(self, cmd):
+        finished = threading.Event()
+
+        def report_progress():
+            elapsed = 0
+            while not finished.wait(60):
+                elapsed += 60
+                logger.debug(f'Still deploying Azure Container App ({elapsed}s elapsed)')
+
+        progress = threading.Thread(target=report_progress, daemon=True)
+        progress.start()
+        try:
+            return self._run_az_command(cmd)
+        finally:
+            finished.set()
+            progress.join()
+
     def _format_containerapp_name(self, runtime_name, runtime_memory, version=__version__):
         """
         Formates the conatiner app name
@@ -118,6 +146,15 @@ class AzureContainerAppBackend:
 
         return f'lithops-worker-{version.replace(".", "")}-{name_hash}'[:31]
 
+    def _environment_not_found_msg(self):
+        environment = self.ac_config.get('environment_id') or self.environment
+        return (
+            f"The Azure Container Apps environment '{environment}' was not found in resource group "
+            f"'{self.resource_group}' / region '{self.location}'. Create it as described in the "
+            f"installation steps of {DOCS_URL}, or set 'region' and 'environment_id' in the "
+            "'azure_containers' configuration section to match the existing environment"
+        )
+
     def _get_managed_environment_id(self):
         environment_id = self.ac_config.get('environment_id')
         if environment_id:
@@ -125,7 +162,12 @@ class AzureContainerAppBackend:
 
         cmd = (f'az containerapp env show -g {self.resource_group} -n {self.environment} '
                f'--query id --only-show-errors')
-        return self._run_az_command(cmd, return_result=True)
+        try:
+            return self._run_az_command(cmd, return_result=True)
+        except Exception as e:
+            if any(code in str(e) for code in ('ResourceNotFound',) + ENV_NOT_FOUND_ERRORS):
+                raise Exception(self._environment_not_found_msg()) from e
+            raise
 
     def _get_containerapp_provisioning_state(self, containerapp_name):
         cmd = (f'az containerapp show --name {containerapp_name} '
@@ -134,8 +176,10 @@ class AzureContainerAppBackend:
         try:
             state = self._run_az_command(cmd, return_result=True)
             return (state or '').strip() or None
-        except Exception:
-            return None
+        except Exception as exc:
+            if 'ResourceNotFound' in str(exc):
+                return None
+            raise
 
     def _wait_until_containerapp_idle(self, containerapp_name, timeout=360):
         """
@@ -304,43 +348,64 @@ class AzureContainerAppBackend:
         last_error = None
         cmd = None
 
-        while retries < 10:
-            try:
-                state = self._wait_until_containerapp_idle(containerapp_name)
-                if state and state.lower() == 'failed':
-                    logger.warning(
-                        f'Container app {containerapp_name} is in Failed state, recreating'
-                    )
-                    del_cmd = (
-                        f'az containerapp delete --name {containerapp_name} '
-                        f'--resource-group {self.resource_group} -y -o none'
-                    )
-                    self._run_az_command(del_cmd)
-                    self._wait_until_containerapp_idle(containerapp_name)
-                    state = None
+        created = False
+        try:
+            while retries < 10:
+                try:
+                    state = self._wait_until_containerapp_idle(containerapp_name)
+                    if state and state.lower() == 'failed':
+                        logger.warning(
+                            f'Container app {containerapp_name} is in Failed state, recreating'
+                        )
+                        del_cmd = (
+                            f'az containerapp delete --name {containerapp_name} '
+                            f'--resource-group {self.resource_group} -y -o none'
+                        )
+                        self._run_az_command(del_cmd)
+                        self._wait_until_containerapp_idle(containerapp_name)
+                        state = None
 
-                if state:
-                    logger.debug(f'Container app {containerapp_name} already exists, updating')
-                    cmd = (f'az containerapp update --name {containerapp_name} '
-                           f'--resource-group {self.resource_group} '
-                           f'--yaml {config.CA_JSON_LOCATION} -o none')
-                else:
-                    cmd = (f'az containerapp create --name {containerapp_name} '
-                           f'--resource-group {self.resource_group} '
-                           f'--yaml {config.CA_JSON_LOCATION} -o none')
-                self._run_az_command(cmd)
+                    if state:
+                        logger.debug(f'Container app {containerapp_name} already exists, updating')
+                        cmd = (f'az containerapp update --name {containerapp_name} '
+                               f'--resource-group {self.resource_group} '
+                               f'--yaml {config.CA_JSON_LOCATION} -o none')
+                    else:
+                        created = True
+                        cmd = (f'az containerapp create --name {containerapp_name} '
+                               f'--resource-group {self.resource_group} '
+                               f'--yaml {config.CA_JSON_LOCATION} -o none')
+                    self._run_deployment_command(cmd)
+                    os.remove(config.CA_JSON_LOCATION)
+                    deployed = True
+                    break
+                except Exception as e:
+                    if any(code in str(e) for code in ENV_NOT_FOUND_ERRORS):
+                        raise Exception(self._environment_not_found_msg()) from e
+                    if any(code in str(e) for code in NON_RETRYABLE_DEPLOY_ERRORS):
+                        raise Exception(f'The Azure Container App cannot be deployed: {e}') from e
+                    last_error = e
+                    in_progress = 'ContainerAppOperationInProgress' in str(e)
+                    logger.warning(f'Container app deploy attempt {retries + 1} failed: {e}')
+                    if in_progress:
+                        self._wait_until_containerapp_idle(containerapp_name)
+                    else:
+                        time.sleep(15)
+                    retries += 1
+
+        except KeyboardInterrupt:
+            if created:
+                logger.info(f'Deployment interrupted; deleting Container App {containerapp_name}')
+                try:
+                    self._run_az_command(
+                        f'az containerapp delete --name {containerapp_name} '
+                        f'--resource-group {self.resource_group} --yes --no-wait -o none'
+                    )
+                except Exception as exc:
+                    logger.warning(f'Could not delete interrupted deployment {containerapp_name}: {exc}')
+            if os.path.exists(config.CA_JSON_LOCATION):
                 os.remove(config.CA_JSON_LOCATION)
-                deployed = True
-                break
-            except Exception as e:
-                last_error = e
-                in_progress = 'ContainerAppOperationInProgress' in str(e)
-                logger.warning(f'Container app deploy attempt {retries + 1} failed: {e}')
-                if in_progress:
-                    self._wait_until_containerapp_idle(containerapp_name)
-                else:
-                    time.sleep(15)
-                retries += 1
+            raise
 
         if not deployed:
             raise Exception(f"The Azure Container App cannot be deployed: {cmd}") from last_error
@@ -442,9 +507,9 @@ class AzureContainerAppBackend:
             if containerapp['Tags'] and 'type' in containerapp['Tags'] \
                and containerapp['Tags']['type'] == 'lithops-runtime':
                 name = containerapp['Tags']['runtime_name']
-                memory = containerapp['Tags']['runtime_memory']
+                memory = int(containerapp['Tags']['runtime_memory'])
                 version = containerapp['Tags']['lithops_version']
-                if runtime_name == containerapp['Name'] or runtime_name == 'all':
+                if runtime_name == name or runtime_name == 'all':
                     runtimes.append((name, memory, version, containerapp['Name']))
 
         return runtimes

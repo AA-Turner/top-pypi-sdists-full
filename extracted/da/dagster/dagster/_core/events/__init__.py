@@ -6,17 +6,7 @@ import sys
 import uuid
 from collections.abc import Mapping, Sequence
 from enum import Enum
-from typing import (  # noqa: F401, UP035
-    TYPE_CHECKING,
-    AbstractSet,
-    Any,
-    Dict,
-    NamedTuple,
-    Optional,
-    Tuple,
-    Union,
-    cast,
-)
+from typing import TYPE_CHECKING, AbstractSet, Any, Dict, NamedTuple, Optional, Tuple, Union, cast  # noqa: F401, UP035
 
 from dagster_shared.serdes.serdes import (
     EnumSerializer,
@@ -1076,13 +1066,9 @@ class DagsterEvent(
                 input_name=step_input_data.input_name,
                 input_type=input_def.dagster_type.display_name,
                 type_check_clause=(
-                    (
-                        " Warning! Type check failed."
-                        if not step_input_data.type_check_data.success
-                        else " (Type check passed)."
-                    )
-                    if step_input_data.type_check_data
-                    else " (No type check)."
+                    " Warning! Type check failed."
+                    if not step_input_data.type_check_data.success
+                    else " (Type check passed)."
                 ),
             ),
         )

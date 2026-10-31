@@ -32,7 +32,7 @@ from matrx_ai.graph_nodes.mandates import (
     WORKFLOW_STEP_INTELLIGENCE_MANDATE,
     hold_step,
 )
-from matrx_ai.graph_nodes.shared import AiUsage, _extract_usage
+from matrx_ai.graph_nodes.shared import AiUsage, _extract_usage, failed_turn_failure
 
 
 class TextToSpeechInput(BaseModel):
@@ -264,7 +264,9 @@ async def ai_text_to_speech(
             "messages": [{"role": "user", "content": inputs.text}],
         }
         if inputs.voice:
-            config_payload["voice"] = inputs.voice
+            # UnifiedConfig reads ``tts_voice``; a ``voice`` key was dropped silently, so the
+            # step's chosen voice never reached the provider (ElevenLabs then refused).
+            config_payload["tts_voice"] = inputs.voice
         if inputs.format:
             config_payload["audio_format"] = inputs.format
         if inputs.speed is not None:
@@ -285,6 +287,9 @@ async def ai_text_to_speech(
             mandate_key=WORKFLOW_STEP_INTELLIGENCE_MANDATE,
         )
 
+        turn_failed = failed_turn_failure(completed, code="tts_failed", model=inputs.model)
+        if turn_failed is not None:
+            return turn_failed
         response = getattr(completed, "final_response", None)
         refs = _pick_audio_refs(response)
 

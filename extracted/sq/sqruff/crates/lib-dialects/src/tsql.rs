@@ -288,6 +288,12 @@ pub fn raw_dialect() -> Dialect {
     // Insert other T-SQL specific matchers
     dialect.insert_lexer_matchers(
         vec![
+            // Unicode string constants use an uppercase N prefix, as in SQLFluff.
+            Matcher::regex(
+                "single_quote_with_n",
+                r"N'([^']|'')*'",
+                SyntaxKind::SingleQuoteWithN,
+            ),
             // Local and global temporary table names. Subsequent characters may
             // include the T-SQL identifier characters @, $, and #.
             Matcher::regex(
@@ -401,7 +407,13 @@ pub fn raw_dialect() -> Dialect {
         .sets_mut("date_format")
         .extend(["MDY", "DMY", "YMD", "YDM", "MYD", "DYM"]);
 
-    // Add T-SQL specific date functions
+    // Add T-SQL specific date functions. The nullary date functions
+    // (GETDATE, SYSDATETIME, ...) are intentionally omitted: they take no
+    // datetime-unit argument and are called with empty brackets, e.g.
+    // `GETDATE()`. Now that `Bracketed` no longer matches empty brackets
+    // when the content grammar requires content (SQLFluff #8406), they are
+    // parsed as regular functions via the optional `FunctionContentsSegment`
+    // rather than as date-part functions, matching SQLFluff.
     dialect.sets_mut("date_part_function_name").extend([
         "DATEADD",
         "DATEDIFF",
@@ -411,11 +423,6 @@ pub fn raw_dialect() -> Dialect {
         "DAY",
         "MONTH",
         "YEAR",
-        "GETDATE",
-        "GETUTCDATE",
-        "SYSDATETIME",
-        "SYSUTCDATETIME",
-        "SYSDATETIMEOFFSET",
     ]);
 
     // Add T-SQL string functions
@@ -1838,7 +1845,11 @@ pub fn raw_dialect() -> Dialect {
     dialect.add([
         (
             "DeclareStatementSegment".into(),
-            Ref::new("DeclareStatementGrammar").to_matchable().into(),
+            NodeMatcher::new(SyntaxKind::DeclareSegment, |_| {
+                Ref::new("DeclareStatementGrammar").to_matchable()
+            })
+            .to_matchable()
+            .into(),
         ),
         (
             "DeclareStatementGrammar".into(),
@@ -2661,21 +2672,6 @@ pub fn raw_dialect() -> Dialect {
         .into(),
     )]);
 
-    // Preserve N-prefixed procedure arguments as literal components when the
-    // lexer represents the prefix and quoted string as separate tokens.
-    dialect.add([(
-        "ExecuteUnicodeLiteralExpressionSegment".into(),
-        NodeMatcher::new(SyntaxKind::Expression, |_| {
-            Sequence::new(vec![
-                StringParser::new("N", SyntaxKind::NakedIdentifier).to_matchable(),
-                Ref::new("QuotedLiteralSegment").to_matchable(),
-            ])
-            .to_matchable()
-        })
-        .to_matchable()
-        .into(),
-    )]);
-
     dialect.add([(
         "ExecuteOptionSegment".into(),
         NodeMatcher::new(SyntaxKind::ExecuteOption, |_| {
@@ -2823,7 +2819,6 @@ pub fn raw_dialect() -> Dialect {
                             .config(|this| this.optional())
                             .to_matchable(),
                             one_of(vec![
-                                Ref::new("ExecuteUnicodeLiteralExpressionSegment").to_matchable(),
                                 Ref::new("ExpressionSegment").to_matchable(),
                                 Sequence::new(vec![
                                     Ref::new("ParameterNameSegment").to_matchable(),
@@ -3613,7 +3608,7 @@ pub fn raw_dialect() -> Dialect {
             Ref::new("FetchCursorStatementSegment").to_matchable(),
             Ref::new("CloseCursorStatementSegment").to_matchable(),
             Ref::new("DeallocateCursorStatementSegment").to_matchable(),
-            Ref::new("DeclareStatementGrammar").to_matchable(),
+            Ref::new("DeclareStatementSegment").to_matchable(),
             Ref::new("DbccStatementSegment").to_matchable(),
             Ref::new("SetContextInfoSegment").to_matchable(),
             Ref::new("SetLanguageStatementSegment").to_matchable(),
@@ -3941,21 +3936,23 @@ pub fn raw_dialect() -> Dialect {
         .into(),
     )]);
 
-    // A quoted literal optionally prefixed with N (e.g. 'foo' or N'foo').
-    // sqruff lexes N'foo' as two tokens, so mirror the existing TSQL pattern.
-    dialect.add([(
-        "QuotedLiteralSegmentOptWithN".into(),
-        one_of(vec![
-            Ref::new("QuotedLiteralSegment").to_matchable(),
-            Sequence::new(vec![
-                Ref::new("NakedIdentifierSegment").to_matchable(), // N prefix
+    dialect.add([
+        (
+            "QuotedLiteralSegmentWithN".into(),
+            TypedParser::new(SyntaxKind::SingleQuoteWithN, SyntaxKind::QuotedLiteral)
+                .to_matchable()
+                .into(),
+        ),
+        (
+            "QuotedLiteralSegmentOptWithN".into(),
+            one_of(vec![
                 Ref::new("QuotedLiteralSegment").to_matchable(),
+                Ref::new("QuotedLiteralSegmentWithN").to_matchable(),
             ])
-            .to_matchable(),
-        ])
-        .to_matchable()
-        .into(),
-    )]);
+            .to_matchable()
+            .into(),
+        ),
+    ]);
 
     // PERIOD FOR SYSTEM_TIME (start_col, end_col) for temporal tables (#4654)
     dialect.add([(
@@ -6591,7 +6588,7 @@ pub fn raw_dialect() -> Dialect {
         "LiteralGrammar".into(),
         one_of(vec![
             Ref::new("QuotedLiteralSegment").to_matchable(),
-            Ref::new("QuotedLiteralSegmentOptWithN").to_matchable(),
+            Ref::new("QuotedLiteralSegmentWithN").to_matchable(),
             Ref::new("IntegerLiteralSegment").to_matchable(),
             Ref::new("BinaryLiteralSegment").to_matchable(),
             Ref::new("NumericLiteralSegment").to_matchable(),
@@ -6909,12 +6906,6 @@ pub fn raw_dialect() -> Dialect {
                         Ref::keyword("NULL").to_matchable(),
                         // Function calls as defaults (e.g., NEWID())
                         Ref::new("FunctionSegment").to_matchable(),
-                        // String literal with prefix (e.g., N'foo')
-                        Sequence::new(vec![
-                            Ref::new("NakedIdentifierSegment").to_matchable(), // N, B, X etc.
-                            Ref::new("QuotedLiteralSegment").to_matchable(),
-                        ])
-                        .to_matchable(),
                     ])
                     .to_matchable(),
                 ])
@@ -7009,15 +7000,9 @@ pub fn raw_dialect() -> Dialect {
                 .to_matchable(),
                 Ref::new("EqualsSegment").to_matchable(),
                 one_of(vec![
-                    Ref::new("QuotedLiteralSegment").to_matchable(),
+                    Ref::new("QuotedLiteralSegmentOptWithN").to_matchable(),
                     Ref::new("NumericLiteralSegment").to_matchable(),
                     Ref::new("NakedIdentifierSegment").to_matchable(),
-                    // N'string' syntax for Unicode strings
-                    Sequence::new(vec![
-                        Ref::new("NakedIdentifierSegment").to_matchable(), // N prefix
-                        Ref::new("QuotedLiteralSegment").to_matchable(),
-                    ])
-                    .to_matchable(),
                     // Special handling for multi-word isolation levels
                     Sequence::new(vec![
                         Ref::keyword("REPEATABLE").to_matchable(),
@@ -7056,6 +7041,36 @@ pub fn raw_dialect() -> Dialect {
         .to_matchable()
         .into(),
     )]);
+
+    dialect.add([(
+        "AliasColumnListSegment".into(),
+        NodeMatcher::new(SyntaxKind::AliasColumnList, |_| {
+            Bracketed::new(vec![Ref::new("SingleIdentifierListSegment").to_matchable()])
+                .to_matchable()
+        })
+        .to_matchable()
+        .into(),
+    )]);
+    // Keep this in sync with ANSI's alias grammar, using a dedicated column
+    // list node so its spacing can be configured independently of aliases.
+    dialect.replace_grammar(
+        "AliasExpressionSegment",
+        Sequence::new(vec![
+            MetaSegment::indent().to_matchable(),
+            Ref::new("AsAliasOperatorSegment").optional().to_matchable(),
+            one_of(vec![
+                Sequence::new(vec![
+                    Ref::new("SingleIdentifierGrammar").to_matchable(),
+                    Ref::new("AliasColumnListSegment").optional().to_matchable(),
+                ])
+                .to_matchable(),
+                Ref::new("SingleQuotedIdentifierSegment").to_matchable(),
+            ])
+            .to_matchable(),
+            MetaSegment::dedent().to_matchable(),
+        ])
+        .to_matchable(),
+    );
 
     dialect.add([(
         "AltAliasExpressionSegment".into(),

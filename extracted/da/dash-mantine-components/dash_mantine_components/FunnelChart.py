@@ -158,6 +158,9 @@ Keyword arguments:
 - left (string | number | dict; optional):
     Left offset – Accepts CSS values or a dict for responsive styles.
 
+- legendProps (dict; optional):
+    Props passed down to recharts `Legend` component.
+
 - lh (string | number | dict; optional):
     Line height – Accepts theme line height keys, CSS values, or a
     dict for responsive styles.
@@ -205,9 +208,15 @@ Keyword arguments:
     Margin inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- mie (number; optional):
+    MarginInlineEnd, theme key: theme.spacing.
+
 - mih (string | number | dict; optional):
     Minimum height – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
+
+- mis (number; optional):
+    MarginInlineStart, theme key: theme.spacing.
 
 - miw (string | number | dict; optional):
     Minimum width – Accepts theme spacing keys, CSS values, or a dict
@@ -256,6 +265,12 @@ Keyword arguments:
 - pe (string | number | dict; optional):
     Padding inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
+
+- pie (number; optional):
+    PaddingInlineEnd, theme key: theme.spacing.
+
+- pis (number; optional):
+    PaddingInlineStart, theme key: theme.spacing.
 
 - pl (string | number | dict; optional):
     Padding left – Accepts theme spacing keys, CSS values, or a dict
@@ -350,6 +365,9 @@ Keyword arguments:
     Determines whether each segment should have associated label.
     Default False.
 
+- withLegend (boolean; optional):
+    Determines whether the legend should be displayed default False.
+
 - withTooltip (boolean; optional):
     Determines whether the tooltip should be displayed when a section
     is hovered Default True."""
@@ -394,6 +412,8 @@ Keyword arguments:
         valueFormatter: typing.Optional[typing.Any] = None,
         tooltipDataSource: typing.Optional[Literal["segment", "all"]] = None,
         funnelChartProps: typing.Optional[dict] = None,
+        withLegend: typing.Optional[bool] = None,
+        legendProps: typing.Optional[dict] = None,
         clickData: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
         hoverData: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
         clickSeriesName: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
@@ -455,6 +475,10 @@ Keyword arguments:
         style: typing.Optional[typing.Any] = None,
         lightHidden: typing.Optional[bool] = None,
         darkHidden: typing.Optional[bool] = None,
+        mis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        mie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         classNames: typing.Optional[dict] = None,
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
@@ -465,9 +489,9 @@ Keyword arguments:
         loading_state: typing.Optional["LoadingState"] = None,
         **kwargs
     ):
-        self._prop_names = ['children', 'id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clickData', 'clickSeriesName', 'darkHidden', 'data', 'data-*', 'display', 'ff', 'flex', 'fs', 'funnelChartProps', 'funnelProps', 'fw', 'fz', 'h', 'hiddenFrom', 'hoverData', 'hoverSeriesName', 'inset', 'labelColor', 'labelsPosition', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'size', 'strokeColor', 'strokeWidth', 'style', 'styles', 'ta', 'tabIndex', 'td', 'tooltipAnimationDuration', 'tooltipDataSource', 'tooltipProps', 'top', 'tt', 'unstyled', 'valueFormatter', 'variant', 'visibleFrom', 'w', 'withLabels', 'withTooltip']
+        self._prop_names = ['children', 'id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clickData', 'clickSeriesName', 'darkHidden', 'data', 'data-*', 'display', 'ff', 'flex', 'fs', 'funnelChartProps', 'funnelProps', 'fw', 'fz', 'h', 'hiddenFrom', 'hoverData', 'hoverSeriesName', 'inset', 'labelColor', 'labelsPosition', 'left', 'legendProps', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pie', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'size', 'strokeColor', 'strokeWidth', 'style', 'styles', 'ta', 'tabIndex', 'td', 'tooltipAnimationDuration', 'tooltipDataSource', 'tooltipProps', 'top', 'tt', 'unstyled', 'valueFormatter', 'variant', 'visibleFrom', 'w', 'withLabels', 'withLegend', 'withTooltip']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['children', 'id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clickData', 'clickSeriesName', 'darkHidden', 'data', 'data-*', 'display', 'ff', 'flex', 'fs', 'funnelChartProps', 'funnelProps', 'fw', 'fz', 'h', 'hiddenFrom', 'hoverData', 'hoverSeriesName', 'inset', 'labelColor', 'labelsPosition', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'size', 'strokeColor', 'strokeWidth', 'style', 'styles', 'ta', 'tabIndex', 'td', 'tooltipAnimationDuration', 'tooltipDataSource', 'tooltipProps', 'top', 'tt', 'unstyled', 'valueFormatter', 'variant', 'visibleFrom', 'w', 'withLabels', 'withTooltip']
+        self.available_properties = ['children', 'id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clickData', 'clickSeriesName', 'darkHidden', 'data', 'data-*', 'display', 'ff', 'flex', 'fs', 'funnelChartProps', 'funnelProps', 'fw', 'fz', 'h', 'hiddenFrom', 'hoverData', 'hoverSeriesName', 'inset', 'labelColor', 'labelsPosition', 'left', 'legendProps', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pie', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'size', 'strokeColor', 'strokeWidth', 'style', 'styles', 'ta', 'tabIndex', 'td', 'tooltipAnimationDuration', 'tooltipDataSource', 'tooltipProps', 'top', 'tt', 'unstyled', 'valueFormatter', 'variant', 'visibleFrom', 'w', 'withLabels', 'withLegend', 'withTooltip']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

@@ -25,6 +25,7 @@ Usage::
         DescribeGlobalClustersPaginator,
         DescribeOrderableDBInstanceOptionsPaginator,
         DescribePendingMaintenanceActionsPaginator,
+        DescribeServerlessV2PlatformVersionsPaginator,
     )
 
     session = Session()
@@ -43,6 +44,7 @@ Usage::
     describe_global_clusters_paginator: DescribeGlobalClustersPaginator = client.get_paginator("describe_global_clusters")
     describe_orderable_db_instance_options_paginator: DescribeOrderableDBInstanceOptionsPaginator = client.get_paginator("describe_orderable_db_instance_options")
     describe_pending_maintenance_actions_paginator: DescribePendingMaintenanceActionsPaginator = client.get_paginator("describe_pending_maintenance_actions")
+    describe_serverless_v2_platform_versions_paginator: DescribeServerlessV2PlatformVersionsPaginator = client.get_paginator("describe_serverless_v2_platform_versions")
     ```
 """
 
@@ -75,11 +77,13 @@ from .type_defs import (
     DescribeGlobalClustersMessagePaginateTypeDef,
     DescribeOrderableDBInstanceOptionsMessagePaginateTypeDef,
     DescribePendingMaintenanceActionsMessagePaginateTypeDef,
+    DescribeServerlessV2PlatformVersionsMessagePaginateTypeDef,
     EventsMessageTypeDef,
     EventSubscriptionsMessageTypeDef,
     GlobalClustersMessageTypeDef,
     OrderableDBInstanceOptionsMessageTypeDef,
     PendingMaintenanceActionsMessageTypeDef,
+    ServerlessV2PlatformVersionsMessageTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -101,6 +105,7 @@ __all__ = (
     "DescribeGlobalClustersPaginator",
     "DescribeOrderableDBInstanceOptionsPaginator",
     "DescribePendingMaintenanceActionsPaginator",
+    "DescribeServerlessV2PlatformVersionsPaginator",
 )
 
 if TYPE_CHECKING:
@@ -341,4 +346,26 @@ class DescribePendingMaintenanceActionsPaginator(_DescribePendingMaintenanceActi
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/docdb/paginator/DescribePendingMaintenanceActions.html#DocDB.Paginator.DescribePendingMaintenanceActions.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_docdb/paginators/#describependingmaintenanceactionspaginator)
+        """
+
+if TYPE_CHECKING:
+    _DescribeServerlessV2PlatformVersionsPaginatorBase = Paginator[
+        ServerlessV2PlatformVersionsMessageTypeDef
+    ]
+else:
+    _DescribeServerlessV2PlatformVersionsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class DescribeServerlessV2PlatformVersionsPaginator(
+    _DescribeServerlessV2PlatformVersionsPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/docdb/paginator/DescribeServerlessV2PlatformVersions.html#DocDB.Paginator.DescribeServerlessV2PlatformVersions)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_docdb/paginators/#describeserverlessv2platformversionspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeServerlessV2PlatformVersionsMessagePaginateTypeDef]
+    ) -> PageIterator[ServerlessV2PlatformVersionsMessageTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/docdb/paginator/DescribeServerlessV2PlatformVersions.html#DocDB.Paginator.DescribeServerlessV2PlatformVersions.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_docdb/paginators/#describeserverlessv2platformversionspaginator)
         """

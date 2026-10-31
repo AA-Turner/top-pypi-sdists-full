@@ -107,6 +107,7 @@ if TYPE_CHECKING:
     from pyspark.sql.connect.session import SparkSession
     from pyspark.pandas.frame import DataFrame as PandasOnSparkDataFrame
     from pyspark.sql.metrics import ExecutionInfo
+    from pyspark.sql.plot import PySparkPlotAccessor
 
 
 class DataFrame(ParentDataFrame):
@@ -136,7 +137,7 @@ class DataFrame(ParentDataFrame):
         if self._session is None:
             raise PySparkRuntimeError(
                 errorClass="NO_ACTIVE_SESSION",
-                messageParameters={"operator": "__init__"},
+                messageParameters={},
             )
 
         # Check whether _repr_html is supported or not, we use it to avoid calling RPC twice
@@ -376,6 +377,13 @@ class DataFrame(ParentDataFrame):
         other = self._check_same_session(other)
         return DataFrame(
             plan.Join(left=self._plan, right=other._plan, on=None, how="cross"),
+            session=self._session,
+        )
+
+    def zip(self, other: ParentDataFrame) -> ParentDataFrame:
+        other = self._check_same_session(other)
+        return DataFrame(
+            plan.Zip(self._plan, other._plan),
             session=self._session,
         )
 
@@ -1387,8 +1395,8 @@ class DataFrame(ParentDataFrame):
                 min_non_nulls = None
             else:
                 raise PySparkValueError(
-                    errorClass="CANNOT_BE_EMPTY",
-                    messageParameters={"arg_name": "how", "arg_value": str(how)},
+                    errorClass="VALUE_NOT_ALLOWED",
+                    messageParameters={"arg_name": "how", "allowed_values": "['any', 'all']"},
                 )
 
         if thresh is not None:
@@ -1656,8 +1664,8 @@ class DataFrame(ParentDataFrame):
             method = "pearson"
         if not method == "pearson":
             raise PySparkValueError(
-                errorClass="VALUE_NOT_PEARSON",
-                messageParameters={"arg_name": "method", "arg_value": method},
+                errorClass="VALUE_NOT_ALLOWED",
+                messageParameters={"arg_name": "method", "allowed_values": "['pearson']"},
             )
         table, _ = DataFrame(
             plan.StatCorr(child=self._plan, col1=col1, col2=col2, method=method),
@@ -2324,7 +2332,7 @@ class DataFrame(ParentDataFrame):
             for f in schema.fields
         ]
 
-        def foreach_partition_func(itr: Iterable[pa.RecordBatch]) -> Iterable[pa.RecordBatch]:
+        def foreach_partition_func(itr: Iterator[pa.RecordBatch]) -> Iterator[pa.RecordBatch]:
             def flatten() -> Iterator[Row]:
                 for table in itr:
                     columnar_data = [
@@ -2428,7 +2436,7 @@ class DataFrame(ParentDataFrame):
         return self._execution_info
 
     @property
-    def plot(self) -> "PySparkPlotAccessor":  # type: ignore[name-defined] # noqa: F821
+    def plot(self) -> "PySparkPlotAccessor":
         from pyspark.sql.plot import PySparkPlotAccessor
 
         return PySparkPlotAccessor(self)

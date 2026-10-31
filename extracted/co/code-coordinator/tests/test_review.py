@@ -2224,6 +2224,60 @@ def test_dispatch_review_sends_to_different_machine_and_appends_to_board(
     assert "# Project rules" in payload["briefing"]
 
 
+def test_dispatch_review_pins_first_review_to_configured_model(
+    two_machine_config: Config,
+) -> None:
+    """#3787: a first review (``review_iteration=0``, the default) still
+    resolves via the operator's ``models.pinned["review"]`` (opus by
+    default) — only a re-review gets the cheaper sonnet default."""
+    board = Board()
+    completed = _completed_assignment(machine="laptop")
+    assert completed.review_iteration == 0
+    client = _FakeHTTPClient({"id": "review-id-first"})
+
+    result = dispatch_review(
+        completed, board, two_machine_config,
+        http_client=client,
+        pr_lookup=lambda repo_github, **kw: {
+            "number": 42, "url": "https://github.com/acme/api/pull/42",
+            "existed": True,
+        },
+        remote_branch_checker=lambda repo, branch: True,
+    )
+
+    assert result is not None
+    assert result.model == "opus"
+    _, payload = client.calls[0]
+    assert payload["model"] == "opus"
+
+
+def test_dispatch_review_pins_rereview_to_sonnet_regardless_of_review_pin(
+    two_machine_config: Config,
+) -> None:
+    """#3787: once ``completed.review_iteration > 0`` — i.e. ``completed``
+    is itself a bounce-fix worker leg — the re-review dispatches on the
+    cheaper fleet-default ``sonnet``, not the opus ``review`` pin."""
+    board = Board()
+    completed = _completed_assignment(machine="laptop")
+    completed.review_iteration = 2
+    client = _FakeHTTPClient({"id": "review-id-rereview"})
+
+    result = dispatch_review(
+        completed, board, two_machine_config,
+        http_client=client,
+        pr_lookup=lambda repo_github, **kw: {
+            "number": 42, "url": "https://github.com/acme/api/pull/42",
+            "existed": True,
+        },
+        remote_branch_checker=lambda repo, branch: True,
+    )
+
+    assert result is not None
+    assert result.model == "sonnet"
+    _, payload = client.calls[0]
+    assert payload["model"] == "sonnet"
+
+
 def _opencode_repo_config(*, reviews_provider: str | None) -> Config:
     """A repo pinned to `provider: opencode`, with a distinctly-named
     claude-type provider (`review-claude`) also registered, so a test can
@@ -4465,6 +4519,54 @@ def test_scoped_briefing_contains_delta_and_established_context_framing() -> Non
     assert "belt and braces" in briefing
 
 
+def test_scoped_briefing_request_changes_states_real_premise_and_embeds_findings() -> None:
+    """#3787 fix round: when the prior verdict was `request-changes`, the
+    briefing must not claim the PR was already approved, and must hand the
+    reviewer the actual prior findings to check the delta against."""
+    briefing = build_scoped_review_briefing(
+        pr_number=42,
+        pr_url="https://github.com/acme/api/pull/42",
+        repo_github="acme/api",
+        repo_name="api",
+        issue_number=7,
+        issue_title="Add feature",
+        branch="issue-7-fix",
+        resolution_delta="-old resolution\n+new resolution\n",
+        default_branch="main",
+        prior_verdict="request-changes",
+        prior_findings_body=(
+            "## Blocking findings\n- the thing was broken\n"
+            "## Non-blocking concerns\nNone.\n## Nits\nNone.\n"
+        ),
+    )
+    assert "**already approved**" not in briefing
+    assert "do NOT need to re-review the whole PR" in briefing
+    assert "was **not** an approval" in briefing
+    assert "the thing was broken" in briefing
+    assert "-old resolution" in briefing
+    assert "+new resolution" in briefing
+    assert "check EACH blocking finding" in briefing
+    assert "REVIEW_VERDICT: approve" in briefing
+    assert "END_REVIEW" in briefing
+
+
+def test_scoped_briefing_request_changes_without_findings_says_so_plainly() -> None:
+    briefing = build_scoped_review_briefing(
+        pr_number=42,
+        pr_url=None,
+        repo_github="acme/api",
+        repo_name="api",
+        issue_number=7,
+        issue_title="Add feature",
+        branch="issue-7-fix",
+        resolution_delta="-old\n+new\n",
+        default_branch="main",
+        prior_verdict="request-changes",
+        prior_findings_body=None,
+    )
+    assert "(prior findings text unavailable)" in briefing
+
+
 def _scoped_entry(**overrides) -> QueuedMerge:
     defaults = dict(
         assignment_id="w1",
@@ -4535,10 +4637,52 @@ def test_dispatch_scoped_review_dispatches_with_delta_in_briefing(
     # auto-loop keys off this exactly like a full review.
     assert result.review_of_assignment_id == "w1"
 
+    # #3787: a scoped review is unconditionally a re-review by construction
+    # (it only exists to scope to what changed since `prior_review`), so it
+    # always pins to the cheaper fleet-default `sonnet` regardless of the
+    # operator's opus `models.pinned["review"]`.
+    assert result.model == "sonnet"
+
     _, payload = client.calls[0]
     assert payload["type"] == "review"
+    assert payload["model"] == "sonnet"
     assert "conflict-fix-resolution" in payload["briefing"]
     assert "kept-from-before" in payload["briefing"]
+
+
+def test_dispatch_scoped_review_request_changes_prior_embeds_findings(
+    two_machine_config: Config, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#3787: when `prior_review.review_verdict == "request-changes"`, the
+    briefing must state that real premise and embed the prior findings —
+    not claim the PR was already approved."""
+    import coord.auto_loop as auto_loop_mod
+
+    board = Board()
+    entry = _scoped_entry()
+    prior = _scoped_prior_review(review_verdict="request-changes")
+    client = _FakeHTTPClient({"id": "scoped-2"})
+
+    def _fake_load_findings(review, log_path, machine_host, repo_github=None):
+        return ReviewFindings(
+            verdict="request-changes",
+            body="## Blocking findings\n- fix the off-by-one\n",
+        )
+
+    monkeypatch.setattr(
+        auto_loop_mod, "_load_review_findings", _fake_load_findings,
+    )
+
+    result = dispatch_scoped_review(
+        entry, prior, board, two_machine_config,
+        http_client=client, now=999.0, diff_fetcher=_scoped_diff_fetcher,
+    )
+
+    assert result is not None
+    _, payload = client.calls[0]
+    assert "was **not** an approval" in payload["briefing"]
+    assert "fix the off-by-one" in payload["briefing"]
+    assert "**already approved**" not in payload["briefing"]
 
 
 def test_dispatch_scoped_review_skips_candidate_with_dead_claude_credential(
@@ -5737,9 +5881,12 @@ def test_maybe_scoped_review_returns_none_without_branch(
 def test_maybe_scoped_review_returns_none_when_no_queue_entry(
     two_machine_config: Config,
 ) -> None:
-    """No matching merge-queue row for this branch — never enqueued (or
-    already cleared) — nothing to scope against; must not attempt any
-    live fetch."""
+    """No matching merge-queue row for this branch (never enqueued, or
+    already cleared) — synthesizes a throwaway in-memory entry instead and
+    DOES refetch the branch's live head SHA/patch-id through it. An empty
+    board has no prior review to scope a delta against, so
+    `find_scoped_review_candidate` declines before any diff is ever
+    fetched, and this still returns None."""
     completed = Assignment(
         machine_name="laptop", repo_name="api", issue_number=1,
         issue_title="[ci-fix] t", assignment_id="cifix1", type="work",
@@ -5747,13 +5894,50 @@ def test_maybe_scoped_review_returns_none_when_no_queue_entry(
     )
 
     def _boom(*a, **k):
-        raise AssertionError("must not fetch live state with no queue entry")
+        raise AssertionError("must not fetch a diff with no prior review to scope against")
 
     result = maybe_scoped_review_for_completed_fix(
         completed, Board(), two_machine_config,
-        branch_sha_fetcher=_boom, branch_patch_id_fetcher=_boom, diff_fetcher=_boom,
+        branch_sha_fetcher=lambda repo, branch: "newsha",
+        branch_patch_id_fetcher=lambda repo, target, branch: "patchid-new",
+        diff_fetcher=_boom,
     )
     assert result is None
+
+
+def test_maybe_scoped_review_dispatches_via_synthesized_entry(
+    two_machine_config: Config,
+) -> None:
+    """Same bounce chain as `..._dispatches_when_queue_entry_eligible`, but
+    with no real merge-queue row at all — the common request-changes ->
+    fix -> re-review case, since a fix leg's completion races (or simply
+    precedes) the branch ever being enqueued. The in-memory synthesized
+    entry must still carry the scoped review through."""
+    work = Assignment(
+        machine_name="laptop", repo_name="api", issue_number=1, issue_title="t",
+        assignment_id="w1", type="work", status="done", branch="issue-1-fix",
+    )
+    prior = _scoped_prior_review(review_verdict="request-changes")
+    ci_fix = Assignment(
+        machine_name="laptop", repo_name="api", issue_number=1,
+        issue_title="[ci-fix] t", assignment_id="cifix1", type="work",
+        status="done", branch="issue-1-fix", review_of_assignment_id="w1",
+        dispatched_at=200.0,
+    )
+    board = Board(completed=[work, prior, ci_fix])
+
+    client = _FakeHTTPClient({"id": "scoped-mb"})
+    result = maybe_scoped_review_for_completed_fix(
+        ci_fix, board, two_machine_config,
+        http_client=client,
+        diff_fetcher=_scoped_diff_fetcher,
+        branch_sha_fetcher=lambda repo, branch: "newsha",
+        branch_patch_id_fetcher=lambda repo, target, branch: "patchid-new",
+    )
+
+    assert result is not None
+    assert result.review_scoped is True
+    assert result.review_scope_base_sha == prior.review_head_sha
 
 
 def test_maybe_scoped_review_returns_none_when_head_sha_unresolvable(

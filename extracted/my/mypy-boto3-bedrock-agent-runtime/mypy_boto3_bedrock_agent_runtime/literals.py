@@ -145,7 +145,12 @@ AgenticRetrieveRerankingConfigurationTypeType = Literal["BEDROCK_RERANKING_MODEL
 AgenticRetrieveRerankingModelTypeType = Literal["CUSTOM", "MANAGED", "NONE"]
 AgenticRetrieveStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED"]
 AgenticRetrieveStepType = Literal[
-    "FullDocumentExpansion", "Planning", "Retrieval", "SessionHistoryLoad", "SpeculativeRetrieval"
+    "CodeExecution",
+    "FullDocumentExpansion",
+    "Planning",
+    "Retrieval",
+    "SessionHistoryLoad",
+    "SpeculativeRetrieval",
 ]
 AgenticRetrieveTypeType = Literal["BedrockAgentCoreMemory", "BedrockKnowledgeBase"]
 AttributeTypeType = Literal["BOOLEAN", "NUMBER", "STRING", "STRING_LIST"]
@@ -407,6 +412,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "continuum",
     "controlcatalog",
     "controltower",
     "cost-optimization-hub",
@@ -458,8 +464,6 @@ ServiceName = Literal[
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -713,7 +717,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

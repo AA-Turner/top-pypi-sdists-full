@@ -32,6 +32,10 @@ Keyword arguments:
 - id (string; optional):
     Unique ID to identify this component in Dash callbacks.
 
+- accessibilityLayer (boolean; optional):
+    Determines whether the chart should be keyboard-navigable with the
+    recharts accessibility layer, `True` by default.
+
 - aria-* (string; optional):
     Wild card aria attributes.
 
@@ -152,8 +156,14 @@ Keyword arguments:
     Controls text color of all labels, by default depends on color
     scheme.
 
+- labelsType (a value equal to: 'percent', 'value', 'name'; optional):
+    Type of labels to display, `'value'` by default.
+
 - left (string | number | dict; optional):
     Left offset – Accepts CSS values or a dict for responsive styles.
+
+- legendProps (dict; optional):
+    Props passed down to recharts `Legend` component.
 
 - lh (string | number | dict; optional):
     Line height – Accepts theme line height keys, CSS values, or a
@@ -202,9 +212,15 @@ Keyword arguments:
     Margin inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- mie (number; optional):
+    MarginInlineEnd, theme key: theme.spacing.
+
 - mih (string | number | dict; optional):
     Minimum height – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
+
+- mis (number; optional):
+    MarginInlineStart, theme key: theme.spacing.
 
 - miw (string | number | dict; optional):
     Minimum width – Accepts theme spacing keys, CSS values, or a dict
@@ -257,11 +273,17 @@ Keyword arguments:
     Padding inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- pie (number; optional):
+    PaddingInlineEnd, theme key: theme.spacing.
+
 - pieChartProps (dict; optional):
     Props passed down to recharts `PieChart` component.
 
 - pieProps (dict; optional):
     Props passed down to recharts `Pie` component.
+
+- pis (number; optional):
+    PaddingInlineStart, theme key: theme.spacing.
 
 - pl (string | number | dict; optional):
     Padding left – Accepts theme spacing keys, CSS values, or a dict
@@ -366,6 +388,9 @@ Keyword arguments:
     Determines whether segments labels should have lines that connect
     the segment with the label, `True` by default.
 
+- withLegend (boolean; optional):
+    Determines whether the legend should be displayed default False.
+
 - withTooltip (boolean; optional):
     Determines whether the tooltip should be displayed when one of the
     section is hovered, `True` by default."""
@@ -413,6 +438,10 @@ Keyword arguments:
         tooltipDataSource: typing.Optional[Literal["segment", "all"]] = None,
         chartLabel: typing.Optional[typing.Union[str, NumberType]] = None,
         pieChartProps: typing.Optional[dict] = None,
+        labelsType: typing.Optional[Literal["percent", "value", "name"]] = None,
+        accessibilityLayer: typing.Optional[bool] = None,
+        withLegend: typing.Optional[bool] = None,
+        legendProps: typing.Optional[dict] = None,
         clickData: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
         hoverData: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
         clickSeriesName: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
@@ -474,6 +503,10 @@ Keyword arguments:
         style: typing.Optional[typing.Any] = None,
         lightHidden: typing.Optional[bool] = None,
         darkHidden: typing.Optional[bool] = None,
+        mis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        mie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         classNames: typing.Optional[dict] = None,
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
@@ -484,9 +517,9 @@ Keyword arguments:
         loading_state: typing.Optional["LoadingState"] = None,
         **kwargs
     ):
-        self._prop_names = ['children', 'id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'chartLabel', 'className', 'classNames', 'clickData', 'clickSeriesName', 'darkHidden', 'data', 'data-*', 'display', 'endAngle', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'hoverData', 'hoverSeriesName', 'inset', 'labelColor', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'paddingAngle', 'pb', 'pe', 'pieChartProps', 'pieProps', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'size', 'startAngle', 'strokeColor', 'strokeWidth', 'style', 'styles', 'ta', 'tabIndex', 'td', 'thickness', 'tooltipAnimationDuration', 'tooltipDataSource', 'tooltipProps', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withLabels', 'withLabelsLine', 'withTooltip']
+        self._prop_names = ['children', 'id', 'accessibilityLayer', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'chartLabel', 'className', 'classNames', 'clickData', 'clickSeriesName', 'darkHidden', 'data', 'data-*', 'display', 'endAngle', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'hoverData', 'hoverSeriesName', 'inset', 'labelColor', 'labelsType', 'left', 'legendProps', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'paddingAngle', 'pb', 'pe', 'pie', 'pieChartProps', 'pieProps', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'size', 'startAngle', 'strokeColor', 'strokeWidth', 'style', 'styles', 'ta', 'tabIndex', 'td', 'thickness', 'tooltipAnimationDuration', 'tooltipDataSource', 'tooltipProps', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withLabels', 'withLabelsLine', 'withLegend', 'withTooltip']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['children', 'id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'chartLabel', 'className', 'classNames', 'clickData', 'clickSeriesName', 'darkHidden', 'data', 'data-*', 'display', 'endAngle', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'hoverData', 'hoverSeriesName', 'inset', 'labelColor', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'paddingAngle', 'pb', 'pe', 'pieChartProps', 'pieProps', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'size', 'startAngle', 'strokeColor', 'strokeWidth', 'style', 'styles', 'ta', 'tabIndex', 'td', 'thickness', 'tooltipAnimationDuration', 'tooltipDataSource', 'tooltipProps', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withLabels', 'withLabelsLine', 'withTooltip']
+        self.available_properties = ['children', 'id', 'accessibilityLayer', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'chartLabel', 'className', 'classNames', 'clickData', 'clickSeriesName', 'darkHidden', 'data', 'data-*', 'display', 'endAngle', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'hoverData', 'hoverSeriesName', 'inset', 'labelColor', 'labelsType', 'left', 'legendProps', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'paddingAngle', 'pb', 'pe', 'pie', 'pieChartProps', 'pieProps', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'size', 'startAngle', 'strokeColor', 'strokeWidth', 'style', 'styles', 'ta', 'tabIndex', 'td', 'thickness', 'tooltipAnimationDuration', 'tooltipDataSource', 'tooltipProps', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withLabels', 'withLabelsLine', 'withLegend', 'withTooltip']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

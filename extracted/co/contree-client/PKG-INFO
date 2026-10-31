@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: contree-client
-Version: 0.5.2
+Version: 0.5.3
 Summary: Python client for the Contree API, generated from the OpenAPI specification
 Author: Dmitry Orlov
 Author-email: Dmitry Orlov <mosquito@nebius.com>

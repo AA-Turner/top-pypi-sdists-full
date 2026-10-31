@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fyers_apiv3
-Version: 3.2.0
+Version: 3.2.1
 Summary: Fyers trading APIs.
 Home-page: https://github.com/FyersDev/fyers-api-sample-code/tree/sample_v3/v3/python
 Author: Fyers-Tech
@@ -26,7 +26,7 @@ Dynamic: license-file
 Dynamic: requires-dist
 Dynamic: summary
 
-# The Fyers API Python client - v3.1.15
+# The Fyers API Python client - v3.2.1
 
 The official Python client for communicating with the [Fyers API](https://myapi.fyers.in)
 
@@ -63,6 +63,14 @@ Install via [pip](https://pypi.org/project/fyers-apiv3/)
 - Real-time updates for eDIS.
 - Real-time updates for price alerts.
 - Improved error handling callbacks.
+
+### Screeners API contract:
+- `fyers.screeners_query(...)` is replaced by `fyers.screeners_standard(...)` (`/screeners/query` -> `/screeners/standard`).
+- The `screener` request param is renamed to `screener_id` on the standard, technical and candlestick endpoints.
+- The config key `screeners` is renamed to `screeners_standard`, and `timeframes` now lists timeframe ids (`t0_5min`, `c52_week`, ...), not percentage-change columns.
+- `dividend_per_share` is renamed to `yearly_dividend_per_share`; the `iw031` universe is gone.
+- Responses no longer carry `is_editable`, `data.error`, `data.id` or the `allow_sort`, `is_sortable`, `is_formated_to_klcr`, `feed_type` and `criteria_label` header fields.
+- The standard response reports the settings actually applied (`data.universe`, `data.timeframe`, `data.expiry`, `data.option_type`), which may be server defaults.
 
 
 ## Getting started wih API
@@ -435,6 +443,48 @@ print(response["candles"])
 #################################################################################################################
 
 """
+SCREENERS : This includes following APIs (screeners_config, screeners_standard, screeners_technical, screeners_candlestick)
+"""
+
+## Screeners Config
+# Lists the screeners, columns, universes, groups, timeframes, option types,
+# expiry types and the live expiries the other endpoints accept.
+config = fyers.screeners_config()
+print(config["data"]["screeners_standard"])
+print(config["data"]["timeframes"])       # [{"id": "t0_5min", ...}, {"id": "c52_week", ...}]
+print(config["data"]["expiries"])         # per universe: {"epoch": ..., "date": ..., "display": ...}
+
+## Standard Screener
+# The payload is sent to the API as given. The server applies the screener's own
+# defaults for anything you omit and validates the rest.
+data = {
+    "screener_id": "top_gainers",
+    "fields": "t0_close_ltp,t0_volume",
+    "universe": "iw010",
+    "order_by": "t0_change_per",
+    "order": "desc",
+    "timeframe": "t0_5min",
+    # "expiry": 1793095800,
+    # "option_type": "CE",
+}
+response = fyers.screeners_standard(data)
+print(response["data"]["header"])
+print(response["data"]["body"])
+# The settings the server actually applied, defaults included:
+print(response["data"]["universe"], response["data"]["timeframe"],
+      response["data"]["expiry"], response["data"]["option_type"])
+
+## Technical Screener
+response = fyers.screeners_technical({"screener_id": "rsi_overbought"})
+print(response["data"]["body"], response["data"]["total_count"])
+
+## Candlestick Screener
+response = fyers.screeners_candlestick({"screener_id": "bullish_engulfing"})
+print(response["data"]["body"], response["data"]["total_count"])
+
+#################################################################################################################
+
+"""
 PRICE ALERTS : This includes following APIs (create_alert, get_alert, update_alert, delete_alert, toggle_alert)
 """
 
@@ -603,7 +653,9 @@ print(fyers.smart_orderbook_with_filter(data))
 #################################################################################################################
 
 """
-SMART EXIT TRIGGERS : This includes following APIs (create, get, update, activate)
+SMART EXIT TRIGGERS : This includes following APIs (create_smartexit_trigger,
+get_smartexit_triggers, update_smartexit_trigger,
+activate_deactivate_smartexit_trigger)
 """
 
 ## Create Smart Exit Trigger
@@ -651,9 +703,119 @@ data = {
 
 print(fyers.update_smartexit_trigger(data))
 
-## Activate Smart Exit Trigger
+## Activate / Deactivate Smart Exit Trigger
 data = {"flowId": "123456789"}
-print(fyers.activate_smartexit_trigger(data))
+print(fyers.activate_deactivate_smartexit_trigger(data))
+
+
+#################################################################################################################
+
+"""
+GTT / OCO ORDERS : This includes following APIs (place_gtt_order, modify_gtt_order,
+cancel_gtt_order, gtt_orderbook)
+"""
+
+## Place GTT order (leg1 is mandatory; add leg2 for an OCO order)
+data = {
+    "side": 1,
+    "symbol": "NSE:CHOLAFIN-EQ",
+    "productType": "CNC",
+    "orderInfo": {
+        "leg1": {
+            "price": 1500,
+            "triggerPrice": 1495,
+            "qty": 1
+        }
+    }
+}
+print(fyers.place_gtt_order(data))
+
+## Modify GTT order
+data = {
+    "id": "25010700000001",
+    "orderInfo": {
+        "leg1": {
+            "price": 1510,
+            "triggerPrice": 1505,
+            "qty": 2
+        }
+    }
+}
+print(fyers.modify_gtt_order(data))
+
+## Cancel GTT order
+data = {"id": "25010700000001"}
+print(fyers.cancel_gtt_order(data))
+
+## GTT order book
+print(fyers.gtt_orderbook())
+
+
+#################################################################################################################
+
+"""
+MORE DATA / ACCOUNT APIS : (market_status, optionchain, get_orders, logout)
+"""
+
+## Market status - takes no arguments
+print(fyers.market_status())
+
+## Option chain
+data = {
+    "symbol": "NSE:NIFTY50-INDEX",
+    "strikecount": 7,
+    "timestamp": ""
+}
+print(fyers.optionchain(data))
+
+## Order details by id
+data = {"id": "808058117761"}
+print(fyers.get_orders(data))
+
+## Logout - invalidates the current access token, takes no arguments
+print(fyers.logout())
+
+
+#################################################################################################################
+
+"""
+REPORTS : This includes following APIs (orderhistory, tradehistory, charges_history,
+realised_profit_history, tax_pnl_history, ledger_history)
+"""
+
+## Order history
+data = {
+    "symbol": "NSE:SBIN-EQ",
+    "from_date": "2024-11-01",
+    "to_date": "2024-11-28",
+    "page_no": 1,
+    "page_size": 100,
+    "segment_type": "0",
+    "exchange_type": "0",
+    "status": "0"
+}
+print(fyers.orderhistory(data))
+
+## Trade history
+data = {
+    "from_date": "2024-11-01",
+    "to_date": "2024-11-28",
+    "page_no": 1,
+    "page_size": 100
+}
+print(fyers.tradehistory(data))
+
+## Charges history
+print(fyers.charges_history({"from_date": "2024-11-01", "to_date": "2024-11-28"}))
+
+## Realised P&L history
+print(fyers.realised_profit_history({"from_date": "2024-11-01", "to_date": "2024-11-28"}))
+
+## Tax P&L history
+print(fyers.tax_pnl_history({"from_date": "2024-11-01", "to_date": "2024-11-28"}))
+
+## Ledger history
+print(fyers.ledger_history({"from_date": "2024-11-01", "to_date": "2024-11-28"}))
 
 
 ```

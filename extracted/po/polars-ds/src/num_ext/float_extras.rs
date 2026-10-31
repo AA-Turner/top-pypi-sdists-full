@@ -2,11 +2,22 @@
 /// trunc, fract, exp2, logit, expit, gamma,
 /// The logit, expit and gamma functions are as defined in SciPy
 use crate::stats_utils::gamma::digamma;
-use crate::utils::{first_field_output, float_output};
+use crate::utils::first_field_output;
 use arity::binary_elementwise_values;
 use num::traits::Float;
 use polars::prelude::*;
 use pyo3_polars::derive::polars_expr;
+
+// Existing integer inputs use f32; Int128 follows the f64 promotion used by
+// mixed signed/unsigned expressions before Polars 2. Preserve both contracts.
+fn float_output(fields: &[Field]) -> PolarsResult<Field> {
+    let dtype = match fields[0].dtype() {
+        DataType::Float64 | DataType::Int128 => DataType::Float64,
+        dtype if dtype.is_primitive_numeric() => DataType::Float32,
+        _ => polars_bail!(ComputeError: "input column must be of numeric type"),
+    };
+    Ok(Field::new(fields[0].name().clone(), dtype))
+}
 
 fn logit<T: Float>(x: T) -> T {
     if x.is_zero() {
@@ -77,6 +88,11 @@ fn pl_logit(inputs: &[Series]) -> PolarsResult<Series> {
         DataType::Int16 => Ok(cast_and_apply_logit(s.i16().unwrap()).into_series()),
         DataType::Int32 => Ok(cast_and_apply_logit(s.i32().unwrap()).into_series()),
         DataType::Int64 => Ok(cast_and_apply_logit(s.i64().unwrap()).into_series()),
+        DataType::Int128 => {
+            let ca = s.i128()?;
+            let out: Float64Chunked = ca.cast_and_apply_in_place(logit::<f64>);
+            Ok(out.into_series())
+        }
         DataType::Float64 => {
             let ca = s.f64().unwrap();
             Ok(ca.apply_values(logit).into_series())
@@ -86,7 +102,7 @@ fn pl_logit(inputs: &[Series]) -> PolarsResult<Series> {
             Ok(ca.apply_values(logit).into_series())
         }
         _ => Err(PolarsError::ComputeError(
-            "Input column must be numerical.".into(),
+            "input column must be of numeric type".into(),
         )),
     }
 }
@@ -103,6 +119,11 @@ fn pl_expit(inputs: &[Series]) -> PolarsResult<Series> {
         DataType::Int16 => Ok(cast_and_apply_expit(s.i16().unwrap()).into_series()),
         DataType::Int32 => Ok(cast_and_apply_expit(s.i32().unwrap()).into_series()),
         DataType::Int64 => Ok(cast_and_apply_expit(s.i64().unwrap()).into_series()),
+        DataType::Int128 => {
+            let ca = s.i128()?;
+            let out: Float64Chunked = ca.cast_and_apply_in_place(expit::<f64>);
+            Ok(out.into_series())
+        }
         DataType::Float64 => {
             let ca = s.f64().unwrap();
             Ok(ca.apply_values(expit).into_series())
@@ -112,7 +133,7 @@ fn pl_expit(inputs: &[Series]) -> PolarsResult<Series> {
             Ok(ca.apply_values(expit).into_series())
         }
         _ => Err(PolarsError::ComputeError(
-            "Input column must be numerical.".into(),
+            "input column must be of numeric type".into(),
         )),
     }
 }
@@ -129,6 +150,11 @@ fn pl_gamma(inputs: &[Series]) -> PolarsResult<Series> {
         DataType::Int16 => Ok(cast_and_apply_gamma(s.i16().unwrap()).into_series()),
         DataType::Int32 => Ok(cast_and_apply_gamma(s.i32().unwrap()).into_series()),
         DataType::Int64 => Ok(cast_and_apply_gamma(s.i64().unwrap()).into_series()),
+        DataType::Int128 => {
+            let ca = s.i128()?;
+            let out: Float64Chunked = ca.cast_and_apply_in_place(f64::gamma);
+            Ok(out.into_series())
+        }
         DataType::Float64 => {
             let ca = s.f64().unwrap();
             Ok(ca.apply_values(f64::gamma).into_series())
@@ -138,7 +164,7 @@ fn pl_gamma(inputs: &[Series]) -> PolarsResult<Series> {
             Ok(ca.apply_values(f32::gamma).into_series())
         }
         _ => Err(PolarsError::ComputeError(
-            "Input column must be numerical.".into(),
+            "input column must be of numeric type".into(),
         )),
     }
 }
@@ -155,6 +181,11 @@ fn pl_exp2(inputs: &[Series]) -> PolarsResult<Series> {
         DataType::Int16 => Ok(cast_and_apply_exp2(s.i16().unwrap()).into_series()),
         DataType::Int32 => Ok(cast_and_apply_exp2(s.i32().unwrap()).into_series()),
         DataType::Int64 => Ok(cast_and_apply_exp2(s.i64().unwrap()).into_series()),
+        DataType::Int128 => {
+            let ca = s.i128()?;
+            let out: Float64Chunked = ca.cast_and_apply_in_place(f64::exp2);
+            Ok(out.into_series())
+        }
         DataType::Float64 => {
             let ca = s.f64().unwrap();
             Ok(ca.apply_values(f64::exp2).into_series())
@@ -164,7 +195,7 @@ fn pl_exp2(inputs: &[Series]) -> PolarsResult<Series> {
             Ok(ca.apply_values(f32::exp2).into_series())
         }
         _ => Err(PolarsError::ComputeError(
-            "Input column must be numerical.".into(),
+            "input column must be of numeric type".into(),
         )),
     }
 }
@@ -180,7 +211,7 @@ fn pl_trunc(inputs: &[Series]) -> PolarsResult<Series> {
         DataType::Int8 => Ok(s.clone()),
         DataType::Int16 => Ok(s.clone()),
         DataType::Int32 => Ok(s.clone()),
-        DataType::Int64 => Ok(s.clone()),
+        DataType::Int64 | DataType::Int128 => Ok(s.clone()),
         DataType::Float64 => {
             let ca = s.f64().unwrap();
             Ok(ca.apply_values(f64::trunc).into_series())
@@ -190,7 +221,7 @@ fn pl_trunc(inputs: &[Series]) -> PolarsResult<Series> {
             Ok(ca.apply_values(f32::trunc).into_series())
         }
         _ => Err(PolarsError::ComputeError(
-            "Input column must be numerical.".into(),
+            "input column must be of numeric type".into(),
         )),
     }
 }
@@ -207,9 +238,16 @@ fn pl_fract(inputs: &[Series]) -> PolarsResult<Series> {
             let ca = s.f32().unwrap();
             Ok(ca.apply_values(f32::fract).into_series())
         }
-        dt if dt.is_integer() => Ok(Series::from_vec(s.name().clone(), vec![0f32; s.len()])),
+        DataType::Int128 => {
+            let ca = s.cast(&DataType::Float64)?;
+            Ok(ca.f64()?.apply_values(|_| 0.0).into_series())
+        }
+        dt if dt.is_integer() => {
+            let ca = s.cast(&DataType::Float32)?;
+            Ok(ca.f32()?.apply_values(|_| 0.0).into_series())
+        }
         _ => Err(PolarsError::ComputeError(
-            "Input column must be numerical.".into(),
+            "input column must be of numeric type".into(),
         )),
     }
 }
@@ -227,6 +265,11 @@ fn pl_next_up(inputs: &[Series]) -> PolarsResult<Series> {
         DataType::Int16 => Ok(cast_and_apply_next_up(s.i16().unwrap()).into_series()),
         DataType::Int32 => Ok(cast_and_apply_next_up(s.i32().unwrap()).into_series()),
         DataType::Int64 => Ok(cast_and_apply_next_up(s.i64().unwrap()).into_series()),
+        DataType::Int128 => {
+            let ca = s.i128()?;
+            let out: Float64Chunked = ca.cast_and_apply_in_place(f64::next_up);
+            Ok(out.into_series())
+        }
         DataType::Float64 => {
             let ca = s.f64().unwrap();
             Ok(ca.apply_values(f64::next_up).into_series())
@@ -236,7 +279,7 @@ fn pl_next_up(inputs: &[Series]) -> PolarsResult<Series> {
             Ok(ca.apply_values(f32::next_up).into_series())
         }
         _ => Err(PolarsError::ComputeError(
-            "Input column must be numerical.".into(),
+            "input column must be of numeric type".into(),
         )),
     }
 }
@@ -254,6 +297,11 @@ fn pl_next_down(inputs: &[Series]) -> PolarsResult<Series> {
         DataType::Int16 => Ok(cast_and_apply_next_down(s.i16().unwrap()).into_series()),
         DataType::Int32 => Ok(cast_and_apply_next_down(s.i32().unwrap()).into_series()),
         DataType::Int64 => Ok(cast_and_apply_next_down(s.i64().unwrap()).into_series()),
+        DataType::Int128 => {
+            let ca = s.i128()?;
+            let out: Float64Chunked = ca.cast_and_apply_in_place(f64::next_down);
+            Ok(out.into_series())
+        }
         DataType::Float64 => {
             let ca = s.f64().unwrap();
             Ok(ca.apply_values(f64::next_down).into_series())
@@ -263,7 +311,7 @@ fn pl_next_down(inputs: &[Series]) -> PolarsResult<Series> {
             Ok(ca.apply_values(f32::next_down).into_series())
         }
         _ => Err(PolarsError::ComputeError(
-            "Input column must be numerical.".into(),
+            "input column must be of numeric type".into(),
         )),
     }
 }
@@ -290,13 +338,18 @@ fn pl_diagamma(inputs: &[Series]) -> PolarsResult<Series> {
         DataType::Int16 => Ok(cast_and_apply_diagamma(s.i16().unwrap()).into_series()),
         DataType::Int32 => Ok(cast_and_apply_diagamma(s.i32().unwrap()).into_series()),
         DataType::Int64 => Ok(cast_and_apply_diagamma(s.i64().unwrap()).into_series()),
+        DataType::Int128 => {
+            let ca = s.i128()?;
+            let out: Float64Chunked = ca.cast_and_apply_in_place(digamma);
+            Ok(out.into_series())
+        }
         DataType::Float32 => Ok(cast_and_apply_diagamma(s.f32().unwrap()).into_series()),
         DataType::Float64 => {
             let ca = s.f64().unwrap();
             Ok(ca.apply_values(digamma).into_series())
         }
         _ => Err(PolarsError::ComputeError(
-            "Input column must be numerical.".into(),
+            "input column must be of numeric type".into(),
         )),
     }
 }
@@ -305,11 +358,9 @@ fn pl_diagamma(inputs: &[Series]) -> PolarsResult<Series> {
 fn pl_add_at(inputs: &[Series]) -> PolarsResult<Series> {
     // an equivalent function to numpy add at
     // but only for f64 dtype
-    // The data type + one-chunk-ness should be gauranteed in Python
-
-    let indices = inputs[0].u32().unwrap();
-    let values = inputs[1].f64().unwrap();
-    let buffer_size = inputs[2].u32().unwrap();
+    let indices = inputs[0].u32()?;
+    let values = inputs[1].f64()?;
+    let buffer_size = inputs[2].u32()?;
     let buffer_size = buffer_size
         .get(0)
         .map(|u| u as usize)
@@ -317,29 +368,33 @@ fn pl_add_at(inputs: &[Series]) -> PolarsResult<Series> {
 
     if buffer_size == 0 {
         return Err(PolarsError::ComputeError(
-            "Buffer size cannot be 0 or indices is emtpy.".into(),
+            "buffer size cannot be 0 or indices is empty".into(),
         ));
     }
 
     let imax = indices.max().unwrap_or(0) as usize;
     if imax >= buffer_size {
         return Err(PolarsError::ComputeError(
-            "Max index is >= buffer size.".into(),
+            "max index must be less than buffer size".into(),
         ));
     }
 
     if indices.len() != values.len() {
-        Err(PolarsError::ComputeError(
-            "Indices and values don't have the same length.".into(),
+        Err(PolarsError::ShapeMismatch(
+            "inputs must have the same length".into(),
         ))
     } else {
         let mut output = vec![0f64; buffer_size];
-        let indices_slice = indices.cont_slice().unwrap();
-        let values_slice = values.cont_slice().unwrap();
-
-        for (i, v) in indices_slice.iter().zip(values_slice.iter()) {
-            let j = *i as usize;
-            output[j] += v;
+        if indices.null_count() == 0 && values.null_count() == 0 {
+            for (i, v) in indices.into_no_null_iter().zip(values.into_no_null_iter()) {
+                output[i as usize] += v;
+            }
+        } else {
+            for (i, v) in indices.iter().zip(values.iter()) {
+                if let (Some(i), Some(v)) = (i, v) {
+                    output[i as usize] += v;
+                }
+            }
         }
 
         let ca = Float64Chunked::from_vec("".into(), output);

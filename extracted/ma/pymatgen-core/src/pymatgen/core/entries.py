@@ -671,9 +671,9 @@ class ComputedEntry(Entry):
         return ComputedEntry(
             composition=self.composition,
             energy=self.uncorrected_energy,
-            energy_adjustments=self.energy_adjustments,
-            parameters=self.parameters,
-            data=self.data,
+            energy_adjustments=self.energy_adjustments.copy(),
+            parameters=self.parameters.copy(),
+            data=self.data.copy(),
             entry_id=self.entry_id,
         )
 
@@ -769,8 +769,8 @@ class ComputedStructureEntry(ComputedEntry):
                 struct,
                 dct["energy"],
                 correction=dct["correction"],
-                parameters={k: MontyDecoder().process_decoded(v) for k, v in dct.get("parameters", {}).items()},
-                data={k: MontyDecoder().process_decoded(v) for k, v in dct.get("data", {}).items()},
+                parameters={k: MontyDecoder().process_decoded(v) for k, v in (dct.get("parameters") or {}).items()},
+                data={k: MontyDecoder().process_decoded(v) for k, v in (dct.get("data") or {}).items()},
                 entry_id=dct.get("entry_id"),
             )
         # this is the preferred / modern way of instantiating ComputedEntry
@@ -781,9 +781,10 @@ class ComputedStructureEntry(ComputedEntry):
             dct["energy"],
             composition=dct.get("composition"),
             correction=0,
-            energy_adjustments=[MontyDecoder().process_decoded(e) for e in dct.get("energy_adjustments", {})],
-            parameters={k: MontyDecoder().process_decoded(v) for k, v in dct.get("parameters", {}).items()},
-            data={k: MontyDecoder().process_decoded(v) for k, v in dct.get("data", {}).items()},
+            # None values must be handled as in ComputedEntry.from_dict
+            energy_adjustments=[MontyDecoder().process_decoded(e) for e in (dct.get("energy_adjustments") or [])],
+            parameters={k: MontyDecoder().process_decoded(v) for k, v in (dct.get("parameters") or {}).items()},
+            data={k: MontyDecoder().process_decoded(v) for k, v in (dct.get("data") or {}).items()},
             entry_id=dct.get("entry_id"),
         )
 
@@ -806,12 +807,9 @@ class ComputedStructureEntry(ComputedEntry):
             stacklevel=2,
         )
         # TODO: find a better solution for creating copies instead of as/from dict
-        factor = self._normalization_factor(mode)
         dct = super().normalize(mode).as_dict()
         dct["structure"] = self.structure.as_dict()
-        entry = self.from_dict(dct)
-        entry._composition /= factor
-        return entry
+        return self.from_dict(dct)
 
     def copy(self) -> ComputedStructureEntry:
         """Get a copy of the ComputedStructureEntry."""
@@ -819,9 +817,9 @@ class ComputedStructureEntry(ComputedEntry):
             structure=self.structure.copy(),
             energy=self.uncorrected_energy,
             composition=self.composition,
-            energy_adjustments=self.energy_adjustments,
-            parameters=self.parameters,
-            data=self.data,
+            energy_adjustments=self.energy_adjustments.copy(),
+            parameters=self.parameters.copy(),
+            data=self.data.copy(),
             entry_id=self.entry_id,
         )
 
@@ -1102,7 +1100,7 @@ class EntrySet(collections.abc.MutableSet, MSONable):
         for entry in self.entries:
             els.update(entry.elements)
         elements = sorted(els, key=lambda a: a.X)
-        with open(filename, mode="w", encoding="utf-8") as file:
+        with open(filename, mode="w", encoding="utf-8", newline="") as file:
             writer = csv.writer(
                 file,
                 delimiter=",",
@@ -1128,7 +1126,7 @@ class EntrySet(collections.abc.MutableSet, MSONable):
         """
         from pymatgen.analysis.phase_diagram import PDEntry
 
-        with open(filename, encoding="utf-8") as file:
+        with open(filename, encoding="utf-8", newline="") as file:
             reader = csv.reader(file, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL)
             entries = []
             header_read = False

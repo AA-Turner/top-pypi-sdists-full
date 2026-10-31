@@ -17,7 +17,9 @@ class LRUCache(Generic[T]):
         refresh_window: float = 30,
         refresh_callback: Callable[[str], Awaitable[T | None]] | None = None,
     ):
-        self._cache: OrderedDict[str, tuple[T, float, bool]] = OrderedDict()
+        self._cache: OrderedDict[str, tuple[T, float, bool, float | None]] = (
+            OrderedDict()
+        )
         self._max_size = max_size if max_size > 0 else 1000
         self._ttl = ttl
         self._refresh_window = refresh_window if refresh_window > 0 else 30
@@ -35,9 +37,10 @@ class LRUCache(Generic[T]):
         if key not in self._cache:
             return None
 
-        value, timestamp, is_refreshing = self._cache[key]
+        value, timestamp, is_refreshing, ttl_override = self._cache[key]
+        ttl = ttl_override if ttl_override is not None else self._ttl
         current_time = self._get_time()
-        time_until_expiry = self._ttl - (current_time - timestamp)
+        time_until_expiry = ttl - (current_time - timestamp)
 
         # Check if expired
         if time_until_expiry <= 0:
@@ -51,30 +54,39 @@ class LRUCache(Generic[T]):
             and self._refresh_callback
         ):
             # Mark as refreshing to prevent multiple simultaneous refresh attempts
-            self._cache[key] = (value, timestamp, True)
+            self._cache[key] = (value, timestamp, True, ttl_override)
 
             try:
                 # Attempt refresh
                 refreshed_value = await self._refresh_callback(key)
                 if refreshed_value is not None:
                     # Refresh successful, update cache with new value
-                    self._cache[key] = (refreshed_value, current_time, False)
+                    self._cache[key] = (
+                        refreshed_value,
+                        current_time,
+                        False,
+                        ttl_override,
+                    )
                     # Move to end (most recently used)
                     self._cache.move_to_end(key)
                     return refreshed_value
                 else:
                     # Refresh failed, fallback to cached value
-                    self._cache[key] = (value, timestamp, False)
+                    self._cache[key] = (value, timestamp, False, ttl_override)
             except Exception:
                 # Refresh failed with exception, fallback to cached value
-                self._cache[key] = (value, timestamp, False)
+                self._cache[key] = (value, timestamp, False, ttl_override)
 
         # Move to end (most recently used)
         self._cache.move_to_end(key)
         return value
 
-    def set(self, key: str, value: T) -> None:
-        """Set item in cache, evicting old entries if needed."""
+    def set(self, key: str, value: T, ttl: float | None = None) -> None:
+        """Set item in cache, evicting old entries if needed.
+
+        ttl overrides the instance-level TTL for this entry only; omit it to
+        use the cache's default TTL.
+        """
         # Remove if already exists (to update timestamp)
         if key in self._cache:
             del self._cache[key]
@@ -84,7 +96,7 @@ class LRUCache(Generic[T]):
             self._cache.popitem(last=False)  # Remove oldest (FIFO)
 
         # Add new entry (not refreshing initially)
-        self._cache[key] = (value, self._get_time(), False)
+        self._cache[key] = (value, self._get_time(), False, ttl)
 
     def size(self) -> int:
         """Return current cache size."""

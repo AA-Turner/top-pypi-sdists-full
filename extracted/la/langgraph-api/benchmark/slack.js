@@ -2,6 +2,27 @@ export const GREEN = "🟢";
 export const YELLOW = "🟡";
 export const RED = "🔴";
 
+/** Links the commit that ran, not main, so a dispatch from a branch links a page that exists. */
+export function footer(anchor, runUrl) {
+  const ref = process.env.GITHUB_SHA || "main";
+  const repo = process.env.GITHUB_REPOSITORY || "langchain-ai/langchainplus";
+  const docs = `https://github.com/${repo}/blob/${ref}/langgraph-api/api/benchmark/REPORTS.md`;
+  return [`<${docs}#${anchor}|What is this?>`, "details in thread", runUrl ? `<${runUrl}|Run>` : null].filter(Boolean).join(" · ");
+}
+
+/** Widest code-block line that stayed on one line in the Slack iPhone app at default text size; wider rows wrap. */
+export const PHONE_WIDTH = 27;
+
+export function widestCodeLine(text) {
+  let inCode = false;
+  let widest = 0;
+  for (const line of text.split("\n")) {
+    if (line.startsWith("```")) inCode = !inCode;
+    else if (inCode) widest = Math.max(widest, [...line].length);
+  }
+  return widest;
+}
+
 export function dotFor({ failed, attention }) {
   if (failed) return RED;
   if (attention) return YELLOW;

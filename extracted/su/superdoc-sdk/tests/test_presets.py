@@ -433,3 +433,66 @@ def test_custom_actions_and_enforce_change_mode_are_refused_together():
         })
     assert excinfo.value.code == 'INVALID_ARGUMENT'
     assert excinfo.value.details['reason'] == 'custom-actions-unsupported'
+
+
+def test_full_preset_forwards_the_tracked_policy_to_every_cli_op(monkeypatch):
+    """The full preset accepts the same policy kwargs as core and sends them to
+    the CLI host, so Python callers get the tracked-only enforcement Node has."""
+    from superdoc.presets import full as full_module
+
+    invocations = []
+
+    class _RecordingRuntime:
+        def invoke(self, operation, payload, **_kwargs):
+            invocations.append((operation, dict(payload)))
+            if operation == 'doc.preset.getTools':
+                return {'tools': [], 'cacheStrategy': 'disabled'}
+            if operation == 'doc.preset.getSystemPrompt':
+                return {'prompt': 'prompt'}
+            return {'result': {'success': True}}
+
+        def dispose(self):
+            pass
+
+    class _Handle:
+        _bound_runtime = _RecordingRuntime()
+
+    monkeypatch.setattr(full_module, '_stateless_runtime', lambda: _RecordingRuntime())
+    policy = {'enforce_change_mode': 'tracked', 'allow_direct_actions': ['add_comments']}
+    preset = full_module.full_preset
+    preset.get_tools('generic', **policy)
+    preset.get_system_prompt(**policy)
+    preset.dispatch(_Handle(), 'superdoc_api_call', {'operationId': 'doc.clearContent', 'args': {}}, **policy)
+
+    assert [operation for operation, _ in invocations] == [
+        'doc.preset.getTools',
+        'doc.preset.getSystemPrompt',
+        'doc.preset.dispatch',
+    ]
+    for _, payload in invocations:
+        assert payload['preset'] == 'full'
+        assert payload['enforceChangeMode'] == 'tracked'
+        assert payload['allowDirectActions'] == 'add_comments'
+
+
+@pytest.mark.asyncio
+async def test_full_preset_async_dispatch_forwards_the_tracked_policy():
+    from superdoc.presets import full as full_module
+
+    payloads = []
+
+    class _AsyncRuntime:
+        async def invoke(self, operation, payload, **_kwargs):
+            payloads.append(dict(payload))
+            return {'result': {'success': True}}
+
+    class _Handle:
+        _bound_runtime = _AsyncRuntime()
+
+    result = await full_module.full_preset.dispatch_async(
+        _Handle(), 'superdoc_perform_action', {'action': 'insert_paragraphs', 'text': 'x'},
+        enforce_change_mode='tracked',
+    )
+    assert result == {'success': True}
+    assert payloads[0]['enforceChangeMode'] == 'tracked'
+    assert 'allowDirectActions' not in payloads[0]

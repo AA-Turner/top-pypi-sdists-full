@@ -134,6 +134,31 @@ def _safe_int(value: Any) -> int:
         return 0
 
 
+def _with_traffic_totals(rows: List[Dict[str, Any]], *prefixes: str) -> List[Dict[str, Any]]:
+    """Give report rows the ``rx_bytes``/``tx_bytes``/``bytes`` the summaries read.
+
+    Site and gateway reports count their traffic under ``wan-*`` and AP reports
+    under each radio band (``ng-*``, ``na-*``), so the totals are built from
+    those. A total the controller sent itself is kept.
+    """
+    for row in rows:
+        for direction in ("rx_bytes", "tx_bytes"):
+            if row.get(direction) is None:
+                parts = [
+                    row[f"{prefix}-{direction}"] for prefix in prefixes if row.get(f"{prefix}-{direction}") is not None
+                ]
+                if parts:
+                    row[direction] = sum(parts)
+        if row.get("bytes") is None and (row.get("rx_bytes") is not None or row.get("tx_bytes") is not None):
+            row["bytes"] = (row.get("rx_bytes") or 0) + (row.get("tx_bytes") or 0)
+    return rows
+
+
+def _by_time(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Legacy report rows in time order; the report does not promise one."""
+    return sorted(rows, key=lambda row: _safe_int(row.get("time")))
+
+
 def _window_ms(
     duration_hours: int,
     start_ms: Optional[int] = None,
@@ -220,6 +245,38 @@ def _v2_traffic_payload(response: Any) -> Dict[str, Any]:
     if isinstance(response, list) and response and isinstance(response[0], dict):
         response = response[0]
     return response if isinstance(response, dict) else {}
+
+
+def _speedtest_rows(response: Any, start_ms: int, end_ms: int) -> List[Dict[str, Any]]:
+    """Speedtest history rows inside the window, oldest first.
+
+    The v2 ``/speedtest`` endpoint wraps its rows in ``[{"data": [...]}]`` and
+    ignores any window parameter, returning its whole retained history.
+    """
+    payload = _v2_traffic_payload(response)
+    rows = payload["data"] if "data" in payload else response
+    if not isinstance(rows, list):
+        return []
+    in_window = [row for row in rows if isinstance(row, dict) and start_ms <= _safe_int(row.get("time")) <= end_ms]
+    return sorted(in_window, key=lambda row: _safe_int(row.get("time")))
+
+
+DPI_GROUPINGS = ("by_app", "by_cat")
+
+
+class StatsGroupingError(RequestError):
+    """A DPI grouping the controller does not have."""
+
+    def __init__(self) -> None:
+        # The value is not echoed: callers pass it positionally, where an
+        # identifier can land by mistake.
+        super().__init__(f"Invalid group_by: must be one of {', '.join(DPI_GROUPINGS)}.")
+
+
+def _check_dpi_grouping(by: str) -> None:
+    """Refuse an unknown grouping instead of returning per-app rows under its name."""
+    if by not in DPI_GROUPINGS:
+        raise StatsGroupingError()
 
 
 def _group_dpi_usage(entries: List[Dict[str, Any]], by: str) -> List[Dict[str, Any]]:
@@ -369,27 +426,22 @@ class StatsManager:
     async def _series_network_rows(self, start_ms: int, end_ms: int, granularity: str) -> List[Dict[str, Any]]:
         wan = await self._series("wanBySite", _SERIES_SITE_WAN, start_ms, end_ms, granularity)
         clients = await self._series("clientCountBySite", _SERIES_SITE_CLIENTS, start_ms, end_ms, granularity)
-        rows = stats_series.merge_rows(wan, clients)
-        for row in rows:
-            # The site report's rx/tx is its WAN traffic.
-            row.setdefault("rx_bytes", row.get("wan-rx_bytes", 0))
-            row.setdefault("tx_bytes", row.get("wan-tx_bytes", 0))
-            row["bytes"] = row["rx_bytes"] + row["tx_bytes"]
-        return rows
+        # The site report's rx/tx is its WAN traffic.
+        return _with_traffic_totals(stats_series.merge_rows(wan, clients), "wan")
 
     async def _series_gateway_rows(
         self, gateway_mac: Optional[str], start_ms: int, end_ms: int, granularity: str
     ) -> List[Dict[str, Any]]:
         if gateway_mac is None:
             wan = await self._series("wanBySite", _SERIES_GATEWAY_WAN, start_ms, end_ms, granularity)
-            return stats_series.merge_rows(wan)
+            return _with_traffic_totals(stats_series.merge_rows(wan), "wan")
         wan = await self._series(
             "wanBySiteByDevice", _SERIES_GATEWAY_WAN, start_ms, end_ms, granularity, device_mac=gateway_mac
         )
         system = await self._series(
             "systemBySiteByDevice", _SERIES_GATEWAY_SYSTEM, start_ms, end_ms, granularity, device_mac=gateway_mac
         )
-        return stats_series.merge_rows(wan, system, extra={"gw": gateway_mac})
+        return _with_traffic_totals(stats_series.merge_rows(wan, system, extra={"gw": gateway_mac}), "wan")
 
     async def _series_device_rows(
         self, device_mac: str, device_type: str, start_ms: int, end_ms: int, granularity: str
@@ -436,6 +488,7 @@ class StatsManager:
             # Use non-rate attributes commonly available on report endpoints
             payload = {
                 "attrs": [
+                    "time",
                     "bytes",  # total bytes (if provided by controller)
                     "rx_bytes",  # some controllers provide rx/tx at site level
                     "tx_bytes",
@@ -450,7 +503,9 @@ class StatsManager:
                 "start": start_time,
                 "end": end_time,
             }
-            result = await self._legacy_report(ApiRequest(method="post", path=endpoint, data=payload), source)
+            rows = await self._legacy_report(ApiRequest(method="post", path=endpoint, data=payload), source)
+            # The site report's rx/tx is its WAN traffic.
+            result = _with_traffic_totals(_by_time(rows), "wan")
             self._connection._update_cache(cache_key, result, timeout=300)
             return result
         except Exception as e:
@@ -496,6 +551,7 @@ class StatsManager:
             endpoint = f"/stat/report/{granularity}.user"
             payload = {
                 "attrs": [
+                    "time",
                     "rx_bytes",
                     "tx_bytes",
                     "bytes",
@@ -510,7 +566,7 @@ class StatsManager:
                 "start": start_time,
                 "end": end_time,
             }
-            result = await self._legacy_report(ApiRequest(method="post", path=endpoint, data=payload), source)
+            result = _by_time(await self._legacy_report(ApiRequest(method="post", path=endpoint, data=payload), source))
             self._connection._update_cache(cache_key, result, timeout=300)
             return result
         except Exception as e:
@@ -574,10 +630,14 @@ class StatsManager:
             # Route endpoint and attrs based on device_type
             if device_type == "ap":
                 endpoint = f"/stat/report/{granularity}.ap"
+                # 2.4, 5 and 6 GHz radios; the 6 GHz fields are absent on APs without one.
+                traffic_prefixes: tuple[str, ...] = ("ng", "na", "6e")
                 attrs = [
+                    "time",
                     "num_sta",
                     "ng-num_sta",
                     "na-num_sta",
+                    "6e-num_sta",
                     "satisfaction",
                     "tx_retries",
                     "wifi_tx_attempts",
@@ -586,10 +646,14 @@ class StatsManager:
                     "na-tx_bytes",
                     "ng-rx_bytes",
                     "na-rx_bytes",
+                    "6e-tx_bytes",
+                    "6e-rx_bytes",
                 ]
             elif device_type == "gw":
                 endpoint = f"/stat/report/{granularity}.gw"
+                traffic_prefixes = ("wan",)
                 attrs = [
+                    "time",
                     "wan-rx_bytes",
                     "wan-tx_bytes",
                     "lan-rx_bytes",
@@ -600,7 +664,9 @@ class StatsManager:
                 ]
             else:
                 endpoint = f"/stat/report/{granularity}.dev"
+                traffic_prefixes = ()
                 attrs = [
+                    "time",
                     "rx_bytes",
                     "tx_bytes",
                     "bytes",
@@ -613,7 +679,8 @@ class StatsManager:
                 "start": start_time,
                 "end": end_time,
             }
-            result = await self._legacy_report(ApiRequest(method="post", path=endpoint, data=payload), source)
+            rows = await self._legacy_report(ApiRequest(method="post", path=endpoint, data=payload), source)
+            result = _with_traffic_totals(_by_time(rows), *traffic_prefixes)
             self._connection._update_cache(cache_key, result, timeout=300)
             return result
         except Exception as e:
@@ -631,7 +698,7 @@ class StatsManager:
         raw = device.raw if hasattr(device, "raw") else device
         device_mac = raw.get("mac", device_id)
         device_type = raw.get("type", "unknown")
-        report_type = {"uap": "ap", "ugw": "gw", "udm": "gw"}.get(device_type, "dev")
+        report_type = {"uap": "ap", "ugw": "gw", "udm": "gw", "uxg": "gw"}.get(device_type, "dev")
         return await self.get_device_stats(
             device_mac,
             duration_hours=duration_hours,
@@ -933,6 +1000,7 @@ class StatsManager:
             endpoint = f"/stat/report/{granularity}.gw"
             payload = {
                 "attrs": [
+                    "time",
                     "wan-rx_bytes",
                     "wan-tx_bytes",
                     "lan-rx_bytes",
@@ -946,7 +1014,7 @@ class StatsManager:
                 "start": start_time,
                 "end": end_time,
             }
-            result = await self._legacy_report(ApiRequest(method="post", path=endpoint, data=payload), source)
+            result = _by_time(await self._legacy_report(ApiRequest(method="post", path=endpoint, data=payload), source))
             self._connection._update_cache(cache_key, result, timeout=300)
             return result
         except Exception as e:
@@ -954,35 +1022,59 @@ class StatsManager:
             raise
 
     async def get_speedtest_results(self, duration_hours: int = 24) -> List[Dict[str, Any]]:
-        """Get speed test results from the controller archive."""
+        """Get speed test results for the window.
+
+        Network 11 keeps speedtest history behind the site's v2 ``/speedtest``
+        endpoint and leaves the legacy archive empty, so only a legacy-engine
+        controller, or one without that endpoint, reads the archive.
+        """
         cache_key = f"{CACHE_PREFIX_STATS_SPEEDTEST}_{duration_hours}_{self._connection.site}"
         cached_data = self._connection.get_cached(cache_key, timeout=300)  # 5 minute cache
         if cached_data is not None:
             return cached_data
 
         try:
-            start_time = int((datetime.now() - timedelta(hours=duration_hours)).timestamp() * 1000)
-            end_time = int(datetime.now().timestamp() * 1000)
-
-            endpoint = "/stat/report/archive.speedtest"
-            payload = {
-                "attrs": [
-                    "xput_download",
-                    "xput_upload",
-                    "latency",
-                    "time",
-                ],
-                "start": start_time,
-                "end": end_time,
-            }
-            api_request = ApiRequest(method="post", path=endpoint, data=payload)
-            response = await self._connection.request(api_request)
-            result = response if isinstance(response, list) else []
+            start_time, end_time = _window_ms(duration_hours)
+            result = None
+            if await self._stats_source() != _STATS_SOURCE_LEGACY:
+                result = await self._v2_speedtest_results(start_time, end_time)
+            if result is None:
+                result = await self._archive_speedtest_results(start_time, end_time)
             self._connection._update_cache(cache_key, result, timeout=300)
             return result
         except Exception as e:
             logger.error("Error getting speedtest results: %s", e)
             raise
+
+    async def _v2_speedtest_results(self, start_ms: int, end_ms: int) -> Optional[List[Dict[str, Any]]]:
+        """Read the v2 speedtest history, or None when the controller has no such endpoint."""
+        try:
+            response = await self._connection.request(ApiRequestV2(method="get", path="/speedtest"))
+        except Exception as e:
+            if response_status(e) != 404:
+                raise
+            return None
+        return _speedtest_rows(response, start_ms, end_ms)
+
+    async def _archive_speedtest_results(self, start_ms: int, end_ms: int) -> List[Dict[str, Any]]:
+        """Read the legacy ``archive.speedtest`` report."""
+        payload = {
+            "attrs": [
+                "xput_download",
+                "xput_upload",
+                "latency",
+                "time",
+                # Which uplink ran the test, so dual-WAN results can be told apart.
+                "interface_name",
+                "wan_networkgroup",
+            ],
+            "start": start_ms,
+            "end": end_ms,
+        }
+        response = await self._connection.request(
+            ApiRequest(method="post", path="/stat/report/archive.speedtest", data=payload)
+        )
+        return response if isinstance(response, list) else []
 
     async def _get_v2_traffic(self, start_ms: int, end_ms: int) -> Dict[str, Any]:
         """Read the v2 DPI traffic aggregate (Network 9.x+) for a window."""
@@ -1007,6 +1099,7 @@ class StatsManager:
         Args:
             by: Grouping type, e.g. 'by_app' or 'by_cat'.
         """
+        _check_dpi_grouping(by)
         start_time, end_time = _window_ms(duration_hours, start_ms, end_ms)
         cache_key = (
             f"{CACHE_PREFIX_STATS_SITE_DPI}_{by}_{_window_cache_key(start_time, end_time, start_ms, end_ms)}"
@@ -1057,6 +1150,7 @@ class StatsManager:
             client_mac: MAC address of the client.
             by: Grouping type, e.g. 'by_app' or 'by_cat'.
         """
+        _check_dpi_grouping(by)
         client_mac = normalize_mac(client_mac) or client_mac
         start_time, end_time = _window_ms(duration_hours, start_ms, end_ms)
         window_key = _window_cache_key(start_time, end_time, start_ms, end_ms)
@@ -1347,6 +1441,7 @@ class StatsManager:
                 "radio",
                 "essid",
                 "bssid",
+                "ap_mac",
                 "nss",
                 "is_11r",
             ]

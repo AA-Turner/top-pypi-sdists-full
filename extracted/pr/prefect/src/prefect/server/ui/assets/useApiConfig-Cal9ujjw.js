@@ -1,0 +1,1 @@
+import{i as e}from"./index-Bny_92F-.js";import{i as t}from"./usePrefectApi-8js-IVfa.js";async function n(n){let r=await t.get(`apiUrl`,void 0,n),i={baseUrl:r};return r.startsWith(`/`)&&e()===`development`&&(i.baseUrl=`http://127.0.0.1:4200${r}`),{config:i}}export{n as t};

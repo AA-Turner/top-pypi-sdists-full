@@ -119,6 +119,48 @@ def terminate(
     return _private_sdk.terminate(name=name, id=id, cloud=cloud, project=project)  # type: ignore
 
 
+_DELETE_EXAMPLE = """
+import anyscale
+
+anyscale.workspace.delete(
+    name="my-workspace",
+    cloud="my-cloud",
+    project="my-project",
+)
+"""
+
+_DELETE_ARG_DOCSTRINGS = {
+    "name": "Name of the workspace.",
+    "id": "Unique ID of the workspace.",
+    "cloud": "The Anyscale Cloud of the workspace (required with name).",
+    "project": "Named project of the workspace (required with name).",
+}
+
+
+@sdk_command(
+    _WORKSPACE_SDK_SINGLETON_KEY,
+    PrivateWorkspaceSDK,
+    doc_py_example=_DELETE_EXAMPLE,
+    arg_docstrings=_DELETE_ARG_DOCSTRINGS,
+)
+def delete(
+    *,
+    name: Optional[str] = None,
+    id: Optional[str] = None,  # noqa: A002
+    cloud: Optional[str] = None,
+    project: Optional[str] = None,
+    _private_sdk: Optional[PrivateWorkspaceSDK] = None,
+) -> str:
+    """Delete a workspace.
+
+    Only a terminated workspace, or one that failed to start, can be deleted.
+    Terminate a running workspace first. Deleting cannot be undone.
+
+    Returns the id of the deleted workspace.
+    """
+    return _private_sdk.delete(name=name, id=id, cloud=cloud, project=project)  # type: ignore
+
+
 _STATUS_EXAMPLE = """
 import anyscale
 

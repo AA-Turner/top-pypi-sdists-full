@@ -52,8 +52,9 @@ _NODE_UPGRADE_RETRY_DELAY_SECONDS = 15.0
 # requests never arrived.
 _PREDICT_ENDPOINT_SUFFIXES = ("/predict", "/predict_table", "/light_predict", "/es_predict")
 # How long sphere-api-router waits on a compute node's predict
-# (prediction_router PRODUCTION_AI_TIMEOUT). A generate=True call waits this
-# long so the client doesn't give up while the router is still waiting.
+# (prediction_router PRODUCTION_AI_TIMEOUT). Batch predicts and generate=True
+# calls wait this long so the client doesn't give up while the router is still
+# waiting.
 PREDICT_ROUTER_TIMEOUT_SECONDS = 300
 
 # sphere-api-router's org job-queue-limit (quota_exceeded) is a depth cap, not

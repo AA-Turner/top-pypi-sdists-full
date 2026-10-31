@@ -37,7 +37,7 @@ class CreateDubbingJobData(UniversalBaseModel):
     pace_preset: typing.Optional[str] = None
     model_tier: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Echo of the requested quality tier (`plus`/`lite`), or null when the service default was used.
+    Echo of the requested quality tier (`plus`/`lite`/`auto`), or null when the service default was used.
     """
 
     if IS_PYDANTIC_V2:

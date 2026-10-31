@@ -20,13 +20,15 @@ from monocle_apptrace.instrumentation.metamodel.langgraph.langgraph_processor im
 from monocle_apptrace.instrumentation.metamodel.crew_ai.methods import CREW_AI_METHODS
 from monocle_apptrace.instrumentation.metamodel.crew_ai.crew_ai_processor import CrewAIAgentHandler, CrewAITaskHandler, CrewAIToolHandler
 from monocle_apptrace.instrumentation.metamodel.msagent.methods import MSAGENT_METHODS
-from monocle_apptrace.instrumentation.metamodel.msagent.msagent_processor import MSAgentRequestHandler, MSAgentAgentHandler, MSAgentInferenceHandler, MSAgentInferenceStreamHandler, MSAgentToolHandler
+from monocle_apptrace.instrumentation.metamodel.msagent.msagent_processor import MSAgentRequestHandler, MSAgentAgentHandler, MSAgentInferenceHandler, MSAgentInferenceStreamHandler, MSAgentToolHandler, MSAgentOrchestratorHandler
 from monocle_apptrace.instrumentation.metamodel.agents.methods import AGENTS_METHODS
 from monocle_apptrace.instrumentation.metamodel.agents.agents_processor import AgentsSpanHandler
 from monocle_apptrace.instrumentation.metamodel.flask.methods import (FLASK_METHODS, )
 from monocle_apptrace.instrumentation.metamodel.flask._helper import FlaskSpanHandler, FlaskResponseSpanHandler
 from monocle_apptrace.instrumentation.metamodel.requests.methods import (REQUESTS_METHODS, )
 from monocle_apptrace.instrumentation.metamodel.requests._helper import RequestSpanHandler
+from monocle_apptrace.instrumentation.metamodel.httpx.methods import (HTTPX_METHODS, )
+from monocle_apptrace.instrumentation.metamodel.httpx._helper import HttpxSpanHandler
 from monocle_apptrace.instrumentation.metamodel.teamsai.methods import (TEAMAI_METHODS, )
 from monocle_apptrace.instrumentation.metamodel.anthropic.methods import (ANTHROPIC_METHODS, )
 from monocle_apptrace.instrumentation.metamodel.aiohttp.methods import (AIOHTTP_METHODS, )
@@ -111,7 +113,8 @@ DEFAULT_METHODS_LIST = (
     HAYSTACK_METHODS + 
     BOTOCORE_METHODS + 
     FLASK_METHODS + 
-    REQUESTS_METHODS + 
+    REQUESTS_METHODS +
+    HTTPX_METHODS + 
     LANGGRAPH_METHODS + 
     CREW_AI_METHODS +
     MSAGENT_METHODS +
@@ -146,6 +149,7 @@ MONOCLE_SPAN_HANDLERS: Dict[str, SpanHandler] = {
     "flask_handler": FlaskSpanHandler(),
     "flask_response_handler": FlaskResponseSpanHandler(),
     "request_handler": RequestSpanHandler(),
+    "httpx_handler": HttpxSpanHandler(),
     "non_framework_handler": NonFrameworkSpanHandler(),
     "openai_handler": OpenAISpanHandler(),
     "openai_agents_handler": OpenAIAgentsSpanHandler(),
@@ -163,6 +167,7 @@ MONOCLE_SPAN_HANDLERS: Dict[str, SpanHandler] = {
     "msagent_inference_handler": MSAgentInferenceHandler(),
     "msagent_inference_stream_handler": MSAgentInferenceStreamHandler(),
     "msagent_tool_handler": MSAgentToolHandler(),
+    "msagent_orchestrator_handler": MSAgentOrchestratorHandler(),
     "agents_agent_handler": AgentsSpanHandler(),
     "llamaindex_tool_handler": LlamaIndexToolHandler(),
     "llamaindex_agent_handler": LlamaIndexAgentHandler(),

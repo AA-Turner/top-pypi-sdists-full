@@ -166,7 +166,7 @@ def get_rank_sum(date: str = "20210525", vars_list: list = cons.contract_symbols
 
     for symbol, table in big_dict.items():
         table = table.map(lambda x: 0 if x == "" else x)
-        for symbol_inner in set(table["symbol"]):
+        for symbol_inner in dict.fromkeys(table["symbol"]):
             var = symbol_varieties(symbol_inner)
             if var in vars_list:
                 if var in czce_var:
@@ -353,7 +353,7 @@ def get_shfe_rank_table(
     big_dict = {}
     for var in get_vars:
         df_var = df[df["variety"] == var]
-        for symbol in set(df_var["symbol"]):
+        for symbol in dict.fromkeys(df_var["symbol"]):
             df_symbol = df_var[df_var["symbol"] == symbol].copy()
             df_symbol["symbol"] = df_symbol["symbol"].str.upper()
             big_dict[symbol] = df_symbol.reset_index(drop=True)
@@ -376,11 +376,6 @@ def _czce_df_read(url, skip_rows, encoding="utf-8", header=0):
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/84.0.4147.89 Safari/537.36",
         "Host": "www.czce.com.cn",
-        "Cookie": "XquW6dFMPxV380S=CAaD3sMkdXv3fUoaJlICIEv0MVegGq5EoMyBcxkOjCgSjmpuovYFuTLtYFcxTZGw; "
-        "XquW6dFMPxV380T=5QTTjUlA6f6WiDO7fMGmqNxHBWz.hKIc8lb_tc1o4nHrJM4nsXCAI9VHaKyV_jkHh4cIVvD25kGQAh."
-        "MvLL1SHRA20HCG9mVVHPhAzktNdPK3evjm0NYbTg2Gu_XGGtPhecxLvdFQ0."
-        "JlAxy_z0C15_KdO8kOI18i4K0rFERNPxjXq5qG1Gs.QiOm976wODY.pe8XCQtAsuLYJ."
-        "N4DpTgNfHJp04jhMl0SntHhr.jhh3dFjMXBx.JEHngXBzY6gQAhER7uSKAeSktruxFeuKlebse.vrPghHqWvJm4WPTEvDQ8q",
     }
     r = requests_link(url, encoding, headers=headers)
 
@@ -778,7 +773,7 @@ def get_cffex_rank_table(date: str = "20190805", vars_list=cons.contract_symbols
         table = table.dropna(how="any")
         table = table.map(lambda x: x.strip() if isinstance(x, str) else x)
         del table["交易日"]
-        for symbol in set(table["合约"]):
+        for symbol in dict.fromkeys(table["合约"]):
             table_cut = table[table["合约"] == symbol]
             table_cut.columns = ["symbol", "rank"] + rank_columns
             table_cut = _table_cut_cal(pd.DataFrame(table_cut), symbol)

@@ -1,7 +1,7 @@
 """THE SUBSTITUTION IS PART OF THE ANSWER — a rerouted model leaves a record.
 
 The live defect (2026-09-12, W69). Workflow runs 843d5847…, 94d48d9c… and
-339bb4bf… each authored an ``ai.agent.tool_calling`` step naming
+339bb4bf… each authored an ``ai.chat.manual`` step naming
 ``claude-sonnet-5`` (ai.model_definition 617abdcd-79e2-4a4b-be76-4a9960cdffa1).
 The Anthropic account was out of credit, so every call came back
 ``billing_error`` HTTP 400 ("Your credit balance is too low to access the
@@ -65,7 +65,7 @@ def _completed(reroutes: list[dict[str, Any]] | None) -> Any:
     Only the attributes ``normalize_completed`` reads are present — it is
     deliberately ``getattr``-defensive, so this exercises the real function.
     """
-    metadata: dict[str, Any] = {"spec_type": "ai.agent.tool_calling"}
+    metadata: dict[str, Any] = {"spec_type": "ai.chat.manual"}
     if reroutes is not None:
         metadata["overload_reroutes"] = reroutes
     request = SimpleNamespace(
@@ -155,7 +155,7 @@ class TestOperatorAlarm:
         monkeypatch.setattr(ext, "has_ext", lambda name: name == "record_error")
         monkeypatch.setattr(ext, "get_ext", lambda name: _record_error)
 
-        record_provider_reroute(LIVE_NOTE, spec_type="ai.agent.tool_calling")
+        record_provider_reroute(LIVE_NOTE, spec_type="ai.chat.manual")
 
         assert captured, "the alarm must reach the host's ops.system_error door"
         row = captured[0]
@@ -164,7 +164,7 @@ class TestOperatorAlarm:
         assert LIVE_NOTE["to_model"] in row["error_text"]
         assert "retry_fallback_id" in row["error_text"]
         assert row["payload"]["reroute"]["error_type"] == "billing_error"
-        assert row["route"] == "ai.agent.tool_calling"
+        assert row["route"] == "ai.chat.manual"
 
     def test_one_row_per_class_per_process(self, monkeypatch):
         captured: list[Any] = []

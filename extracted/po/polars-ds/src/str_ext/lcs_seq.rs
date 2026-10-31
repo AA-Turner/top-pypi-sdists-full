@@ -88,10 +88,16 @@ fn pl_lcs_subseq(inputs: &[Series], context: CallerContext) -> PolarsResult<Seri
     let ca1 = inputs[0].str()?;
     let ca2 = inputs[1].str()?;
     let parallel = inputs[2].bool()?;
-    let parallel = parallel.get(0).unwrap();
+    let parallel = parallel.get(0).unwrap_or(false);
     let can_parallel = parallel && !context.parallel();
     if ca2.len() == 1 {
-        let r = ca2.get(0).unwrap();
+        let Some(r) = ca2.get(0) else {
+            return Ok(Series::full_null(
+                ca1.name().clone(),
+                ca1.len(),
+                &DataType::String,
+            ));
+        };
         if can_parallel {
             let ca = ca1
                 .par_iter()
@@ -122,7 +128,7 @@ fn pl_lcs_subseq(inputs: &[Series], context: CallerContext) -> PolarsResult<Seri
         }
     } else {
         Err(PolarsError::ShapeMismatch(
-            "Inputs must have the same length or one of them must be a scalar.".into(),
+            "inputs must have the same length or one of them must be a scalar".into(),
         ))
     }
 }
@@ -135,14 +141,20 @@ fn pl_lcs_subseq_dist(inputs: &[Series], context: CallerContext) -> PolarsResult
     let parallel = parallel.get(0).unwrap();
     let can_parallel = parallel && !context.parallel();
     if ca2.len() == 1 {
-        let r = ca2.get(0).unwrap();
+        let Some(r) = ca2.get(0) else {
+            return Ok(Series::full_null(
+                ca1.name().clone(),
+                ca1.len(),
+                &DataType::UInt32,
+            ));
+        };
         let batched = lcs_seq::BatchComparator::new(r.chars());
         Ok(generic_batched_distance(batched, ca1, can_parallel))
     } else if ca1.len() == ca2.len() {
         Ok(generic_binary_distance(lcs_seq, ca1, ca2, can_parallel))
     } else {
         Err(PolarsError::ShapeMismatch(
-            "Inputs must have the same length or one of them must be a scalar.".into(),
+            "inputs must have the same length or one of them must be a scalar".into(),
         ))
     }
 }
@@ -155,14 +167,20 @@ fn pl_lcs_subseq_sim(inputs: &[Series], context: CallerContext) -> PolarsResult<
     let parallel = parallel.get(0).unwrap();
     let can_parallel = parallel && !context.parallel();
     if ca2.len() == 1 {
-        let r = ca2.get(0).unwrap();
+        let Some(r) = ca2.get(0) else {
+            return Ok(Series::full_null(
+                ca1.name().clone(),
+                ca1.len(),
+                &DataType::Float64,
+            ));
+        };
         let batched = lcs_seq::BatchComparator::new(r.chars());
         Ok(generic_batched_sim(batched, ca1, can_parallel))
     } else if ca1.len() == ca2.len() {
         Ok(generic_binary_sim(lcs_seq_sim, ca1, ca2, can_parallel))
     } else {
         Err(PolarsError::ShapeMismatch(
-            "Inputs must have the same length or one of them must be a scalar.".into(),
+            "inputs must have the same length or one of them must be a scalar".into(),
         ))
     }
 }

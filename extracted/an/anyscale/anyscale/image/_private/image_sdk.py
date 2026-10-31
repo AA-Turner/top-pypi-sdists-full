@@ -67,6 +67,32 @@ class PrivateImageSDK(BaseSDK):
             ),
         )
 
+    def _get_template_by_name(
+        self, image_name: str, *, include_archived: bool, cloud_id: Optional[str] = None
+    ) -> DecoratedApplicationTemplate:
+        # An empty name filter matches every image in the organization, so skip the lookup.
+        if image_name:
+            templates: ResultIterator[DecoratedApplicationTemplate] = ResultIterator(
+                page_token=None,
+                max_items=None,
+                fetch_page=lambda token: self.client.list_application_templates(
+                    name=image_name,
+                    image_name=None,
+                    creator_id=None,
+                    project=None,
+                    include_archived=include_archived,
+                    defaults_first=False,
+                    count=MAX_PAGE_SIZE,
+                    paging_token=token,
+                    cloud_id=cloud_id,
+                ),
+            )
+            # The name filter is a substring match, so the exact match can be on any page.
+            template = next((t for t in templates if t.name == image_name), None)
+            if template is not None:
+                return template
+        raise ValueError(f"Image '{image_name}' not found.")
+
     def get(self, name: str, cloud_id: Optional[str] = None) -> ImageBuild:
         """Get an image by name with optional version (name:version format).
 
@@ -83,23 +109,9 @@ class PrivateImageSDK(BaseSDK):
                     f"Invalid version format '{version_str}'. Version must be a number."
                 )
 
-        response = self.client.list_application_templates(
-            name=image_name,
-            image_name=None,
-            creator_id=None,
-            project=None,
-            include_archived=False,
-            defaults_first=False,
-            count=50,
-            paging_token=None,
-            cloud_id=cloud_id,
+        template = self._get_template_by_name(
+            image_name, include_archived=False, cloud_id=cloud_id
         )
-
-        # list_application_templates does substring matching, need exact match
-        results = response.results if response.results else []
-        template = next((t for t in results if t.name == image_name), None)
-        if not template:
-            raise ValueError(f"Image '{image_name}' not found.")
 
         if not template.latest_build:
             raise ValueError(f"No builds found for image '{image_name}'.")
@@ -416,25 +428,25 @@ class PrivateImageSDK(BaseSDK):
         if name is not None:
             # Parse name to extract just the image name (without version)
             image_name = name.split(":", 1)[0] if ":" in name else name
-
-            # Look up the image by name
-            response = self.client.list_application_templates(
-                name=image_name,
-                image_name=None,
-                creator_id=None,
-                project=None,
-                include_archived=False,
-                defaults_first=False,
-                count=50,
-                paging_token=None,
-                cloud_id=cloud_id,
-            )
-
-            results = response.results if response.results else []
-            template = next((t for t in results if t.name == image_name), None)
-            if not template:
-                raise ValueError(f"Image '{image_name}' not found.")
-            resolved_id = template.id
+            resolved_id = self._get_template_by_name(
+                image_name, include_archived=False, cloud_id=cloud_id
+            ).id
 
         self.client.archive_image(image_id=resolved_id)
         self.logger.info("Successfully archived image.")
+
+    def unarchive(self, *, name: str) -> None:
+        """Unarchive an image and all of its versions by name.
+
+        A version tag in the name is ignored. Job queues that were sealed when the
+        image was archived stay sealed.
+        """
+        if self.client.get_deployment_infra_provider() == "azure":
+            raise ValueError(
+                "Unarchiving container images is not supported on Azure Control Plane."
+            )
+
+        image_name = name.split(":", 1)[0]
+        template = self._get_template_by_name(image_name, include_archived=True)
+        self.client.unarchive_image(image_id=template.id)
+        self.logger.info("Successfully unarchived image.")

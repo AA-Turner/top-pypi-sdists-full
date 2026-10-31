@@ -1994,6 +1994,9 @@ class GetProfileObjectTypeTemplateResponseTypeDef(TypedDict):
     TemplateId: str
     SourceName: str
     SourceObject: str
+    DefaultMaxProfileObjectCount: int
+    DefaultMaxProfileObjectCountEffectiveAfter: datetime
+    StoreOnly: bool
     AllowProfileCreation: bool
     SourceLastUpdatedTimestampFormat: str
     Fields: dict[str, ObjectTypeFieldTypeDef]

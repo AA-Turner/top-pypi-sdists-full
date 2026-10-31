@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import io
 import json
+import os
+import subprocess
 import tarfile
 from textwrap import dedent
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Final, Protocol, cast
 
 import pytest
 
@@ -17,7 +19,7 @@ if TYPE_CHECKING:
 
     from pytest_mock import MockerFixture
 
-    from tox.pytest import ToxProjectCreator
+    from tox.pytest import ToxProject, ToxProjectCreator, ToxRunOutcome
 
 
 @pytest.mark.parametrize(
@@ -94,6 +96,124 @@ def test_package_root_via_testenv(tox_project: ToxProjectCreator, demo_pkg_inlin
     proj.patch_execute(lambda r: 0 if "install" in r.run_id else None)
     result = proj.run("r", "--notest")
     result.assert_success()
+
+
+@pytest.mark.parametrize(
+    ("key", "path"),
+    [
+        pytest.param("package_root", "b", id="package-root"),
+        pytest.param("meta_dir", "m", id="metadata"),
+        pytest.param("pkg_dir", "d", id="distribution"),
+    ],
+)
+def test_package_dirs_are_relative_to_conf(tox_project: ToxProjectCreator, key: str, path: str) -> None:
+    ini: Final[str] = (
+        "[tox]\npackage_root=a\n[testenv]\npackage=wheel\n[testenv:.pkg]\npackage_root=b\nmeta_dir=m\npkg_dir=d"
+    )
+    proj: Final[ToxProject] = tox_project({"tox.ini": ini})
+    result: Final[ToxRunOutcome] = proj.run("c", "-e", "py,.pkg", "-c", proj.path.name, from_cwd=proj.path.parent)
+    result.assert_success()
+    assert result.env_conf(".pkg")[key] == proj.path / path
+
+
+def _symlink_to(link: Path, target: Path) -> None:
+    link.symlink_to(target, target_is_directory=True)
+
+
+def _junction_to(link: Path, target: Path) -> None:
+    subprocess.run(
+        [os.environ["COMSPEC"], "/c", "mklink", "/J", str(link), str(target)], check=True, capture_output=True
+    )
+
+
+@pytest.mark.parametrize(
+    ("create_link", "is_symlink"),
+    [
+        pytest.param(
+            _symlink_to,
+            True,
+            id="symlink",
+            marks=pytest.mark.skipif(os.name == "nt", reason="creating symlinks needs privileges on Windows"),
+        ),
+        pytest.param(
+            _junction_to,
+            False,
+            id="junction",
+            marks=pytest.mark.skipif(os.name != "nt", reason="junctions require Windows"),
+        ),
+    ],
+)
+def test_meta_dir_link_fails_without_touching_target(
+    tox_project: ToxProjectCreator,
+    demo_pkg_inline: Path,
+    tmp_path: Path,
+    create_link: LinkCreator,
+    is_symlink: bool,
+) -> None:
+    outside: Final[Path] = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "keep").write_text("keep")
+    project: Final[ToxProject] = tox_project({
+        "tox.ini": f"[tox]\npackage_root={demo_pkg_inline}\n[testenv]\npackage=wheel\nwheel_build_env=.pkg",
+    })
+    meta_dir: Final[Path] = project.path / ".tox" / ".pkg" / ".meta"
+    meta_dir.parent.mkdir(parents=True)
+    create_link(meta_dir, outside)
+    assert meta_dir.is_symlink() is is_symlink
+    project.patch_execute(lambda request: 0 if "install" in request.run_id else None)
+
+    result: Final[ToxRunOutcome] = project.run("r", "--notest")
+
+    result.assert_failed()
+    assert "is a link where the package metadata should live" in result.out
+    assert [(entry.name, entry.read_text()) for entry in outside.iterdir()] == [("keep", "keep")]
+
+
+class LinkCreator(Protocol):
+    def __call__(self, link: Path, target: Path) -> None: ...
+
+
+def test_core_package_root_is_relative_to_conf(tox_project: ToxProjectCreator) -> None:
+    project: Final[ToxProject] = tox_project({"tox.ini": "[tox]\npackage_root=a\n[testenv]\npackage=wheel"})
+    result: Final[ToxRunOutcome] = project.run("c", "-e", "py", "-c", project.path.name, from_cwd=project.path.parent)
+    result.assert_success()
+    assert result.state.conf.core["package_root"] == project.path / "a"
+
+
+def test_static_package_deps_use_pkg_env_package_root(package_root_project: ToxProject) -> None:
+    package_root_project.patch_execute(lambda request: 0 if "install" in request.run_id else None)
+    result: Final[ToxRunOutcome] = package_root_project.run("r", "--notest")
+    result.assert_success()
+    assert [line for line in result.out.splitlines() if line.startswith("py: install_package_deps>")] == [
+        "py: install_package_deps> python -I -m pip install service-dep"
+    ]
+
+
+@pytest.fixture
+def package_root_project(tox_project: ToxProjectCreator, demo_pkg_inline: Path) -> ToxProject:
+    return tox_project({
+        "tox.ini": "[testenv]\npackage=wheel\nwheel_build_env=.pkg\n[testenv:.pkg]\npackage_root={tox_root}/service",
+        "pyproject.toml": '[project]\nname = "workspace"\nversion = "9.9"\ndependencies = ["workspace-dep"]\n',
+        "service": {
+            "build.py": (demo_pkg_inline / "build.py").read_text(encoding="utf-8"),
+            "pyproject.toml": (
+                '[build-system]\nrequires = []\nbuild-backend = "build"\nbackend-path = ["."]\n'
+                '[project]\nname = "service"\nversion = "1.0"\ndependencies = ["service-dep"]\n'
+            ),
+        },
+    })
+
+
+def test_editable_legacy_installs_pkg_env_package_root(package_root_project: ToxProject) -> None:
+    (package_root_project.path / "tox.ini").write_text(
+        "[testenv]\npackage=editable-legacy\n[testenv:.pkg]\npackage_root={tox_root}/service", encoding="utf-8"
+    )
+    package_root_project.patch_execute(lambda request: 0 if "install" in request.run_id else None)
+    result: Final[ToxRunOutcome] = package_root_project.run("r", "--notest")
+    result.assert_success()
+    assert [
+        line.rpartition(" -e ")[-1] for line in result.out.splitlines() if line.startswith("py: install_package>")
+    ] == [str(package_root_project.path / "service")]
 
 
 @pytest.mark.parametrize(
@@ -668,7 +788,7 @@ def test_sdist_wheel_rejects_path_traversal(
     mocker.patch.object(Pep517VirtualEnvFrontend, "build_sdist", _build_malicious_sdist)
     result = proj.run("r", "--notest")
     result.assert_failed()
-    assert "tar member '../escape.txt' would extract outside of" in result.out
+    assert "cannot extract tar member '../escape.txt' into" in result.out
 
 
 def test_config_inspection_does_not_read_pyproject(tox_project: ToxProjectCreator) -> None:
@@ -738,3 +858,28 @@ def test_build_wheel_via_sdist_restores_root(tox_project: ToxProjectCreator, dem
     result.assert_success()
     pkg = cast("pyproject_pkg.Pep517VenvPackager", result.state.envs[".pkg"])
     assert pkg.root == pkg.conf["package_root"]
+
+
+@pytest.mark.parametrize(
+    ("skip", "message"),
+    [
+        pytest.param(
+            "false", "a: failed with could not find python interpreter matching any of the specs missing", id="fail"
+        ),
+        pytest.param(
+            "true",
+            "a: skipped because could not find python interpreter with spec(s): missing for package environment .pkg",
+            id="skip",
+        ),
+    ],
+)
+def test_pkg_env_missing_interpreter(
+    tox_project: ToxProjectCreator, demo_pkg_inline: Path, skip: str, message: str
+) -> None:
+    toml_cfg = 'env_list = ["a"]\n[env_pkg_base]\nbase_python = ["missing"]\n'
+    proj = tox_project({"tox.toml": toml_cfg}, base=demo_pkg_inline)
+
+    result = proj.run("r", "-e", "a", "--skip-missing-interpreters", skip)
+
+    result.assert_failed()
+    assert message in result.out.splitlines()

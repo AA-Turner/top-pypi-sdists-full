@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langgraph-api
-Version: 0.16.9
+Version: 0.17.0
 Author-email: Will Fu-Hinthorn <will@langchain.dev>, Josh Rogers <josh@langchain.dev>, Parker Rule <parker@langchain.dev>
 License: Elastic-2.0
 License-File: LICENSE
@@ -17,7 +17,7 @@ Requires-Dist: jsonschema-rs<0.45,>=0.20.0
 Requires-Dist: langchain-core>=0.3.64
 Requires-Dist: langchain-protocol<0.1,>=0.0.18
 Requires-Dist: langgraph-checkpoint<5,>=3.0.1
-Requires-Dist: langgraph-runtime-inmem<0.37.0.dev0,>=0.36.0.dev0
+Requires-Dist: langgraph-runtime-inmem<0.38.0.dev0,>=0.37.0.dev0
 Requires-Dist: langgraph-sdk>=0.4.4
 Requires-Dist: langgraph<2,>=0.4.10
 Requires-Dist: langsmith[otel]>=0.6.3

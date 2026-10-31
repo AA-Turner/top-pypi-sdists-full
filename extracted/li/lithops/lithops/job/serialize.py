@@ -94,7 +94,8 @@ class SerializeIndependent:
     def _referenced_module_paths(
         self,
         list_of_objs: List,
-        exclude_modules: Iterable[str]
+        exclude_modules: Iterable[str],
+        source: str = 'Objects'
     ) -> Set[str]:
         """
         Finds the paths of the modules the objects reference, leaving out the
@@ -108,7 +109,7 @@ class SerializeIndependent:
         for obj in list_of_objs:
             ref_modules.update(self._module_inspect(obj))
 
-        logger.debug(f"Referenced Modules: {_joined_or_none(ref_modules)}")
+        logger.debug(f"{source} - Referenced Modules: {_joined_or_none(ref_modules)}")
 
         mod_paths = set()
         for module_name in ref_modules:
@@ -179,41 +180,27 @@ class SerializeIndependent:
         self,
         list_of_objs: List,
         include_modules: Optional[Iterable[str]],
-        exclude_modules: Iterable[str]
+        exclude_modules: Iterable[str],
+        source: str = 'Objects'
     ) -> Set[str]:
         """
         Collects the paths of the modules that have to travel with the job:
         either the ones explicitly included, or the ones its code references
         """
         if include_modules is None:
-            logger.debug('Module manager disabled. Modules to transmit: None')
+            logger.debug(f'{source} - Module manager disabled. Modules to transmit: None')
             return set()
 
         if include_modules:
             mod_paths = self._explicit_module_paths(include_modules)
         else:
             mod_paths = self._referenced_module_paths(
-                list_of_objs, exclude_modules
+                list_of_objs, exclude_modules, source
             )
 
-        logger.debug(f"Modules to transmit: {_joined_or_none(mod_paths)}")
+        logger.debug(f"{source} - Modules to transmit: {_joined_or_none(mod_paths)}")
 
         return mod_paths
-
-    def __call__(
-        self,
-        list_of_objs: List,
-        include_modules: Optional[Iterable[str]],
-        exclude_modules: Iterable[str]
-    ) -> Tuple[List[bytes], Set[str]]:
-        """
-        Serializes the objects independently and returns them together with
-        the paths of the modules they depend on
-        """
-        return (
-            self.dumps(list_of_objs),
-            self.module_paths(list_of_objs, include_modules, exclude_modules),
-        )
 
     def _entry_points(self, obj: Any) -> Tuple[List, Set[str]]:
         """
@@ -289,9 +276,13 @@ class SerializeIndependent:
                 elif hasattr(value, "__module__"):
                     mods.add(value.__module__)
 
+            # The code nested in a function, such as an inner function, reads
+            # its global names from the module of that function
+            fn_globals = getattr(fn, '__globals__', {})
             for block in codeworklist:
                 for kind, value in (
-                    self._inner_module_inspect(inst) for inst in Bytecode(block)
+                    self._inner_module_inspect(inst, fn_globals)
+                    for inst in Bytecode(block)
                 ):
                     if kind is None:
                         continue
@@ -301,23 +292,27 @@ class SerializeIndependent:
                             if hasattr(mod, "__name__")
                         )
                     elif kind == "code" and id(value) not in seen:
+                        # Only followed once: a recursive function names
+                        # itself, and the worklists would never end
                         seen.add(id(value))
                         if hasattr(value, "__module__"):
                             mods.add(value.__module__)
-
-                    if inspect.isfunction(value):
-                        worklist.append(value)
-                    elif inspect.iscode(value):
-                        codeworklist.append(value)
+                        if inspect.isfunction(value):
+                            worklist.append(value)
+                        elif inspect.iscode(value):
+                            codeworklist.append(value)
 
         # Dynamically built functions and code objects can have a
         # __module__ of None, which names no module to ship
         return {mod_name.split(".")[0] for mod_name in mods if mod_name}
 
-    def _inner_module_inspect(self, inst: Any) -> Tuple[Optional[str], Any]:
+    def _inner_module_inspect(
+        self, inst: Any, fn_globals: Dict[str, Any]
+    ) -> Tuple[Optional[str], Any]:
         """
         Reads the module or the code object that a single bytecode
-        instruction refers to
+        instruction refers to. Global names are looked up in fn_globals, the
+        globals of the function the instruction belongs to
         """
         if inst.opname == "IMPORT_NAME":
             try:
@@ -328,7 +323,7 @@ class SerializeIndependent:
             except Exception:
                 return (None, None)
         if inst.opname == "LOAD_GLOBAL":
-            value = globals().get(inst.argval)
+            value = fn_globals.get(inst.argval)
             if isinstance(value, (CodeType, FunctionType)):
                 return ("code", value)
             if isinstance(value, ModuleType):

@@ -35,6 +35,15 @@ class IDateRule(metaclass=abc.ABCMeta):
         """
         ...
 
+    def to_func(self) -> typing.Callable[[datetime.datetime], typing.Optional[datetime.datetime]]:
+        """
+        Converts a date rule into a function that receives current time
+        and returns the next date.
+        
+        :returns: A function that will enumerate the provided date rules.
+        """
+        ...
+
 
 class FuncDateRule(System.Object, QuantConnect.Scheduling.IDateRule):
     """Uses a function to define an enumerable of dates over a requested start/end period"""

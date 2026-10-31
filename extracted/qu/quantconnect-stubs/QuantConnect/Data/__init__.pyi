@@ -951,11 +951,26 @@ class BaseData(System.Object, QuantConnect.Data.IBaseData, metaclass=abc.ABCMeta
         """
         ...
 
+    def get_update_price_scale_frontier(self) -> datetime.datetime:
+        """Helper method to determine if price scales need an update based on the given data point"""
+        ...
+
     def is_sparse_data(self) -> bool:
         """
         Indicates that the data set is expected to be sparse
         
         :returns: True if the data set represented by this type is expected to be sparse.
+        """
+        ...
+
+    def normalize(self, factor: float, normalization_mode: QuantConnect.DataNormalizationMode, sum_of_dividends: float) -> QuantConnect.Data.BaseData:
+        """
+        Normalize prices based on configuration
+        
+        :param factor: Price scale
+        :param normalization_mode: The price scaling normalization mode
+        :param sum_of_dividends: The current dividend sum
+        :returns: The provided data point adjusted.
         """
         ...
 
@@ -977,6 +992,17 @@ class BaseData(System.Object, QuantConnect.Data.IBaseData, metaclass=abc.ABCMeta
         Indicates if there is support for mapping
         
         :returns: True indicates mapping should be used.
+        """
+        ...
+
+    def scale(self, factor_func: typing.Callable[[float, float, float], float], volume_factor: float, factor: float, sum_of_dividends: float) -> QuantConnect.Data.BaseData:
+        """
+        Scale data based on factor function
+        
+        :param factor_func: Function to factor prices by
+        :param volume_factor: Factor to multiply volume/askSize/bidSize/quantity by
+        :param factor: Price scale
+        :param sum_of_dividends: The current dividend sum
         """
         ...
 
@@ -1174,6 +1200,25 @@ class IBaseData(QuantConnect.Data.ISymbolProvider, metaclass=abc.ABCMeta):
         """Return a new instance clone of this object"""
         ...
 
+    @overload
+    def protobuf_serialize(self, guid: System.Guid) -> typing.List[int]:
+        """
+        Serialize a base data instance using protobuf
+        
+        :param guid: Unique guid
+        :returns: The resulting byte array.
+        """
+        ...
+
+    @overload
+    def protobuf_serialize(self, stream: System.IO.Stream) -> None:
+        """
+        Serialize a base data instance using protobuf
+        
+        :param stream: The destination stream
+        """
+        ...
+
     def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
         """
         Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
@@ -1199,12 +1244,29 @@ class IBaseData(QuantConnect.Data.ISymbolProvider, metaclass=abc.ABCMeta):
 class IRiskFreeInterestRateModel(metaclass=abc.ABCMeta):
     """Represents a model that provides risk free interest rate data"""
 
+    def get_average_risk_free_rate(self, dates: typing.List[datetime.datetime]) -> float:
+        """
+        Gets the average Risk Free Rate from the interest rate of the given dates
+        
+        :param dates: Collection of dates from which the interest rates will be computed and then the average of them
+        """
+        ...
+
     def get_interest_rate(self, date: typing.Union[datetime.datetime, datetime.date]) -> float:
         """
         Get interest rate by a given date
         
         :param date: The date
         :returns: Interest rate on the given date.
+        """
+        ...
+
+    def get_risk_free_rate(self, start_date: typing.Union[datetime.datetime, datetime.date], end_date: typing.Union[datetime.datetime, datetime.date]) -> float:
+        """
+        Gets the average risk free annual return rate
+        
+        :param start_date: Start date to calculate the average
+        :param end_date: End date to calculate the average
         """
         ...
 
@@ -1408,6 +1470,40 @@ class _Slice_Get:
         ...
 
 
+class _Typed_Slice_TryGet(typing.Generic[QuantConnect_Data_SliceExtensions_TryGet_T]):
+    """"""
+
+    @overload
+    def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], data: typing.Optional[QuantConnect_Data_SliceExtensions_TryGet_T]) -> typing.Tuple[bool, QuantConnect_Data_SliceExtensions_TryGet_T]:
+        """
+        Tries to get the data for the specified symbol and type
+        
+        :param symbol: The symbol data is sought for
+        :param data: The found data
+        :returns: True if data was found for the specified type and symbol.
+        """
+        ...
+
+
+class _Slice_TryGet:
+    """"""
+
+    @overload
+    def __call__(self, type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], data: typing.Optional[typing.Any]) -> typing.Tuple[bool, typing.Any]:
+        """
+        Tries to get the data for the specified symbol and type
+        
+        :param type: The type of data we seek
+        :param symbol: The symbol data is sought for
+        :param data: The found data
+        :returns: True if data was found for the specified type and symbol.
+        """
+        ...
+
+    def __getitem__(self, type: typing.Type[QuantConnect_Data_SliceExtensions_TryGet_T]) -> QuantConnect.Data._Typed_Slice_TryGet[QuantConnect_Data_SliceExtensions_TryGet_T]:
+        ...
+
+
 class Slice(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, typing.Any], typing.Iterable[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect.Data.BaseData]]):
     """Provides a data structure for all of an algorithm's data at a single time step"""
 
@@ -1513,6 +1609,10 @@ class Slice(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, typing.Any], ty
 
     @property
     def get(self) -> QuantConnect.Data._Slice_Get:
+        ...
+
+    @property
+    def try_get(self) -> QuantConnect.Data._Slice_TryGet:
         ...
 
     @overload
@@ -2318,6 +2418,27 @@ class HistoryRequest(QuantConnect.Data.BaseDataRequest):
         :param hours: The exchange hours used for fill forward processing
         :param start_time_utc: The start time for this request,
         :param end_time_utc: The end time for this request
+        """
+        ...
+
+    def split_history_request_with_updated_mapped_symbol(self, map_file_provider: QuantConnect.Interfaces.IMapFileProvider) -> typing.Sequence[QuantConnect.Data.HistoryRequest]:
+        """
+        Split HistoryRequest on several request with update mapped symbol.
+        
+        :param map_file_provider: Provides instances of MapFileResolver at run time
+        :returns: Return HistoryRequests with different BaseDataRequest.start_time_utc - BaseDataRequest.end_time_utc range
+        and Symbol.value.
+        """
+        ...
+
+    def to_subscription_data_config(self, is_internal_feed: bool = False, is_filtered_subscription: bool = True) -> QuantConnect.Data.SubscriptionDataConfig:
+        """
+        Converts a Data.HistoryRequest instance to a SubscriptionDataConfig instance
+        
+        :param is_internal_feed: Set to true if this subscription is added for the sole purpose of providing currency conversion rates,
+        setting this flag to true will prevent the data from being sent into the algorithm's OnData methods
+        :param is_filtered_subscription: True if this subscription should have filters applied to it (market hours/user filters from security), false otherwise
+        :returns: Subscription data configuration.
         """
         ...
 

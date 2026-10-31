@@ -11,6 +11,7 @@ import QuantConnect.Commands
 import QuantConnect.Data
 import QuantConnect.Data.Consolidators
 import QuantConnect.Data.Market
+import QuantConnect.DataSource
 import QuantConnect.Indicators
 import QuantConnect.Interfaces
 import QuantConnect.Orders
@@ -51,6 +52,14 @@ QuantConnect_Python_BasePythonWrapper_InvokeMethodAndWrapResult_PythonRuntimeChe
 QuantConnect_Python_BasePythonWrapper_InvokeMethodAndGetOutParameters_PythonRuntimeChecker_TResult = typing.TypeVar("QuantConnect_Python_BasePythonWrapper_InvokeMethodAndGetOutParameters_PythonRuntimeChecker_TResult")
 QuantConnect_Python_BasePythonWrapper_Convert_PythonRuntimeChecker_T = typing.TypeVar("QuantConnect_Python_BasePythonWrapper_Convert_PythonRuntimeChecker_T")
 QuantConnect_Python_BasePythonWrapper_ConvertAndDispose_PythonRuntimeChecker_T = typing.TypeVar("QuantConnect_Python_BasePythonWrapper_ConvertAndDispose_PythonRuntimeChecker_T")
+
+
+class PythonQuandl(QuantConnect.DataSource.NasdaqDataLink):
+    """Dynamic data class for Python algorithms."""
+
+    def __init__(self) -> None:
+        """Constructor for initialising the PythonQuandl class"""
+        ...
 
 
 class PythonData(QuantConnect.Data.DynamicData):

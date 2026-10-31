@@ -6835,6 +6835,31 @@ async def test_multiple_updates() -> None:
 
 
 @NEEDS_CONTEXTVARS
+async def test_task_in_subgraph_node_returns_its_value_with_tools_mode() -> None:
+    class State(TypedDict):
+        out: int | None
+
+    @task
+    async def double(x: int) -> int:
+        return x * 2
+
+    async def node(state: State) -> State:
+        return {"out": await double(21)}
+
+    inner = StateGraph(State).add_node("node", node).add_edge(START, "node").compile()
+    graph = (
+        StateGraph(State).add_node("inner", inner).add_edge(START, "inner").compile()
+    )
+
+    chunks = [
+        chunk
+        async for chunk in graph.astream({"out": None}, stream_mode=["values", "tools"])
+    ]
+
+    assert chunks[-1] == ("values", {"out": 42})
+
+
+@NEEDS_CONTEXTVARS
 async def test_falsy_return_from_task(async_checkpointer: BaseCheckpointSaver) -> None:
     """Test with a falsy return from a task."""
 
@@ -7596,6 +7621,40 @@ async def test_entrypoint_from_async_generator() -> None:
         async def foo(inputs) -> Any:
             yield "a"
             yield "b"
+
+
+@NEEDS_CONTEXTVARS
+@pytest.mark.parametrize("timeout", [None, 30])
+@pytest.mark.parametrize("version", ["v1", "v2"])
+async def test_awaited_task_returns_its_value_under_astream_events(
+    version: Literal["v1", "v2"], timeout: int | None
+) -> None:
+    class State(TypedDict):
+        doubled: int
+        zeroed: int
+
+    @task(timeout=timeout)
+    async def double(x: int) -> int:
+        return x * 2
+
+    @task(timeout=timeout)
+    async def zero() -> int:
+        return 0
+
+    async def node(state: State) -> State:
+        return {"doubled": await double(21), "zeroed": await zero()}
+
+    graph = StateGraph(State).add_node("node", node).add_edge(START, "node").compile()
+
+    outputs = [
+        event["data"]["output"]
+        async for event in graph.astream_events(
+            {"doubled": 0, "zeroed": 1}, version=version
+        )
+        if event["event"] == "on_chain_end" and event["name"] == "node"
+    ]
+
+    assert outputs == [{"doubled": 42, "zeroed": 0}]
 
 
 @NEEDS_CONTEXTVARS
@@ -9442,6 +9501,44 @@ async def test_subgraph_streaming_async() -> None:
 
     assert result["last_chunk"].content == "today."
     assert result["num_chunks"] == 9
+
+
+async def test_subgraph_streaming_node_output_messages_async() -> None:
+    """Messages returned by a node (not streamed by an LLM) are emitted when a
+    graph is explicitly streamed with `stream_mode="messages"` inside a node."""
+
+    async def respond(state: MessagesState) -> dict:
+        return {"messages": [AIMessage("hi there", id="ai1")]}
+
+    subgraph = (
+        StateGraph(MessagesState)
+        .add_node("respond", respond)
+        .add_edge(START, "respond")
+        .compile()
+    )
+    msgs = {"messages": [("user", "hello")]}
+
+    top_level = [msg async for msg, _ in subgraph.astream(msgs, stream_mode="messages")]
+
+    async def parent_node(state: MessagesState, config: RunnableConfig) -> dict:
+        nonlocal in_node
+        in_node = [
+            msg
+            async for msg, _ in subgraph.astream(msgs, config, stream_mode="messages")
+        ]
+        return {}
+
+    in_node: list = []
+    await (
+        StateGraph(MessagesState)
+        .add_node("parent", parent_node)
+        .add_edge(START, "parent")
+        .compile()
+        .ainvoke(msgs)
+    )
+
+    assert [m.content for m in top_level] == ["hi there"]
+    assert [m.content for m in in_node] == ["hi there"]
 
 
 @NEEDS_CONTEXTVARS

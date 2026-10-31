@@ -35,6 +35,7 @@ class EffectivePrincipalSummary(object):
     openapi_types = {
         'id': 'str',
         'principal_type': 'RoleBindingPrincipalType',
+        'principal_sub_type': 'RoleBindingPrincipalSubType',
         'principal_id': 'str',
         'name': 'str',
         'email': 'str',
@@ -48,6 +49,7 @@ class EffectivePrincipalSummary(object):
     attribute_map = {
         'id': 'id',
         'principal_type': 'principal_type',
+        'principal_sub_type': 'principal_sub_type',
         'principal_id': 'principal_id',
         'name': 'name',
         'email': 'email',
@@ -58,7 +60,7 @@ class EffectivePrincipalSummary(object):
         'source': 'source'
     }
 
-    def __init__(self, id=None, principal_type=None, principal_id=None, name=None, email=None, resource_type=None, resource_id=None, resource_name=None, parent_cloud_name=None, source=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, principal_type=None, principal_sub_type=None, principal_id=None, name=None, email=None, resource_type=None, resource_id=None, resource_name=None, parent_cloud_name=None, source=None, local_vars_configuration=None):  # noqa: E501
         """EffectivePrincipalSummary - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -66,6 +68,7 @@ class EffectivePrincipalSummary(object):
 
         self._id = None
         self._principal_type = None
+        self._principal_sub_type = None
         self._principal_id = None
         self._name = None
         self._email = None
@@ -78,6 +81,7 @@ class EffectivePrincipalSummary(object):
 
         self.id = id
         self.principal_type = principal_type
+        self.principal_sub_type = principal_sub_type
         self.principal_id = principal_id
         if name is not None:
             self.name = name
@@ -138,6 +142,31 @@ class EffectivePrincipalSummary(object):
             raise ValueError("Invalid value for `principal_type`, must not be `None`")  # noqa: E501
 
         self._principal_type = principal_type
+
+    @property
+    def principal_sub_type(self):
+        """Gets the principal_sub_type of this EffectivePrincipalSummary.  # noqa: E501
+
+        Whether a user is a person or a service account; user_group for a group.  # noqa: E501
+
+        :return: The principal_sub_type of this EffectivePrincipalSummary.  # noqa: E501
+        :rtype: RoleBindingPrincipalSubType
+        """
+        return self._principal_sub_type
+
+    @principal_sub_type.setter
+    def principal_sub_type(self, principal_sub_type):
+        """Sets the principal_sub_type of this EffectivePrincipalSummary.
+
+        Whether a user is a person or a service account; user_group for a group.  # noqa: E501
+
+        :param principal_sub_type: The principal_sub_type of this EffectivePrincipalSummary.  # noqa: E501
+        :type: RoleBindingPrincipalSubType
+        """
+        if self.local_vars_configuration.client_side_validation and principal_sub_type is None:  # noqa: E501
+            raise ValueError("Invalid value for `principal_sub_type`, must not be `None`")  # noqa: E501
+
+        self._principal_sub_type = principal_sub_type
 
     @property
     def principal_id(self):

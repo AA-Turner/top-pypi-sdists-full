@@ -61,6 +61,51 @@ class TestEncodeJsonRpcRequest:
         assert json.loads(line)['requestTimeoutMs'] == 1_234
 
 class TestParseJsonRpcLine:
+    @pytest.mark.parametrize('payload', [{}, {'result': 'forged', 'error': {'code': -1, 'message': 'forged'}}])
+    def test_response_requires_exactly_one_result_or_error(self, payload):
+        line = json.dumps({'jsonrpc': '2.0', 'id': 1, **payload})
+        parsed = parse_jsonrpc_line(line)
+        assert isinstance(parsed, InvalidFrame)
+        assert parsed.raw == line
+
+    @pytest.mark.parametrize('key,expected', [('result', JsonRpcResponse), ('error', JsonRpcError)])
+    def test_null_result_or_error_preserves_presence(self, key, expected):
+        parsed = parse_jsonrpc_line(json.dumps({'jsonrpc': '2.0', 'id': 1, key: None}))
+        assert isinstance(parsed, expected)
+
+    @pytest.mark.parametrize('constant', ['NaN', 'Infinity', '-Infinity'])
+    @pytest.mark.parametrize('template', [
+        '{{"jsonrpc":"2.0","id":1,"result":{}}}',
+        '{{"jsonrpc":"2.0","id":1,"result":{{"nested":[{}]}}}}',
+        '{{"jsonrpc":"2.0","id":1,"error":{{"code":-1,"message":"bad","data":{}}}}}',
+        '{{"jsonrpc":"2.0","method":"event.test","params":{{"nested":{}}}}}',
+    ])
+    def test_non_json_constants_are_invalid_frames(self, constant, template):
+        line = template.format(constant)
+        parsed = parse_jsonrpc_line(line)
+        assert isinstance(parsed, InvalidFrame)
+        assert parsed.raw == line
+
+    @pytest.mark.parametrize('value', ['NaN', 'Infinity', '-Infinity'])
+    def test_non_json_constant_names_are_valid_strings(self, value):
+        parsed = parse_jsonrpc_line(json.dumps({'jsonrpc': '2.0', 'id': 1, 'result': {'value': value}}))
+        assert isinstance(parsed, JsonRpcResponse)
+        assert parsed.result == {'value': value}
+
+    @pytest.mark.parametrize('value', [0, -42, 1.5, 1e30])
+    def test_finite_json_numbers_remain_valid(self, value):
+        parsed = parse_jsonrpc_line(json.dumps({'jsonrpc': '2.0', 'id': 1, 'result': value}))
+        assert isinstance(parsed, JsonRpcResponse)
+        assert parsed.result == value
+
+    @pytest.mark.parametrize('identifier', [True, False])
+    @pytest.mark.parametrize('payload', [{'result': 'forged'}, {'error': {'code': -1, 'message': 'forged'}}])
+    def test_boolean_ids_are_invalid_frames(self, identifier, payload):
+        line = json.dumps({'jsonrpc': '2.0', 'id': identifier, **payload})
+        parsed = parse_jsonrpc_line(line)
+        assert isinstance(parsed, InvalidFrame)
+        assert parsed.raw == line
+
     def test_valid_response(self):
         line = '{"jsonrpc":"2.0","id":1,"result":{"data":"hello"}}'
         msg = parse_jsonrpc_line(line)

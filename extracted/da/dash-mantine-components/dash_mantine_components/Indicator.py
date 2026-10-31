@@ -182,6 +182,10 @@ Keyword arguments:
     Maximum width – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
 
+- maxValue (number; optional):
+    Maximum value to display. If label is a number greater than this
+    value, it will be displayed as `{maxValue}+`.
+
 - mb (string | number | dict; optional):
     Margin bottom – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
@@ -190,9 +194,15 @@ Keyword arguments:
     Margin inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- mie (number; optional):
+    MarginInlineEnd, theme key: theme.spacing.
+
 - mih (string | number | dict; optional):
     Minimum height – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
+
+- mis (number; optional):
+    MarginInlineStart, theme key: theme.spacing.
 
 - miw (string | number | dict; optional):
     Minimum width – Accepts theme spacing keys, CSS values, or a dict
@@ -227,9 +237,17 @@ Keyword arguments:
     Margin block – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
 
-- offset (number; optional):
-    Indicator offset relative to the target element, usually used for
-    elements with border-radius, equals to `size` by default.
+- offset (dict; optional):
+    Distance in pixels to offset the indicator from its default
+    position, useful for elements with border-radius. Can be a number
+    for uniform offset or a dict with `x` and `y` properties for
+    separate horizontal and vertical offsets default 0.
+
+    `offset` is a number | dict with keys:
+
+    - x (number; required)
+
+    - y (number; required)
 
 - opacity (string | number | dict; optional):
     Opacity – Accepts CSS values or a dict for responsive styles.
@@ -245,6 +263,12 @@ Keyword arguments:
 - pe (string | number | dict; optional):
     Padding inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
+
+- pie (number; optional):
+    PaddingInlineEnd, theme key: theme.spacing.
+
+- pis (number; optional):
+    PaddingInlineStart, theme key: theme.spacing.
 
 - pl (string | number | dict; optional):
     Padding left – Accepts theme spacing keys, CSS values, or a dict
@@ -287,6 +311,10 @@ Keyword arguments:
 
 - right (string | number | dict; optional):
     Right offset – Accepts CSS values or a dict for responsive styles.
+
+- showZero (boolean; optional):
+    Determines whether indicator with label `0` should be displayed
+    default True.
 
 - size (string | number; optional):
     Indicator width and height, `10` by default.
@@ -336,6 +364,14 @@ Keyword arguments:
     _base_nodes = ['label', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'Indicator'
+    Offset = TypedDict(
+        "Offset",
+            {
+            "x": NumberType,
+            "y": NumberType
+        }
+    )
+
     LoadingState = TypedDict(
         "LoadingState",
             {
@@ -350,7 +386,7 @@ Keyword arguments:
         self,
         children: typing.Optional[ComponentType] = None,
         position: typing.Optional[Literal["top-center", "top-end", "top-start", "bottom-center", "bottom-end", "bottom-start", "middle-center", "middle-end", "middle-start"]] = None,
-        offset: typing.Optional[NumberType] = None,
+        offset: typing.Optional[typing.Union[NumberType, "Offset"]] = None,
         inline: typing.Optional[bool] = None,
         size: typing.Optional[typing.Union[str, NumberType]] = None,
         label: typing.Optional[ComponentType] = None,
@@ -361,6 +397,8 @@ Keyword arguments:
         processing: typing.Optional[bool] = None,
         zIndex: typing.Optional[typing.Union[str, NumberType]] = None,
         autoContrast: typing.Optional[bool] = None,
+        maxValue: typing.Optional[NumberType] = None,
+        showZero: typing.Optional[bool] = None,
         hiddenFrom: typing.Optional[str] = None,
         visibleFrom: typing.Optional[str] = None,
         mod: typing.Optional[typing.Union[str, dict, typing.Sequence[typing.Union[str, dict]]]] = None,
@@ -418,6 +456,10 @@ Keyword arguments:
         style: typing.Optional[typing.Any] = None,
         lightHidden: typing.Optional[bool] = None,
         darkHidden: typing.Optional[bool] = None,
+        mis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        mie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         classNames: typing.Optional[dict] = None,
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
@@ -428,9 +470,9 @@ Keyword arguments:
         loading_state: typing.Optional["LoadingState"] = None,
         **kwargs
     ):
-        self._prop_names = ['children', 'id', 'aria-*', 'attributes', 'autoContrast', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'color', 'darkHidden', 'data-*', 'disabled', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inline', 'inset', 'label', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'offset', 'opacity', 'p', 'pb', 'pe', 'pl', 'pos', 'position', 'pr', 'processing', 'ps', 'pt', 'px', 'py', 'radius', 'right', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withBorder', 'zIndex']
+        self._prop_names = ['children', 'id', 'aria-*', 'attributes', 'autoContrast', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'color', 'darkHidden', 'data-*', 'disabled', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inline', 'inset', 'label', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxValue', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'offset', 'opacity', 'p', 'pb', 'pe', 'pie', 'pis', 'pl', 'pos', 'position', 'pr', 'processing', 'ps', 'pt', 'px', 'py', 'radius', 'right', 'showZero', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withBorder', 'zIndex']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['children', 'id', 'aria-*', 'attributes', 'autoContrast', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'color', 'darkHidden', 'data-*', 'disabled', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inline', 'inset', 'label', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'offset', 'opacity', 'p', 'pb', 'pe', 'pl', 'pos', 'position', 'pr', 'processing', 'ps', 'pt', 'px', 'py', 'radius', 'right', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withBorder', 'zIndex']
+        self.available_properties = ['children', 'id', 'aria-*', 'attributes', 'autoContrast', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'color', 'darkHidden', 'data-*', 'disabled', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inline', 'inset', 'label', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxValue', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'offset', 'opacity', 'p', 'pb', 'pe', 'pie', 'pis', 'pl', 'pos', 'position', 'pr', 'processing', 'ps', 'pt', 'px', 'py', 'radius', 'right', 'showZero', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withBorder', 'zIndex']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

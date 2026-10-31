@@ -196,7 +196,6 @@ _UNARCHIVE_ARG_DOCSTRINGS = {
     PrivateComputeConfigSDK,
     doc_py_example=_UNARCHIVE_EXAMPLE,
     arg_docstrings=_UNARCHIVE_ARG_DOCSTRINGS,
-    hidden=True,
 )
 def unarchive(
     name: Optional[str],

@@ -278,10 +278,10 @@ def sympy2symengine(a, raise_error=False):
     """
     import sympy
     from sympy.core.function import AppliedUndef as sympy_AppliedUndef
-    if isinstance(a, sympy.Symbol):
+    if isinstance(a, sympy.Dummy):
+        return Dummy(a.name, a.dummy_index)
+    elif isinstance(a, sympy.Symbol):
         return Symbol(a.name)
-    elif isinstance(a, sympy.Dummy):
-        return Dummy(a.name)
     elif isinstance(a, sympy.Mul):
         return mul(*[sympy2symengine(x, raise_error) for x in a.args])
     elif isinstance(a, sympy.Add):
@@ -1187,8 +1187,11 @@ cdef class Basic(object):
         cdef Basic _n = sympify(n)
         return c2py(symengine.coeff(deref(self.thisptr), deref(_x.thisptr), deref(_n.thisptr)))
 
-    def has(self, *symbols):
-        return any([has_symbol(self, symbol) for symbol in symbols])
+    def has(self, *args):
+        for arg in args:
+            if has_basic(self, arg):
+                return True
+        return False
 
     def args_as_sage(Basic self):
         cdef symengine.vec_basic Y = deref(self.thisptr).get_args()
@@ -1301,10 +1304,10 @@ cdef class Symbol(Expr):
         return sympy.Symbol(str(self))
 
     def __reduce__(self):
-        if type(self) == Symbol:
+        if type(self) in (Symbol, Dummy):
             return Basic.__reduce__(self)
         else:
-            raise NotImplementedError("pickling for Symbol subclass not implemented")
+            raise NotImplementedError("pickling for subclass of Symbol or Dummy not implemented")
 
     def _sage_(self):
         import sage.all as sage
@@ -1337,15 +1340,20 @@ cdef class Symbol(Expr):
 
 cdef class Dummy(Symbol):
 
-    def __init__(Basic self, name=None, *args, **kwargs):
-        if name is None:
-            self.thisptr = symengine.make_rcp_Dummy()
+    def __init__(Basic self, name=None, dummy_index=None, *args, **kwargs):
+        cdef size_t index
+        if dummy_index is None:
+            if name is None:
+                self.thisptr = symengine.make_rcp_Dummy()
+            else:
+                self.thisptr = symengine.make_rcp_Dummy(name.encode("utf-8"))
         else:
-            self.thisptr = symengine.make_rcp_Dummy(name.encode("utf-8"))
+            index = dummy_index
+            self.thisptr = symengine.make_rcp_Dummy(name.encode("utf-8"), index)
 
     def _sympy_(self):
         import sympy
-        return sympy.Dummy(str(self)[1:])
+        return sympy.Dummy(name=self.name, dummy_index=self.dummy_index)
 
     @property
     def is_Dummy(self):
@@ -1355,6 +1363,12 @@ cdef class Dummy(Symbol):
     def func(self):
         return self.__class__
 
+    @property
+    def dummy_index(self):
+        cdef RCP[const symengine.Dummy] this = \
+            symengine.rcp_static_cast_Dummy(self.thisptr)
+        cdef size_t index = deref(this).get_index()
+        return index
 
 def symarray(prefix, shape, **kwargs):
     """ Creates an nd-array of symbols
@@ -1386,6 +1400,10 @@ cdef class Constant(Expr):
 
     @property
     def is_number(self):
+        return True
+
+    @property
+    def is_Atom(self):
         return True
 
     def _sympy_(self):
@@ -1537,9 +1555,6 @@ cdef class BooleanFalse(BooleanAtom):
         return sympy.S.false
 
     def _sage_(self):
-        return False
-
-    def __nonzero__(self):
         return False
 
     def __bool__(self):
@@ -4940,6 +4955,11 @@ def powermod_list(a, b, m):
     for i in range(v.size()):
         s.append(c2py(<rcp_const_basic>(v[i])))
     return s
+
+def has_basic(obj, looking_for=None):
+    cdef Basic b = _sympify(obj)
+    cdef Basic s = _sympify(looking_for)
+    return symengine.has_basic(deref(b.thisptr), deref(s.thisptr))
 
 def has_symbol(obj, symbol=None):
     cdef Basic b = _sympify(obj)

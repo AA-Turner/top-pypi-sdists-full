@@ -356,3 +356,29 @@ async def test_a_transient_failure_never_trips_the_latch(monkeypatch):
         with pytest.raises(fastino_api.FastinoError):
             await FastinoExtraction(client=client).extract("x", ["person"])
     assert fastino_api._permanent_refusal is None
+
+
+async def test_a_warming_model_is_waited_for_never_dropped(monkeypatch):
+    """HTTP 425 model_warming is retried after the wait the body states (2026-10-22..30 every NER
+    chunk of an ingest burst was dropped on the first 425)."""
+    monkeypatch.setenv("PIONEER_API_KEY", "k")
+    monkeypatch.setattr(fastino_api, "_permanent_refusal", None, raising=False)
+    waits: list[float] = []
+
+    async def _no_sleep(secs: float) -> None:
+        waits.append(secs)
+
+    monkeypatch.setattr(fastino_api.asyncio, "sleep", _no_sleep)
+    calls = {"n": 0}
+    good = {"choices": [{"message": {"content": json.dumps({"entities": {"person": ["Ada"]}})}}]}
+
+    def _handle(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return httpx.Response(425, json={"code": "model_warming", "message": "Model 'fastino/gliner2-large-v1' is warming up. Please retry in about 30 seconds."})
+        return httpx.Response(200, json=good)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(_handle)) as client:
+        await FastinoExtraction(client=client).extract("Ada wrote it", ["person"])
+    assert calls["n"] == 2, "the 425 must be retried once, then succeed"
+    assert 30.0 in waits, f"the stated 30 s warm-up wait must be honored, waited {waits}"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: factur-x
-Version: 7.8
+Version: 7.9
 Summary: Factur-X and Order-X: electronic invoicing and ordering standards
 Project-URL: Homepage, https://github.com/akretion/factur-x
 Project-URL: Source, https://github.com/akretion/factur-x
@@ -195,6 +195,10 @@ Contributors
 
 Changelog
 =========
+
+* Version 7.9 dated 2026-10-30:
+
+  * New method untdid4461_to_text_code() that translates a UNTDID 4461 code (used in BT-81 to describe the payment means) into a comprehensible text code like "credit_transfer", "direct_debit", "cash", etc.
 
 * Version 7.8 dated 2026-10-27:
 

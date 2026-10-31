@@ -376,7 +376,8 @@ def singular_values(
     Finds all principal values (singular values) for the data matrix formed by the given features
     and returns them in descending order.
 
-    Note: if a row has null values, it will be dropped.
+    Note: rows containing null values are dropped before centering. Explained
+    variance is null when fewer than two complete observations remain.
 
     Paramters
     ---------
@@ -390,19 +391,24 @@ def singular_values(
     as_ratio
         If true, normalize output to between 0 and 1.
     """
+    if not features:
+        raise ValueError("at least one feature is required")
     feats = [to_expr(f) for f in features]
+    output_name = feats[0].meta.output_name(raise_if_undetermined=False)
+    valid = pl.all_horizontal(f.is_not_null() for f in feats)
+    feats = [f.filter(valid) for f in feats]
     if center:
         actual_inputs = [f - f.mean() for f in feats]
     else:
         actual_inputs = feats
 
-    out = pl_plugin(symbol="pl_singular_values", args=actual_inputs, returns_scalar=True)
-    if as_explained_var:
-        out = out.list.eval(pl.element().pow(2) / (pl.count() - 1))
-    if as_ratio:
-        out = out.list.eval(pl.element() / pl.element().sum())
-
-    return out
+    out = pl_plugin(
+        symbol="pl_singular_values",
+        args=actual_inputs,
+        returns_scalar=True,
+        kwargs={"as_explained_var": as_explained_var, "as_ratio": as_ratio},
+    )
+    return out.alias(output_name) if output_name is not None else out
 
 
 def pca(
@@ -420,7 +426,11 @@ def pca(
         Whether to center the data or not. If you want to standard normalize, set this to False,
         and do it for input features by hand.
     """
+    if not features:
+        raise ValueError("at least one feature is required")
     feats = [to_expr(f) for f in features]
+    valid = pl.all_horizontal(f.is_not_null() for f in feats)
+    feats = [f.filter(valid) for f in feats]
     if center:
         actual_inputs = [f - f.mean() for f in feats]
     else:
@@ -452,15 +462,20 @@ def principal_components(
     """
     feats = [to_expr(f) for f in features]
     if k > len(feats) or k <= 0:
-        raise ValueError("Input `k` should be between 1 and the number of features inclusive.")
+        raise ValueError("'k' must be between 1 and the number of features inclusive")
 
-    actual_inputs = [pl.lit(k, dtype=pl.UInt32)]
+    actual_inputs = []
     if center:
         actual_inputs.extend(f - f.mean() for f in feats)
     else:
         actual_inputs.extend(feats)
 
-    return pl_plugin(symbol="pl_principal_components", args=actual_inputs, pass_name_to_apply=True)
+    return pl_plugin(
+        symbol="pl_principal_components",
+        args=actual_inputs,
+        kwargs={"k": k},
+        pass_name_to_apply=True,
+    )
 
 
 def jaccard_row(a: str | pl.Expr, b: str | pl.Expr) -> pl.Expr:
@@ -547,7 +562,7 @@ def psi(
     https://www.listendata.com/2015/05/population-stability-index.html
     """
     if n_bins <= 1:
-        raise ValueError("Input `n_bins` must be >= 2.")
+        raise ValueError("'n_bins' must be >= 2")
 
     if isinstance(new, (str, pl.Expr)):
         new_ = to_expr(new)
@@ -563,6 +578,8 @@ def psi(
         temp = pl.lit(pl.Series(values=baseline, dtype=pl.Float64))
         valid_ref = temp.filter(temp.is_finite())
 
+    # Keep linear quantiles and interval labels: bin_quantiles uses different
+    # breakpoints in Polars 2. qcut remains available in both major versions.
     vc = (
         valid_ref.qcut(n_bins, left_closed=False, allow_duplicates=True, include_breaks=True)
         .struct.field("breakpoint")
@@ -685,12 +702,12 @@ def psi_w_breakpoints(
         y: pl.Expr = pl.lit(temp.filter(temp.is_finite()))
 
     if len(breakpoints) == 0:
-        raise ValueError("Breakpoints is empty.")
+        raise ValueError("breakpoints cannot be empty")
 
     bp = breakpoints + [float("inf")]
     return pl_plugin(
         symbol="pl_psi_w_bps",
-        args=[x.rechunk(), y.rechunk(), pl.Series(values=bp)],
+        args=[x, y, pl.Series(values=bp)],
         changes_length=True,
     ).alias("psi_report")
 
@@ -722,7 +739,10 @@ def woe(x: str | pl.Expr, target: str | pl.expr | Iterable[float], n_bins: int =
         t = pl.Series(values=target)
     xx = to_expr(x)
     valid = xx.filter(xx.is_finite())
+    # Preserve linear quantiles and the historical interval labels.
     brk = valid.qcut(n_bins, left_closed=False, allow_duplicates=True).cast(pl.String)
+    t = to_expr(t) if isinstance(t, (str, pl.Expr)) else pl.lit(t)
+    t = t.filter(xx.is_finite())
     return pl_plugin(symbol="pl_woe_discrete", args=[brk, t], changes_length=True)
 
 
@@ -792,7 +812,10 @@ def info_value(
         t = pl.Series(values=target)
     xx = to_expr(x)
     valid = xx.filter(xx.is_finite())
+    # Preserve linear quantiles and the historical interval labels.
     brk = valid.qcut(n_bins, left_closed=False, allow_duplicates=True).cast(pl.String)
+    t = to_expr(t) if isinstance(t, (str, pl.Expr)) else pl.lit(t)
+    t = t.filter(xx.is_finite())
     out = pl_plugin(symbol="pl_iv", args=[brk, t], changes_length=True)
     return out.struct.field("iv").sum() if return_sum else out
 
@@ -841,7 +864,7 @@ def integrate_trapz(y: str | pl.Expr, x: float | pl.Expr) -> pl.Expr:
         distance between points. If it is an expression, it must be sorted, does not contain
         null, and have the same length as self.
     """
-    yy = to_expr(y).cast(pl.Float64).rechunk()
+    yy = to_expr(y).cast(pl.Float64)
     if isinstance(x, float):
         xx = pl.lit(abs(x), pl.Float64)
     else:
@@ -893,13 +916,13 @@ def convolve(
     https://brianmcfee.net/dstbook-site/content/ch03-convolution/Modes.html
     https://en.wikipedia.org/wiki/Convolution
     """
-    xx = to_expr(x).fill_null(fill_value).cast(pl.Float64).rechunk()  # One cont slice
+    xx = to_expr(x).fill_null(fill_value).cast(pl.Float64)
     f: pl.Expr | pl.Series
     if isinstance(kernel, pl.Expr):
-        f = kernel.filter(kernel.is_finite()).rechunk()  # One cont slice
+        f = kernel.filter(kernel.is_finite())
     else:
         f = pl.Series(values=kernel, dtype=pl.Float64)
-        f = f.filter(f.is_finite()).rechunk()  # One cont slice
+        f = f.filter(f.is_finite())
 
     if method == "direct":
         f = f.reverse()
@@ -1037,7 +1060,7 @@ def detrend(x: str | pl.Expr, method: DetrendMethod = "linear") -> pl.Expr:
     elif method == "mean":
         return ts - ts.mean()
     else:
-        raise ValueError(f"Unknown detrend method: {method}")
+        raise ValueError(f"unknown detrend method: '{method}'")
 
 
 def rfft(series: str | pl.Expr, n: int | None = None, return_full: bool = False) -> pl.Expr:
@@ -1057,7 +1080,7 @@ def rfft(series: str | pl.Expr, n: int | None = None, return_full: bool = False)
         If true, output will have the same length as determined by n.
     """
     if n is not None and n <= 1:
-        raise ValueError("Input `n` should be > 1.")
+        raise ValueError("'n' must be > 1")
 
     full = pl.lit(return_full, pl.Boolean)
     nn = pl.lit(n, pl.UInt32)
@@ -1197,8 +1220,8 @@ def add_at(
         error if indices are not checked. If this is an expression, only the first element
         in the represented column will be used.
     """
-    ind = to_expr(indices).cast(pl.UInt32).rechunk()
-    val = to_expr(values).cast(pl.Float64).rechunk()
+    ind = to_expr(indices).cast(pl.UInt32)
+    val = to_expr(values).cast(pl.Float64)
     if isinstance(buffer_size, pl.Expr):
         size = buffer_size
     else:

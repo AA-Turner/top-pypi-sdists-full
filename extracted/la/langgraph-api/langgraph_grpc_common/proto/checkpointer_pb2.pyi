@@ -24,8 +24,7 @@ DESCRIPTOR: _descriptor.FileDescriptor
 class PutRequest(_message.Message):
     """encryption_context_json: request-scoped encryption context, keyed by name
     with JSON-encoded values (e.g. {"tenant_id": "\\"acme\\""}). Writes must pass
-    it because it lives in a Python ContextVar the core server cannot observe;
-    reads recover it from the stored blob wrapper.
+    it because it lives in a Python ContextVar the core server cannot observe.
     """
 
     DESCRIPTOR: _descriptor.Descriptor
@@ -194,16 +193,46 @@ Global___Capabilities: _TypeAlias = Capabilities  # noqa: Y015
 class ListRequest(_message.Message):
     DESCRIPTOR: _descriptor.Descriptor
 
+    @_typing.final
+    class EncryptionContextJsonEntry(_message.Message):
+        DESCRIPTOR: _descriptor.Descriptor
+
+        KEY_FIELD_NUMBER: _builtins.int
+        VALUE_FIELD_NUMBER: _builtins.int
+        key: _builtins.str
+        value: _builtins.bytes
+        def __init__(
+            self,
+            *,
+            key: _builtins.str = ...,
+            value: _builtins.bytes = ...,
+        ) -> None: ...
+        _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+        def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+        _ClearFieldArgType: _TypeAlias = _typing.Literal["key", b"key", "value", b"value"]  # noqa: Y015
+        def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+        def WhichOneof(self, oneof_group: _Never) -> None: ...
+
     CONFIG_FIELD_NUMBER: _builtins.int
     FILTER_JSON_FIELD_NUMBER: _builtins.int
     BEFORE_FIELD_NUMBER: _builtins.int
     LIMIT_FIELD_NUMBER: _builtins.int
+    ENCRYPTION_CONTEXT_JSON_FIELD_NUMBER: _builtins.int
+    CHANNELS_FIELD_NUMBER: _builtins.int
     filter_json: _builtins.bytes
     limit: _builtins.int
     @_builtins.property
     def config(self) -> _engine_common_pb2.EngineRunnableConfig: ...
     @_builtins.property
     def before(self) -> _engine_common_pb2.EngineRunnableConfig: ...
+    @_builtins.property
+    def encryption_context_json(self) -> _containers.ScalarMap[_builtins.str, _builtins.bytes]: ...
+    @_builtins.property
+    def channels(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
+        """When set, only these channels' stored values are returned. Other channels
+        keep their entries in channel_versions but have no value. Empty loads all.
+        """
+
     def __init__(
         self,
         *,
@@ -211,10 +240,12 @@ class ListRequest(_message.Message):
         filter_json: _builtins.bytes = ...,
         before: _engine_common_pb2.EngineRunnableConfig | None = ...,
         limit: _builtins.int | None = ...,
+        encryption_context_json: _abc.Mapping[_builtins.str, _builtins.bytes] | None = ...,
+        channels: _abc.Iterable[_builtins.str] | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["_limit", b"_limit", "before", b"before", "config", b"config", "limit", b"limit"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_limit", b"_limit", "before", b"before", "config", b"config", "filter_json", b"filter_json", "limit", b"limit"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_limit", b"_limit", "before", b"before", "channels", b"channels", "config", b"config", "encryption_context_json", b"encryption_context_json", "filter_json", b"filter_json", "limit", b"limit"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__limit: _TypeAlias = _typing.Literal["limit"]  # noqa: Y015
     _WhichOneofArgType__limit: _TypeAlias = _typing.Literal["_limit", b"_limit"]  # noqa: Y015
@@ -330,17 +361,41 @@ Global___PruneRequest: _TypeAlias = PruneRequest  # noqa: Y015
 class GetTupleRequest(_message.Message):
     DESCRIPTOR: _descriptor.Descriptor
 
+    @_typing.final
+    class EncryptionContextJsonEntry(_message.Message):
+        DESCRIPTOR: _descriptor.Descriptor
+
+        KEY_FIELD_NUMBER: _builtins.int
+        VALUE_FIELD_NUMBER: _builtins.int
+        key: _builtins.str
+        value: _builtins.bytes
+        def __init__(
+            self,
+            *,
+            key: _builtins.str = ...,
+            value: _builtins.bytes = ...,
+        ) -> None: ...
+        _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+        def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+        _ClearFieldArgType: _TypeAlias = _typing.Literal["key", b"key", "value", b"value"]  # noqa: Y015
+        def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+        def WhichOneof(self, oneof_group: _Never) -> None: ...
+
     CONFIG_FIELD_NUMBER: _builtins.int
+    ENCRYPTION_CONTEXT_JSON_FIELD_NUMBER: _builtins.int
     @_builtins.property
     def config(self) -> _engine_common_pb2.EngineRunnableConfig: ...
+    @_builtins.property
+    def encryption_context_json(self) -> _containers.ScalarMap[_builtins.str, _builtins.bytes]: ...
     def __init__(
         self,
         *,
         config: _engine_common_pb2.EngineRunnableConfig | None = ...,
+        encryption_context_json: _abc.Mapping[_builtins.str, _builtins.bytes] | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["config", b"config"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["config", b"config"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["config", b"config", "encryption_context_json", b"encryption_context_json"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
@@ -414,7 +469,7 @@ class DeltaChannelHistoryEntry(_message.Message):
     DeltaChannel state replay (langgraph >= 1.2).
 
     - `seed` is the last snapshot, or absent when no snapshot was found
-    - `writes` is ordered oldest-to-newest writes between the last snapshot 
+    - `writes` is ordered oldest-to-newest writes between the last snapshot
        and the target checkpoint
     """
 
@@ -446,10 +501,31 @@ Global___DeltaChannelHistoryEntry: _TypeAlias = DeltaChannelHistoryEntry  # noqa
 class GetDeltaChannelHistoryRequest(_message.Message):
     DESCRIPTOR: _descriptor.Descriptor
 
+    @_typing.final
+    class EncryptionContextJsonEntry(_message.Message):
+        DESCRIPTOR: _descriptor.Descriptor
+
+        KEY_FIELD_NUMBER: _builtins.int
+        VALUE_FIELD_NUMBER: _builtins.int
+        key: _builtins.str
+        value: _builtins.bytes
+        def __init__(
+            self,
+            *,
+            key: _builtins.str = ...,
+            value: _builtins.bytes = ...,
+        ) -> None: ...
+        _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+        def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+        _ClearFieldArgType: _TypeAlias = _typing.Literal["key", b"key", "value", b"value"]  # noqa: Y015
+        def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+        def WhichOneof(self, oneof_group: _Never) -> None: ...
+
     THREAD_ID_FIELD_NUMBER: _builtins.int
     CHECKPOINT_NS_FIELD_NUMBER: _builtins.int
     CHECKPOINT_ID_FIELD_NUMBER: _builtins.int
     CHANNELS_FIELD_NUMBER: _builtins.int
+    ENCRYPTION_CONTEXT_JSON_FIELD_NUMBER: _builtins.int
     thread_id: _builtins.str
     """Thread whose delta-channel state to reconstruct."""
     checkpoint_ns: _builtins.str
@@ -462,6 +538,8 @@ class GetDeltaChannelHistoryRequest(_message.Message):
     def channels(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
         """Channels to reconstruct."""
 
+    @_builtins.property
+    def encryption_context_json(self) -> _containers.ScalarMap[_builtins.str, _builtins.bytes]: ...
     def __init__(
         self,
         *,
@@ -469,10 +547,11 @@ class GetDeltaChannelHistoryRequest(_message.Message):
         checkpoint_ns: _builtins.str = ...,
         checkpoint_id: _builtins.str = ...,
         channels: _abc.Iterable[_builtins.str] | None = ...,
+        encryption_context_json: _abc.Mapping[_builtins.str, _builtins.bytes] | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["channels", b"channels", "checkpoint_id", b"checkpoint_id", "checkpoint_ns", b"checkpoint_ns", "thread_id", b"thread_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["channels", b"channels", "checkpoint_id", b"checkpoint_id", "checkpoint_ns", b"checkpoint_ns", "encryption_context_json", b"encryption_context_json", "thread_id", b"thread_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

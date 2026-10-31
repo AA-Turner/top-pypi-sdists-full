@@ -23,10 +23,12 @@ class DiskBackedInMemStore(InMemoryStore):
             self._vectors = PersistentDict(
                 lambda: defaultdict(dict), filename=_VECTOR_FILE
             )
-            _persistence.register_persistent_dict(self._data)
-            _persistence.register_persistent_dict(self._vectors)
+            # Load before registering, so a flush can't write the still-empty
+            # dicts over the files.
             self._load_data(self._data, which="data")
             self._load_data(self._vectors, which="vectors")
+            _persistence.register_persistent_dict(self._data)
+            _persistence.register_persistent_dict(self._vectors)
         else:
             self._data = defaultdict(dict)
             # [ns][key][path]
@@ -56,9 +58,13 @@ class DiskBackedInMemStore(InMemoryStore):
         return asyncio.create_task(asyncio.sleep(0))
 
     def close(self) -> None:
+        # close() syncs and then clears; unregister first so a flush can't
+        # write the cleared dict over the file.
         if isinstance(self._data, PersistentDict):
+            _persistence.unregister_persistent_dict(self._data)
             self._data.close()
         if isinstance(self._vectors, PersistentDict):
+            _persistence.unregister_persistent_dict(self._vectors)
             self._vectors.close()
 
 

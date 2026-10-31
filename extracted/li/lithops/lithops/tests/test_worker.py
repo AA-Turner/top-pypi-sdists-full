@@ -37,7 +37,7 @@ from lithops.constants import (
     WORKER_ENV,
 )
 from lithops.storage.utils import CloudObject, CloudObjectLocal, CloudObjectUrl
-from lithops.utils import bytes_to_b64str, is_unix_system
+from lithops.utils import bytes_to_b64str, is_unix_system, verify_args
 from lithops.worker import function_handler, function_invoker
 from lithops.worker.handler import (
     ShutdownSentinel,
@@ -47,6 +47,7 @@ from lithops.worker.handler import (
     task_consumer,
     run_task,
 )
+from lithops.future import ResponseFuture
 from lithops.worker.jobrunner import JobRunner, JobStats, _prepare_args
 from lithops.monitoring import (
     CallStatus,
@@ -237,26 +238,23 @@ class TestTaskConsumer:
         task = _task()
         q.put((task, '00001', b'data'))
         q.put(ShutdownSentinel())
-        init = MagicMock()
-        cb = MagicMock()
         with patch('lithops.worker.handler.prepare_and_run_task') as run:
-            task_consumer(3, q, initializer=init, callback=cb)
+            task_consumer(3, q)
         run.assert_called_once_with(task)
         assert task.call_id == '00001'
         assert task.data == b'data'
-        init.assert_called_once_with(3, task)
-        cb.assert_called_once_with(3, task)
 
-    def test_none_initializer_and_callback_are_skipped(self):
+    def test_a_sentinel_alone_stops_the_loop(self):
         q = Queue()
         q.put(ShutdownSentinel())
-        task_consumer(0, q)
+        with patch('lithops.worker.handler.prepare_and_run_task') as run:
+            task_consumer(0, q)
+        run.assert_not_called()
 
-    def test_empty_and_broken_pipe_stop_the_loop(self):
+    def test_empty_stops_the_loop(self):
+        # What a TaskJar raises once its pipe reaches EOF
         q = MagicMock()
         q.get.side_effect = Empty()
-        task_consumer(0, q)
-        q.get.side_effect = BrokenPipeError()
         task_consumer(0, q)
 
     def test_a_failed_task_does_not_stop_the_worker(self):
@@ -455,6 +453,35 @@ class TestPrepareAndRunTask:
         assert task.stats_file == os.path.join(task.task_dir, 'job_stats.txt')
         assert len(os.environ['__LITHOPS_ACTIVATION_ID']) == 12
 
+    def test_restores_the_variables_extra_env_overrides(
+        self, tmp_path, monkeypatch
+    ):
+        """
+        The worker process runs more tasks after this one: a variable it had
+        before the task must not be lost, even when the task fails
+        """
+        monkeypatch.setattr(
+            'lithops.worker.handler.LITHOPS_TEMP_DIR', str(tmp_path)
+        )
+        monkeypatch.setenv('LITHOPS_TEST_PREVIOUS', 'orig')
+        monkeypatch.delenv('LITHOPS_TEST_NEW', raising=False)
+        task = _task(extra_env={
+            'LITHOPS_TEST_PREVIOUS': 'override', 'LITHOPS_TEST_NEW': 'new'
+        })
+        seen = {}
+
+        def run(task):
+            seen['previous'] = os.environ.get('LITHOPS_TEST_PREVIOUS')
+            seen['new'] = os.environ.get('LITHOPS_TEST_NEW')
+            raise RuntimeError('task failed')
+
+        with patch('lithops.worker.handler.run_task', run):
+            with pytest.raises(RuntimeError):
+                prepare_and_run_task(task)
+        assert seen == {'previous': 'override', 'new': 'new'}
+        assert os.environ['LITHOPS_TEST_PREVIOUS'] == 'orig'
+        assert 'LITHOPS_TEST_NEW' not in os.environ
+
     def test_keeps_existing_activation_id(self, tmp_path, monkeypatch):
         monkeypatch.setattr(
             'lithops.worker.handler.LITHOPS_TEMP_DIR', str(tmp_path)
@@ -522,9 +549,15 @@ class TestRunTask:
         jrp.is_alive.return_value = False
         conn = MagicMock()
         conn.poll.return_value = True
-        status = self._patch_run(
-            task, jrp, conn, 'worker_func_exec_time 1.5\nexception True\n'
+        events = []
+        status = MagicMock()
+        status.send_init_event.side_effect = lambda: events.append('init')
+        jrp.start.side_effect = lambda: events.append('start')
+        status.send_finish_event.side_effect = lambda: events.append('finish')
+        self._patch_run(
+            task, jrp, conn, 'worker_func_exec_time 1.5\nexception True\n', status=status
         )
+        assert events == ['init', 'start', 'finish']
         status.send_init_event.assert_called_once()
         status.send_finish_event.assert_called_once()
         added = {c.args[0]: c.args[1] for c in status.add.call_args_list}
@@ -607,10 +640,8 @@ class TestRunTask:
         self, tmp_path
     ):
         """
-        The init event is sent once the JobRunner runs. When sending it
-        fails, say the status object cannot be written to storage, the call
-        used to be reported as failed while the JobRunner kept running,
-        never joined, next to the following task of the worker
+        An init reporting failure must not prevent function execution or
+        reporting its result.
         """
         task = _task()
         task.log_stream = MagicMock()
@@ -677,9 +708,6 @@ class TestRunTask:
         task.stats_file = str(tmp_path / 'missing.txt')
         status = MagicMock()
         status.send_init_event.side_effect = KeyboardInterrupt()
-        # The init event is sent after the JobRunner has been started, so
-        # the context is mocked out like the other tests here do: without
-        # it this unit test forks a real process to interrupt
         jrp = MagicMock()
         jrp.is_alive.return_value = False
         ctx = MagicMock()
@@ -699,6 +727,7 @@ class TestRunTask:
                                 run_task(task)
         status.send_init_event.assert_called_once()
         status.send_finish_event.assert_not_called()
+        jrp.start.assert_not_called()
 
     def test_runtime_memory_log_branch(self, tmp_path):
         task = _task(runtime_memory=256)
@@ -1286,16 +1315,13 @@ class TestJobStatsAndPrepareArgs:
         def f(a, b=1):
             return a + b
         args, kwargs = _prepare_args(f, {'a': 2, 'b': 3})
-        assert args == ()
-        assert kwargs == {'a': 2, 'b': 3}
         assert f(*args, **kwargs) == 5
 
-    def test_prepare_args_varargs_empty_list_is_kept(self):
+    def test_prepare_args_empty_varargs(self):
         def f(*args, **kwargs):
             return args, kwargs
         args, kwargs = _prepare_args(f, {'args': [], 'kwargs': {}, 'x': 1})
-        assert args == []
-        assert kwargs == {'x': 1}
+        assert f(*args, **kwargs) == ((), {'x': 1})
 
     def test_prepare_args_custom_var_names(self):
         def f(*xs, **kw):
@@ -1305,6 +1331,44 @@ class TestJobStatsAndPrepareArgs:
         )
         assert args == (1, 2)
         assert kwargs == {'a': 3, 'b': 4}
+
+    def test_prepare_args_named_params_before_varargs_stay_positional(self):
+        def f(a, *rest):
+            return a, rest
+        data = verify_args(f, [(1, 2, 3)], None)[0]
+        args, kwargs = _prepare_args(f, data)
+        assert f(*args, **kwargs) == (1, (2, 3))
+
+    def test_prepare_args_positional_only_params(self):
+        data = verify_args(abs, [(-2,)], None)[0]
+        args, kwargs = _prepare_args(abs, data)
+        assert abs(*args, **kwargs) == 2
+
+    def test_prepare_args_keeps_keyword_params_after_positional_ones(self):
+        def f(a, b, *rest, c=0):
+            return a, b, rest, c
+        args, kwargs = _prepare_args(f, {'a': 1, 'b': 2, 'rest': (3,), 'c': 4})
+        assert f(*args, **kwargs) == (1, 2, (3,), 4)
+
+    def test_prepare_args_none_varargs_are_empty(self):
+        def f(*args, **kwargs):
+            return args, kwargs
+        args, kwargs = _prepare_args(f, {'args': None, 'kwargs': None, 'x': 1})
+        assert f(*args, **kwargs) == ((), {'x': 1})
+
+    def test_prepare_args_a_param_left_out_before_varargs_takes_its_default(self):
+        """verify_args lets a dict leave out a param that has a default"""
+        def f(a, b=2, *rest, c=0):
+            return a, b, rest, c
+        args, kwargs = _prepare_args(f, {'a': 1, 'rest': (3, 4)})
+        assert f(*args, **kwargs) == (1, 2, (3, 4), 0)
+        args, kwargs = _prepare_args(f, {'a': 1, 'c': 5})
+        assert f(*args, **kwargs) == (1, 2, (), 5)
+
+        def g(a=1, b=2, /):
+            return a, b
+        args, kwargs = _prepare_args(g, {'b': 5})
+        assert g(*args, **kwargs) == (1, 5)
 
 
 class TestJobRunner:
@@ -1442,12 +1506,45 @@ class TestJobRunner:
 
     def test_fill_optional_args_future_chaining(self):
         jr = self._runner(_echo, {'x': 1})
-        future = MagicMock()
+        future = MagicMock(spec=ResponseFuture)
         future.result.return_value = 9
         data = {'future': future}
         jr._fill_optional_args(_echo, data)
         assert data['x'] == 9
         assert 'future' not in data
+
+    def test_fill_optional_args_list_of_futures_is_one_argument(self):
+        def total(values):
+            return sum(values)
+
+        jr = self._runner(_echo, {'x': 1})
+        first, second = MagicMock(spec=ResponseFuture), MagicMock(spec=ResponseFuture)
+        first.result.return_value = 2
+        second.result.return_value = 3
+        data = {'future': [first, second]}
+        jr._fill_optional_args(total, data)
+        assert data == {'values': [2, 3]}
+
+    def test_fill_optional_args_tuple_of_futures_is_unpacked(self):
+        def mul(x, y):
+            return x * y
+
+        jr = self._runner(_echo, {'x': 1})
+        first, second = MagicMock(spec=ResponseFuture), MagicMock(spec=ResponseFuture)
+        first.result.return_value = 2
+        second.result.return_value = 3
+        data = {'future': (first, second)}
+        jr._fill_optional_args(mul, data)
+        assert data == {'x': 2, 'y': 3}
+
+    def test_fill_optional_args_param_named_future_is_not_chaining(self):
+        def f(future):
+            return future
+
+        jr = self._runner(_echo, {'x': 1})
+        data = {'future': 5}
+        jr._fill_optional_args(f, data)
+        assert data == {'future': 5}
 
     def test_wait_futures_replaces_first_value(self):
         jr = self._runner(_echo, {'x': 1})
@@ -1558,6 +1655,14 @@ class TestJobRunner:
         ):
             jr.run()
         assert calls == ['pre', 'post']
+
+    def test_no_prepost_hooks_when_unset(self, monkeypatch):
+        monkeypatch.delenv('PRE_RUN', raising=False)
+        monkeypatch.delenv('POST_RUN', raising=False)
+        jr = self._runner(_echo, {'x': 1})
+        with patch('lithops.worker.jobrunner.locate') as locate:
+            jr.run()
+        locate.assert_not_called()
 
     def test_callable_class_function_name(self):
         jr = self._runner(_Adder(), {'x': 1})

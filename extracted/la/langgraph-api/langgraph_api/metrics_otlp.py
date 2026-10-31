@@ -176,6 +176,14 @@ COUNTER_RUN_ABANDONED_BY_SHUTDOWN = def_counter(
 COUNTER_RUN_SET_STATUS_ERROR = def_counter(
     "run_set_status_error_counter", METRIC_TIER_CRITICAL
 )
+COUNTER_RUN_EXCEED_MAX_DRAINS_AT_START = def_counter(
+    "run_exceed_max_drains_at_start_counter", METRIC_TIER_CRITICAL
+)
+COUNTER_RUN_DRAINED = def_counter(
+    "run_drained_counter",
+    METRIC_TIER_CRITICAL,
+    description="Runs cooperatively drained and re-queued to resume (handoffs, not failures)",
+)
 COUNTER_GRAPH_RECURSION_LIMIT_ERROR = def_counter(
     "graph_recursion_limit_error_counter", METRIC_TIER_INFO
 )

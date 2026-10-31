@@ -276,6 +276,15 @@ class IDataProvider(metaclass=abc.ABCMeta):
         """
         ...
 
+    def read_lines(self, file: str) -> typing.Sequence[str]:
+        """
+        Helper method to stream read lines from a file
+        
+        :param file: The file path to read from
+        :returns: Enumeration of lines in file.
+        """
+        ...
+
 
 class IMapFileProvider(metaclass=abc.ABCMeta):
     """Provides instances of MapFileResolver at run time"""
@@ -295,6 +304,36 @@ class IMapFileProvider(metaclass=abc.ABCMeta):
         Initializes our MapFileProvider by supplying our data_provider
         
         :param data_provider: DataProvider to use
+        """
+        ...
+
+    def resolve_map_file(self, data_config: QuantConnect.Data.SubscriptionDataConfig) -> QuantConnect.Data.Auxiliary.MapFile:
+        """
+        Helper method to resolve the mapping file to use.
+        
+        :param data_config: The configuration to fetch the map file for
+        :returns: The mapping file to use.
+        """
+        ...
+
+    def retrieve_all_mapped_symbol_in_date_range(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Sequence[QuantConnect.Data.Auxiliary.SymbolDateRange]:
+        """
+        Retrieves all Symbol from map files based on specific Symbol.
+        
+        :param symbol: The symbol to get MapFileResolver and generate new Symbol.
+        :returns: An enumerable collection of SymbolDateRange.
+        """
+        ...
+
+    def retrieve_symbol_historical_definitions_in_date_range(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], start_date_time: typing.Union[datetime.datetime, datetime.date], end_date_time: typing.Union[datetime.datetime, datetime.date]) -> typing.Sequence[QuantConnect.Data.Auxiliary.TickerDateRange]:
+        """
+        Some historical provider supports ancient data. In fact, the ticker could be restructured to new one.
+        
+        :param symbol: Represents a unique security identifier
+        :param start_date_time: The date since we began our search for the historical name of the symbol.
+        :param end_date_time: The end date and time of the historical data range.
+        :returns: An enumerable collection of tuples containing symbol ticker, start date and time, and end date and time
+        representing the historical definitions of the symbol within the specified time range.
         """
         ...
 
@@ -2142,6 +2181,52 @@ class IAlgorithm(QuantConnect.Interfaces.ISecurityInitializerProvider, QuantConn
         """
         ...
 
+    @overload
+    def create_future_chain(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], filter: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> typing.Sequence[QuantConnect.Data.UniverseSelection.Universe]:
+        """
+        Creates a FuturesChainUniverse for a given symbol
+        
+        :param symbol: Symbol of the future
+        :param filter: The future filter to use
+        :param universe_settings: The universe settings, will use algorithm settings if null
+        """
+        ...
+
+    @overload
+    def create_future_chain(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], filter: typing.Callable[[QuantConnect.Securities.FutureFilterUniverse], QuantConnect.Securities.FutureFilterUniverse], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> typing.Sequence[QuantConnect.Data.UniverseSelection.Universe]:
+        """
+        Creates a FuturesChainUniverse for a given symbol
+        
+        :param symbol: Symbol of the future
+        :param filter: The future filter to use
+        :param universe_settings: The universe settings, will use algorithm settings if null
+        """
+        ...
+
+    @overload
+    def create_option_chain(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], filter: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.OptionChainUniverse:
+        """
+        Creates a OptionChainUniverse for a given symbol
+        
+        :param symbol: Symbol of the option
+        :param filter: The option filter to use
+        :param universe_settings: The universe settings, will use algorithm settings if null
+        :returns: OptionChainUniverse for the given symbol.
+        """
+        ...
+
+    @overload
+    def create_option_chain(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], filter: typing.Callable[[QuantConnect.Securities.OptionFilterUniverse], QuantConnect.Securities.OptionFilterUniverse], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.OptionChainUniverse:
+        """
+        Creates a OptionChainUniverse for a given symbol
+        
+        :param symbol: Symbol of the option
+        :param filter: The option filter to use
+        :param universe_settings: The universe settings, will use algorithm settings if null
+        :returns: OptionChainUniverse for the given symbol.
+        """
+        ...
+
     def debug(self, message: str) -> None:
         """
         Send debug message
@@ -3314,12 +3399,20 @@ class IDataQueueHandler(System.IDisposable, metaclass=abc.ABCMeta):
         """
         ...
 
+    def subscribe_with_mapping(self, data_config: QuantConnect.Data.SubscriptionDataConfig, new_data_available_handler: typing.Callable[[System.Object, System.EventArgs], typing.Any], is_expired: typing.Callable[[QuantConnect.Data.SubscriptionDataConfig], bool], subscribed_config: typing.Optional[QuantConnect.Data.SubscriptionDataConfig]) -> typing.Tuple[System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], QuantConnect.Data.SubscriptionDataConfig]:
+        """Helper method to subscribe a given configuration, handling any required mapping"""
+        ...
+
     def unsubscribe(self, data_config: QuantConnect.Data.SubscriptionDataConfig) -> None:
         """
         Removes the specified configuration
         
         :param data_config: Subscription config to be removed
         """
+        ...
+
+    def unsubscribe_with_mapping(self, data_config: QuantConnect.Data.SubscriptionDataConfig) -> None:
+        """Helper method to unsubscribe a given configuration, handling any required mapping"""
         ...
 
 

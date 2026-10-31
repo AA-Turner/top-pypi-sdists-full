@@ -9,7 +9,8 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
 # Based on the gitleaks ``generic-api-key`` rule. We err on the side of false positives because over-redaction is
-# reversible by the user but a leaked secret is not. See https://github.com/gitleaks/gitleaks/blob/master/config/gitleaks.toml#L587
+# reversible by the user but a leaked secret is not.
+# See https://github.com/gitleaks/gitleaks/blob/master/config/gitleaks.toml#L587
 _SECRET_KEYWORDS: Final[tuple[str, ...]] = (
     "access",
     "api",
@@ -30,8 +31,10 @@ _SECRET_ENV_VAR_REGEX: Final[re.Pattern[str]] = re.compile(
     ( {keywords} )      # one of the secret keywords
     .*                  # any suffix
     """.format(keywords="|".join(_SECRET_KEYWORDS)),
-    re.VERBOSE | re.IGNORECASE,
+    re.VERBOSE | re.IGNORECASE | re.DOTALL,  # a newline before a keyword must not expose its value
 )
+# Compile once for command logging; broken quotes, semicolons, and line breaks can fuse flags into one token.
+_INLINE_FLAG_REGEX: Final[re.Pattern[str]] = re.compile(r"""(?<![^\s'"=;])-(?:[^\s'"=]|[\r\n])*=""")
 
 
 def redact_value(name: str, value: str) -> str:
@@ -49,30 +52,28 @@ def redact_value(name: str, value: str) -> str:
 
 
 def redact_argv(argv: Sequence[str]) -> list[str]:
-    """Return a copy of ``argv`` with secret-looking ``--key=value`` token values masked.
-
-    Only the inline ``--key=value`` / ``-k=value`` form is detected. Space-separated arguments are left alone to avoid
-    masking innocuous selectors like ``pytest -k test_foo``: there is no general way to tell ``--token <value>`` apart
-    from ``--token <not-a-value>`` without per-tool knowledge of the parser.
-
-    :param argv: the command line tokens to scan.
-
-    :returns: a new list with values of secret-looking flags replaced by ``*`` of the same length.
-
-    """
     result: list[str] = []
     for token in argv:
-        if token.startswith("-") and "=" in token:
-            flag, sep, value = token.partition("=")
-            name = flag.lstrip("-")
-            if _SECRET_ENV_VAR_REGEX.match(name):
-                result.append(f"{flag}{sep}{'*' * len(value)}")
-                continue
-        result.append(token)
+        redacted_token: str = _redact_url_userinfo(token)
+        for match in _INLINE_FLAG_REGEX.finditer(redacted_token):
+            if _SECRET_ENV_VAR_REGEX.match(match.group()):
+                # A fused token has no reliable flag-value boundary.
+                result.append(f"{redacted_token[: match.end()]}{'*' * (len(redacted_token) - match.end())}")
+                break
+        else:
+            result.append(redacted_token)
     return result
 
 
-__all__ = (
+def _redact_url_userinfo(token: str) -> str:
+    return re.sub(
+        r"([a-zA-Z][a-zA-Z0-9+.-]*://)([^/?#\s]+)@",
+        lambda match: f"{match[1]}{'*' * len(match[2])}@",
+        token,
+    )
+
+
+__all__ = [
     "redact_argv",
     "redact_value",
-)
+]

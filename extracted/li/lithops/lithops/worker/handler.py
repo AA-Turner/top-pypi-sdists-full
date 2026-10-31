@@ -33,7 +33,7 @@ from queue import Queue, Empty
 from threading import Thread
 from tblib import pickling_support
 from types import SimpleNamespace
-from typing import Any, Callable, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 from lithops.version import __version__
 from lithops.config import extract_storage_config
@@ -266,12 +266,7 @@ def function_handler(payload: Dict[str, Any]) -> None:
     os.environ.pop(TOTAL_EXECUTORS_ENV, None)
 
 
-def task_consumer(
-    pid: int,
-    work_queue: Union[Queue, TaskJar],
-    initializer: Optional[Callable] = None,
-    callback: Optional[Callable] = None
-) -> None:
+def task_consumer(pid: int, work_queue: Union[Queue, TaskJar]) -> None:
     """
     Runs tasks until the work queue is exhausted.
 
@@ -284,7 +279,7 @@ def task_consumer(
     while True:
         try:
             event = work_queue.get()
-        except (Empty, BrokenPipeError):
+        except Empty:
             break
 
         if isinstance(event, ShutdownSentinel):
@@ -295,13 +290,7 @@ def task_consumer(
         task.data = data
 
         try:
-            if initializer:
-                initializer(pid, task)
-
             prepare_and_run_task(task)
-
-            if callback:
-                callback(pid, task)
         except Exception as e:
             # Do not lose this worker for the tasks that are still pending
             logger.error(f'Worker {pid} failed to run task {call_id}: {e}')
@@ -324,24 +313,31 @@ def prepare_and_run_task(task: SimpleNamespace) -> None:
 
     os.environ[WORKER_ENV] = 'True'
     os.environ['PYTHONUNBUFFERED'] = 'True'
+    # The worker process runs more tasks after this one, so the variables the
+    # task overrides get their previous values back when it finishes
+    previous_env = {key: os.environ.get(key) for key in task.extra_env}
     os.environ.update(task.extra_env)
 
-    storage_backend = task.config['lithops']['storage']
-    bucket = task.config[storage_backend]['storage_bucket']
-    task.task_dir = os.path.join(
-        LITHOPS_TEMP_DIR, bucket, JOBS_PREFIX, task.job_key, task.call_id
-    )
-    task.log_file = os.path.join(task.task_dir, 'execution.log')
-    task.stats_file = os.path.join(task.task_dir, 'job_stats.txt')
-    os.makedirs(task.task_dir, exist_ok=True)
+    try:
+        storage_backend = task.config['lithops']['storage']
+        bucket = task.config[storage_backend]['storage_bucket']
+        task.task_dir = os.path.join(
+            LITHOPS_TEMP_DIR, bucket, JOBS_PREFIX, task.job_key, task.call_id
+        )
+        task.log_file = os.path.join(task.task_dir, 'execution.log')
+        task.stats_file = os.path.join(task.task_dir, 'job_stats.txt')
+        os.makedirs(task.task_dir, exist_ok=True)
 
-    with open(task.log_file, 'a') as log_stream:
-        task.log_stream = LogStream(log_stream)
-        with custom_redirection(task.log_stream):
-            run_task(task)
-
-    for key in task.extra_env:
-        os.environ.pop(key, None)
+        with open(task.log_file, 'a') as log_stream:
+            task.log_stream = LogStream(log_stream)
+            with custom_redirection(task.log_stream):
+                run_task(task)
+    finally:
+        for key, value in previous_env.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
 
 
 # Windows has no SIGKILL, and no process there is reported as killed by one
@@ -494,7 +490,7 @@ def run_task(task: SimpleNamespace) -> None:
             getattr(task, 'monitoring_queues', None) or []
         ),
     }
-    os.environ.update(task.extra_env)
+    # task.extra_env is applied, and later restored, by prepare_and_run_task
     os.environ.update(injected_env)
     _allow_fork_after_a_client_exists()
 
@@ -520,6 +516,11 @@ def run_task(task: SimpleNamespace) -> None:
     try:
         handler_conn, jobrunner_conn = _MP_CTX.Pipe()
         jobrunner = JobRunner(task, jobrunner_conn, internal_storage)
+        try:
+            call_status.send_init_event()
+        except Exception as e:
+            logger.warning(f'Could not report the start of the call: {e}')
+
         logger.debug('Starting JobRunner process')
         jrp = (
             _MP_CTX.Process(target=jobrunner.run)
@@ -527,27 +528,10 @@ def run_task(task: SimpleNamespace) -> None:
             else Thread(target=jobrunner.run)
         )
 
-        process_id = (
-            os.getpid() if is_unix_system() else mp.current_process().pid
-        )
-        sys_monitor = SystemMonitor(process_id)
+        sys_monitor = SystemMonitor()
         sys_monitor.start()
 
         jrp.start()
-
-        # Reported once the process is running, which is also when the call
-        # has really started. Sending it here rather than before the fork
-        # keeps the one-off cost of opening the monitoring client off the
-        # critical path: the first call of a worker pays for a connection
-        # (some 13 ms for AMQP, then kept for the whole process) while the
-        # function is already running, instead of delaying its start.
-        # The event is informational and the finish event reports the call
-        # all the same, so failing to send it must not abandon a JobRunner
-        # that is already running
-        try:
-            call_status.send_init_event()
-        except Exception as e:
-            logger.warning(f'Could not report the start of the call: {e}')
         jrp.join(task.execution_timeout)
 
         sys_monitor.stop()

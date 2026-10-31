@@ -104,6 +104,7 @@ impl Parser {
         document(&body)
     }
 
+    #[allow(clippy::too_many_lines)]
     fn open(&mut self, mut element: Element, self_closing: bool) {
         if self.autoclean
             && element.has_class("twemoji")
@@ -137,8 +138,11 @@ impl Parser {
         {
             element.language = language.into();
         }
-        if self.autoclean && matches!(element.tag.as_str(), "img" | "svg") {
-            // Upstream drops the complete link when its label contains an image.
+        if self.autoclean
+            && (element.tag == "svg"
+                || element.tag == "img" && element.has_class("twemoji"))
+        {
+            // Links containing discarded images are removed with their labels.
             if let Some(link) =
                 self.stack.iter_mut().rev().find(|item| item.tag == "a")
             {
@@ -164,6 +168,19 @@ impl Parser {
                 _ => Mode::Markdown,
             };
         }
+        if self.autoclean && element.tag == "img" && element.mode != Mode::Skip
+        {
+            let source = element.attr("src").trim();
+            if source.is_empty()
+                || source.split_once(':').is_some_and(|(scheme, _)| {
+                    scheme.eq_ignore_ascii_case("data")
+                })
+            {
+                // Embedded data and missing image sources are replaced with alt text.
+                self.text(element.attr("alt"));
+                element.mode = Mode::Skip;
+            }
+        }
         if in_table
             || element.tag == "table"
                 && element.mode == Mode::Markdown
@@ -172,14 +189,29 @@ impl Parser {
             // Retain HTML until we know the table fits GFM's cell model.
             element.html_body = Some(String::new());
             element.table_fallback = in_table
-                && (element.alert_kind().is_some() || matches!(
-                    element.tag.as_str(),
-                    "table" | "pre" | "ul" | "ol" | "blockquote"
-                        | "h1" | "h2" | "h3" | "h4" | "h5" | "h6"
-                        | "hr" | "col" | "colgroup"
-                ))
+                && (element.alert_kind().is_some()
+                    || matches!(
+                        element.tag.as_str(),
+                        "table"
+                            | "pre"
+                            | "ul"
+                            | "ol"
+                            | "blockquote"
+                            | "h1"
+                            | "h2"
+                            | "h3"
+                            | "h4"
+                            | "h5"
+                            | "h6"
+                            | "hr"
+                            | "col"
+                            | "colgroup"
+                    ))
                 || ["rowspan", "colspan"].iter().any(|name| {
-                    element.attr(name).parse::<usize>().is_ok_and(|span| span != 1)
+                    element
+                        .attr(name)
+                        .parse::<usize>()
+                        .is_ok_and(|span| span != 1)
                 });
         }
         if element.tag == "ol" {
@@ -196,7 +228,10 @@ impl Parser {
     fn close(&mut self) {
         let mut element = self.stack.pop().expect("open element");
         let task_checkbox = element.tag == "input"
-            && self.stack.iter().rev()
+            && self
+                .stack
+                .iter()
+                .rev()
                 .take_while(|item| item.body.trim().is_empty())
                 .any(|item| item.tag == "li");
         let alert = element.alert_kind().map(|kind| {
@@ -217,7 +252,10 @@ impl Parser {
         if element.tag == "code" && element.body.is_empty() {
             return;
         }
-        let html = element.html_body.as_ref().map(|body| element.html(&self.url, body));
+        let html = element
+            .html_body
+            .as_ref()
+            .map(|body| element.html(&self.url, body));
         if let (Some(output), Some(html)) = (&mut parent.html_body, &html) {
             output.push_str(html);
         }
@@ -259,7 +297,13 @@ impl Parser {
             block(&mut parent.body, &element.alert(kind, nested));
             return;
         }
-        Self::append_markdown(&mut element, parent, &self.url, html.as_deref(), task_checkbox);
+        Self::append_markdown(
+            &mut element,
+            parent,
+            &self.url,
+            html.as_deref(),
+            task_checkbox,
+        );
     }
 
     fn append_markdown(
@@ -291,7 +335,9 @@ impl Parser {
             "code" => parent.body.push_str(&code_span(body)),
             "strong" | "b" => parent.body.push_str(&emphasis(body, "**")),
             "em" | "i" => parent.body.push_str(&emphasis(body, "*")),
-            "del" | "s" | "strike" => parent.body.push_str(&emphasis(body, "~~")),
+            "del" | "s" | "strike" => {
+                parent.body.push_str(&emphasis(body, "~~"));
+            }
             "a" if !element.attr("href").is_empty() => {
                 element.link(&mut parent.body, url);
             }
@@ -329,7 +375,9 @@ impl Parser {
                     (false, false) => "☐ ",
                 });
             }
-            "td" | "th" if element.html_body.is_some() && parent.tag == "tr" => {
+            "td" | "th"
+                if element.html_body.is_some() && parent.tag == "tr" =>
+            {
                 parent.table_cells.push(TableCell {
                     body: body.clone(),
                     header: element.tag == "th",
@@ -337,7 +385,9 @@ impl Parser {
                 });
             }
             "tr" if element.html_body.is_some() => {
-                parent.table_rows.push(std::mem::take(&mut element.table_cells));
+                parent
+                    .table_rows
+                    .push(std::mem::take(&mut element.table_cells));
             }
             "thead" | "tbody" | "tfoot" if element.html_body.is_some() => {
                 parent.table_rows.append(&mut element.table_rows);
@@ -442,20 +492,25 @@ impl Visitor for Parser {
 
 impl Element {
     fn alert_kind(&self) -> Option<&'static str> {
-        if !(self.tag == "div" && self.has_class("admonition") || self.tag == "details") {
+        if !(self.tag == "div" && self.has_class("admonition")
+            || self.tag == "details")
+        {
             return None;
         }
-        self.attr("class").split_ascii_whitespace().find_map(|class| {
-            match class {
+        self.attr("class")
+            .split_ascii_whitespace()
+            .find_map(|class| match class {
                 "note" | "info" | "todo" | "abstract" | "summary" | "tldr"
-                    | "question" | "help" | "faq" | "example" | "quote" | "cite" => Some("NOTE"),
+                | "question" | "help" | "faq" | "example" | "quote"
+                | "cite" => Some("NOTE"),
                 "tip" | "hint" | "success" | "check" | "done" => Some("TIP"),
                 "important" => Some("IMPORTANT"),
                 "warning" | "attention" => Some("WARNING"),
-                "caution" | "danger" | "error" | "failure" | "fail" | "missing" | "bug" => Some("CAUTION"),
+                "caution" | "danger" | "error" | "failure" | "fail"
+                | "missing" | "bug" => Some("CAUTION"),
                 _ => None,
-            }
-        }).or_else(|| self.has_class("admonition").then_some("NOTE"))
+            })
+            .or_else(|| self.has_class("admonition").then_some("NOTE"))
     }
 
     fn alert(&self, kind: &str, nested: bool) -> String {
@@ -473,11 +528,22 @@ impl Element {
     }
 
     fn alignment(&self) -> Option<&'static str> {
-        let alignment = self.attr("style").split(';').find_map(|declaration| {
-            let (name, value) = declaration.split_once(':')?;
-            name.trim().eq_ignore_ascii_case("text-align").then_some(value.trim())
-        }).unwrap_or_else(|| self.attr("align"));
-        match alignment.trim_end_matches("!important").trim().to_ascii_lowercase().as_str() {
+        let alignment = self
+            .attr("style")
+            .split(';')
+            .find_map(|declaration| {
+                let (name, value) = declaration.split_once(':')?;
+                name.trim()
+                    .eq_ignore_ascii_case("text-align")
+                    .then_some(value.trim())
+            })
+            .unwrap_or_else(|| self.attr("align"));
+        match alignment
+            .trim_end_matches("!important")
+            .trim()
+            .to_ascii_lowercase()
+            .as_str()
+        {
             "left" => Some(":---"),
             "center" => Some(":---:"),
             "right" => Some("---:"),
@@ -489,21 +555,31 @@ impl Element {
         if self.table_fallback {
             return None;
         }
-        let width = self.table_rows.iter().map(Vec::len).max().filter(|width| *width > 0)?;
-        let header = self.table_rows.first()
+        let width = self
+            .table_rows
+            .iter()
+            .map(Vec::len)
+            .max()
+            .filter(|width| *width > 0)?;
+        let header = self
+            .table_rows
+            .first()
             .filter(|row| !row.is_empty() && row.iter().all(|cell| cell.header))
             .map_or(&[][..], Vec::as_slice);
         let mut output = String::new();
         table_row(&mut output, header, width);
         output.push('|');
         for column in 0..width {
-            let alignment = self.table_rows.iter()
+            let alignment = self
+                .table_rows
+                .iter()
                 .find_map(|row| row.get(column).and_then(|cell| cell.alignment))
                 .unwrap_or("---");
             let _ = write!(output, " {alignment} |");
         }
         output.push('\n');
-        for row in self.table_rows.iter().skip(usize::from(!header.is_empty())) {
+        for row in self.table_rows.iter().skip(usize::from(!header.is_empty()))
+        {
             table_row(&mut output, row, width);
         }
         Some(output)
@@ -581,7 +657,7 @@ impl Element {
     }
 
     fn is_decoration(&self) -> bool {
-        matches!(self.tag.as_str(), "img" | "svg")
+        self.tag == "svg"
             || self.tag == "a" && self.has_class("headerlink")
             || [
                 "twemoji",
@@ -632,14 +708,21 @@ fn table_row(output: &mut String, cells: &[TableCell], width: usize) {
 }
 
 fn footnote_label(url: &str, id: &str) -> Option<String> {
-    let id = percent_decode_str(id.strip_prefix('#').unwrap_or(id)).decode_utf8().ok()?;
-    let id = id.strip_prefix("fn:").or_else(|| id.strip_prefix("user-content-fn-"))?;
+    let id = percent_decode_str(id.strip_prefix('#').unwrap_or(id))
+        .decode_utf8()
+        .ok()?;
+    let id = id
+        .strip_prefix("fn:")
+        .or_else(|| id.strip_prefix("user-content-fn-"))?;
     let url = UriRef::parse(url).ok()?;
     // Include the page path so notes remain distinct in llms-full.txt.
     let scoped = format!("{}#{id}", url.path().as_str());
     let mut label = String::new();
     for character in scoped.chars() {
-        if character.is_whitespace() || character.is_control() || matches!(character, '[' | ']' | '\\') {
+        if character.is_whitespace()
+            || character.is_control()
+            || matches!(character, '[' | ']' | '\\')
+        {
             for byte in character.to_string().bytes() {
                 let _ = write!(label, "%{byte:02X}");
             }
@@ -695,13 +778,17 @@ fn block(output: &mut String, body: &str) {
 }
 
 fn blockquote(body: &str) -> String {
-    body.trim().lines().map(|line| {
-        if line.is_empty() {
-            ">".into()
-        } else {
-            format!("> {line}")
-        }
-    }).collect::<Vec<_>>().join("\n")
+    body.trim()
+        .lines()
+        .map(|line| {
+            if line.is_empty() {
+                ">".into()
+            } else {
+                format!("> {line}")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 fn emphasis(body: &str, delimiter: &str) -> String {
@@ -756,9 +843,7 @@ pub(super) fn escape(text: &str) -> String {
     output
 }
 
-fn escape_character(
-    output: &mut String, character: char, next: Option<char>,
-) {
+fn escape_character(output: &mut String, character: char, next: Option<char>) {
     let starts_block = if matches!(character, '-' | '+' | '=' | '.' | ')') {
         let line = output.rsplit('\n').next().unwrap_or("").trim_start();
         line.is_empty() && matches!(character, '-' | '+' | '=')
@@ -955,12 +1040,15 @@ mod tests {
         for autoclean in [true, false] {
             let markdown = convert(html, autoclean);
 
-            assert_eq!(markdown, concat!(
-                "## run\n\nBeforeafter `run()`.\n\n",
-                "| Name |\n| --- |\n| run |\n\n",
-                "<table><tr><td colspan=\"2\">Wide</td></tr></table>\n\n",
-                "<kbd>Esc</kbd>\n",
-            ));
+            assert_eq!(
+                markdown,
+                concat!(
+                    "## run\n\nBeforeafter `run()`.\n\n",
+                    "| Name |\n| --- |\n| run |\n\n",
+                    "<table><tr><td colspan=\"2\">Wide</td></tr></table>\n\n",
+                    "<kbd>Esc</kbd>\n",
+                )
+            );
         }
     }
 
@@ -975,14 +1063,18 @@ mod tests {
         let markdown = convert(html, true);
 
         // Literal markup is example content, and empty fences keep their language.
-        assert_eq!(markdown, concat!(
-            "Markup: `<code></code>`, space: ` `.\n\n",
-            "```html\n<code></code>\n```\n\n```python\n```\n",
-        ));
+        assert_eq!(
+            markdown,
+            concat!(
+                "Markup: `<code></code>`, space: ` `.\n\n",
+                "```html\n<code></code>\n```\n\n```python\n```\n",
+            )
+        );
     }
 
     #[test]
-    fn removes_mkdocstrings_source_listings_and_keeps_signatures_and_examples() {
+    fn removes_mkdocstrings_source_listings_and_keeps_signatures_and_examples()
+    {
         let html = concat!(
             "<div class='doc-contents'><p>Description.</p>",
             "<div class='language-python doc-signature highlight'><pre><code>run()</code></pre></div>",
@@ -1026,7 +1118,8 @@ mod tests {
     }
 
     #[test]
-    fn converts_admonitions_to_github_alerts_without_repeating_default_titles() {
+    fn converts_admonitions_to_github_alerts_without_repeating_default_titles()
+    {
         for (class, title, kind) in [
             ("note", "Note", "NOTE"),
             ("tip", "Tip", "TIP"),
@@ -1077,7 +1170,11 @@ mod tests {
 
             let markdown = convert(&html, true);
 
-            assert_eq!(markdown, format!("> [!{kind}]\n>\n> **A `custom` title**\n>\n> Body.\n"), "{classes}");
+            assert_eq!(
+                markdown,
+                format!("> [!{kind}]\n>\n> **A `custom` title**\n>\n> Body.\n"),
+                "{classes}"
+            );
         }
     }
 
@@ -1124,9 +1221,18 @@ mod tests {
 
         // GitHub cannot render nested alerts, but the title and nesting must survive.
         for (html, expected) in [
-            (format!("<div class='admonition note'>{admonition}</div>"), "> [!NOTE]\n>\n> > **Tip**\n> >\n> > Body.\n"),
-            (format!("<blockquote>{admonition}</blockquote>"), "> > **Tip**\n> >\n> > Body.\n"),
-            (format!("<ul><li>{admonition}</li></ul>"), "- > **Tip**\n  >\n  > Body.\n"),
+            (
+                format!("<div class='admonition note'>{admonition}</div>"),
+                "> [!NOTE]\n>\n> > **Tip**\n> >\n> > Body.\n",
+            ),
+            (
+                format!("<blockquote>{admonition}</blockquote>"),
+                "> > **Tip**\n> >\n> > Body.\n",
+            ),
+            (
+                format!("<ul><li>{admonition}</li></ul>"),
+                "- > **Tip**\n  >\n  > Body.\n",
+            ),
         ] {
             let markdown = convert(&html, true);
 
@@ -1140,7 +1246,10 @@ mod tests {
 
         let markdown = convert(html, true);
 
-        assert_eq!(markdown, "| Name |\n| --- |\n| **A &amp; B**<br>`x_y` |\n\nAfter\n");
+        assert_eq!(
+            markdown,
+            "| Name |\n| --- |\n| **A &amp; B**<br>`x_y` |\n\nAfter\n"
+        );
     }
 
     #[test]
@@ -1164,7 +1273,8 @@ mod tests {
 
     #[test]
     fn gives_headerless_tables_an_empty_header_and_pads_short_rows() {
-        let html = "<table><tr><td>A</td><td>B</td></tr><tr><td>C</td></tr></table>";
+        let html =
+            "<table><tr><td>A</td><td>B</td></tr><tr><td>C</td></tr></table>";
 
         let markdown = convert(html, true);
 
@@ -1205,7 +1315,10 @@ mod tests {
 
         let markdown = convert(html, true);
 
-        assert_eq!(markdown, "~~Old **value**~~, ~~removed~~, and \\~literal\\~.\n");
+        assert_eq!(
+            markdown,
+            "~~Old **value**~~, ~~removed~~, and \\~literal\\~.\n"
+        );
     }
 
     #[test]
@@ -1220,7 +1333,10 @@ mod tests {
         for autoclean in [true, false] {
             let markdown = convert(html, autoclean);
 
-            assert_eq!(markdown, "- [x] Done\n- [ ] Todo\n\nSeparate ☑ checkbox.\n");
+            assert_eq!(
+                markdown,
+                "- [x] Done\n- [ ] Todo\n\nSeparate ☑ checkbox.\n"
+            );
         }
     }
 
@@ -1257,12 +1373,15 @@ mod tests {
 
         let markdown = convert(html, true);
 
-        assert_eq!(markdown, "Note[^/docs/guide/#1].\n\n[^/docs/guide/#1]: Body.\n");
+        assert_eq!(
+            markdown,
+            "Note[^/docs/guide/#1].\n\n[^/docs/guide/#1]: Body.\n"
+        );
     }
 
     #[test]
     fn cleans_controls_and_highlighted_code_without_losing_text() {
-        let html = "<div class='tabbed-labels'><label>Tab</label></div><p>Text<span class='twemoji'><svg>icon</svg></span><span class='doc-labels'>property</span><a href='x'><img src='x'>badge</a></p><table class='highlighttable'><tr><td class='linenos'><div class='linenodiv'><pre>1\n2</pre></div></td><td class='code'><div class='highlight'><pre><code>x\ny\n</code></pre></div></td></tr></table><script>bad()</script><style>body{}</style>";
+        let html = "<div class='tabbed-labels'><label>Tab</label></div><p>Text<span class='twemoji'><svg>icon</svg></span><span class='doc-labels'>property</span><a href='x'><svg>icon</svg>badge</a></p><table class='highlighttable'><tr><td class='linenos'><div class='linenodiv'><pre>1\n2</pre></div></td><td class='code'><div class='highlight'><pre><code>x\ny\n</code></pre></div></td></tr></table><script>bad()</script><style>body{}</style>";
 
         let markdown = convert(html, true);
 
@@ -1323,12 +1442,132 @@ mod tests {
             "<img alt='Ordinary image' src='image.png'><svg>Icon</svg></p>",
             "<div class='doc-labels'><img class='twemoji' alt='🟢' src='green.svg'></div>",
             "<a href='#heading' class='headerlink'><img class='twemoji' alt='🔗' src='link.svg'></a>",
+            "<p><a href='#status'><img class='twemoji' alt='' src='empty.svg'>Status</a></p>",
         );
 
         let markdown = convert(html, true);
 
         // Missing emoji text cannot be recovered, and skipped content stays omitted.
-        assert_eq!(markdown, "Text\n");
+        assert_eq!(markdown, "Text![Ordinary image](<https://example.org/docs/guide/image.png>)\n");
+    }
+
+    #[test]
+    fn keeps_content_images_and_their_links() {
+        // Standalone and linked images are retained, including external SVG files.
+        let html = concat!(
+            "<p><img alt='An [image]' src='../images/a b.png'></p>",
+            "<p><a href='../topic/'><img alt='Diagram' src='../images/diagram.png'> Details</a></p>",
+            "<p><img src='https://example.org/badge.svg'></p>",
+        );
+
+        for autoclean in [true, false] {
+            let markdown = convert(html, autoclean);
+
+            assert_eq!(
+                markdown,
+                concat!(
+                    "![An \\[image\\]](<https://example.org/docs/images/a b.png>)\n\n",
+                    "[![Diagram](<https://example.org/docs/images/diagram.png>) Details](<https://example.org/docs/topic/index.md>)\n\n",
+                    "![](<https://example.org/badge.svg>)\n",
+                )
+            );
+        }
+    }
+
+    #[test]
+    fn keeps_content_images_in_markdown_and_html_tables() {
+        // A spanning cell requires HTML, while a simple table is converted to GFM.
+        let html = concat!(
+            "<table><tr><th>Diagram</th></tr>",
+            "<tr><td><img alt='Overview' src='../images/overview.png'></td></tr></table>",
+            "<table><tr><td colspan='2'><img alt='Detail' src='../images/detail.png'></td></tr></table>",
+        );
+
+        for autoclean in [true, false] {
+            let markdown = convert(html, autoclean);
+
+            // Image descriptions and absolute URLs are retained in both formats.
+            assert_eq!(
+                markdown,
+                concat!(
+                    "| Diagram |\n| --- |\n",
+                    "| ![Overview](<https://example.org/docs/images/overview.png>) |\n\n",
+                    "<table><tr><td colspan=\"2\"><img alt=\"Detail\" src=\"https://example.org/docs/images/detail.png\"></td></tr></table>\n",
+                )
+            );
+        }
+    }
+
+    #[test]
+    fn replaces_data_images_and_images_without_sources_with_alt_text() {
+        for source in [
+            "",
+            " src",
+            " src=''",
+            " src=' \t '",
+            " src='data:image/png;base64,aGVsbG8='",
+            " src=' DATA:image/png;base64,aGVsbG8= '",
+            " src='data:image/svg+xml,%3Csvg%3E%3C/svg%3E'",
+        ] {
+            // Alt text is retained in paragraphs, links, and retained HTML.
+            let html = format!(
+                "<p>Before <img{source} alt='A [diagram] &amp; text'> after.</p>\
+                <p><a href='../topic/'><img{source} alt='Details'> more</a></p>\
+                <p>Empty<img{source}>.</p>\
+                <p><kbd><img{source} alt='&lt;Diagram&gt;'></kbd></p>\
+                <div class='doc-labels'><img{source} alt='Hidden'></div>\
+                <p><img{source} class='doc-labels' alt='Hidden'></p>"
+            );
+
+            let markdown = convert(&html, true);
+
+            // Sources and image markup are omitted, and skipped content stays omitted.
+            assert_eq!(
+                markdown,
+                concat!(
+                    "Before A \\[diagram\\] &amp; text after.\n\n",
+                    "[Details more](<https://example.org/docs/topic/index.md>)\n\n",
+                    "Empty.\n\n",
+                    "<kbd>&lt;Diagram&gt;</kbd>\n",
+                ),
+                "image source: {source:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn cleans_data_images_and_images_without_sources_in_tables() {
+        for source in [" src='data:image/png;base64,aGVsbG8='", "", " src=''"] {
+            // Image markup is removed from both GFM cells and HTML fallback cells.
+            let html = format!(
+                "<table><tr><th>Diagram</th></tr>\
+                <tr><td><img{source} alt='Overview &amp; details'></td></tr></table>\
+                <table><tr><td colspan='2'><img{source} alt='&lt;Detail&gt;'></td></tr></table>"
+            );
+
+            let markdown = convert(&html, true);
+
+            assert_eq!(
+                markdown,
+                concat!(
+                    "| Diagram |\n| --- |\n",
+                    "| Overview &amp; details |\n\n",
+                    "<table><tr><td colspan=\"2\">&lt;Detail&gt;</td></tr></table>\n",
+                ),
+                "image source: {source:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn keeps_data_images_when_autoclean_is_disabled() {
+        let html =
+            "<p><img alt='Diagram' src='data:image/png;base64,aGVsbG8='></p>";
+
+        let markdown = convert(html, false);
+
+        // Embedded image data is retained when cleanup is disabled.
+        assert_eq!(markdown, "![Diagram](<data:image/png;base64,aGVsbG8=>)\n");
     }
 
     #[test]

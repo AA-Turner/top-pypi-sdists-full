@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: acryl-datahub
-Version: 1.7.0.18
+Version: 1.7.0.19
 Summary: DataHub ingestion framework and CLI — connect, extract, and push metadata from 50+ data sources into your DataHub catalog
 Home-page: https://datahub.com/
 License-Expression: Apache-2.0
@@ -510,6 +510,8 @@ Requires-Dist: botocore!=1.23.0,<2.0.0; extra == "kinesis"
 Requires-Dist: grpcio-tools<2.0.0,>=1.44.0; extra == "kinesis"
 Requires-Dist: grpcio<2.0.0,>=1.84.0; extra == "kinesis"
 Requires-Dist: networkx<4.0.0,>=2.6.2; extra == "kinesis"
+Provides-Extra: langfuse
+Requires-Dist: requests<3.0.0; extra == "langfuse"
 Provides-Extra: ldap
 Requires-Dist: python-ldap<4.0.0,>=2.4; extra == "ldap"
 Provides-Extra: looker

@@ -55,6 +55,10 @@ Properties the send boundary depends on
   marked once is byte-identical on every later turn and the prompt-cache prefix
   moves exactly once — the turn after the result arrived.
 * Idempotent: a block already carrying the marker is left alone.
+* Replayable: every marked block has a key (``tool:<tool_use_id>`` / ``said:<message id or position>``,
+  ``PerishableReport.marked_keys``). The send boundary moves the markers only on a COLD provider cache — the
+  same decision as the history window — and while warm re-marks exactly the recorded keys (``only=``), so
+  nothing behind the cache line changes (Arman's cache law; adversarial 2026-10-30 follow-up).
 * Pairing-safe: only ``content`` changes; ids, names and ``is_error`` stay.
 * Media-bearing results (typed image/audio/video block lists) are never touched.
 
@@ -114,12 +118,15 @@ class PerishableReport:
     blocks_marked: int = 0
     tools: list[str] = field(default_factory=list)
     dated_statements_marked: int = 0
+    #: The key of every block marked this pass — what a warm turn replays.
+    marked_keys: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "blocks_marked": self.blocks_marked,
             "tools": list(self.tools),
             "dated_statements_marked": self.dated_statements_marked,
+            "marked_keys": list(self.marked_keys),
         }
 
 
@@ -217,13 +224,39 @@ def said_prefix(timestamp: Any) -> str:
     )
 
 
-def _mark_dated_assistant_text(message: Any, report: PerishableReport) -> None:
+def said_key(message: Any) -> str | None:
+    """The replay key of an earlier assistant message: its id, else its position; ``None`` when it has neither."""
+    ident = _get(message, "id")
+    if ident:
+        return f"said:{ident}"
+    position = _get(message, "position")
+    return f"said:@{position}" if position is not None else None
+
+
+def tool_key(block: Any) -> str | None:
+    """The replay key of a tool result: its ``tool_use_id``."""
+    ident = _get(block, "tool_use_id")
+    return f"tool:{ident}" if ident else None
+
+
+def _allowed(key: str | None, only: set[str] | None) -> bool:
+    return only is None or (key is not None and key in only)
+
+
+def _mark_dated_assistant_text(message: Any, report: PerishableReport, only: set[str] | None = None) -> None:
     """Prefix the first text block of an earlier assistant message that states a date/time."""
     if _role(message) != "assistant":
         return
+    key = said_key(message)
+    if not _allowed(key, only):
+        return
     blocks = _get(message, "content")
     if isinstance(blocks, str):
-        if blocks.startswith(STALE_MARKER) or not DATED_STATEMENT.search(blocks):
+        if blocks.startswith(STALE_MARKER):
+            if key:
+                report.marked_keys.append(key)
+            return
+        if not DATED_STATEMENT.search(blocks):
             return
         prefix = said_prefix(_get(message, "timestamp"))
         if isinstance(message, dict):
@@ -231,6 +264,8 @@ def _mark_dated_assistant_text(message: Any, report: PerishableReport) -> None:
         else:
             message.content = prefix + blocks
         report.dated_statements_marked += 1
+        if key:
+            report.marked_keys.append(key)
         return
     if not isinstance(blocks, list):
         return
@@ -238,7 +273,11 @@ def _mark_dated_assistant_text(message: Any, report: PerishableReport) -> None:
         b for b in blocks
         if _get(b, "type") == "text" and isinstance(_get(b, "text"), str)
     ]
-    if not texts or any(str(_get(b, "text")).startswith(STALE_MARKER) for b in texts):
+    if not texts:
+        return
+    if any(str(_get(b, "text")).startswith(STALE_MARKER) for b in texts):
+        if key:
+            report.marked_keys.append(key)
         return
     if not any(DATED_STATEMENT.search(str(_get(b, "text"))) for b in texts):
         return
@@ -249,14 +288,19 @@ def _mark_dated_assistant_text(message: Any, report: PerishableReport) -> None:
     else:
         first.text = value
     report.dated_statements_marked += 1
+    if key:
+        report.marked_keys.append(key)
 
 
-def mark_perishable_state(messages: list[Any]) -> PerishableReport:
+def mark_perishable_state(messages: list[Any], *, only: set[str] | None = None) -> PerishableReport:
     """Mark every perishable tool result from an earlier turn as stale, in place.
 
     The current turn begins at the LAST message the person sent; everything
     before it is an earlier turn. A list with no person message marks nothing
     (there is no "earlier" to speak of).
+
+    ``only`` — a warm-cache replay: mark exactly the blocks whose key is in this set (what the last cold turn
+    marked), never a new one, so the cached prefix is rebuilt byte for byte.
     """
     report = PerishableReport()
     current_turn_start: int | None = None
@@ -268,7 +312,7 @@ def mark_perishable_state(messages: list[Any]) -> PerishableReport:
         return report
 
     for message in messages[:current_turn_start]:
-        _mark_dated_assistant_text(message, report)
+        _mark_dated_assistant_text(message, report, only)
         blocks = _get(message, "content")
         if not isinstance(blocks, list):
             continue
@@ -279,8 +323,15 @@ def mark_perishable_state(messages: list[Any]) -> PerishableReport:
             name = _get(block, "name") or ""
             if not is_perishable_tool(name):
                 continue
+            key = tool_key(block)
+            if not _allowed(key, only):
+                continue
             content = _get(block, "content")
-            if _already_marked(content) or _is_media_list(content):
+            if _already_marked(content):
+                if key:
+                    report.marked_keys.append(key)
+                continue
+            if _is_media_list(content):
                 continue
             if isinstance(content, str):
                 body = content
@@ -294,6 +345,8 @@ def mark_perishable_state(messages: list[Any]) -> PerishableReport:
             _set_content(block, stale_prefix(str(name), timestamp) + body)
             report.blocks_marked += 1
             report.tools.append(str(name))
+            if key:
+                report.marked_keys.append(key)
     return report
 
 
@@ -305,7 +358,9 @@ __all__ = [
     "is_perishable_tool",
     "DATED_STATEMENT",
     "mark_perishable_state",
+    "said_key",
     "said_prefix",
     "stale_prefix",
     "stamp_for",
+    "tool_key",
 ]

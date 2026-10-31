@@ -18,16 +18,27 @@ anyscale_dir = os.path.dirname(os.path.abspath(__file__))
 path.append(os.path.join(anyscale_dir, "client"))
 path.append(os.path.join(anyscale_dir, "sdk"))
 
+# google-* warn at import that Python 3.9 is past its end of life. The CLI still supports
+# 3.9, so the message is noise on every command and nothing the reader can act on.
+warnings.filterwarnings(
+    "ignore",
+    message=r"You are using a (non-supported )?Python version",
+    category=FutureWarning,
+    module=r"google\.",
+)
+
 import anyscale as anyscale
 from anyscale import (
     aggregated_instance_usage as aggregated_instance_usage,
     cloud as cloud,
     compute_config as compute_config,
     events as events,
+    gpus as gpus,
     image as image,
     integrations as integrations,
     job as job,
     job_queue as job_queue,
+    metrics as metrics,
     organization_invitation as organization_invitation,
     policy as policy,
     project as project,
@@ -55,9 +66,11 @@ from anyscale.cluster_compute import (
 from anyscale.compute_config import ComputeConfigSDK
 from anyscale.connect import ClientBuilder
 from anyscale.events import EventsSDK
+from anyscale.gpus import GpusSDK
 from anyscale.image import ImageSDK
 from anyscale.job import JobSDK
 from anyscale.job_queue import JobQueueSDK
+from anyscale.metrics import MetricsSDK
 from anyscale.organization_invitation import OrganizationInvitationSDK
 from anyscale.policy import PolicySDK
 from anyscale.project import ProjectSDK
@@ -162,6 +175,8 @@ class Anyscale:
         self._service_sdk = ServiceSDK(client=self._anyscale_client)
         self._compute_config_sdk = ComputeConfigSDK(client=self._anyscale_client)
         self._events_sdk = EventsSDK(client=self._anyscale_client)
+        self._gpus_sdk = GpusSDK(client=self._anyscale_client)
+        self._metrics_sdk = MetricsSDK(client=self._anyscale_client)
         self._cloud_sdk = CloudSDK(client=self._anyscale_client)
         self._schedule_sdk = ScheduleSDK(client=self._anyscale_client)
         self._scheduler_sdk = SchedulerSDK(client=self._anyscale_client)
@@ -202,6 +217,12 @@ class Anyscale:
             client=client, logger=logger, timer=timer
         )
         obj._events_sdk = EventsSDK(  # noqa: SLF001
+            client=client, logger=logger, timer=timer
+        )
+        obj._gpus_sdk = GpusSDK(  # noqa: SLF001
+            client=client, logger=logger, timer=timer
+        )
+        obj._metrics_sdk = MetricsSDK(  # noqa: SLF001
             client=client, logger=logger, timer=timer
         )
         obj._cloud_sdk = CloudSDK(  # noqa: SLF001
@@ -268,6 +289,14 @@ class Anyscale:
     @property
     def events(self) -> EventsSDK:  # noqa: F811
         return self._events_sdk
+
+    @property
+    def gpus(self) -> GpusSDK:  # noqa: F811
+        return self._gpus_sdk
+
+    @property
+    def metrics(self) -> MetricsSDK:  # noqa: F811
+        return self._metrics_sdk
 
     @property
     def cloud(self) -> CloudSDK:  # noqa: F811

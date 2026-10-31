@@ -6,7 +6,6 @@ rust-version.workspace = true
 readme = "README.md"
 
 [dependencies]
-env_logger.workspace = true
 log.workspace = true
 hashbrown.workspace = true
 smallvec.workspace = true
@@ -17,6 +16,9 @@ sqlfluffrs_python = { path = "../sqlfluffrs_python", optional = true }
 uuid.workspace = true
 serde_yaml_ng.workspace = true
 pyo3 = { workspace = true, optional = true }
+
+[dev-dependencies]
+env_logger.workspace = true
 
 [features]
 python = ["pyo3", "sqlfluffrs_python", "sqlfluffrs_lexer/python"]

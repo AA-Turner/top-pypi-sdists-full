@@ -9,13 +9,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { PHONE_WIDTH, widestCodeLine } from "./slack.js";
+
 import {
   buildErrorSummary,
   capacityCell,
+  deployedVersion,
   capacityVus,
   formatAggregateTable,
+  formatImprovements,
   formatServerView,
-  howToRead,
 } from "./capacity-ci.js";
 
 const CELL = {
@@ -77,6 +80,12 @@ test("the posted cell is the load alone; the served rate lives in the thread", (
   assert.equal(capacityCell({ capacity: { targetVUs: 900, successfulRunsPerSec: 366 } }), "900");
 });
 
+test("a cell that passed the last step reads as a floor, not a ceiling", () => {
+  const config = { numSteps: 13 };
+  assert.equal(capacityCell({ config, capacity: { step: 13, targetVUs: 70 } }), "70+");
+  assert.equal(capacityCell({ config, capacity: { step: 12, targetVUs: 65 } }), "65");
+});
+
 test("a failed cell renders as ERR in the posted table and is named in the Failed line", () => {
   const deployments = [
     { slug: "dep", tiers: ["TIER_A", "TIER_B"] },
@@ -126,12 +135,9 @@ test("an incomplete run says so, a clean run says all quiet", () => {
   ]);
   assert.match(table, /^🔴 .* · 1 of 3 cells ran · dep TIER_A crashed, 1 never ran$/m);
   assert.match(table, /^\*Failed:\* dep TIER_A stream \(ERR\) · dep TIER_A search never ran · treat the table as incomplete$/m);
-  assert.match(table, /success ≥ 99%, p50 ≤ 3 s, p95 ≤ 10 s/);
-  assert.equal(
-    table.split("\n")[1],
-    "k6 open-model staircase, one staging deployment resized per tier: request rate +50 from 50 (dep) every 60 s, per path: run and wait, run and stream, thread CRUD + metadata search. Cell = highest req/s where success ≥ 99%, p50 ≤ 3 s, p95 ≤ 10 s held for two steps. One-step graph, no LLM: server ceiling, not customer traffic.",
-    "the second line states the mechanics for a developer outside the team",
-  );
+  assert.match(table.split("\n")[1], /^\*Failed:\*/, "what went wrong comes right after the verdict");
+  assert.match(table, /^\*Why:\* boom$/m);
+
 
   const clean = formatAggregateTable(deployments, [
     { capacity: { targetVUs: 900 }, config: cell("wait_write") },
@@ -140,7 +146,7 @@ test("an incomplete run says so, a clean run says all quiet", () => {
   ]);
   assert.match(clean, /^🟢 .* · all 3 cells ran · all quiet$/m);
   assert.doesNotMatch(clean, /Failed:/);
-  assert.match(clean, /^\*Bottlenecks:\* none reported$/m);
+  assert.doesNotMatch(clean, /Bottlenecks:/, "nothing to report, no line");
 });
 
 test("a whole tier crashing is said once, and a failed job turns the dot red", () => {
@@ -190,7 +196,7 @@ test("warnings reach the posted report, not just the job log", () => {
   );
 });
 
-test("the header carries date and API version, and how-to-read states the geometry that ran", () => {
+test("the header carries date and API version, and the mechanics stay out of the channel", () => {
   const deployments = [
     { slug: "dedicated", tiers: ["DEDICATED_L"] },
     {
@@ -215,8 +221,7 @@ test("the header carries date and API version, and how-to-read states the geomet
   assert.match(table, /^🔴 \*Capacity · Sep 11\* · API 0\.16\.0 · 2 of 6 cells ran · 4 never ran$/m);
   assert.match(table, /^\*dedicated\* · req\/s at SLO$/m, "a deployment without a display name falls back to its slug");
   assert.equal((table.match(/```/g) ?? []).length, 4, "each table sits in its own code block");
-  assert.match(table, /^▲ better ▼ worse than the last 5\+ nights · `0` no step passed · `ERR` crashed · `-` never ran · 🟢 quiet · 🟡 regression or bottleneck · 🔴 cells failed$/m, "one legend line, not a how-to-read block");
-  assert.doesNotMatch(table, /How to read|\*Tests:\*/, "the long explanation lives in the thread");
+  assert.doesNotMatch(table, /How to read|\*Tests:\*|▲ better|k6 |Cell = /, "the explanation lives in REPORTS.md");
   assert.doesNotMatch(formatAggregateTable(deployments, [], [], NIGHT), /API [0-9u]/, "no version is omitted, not printed as unknown");
   assert.match(
     formatAggregateTable(deployments, [cell("dedicated", "wait_write")], [], NIGHT, {}, null, true),
@@ -224,13 +229,6 @@ test("the header carries date and API version, and how-to-read states the geomet
     "a dispatched run is marked so nobody reads it as the nightly",
   );
 
-  assert.match(table, /request rate \+50 from 50 \(dedicated\) or \+25 from 25 \(serverless\) every 60 s/);
-  assert.match(howToRead(), /^• \*Tests:\* wait = start a run and wait for its result · stream = start a run and read its event stream to the end · search = create, update, search and delete threads by metadata\.$/m);
-  assert.match(
-    formatAggregateTable(deployments, [cell("serverless", "wait_write", { startLoad: 50, stepSize: 50, numSteps: 5 })], [], NIGHT),
-    /\+50 from 50 \(serverless\)/,
-    "a dispatch override must be reported as what ran, not what is configured",
-  );
 });
 
 test("a move outside the usual range is flagged in the table and named above it", () => {
@@ -246,15 +244,18 @@ test("a move outside the usual range is flagged in the table and named above it"
   const search = cell("threads_search_metadata", 300);
   const table = formatAggregateTable(deployments, [cell("wait_write", 1400), cell("stream_write", 1400), search], [], NIGHT, history);
   assert.match(table, /^🟢 .* · all 3 cells ran · 1 improvement$/m);
-  assert.match(table, /^\*Regressed:\* none$/m);
-  assert.match(table, /^\*Improved:\* dep TIER_A wait 850 → 1400 req\/s \(\+65%\)$/m);
+  assert.doesNotMatch(table, /Regressed:|Improved:/, "the count is in the header; the numbers are in the thread");
+  assert.equal(
+    formatImprovements(deployments, [cell("wait_write", 1400), cell("stream_write", 1400), search], history),
+    "*Improved:* dep TIER_A wait 850 → 1400 req/s (+65%)",
+  );
   assert.match(table, /^TIER_A\s+1400▲\s+1400\s+300\s*$/m, "only the moved cell carries an arrow");
 
   const drop = formatAggregateTable(deployments, [cell("wait_write", 300), cell("stream_write", 1400), search], [], NIGHT, history);
   assert.match(drop, /1 regression/);
   assert.match(drop, /^\*Regressed:\* dep TIER_A wait 850 → 300 req\/s \(-65%\)$/m);
   assert.match(drop, /^TIER_A\s+300▼/m);
-  assert.doesNotMatch(drop, /Improved:/, "an empty Improved line is not printed");
+  assert.equal(formatImprovements(deployments, [cell("wait_write", 300), cell("stream_write", 1400), search], history), null, "no improvements, no thread line");
 });
 
 test("fewer than five nights of history means no flags, and the report says so", () => {
@@ -264,11 +265,11 @@ test("fewer than five nights of history means no flags, and the report says so",
     config: { deploymentSlug: "dep", computeTier: "TIER_A", benchmarkType: "wait_write", k6Executor: "constant-arrival-rate" },
   };
   const three = formatAggregateTable(deployments, [tonight], [], NIGHT, { "dep|TIER_A|wait_write": nights(700, 800, 900) });
-  assert.match(three, /^\*Regressed:\* not checked, 3 of 5 nights of history$/m);
+  assert.match(three, /^_3 of 5 nights of history, no change flags yet_$/m);
   assert.match(three, /^TIER_A\s+1400\s+-\s+-\s*$/m, "no arrow on the cell");
 
   const none = formatAggregateTable(deployments, [tonight], [], NIGHT, {});
-  assert.match(none, /^\*Regressed:\* not checked, 0 of 5 nights of history$/m);
+  assert.match(none, /^_0 of 5 nights of history, no change flags yet_$/m);
 });
 
 test("a deployment still building its baseline says so under its table while the other is checked", () => {
@@ -290,7 +291,7 @@ test("a deployment still building its baseline says so under its table while the
       "serverless|SERVERLESS_L|wait_write": nights(25, 25, 30),
     },
   );
-  assert.match(table, /^\*Regressed:\* none$/m);
+  assert.doesNotMatch(table, /Regressed:/);
   assert.match(table, /^\*Serverless\* · req\/s at SLO\n```\n.*\nL\s+300\s+-\s+-\s*\n```\n_3 of 5 nights of history, no change flags yet_$/m);
   assert.doesNotMatch(table, /Dedicated\*[^]*?no change flags yet[^]*?\*Serverless/, "the note belongs to the deployment that lacks history");
 });
@@ -303,13 +304,9 @@ test("labels follow the executor the cells ran with", () => {
   });
   const open = formatAggregateTable(deployments, [cell("constant-arrival-rate")]);
   assert.match(open, /^\*dep\* · req\/s at SLO$/m);
-  assert.match(open, /^k6 open-model staircase, .*: request rate \+50 from 50 \(dep\) every 60 s/m);
-  assert.match(open, /Cell = highest req\/s where/);
 
   const closed = formatAggregateTable(deployments, [cell("constant-vus")]);
   assert.match(closed, /^\*dep\* · users at SLO$/m);
-  assert.match(closed, /^k6 closed-model staircase, .*: virtual users \+50 from 50 \(dep\) every 60 s/m);
-  assert.match(closed, /Cell = highest users where/);
 });
 
 test("history only counts nights measured with the same executor", () => {
@@ -328,7 +325,7 @@ test("history only counts nights measured with the same executor", () => {
     ],
   };
   const table = formatAggregateTable(deployments, [tonight], [], NIGHT, mixed);
-  assert.match(table, /not checked, 2 of 5 nights/, "the three closed-model nights are not a baseline for an open-model night");
+  assert.match(table, /2 of 5 nights of history, no change flags yet/, "the three closed-model nights are not a baseline for an open-model night");
 });
 
 test("a component at or over 95% CPU is the tier's bottleneck, grouped by component", () => {
@@ -354,13 +351,12 @@ test("a component at or over 95% CPU is the tier's bottleneck, grouped by compon
   const wholeCellOnly = formatAggregateTable(deployments, [
     { capacity: null, config: { deploymentSlug: "dep", computeTier: "DEP_L", benchmarkType: "wait_write" }, serverMetrics: { groups: { db: cpu(100) } }, serverMetricsAtCapacity: null },
   ]);
-  assert.match(wholeCellOnly, /^\*Bottlenecks:\* none reported$/m, "a cell that never passed a step has nothing to name");
+  assert.doesNotMatch(wholeCellOnly, /Bottlenecks:/, "a cell that never passed a step has nothing to name");
   assert.match(table, /2 bottlenecks/);
   assert.match(table, /^🟡/);
-  assert.match(howToRead(), /• \*Bottleneck:\* a component at or over 95% of its CPU request/);
 });
 
-test("the thread carries pods and CPU per cell as one table per deployment", () => {
+test("the thread carries CPU and pods per cell as tier-grouped tables that fit a phone", () => {
   const deployments = [
     { slug: "dep", name: "Dep", tiers: ["DEP_A"] },
     { slug: "bare", tiers: ["BARE_A"] },
@@ -379,8 +375,9 @@ test("the thread carries pods and CPU per cell as one table per deployment", () 
     cell("bare", "BARE_A", "wait_write", {}),
   ]);
   assert.match(view, /^\*Pods and CPU per cell\*, peak over the whole cell including the steps that failed\./);
-  assert.match(view, /^\*Dep\*\n```\n\s+queue\s+redis\n\s+pods\s+cpu\s+cpu\nA wait\s+1→12\s+4\s+40\n```$/m);
-  assert.doesNotMatch(view, /A stream/, "a cell without metrics gets no row");
+  assert.match(view, /^\*Dep\*\n_CPU, % of request_\n```\n\s+queue redis\nA\n wait\s+4\s+40\n```\n_Pods, start → end_\n```\n\s+queue\nA\n wait\s+1→12\n```$/m);
+  assert.doesNotMatch(view, /^ stream/m, "a cell without metrics gets no row");
+  assert.ok(widestCodeLine(view) <= PHONE_WIDTH, `widest table line is ${widestCodeLine(view)}`);
   assert.match(view, /^Runs\/sec actually served at the top step, as wait \/ stream \/ search: A 416 \/ 416 \/ 0 \(ceiling 46\)$/m);
   assert.match(view, /^\*bare\*\nRuns\/sec actually served at the top step, as wait \/ stream \/ search: A 416 \/ - \/ -$/m, "the served rate is k6's and prints even when the dashboard gave nothing");
   assert.doesNotMatch(view, /bare\*\n```/, "no pod or CPU table without dashboard data");
@@ -401,4 +398,45 @@ test("a step where the tool's own work is a visible share of latency is called o
   const table = formatAggregateTable(deployments, [summary]);
   assert.match(table, /:warning: TIER_A wait_write: the test tool spent 250ms per iteration outside requests at step 7 \(28% of a 900ms median\)/);
   assert.doesNotMatch(table, /at step 1/);
+});
+
+test("the version is the deployments', and is left out when none answers", async () => {
+  const answer = (byUrl) => async (url) => {
+    const version = byUrl[url];
+    if (version instanceof Error) throw version;
+    return { ok: version !== undefined, json: async () => ({ version }) };
+  };
+  const deployments = [{ baseUrl: "https://a" }, { baseUrl: "https://b" }];
+  assert.equal(await deployedVersion(deployments, answer({ "https://a/info": "0.14.4", "https://b/info": "0.14.4" })), "0.14.4");
+  assert.equal(await deployedVersion(deployments, answer({ "https://a/info": "0.14.4", "https://b/info": "0.15.0" })), "0.14.4/0.15.0");
+  assert.equal(await deployedVersion(deployments, answer({ "https://a/info": new Error("down") })), null, "an unreachable deployment is not a version");
+});
+
+test("the CPU table fits a phone even with every component reporting", () => {
+  const deployments = [{ slug: "dep", name: "Dep", tiers: ["DEP_L", "DEP_S"] }];
+  const cpu = (max) => ({ cpu_usage_max: { min: 0, max } });
+  const summaries = ["DEP_L", "DEP_S"].flatMap((tier) =>
+    ["wait_write", "stream_write", "threads_search_metadata"].map((benchmarkType) => ({
+      capacity: { targetVUs: 550, successfulRunsPerSec: 548 },
+      config: { deploymentSlug: "dep", computeTier: tier, benchmarkType },
+      serverMetrics: { groups: { queue: cpu(203.4), api: { ...cpu(133), replica_count: { min: 1, max: 12 } }, db: cpu(100), redis: cpu(160) } },
+    })),
+  );
+  const view = formatServerView(deployments, summaries);
+  assert.ok(widestCodeLine(view) <= PHONE_WIDTH, `widest table line is ${widestCodeLine(view)}`);
+});
+
+test("tiers that crashed for the same reason name it once", () => {
+  const deployments = [{ slug: "dep", tiers: ["TIER_A", "TIER_B"] }];
+  const crash = (computeTier) =>
+    buildErrorSummary({ deploymentSlug: "dep", computeTier, benchmarkType: "wait_write" }, new Error("Deployment failed with status: BUILD_FAILED"));
+  const table = formatAggregateTable(deployments, [crash("TIER_A"), crash("TIER_B")]);
+  assert.match(table, /^\*Why:\* Deployment failed with status: BUILD_FAILED$/m);
+});
+
+test("a crashed cell's multi-line error keeps its detail on the Why line", () => {
+  const deployments = [{ slug: "dep", tiers: ["TIER_A"] }];
+  const error = new Error('PATCH /resource-tiers failed: 409 {\n  "detail": "Unable to resize the deployment database."\n}');
+  const table = formatAggregateTable(deployments, [buildErrorSummary({ deploymentSlug: "dep", computeTier: "TIER_A", benchmarkType: "wait_write" }, error)]);
+  assert.match(table, /^\*Why:\* PATCH \/resource-tiers failed: 409 \{ "detail": "Unable to resize the deployment database\." \}$/m);
 });

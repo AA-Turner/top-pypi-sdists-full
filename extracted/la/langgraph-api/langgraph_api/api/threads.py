@@ -1,29 +1,23 @@
-from typing import get_args
+import re
+from contextlib import aclosing
+from typing import TYPE_CHECKING, Any, get_args
 
 from starlette.exceptions import HTTPException
 from starlette.responses import Response
 from starlette.routing import BaseRoute
 
+from langgraph_api import config as lg_api_config
 from langgraph_api.config import USE_CUSTOM_CHECKPOINTER
-from langgraph_api.encryption.middleware import (
-    decrypt_response,
-    decrypt_responses,
-    encrypt_request,
-)
 from langgraph_api.encryption.shared import (
-    using_aes_encryption,
-    using_custom_encryption,
+    using_encryption,
 )
 from langgraph_api.feature_flags import (
     IS_POSTGRES_OR_GRPC_BACKEND,
     PREFER_GRPC_CHECKPOINTER,
 )
 from langgraph_api.route import ApiRequest, ApiResponse, ApiRoute
-from langgraph_api.schema import (
-    THREAD_ENCRYPTION_FIELDS,
-    THREAD_FIELDS,
-    ThreadStreamMode,
-)
+from langgraph_api.schema import THREAD_FIELDS, THREAD_STATE_FIELDS, ThreadStreamMode
+from langgraph_api.serde import Fragment, json_dumpb
 from langgraph_api.sse import EventSourceResponse
 from langgraph_api.state import state_snapshot_to_thread_state
 from langgraph_api.utils import (
@@ -46,7 +40,6 @@ from langgraph_api.validation import (
     ThreadStateSearch,
     ThreadStateUpdate,
 )
-from langgraph_runtime import checkpoint as runtime_checkpoint
 from langgraph_runtime.database import connect
 from langgraph_runtime.retry import retry_db
 
@@ -54,6 +47,11 @@ if IS_POSTGRES_OR_GRPC_BACKEND:
     from langgraph_api.grpc.ops import Threads
 else:
     from langgraph_runtime.ops import Threads
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Mapping
+
+    from langgraph.types import StateSnapshot
 
 
 @retry_db
@@ -65,13 +63,6 @@ async def create_thread(
     if thread_id := payload.get("thread_id"):
         validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
 
-    effective_payload = await encrypt_request(
-        payload,
-        "thread",
-        ["metadata"],
-        plaintext_for_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
-    )
-
     thread_id = thread_id or str(uuid7())
     supersteps = payload.get("supersteps")
 
@@ -79,7 +70,7 @@ async def create_thread(
         iter = await Threads.put(
             None,
             thread_id,
-            metadata=effective_payload.get("metadata") or {},
+            metadata=payload.get("metadata") or {},
             if_exists=payload.get("if_exists") or "raise",
             ttl=payload.get("ttl"),
         )
@@ -89,7 +80,7 @@ async def create_thread(
             iter = await Threads.put(
                 conn,
                 thread_id,
-                metadata=effective_payload.get("metadata") or {},
+                metadata=payload.get("metadata") or {},
                 if_exists=payload.get("if_exists") or "raise",
                 ttl=payload.get("ttl"),
             )
@@ -111,13 +102,17 @@ async def create_thread(
                     raise HTTPException(status_code=201, detail=detail) from e
 
     thread = await fetchone(iter, not_found_code=409)
-    thread = await decrypt_response(
-        thread,
-        "thread",
-        THREAD_ENCRYPTION_FIELDS,
-        plaintext_from_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
-    )
     return ApiResponse(thread)
+
+
+def _exclude_metadata_kwargs(payload: dict) -> dict:
+    """Normalize `exclude_metadata` (object or list of objects) into ops kwargs."""
+    exclude_metadata = payload.get("exclude_metadata")
+    if exclude_metadata is None:
+        return {}
+    if isinstance(exclude_metadata, dict):
+        exclude_metadata = [exclude_metadata]
+    return {"exclude_metadata": exclude_metadata}
 
 
 @retry_db
@@ -134,15 +129,11 @@ async def search_threads(
     raw_extract = payload.get("extract")
     extract = validate_extract(raw_extract) if raw_extract else None
 
-    # Encryption is handled in Python when we're NOT on the postgres/grpc
-    # backend, or when AES encryption is explicitly enabled.
-    needs_python_decryption = not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption()
-
-    # SQL-side extraction must also be skipped when custom encryption is
-    # active: the Go backend decrypts *after* the SQL query runs, so the
+    # SQL-side extraction must be skipped when encryption is active: the
+    # Go backend decrypts *after* the SQL query runs, so the
     # extraction expressions would operate on ciphertext.  We re-extract
     # in Python from the already-decrypted response instead.
-    needs_python_extract = needs_python_decryption or using_custom_encryption()
+    needs_python_extract = using_encryption()
 
     # When encryption is active and both select and extract are used, the
     # storage layer returns only the selected columns.  After decryption we
@@ -161,6 +152,7 @@ async def search_threads(
     # it would extract from ciphertext (wrong) and we'll redo it anyway.
     storage_extract = None if needs_python_extract else extract
 
+    exclude_kwargs = _exclude_metadata_kwargs(payload)
     async with connect() as conn:
         threads_iter, next_offset = await Threads.search(
             conn,
@@ -174,33 +166,27 @@ async def search_threads(
             sort_order=payload.get("sort_order"),
             select=storage_select,
             extract=storage_extract,
+            **exclude_kwargs,
         )
     threads, response_headers = await get_pagination_headers(
         threads_iter, next_offset, offset
     )
 
-    decrypted_threads = await decrypt_responses(
-        threads,
-        "thread",
-        THREAD_ENCRYPTION_FIELDS,
-        plaintext_from_core=not needs_python_decryption,
-    )
-
     # When SQL-side extraction was skipped (encryption active), extract
     # from the decrypted plaintext in Python.
     if extract and needs_python_extract:
-        for thread in decrypted_threads:
+        for thread in threads:
             thread["extracted"] = {
                 alias: extract_path_value(thread, path)
                 for alias, path in extract.items()
             }
     # Strip columns that were added only for re-extraction.
     if extra_select_cols:
-        for thread in decrypted_threads:
+        for thread in threads:
             for col in extra_select_cols:
                 thread.pop(col, None)
 
-    return ApiResponse(decrypted_threads, headers=response_headers)
+    return ApiResponse(threads, headers=response_headers)
 
 
 @retry_db
@@ -215,6 +201,7 @@ async def count_threads(
             status=payload.get("status"),
             values=payload.get("values"),
             metadata=payload.get("metadata"),
+            **_exclude_metadata_kwargs(payload),
         )
     return ApiResponse(count)
 
@@ -335,6 +322,7 @@ async def get_thread_history(
     except ValueError:
         raise HTTPException(status_code=422, detail=f"Invalid limit {limit_}") from None
     before = request.query_params.get("before")
+    select = _validate_history_select(request.query_params.getlist("select"))
     config = {
         "configurable": {
             "thread_id": thread_id,
@@ -342,14 +330,7 @@ async def get_thread_history(
             **get_configurable_headers(request.headers),
         }
     }
-    async with connect(supports_core_api=PREFER_GRPC_CHECKPOINTER) as conn:
-        states = [
-            state_snapshot_to_thread_state(c)
-            for c in await Threads.State.list(
-                conn, config=config, limit=limit, before=before
-            )
-        ]
-    return ApiResponse(states)
+    return await _history_response(select, config=config, limit=limit, before=before)
 
 
 @retry_db
@@ -360,22 +341,128 @@ async def get_thread_history_post(
     thread_id = request.path_params["thread_id"]
     validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
     payload = await request.json(ThreadStateSearch)
+    select = _validate_history_select(payload.get("select"))
     config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
     config["configurable"].update(payload.get("checkpoint", {}))
     config["configurable"].update(get_configurable_headers(request.headers))
     config["configurable"]["thread_id"] = thread_id
+    return await _history_response(
+        select,
+        config=config,
+        limit=int(payload.get("limit") or 1),
+        before=payload.get("before"),
+        metadata=payload.get("metadata"),
+    )
+
+
+async def _history_response(select: list[str] | None, **kwargs: Any) -> ApiResponse:
+    budget = lg_api_config.THREAD_HISTORY_MAX_STATE_BYTES
     async with connect(supports_core_api=PREFER_GRPC_CHECKPOINTER) as conn:
-        states = [
-            state_snapshot_to_thread_state(c)
-            for c in await Threads.State.list(
+        entries = await _serialize_history(
+            _history_states(
                 conn,
-                config=config,
-                limit=int(payload.get("limit") or 1),
-                before=payload.get("before"),
-                metadata=payload.get("metadata"),
+                incremental=bool(budget),
+                channels=_selected_value_keys(select),
+                **kwargs,
+            ),
+            budget=budget,
+            select=select,
+        )
+    return ApiResponse(entries)
+
+
+def _history_states(
+    conn: Any,
+    *,
+    incremental: bool,
+    channels: list[str] | None = None,
+    **kwargs: Any,
+) -> "AsyncIterator[StateSnapshot]":
+    if hasattr(Threads.State, "iterate"):
+        return Threads.State.iterate(
+            conn, incremental=incremental, channels=channels, **kwargs
+        )
+    # langgraph-runtime-inmem releases before ``iterate`` only have ``list``.
+    return _listed_history_states(conn, **kwargs)
+
+
+async def _listed_history_states(
+    conn: Any, **kwargs: Any
+) -> "AsyncIterator[StateSnapshot]":
+    for state in await Threads.State.list(conn, **kwargs):
+        yield state
+
+
+_SELECT_VALUES_KEY = re.compile(r"values\.[A-Za-z0-9_-]+")
+
+
+def _validate_history_select(select: list[str] | None) -> list[str] | None:
+    """Accept top-level state fields, and ``values.<key>`` for one key of the values."""
+    validate_select_columns(
+        [f for f in select or () if not _SELECT_VALUES_KEY.fullmatch(f)] or None,
+        THREAD_STATE_FIELDS,
+    )
+    return select or None
+
+
+def _selected_value_keys(select: list[str] | None) -> list[str] | None:
+    """State keys history entries return, or None when they return all of them."""
+    if not select or "values" in select:
+        return None
+    return [f.removeprefix("values.") for f in select if f.startswith("values.")]
+
+
+def _project_thread_state(
+    thread_state: "Mapping[str, Any]",
+    select: list[str],
+    value_keys: list[str] | None,
+) -> dict[str, Any]:
+    projected = {k: v for k, v in thread_state.items() if k in select}
+    values = thread_state.get("values")
+    if value_keys and isinstance(values, dict):
+        projected["values"] = {k: values[k] for k in value_keys if k in values}
+    return projected
+
+
+async def _serialize_history(
+    states: "AsyncIterator[StateSnapshot]",
+    *,
+    budget: int,
+    select: list[str] | None = None,
+) -> list[Fragment]:
+    """Serialize history entries until they reach ``budget`` bytes (0: no limit).
+
+    The newest entry is always returned. Each later entry is returned only if
+    the entries stay within the budget, and history stops at the first one
+    that does not. ``select`` keeps only the named fields of each entry, and
+    ``values.<key>`` keeps one key of the values. The budget counts each entry
+    as loaded, before projection, so state the checkpointer skipped isn't counted.
+    """
+    value_keys = _selected_value_keys(select)
+    entries: list[Fragment] = []
+    total_bytes = 1  # the response array's opening bracket
+    async with aclosing(states):
+        async for state in states:
+            thread_state = state_snapshot_to_thread_state(state)
+            entry = json_dumpb(
+                _project_thread_state(thread_state, select, value_keys)
+                if select
+                else thread_state
             )
-        ]
-    return ApiResponse(states)
+            if budget:
+                # Count the loaded entry, plus a comma or the closing bracket.
+                total_bytes += 1 + (
+                    len(json_dumpb(thread_state)) if select else len(entry)
+                )
+            # Drop the decoded entry before the next checkpoint loads.
+            del state, thread_state
+            if budget and entries and total_bytes > budget:
+                break
+            entries.append(Fragment(entry))
+            if budget and total_bytes >= budget:
+                # Nothing more can fit, so don't load another checkpoint.
+                break
+    return entries
 
 
 @retry_db
@@ -383,17 +470,13 @@ async def get_thread_storage(request: ApiRequest):
     """Bytes a thread's checkpoints occupy, per table and per channel."""
     thread_id = request.path_params["thread_id"]
     validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
-    thread_storage = getattr(runtime_checkpoint, "thread_storage", None)
-    if USE_CUSTOM_CHECKPOINTER or thread_storage is None:
+    if USE_CUSTOM_CHECKPOINTER or not hasattr(Threads, "storage"):
         raise HTTPException(
             status_code=501,
             detail="Checkpoint storage is only reported for the built-in checkpointer.",
         )
     async with connect() as conn:
-        await fetchone(await Threads.get(conn, thread_id))
-    # The built-in tables are read directly; the core-api stand-in cannot run SQL.
-    async with connect(supports_core_api=False) as conn:
-        storage = await thread_storage(conn, thread_id)
+        storage = await Threads.storage(conn, thread_id)
     return ApiResponse({"thread_id": thread_id, **storage})
 
 
@@ -414,12 +497,6 @@ async def get_thread(
         thread = await Threads.get(conn, thread_id, include_ttl=include_ttl)
 
     thread_data = await fetchone(thread)
-    thread_data = await decrypt_response(
-        thread_data,
-        "thread",
-        THREAD_ENCRYPTION_FIELDS,
-        plaintext_from_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
-    )
     return ApiResponse(thread_data)
 
 
@@ -432,20 +509,13 @@ async def patch_thread(
     validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
     payload = await request.json(ThreadPatch)
 
-    effective_payload = await encrypt_request(
-        payload,
-        "thread",
-        ["metadata"],
-        plaintext_for_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
-    )
-
     return_minimal = request.headers.get("Prefer") == "return=minimal"
 
     async with connect() as conn:
         thread = await Threads.patch(
             conn,
             thread_id,
-            metadata=effective_payload.get("metadata") or {},
+            metadata=payload.get("metadata") or {},
             ttl=payload.get("ttl"),
             read_mask_paths=(["thread_id"] if return_minimal else None),
         )
@@ -455,12 +525,6 @@ async def patch_thread(
         return Response(status_code=204)
 
     thread_data = await fetchone(thread)
-    thread_data = await decrypt_response(
-        thread_data,
-        "thread",
-        THREAD_ENCRYPTION_FIELDS,
-        plaintext_from_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
-    )
     return ApiResponse(thread_data)
 
 
@@ -512,12 +576,6 @@ async def copy_thread(request: ApiRequest):
         iter = await Threads.copy(conn, thread_id)
 
     thread_data = await fetchone(iter, not_found_code=409)
-    thread_data = await decrypt_response(
-        thread_data,
-        "thread",
-        THREAD_ENCRYPTION_FIELDS,
-        plaintext_from_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
-    )
     return ApiResponse(thread_data)
 
 

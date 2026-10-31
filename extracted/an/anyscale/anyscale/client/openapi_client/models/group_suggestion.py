@@ -38,9 +38,7 @@ class GroupSuggestion(object):
         'principals': 'list[IamMigrationPrincipal]',
         'bindings': 'list[GroupSuggestionBinding]',
         'groups': 'list[GroupSuggestionGroup]',
-        'covered_by': 'list[GroupSuggestionBinding]',
-        'bindings_saved': 'int',
-        'groups_saved': 'int'
+        'bindings_saved': 'int'
     }
 
     attribute_map = {
@@ -49,12 +47,10 @@ class GroupSuggestion(object):
         'principals': 'principals',
         'bindings': 'bindings',
         'groups': 'groups',
-        'covered_by': 'covered_by',
-        'bindings_saved': 'bindings_saved',
-        'groups_saved': 'groups_saved'
+        'bindings_saved': 'bindings_saved'
     }
 
-    def __init__(self, id=None, kind=None, principals=None, bindings=None, groups=None, covered_by=[], bindings_saved=None, groups_saved=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, kind=None, principals=None, bindings=None, groups=None, bindings_saved=None, local_vars_configuration=None):  # noqa: E501
         """GroupSuggestion - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -65,9 +61,7 @@ class GroupSuggestion(object):
         self._principals = None
         self._bindings = None
         self._groups = None
-        self._covered_by = None
         self._bindings_saved = None
-        self._groups_saved = None
         self.discriminator = None
 
         self.id = id
@@ -75,16 +69,13 @@ class GroupSuggestion(object):
         self.principals = principals
         self.bindings = bindings
         self.groups = groups
-        if covered_by is not None:
-            self.covered_by = covered_by
         self.bindings_saved = bindings_saved
-        self.groups_saved = groups_saved
 
     @property
     def id(self):
         """Gets the id of this GroupSuggestion.  # noqa: E501
 
-        Stable while its members, bindings and groups are unchanged, for apply and dismiss.  # noqa: E501
+        Stable while its members, bindings and groups are unchanged, for apply.  # noqa: E501
 
         :return: The id of this GroupSuggestion.  # noqa: E501
         :rtype: str
@@ -95,7 +86,7 @@ class GroupSuggestion(object):
     def id(self, id):
         """Sets the id of this GroupSuggestion.
 
-        Stable while its members, bindings and groups are unchanged, for apply and dismiss.  # noqa: E501
+        Stable while its members, bindings and groups are unchanged, for apply.  # noqa: E501
 
         :param id: The id of this GroupSuggestion.  # noqa: E501
         :type: str
@@ -109,7 +100,7 @@ class GroupSuggestion(object):
     def kind(self):
         """Gets the kind of this GroupSuggestion.  # noqa: E501
 
-        cluster: users who hold the same direct role bindings share one new group. merge_same_members: user groups with the same members become one holding all of their role bindings. merge_same_bindings: user groups with the same role bindings become one holding all of their members. redundant_direct: members' direct role bindings that a group of theirs already holds are removed. covered_by_broader: a user's direct role bindings that a stronger role they hold already includes are removed. add_to_group: users who directly hold every role binding of a group join it in place of those bindings. empty_group: a user group with no members or no role bindings is deleted. single_member_group: a user group with one member is deleted once that member holds its role bindings directly.  # noqa: E501
+        cluster: users who hold the same direct role bindings share one new group. merge_same_members: user groups with the same members become one holding all of their role bindings. merge_same_bindings: user groups with the same role bindings become one holding all of their members. add_to_group: users who directly hold every role binding of a group join it in place of those bindings. empty_group: the user groups with no members or no role bindings are deleted. single_member_group: a user group with one member is deleted once that member holds its role bindings directly.  # noqa: E501
 
         :return: The kind of this GroupSuggestion.  # noqa: E501
         :rtype: GroupSuggestionKind
@@ -120,7 +111,7 @@ class GroupSuggestion(object):
     def kind(self, kind):
         """Sets the kind of this GroupSuggestion.
 
-        cluster: users who hold the same direct role bindings share one new group. merge_same_members: user groups with the same members become one holding all of their role bindings. merge_same_bindings: user groups with the same role bindings become one holding all of their members. redundant_direct: members' direct role bindings that a group of theirs already holds are removed. covered_by_broader: a user's direct role bindings that a stronger role they hold already includes are removed. add_to_group: users who directly hold every role binding of a group join it in place of those bindings. empty_group: a user group with no members or no role bindings is deleted. single_member_group: a user group with one member is deleted once that member holds its role bindings directly.  # noqa: E501
+        cluster: users who hold the same direct role bindings share one new group. merge_same_members: user groups with the same members become one holding all of their role bindings. merge_same_bindings: user groups with the same role bindings become one holding all of their members. add_to_group: users who directly hold every role binding of a group join it in place of those bindings. empty_group: the user groups with no members or no role bindings are deleted. single_member_group: a user group with one member is deleted once that member holds its role bindings directly.  # noqa: E501
 
         :param kind: The kind of this GroupSuggestion.  # noqa: E501
         :type: GroupSuggestionKind
@@ -134,7 +125,7 @@ class GroupSuggestion(object):
     def principals(self):
         """Gets the principals of this GroupSuggestion.  # noqa: E501
 
-        The users it would group, whose direct role bindings it removes, who would join the group, the empty group's members, or a single-member group's member.  # noqa: E501
+        The users it would group, whose direct role bindings it removes, who would join the group, the empty groups' members, or a single-member group's member.  # noqa: E501
 
         :return: The principals of this GroupSuggestion.  # noqa: E501
         :rtype: list[IamMigrationPrincipal]
@@ -145,7 +136,7 @@ class GroupSuggestion(object):
     def principals(self, principals):
         """Sets the principals of this GroupSuggestion.
 
-        The users it would group, whose direct role bindings it removes, who would join the group, the empty group's members, or a single-member group's member.  # noqa: E501
+        The users it would group, whose direct role bindings it removes, who would join the group, the empty groups' members, or a single-member group's member.  # noqa: E501
 
         :param principals: The principals of this GroupSuggestion.  # noqa: E501
         :type: list[IamMigrationPrincipal]
@@ -184,7 +175,7 @@ class GroupSuggestion(object):
     def groups(self):
         """Gets the groups of this GroupSuggestion.  # noqa: E501
 
-        The user groups a merge replaces, or the one group the suggestion is about. Empty for a cluster and for covered_by_broader.  # noqa: E501
+        The user groups a merge replaces, every empty group, or the one group the suggestion is about. Empty for a cluster.  # noqa: E501
 
         :return: The groups of this GroupSuggestion.  # noqa: E501
         :rtype: list[GroupSuggestionGroup]
@@ -195,7 +186,7 @@ class GroupSuggestion(object):
     def groups(self, groups):
         """Sets the groups of this GroupSuggestion.
 
-        The user groups a merge replaces, or the one group the suggestion is about. Empty for a cluster and for covered_by_broader.  # noqa: E501
+        The user groups a merge replaces, every empty group, or the one group the suggestion is about. Empty for a cluster.  # noqa: E501
 
         :param groups: The groups of this GroupSuggestion.  # noqa: E501
         :type: list[GroupSuggestionGroup]
@@ -204,29 +195,6 @@ class GroupSuggestion(object):
             raise ValueError("Invalid value for `groups`, must not be `None`")  # noqa: E501
 
         self._groups = groups
-
-    @property
-    def covered_by(self):
-        """Gets the covered_by of this GroupSuggestion.  # noqa: E501
-
-        For covered_by_broader, the stronger roles the user keeps that include the removed ones. Empty for every other kind.  # noqa: E501
-
-        :return: The covered_by of this GroupSuggestion.  # noqa: E501
-        :rtype: list[GroupSuggestionBinding]
-        """
-        return self._covered_by
-
-    @covered_by.setter
-    def covered_by(self, covered_by):
-        """Sets the covered_by of this GroupSuggestion.
-
-        For covered_by_broader, the stronger roles the user keeps that include the removed ones. Empty for every other kind.  # noqa: E501
-
-        :param covered_by: The covered_by of this GroupSuggestion.  # noqa: E501
-        :type: list[GroupSuggestionBinding]
-        """
-
-        self._covered_by = covered_by
 
     @property
     def bindings_saved(self):
@@ -252,31 +220,6 @@ class GroupSuggestion(object):
             raise ValueError("Invalid value for `bindings_saved`, must not be `None`")  # noqa: E501
 
         self._bindings_saved = bindings_saved
-
-    @property
-    def groups_saved(self):
-        """Gets the groups_saved of this GroupSuggestion.  # noqa: E501
-
-        How many fewer user groups there would be: the groups a merge replaces less the one it creates, or 1 for an empty group or a single-member group. 0 for every other kind.  # noqa: E501
-
-        :return: The groups_saved of this GroupSuggestion.  # noqa: E501
-        :rtype: int
-        """
-        return self._groups_saved
-
-    @groups_saved.setter
-    def groups_saved(self, groups_saved):
-        """Sets the groups_saved of this GroupSuggestion.
-
-        How many fewer user groups there would be: the groups a merge replaces less the one it creates, or 1 for an empty group or a single-member group. 0 for every other kind.  # noqa: E501
-
-        :param groups_saved: The groups_saved of this GroupSuggestion.  # noqa: E501
-        :type: int
-        """
-        if self.local_vars_configuration.client_side_validation and groups_saved is None:  # noqa: E501
-            raise ValueError("Invalid value for `groups_saved`, must not be `None`")  # noqa: E501
-
-        self._groups_saved = groups_saved
 
     def to_dict(self):
         """Returns the model properties as a dict"""

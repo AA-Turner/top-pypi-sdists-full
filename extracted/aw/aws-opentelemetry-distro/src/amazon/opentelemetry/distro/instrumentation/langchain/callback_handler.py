@@ -75,6 +75,7 @@ _logger = logging.getLogger(__name__)
 
 LANGGRAPH_STEP_SPAN_ATTR = "langgraph.step"
 LANGGRAPH_NODE_SPAN_ATTR = "langgraph.node"
+LANGGRAPH_CHECKPOINT_NS_SPAN_ATTR = "langgraph.checkpoint_ns"
 
 
 @dataclass
@@ -293,9 +294,14 @@ class OpenTelemetryCallbackHandler(BaseCallbackHandler):
             input_token_details.get("cache_read"),
             input_token_details.get("cached_tokens"),
         )
+        ttl_cache_creations = (
+            sum(input_token_details.get(key) or 0 for key in ("ephemeral_5m_input_tokens", "ephemeral_1h_input_tokens"))
+            or None
+        )
         cache_creation_input_tokens = first_not_none(
             usage.get("cache_creation_input_tokens"),
             usage.get("cache_creation_tokens"),
+            ttl_cache_creations,
             input_token_details.get("cache_creation"),
             input_token_details.get("cache_write_tokens"),
         )
@@ -449,7 +455,7 @@ class OpenTelemetryCallbackHandler(BaseCallbackHandler):
 
         name: str | None = self._get_name_from_callback(serialized, **kwargs)
         provider: str | None = self._extract_llm_provider(serialized, kwargs)
-        tool_call_id: str | None = serialized.get("id")
+        tool_call_id: str | None = kwargs.get("tool_call_id") or serialized.get("id")
         description: str | None = serialized.get("description")
         span_name: str = (
             f"{GenAiOperationNameValues.EXECUTE_TOOL.value} {name}"
@@ -485,6 +491,12 @@ class OpenTelemetryCallbackHandler(BaseCallbackHandler):
 
     def on_agent_error(self, error: BaseException, *, run_id: UUID, **kwargs: Any) -> None:
         self._handle_error(error, run_id, **kwargs)
+
+    def on_interrupt(self, event: Any) -> None:
+        """Accept LangGraph's graph interrupt event without recording it."""
+
+    def on_resume(self, event: Any) -> None:
+        """Accept LangGraph's graph resume event without recording it."""
 
     @staticmethod
     def _format_lc_messages(messages: list[list[BaseMessage]]) -> tuple[list[dict], list[dict]]:
@@ -613,6 +625,9 @@ class OpenTelemetryCallbackHandler(BaseCallbackHandler):
             return
         OpenTelemetryCallbackHandler._set_span_attribute(span, LANGGRAPH_STEP_SPAN_ATTR, metadata.get("langgraph_step"))
         OpenTelemetryCallbackHandler._set_span_attribute(span, LANGGRAPH_NODE_SPAN_ATTR, metadata.get("langgraph_node"))
+        OpenTelemetryCallbackHandler._set_span_attribute(
+            span, LANGGRAPH_CHECKPOINT_NS_SPAN_ATTR, metadata.get("langgraph_checkpoint_ns")
+        )
 
     def _set_llm_request_span_attributes(  # pylint: disable=too-many-locals
         self,

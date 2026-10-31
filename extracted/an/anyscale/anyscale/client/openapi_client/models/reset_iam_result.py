@@ -35,18 +35,16 @@ class ResetIamResult(object):
     openapi_types = {
         'role_bindings_deleted': 'int',
         'user_groups_deleted': 'int',
-        'owner_role_bindings_kept': 'int',
-        'owner_role_binding_granted': 'bool'
+        'owner_role_bindings_kept': 'int'
     }
 
     attribute_map = {
         'role_bindings_deleted': 'role_bindings_deleted',
         'user_groups_deleted': 'user_groups_deleted',
-        'owner_role_bindings_kept': 'owner_role_bindings_kept',
-        'owner_role_binding_granted': 'owner_role_binding_granted'
+        'owner_role_bindings_kept': 'owner_role_bindings_kept'
     }
 
-    def __init__(self, role_bindings_deleted=None, user_groups_deleted=None, owner_role_bindings_kept=None, owner_role_binding_granted=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, role_bindings_deleted=None, user_groups_deleted=None, owner_role_bindings_kept=None, local_vars_configuration=None):  # noqa: E501
         """ResetIamResult - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -55,13 +53,11 @@ class ResetIamResult(object):
         self._role_bindings_deleted = None
         self._user_groups_deleted = None
         self._owner_role_bindings_kept = None
-        self._owner_role_binding_granted = None
         self.discriminator = None
 
         self.role_bindings_deleted = role_bindings_deleted
         self.user_groups_deleted = user_groups_deleted
         self.owner_role_bindings_kept = owner_role_bindings_kept
-        self.owner_role_binding_granted = owner_role_binding_granted
 
     @property
     def role_bindings_deleted(self):
@@ -137,31 +133,6 @@ class ResetIamResult(object):
             raise ValueError("Invalid value for `owner_role_bindings_kept`, must not be `None`")  # noqa: E501
 
         self._owner_role_bindings_kept = owner_role_bindings_kept
-
-    @property
-    def owner_role_binding_granted(self):
-        """Gets the owner_role_binding_granted of this ResetIamResult.  # noqa: E501
-
-        Whether the caller was made Organization owner because no owner binding was left.  # noqa: E501
-
-        :return: The owner_role_binding_granted of this ResetIamResult.  # noqa: E501
-        :rtype: bool
-        """
-        return self._owner_role_binding_granted
-
-    @owner_role_binding_granted.setter
-    def owner_role_binding_granted(self, owner_role_binding_granted):
-        """Sets the owner_role_binding_granted of this ResetIamResult.
-
-        Whether the caller was made Organization owner because no owner binding was left.  # noqa: E501
-
-        :param owner_role_binding_granted: The owner_role_binding_granted of this ResetIamResult.  # noqa: E501
-        :type: bool
-        """
-        if self.local_vars_configuration.client_side_validation and owner_role_binding_granted is None:  # noqa: E501
-            raise ValueError("Invalid value for `owner_role_binding_granted`, must not be `None`")  # noqa: E501
-
-        self._owner_role_binding_granted = owner_role_binding_granted
 
     def to_dict(self):
         """Returns the model properties as a dict"""

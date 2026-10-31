@@ -105,6 +105,12 @@ FEATURE_KEYS: frozenset[str] = frozenset(
         "video_generation",
         "video_editing",
         "audio_generation",
+        # Short non-speech sounds from a prompt (ElevenLabs sound effects; migration 1615).
+        "sound_effect_generation",
+        # Voice in, transformed voice out (ElevenLabs voice changer).
+        "speech_to_speech",
+        # Content classification for safety (moderation endpoints).
+        "moderation",
         "conversational_editing",
         "stateful_editing",
         "dialogue",
@@ -122,6 +128,11 @@ FEATURE_KEYS: frozenset[str] = frozenset(
         "grounding_maps",
         "multimodal_embedding",
         "music_generation",
+        # ElevenLabs sound effects (text to a short effect) and voice changer (speech in,
+        # the same speech in another voice out); OpenAI moderation (text in, a safety verdict out).
+        "sound_effect_generation",
+        "speech_to_speech",
+        "moderation",
         "real_time_translation",
         # Output beyond one call's limit through the provider's continuation protocol
         # (Gemini long decode: finish_reason CONTINUATION + continuation_token). The

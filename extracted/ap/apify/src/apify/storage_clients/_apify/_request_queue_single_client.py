@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Final
 
 from cachetools import LRUCache
 
+from apify_client._models import RequestResource, RequestWithoutId
 from crawlee.storage_clients.models import AddRequestsResponse, ProcessedRequest, RequestQueueMetadata
 
 from ._utils import (
@@ -173,13 +174,15 @@ class ApifyRequestQueueSingleClient:
                 self._requests_being_added[request_id] = loop.create_future()
 
         if new_requests:
-            # Prepare requests for API by converting to dictionaries.
-            requests_dict = [request.model_dump(by_alias=True) for request in new_requests]
+            # Prepare requests for API by converting to the client model.
+            api_requests = [
+                RequestWithoutId.model_validate(request.model_dump(by_alias=True)) for request in new_requests
+            ]
 
             committed_request_ids: set[str] = set()
             try:
                 # Send requests to API.
-                batch_response = await self._api_client.batch_add_requests(requests=requests_dict, forefront=forefront)
+                batch_response = await self._api_client.batch_add_requests(requests=api_requests, forefront=forefront)
                 batch_response_dict = batch_response.model_dump(by_alias=True)
                 api_response = AddRequestsResponse.model_validate(batch_response_dict)
 
@@ -187,16 +190,23 @@ class ApifyRequestQueueSingleClient:
                 # call succeeds (not before) keeps a failed call from poisoning the cache and silently
                 # deduplicating a later retry of the same request.
                 unprocessed_unique_keys = {request.unique_key for request in api_response.unprocessed_requests}
+                processed_by_unique_key = {request.unique_key: request for request in api_response.processed_requests}
                 for request in new_requests:
                     if request.unique_key in unprocessed_unique_keys:
                         continue
                     request_id = unique_key_to_request_id(request.unique_key)
+                    committed_request_ids.add(request_id)
+                    # A request handled on the platform (e.g. by an earlier client of this RQ) stays out of the
+                    # cache and the head, so it is never fetched again.
+                    processed = processed_by_unique_key.get(request.unique_key)
+                    if processed is not None and processed.was_already_handled:
+                        self._requests_already_handled.add(request_id)
+                        continue
                     self._requests_cache[request_id] = request
                     if forefront:
                         self._head_requests.append(request_id)
                     else:
                         self._head_requests.appendleft(request_id)
-                    committed_request_ids.add(request_id)
 
                 # Add the locally known already present processed requests based on the local cache.
                 api_response.processed_requests.extend(already_present_requests)
@@ -424,10 +434,11 @@ class ApifyRequestQueueSingleClient:
         Returns:
             The updated request
         """
-        request_dict = request.model_dump(by_alias=True)
-        request_dict['id'] = unique_key_to_request_id(request.unique_key)
+        api_request = RequestResource.model_validate(
+            {**request.model_dump(by_alias=True), 'id': unique_key_to_request_id(request.unique_key)}
+        )
         response = await self._api_client.update_request(
-            request=request_dict,
+            request=api_request,
             forefront=forefront,
         )
 

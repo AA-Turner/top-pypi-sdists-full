@@ -15,6 +15,7 @@ import asyncio
 import json
 import logging
 import random
+import re
 import time
 from typing import Any
 
@@ -279,7 +280,9 @@ DEFAULT_GLINER2_MODEL = "fastino/gliner2-large-v1"
 #
 # NON-retryable (real protocol violations, retrying only wastes calls): 401
 # (auth), 400/422 (validation). Those bubble up immediately from _handle_response.
-_RETRYABLE_STATUS: frozenset[int] = frozenset({429, 500, 502, 503, 504})
+# 425 (Too Early) is a model still warming up ("model_warming: ... Please retry in about 30
+# seconds"): it was raised at once and every chunk of an ingest burst was dropped (2026-10-22..30).
+_RETRYABLE_STATUS: frozenset[int] = frozenset({425, 429, 500, 502, 503, 504})
 _MAX_ATTEMPTS = 4  # 1 initial + 3 retries
 _BACKOFF_BASE_S = 1.0
 _BACKOFF_MAX_S = 30.0
@@ -299,6 +302,15 @@ def _parse_retry_after(value: str | None) -> float | None:
     if secs < 0:
         return None
     return min(secs, _BACKOFF_MAX_S)
+
+
+def _stated_wait(resp: httpx.Response) -> float | None:
+    """The wait a warming model states in its body ("retry in about 30 seconds"), capped."""
+    try:
+        m = re.search(r"retry in (?:about |approximately )?(\d+(?:\.\d+)?)\s*s", resp.text or "", re.I)
+    except Exception:  # noqa: BLE001 — an unreadable body just means no stated wait
+        return None
+    return min(float(m.group(1)), _BACKOFF_MAX_S) if m else None
 
 
 def _backoff_delay(attempt: int, retry_after: float | None) -> float:
@@ -586,7 +598,7 @@ class FastinoExtraction:
                     or _is_billing_refusal(resp)
                 ):
                     return await asyncio.to_thread(_handle_response, resp)
-                retry_after = _parse_retry_after(resp.headers.get("retry-after"))
+                retry_after = _parse_retry_after(resp.headers.get("retry-after")) or _stated_wait(resp)
                 last_exc = FastinoServerError(
                     f"Fastino transient HTTP {resp.status_code} "
                     f"(attempt {attempt + 1}/{_MAX_ATTEMPTS})",

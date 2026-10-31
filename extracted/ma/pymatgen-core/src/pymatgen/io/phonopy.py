@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 from monty.dev import requires
@@ -17,6 +17,8 @@ from pymatgen.phonon.thermal_displacements import ThermalDisplacementMatrices
 from pymatgen.symmetry.bandstructure import HighSymmKpath
 
 if TYPE_CHECKING:
+    from phonopy.phonon.mesh import Mesh
+
     from pymatgen.core.structure import IStructure
 
 try:
@@ -24,10 +26,10 @@ try:
     from phonopy.file_IO import write_disp_yaml
     from phonopy.structure.atoms import PhonopyAtoms
 except ImportError:
-    Phonopy = write_disp_yaml = PhonopyAtoms = None
+    Phonopy = write_disp_yaml = PhonopyAtoms = None  # type: ignore[assignment,misc]
 
 
-@requires(Phonopy, "phonopy not installed!")
+@requires(Phonopy is not None, "phonopy not installed!")
 def get_pmg_structure(phonopy_structure: PhonopyAtoms) -> Structure:
     """
     Convert a PhonopyAtoms object to pymatgen Structure object.
@@ -44,13 +46,13 @@ def get_pmg_structure(phonopy_structure: PhonopyAtoms) -> Structure:
     return Structure(lattice, symbols, frac_coords, site_properties=site_props)
 
 
-@requires(Phonopy, "phonopy not installed!")
-def get_phonopy_structure(pmg_structure: Structure) -> PhonopyAtoms:
+@requires(Phonopy is not None, "phonopy not installed!")
+def get_phonopy_structure(pmg_structure: Structure | IStructure) -> PhonopyAtoms:
     """
     Convert a pymatgen Structure object to a PhonopyAtoms object.
 
     Args:
-        pmg_structure (pymatgen Structure): A Pymatgen structure object.
+        pmg_structure (Structure | IStructure): A Pymatgen structure object.
     """
     symbols = [site.specie.symbol for site in pmg_structure]
 
@@ -130,6 +132,9 @@ def get_ph_bs_symm_line_from_dict(bands_dict, has_nac=False, labels_dict=None) -
         PhononBandStructure: the phonon band structure
     """
     structure = get_structure_from_dict(bands_dict)
+    # Hoisted out of the per-band/per-atom loop: site_properties rebuilds a dict over all sites on each access
+    masses = structure.site_properties["phonopy_masses"]
+    frac_coords = structure.frac_coords
 
     q_pts = []
     frequencies = []
@@ -148,14 +153,7 @@ def get_ph_bs_symm_line_from_dict(bands_dict, has_nac=False, labels_dict=None) -
                     eig_vec = np.zeros(3, complex)
                     for x in range(3):
                         eig_vec[x] = eig_a[x][0] + eig_a[x][1] * 1j
-                    eig_b.append(
-                        eigvec_to_eigdispl(
-                            eig_vec,
-                            q_pos,
-                            structure[idx].frac_coords,
-                            structure.site_properties["phonopy_masses"][idx],
-                        )
-                    )
+                    eig_b.append(eigvec_to_eigdispl(eig_vec, q_pos, frac_coords[idx], masses[idx]))
                 eig_q.append(eig_b)
         frequencies.append(bands)
         if "label" in phonon:
@@ -235,7 +233,7 @@ def get_complete_ph_dos(partial_dos_path, phonopy_yaml_path):
     return CompletePhononDos(structure, total_dos, partial_doses)
 
 
-@requires(Phonopy, "phonopy not installed!")
+@requires(Phonopy is not None, "phonopy not installed!")
 def get_displaced_structures(pmg_structure, atom_disp=0.01, supercell_matrix=None, yaml_fname=None, **kwargs):
     r"""
     Generate a set of symmetrically inequivalent displaced structures for
@@ -290,7 +288,7 @@ def get_displaced_structures(pmg_structure, atom_disp=0.01, supercell_matrix=Non
     return structure_list
 
 
-@requires(Phonopy, "phonopy is required to calculate phonon density of states")
+@requires(Phonopy is not None, "phonopy is required to calculate phonon density of states")
 def get_phonon_dos_from_fc(
     structure: Structure | IStructure,
     supercell_matrix: np.ndarray,
@@ -328,21 +326,25 @@ def get_phonon_dos_from_fc(
     )
 
     # get min, max, step frequency
-    frequencies = phonon.get_mesh_dict()["frequencies"]
+    # run_mesh without use_iter_mesh builds a Mesh (not an IterMesh)
+    frequencies = cast("Mesh", phonon.mesh).frequencies
     freq_min = frequencies.min()
     freq_max = frequencies.max()
     freq_pitch = (freq_max - freq_min) / num_dos_steps
 
     phonon.run_projected_dos(freq_min=freq_min, freq_max=freq_max, freq_pitch=freq_pitch)
 
-    dos_raw = (phonon.projected_dos.frequency_points, phonon.projected_dos.projected_dos)
+    pdos = phonon.projected_dos
+    if pdos is None or pdos.projected_dos is None:
+        raise RuntimeError("phonopy did not compute the projected DOS.")
+    dos_raw = (pdos.frequency_points, pdos.projected_dos)
     p_doses = dict(zip(structure, dos_raw[1], strict=True))
 
     total_dos = PhononDos(dos_raw[0], dos_raw[1].sum(axis=0))
     return CompletePhononDos(structure, total_dos, p_doses)  # type:ignore[arg-type]
 
 
-@requires(Phonopy, "phonopy is required to calculate phonon band structures")
+@requires(Phonopy is not None, "phonopy is required to calculate phonon band structures")
 def get_phonon_band_structure_from_fc(
     structure: Structure | IStructure,
     supercell_matrix: np.ndarray,
@@ -369,12 +371,12 @@ def get_phonon_band_structure_from_fc(
     phonon = Phonopy(structure_phonopy, supercell_matrix=supercell_matrix, **kwargs)
     phonon.force_constants = force_constants
     phonon.run_mesh(mesh_density, is_mesh_symmetry=False, is_gamma_center=True)
-    mesh = phonon.get_mesh_dict()
+    mesh = cast("Mesh", phonon.mesh)
 
-    return PhononBandStructure(mesh["qpoints"], mesh["frequencies"], structure.lattice)
+    return PhononBandStructure(mesh.qpoints, mesh.frequencies, structure.lattice)
 
 
-@requires(Phonopy, "phonopy is required to calculate phonon band structures")
+@requires(Phonopy is not None, "phonopy is required to calculate phonon band structures")
 def get_phonon_band_structure_symm_line_from_fc(
     structure: Structure | IStructure,
     supercell_matrix: np.ndarray,
@@ -416,6 +418,18 @@ def get_phonon_band_structure_symm_line_from_fc(
     return PhononBandStructureSymmLine(kpoints, frequencies, structure.lattice, labels_dict=labels_dict)
 
 
+def _get_gruneisen_structure(gruneisen_dict, structure=None, structure_path=None) -> Structure:
+    """Resolve the structure with priority structure > structure_path > structure in gruneisen_dict."""
+    if structure is not None:
+        return structure
+    if structure_path:
+        return Structure.from_file(structure_path)
+    try:
+        return get_structure_from_dict(gruneisen_dict)
+    except ValueError as exc:
+        raise ValueError("Please provide a structure or structure path") from exc
+
+
 def get_gruneisenparameter(gruneisen_path, structure=None, structure_path=None) -> GruneisenParameter:
     """Get Gruneisen object from gruneisen.yaml file, as obtained from phonopy (Frequencies in THz!).
     The order is structure > structure path > structure from gruneisen dict.
@@ -432,13 +446,7 @@ def get_gruneisenparameter(gruneisen_path, structure=None, structure_path=None) 
     """
     gruneisen_dict = loadfn(gruneisen_path)
 
-    if structure_path and structure is None:
-        structure = Structure.from_file(structure_path)
-    else:
-        try:
-            structure = get_structure_from_dict(gruneisen_dict)
-        except ValueError as exc:
-            raise ValueError("Please provide a structure or structure path") from exc
+    structure = _get_gruneisen_structure(gruneisen_dict, structure, structure_path)
 
     q_pts, multiplicities, frequencies, gruneisen = ([] for _ in range(4))
     phonopy_labels_dict = {}
@@ -500,16 +508,10 @@ def get_gs_ph_bs_symm_line_from_dict(
             These derivations occur because of very small frequencies
             (and therefore numerical inaccuracies) close to gamma.
     """
-    if structure_path and structure is None:
-        structure = Structure.from_file(structure_path)
-    else:
-        try:
-            structure = get_structure_from_dict(gruneisen_dict)
-        except ValueError as exc:
-            raise ValueError("Please provide a structure or structure path") from exc
+    structure = _get_gruneisen_structure(gruneisen_dict, structure, structure_path)
 
     q_points, frequencies, gruneisen_params = [], [], []
-    phonopy_labels_dict: dict[str, dict[str, str]] = {}
+    phonopy_labels_dict: dict[str, list[float]] = {}
 
     if fit:
         for pa in gruneisen_dict["path"]:
@@ -536,7 +538,7 @@ def get_gs_ph_bs_symm_line_from_dict(
                     frequencies_temp.append(bands)
                     gruneisen_temp.append(gruneisen_band)
                     if "label" in phonon[pa["nqpoint"] - idx - 1]:
-                        phonopy_labels_dict[phonon[pa["nqpoint"] - idx - 1]]["label"] = phonon[pa["nqpoint"] - idx - 1][
+                        phonopy_labels_dict[phonon[pa["nqpoint"] - idx - 1]["label"]] = phonon[pa["nqpoint"] - idx - 1][
                             "q-position"
                         ]
 

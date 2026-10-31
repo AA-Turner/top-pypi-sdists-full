@@ -16,7 +16,6 @@
 
 import os
 import io
-import glob
 import shutil
 import logging
 from lithops.storage.utils import StorageNoSuchKeyError
@@ -34,7 +33,6 @@ class LocalhostStorageBackend:
 
     def __init__(self, localhost_config):
         logger.debug("Creating Localhost storage client")
-        self.localhost_config = localhost_config
 
         logger.info(STORAGE_CLI_MSG.format('Localhost storage'))
 
@@ -90,23 +88,36 @@ class LocalhostStorageBackend:
         :return: Data of the object
         :rtype: str/bytes
         """
-        buffer = None
+        first_byte = last_byte = None
+        if 'Range' in extra_get_args:
+            # 'bytes=a-b', 'bytes=a-' (to the end) or 'bytes=-n' (the last n)
+            byte_range = extra_get_args['Range'].replace('bytes=', '')
+            first_byte, last_byte = byte_range.split('-')
+            first_byte = int(first_byte) if first_byte else None
+            last_byte = int(last_byte) if last_byte else None
+
+        file_path = os.path.join(LITHOPS_TEMP_DIR, bucket_name, key)
+        # Windows raises PermissionError when opening a directory
+        if not os.path.isfile(file_path):
+            raise StorageNoSuchKeyError(os.path.join(LITHOPS_TEMP_DIR, bucket_name), key)
         try:
-            file_path = os.path.join(LITHOPS_TEMP_DIR, bucket_name, key)
             with open(file_path, "rb") as f:
-                if 'Range' in extra_get_args:
-                    byte_range = extra_get_args['Range'].replace('bytes=', '')
-                    first_byte, last_byte = map(int, byte_range.split('-'))
+                if first_byte is None and last_byte is not None:
+                    f.seek(max(os.fstat(f.fileno()).st_size - last_byte, 0))
+                    buffer = io.BytesIO(f.read())
+                elif first_byte is not None:
                     f.seek(first_byte)
-                    buffer = io.BytesIO(f.read(last_byte - first_byte + 1))
+                    size = -1 if last_byte is None else last_byte - first_byte + 1
+                    buffer = io.BytesIO(f.read(size))
                 else:
                     buffer = io.BytesIO(f.read())
-            if stream:
-                return buffer
-            else:
-                return buffer.read()
-        except Exception:
+        except FileNotFoundError:
             raise StorageNoSuchKeyError(os.path.join(LITHOPS_TEMP_DIR, bucket_name), key)
+
+        if stream:
+            return buffer
+        else:
+            return buffer.read()
 
     def upload_file(self, file_name, bucket, key=None, extra_args={}, config=None):
         """Upload a file
@@ -199,11 +210,7 @@ class LocalhostStorageBackend:
         :param bucket: bucket name
         :param key_list: list of keys
         """
-        dirs = set()
         for key in key_list:
-            file_dir = os.path.dirname(key)
-            dirs.add(file_dir)
-            # dirs.add("/".join(file_dir.split("/", 2)[:2]))
             self.delete_object(bucket_name, key)
 
     def head_bucket(self, bucket_name):
@@ -230,7 +237,11 @@ class LocalhostStorageBackend:
 
         for key in self.list_keys(bucket_name, prefix):
             file_name = os.path.join(base_dir, key)
-            size = os.stat(file_name).st_size
+            try:
+                size = os.stat(file_name).st_size
+            except FileNotFoundError:
+                # deleted since it was listed, by a job running alongside
+                continue
             obj_list.append({'Key': key, 'Size': size})
 
         return obj_list
@@ -245,21 +256,23 @@ class LocalhostStorageBackend:
         """
         key_list = []
         base_dir = os.path.join(LITHOPS_TEMP_DIR, bucket_name, '')
+        prefix = prefix or ''
 
-        if prefix:
-            if prefix.endswith('/'):
-                roots = [os.path.join(base_dir, prefix, '**')]
-            else:
-                roots = [
-                    os.path.join(base_dir, prefix + '*'),
-                    os.path.join(base_dir, prefix + '*', '**'),
-                ]
-        else:
-            roots = [os.path.join(base_dir, '**')]
+        # A prefix is literal, as in S3, and dotfiles are keys like any other,
+        # so walk the bucket rather than glob it, and only descend into the
+        # directories that can hold a key starting with the prefix
+        for dir_path, dir_names, file_names in os.walk(base_dir):
+            rel_dir = os.path.relpath(dir_path, base_dir).replace(os.sep, '/')
+            rel_dir = '' if rel_dir == '.' else rel_dir + '/'
+            dir_names[:] = [
+                name for name in dir_names
+                if (rel_dir + name + '/').startswith(prefix) or prefix.startswith(rel_dir + name + '/')
+            ]
+            for name in file_names:
+                key = rel_dir + name
+                if key.startswith(prefix):
+                    key_list.append(key)
 
-        for root in roots:
-            for file_name in glob.glob(root, recursive=True):
-                if os.path.isfile(file_name):
-                    key_list.append(file_name.replace(base_dir, '').replace('\\', '/'))
+        key_list.sort()
 
         return key_list

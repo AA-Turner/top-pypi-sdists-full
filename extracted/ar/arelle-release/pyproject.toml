@@ -38,7 +38,7 @@ dependencies = [
     'openpyxl>=3,<4',
     'pillow>=10,<14',
     'pyparsing>=3,<4',
-    'python-dateutil>=2,<3',
+    'python-dateutil>=2,<4',
     'regex',
     'truststore>=0,<1',
     'typing-extensions>=4,<5',
@@ -309,9 +309,6 @@ exclude = '''(?x)(
 [[tool.mypy.overrides]]
 module = [
     'arelle.DialogOpenArchive',
-    'arelle.rendering.RenderingEvaluator',
-    'arelle.rendering.RenderingLayout',
-    'arelle.rendering.RenderingResolution',
     'arelle.Version',
     'arelle.ViewFileTests',
     'arelle.ViewWinTests',
@@ -377,7 +374,6 @@ module = [
     'arelle.examples.plugin.hello_dolly',
     'arelle.examples.plugin.rssSaveOim',
     'arelle.formula.FormulaEvaluator',
-    'arelle.formula.ValidateFormula',
     'arelle.plugin.CacheBuilder',
     'arelle.plugin.EdgarRendererAllReports',
     'arelle.plugin.SECCorrespondenceLoader',

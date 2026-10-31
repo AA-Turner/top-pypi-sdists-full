@@ -120,7 +120,6 @@
 #include "meshioplusplus/operations/feature_edges.hpp"
 #include "meshioplusplus/operations/fit_cad.hpp"
 #include "meshioplusplus/operations/fit_primitives.hpp"
-#include "meshioplusplus/operations/refine_patches.hpp"
 #include "meshioplusplus/operations/iga.hpp"
 #include "meshioplusplus/operations/segment.hpp"
 #include "meshioplusplus/operations/tessellate.hpp"
@@ -159,13 +158,7 @@
 #include "meshioplusplus/operations/isosurface.hpp"
 #include "meshioplusplus/operations/sdf.hpp"
 #include "meshioplusplus/operations/voxelize.hpp"
-#include "meshioplusplus/operations/primitives.hpp"
-#include "meshioplusplus/operations/octree.hpp"
-#include "meshioplusplus/operations/mesh_cad.hpp"
-#include "meshioplusplus/operations/octree_mesh.hpp"
 #include "meshioplusplus/operations/error.hpp"
-#include "meshioplusplus/operations/error_size.hpp"
-#include "meshioplusplus/operations/check_conformity.hpp"
 #include "meshioplusplus/operations/gradient.hpp"
 #include "meshioplusplus/operations/hessian.hpp"
 #include "meshioplusplus/operations/slice.hpp"
@@ -176,13 +169,7 @@
 #include "meshioplusplus/operations/subdivide.hpp"
 #include "meshioplusplus/operations/surface.hpp"
 #include "meshioplusplus/operations/transform.hpp"
-#include "meshioplusplus/operations/boundary_layer.hpp"
-#include "meshioplusplus/operations/extrude.hpp"
-#include "meshioplusplus/operations/mirror.hpp"
-#include "meshioplusplus/operations/tetrahedralize.hpp"
-#include "meshioplusplus/operations/project_to_cad.hpp"
 #include "meshioplusplus/operations/undo_green.hpp"
-#include "meshioplusplus/operations/mmg.hpp"
 #include "meshioplusplus/operations/remesh.hpp"
 #include "meshioplusplus/operations/remesh_volume.hpp"
 #include "meshioplusplus/operations/optimize_volume.hpp"
@@ -1377,10 +1364,9 @@ val nurbs_info_to_val(const meshioplusplus::NurbsInfo& rInfo) {
     out.set("fieldNames", string_vec_to_val(rInfo.mFieldNames));
     val components = val::array();
     for (std::size_t k = 0; k < rInfo.mFieldNames.size(); ++k)
-        components.call<void>("push",
-                              rInfo.mPatches.empty()
-                                  ? 0.0
-                                  : static_cast<double>(cols_of(rInfo.mPatches[0].mFields[k])));
+        components.call<void>("push", rInfo.mPatches.empty()
+                                          ? 0.0
+                                          : static_cast<double>(cols_of(rInfo.mPatches[0].mFields[k])));
     out.set("fieldComponents", components);
     const meshioplusplus::NurbsTopology& t = rInfo.mTopology;
     if (t.mDimension == 0) {
@@ -1405,8 +1391,7 @@ val nurbs_info_to_val(const meshioplusplus::NurbsInfo& rInfo) {
 // A JS array or typed array (Number or BigInt elements) as `rows x Cols` doubles.
 NDArray nurbs_js_doubles(const val& rArr, std::size_t Cols, const char* pWhat) {
     if (rArr.isUndefined() || rArr.isNull())
-        throw meshioplusplus::WriteError(std::string("MFEM NURBS info: '") + pWhat +
-                                         "' is missing");
+        throw meshioplusplus::WriteError(std::string("MFEM NURBS info: '") + pWhat + "' is missing");
     const auto n = rArr["length"].as<std::size_t>();
     if (Cols == 0 || n % Cols)
         throw meshioplusplus::WriteError(std::string("MFEM NURBS info: '") + pWhat +
@@ -1422,8 +1407,7 @@ NDArray nurbs_js_doubles(const val& rArr, std::size_t Cols, const char* pWhat) {
 // The same as Int64, every entry an integer.
 NDArray nurbs_js_ints(const val& rArr, std::size_t Cols, const char* pWhat) {
     if (rArr.isUndefined() || rArr.isNull())
-        throw meshioplusplus::WriteError(std::string("MFEM NURBS info: '") + pWhat +
-                                         "' is missing");
+        throw meshioplusplus::WriteError(std::string("MFEM NURBS info: '") + pWhat + "' is missing");
     const auto n = rArr["length"].as<std::size_t>();
     if (Cols == 0 || n % Cols)
         throw meshioplusplus::WriteError(std::string("MFEM NURBS info: '") + pWhat +
@@ -1449,8 +1433,7 @@ meshioplusplus::NurbsInfo val_to_nurbs_info(const val& rInfo) {
     if (patches.isUndefined() || patches.isNull())
         throw meshioplusplus::WriteError("MFEM NURBS info: 'patches' is missing");
     info.mFieldNames = emscripten::vecFromJSArray<std::string>(rInfo["fieldNames"]);
-    const std::vector<double> components =
-        emscripten::vecFromJSArray<double>(rInfo["fieldComponents"]);
+    const std::vector<double> components = emscripten::vecFromJSArray<double>(rInfo["fieldComponents"]);
     if (components.size() != info.mFieldNames.size())
         throw meshioplusplus::WriteError("MFEM NURBS info: one fieldComponents entry per field");
     const auto np = patches["length"].as<unsigned>();
@@ -1699,8 +1682,7 @@ std::vector<meshioplusplus::BrepRef> val_to_brep_refs(const val& rArr) {
         ref.mName = brep_js_string(r, "name");
         ref.mTrimIndex = brep_js_int(r, "trimIndex");
         ref.mRelativeDirection = static_cast<std::int32_t>(brep_js_int(r, "relativeDirection"));
-        ref.mLocalCoordinates =
-            emscripten::vecFromJSArray<double>(brep_js_get(r, "localCoordinates"));
+        ref.mLocalCoordinates = emscripten::vecFromJSArray<double>(brep_js_get(r, "localCoordinates"));
         ref.mExtra = brep_js_string(r, "extra");
         out.push_back(std::move(ref));
     }
@@ -1718,8 +1700,7 @@ meshioplusplus::BrepInfo val_to_brep_info(const val& rInfo) {
         const val knots = brep_js_get(p, "knots");
         for (unsigned d = 0; d < knots["length"].as<unsigned>(); ++d)
             patch.mKnots.push_back(emscripten::vecFromJSArray<double>(knots[d]));
-        patch.mControlPoints =
-            nurbs_js_doubles(brep_js_get(p, "controlPoints"), 3, "controlPoints");
+        patch.mControlPoints = nurbs_js_doubles(brep_js_get(p, "controlPoints"), 3, "controlPoints");
         patch.mWeights = nurbs_js_doubles(brep_js_get(p, "weights"), 1, "weights");
         info.mPatches.push_back(std::move(patch));
     }
@@ -1746,8 +1727,7 @@ meshioplusplus::BrepInfo val_to_brep_info(const val& rInfo) {
         face.mTrimmed = brep_js_get(f, "trimmed").as<bool>();
         face.mRational = brep_js_get(f, "rational").as<bool>();
         face.mReducedKnots = brep_js_get(f, "reducedKnots").as<bool>();
-        face.mControlPointIds =
-            nurbs_js_ints(brep_js_get(f, "controlPointIds"), 1, "controlPointIds");
+        face.mControlPointIds = nurbs_js_ints(brep_js_get(f, "controlPointIds"), 1, "controlPointIds");
         const val loops = brep_js_get(f, "loops");
         for (unsigned l = 0; l < loops["length"].as<unsigned>(); ++l) {
             meshioplusplus::BrepLoop loop;
@@ -3296,8 +3276,7 @@ SettingsDocument val_to_settings(const val& rSettings) {
         check_settings_keys(output, "Output",
                             {"Path", "Pattern", "Format", "Encoding", "Codec", "FloatFormat"});
     else
-        check_settings_keys(output, "Output",
-                            {"Path", "Format", "Encoding", "Codec", "FloatFormat"});
+        check_settings_keys(output, "Output", {"Path", "Format", "Encoding", "Codec", "FloatFormat"});
     const val out_path = output["Path"];
     if (has_pattern && !out_path.isUndefined() && !out_path.isNull())
         throw meshioplusplus::ReadError(
@@ -3589,15 +3568,6 @@ bool has_cgnslib_js() {
  */
 bool has_occt_js() {
     return meshioplusplus::cad_read_has_occt();
-}
-
-/**
- * @brief Whether the KaHIP kaffpa partitioner is linked in: `partition` with
- * `method: 'kahip'`. True only in the full artifact
- * (`meshioplusplus_wasm_full[_mt]`).
- */
-bool has_kahip_js() {
-    return meshioplusplus::partition_has_kahip();
 }
 
 /// Whether the VTK XML zstd block codec is linked in (the full artifact).
@@ -3968,383 +3938,6 @@ val grid_js(const val& rDims, const val& rOrigin, const val& rSpacing, double ma
     });
 }
 
-// The parametric generators (operations/primitives.hpp): `grid`'s siblings, and
-// like it bindings that take no input mesh. An absent (undefined / null) array
-// takes the C++ default.
-std::array<double, 3> prim_js_vec3(const val& rV, const std::array<double, 3>& rDefault,
-                                   bool PadZero) {
-    if (rV.isUndefined() || rV.isNull())
-        return rDefault;
-    const unsigned n = rV["length"].as<unsigned>();
-    if (n == 2 && PadZero)
-        return {{rV[0].as<double>(), rV[1].as<double>(), 0.0}};
-    if (n != 3)
-        throw std::invalid_argument("meshio++: expected an array of three numbers");
-    return {{rV[0].as<double>(), rV[1].as<double>(), rV[2].as<double>()}};
-}
-
-std::vector<std::int64_t> prim_js_counts(const val& rV, std::size_t N, std::int64_t Default) {
-    std::vector<std::int64_t> out(N, Default);
-    if (rV.isUndefined() || rV.isNull())
-        return out;
-    if (rV["length"].as<unsigned>() != N)
-        throw std::invalid_argument("meshio++: expected an array of " + std::to_string(N) +
-                                    " counts");
-    for (unsigned i = 0; i < N; ++i)
-        out[i] = static_cast<std::int64_t>(rV[i].as<double>());
-    return out;
-}
-
-std::array<std::int64_t, 3> prim_js_dims3(const val& rV) {
-    const auto d = prim_js_counts(rV, 3, 1);
-    return {{d[0], d[1], d[2]}};
-}
-
-val rectangle_js(const val& rDims, const val& rSize, const val& rOrigin,
-                 const std::string& rCellType, const std::string& rSplit, int order,
-                 double maxCells, bool complete) {
-    return with_js_errors([&]() -> val {
-        const auto d = prim_js_counts(rDims, 2, 1);
-        std::array<double, 2> size{{1.0, 1.0}};
-        if (!rSize.isUndefined() && !rSize.isNull()) {
-            if (rSize["length"].as<unsigned>() != 2)
-                throw std::invalid_argument("meshio++: size expects two numbers");
-            size = {{rSize[0].as<double>(), rSize[1].as<double>()}};
-        }
-        return mesh_to_val(meshioplusplus::rectangle(
-            {{d[0], d[1]}}, size, prim_js_vec3(rOrigin, {{0.0, 0.0, 0.0}}, true), rCellType, rSplit,
-            order, static_cast<std::int64_t>(maxCells), complete));
-    });
-}
-
-val box_js(const val& rDims, const val& rSize, const val& rOrigin, const std::string& rCellType,
-           int order, double maxCells, bool complete) {
-    return with_js_errors([&]() -> val {
-        const auto d = prim_js_counts(rDims, 3, 1);
-        return mesh_to_val(
-            meshioplusplus::box({{d[0], d[1], d[2]}}, prim_js_vec3(rSize, {{1.0, 1.0, 1.0}}, false),
-                                prim_js_vec3(rOrigin, {{0.0, 0.0, 0.0}}, false), rCellType, order,
-                                static_cast<std::int64_t>(maxCells), complete));
-    });
-}
-
-val disk_js(double radius, double n, const val& rCenter, const std::string& rCellType, int order,
-            double maxCells, bool complete) {
-    return with_js_errors([&]() -> val {
-        return mesh_to_val(meshioplusplus::disk(
-            radius, static_cast<std::int64_t>(n), prim_js_vec3(rCenter, {{0.0, 0.0, 0.0}}, false),
-            rCellType, order, static_cast<std::int64_t>(maxCells), complete));
-    });
-}
-
-val uv_sphere_js(double radius, double nu, double nv, const val& rCenter,
-                 const std::string& rCellType, int order, double maxCells, bool complete) {
-    return with_js_errors([&]() -> val {
-        return mesh_to_val(meshioplusplus::uv_sphere(
-            radius, static_cast<std::int64_t>(nu), static_cast<std::int64_t>(nv),
-            prim_js_vec3(rCenter, {{0.0, 0.0, 0.0}}, false), rCellType, order,
-            static_cast<std::int64_t>(maxCells), complete));
-    });
-}
-
-val icosa_sphere_js(double radius, double subdivisions, const val& rCenter, int order,
-                    double maxCells, bool complete) {
-    return with_js_errors([&]() -> val {
-        return mesh_to_val(
-            meshioplusplus::icosa_sphere(radius, static_cast<std::int64_t>(subdivisions),
-                                         prim_js_vec3(rCenter, {{0.0, 0.0, 0.0}}, false), order,
-                                         static_cast<std::int64_t>(maxCells), complete));
-    });
-}
-
-val cylinder_js(double radius, double height, double nxy, double nz, const val& rCenter,
-                const std::string& rCellType, int order, double maxCells, bool complete) {
-    return with_js_errors([&]() -> val {
-        return mesh_to_val(meshioplusplus::cylinder(
-            radius, height, static_cast<std::int64_t>(nxy), static_cast<std::int64_t>(nz),
-            prim_js_vec3(rCenter, {{0.0, 0.0, 0.0}}, false), rCellType, order,
-            static_cast<std::int64_t>(maxCells), complete));
-    });
-}
-
-val reference_triangle_js(double n, const val& rSize, const val& rOrigin, int order,
-                          double maxCells, bool complete) {
-    return with_js_errors([&]() -> val {
-        std::array<double, 2> size{{1.0, 1.0}};
-        if (!rSize.isUndefined() && !rSize.isNull()) {
-            if (rSize["length"].as<unsigned>() != 2)
-                throw std::invalid_argument("meshio++: size expects two numbers");
-            size = {{rSize[0].as<double>(), rSize[1].as<double>()}};
-        }
-        return mesh_to_val(meshioplusplus::reference_triangle(
-            static_cast<std::int64_t>(n), size, prim_js_vec3(rOrigin, {{0.0, 0.0, 0.0}}, true),
-            order, static_cast<std::int64_t>(maxCells), complete));
-    });
-}
-
-val ngon_js(double sides, double radius, double rings, const val& rCenter, int order,
-            double maxCells, bool complete) {
-    return with_js_errors([&]() -> val {
-        return mesh_to_val(meshioplusplus::ngon(
-            static_cast<std::int64_t>(sides), radius, static_cast<std::int64_t>(rings),
-            prim_js_vec3(rCenter, {{0.0, 0.0, 0.0}}, false), order,
-            static_cast<std::int64_t>(maxCells), complete));
-    });
-}
-
-val annulus_js(double innerRadius, double outerRadius, double ntheta, double nr, double angle,
-               const val& rCenter, const std::string& rCellType, int order, double maxCells,
-               bool complete) {
-    return with_js_errors([&]() -> val {
-        return mesh_to_val(meshioplusplus::annulus(
-            innerRadius, outerRadius, static_cast<std::int64_t>(ntheta),
-            static_cast<std::int64_t>(nr), angle, prim_js_vec3(rCenter, {{0.0, 0.0, 0.0}}, false),
-            rCellType, order, static_cast<std::int64_t>(maxCells), complete));
-    });
-}
-
-val lshape_js(double n, double size, const val& rCenter, const std::string& rCellType, int order,
-              double maxCells, bool complete) {
-    return with_js_errors([&]() -> val {
-        return mesh_to_val(meshioplusplus::lshape(
-            static_cast<std::int64_t>(n), size, prim_js_vec3(rCenter, {{0.0, 0.0, 0.0}}, false),
-            rCellType, order, static_cast<std::int64_t>(maxCells), complete));
-    });
-}
-
-val plate_with_hole_js(double radius, double size, double nt, double nr, const val& rCenter,
-                       const std::string& rCellType, int order, double maxCells, bool complete) {
-    return with_js_errors([&]() -> val {
-        return mesh_to_val(meshioplusplus::plate_with_hole(
-            radius, size, static_cast<std::int64_t>(nt), static_cast<std::int64_t>(nr),
-            prim_js_vec3(rCenter, {{0.0, 0.0, 0.0}}, false), rCellType, order,
-            static_cast<std::int64_t>(maxCells), complete));
-    });
-}
-
-val honeycomb_js(const val& rDims, double edge, const val& rOrigin, double maxCells) {
-    return with_js_errors([&]() -> val {
-        const auto d = prim_js_counts(rDims, 2, 4);
-        return mesh_to_val(meshioplusplus::honeycomb({{d[0], d[1]}}, edge,
-                                                     prim_js_vec3(rOrigin, {{0.0, 0.0, 0.0}}, true),
-                                                     static_cast<std::int64_t>(maxCells)));
-    });
-}
-
-val line_js(double n, const val& rStart, const val& rEnd, int order, double maxCells,
-            bool complete) {
-    return with_js_errors([&]() -> val {
-        return mesh_to_val(meshioplusplus::line(static_cast<std::int64_t>(n),
-                                                prim_js_vec3(rStart, {{0.0, 0.0, 0.0}}, false),
-                                                prim_js_vec3(rEnd, {{1.0, 0.0, 0.0}}, false), order,
-                                                static_cast<std::int64_t>(maxCells), complete));
-    });
-}
-
-val circle_js(double radius, double n, const val& rCenter, int order, double maxCells,
-              bool complete) {
-    return with_js_errors([&]() -> val {
-        return mesh_to_val(meshioplusplus::circle(
-            radius, static_cast<std::int64_t>(n), prim_js_vec3(rCenter, {{0.0, 0.0, 0.0}}, false),
-            order, static_cast<std::int64_t>(maxCells), complete));
-    });
-}
-
-val helix_js(double radius, double pitch, double turns, double n, const val& rCenter, int order,
-             double maxCells, bool complete) {
-    return with_js_errors([&]() -> val {
-        return mesh_to_val(meshioplusplus::helix(radius, pitch, turns, static_cast<std::int64_t>(n),
-                                                 prim_js_vec3(rCenter, {{0.0, 0.0, 0.0}}, false),
-                                                 order, static_cast<std::int64_t>(maxCells),
-                                                 complete));
-    });
-}
-
-val sphere_points_js(double n, double radius, const val& rCenter, double maxCells) {
-    return with_js_errors([&]() -> val {
-        return mesh_to_val(meshioplusplus::sphere_points(
-            static_cast<std::int64_t>(n), radius, prim_js_vec3(rCenter, {{0.0, 0.0, 0.0}}, false),
-            static_cast<std::int64_t>(maxCells)));
-    });
-}
-
-val box_points_js(double n, const val& rSize, const val& rOrigin, double seed, double maxCells) {
-    return with_js_errors([&]() -> val {
-        return mesh_to_val(meshioplusplus::box_points(
-            static_cast<std::int64_t>(n), prim_js_vec3(rSize, {{1.0, 1.0, 1.0}}, false),
-            prim_js_vec3(rOrigin, {{0.0, 0.0, 0.0}}, false), static_cast<std::uint64_t>(seed),
-            static_cast<std::int64_t>(maxCells)));
-    });
-}
-
-val tetra_sphere_js(double radius, double subdivisions, const val& rCenter, int order,
-                    double maxCells, bool complete) {
-    return with_js_errors([&]() -> val {
-        return mesh_to_val(
-            meshioplusplus::tetra_sphere(radius, static_cast<std::int64_t>(subdivisions),
-                                         prim_js_vec3(rCenter, {{0.0, 0.0, 0.0}}, false), order,
-                                         static_cast<std::int64_t>(maxCells), complete));
-    });
-}
-
-val octa_sphere_js(double radius, double subdivisions, const val& rCenter, int order,
-                   double maxCells, bool complete) {
-    return with_js_errors([&]() -> val {
-        return mesh_to_val(
-            meshioplusplus::octa_sphere(radius, static_cast<std::int64_t>(subdivisions),
-                                        prim_js_vec3(rCenter, {{0.0, 0.0, 0.0}}, false), order,
-                                        static_cast<std::int64_t>(maxCells), complete));
-    });
-}
-
-val cube_sphere_js(double radius, double n, const val& rCenter, const std::string& cellType,
-                   int order, double maxCells, bool complete) {
-    return with_js_errors([&]() -> val {
-        return mesh_to_val(meshioplusplus::cube_sphere(
-            radius, static_cast<std::int64_t>(n), prim_js_vec3(rCenter, {{0.0, 0.0, 0.0}}, false),
-            cellType, order, static_cast<std::int64_t>(maxCells), complete));
-    });
-}
-
-val geo_sphere_js(double radius, double n, const val& rCenter, int order, double maxCells,
-                  bool complete) {
-    return with_js_errors([&]() -> val {
-        return mesh_to_val(meshioplusplus::geo_sphere(
-            radius, static_cast<std::int64_t>(n), prim_js_vec3(rCenter, {{0.0, 0.0, 0.0}}, false),
-            order, static_cast<std::int64_t>(maxCells), complete));
-    });
-}
-
-val torus_js(double majorRadius, double minorRadius, double nu, double nv, const val& rCenter,
-             const std::string& cellType, int order, double maxCells, bool complete) {
-    return with_js_errors([&]() -> val {
-        return mesh_to_val(meshioplusplus::torus(
-            majorRadius, minorRadius, static_cast<std::int64_t>(nu), static_cast<std::int64_t>(nv),
-            prim_js_vec3(rCenter, {{0.0, 0.0, 0.0}}, false), cellType, order,
-            static_cast<std::int64_t>(maxCells), complete));
-    });
-}
-
-val moebius_js(double radius, double width, double nu, double nv, double numTwists,
-               const val& rCenter, const std::string& cellType, int order, double maxCells,
-               bool complete) {
-    return with_js_errors([&]() -> val {
-        return mesh_to_val(meshioplusplus::moebius(
-            radius, width, static_cast<std::int64_t>(nu), static_cast<std::int64_t>(nv),
-            static_cast<std::int64_t>(numTwists), prim_js_vec3(rCenter, {{0.0, 0.0, 0.0}}, false),
-            cellType, order, static_cast<std::int64_t>(maxCells), complete));
-    });
-}
-
-val tube_js(double radius, double height, double ntheta, double nz, const val& rCenter,
-            const std::string& cellType, int order, double maxCells, bool complete) {
-    return with_js_errors([&]() -> val {
-        return mesh_to_val(meshioplusplus::tube(
-            radius, height, static_cast<std::int64_t>(ntheta), static_cast<std::int64_t>(nz),
-            prim_js_vec3(rCenter, {{0.0, 0.0, 0.0}}, false), cellType, order,
-            static_cast<std::int64_t>(maxCells), complete));
-    });
-}
-
-val cone_js(double radius, double height, double ntheta, double nz, const val& rCenter,
-            const std::string& cellType, int order, double maxCells, bool complete) {
-    return with_js_errors([&]() -> val {
-        return mesh_to_val(meshioplusplus::cone(
-            radius, height, static_cast<std::int64_t>(ntheta), static_cast<std::int64_t>(nz),
-            prim_js_vec3(rCenter, {{0.0, 0.0, 0.0}}, false), cellType, order,
-            static_cast<std::int64_t>(maxCells), complete));
-    });
-}
-
-val capsule_js(double radius, double height, double ntheta, double nz, double ncap,
-               const val& rCenter, const std::string& cellType, int order, double maxCells,
-               bool complete) {
-    return with_js_errors([&]() -> val {
-        return mesh_to_val(meshioplusplus::capsule(
-            radius, height, static_cast<std::int64_t>(ntheta), static_cast<std::int64_t>(nz),
-            static_cast<std::int64_t>(ncap), prim_js_vec3(rCenter, {{0.0, 0.0, 0.0}}, false),
-            cellType, order, static_cast<std::int64_t>(maxCells), complete));
-    });
-}
-
-val box_surface_js(const val& rDims, const val& rSize, const val& rOrigin,
-                   const std::string& cellType, int order, double maxCells, bool complete) {
-    return with_js_errors([&]() -> val {
-        return mesh_to_val(meshioplusplus::box_surface(
-            prim_js_dims3(rDims), prim_js_vec3(rSize, {{1.0, 1.0, 1.0}}, false),
-            prim_js_vec3(rOrigin, {{0.0, 0.0, 0.0}}, false), cellType, order,
-            static_cast<std::int64_t>(maxCells), complete));
-    });
-}
-
-val platonic_js(const std::string& name, double radius, const val& rCenter, double maxCells) {
-    return with_js_errors([&]() -> val {
-        return mesh_to_val(meshioplusplus::platonic(name, radius,
-                                                    prim_js_vec3(rCenter, {{0.0, 0.0, 0.0}}, false),
-                                                    static_cast<std::int64_t>(maxCells)));
-    });
-}
-
-val ball_js(double radius, double n, const val& rCenter, const std::string& cellType, int order,
-            double maxCells, bool complete) {
-    return with_js_errors([&]() -> val {
-        return mesh_to_val(meshioplusplus::ball(
-            radius, static_cast<std::int64_t>(n), prim_js_vec3(rCenter, {{0.0, 0.0, 0.0}}, false),
-            cellType, order, static_cast<std::int64_t>(maxCells), complete));
-    });
-}
-
-val spherical_shell_js(double innerRadius, double outerRadius, double n, double nr, double ratio,
-                       const val& rCenter, int order, double maxCells, bool complete) {
-    return with_js_errors([&]() -> val {
-        return mesh_to_val(meshioplusplus::spherical_shell(
-            innerRadius, outerRadius, static_cast<std::int64_t>(n), static_cast<std::int64_t>(nr),
-            ratio, prim_js_vec3(rCenter, {{0.0, 0.0, 0.0}}, false), order,
-            static_cast<std::int64_t>(maxCells), complete));
-    });
-}
-
-val pipe_js(double innerRadius, double outerRadius, double height, double ntheta, double nr,
-            double nz, double ratio, const val& rCenter, int order, double maxCells,
-            bool complete) {
-    return with_js_errors([&]() -> val {
-        return mesh_to_val(meshioplusplus::pipe(
-            innerRadius, outerRadius, height, static_cast<std::int64_t>(ntheta),
-            static_cast<std::int64_t>(nr), static_cast<std::int64_t>(nz), ratio,
-            prim_js_vec3(rCenter, {{0.0, 0.0, 0.0}}, false), order,
-            static_cast<std::int64_t>(maxCells), complete));
-    });
-}
-
-val fichera_js(double n, double size, const val& rCenter, const std::string& cellType, int order,
-               double maxCells, bool complete) {
-    return with_js_errors([&]() -> val {
-        return mesh_to_val(meshioplusplus::fichera(
-            static_cast<std::int64_t>(n), size, prim_js_vec3(rCenter, {{0.0, 0.0, 0.0}}, false),
-            cellType, order, static_cast<std::int64_t>(maxCells), complete));
-    });
-}
-
-val solid_torus_js(double majorRadius, double minorRadius, double n, double nu, const val& rCenter,
-                   int order, double maxCells, bool complete) {
-    return with_js_errors([&]() -> val {
-        return mesh_to_val(meshioplusplus::solid_torus(
-            majorRadius, minorRadius, static_cast<std::int64_t>(n), static_cast<std::int64_t>(nu),
-            prim_js_vec3(rCenter, {{0.0, 0.0, 0.0}}, false), order,
-            static_cast<std::int64_t>(maxCells), complete));
-    });
-}
-
-val reference_cells_js(const val& rTypes, bool pairs) {
-    return with_js_errors([&]() -> val {
-        std::vector<std::string> types;
-        if (!rTypes.isUndefined() && !rTypes.isNull())
-            for (unsigned i = 0, n = rTypes["length"].as<unsigned>(); i < n; ++i)
-                types.push_back(rTypes[i].as<std::string>());
-        return mesh_to_val(meshioplusplus::reference_cells(types, pairs));
-    });
-}
-
 /**
  * @brief Build a regular grid around a mesh. Returns
  * `{mesh, dims, origin, spacing, numOccupied}`. Exactly one of `resolution` and
@@ -4353,10 +3946,9 @@ val reference_cells_js(const val& rTypes, bool pairs) {
 val voxelize_js(const val& rMeshObj, const val& rResolution, double cellSize, const val& rBounds,
                 double padding, double paddingRelative, const std::string& rFill,
                 const std::string& rSign, bool attachOccupancy, double maxCells,
-                const std::string& rWatertightCheck, const std::string& rPlane) {
+                const std::string& rWatertightCheck) {
     return with_js_errors([&]() -> val {
         meshioplusplus::VoxelOptions options;
-        options.mPlane = meshioplusplus::detail::planar_plane_from_name(rPlane);
         if (!rResolution.isUndefined() && !rResolution.isNull() &&
             rResolution["length"].as<unsigned>() == 3)
             options.mResolution = std::array<std::int64_t, 3>{
@@ -4399,300 +3991,6 @@ val voxelize_js(const val& rMeshObj, const val& rResolution, double cellSize, co
         out.set("origin", vec3d(r.mOrigin));
         out.set("spacing", vec3d(r.mSpacing));
         out.set("numOccupied", static_cast<double>(r.mNumOccupied));
-        return out;
-    });
-}
-
-/**
- * @brief Build an octree (quadtree for a planar `line` skin) around a mesh.
- * Returns `{mesh, dimension, numLeaves, numHanging, finestLevel, origin, rootSize}`.
- * Pass an empty array for `rootCells`/`bounds` to take the defaults.
- */
-val octree_js(const val& rMeshObj, const val& rRootCells, double minLevel, double maxLevel,
-              const val& rBounds, double padding, double paddingRelative, double dimension,
-              double sampleDistance, const std::string& rBalance, const std::string& rFill,
-              const std::string& rSign, bool attachDistance, bool evenOdd, double maxCells,
-              const std::string& rWatertightCheck, const std::string& rTransition, bool snap,
-              double surfaceLevel, double curvatureThreshold, double featureAngle,
-              const std::string& rSizeArray, const std::string& rPlane) {
-    return with_js_errors([&]() -> val {
-        meshioplusplus::OctreeOptions options;
-        options.mTransition = meshioplusplus::octree_transition_from_name(rTransition);
-        options.mSnap = snap;
-        options.mSurfaceLevel = static_cast<std::int64_t>(surfaceLevel);
-        options.mCurvatureThreshold = curvatureThreshold;
-        options.mFeatureAngle = featureAngle;
-        options.mSizeArray = rSizeArray;
-        options.mPlane = meshioplusplus::detail::planar_plane_from_name(rPlane);
-        if (!rRootCells.isUndefined() && !rRootCells.isNull() &&
-            rRootCells["length"].as<unsigned>() == 3)
-            options.mRootCells = std::array<std::int64_t, 3>{
-                {static_cast<std::int64_t>(rRootCells[0].as<double>()),
-                 static_cast<std::int64_t>(rRootCells[1].as<double>()),
-                 static_cast<std::int64_t>(rRootCells[2].as<double>())}};
-        options.mMinLevel = static_cast<std::int64_t>(minLevel);
-        options.mMaxLevel = static_cast<std::int64_t>(maxLevel);
-        if (!rBounds.isUndefined() && !rBounds.isNull() && rBounds["length"].as<unsigned>() == 6) {
-            std::array<double, 6> b{};
-            for (unsigned i = 0; i < 6; ++i)
-                b[i] = rBounds[i].as<double>();
-            options.mBounds = b;
-        }
-        options.mPadding = padding;
-        options.mPaddingRelative = paddingRelative;
-        options.mDimension = static_cast<std::int64_t>(dimension);
-        options.mSampleDistance = sampleDistance;
-        options.mBalance = meshioplusplus::octree_balance_from_name(rBalance);
-        options.mFill = meshioplusplus::voxel_fill_from_name(rFill);
-        options.mDistance.mSign = meshioplusplus::sdf_sign_from_name(rSign);
-        options.mAttachDistance = attachDistance;
-        options.mEvenOdd = evenOdd;
-        options.mMaxCells = static_cast<std::int64_t>(maxCells);
-        options.mDistance.mWatertightCheck =
-            meshioplusplus::sdf_watertight_check_from_name(rWatertightCheck);
-
-        meshioplusplus::OctreeResult r = meshioplusplus::octree(val_to_mesh(rMeshObj), options);
-        val origin = val::array();
-        for (int i = 0; i < 3; ++i)
-            origin.call<void>("push", r.mOrigin[static_cast<std::size_t>(i)]);
-        val out = val::object();
-        out.set("mesh", mesh_to_val(r.mMesh));
-        out.set("dimension", static_cast<double>(r.mDimension));
-        out.set("numLeaves", static_cast<double>(r.mNumLeaves));
-        out.set("numHanging", static_cast<double>(r.mNumHanging));
-        out.set("finestLevel", static_cast<double>(r.mFinestLevel));
-        out.set("origin", origin);
-        out.set("rootSize", r.mRootSize);
-        out.set("numSnapped", static_cast<double>(r.mNumSnapped));
-        out.set("numRefused", static_cast<double>(r.mNumRefused));
-        return out;
-    });
-}
-
-/**
- * @brief Mesh the inside of a skin on a balanced octree: `octree_mesh`. See
- * operations/octree_mesh.hpp and doc/octree_mesh.md.
- *
- * @param rOptions `{output, minSize, maxSize, maxLevel, bounds, padding,
- *   paddingRelative, curvatureAngle, featureAngle, cornerAngle, featureSize,
- *   gapCells, gapOutside, sizeArray, surfaceRegion, gradingLayers,
- *   skinGrading, surfaceSize, windingThreshold, windingBeta, conformity,
- *   alphaLong, alphaShort, preserveFeatures, fitIterations,
- *   dihedralFloorGuard, fill, keepOutside, attachDistance, attachQuality,
- *   pillow, hexGrading, untangleIterations, maxCells, maxTets}`, every key optional
- *   (an unknown key is an error) and defaulting to `OctreeMeshOptions`;
- *   `output` is `'tet'`, `'castellated'` or `'hex'`, `skinGrading`
- *   `'graded'` or `'uniform'`, `conformity` `'stuffing'` or `'cleaving'`,
- *   `fill` `'inside'`, `'all'` or `'cover'`, `hexGrading` `'uniform'` or
- *   `'graded'`, `bounds` six numbers.
- * @return `mesh` and every scalar `OctreeMeshResult` field in camelCase, plus
- *   `rootCells`, `leavesPerLevel`, `origin`, `timings` (`[stage, seconds]`
- *   pairs) and `warnings` as arrays.
- */
-val octree_mesh_js(const val& rMeshObj, const val& rOptions) {
-    return with_js_errors([&]() -> val {
-        meshioplusplus::OctreeMeshOptions options;
-        if (!rOptions.isUndefined() && !rOptions.isNull()) {
-            check_settings_keys(rOptions, "the octreeMesh options",
-                                {"output",
-                                 "minSize",
-                                 "maxSize",
-                                 "maxLevel",
-                                 "bounds",
-                                 "padding",
-                                 "paddingRelative",
-                                 "curvatureAngle",
-                                 "featureAngle",
-                                 "cornerAngle",
-                                 "featureSize",
-                                 "gapCells",
-                                 "gapOutside",
-                                 "sizeArray",
-                                 "surfaceRegion",
-                                 "gradingLayers",
-                                 "skinGrading",
-                                 "surfaceSize",
-                                 "windingThreshold",
-                                 "windingBeta",
-                                 "conformity",
-                                 "alphaLong",
-                                 "alphaShort",
-                                 "preserveFeatures",
-                                 "fitIterations",
-                                 "dihedralFloorGuard",
-                                 "fill",
-                                 "keepOutside",
-                                 "attachDistance",
-                                 "attachQuality",
-                                 "pillow",
-                                 "hexGrading",
-                                 "untangleIterations",
-                                 "maxCells",
-                                 "maxTets"});
-            const auto has = [&](const char* pKey) {
-                return rOptions.hasOwnProperty(pKey) && !rOptions[pKey].isUndefined() &&
-                       !rOptions[pKey].isNull();
-            };
-            const auto number = [&](const char* pKey) { return rOptions[pKey].as<double>(); };
-            const auto integer = [&](const char* pKey) {
-                return static_cast<std::int64_t>(rOptions[pKey].as<double>());
-            };
-            const auto flag = [&](const char* pKey) { return rOptions[pKey].as<bool>(); };
-            const auto text = [&](const char* pKey) { return rOptions[pKey].as<std::string>(); };
-            if (has("output"))
-                options.mOutput = meshioplusplus::octree_mesh_output_from_name(text("output"));
-            if (has("minSize"))
-                options.mMinSize = number("minSize");
-            if (has("maxSize"))
-                options.mMaxSize = number("maxSize");
-            if (has("maxLevel"))
-                options.mMaxLevel = integer("maxLevel");
-            if (has("bounds")) {
-                const val bounds = rOptions["bounds"];
-                if (bounds["length"].as<unsigned>() != 6)
-                    throw std::invalid_argument(
-                        "meshio++: octree_mesh: bounds must be six numbers "
-                        "[xmin, ymin, zmin, xmax, ymax, zmax]");
-                std::array<double, 6> b{};
-                for (unsigned i = 0; i < 6; ++i)
-                    b[i] = bounds[i].as<double>();
-                options.mBounds = b;
-            }
-            if (has("padding"))
-                options.mPadding = number("padding");
-            if (has("paddingRelative"))
-                options.mPaddingRelative = number("paddingRelative");
-            if (has("curvatureAngle"))
-                options.mCurvatureAngle = number("curvatureAngle");
-            if (has("featureAngle"))
-                options.mFeatureAngle = number("featureAngle");
-            if (has("cornerAngle"))
-                options.mCornerAngle = number("cornerAngle");
-            if (has("featureSize"))
-                options.mFeatureSize = number("featureSize");
-            if (has("gapCells"))
-                options.mGapCells = number("gapCells");
-            if (has("gapOutside"))
-                options.mGapOutside = flag("gapOutside");
-            if (has("sizeArray"))
-                options.mSizeArray = text("sizeArray");
-            if (has("surfaceRegion"))
-                options.mSurfaceRegion = text("surfaceRegion");
-            if (has("gradingLayers"))
-                options.mGradingLayers = integer("gradingLayers");
-            if (has("skinGrading"))
-                options.mSkinGrading =
-                    meshioplusplus::octree_mesh_skin_grading_from_name(text("skinGrading"));
-            if (has("surfaceSize"))
-                options.mSurfaceSize = number("surfaceSize");
-            if (has("windingThreshold"))
-                options.mWindingThreshold = number("windingThreshold");
-            if (has("windingBeta"))
-                options.mWindingBeta = number("windingBeta");
-            if (has("conformity"))
-                options.mConformity =
-                    meshioplusplus::octree_mesh_conformity_from_name(text("conformity"));
-            if (has("alphaLong"))
-                options.mAlphaLong = number("alphaLong");
-            if (has("alphaShort"))
-                options.mAlphaShort = number("alphaShort");
-            if (has("preserveFeatures"))
-                options.mPreserveFeatures = flag("preserveFeatures");
-            if (has("fitIterations"))
-                options.mFitIterations = integer("fitIterations");
-            if (has("dihedralFloorGuard"))
-                options.mDihedralFloorGuard = flag("dihedralFloorGuard");
-            if (has("fill"))
-                options.mFill = meshioplusplus::octree_mesh_fill_from_name(text("fill"));
-            if (has("keepOutside"))
-                options.mKeepOutside = flag("keepOutside");
-            if (has("attachDistance"))
-                options.mAttachDistance = flag("attachDistance");
-            if (has("attachQuality"))
-                options.mAttachQuality = flag("attachQuality");
-            if (has("pillow"))
-                options.mPillow = flag("pillow");
-            if (has("hexGrading"))
-                options.mHexGrading =
-                    meshioplusplus::octree_mesh_hex_grading_from_name(text("hexGrading"));
-            if (has("untangleIterations"))
-                options.mUntangleIterations = integer("untangleIterations");
-            if (has("maxCells"))
-                options.mMaxCells = integer("maxCells");
-            if (has("maxTets"))
-                options.mMaxTets = integer("maxTets");
-        }
-
-        meshioplusplus::OctreeMeshResult r =
-            meshioplusplus::octree_mesh(val_to_mesh(rMeshObj), options);
-        val origin = val::array();
-        for (int i = 0; i < 3; ++i)
-            origin.call<void>("push", r.mOrigin[static_cast<std::size_t>(i)]);
-        val root_cells = val::array();
-        for (int i = 0; i < 3; ++i)
-            root_cells.call<void>("push",
-                                  static_cast<double>(r.mRootCells[static_cast<std::size_t>(i)]));
-        val leaves_per_level = val::array();
-        for (const std::int64_t n : r.mLeavesPerLevel)
-            leaves_per_level.call<void>("push", static_cast<double>(n));
-        val timings = val::array();
-        for (const auto& [stage, seconds] : r.mTimings) {
-            val pair = val::array();
-            pair.call<void>("push", stage);
-            pair.call<void>("push", seconds);
-            timings.call<void>("push", pair);
-        }
-        val warnings = val::array();
-        for (const std::string& w : r.mWarnings)
-            warnings.call<void>("push", w);
-
-        val out = val::object();
-        out.set("mesh", mesh_to_val(r.mMesh));
-        out.set("output", std::string(meshioplusplus::octree_mesh_output_name(r.mOutput)));
-        out.set("origin", origin);
-        out.set("rootSize", r.mRootSize);
-        out.set("rootCells", root_cells);
-        out.set("leavesPerLevel", leaves_per_level);
-        const std::pair<const char*, std::int64_t> counters[] = {
-            {"maxLevel", r.mMaxLevel},
-            {"finestLevel", r.mFinestLevel},
-            {"surfaceLevel", r.mSurfaceLevel},
-            {"numLeaves", r.mNumLeaves},
-            {"numPoints", r.mNumPoints},
-            {"numCells", r.mNumCells},
-            {"numHexahedra", r.mNumHexahedra},
-            {"numTetrahedra", r.mNumTetrahedra},
-            {"numInside", r.mNumInside},
-            {"numBoundaryCells", r.mNumBoundaryCells},
-            {"numSurrogateFaces", r.mNumSurrogateFaces},
-            {"numHanging", r.mNumHanging},
-            {"numCutPoints", r.mNumCutPoints},
-            {"numWarped", r.mNumWarped},
-            {"numWarpRefused", r.mNumWarpRefused},
-            {"numInverted", r.mNumInverted},
-            {"numBoundaryEdgesOpen", r.mNumBoundaryEdgesOpen},
-            {"numNonManifoldBoundaryEdges", r.mNumNonManifoldBoundaryEdges},
-            {"numCorners", r.mNumCorners},
-            {"numCornersSnapped", r.mNumCornersSnapped},
-            {"numFeatureChains", r.mNumFeatureChains},
-            {"numFeatureChainsMissed", r.mNumFeatureChainsMissed},
-            {"numFeatureMoves", r.mNumFeatureMoves},
-            {"numOptimizedMoves", r.mNumOptimizedMoves},
-            {"numFlips", r.mNumFlips},
-            {"numWindingRechecks", r.mNumWindingRechecks},
-            {"numWindingSkipped", r.mNumWindingSkipped},
-        };
-        for (const auto& [name, value] : counters)
-            out.set(name, static_cast<double>(value));
-        out.set("minSize", r.mMinSize);
-        out.set("maxSize", r.mMaxSize);
-        out.set("minDihedral", r.mMinDihedral);
-        out.set("maxDihedral", r.mMaxDihedral);
-        out.set("minScaledJacobian", r.mMinScaledJacobian);
-        out.set("hausdorffToSkin", r.mHausdorffToSkin);
-        out.set("guaranteeApplies", r.mGuaranteeApplies);
-        out.set("timings", timings);
-        out.set("warnings", warnings);
         return out;
     });
 }
@@ -4975,76 +4273,6 @@ val estimate_error_js(const val& rMeshObj, const std::string& rArray, const std:
     });
 }
 
-// error_size (roadmap 6.10.2): a per-point size field from a per-cell error
-// indicator (Zienkiewicz and Zhu 1987); options {targetError (required),
-// errorArray, order, minSize, maxSize, output, overwrite}.
-val error_size_js(const val& rMeshObj, const val& rOptions) {
-    return with_js_errors([&]() -> val {
-        if (rOptions.isUndefined() || rOptions.isNull() || !rOptions.hasOwnProperty("targetError"))
-            throw std::invalid_argument("meshio++: error_size: the options need 'targetError'");
-        check_settings_keys(
-            rOptions, "the errorSize options",
-            {"targetError", "errorArray", "order", "minSize", "maxSize", "output", "overwrite"});
-        meshioplusplus::ErrorSizeOptions o;
-        o.mTargetError = rOptions["targetError"].as<double>();
-        if (rOptions.hasOwnProperty("errorArray"))
-            o.mErrorArray = rOptions["errorArray"].as<std::string>();
-        if (rOptions.hasOwnProperty("order"))
-            o.mOrder = rOptions["order"].as<double>();
-        if (rOptions.hasOwnProperty("minSize"))
-            o.mMinSize = rOptions["minSize"].as<double>();
-        if (rOptions.hasOwnProperty("maxSize"))
-            o.mMaxSize = rOptions["maxSize"].as<double>();
-        if (rOptions.hasOwnProperty("output"))
-            o.mOutputName = rOptions["output"].as<std::string>();
-        if (rOptions.hasOwnProperty("overwrite"))
-            o.mOverwrite = rOptions["overwrite"].as<bool>();
-        meshioplusplus::ErrorSizeResult r = meshioplusplus::error_size(val_to_mesh(rMeshObj), o);
-        val out = val::object();
-        out.set("mesh", mesh_to_val(r.mMesh));
-        out.set("numCells", static_cast<double>(r.mNumCells));
-        out.set("numSkipped", static_cast<double>(r.mNumSkipped));
-        out.set("numClamped", static_cast<double>(r.mNumClamped));
-        out.set("minSize", r.mMinSize);
-        out.set("maxSize", r.mMaxSize);
-        return out;
-    });
-}
-
-// check_conformity (roadmap 3.2.1): hanging nodes, T-junctions, partly
-// overlapping and unwelded facets; options {tolerance, attachFlags}.
-val check_conformity_js(const val& rMeshObj, const val& rOptions) {
-    return with_js_errors([&]() -> val {
-        meshioplusplus::ConformityOptions o;
-        if (!rOptions.isUndefined() && !rOptions.isNull()) {
-            check_settings_keys(rOptions, "the checkConformity options",
-                                {"tolerance", "attachFlags"});
-            if (rOptions.hasOwnProperty("tolerance"))
-                o.mTolerance = rOptions["tolerance"].as<double>();
-            if (rOptions.hasOwnProperty("attachFlags"))
-                o.mAttachFlags = rOptions["attachFlags"].as<bool>();
-        }
-        meshioplusplus::ConformityResult r =
-            meshioplusplus::check_conformity(val_to_mesh(rMeshObj), o);
-        val out = val::object();
-        out.set("mesh", mesh_to_val(r.mMesh));
-        out.set("dimension", static_cast<double>(r.mDimension));
-        out.set("numHangingNodes", static_cast<double>(r.mNumHangingNodes));
-        out.set("numTJunctions", static_cast<double>(r.mNumTJunctions));
-        out.set("numPartialOverlaps", static_cast<double>(r.mNumPartialOverlaps));
-        out.set("numUnweldedFacets", static_cast<double>(r.mNumUnweldedFacets));
-        out.set("numBoundaryFacets", static_cast<double>(r.mNumBoundaryFacets));
-        out.set("numNonManifoldFacets", static_cast<double>(r.mNumNonManifoldFacets));
-        out.set("conforming", r.mConforming);
-        out.set("interfaceMode", r.mInterfaceMode);
-        val warnings = val::array();
-        for (const std::string& w : r.mWarnings)
-            warnings.call<void>("push", w);
-        out.set("warnings", warnings);
-        return out;
-    });
-}
-
 /**
  * Remesh a surface by approximated centroidal Voronoi diagram (ACVD)
  * clustering: replace its triangulation with a new, near-uniformly-sized,
@@ -5289,15 +4517,9 @@ val feature_edges_js(const val& rMeshObj, double featureAngle, bool feature, boo
  */
 val segment_js(const val& rMeshObj, double featureAngle, double normalTolerance,
                double curvatureTolerance, double minPatchCells, const std::string& rRegion,
-               const std::string& rPrefix, const std::string& rMethod, double tolerance) {
+               const std::string& rPrefix) {
     return with_js_errors([&]() -> val {
         meshioplusplus::SegmentOptions options;
-        if (rMethod == "primitive")
-            options.mMethod = meshioplusplus::SegmentMethod::Primitive;
-        else if (rMethod != "angle")
-            throw std::invalid_argument(
-                "meshio++: segment: the method must be 'angle' or 'primitive'");
-        options.mTolerance = tolerance;
         options.mFeatureAngleDeg = featureAngle;
         options.mNormalToleranceDeg = normalTolerance;
         options.mCurvatureTolerance = curvatureTolerance;
@@ -5360,200 +4582,32 @@ val fit_primitives_js(const val& rMeshObj, const std::string& rPatchData, double
     });
 }
 
-/// The `1 << FitPrimitiveType` mask of a JS array of primitive names.
-std::uint32_t js_fit_types(const val& rTypes, const char* pOp) {
-    static const char* const kNames[] = {"plane", "sphere", "cylinder", "cone", "torus"};
-    std::uint32_t mask = 0;
-    const unsigned n = rTypes["length"].as<unsigned>();
-    for (unsigned i = 0; i < n; ++i) {
-        const std::string name = rTypes[i].as<std::string>();
-        bool found = false;
-        for (int t = 0; t < 5; ++t)
-            if (name == kNames[t]) {
-                mask |= 1u << (t + 1);
-                found = true;
-            }
-        if (!found)
-            throw std::invalid_argument(std::string("meshio++: ") + pOp +
-                                        ": unknown primitive type '" + name + "'");
-    }
-    return mask;
-}
-
-/// A `ransacSeed`: a JS number holds an integer exactly only up to 2^53.
-std::uint64_t js_ransac_seed(const val& rSeed, const char* pOp) {
-    const double v = rSeed.as<double>();
-    if (!(v >= 0.0 && v <= 9007199254740992.0) || v != std::floor(v))
-        throw std::invalid_argument(std::string("meshio++: ") + pOp +
-                                    ": ransacSeed must be an integer in [0, 2^53]");
-    return static_cast<std::uint64_t>(v);
-}
-
-/// Why refinement stopped, as the reports name it.
-const char* js_refine_stop_name(meshioplusplus::RefineStop Stop) {
-    switch (Stop) {
-        case meshioplusplus::RefineStop::Unchanged:
-            return "unchanged";
-        case meshioplusplus::RefineStop::SmallGain:
-            return "small_gain";
-        case meshioplusplus::RefineStop::IterationCap:
-            return "iteration_cap";
-        case meshioplusplus::RefineStop::EnergyRose:
-            return "energy_rose";
-    }
-    return "unchanged";
-}
-
-/**
- * @brief Refine the `segment:patch` labels of a surface by variational shape
- * approximation: `refine_patches`. See operations/refine_patches.hpp. Needs
- * no OpenCASCADE, so both artifacts carry it.
- *
- * @param rOptions `{tolerance, relative, normalWeight, epsilon, featureAngle,
- *   maxIterations, minPatchCells, ransacSeed, types, allowSplit, allowMerge,
- *   prefix}`, every key optional; `ransacSeed` an integer in [0, 2^53].
- * @return `mesh` and every `RefinePatchesResult` counter in camelCase, `stop`
- *   one of `'unchanged'`, `'small_gain'`, `'iteration_cap'`, `'energy_rose'`.
- */
-val refine_patches_js(const val& rMeshObj, const val& rOptions) {
-    return with_js_errors([&]() -> val {
-        meshioplusplus::RefinePatchesOptions options;
-        if (!rOptions.isUndefined() && !rOptions.isNull()) {
-            check_settings_keys(rOptions, "the refinePatches options",
-                                {"tolerance", "relative", "normalWeight", "epsilon", "featureAngle",
-                                 "maxIterations", "minPatchCells", "ransacSeed", "types",
-                                 "allowSplit", "allowMerge", "prefix"});
-            const auto has = [&](const char* pKey) {
-                return rOptions.hasOwnProperty(pKey) && !rOptions[pKey].isUndefined();
-            };
-            if (has("tolerance"))
-                options.mTolerance = rOptions["tolerance"].as<double>();
-            if (has("relative"))
-                options.mRelative = rOptions["relative"].as<bool>();
-            if (has("normalWeight"))
-                options.mNormalWeight = rOptions["normalWeight"].as<double>();
-            if (has("epsilon"))
-                options.mEpsilon = rOptions["epsilon"].as<double>();
-            if (has("featureAngle"))
-                options.mFeatureAngleDeg = rOptions["featureAngle"].as<double>();
-            if (has("maxIterations"))
-                options.mMaxIterations =
-                    static_cast<std::int64_t>(rOptions["maxIterations"].as<double>());
-            if (has("minPatchCells"))
-                options.mMinPatchCells =
-                    static_cast<std::int64_t>(rOptions["minPatchCells"].as<double>());
-            if (has("ransacSeed"))
-                options.mRansacSeed = js_ransac_seed(rOptions["ransacSeed"], "refine_patches");
-            if (has("types"))
-                options.mTypes = js_fit_types(rOptions["types"], "refine_patches");
-            if (has("allowSplit"))
-                options.mAllowSplit = rOptions["allowSplit"].as<bool>();
-            if (has("allowMerge"))
-                options.mAllowMerge = rOptions["allowMerge"].as<bool>();
-            if (has("prefix"))
-                options.mPrefix = rOptions["prefix"].as<std::string>();
-        }
-        const meshioplusplus::RefinePatchesResult r =
-            meshioplusplus::refine_patches(val_to_mesh(rMeshObj), options);
-        val out = val::object();
-        out.set("mesh", mesh_to_val(r.mMesh));
-        const std::pair<const char*, std::int64_t> counters[] = {
-            {"numPatches", r.mNumPatches},   {"numIterations", r.mNumIterations},
-            {"numSplits", r.mNumSplits},     {"numMerges", r.mNumMerges},
-            {"numAbsorbed", r.mNumAbsorbed}, {"numPrimitive", r.mNumPrimitive},
-            {"numFreeform", r.mNumFreeform}, {"numFacets", r.mNumFacets},
-        };
-        for (const auto& [name, value] : counters)
-            out.set(name, static_cast<double>(value));
-        out.set("tolerance", r.mTolerance);
-        out.set("explainedAreaFraction", r.mExplainedAreaFraction);
-        out.set("initialExplainedAreaFraction", r.mInitialExplainedAreaFraction);
-        out.set("hausdorffMax", r.mHausdorffMax);
-        out.set("hausdorffRms", r.mHausdorffRms);
-        out.set("initialEnergy", r.mInitialEnergy);
-        out.set("energy", r.mEnergy);
-        out.set("stop", std::string(js_refine_stop_name(r.mStop)));
-        return out;
-    });
-}
-
 /**
  * @brief A CAD solid from the fitted patches of a closed skin: `fit_cad`. See
- * operations/fit_cad.hpp and doc/fit_cad.md. The full artifact links
- * OpenCASCADE; the lean one runs the kernel-free native backend (v17.9.0),
- * and `backend: 'occt'` throws there by name.
+ * operations/fit_cad.hpp and doc/fit_cad.md. Needs OpenCASCADE, so only the
+ * full artifact runs it; the lean one throws by name.
  *
  * @param rOptions `{stepPath, tolerance, exactEdges, types, meshDeflection,
  *   maxDemotionRounds, freeform, freeformDegree, freeformMaxControl,
- *   freeformSplit, fillets, threads, mergeFaces, backend, refineSegmentation,
- *   maxRefineIterations, refineEpsilon, normalWeight, allowMerge, allowSplit,
- *   ransacSeed, refineTolerance, relativeTolerance, freeformGeneral,
- *   freeformTolerance, freeformSmoothing, maxFreeformPoles,
- *   maxFreeformIterations, maxFreeformSplits, sewTolerance, extendSurfaces,
- *   snapJunctions, faceDeviation, the freeform-mode keys and
- *   constrainPrimitives}`, every key optional;
- *   `types` is an array of `'plane'`, `'sphere'`, `'cylinder'`, `'cone'`,
- *   `'torus'`, `backend` one of `'auto'`, `'occt'`, `'native'`; the
- *   `refine*` keys, `normalWeight`, `allow*` and `ransacSeed` set
- *   `FitCadOptions::mRefine`, used when `refineSegmentation` is true; the
- *   rest set the `FitCadOptions` members of the same name (v17.11.0).
+ *   freeformSplit, fillets, threads}`, every key optional; `types` is an
+ *   array of `'plane'`, `'sphere'`, `'cylinder'`, `'cone'`, `'torus'`.
  * @return every `FitCadResult` counter in camelCase, `mesh` (the solid
- *   re-meshed, with the `fit_cad:*` cell data, and with `faceDeviation` the
- *   `fit_cad:face_hausdorff` and `fit_cad:face_rms` field data) and `info`
- *   (its B-rep, in CAD JSON's shape, for `writeMesh(path, mesh, 'cad_json',
- *   {info})`).
+ *   re-meshed, with the `fit_cad:*` cell data) and `info` (its B-rep, in CAD
+ *   JSON's shape, for `writeMesh(path, mesh, 'cad_json', {info})`).
  */
 val fit_cad_js(const val& rMeshObj, const val& rOptions) {
     return with_js_errors([&]() -> val {
+        if (!meshioplusplus::fit_cad_has_occt())
+            throw meshioplusplus::Unsupported(
+                "meshio++: fitCad needs OpenCASCADE, which only the full artifact links: "
+                "loadMeshioPlusPlus({}, {full: true})");
         meshioplusplus::FitCadOptions options;
         std::string step_path;
         if (!rOptions.isUndefined() && !rOptions.isNull()) {
             check_settings_keys(rOptions, "the fitCad options",
-                                {"stepPath",
-                                 "tolerance",
-                                 "exactEdges",
-                                 "types",
-                                 "meshDeflection",
-                                 "maxDemotionRounds",
-                                 "freeform",
-                                 "freeformDegree",
-                                 "freeformMaxControl",
-                                 "freeformSplit",
-                                 "fillets",
-                                 "threads",
-                                 "mergeFaces",
-                                 "backend",
-                                 "refineSegmentation",
-                                 "maxRefineIterations",
-                                 "refineEpsilon",
-                                 "normalWeight",
-                                 "allowMerge",
-                                 "allowSplit",
-                                 "ransacSeed",
-                                 "refineTolerance",
-                                 "relativeTolerance",
-                                 "freeformGeneral",
-                                 "freeformTolerance",
-                                 "freeformSmoothing",
-                                 "maxFreeformPoles",
-                                 "maxFreeformIterations",
-                                 "maxFreeformSplits",
-                                 "sewTolerance",
-                                 "extendSurfaces",
-                                 "snapJunctions",
-                                 "faceDeviation",
-                                 "freeformMode",
-                                 "freeformParameterization",
-                                 "extraordinaryVertex",
-                                 "localRefine",
-                                 "freeformG1ToleranceDeg",
-                                 "freeformMaxControlPoints",
-                                 "layoutTargetPatchSize",
-                                 "layoutMaxValenceDeviation",
-                                 "resegmentRounds",
-                                 "layoutSnapToFeatures",
-                                 "validateBySurfaceSampling",
-                                 "constrainPrimitives"});
+                                {"stepPath", "tolerance", "exactEdges", "types", "meshDeflection",
+                                 "maxDemotionRounds", "freeform", "freeformDegree",
+                                 "freeformMaxControl", "freeformSplit", "fillets", "threads"});
             const auto has = [&](const char* pKey) {
                 return rOptions.hasOwnProperty(pKey) && !rOptions[pKey].isUndefined();
             };
@@ -5582,118 +4636,26 @@ val fit_cad_js(const val& rMeshObj, const val& rOptions) {
                 options.mFillets = rOptions["fillets"].as<bool>();
             if (has("threads"))
                 options.mThreads = rOptions["threads"].as<bool>();
-            if (has("mergeFaces"))
-                options.mMergeFaces = rOptions["mergeFaces"].as<bool>();
-            if (has("backend")) {
-                const std::string backend = rOptions["backend"].as<std::string>();
-                if (backend == "auto")
-                    options.mBackend = meshioplusplus::FitCadBackend::Auto;
-                else if (backend == "occt")
-                    options.mBackend = meshioplusplus::FitCadBackend::Occt;
-                else if (backend == "native")
-                    options.mBackend = meshioplusplus::FitCadBackend::Native;
-                else
-                    throw std::invalid_argument(
-                        "meshio++: fit_cad: backend must be 'auto', 'occt' or 'native'");
-            }
-            if (has("types"))
-                options.mTypes = js_fit_types(rOptions["types"], "fit_cad");
-            if (has("refineSegmentation"))
-                options.mRefineSegmentation = rOptions["refineSegmentation"].as<bool>();
-            if (has("maxRefineIterations"))
-                options.mRefine.mMaxIterations =
-                    static_cast<std::int64_t>(rOptions["maxRefineIterations"].as<double>());
-            if (has("refineEpsilon"))
-                options.mRefine.mEpsilon = rOptions["refineEpsilon"].as<double>();
-            if (has("normalWeight"))
-                options.mRefine.mNormalWeight = rOptions["normalWeight"].as<double>();
-            if (has("allowMerge"))
-                options.mRefine.mAllowMerge = rOptions["allowMerge"].as<bool>();
-            if (has("allowSplit"))
-                options.mRefine.mAllowSplit = rOptions["allowSplit"].as<bool>();
-            if (has("ransacSeed"))
-                options.mRefine.mRansacSeed = js_ransac_seed(rOptions["ransacSeed"], "fit_cad");
-            if (has("refineTolerance"))
-                options.mRefine.mTolerance = rOptions["refineTolerance"].as<double>();
-            if (has("relativeTolerance"))
-                options.mRefine.mRelative = rOptions["relativeTolerance"].as<bool>();
-            if (has("freeformGeneral"))
-                options.mFreeformGeneral = rOptions["freeformGeneral"].as<bool>();
-            if (has("freeformTolerance"))
-                options.mFreeformTolerance = rOptions["freeformTolerance"].as<double>();
-            if (has("freeformSmoothing"))
-                options.mFreeformSmoothing = rOptions["freeformSmoothing"].as<double>();
-            if (has("maxFreeformPoles"))
-                options.mMaxFreeformPoles =
-                    static_cast<std::int64_t>(rOptions["maxFreeformPoles"].as<double>());
-            if (has("maxFreeformIterations"))
-                options.mMaxFreeformIterations =
-                    static_cast<std::int64_t>(rOptions["maxFreeformIterations"].as<double>());
-            if (has("maxFreeformSplits"))
-                options.mMaxFreeformSplits =
-                    static_cast<std::int64_t>(rOptions["maxFreeformSplits"].as<double>());
-            if (has("sewTolerance"))
-                options.mSewTolerance = rOptions["sewTolerance"].as<double>();
-            if (has("extendSurfaces"))
-                options.mExtendSurfaces = rOptions["extendSurfaces"].as<bool>();
-            if (has("snapJunctions"))
-                options.mSnapJunctions = rOptions["snapJunctions"].as<bool>();
-            if (has("faceDeviation"))
-                options.mFaceDeviation = rOptions["faceDeviation"].as<bool>();
-            // The freeform modes (v17.12.0): keywords by position.
-            const auto keyword = [&](const char* pKey, std::initializer_list<const char*> Words) {
-                const std::string v = rOptions[pKey].as<std::string>();
-                std::int32_t i = 0;
-                std::string list;
-                for (const char* w : Words) {
-                    if (v == w)
-                        return i;
-                    list += (i ? ", '" : "'") + std::string(w) + "'";
-                    ++i;
+            if (has("types")) {
+                static const char* const kNames[] = {"plane", "sphere", "cylinder", "cone",
+                                                     "torus"};
+                const val types = rOptions["types"];
+                options.mTypes = 0;
+                const unsigned n = types["length"].as<unsigned>();
+                for (unsigned i = 0; i < n; ++i) {
+                    const std::string name = types[i].as<std::string>();
+                    bool found = false;
+                    for (int t = 0; t < 5; ++t)
+                        if (name == kNames[t]) {
+                            options.mTypes |= 1u << (t + 1);
+                            found = true;
+                        }
+                    if (!found)
+                        throw std::invalid_argument("meshio++: fit_cad: unknown primitive type '" +
+                                                    name + "'");
                 }
-                throw std::invalid_argument(std::string("meshio++: fit_cad: ") + pKey +
-                                            " must be one of " + list);
-            };
-            if (has("freeformMode"))
-                options.mFreeformMode = static_cast<meshioplusplus::FitCadFreeformMode>(
-                    keyword("freeformMode", {"legacy", "adaptive", "network", "auto"}));
-            if (has("freeformParameterization"))
-                options.mFreeformParameterization =
-                    static_cast<meshioplusplus::FitCadParameterization>(keyword(
-                        "freeformParameterization", {"auto", "projection", "lscm", "harmonic"}));
-            if (has("extraordinaryVertex"))
-                options.mExtraordinaryVertex =
-                    static_cast<meshioplusplus::FitCadExtraordinaryVertex>(
-                        keyword("extraordinaryVertex", {"g0", "g1", "g1x", "g1xx"}));
-            if (has("localRefine"))
-                options.mLocalRefine = static_cast<meshioplusplus::FitCadLocalRefine>(
-                    keyword("localRefine", {"knots", "thb"}));
-            if (has("freeformG1ToleranceDeg"))
-                options.mFreeformG1ToleranceDeg = rOptions["freeformG1ToleranceDeg"].as<double>();
-            if (has("freeformMaxControlPoints"))
-                options.mFreeformMaxControlPoints =
-                    static_cast<std::int64_t>(rOptions["freeformMaxControlPoints"].as<double>());
-            if (has("layoutTargetPatchSize"))
-                options.mLayoutTargetPatchSize = rOptions["layoutTargetPatchSize"].as<double>();
-            if (has("layoutMaxValenceDeviation"))
-                options.mLayoutMaxValenceDeviation =
-                    static_cast<std::int64_t>(rOptions["layoutMaxValenceDeviation"].as<double>());
-            if (has("resegmentRounds"))
-                options.mResegmentRounds =
-                    static_cast<std::int64_t>(rOptions["resegmentRounds"].as<double>());
-            if (has("layoutSnapToFeatures"))
-                options.mLayoutSnapToFeatures = rOptions["layoutSnapToFeatures"].as<bool>();
-            if (has("validateBySurfaceSampling"))
-                options.mValidateBySurfaceSampling =
-                    rOptions["validateBySurfaceSampling"].as<bool>();
-            if (has("constrainPrimitives"))
-                options.mConstrainPrimitives = rOptions["constrainPrimitives"].as<bool>();
+            }
         }
-        if (options.mBackend == meshioplusplus::FitCadBackend::Occt &&
-            !meshioplusplus::fit_cad_has_occt())
-            throw meshioplusplus::Unsupported(
-                "meshio++: fitCad's OpenCASCADE backend needs the full artifact: "
-                "loadMeshioPlusPlus({}, {full: true})");
         const meshioplusplus::FitCadResult r =
             meshioplusplus::fit_cad(val_to_mesh(rMeshObj), step_path, options);
         val out = val::object();
@@ -5729,82 +4691,10 @@ val fit_cad_js(const val& rMeshObj, const val& rOptions) {
             {"numConicBlend", r.mNumConicBlend},
             {"numTaperedThread", r.mNumTaperedThread},
             {"numVariablePitchThread", r.mNumVariablePitchThread},
-            {"refineIterations", r.mRefineIterations},
-            {"numRefineSplits", r.mNumRefineSplits},
-            {"numRefineMerges", r.mNumRefineMerges},
-            {"numFreeformGeneral", r.mNumFreeformGeneral},
-            {"numFreeformRefinements", r.mNumFreeformRefinements},
-            {"numExtendedEdges", r.mNumExtendedEdges},
-            {"numSnappedJunctions", r.mNumSnappedJunctions},
-            {"numFreeformAdaptive", r.mNumFreeformAdaptive},
-            {"numNetworkPatches", r.mNumNetworkPatches},
-            {"numNetworkEdges", r.mNumNetworkEdges},
-            {"numExtraordinaryVertices", r.mNumExtraordinaryVertices},
-            {"numResegmented", r.mNumResegmented},
-            {"numEscalations", r.mNumEscalations},
-            {"numConstrainedPrimitives", r.mNumConstrainedPrimitives},
-            {"numConstraintGroups", r.mNumConstraintGroups},
         };
         for (const auto& [name, value] : counters)
             out.set(name, static_cast<double>(value));
-        // The refinement's report: false and zeros when it did not run.
-        out.set("refined", r.mRefined);
-        out.set("refinementKept", r.mRefinementKept);
-        out.set("initialExplainedAreaFraction", r.mInitialExplainedAreaFraction);
-        out.set("explainedAreaFraction", r.mExplainedAreaFraction);
-        // The Phase 3 report (v17.11.0): zeros when an option is off, and the
-        // Hausdorff distances NaN unless `faceDeviation` measured them.
-        out.set("avgFreeformPoles", r.mAvgFreeformPoles);
-        out.set("hausdorffMax", r.mHausdorffMax);
-        out.set("hausdorffRms", r.mHausdorffRms);
-        out.set("closed", r.mClosed);
-        // The freeform-mode report (v17.12.0); `faces` outside the legacy mode.
-        static const char* const kModes[] = {"legacy", "adaptive", "network", "auto"};
-        static const char* const kParams[] = {"none", "plane",     "cylinder",
-                                              "lscm", "meanValue", "square"};
-        static const char* const kReasons[] = {"none",
-                                               "paramNotInjective",
-                                               "hausdorffExceeded",
-                                               "trimFailed",
-                                               "sewFailed",
-                                               "brepCheckFailed",
-                                               "tooSmall",
-                                               "nonDisc",
-                                               "kernelMeshCoarse",
-                                               "budgetExceeded",
-                                               "other"};
-        out.set("brepChecked", r.mBrepChecked);
-        out.set("freeformMode", std::string(kModes[static_cast<int>(r.mFreeformMode) & 3]));
-        out.set("facetAreaFraction", r.mFacetAreaFraction);
-        out.set("maxG1AngleDeg", r.mMaxG1AngleDeg);
-        out.set("maxFreeformDistance", r.mMaxFreeformDistance);
-        out.set("rmsFreeformDistance", r.mRmsFreeformDistance);
-        if (r.mFreeformMode != meshioplusplus::FitCadFreeformMode::Legacy) {
-            val faces = val::array();
-            for (std::size_t i = 0; i < r.mFaces.size(); ++i) {
-                const meshioplusplus::FitCadFaceRecord& f = r.mFaces[i];
-                val o = val::object();
-                o.set("patch", static_cast<double>(f.mPatch));
-                o.set("face", static_cast<double>(f.mFace));
-                o.set("kind", static_cast<double>(f.mKind));
-                o.set("paramMethod", std::string(kParams[static_cast<int>(f.mParamMethod)]));
-                o.set("numCtrl", static_cast<double>(f.mNumControl));
-                o.set("iterations", static_cast<double>(f.mIterations));
-                o.set("refinements", static_cast<double>(f.mRefinements));
-                o.set("maxDist", f.mMaxDist);
-                o.set("rmsDist", f.mRmsDist);
-                o.set("reverseMaxDist", f.mReverseMaxDist);
-                o.set("maxG1AngleDeg", f.mMaxG1AngleDeg);
-                o.set("escalationSteps", static_cast<double>(f.mEscalationSteps));
-                o.set("demotionReason", std::string(kReasons[static_cast<int>(f.mDemotionReason)]));
-                faces.set(static_cast<unsigned>(i), o);
-            }
-            out.set("faces", faces);
-        }
         out.set("info", brep_info_to_val(r.mBrep));
-        out.set(
-            "backend",
-            std::string(r.mBackend == meshioplusplus::FitCadBackend::Native ? "native" : "occt"));
         return out;
     });
 }
@@ -5848,8 +4738,7 @@ std::array<std::int32_t, 3> iga_js_triple(const val& rOptions, const char* pKey,
         throw std::invalid_argument(std::string("meshio++: iga: '") + pKey +
                                     "' must be a number or one to three numbers");
     for (std::size_t d = 0; d < 3; ++d)
-        out[d] =
-            static_cast<std::int32_t>(v[static_cast<unsigned>(std::min(d, n - 1))].as<double>());
+        out[d] = static_cast<std::int32_t>(v[static_cast<unsigned>(std::min(d, n - 1))].as<double>());
     return out;
 }
 
@@ -5903,356 +4792,14 @@ val iga_sample_js(const val& rInfo, const val& rOptions) {
         val out = val::object();
         if (fmt == "mfem") {
             meshioplusplus::NurbsInfo mapped;
-            out.set("mesh",
-                    mesh_to_val(meshioplusplus::iga_sample(val_to_nurbs_info(rInfo), so, &mapped)));
+            out.set("mesh", mesh_to_val(meshioplusplus::iga_sample(val_to_nurbs_info(rInfo), so,
+                                                                   &mapped)));
             out.set("info", nurbs_info_to_val(mapped));
         } else {
             const meshioplusplus::BrepInfo brep = val_to_brep_info(rInfo);
             out.set("mesh", mesh_to_val(meshioplusplus::iga_sample(brep, so)));
             out.set("info", brep_info_to_val(brep));
         }
-        return out;
-    });
-}
-
-// Mesh generation from CAD (v17.13.0): `meshCadSurface` triangulates the faces
-// of the B-rep side-channel object `readMeshSelective(path, {info: true}).info`
-// of a Kratos CAD JSON file (or STEP/IGES in the full build). See
-// operations/mesh_cad.hpp and doc/mesh_cad.md.
-val mesh_cad_surface_js(const val& rInfo, const val& rOptions) {
-    return with_js_errors([&]() -> val {
-        if (rInfo.isUndefined() || rInfo.isNull() || !rInfo.hasOwnProperty("faces"))
-            throw std::invalid_argument(
-                "meshio++: mesh_cad_surface: the info object is not a B-rep (no 'faces')");
-        if (rOptions.isUndefined() || rOptions.isNull())
-            throw std::invalid_argument(
-                "meshio++: mesh_cad_surface: the options need 'targetSize'");
-        check_settings_keys(rOptions, "the meshCadSurface options",
-                            {"targetSize",
-                             "maxChordalDeviation",
-                             "minPointsPerEdge",
-                             "tolerance",
-                             "recordFaceIds",
-                             "edges",
-                             "matchUnreferencedTrims",
-                             "strict",
-                             "maxPoints",
-                             "minAngle",
-                             "smoothIterations",
-                             "smoothMethod",
-                             "order",
-                             "grading",
-                             "curvatureDeviation",
-                             "cellsAcrossGaps",
-                             "poleRings",
-                             "faceSizes",
-                             "edgeSizes",
-                             "background",
-                             "backgroundArray",
-                             "metric",
-                             "virtualEdges",
-                             "reparamConditionNumber",
-                             "modelTolerances",
-                             "virtualFaces",
-                             "lopCorners",
-                             "metricBackground",
-                             "metricArray",
-                             "metricError",
-                             "untangle",
-                             "quads",
-                             "quadPairs"});
-        const auto has = [&](const char* pKey) {
-            return rOptions.hasOwnProperty(pKey) && !rOptions[pKey].isUndefined() &&
-                   !rOptions[pKey].isNull();
-        };
-        meshioplusplus::MeshCadSurfaceOptions o;
-        if (has("targetSize"))
-            o.mTargetSize = rOptions["targetSize"].as<double>();
-        if (has("maxChordalDeviation"))
-            o.mMaxChordalDeviation = rOptions["maxChordalDeviation"].as<double>();
-        if (has("minPointsPerEdge"))
-            o.mMinPointsPerEdge =
-                static_cast<std::int64_t>(rOptions["minPointsPerEdge"].as<double>());
-        if (has("tolerance"))
-            o.mGeometricTolerance = rOptions["tolerance"].as<double>();
-        if (has("recordFaceIds"))
-            o.mRecordFaceIds = rOptions["recordFaceIds"].as<bool>();
-        if (has("edges"))
-            o.mEdges = rOptions["edges"].as<bool>();
-        if (has("matchUnreferencedTrims"))
-            o.mMatchUnreferencedTrims = rOptions["matchUnreferencedTrims"].as<bool>();
-        if (has("strict"))
-            o.mStrict = rOptions["strict"].as<bool>();
-        if (has("maxPoints"))
-            o.mMaxPoints = static_cast<std::int64_t>(rOptions["maxPoints"].as<double>());
-        if (has("minAngle"))
-            o.mMinAngleDeg = rOptions["minAngle"].as<double>();
-        if (has("smoothIterations"))
-            o.mSmoothIterations =
-                static_cast<std::int64_t>(rOptions["smoothIterations"].as<double>());
-        if (has("smoothMethod")) {
-            const std::string m = rOptions["smoothMethod"].as<std::string>();
-            if (m == "laplacian")
-                o.mSmoothMethod = meshioplusplus::MeshCadSmoothing::Laplacian;
-            else if (m == "odt")
-                o.mSmoothMethod = meshioplusplus::MeshCadSmoothing::Odt;
-            else
-                throw std::invalid_argument(
-                    "meshio++: mesh_cad_surface: smoothMethod must be 'laplacian' or 'odt'");
-        }
-        if (has("order")) {
-            const double order = rOptions["order"].as<double>();
-            if (order != 1.0 && order != 2.0 && order != 3.0)
-                throw std::invalid_argument("meshio++: mesh_cad_surface: order must be 1, 2 or 3");
-            o.mOrder = static_cast<std::int32_t>(order);
-        }
-        if (has("grading"))
-            o.mGrading = rOptions["grading"].as<double>();
-        if (has("curvatureDeviation"))
-            o.mCurvatureDeviation = rOptions["curvatureDeviation"].as<double>();
-        if (has("cellsAcrossGaps"))
-            o.mCellsAcrossGaps = rOptions["cellsAcrossGaps"].as<double>();
-        if (has("poleRings"))
-            o.mPoleRings = static_cast<std::int32_t>(rOptions["poleRings"].as<double>());
-        if (has("metric")) {
-            const std::string m = rOptions["metric"].as<std::string>();
-            if (m == "mean")
-                o.mMetric = meshioplusplus::MeshCadMetric::Mean;
-            else if (m == "varying")
-                o.mMetric = meshioplusplus::MeshCadMetric::Varying;
-            else
-                throw std::invalid_argument(
-                    "meshio++: mesh_cad_surface: metric must be 'mean' or 'varying'");
-        }
-        // Given sizes (v17.19.0): an object {index: size} (0-based indices).
-        meshioplusplus::MeshCadSizeSources sources;
-        const auto pairs = [&](const char* pKey) {
-            std::vector<std::pair<std::int64_t, double>> v;
-            if (!has(pKey))
-                return v;
-            const val keys = val::global("Object").call<val>("keys", rOptions[pKey]);
-            const unsigned n = keys["length"].as<unsigned>();
-            for (unsigned i = 0; i < n; ++i) {
-                const std::string k = keys[i].as<std::string>();
-                v.emplace_back(std::stoll(k), rOptions[pKey][k].as<double>());
-            }
-            return v;
-        };
-        sources.mFaceSizes = pairs("faceSizes");
-        sources.mEdgeSizes = pairs("edgeSizes");
-        if (has("virtualEdges"))
-            sources.mVirtualEdges = rOptions["virtualEdges"].as<bool>();
-        meshioplusplus::Mesh background;
-        if (has("background")) {
-            background = val_to_mesh(rOptions["background"]);
-            sources.pBackground = &background;
-            sources.mBackgroundArray =
-                has("backgroundArray") ? rOptions["backgroundArray"].as<std::string>() : "size";
-        }
-        // A metric from a field's Hessian (roadmap 6.10.2).
-        meshioplusplus::Mesh metric_background;
-        if (has("metricBackground")) {
-            metric_background = val_to_mesh(rOptions["metricBackground"]);
-            sources.pMetricBackground = &metric_background;
-        }
-        if (has("metricArray"))
-            sources.mMetricArray = rOptions["metricArray"].as<std::string>();
-        if (has("metricError"))
-            sources.mMetricError = rOptions["metricError"].as<double>();
-        // v17.20.0: the reparametrisation, model tolerances and virtual faces.
-        if (has("reparamConditionNumber"))
-            o.mReparamConditionNumber = rOptions["reparamConditionNumber"].as<double>();
-        meshioplusplus::MeshCadSurfaceExtras extras;
-        if (has("modelTolerances"))
-            extras.mModelTolerances = rOptions["modelTolerances"].as<bool>();
-        if (has("virtualFaces"))
-            extras.mVirtualFaces = rOptions["virtualFaces"].as<bool>();
-        if (has("lopCorners"))
-            extras.mLopCorners = rOptions["lopCorners"].as<bool>();
-        // Roadmap 6.6.3 and 6.8.
-        if (has("untangle"))
-            extras.mUntangle = rOptions["untangle"].as<bool>();
-        if (has("quads")) {
-            const std::string q = rOptions["quads"].as<std::string>();
-            if (q == "none")
-                extras.mQuads = meshioplusplus::MeshCadQuads::None;
-            else if (q == "dominant")
-                extras.mQuads = meshioplusplus::MeshCadQuads::Dominant;
-            else if (q == "all")
-                extras.mQuads = meshioplusplus::MeshCadQuads::All;
-            else
-                throw std::invalid_argument(
-                    "meshio++: mesh_cad_surface: quads must be 'none', 'dominant' or 'all'");
-        }
-        // Roadmap 6.8.1.
-        if (has("quadPairs")) {
-            const std::string q = rOptions["quadPairs"].as<std::string>();
-            if (q == "matching")
-                extras.mQuadPairs = meshioplusplus::MeshCadQuadPairs::Matching;
-            else if (q == "greedy")
-                extras.mQuadPairs = meshioplusplus::MeshCadQuadPairs::Greedy;
-            else
-                throw std::invalid_argument(
-                    "meshio++: mesh_cad_surface: quadPairs must be 'matching' or 'greedy'");
-        }
-        meshioplusplus::MeshCadSizeReport size_report;
-        meshioplusplus::MeshCadSurfaceExtrasReport extras_report;
-        meshioplusplus::MeshCadSurfaceResult r = meshioplusplus::mesh_cad_surface(
-            val_to_brep_info(rInfo), o, sources, extras, &size_report, &extras_report);
-        val out = val::object();
-        out.set("mesh", mesh_to_val(r.mMesh));
-        out.set("numPoints", static_cast<double>(r.mNumPoints));
-        out.set("numTriangles", static_cast<double>(r.mNumTriangles));
-        out.set("numEdgeSegments", static_cast<double>(r.mNumEdgeSegments));
-        out.set("numFaces", static_cast<double>(r.mNumFaces));
-        out.set("numFailed", static_cast<double>(r.mNumFailed));
-        out.set("numEdges", static_cast<double>(r.mNumEdges));
-        out.set("numOpenEdges", static_cast<double>(r.mNumOpenEdges));
-        out.set("numNonManifoldEdges", static_cast<double>(r.mNumNonManifoldEdges));
-        out.set("numMisorientedEdges", static_cast<double>(r.mNumMisorientedEdges));
-        out.set("numDegenerateDropped", static_cast<double>(r.mNumDegenerateDropped));
-        out.set("tolerance", r.mTolerance);
-        out.set("minAngleDeg", r.mMinAngleDeg);
-        out.set("maxAngleDeg", r.mMaxAngleDeg);
-        out.set("minEdge", r.mMinEdge);
-        out.set("maxEdge", r.mMaxEdge);
-        out.set("maxEdgeGap", r.mMaxEdgeGap);
-        val faces = val::array();
-        for (std::size_t i = 0; i < r.mFaces.size(); ++i) {
-            const meshioplusplus::MeshCadFaceRecord& f = r.mFaces[i];
-            val d = val::object();
-            d.set("face", static_cast<double>(f.mFace));
-            d.set("id", static_cast<double>(f.mId));
-            d.set("status", std::string(meshioplusplus::mesh_cad_face_status_name(f.mStatus)));
-            d.set("reason", f.mReason);
-            d.set("numTriangles", static_cast<double>(f.mNumTriangles));
-            d.set("numInteriorPoints", static_cast<double>(f.mNumInteriorPoints));
-            d.set("numDegenerateDropped", static_cast<double>(f.mNumDegenerateDropped));
-            d.set("minAngleDeg", f.mMinAngleDeg);
-            d.set("maxAngleDeg", f.mMaxAngleDeg);
-            d.set("minEdge", f.mMinEdge);
-            d.set("maxEdge", f.mMaxEdge);
-            d.set("numRefinementPoints", static_cast<double>(f.mNumRefinementPoints));
-            d.set("numSmoothed", static_cast<double>(f.mNumSmoothed));
-            d.set("minInputAngleDeg", f.mMinInputAngleDeg);
-            d.set("belowBound", f.mBelowBound);
-            d.set("boundDeg", f.mBoundDeg);
-            val corners = val::array();
-            for (std::size_t k = 0; k < f.mSmallAngleCorners.size(); ++k) {
-                const meshioplusplus::MeshCadCorner& c = f.mSmallAngleCorners[k];
-                val cv = val::object();
-                cv.set("face", static_cast<double>(c.mFace));
-                cv.set("point", static_cast<double>(c.mPoint));
-                cv.set("u", c.mU);
-                cv.set("v", c.mV);
-                val x = val::array();
-                for (unsigned j = 0; j < 3; ++j)
-                    x.set(j, c.mX[j]);
-                cv.set("x", x);
-                cv.set("angleDeg", c.mAngleDeg);
-                cv.set("minForcedDeg", c.mMinForcedDeg);
-                cv.set("reach", c.mReach);
-                cv.set("pole", c.mPole);
-                corners.set(static_cast<unsigned>(k), cv);
-            }
-            d.set("corners", corners);
-            val limits = val::array();
-            if (i < size_report.mLimitedByEdges.size())
-                for (std::size_t k = 0; k < size_report.mLimitedByEdges[i].size(); ++k)
-                    limits.set(static_cast<unsigned>(k),
-                               static_cast<double>(size_report.mLimitedByEdges[i][k]));
-            d.set("limitedByEdges", limits);
-            faces.set(static_cast<unsigned>(i), d);
-        }
-        out.set("faces", faces);
-        out.set("numRefinementPoints", static_cast<double>(r.mNumRefinementPoints));
-        out.set("numFacesBelowBound", static_cast<double>(r.mNumFacesBelowBound));
-        out.set("numSmoothed", static_cast<double>(r.mNumSmoothed));
-        out.set("numCurvedStraightened", static_cast<double>(r.mNumCurvedStraightened));
-        val histogram = val::array();
-        for (std::size_t b = 0; b < r.mAngleHistogram.size(); ++b)
-            histogram.set(static_cast<unsigned>(b), static_cast<double>(r.mAngleHistogram[b]));
-        out.set("angleHistogram", histogram);
-        val warnings = val::array();
-        for (std::size_t i = 0; i < r.mWarnings.size(); ++i)
-            warnings.set(static_cast<unsigned>(i), r.mWarnings[i]);
-        out.set("warnings", warnings);
-        val virtual_edges = val::array();
-        for (std::size_t i = 0; i < size_report.mVirtualEdges.size(); ++i) {
-            val chain = val::array();
-            for (std::size_t k = 0; k < size_report.mVirtualEdges[i].size(); ++k)
-                chain.set(static_cast<unsigned>(k),
-                          static_cast<double>(size_report.mVirtualEdges[i][k]));
-            virtual_edges.set(static_cast<unsigned>(i), chain);
-        }
-        out.set("virtualEdges", virtual_edges);
-        val reparametrised = val::array();
-        for (std::size_t i = 0; i < extras_report.mReparametrised.size(); ++i) {
-            const auto& r_f = extras_report.mReparametrised[i];
-            val d = val::object();
-            d.set("face", static_cast<double>(r_f.mFace));
-            d.set("conditionNumber", r_f.mConditionNumber);
-            d.set("conditionNumberDisc", r_f.mConditionNumberDisc);
-            d.set("taken", r_f.mTaken);
-            d.set("method", std::string(r_f.mMethod == 1   ? "conformal"
-                                        : r_f.mMethod == 2 ? "mean_value"
-                                        : r_f.mMethod == 3 ? "annulus"
-                                                           : "none"));
-            d.set("reason", r_f.mReason);
-            reparametrised.set(static_cast<unsigned>(i), d);
-        }
-        out.set("reparametrised", reparametrised);
-        val merged = val::array();
-        for (std::size_t i = 0; i < extras_report.mMergedFaces.size(); ++i) {
-            const auto& r_m = extras_report.mMergedFaces[i];
-            val d = val::object();
-            d.set("sliver", static_cast<double>(r_m.mSliver));
-            d.set("host", static_cast<double>(r_m.mHost));
-            d.set("width", r_m.mWidth);
-            val shared = val::array();
-            for (std::size_t k = 0; k < r_m.mEdges.size(); ++k)
-                shared.set(static_cast<unsigned>(k), static_cast<double>(r_m.mEdges[k]));
-            d.set("edges", shared);
-            d.set("merged", r_m.mMerged);
-            d.set("reason", r_m.mReason);
-            merged.set(static_cast<unsigned>(i), d);
-        }
-        out.set("mergedFaces", merged);
-        val tolerance_uses = val::array();
-        for (std::size_t i = 0; i < extras_report.mToleranceUses.size(); ++i) {
-            const auto& r_t = extras_report.mToleranceUses[i];
-            val d = val::object();
-            d.set("edge", static_cast<double>(r_t.mEdge));
-            d.set("declared", r_t.mDeclared);
-            d.set("gap", r_t.mGap);
-            d.set("where", r_t.mWhere);
-            tolerance_uses.set(static_cast<unsigned>(i), d);
-        }
-        out.set("toleranceUses", tolerance_uses);
-        val lopped = val::array();
-        for (std::size_t i = 0; i < extras_report.mLoppedCorners.size(); ++i) {
-            const auto& r_c = extras_report.mLoppedCorners[i];
-            val d = val::object();
-            d.set("face", static_cast<double>(r_c.mFace));
-            d.set("point", static_cast<double>(r_c.mPoint));
-            d.set("angleDeg", r_c.mAngleDeg);
-            d.set("lfs0", r_c.mLfs0);
-            d.set("lopRadius", r_c.mLopRadius);
-            d.set("turningDeg", r_c.mTurningDeg);
-            d.set("statedBoundDeg", r_c.mStatedBoundDeg);
-            d.set("numForced", static_cast<double>(r_c.mNumForced));
-            d.set("minForcedDeg", r_c.mMinForcedDeg);
-            d.set("withinTwoRadii", r_c.mWithinTwoRadii);
-            d.set("guaranteed", r_c.mGuaranteed);
-            d.set("reason", r_c.mReason);
-            lopped.set(static_cast<unsigned>(i), d);
-        }
-        out.set("loppedCorners", lopped);
-        out.set("numUntangled", static_cast<double>(extras_report.mNumUntangled));
-        out.set("numQuads", static_cast<double>(extras_report.mNumQuads));
-        out.set("numLeftoverTriangles", static_cast<double>(extras_report.mNumLeftoverTriangles));
-        out.set("minQuadScaledJacobian", extras_report.mMinQuadScaledJacobian);
-        out.set("minMetricAngle", extras_report.mMinMetricAngleDeg);
         return out;
     });
 }
@@ -7848,322 +6395,6 @@ val conservative_interpolate_js(const val& rSourceObj, const val& rTargetObj, co
  * true, recordLevels: true})`); `coarse` must be the mesh that call was run
  * on. Returns `{ mesh, numGroupsUndone, numCellsRemoved }`.
  */
-// boundary_layer (roadmap 6.9): prisms grown from a surface; options
-// {firstHeight (required), numLayers, growth, reverse, collisionFraction,
-// smoothIterations, maxShrink, collapse ("points" | "layers"),
-// normalSmoothIterations, frontCheck}.
-val boundary_layer_js(const val& rMeshObj, const val& rOptions) {
-    return with_js_errors([&]() -> val {
-        if (rOptions.isUndefined() || rOptions.isNull() || !rOptions.hasOwnProperty("firstHeight"))
-            throw std::invalid_argument("meshio++: boundary_layer: the options need 'firstHeight'");
-        check_settings_keys(
-            rOptions, "the boundaryLayer options",
-            {"firstHeight", "numLayers", "growth", "reverse", "collisionFraction",
-             "smoothIterations", "maxShrink", "collapse", "normalSmoothIterations", "frontCheck"});
-        meshioplusplus::BoundaryLayerOptions o;
-        o.mFirstHeight = rOptions["firstHeight"].as<double>();
-        if (rOptions.hasOwnProperty("numLayers"))
-            o.mNumLayers = rOptions["numLayers"].as<int>();
-        if (rOptions.hasOwnProperty("growth"))
-            o.mGrowth = rOptions["growth"].as<double>();
-        if (rOptions.hasOwnProperty("reverse"))
-            o.mReverse = rOptions["reverse"].as<bool>();
-        if (rOptions.hasOwnProperty("collisionFraction"))
-            o.mCollisionFraction = rOptions["collisionFraction"].as<double>();
-        if (rOptions.hasOwnProperty("smoothIterations"))
-            o.mSmoothIterations = rOptions["smoothIterations"].as<int>();
-        if (rOptions.hasOwnProperty("maxShrink"))
-            o.mMaxShrink = rOptions["maxShrink"].as<int>();
-        if (rOptions.hasOwnProperty("collapse")) {
-            const std::string c = rOptions["collapse"].as<std::string>();
-            if (c == "points")
-                o.mCollapse = meshioplusplus::BoundaryLayerCollapse::Points;
-            else if (c == "layers")
-                o.mCollapse = meshioplusplus::BoundaryLayerCollapse::Layers;
-            else
-                throw std::invalid_argument(
-                    "meshio++: boundary_layer: collapse must be 'points' or 'layers', not '" + c +
-                    "'");
-        }
-        if (rOptions.hasOwnProperty("normalSmoothIterations"))
-            o.mNormalSmoothIterations = rOptions["normalSmoothIterations"].as<int>();
-        if (rOptions.hasOwnProperty("frontCheck"))
-            o.mFrontCheck = rOptions["frontCheck"].as<bool>();
-        meshioplusplus::BoundaryLayerResult r =
-            meshioplusplus::boundary_layer(val_to_mesh(rMeshObj), o);
-        val out = val::object();
-        out.set("mesh", mesh_to_val(r.mMesh));
-        out.set("numCells", static_cast<double>(r.mNumCells));
-        out.set("numWedges", static_cast<double>(r.mNumWedges));
-        out.set("numHexahedra", static_cast<double>(r.mNumHexahedra));
-        out.set("numPyramids", static_cast<double>(r.mNumPyramids));
-        out.set("numTetrahedra", static_cast<double>(r.mNumTetrahedra));
-        out.set("numShrunk", static_cast<double>(r.mNumShrunk));
-        out.set("numCollapsed", static_cast<double>(r.mNumCollapsed));
-        out.set("numNotVisible", static_cast<double>(r.mNumNotVisible));
-        out.set("numFewerLayers", static_cast<double>(r.mNumFewerLayers));
-        out.set("numFrontCrossings", static_cast<double>(r.mNumFrontCrossings));
-        out.set("minScaledJacobian", r.mMinScaledJacobian);
-        out.set("minThickness", r.mMinThickness);
-        out.set("maxThickness", r.mMaxThickness);
-        out.set("capClosed", r.mCapClosed);
-        val warnings = val::array();
-        for (const std::string& w : r.mWarnings)
-            warnings.call<void>("push", w);
-        out.set("warnings", warnings);
-        return out;
-    });
-}
-
-// A JS array of three numbers, for the sweep and mirror options.
-std::array<double, 3> js_vec3(const val& rV, const char* pWhat) {
-    if (rV["length"].as<unsigned>() != 3)
-        throw std::invalid_argument(std::string("meshio++: ") + pWhat + " must have 3 entries");
-    return {rV[0].as<double>(), rV[1].as<double>(), rV[2].as<double>()};
-}
-
-val sweep_result_js(meshioplusplus::SweepResult& rR, bool Revolve) {
-    val out = val::object();
-    out.set("mesh", mesh_to_val(rR.mMesh));
-    out.set("numCells", static_cast<double>(rR.mNumCells));
-    out.set("numHexahedra", static_cast<double>(rR.mNumHexahedra));
-    out.set("numWedges", static_cast<double>(rR.mNumWedges));
-    out.set("numPyramids", static_cast<double>(rR.mNumPyramids));
-    out.set("numTetrahedra", static_cast<double>(rR.mNumTetrahedra));
-    out.set("numQuads", static_cast<double>(rR.mNumQuads));
-    out.set("numTriangles", static_cast<double>(rR.mNumTriangles));
-    out.set("numFlipped", static_cast<double>(rR.mNumFlipped));
-    if (Revolve) {
-        out.set("numOnAxis", static_cast<double>(rR.mNumOnAxis));
-        out.set("full", rR.mFull);
-    }
-    out.set("minScaledJacobian", rR.mMinScaledJacobian);
-    val warnings = val::array();
-    for (const std::string& w : rR.mWarnings)
-        warnings.call<void>("push", w);
-    out.set("warnings", warnings);
-    return out;
-}
-
-// extrude (roadmap 3.1.2): a surface swept into a volume (a curve into a
-// surface) along a vector; options {direction, numLayers, ratio, offsets,
-// recordLayers, maxCells}, all optional.
-val extrude_js(const val& rMeshObj, const val& rOptions) {
-    return with_js_errors([&]() -> val {
-        meshioplusplus::ExtrudeOptions o;
-        if (!rOptions.isUndefined() && !rOptions.isNull()) {
-            check_settings_keys(rOptions, "the extrude options",
-                                {"direction", "numLayers", "ratio", "offsets", "recordLayers",
-                                 "maxCells"});
-            if (rOptions.hasOwnProperty("direction"))
-                o.mDirection = js_vec3(rOptions["direction"], "extrude: direction");
-            if (rOptions.hasOwnProperty("numLayers"))
-                o.mNumLayers = rOptions["numLayers"].as<int>();
-            if (rOptions.hasOwnProperty("ratio"))
-                o.mRatio = rOptions["ratio"].as<double>();
-            if (rOptions.hasOwnProperty("offsets")) {
-                const val offs = rOptions["offsets"];
-                const unsigned n = offs["length"].as<unsigned>();
-                for (unsigned i = 0; i < n; ++i)
-                    o.mOffsets.push_back(offs[i].as<double>());
-            }
-            if (rOptions.hasOwnProperty("recordLayers"))
-                o.mRecordLayers = rOptions["recordLayers"].as<bool>();
-            if (rOptions.hasOwnProperty("maxCells"))
-                o.mMaxCells = static_cast<std::int64_t>(rOptions["maxCells"].as<double>());
-        }
-        meshioplusplus::SweepResult r = meshioplusplus::extrude(val_to_mesh(rMeshObj), o);
-        return sweep_result_js(r, false);
-    });
-}
-
-// revolve (roadmap 3.1.3): the same around an axis; options {axis, axisPoint,
-// angle (degrees), numLayers, tolerance, recordLayers, maxCells}.
-val revolve_js(const val& rMeshObj, const val& rOptions) {
-    return with_js_errors([&]() -> val {
-        meshioplusplus::RevolveOptions o;
-        if (!rOptions.isUndefined() && !rOptions.isNull()) {
-            check_settings_keys(rOptions, "the revolve options",
-                                {"axis", "axisPoint", "angle", "numLayers", "tolerance",
-                                 "recordLayers", "maxCells"});
-            if (rOptions.hasOwnProperty("axis"))
-                o.mAxis = js_vec3(rOptions["axis"], "revolve: axis");
-            if (rOptions.hasOwnProperty("axisPoint"))
-                o.mAxisPoint = js_vec3(rOptions["axisPoint"], "revolve: axisPoint");
-            if (rOptions.hasOwnProperty("angle"))
-                o.mAngle = rOptions["angle"].as<double>();
-            if (rOptions.hasOwnProperty("numLayers"))
-                o.mNumLayers = rOptions["numLayers"].as<int>();
-            if (rOptions.hasOwnProperty("tolerance"))
-                o.mTolerance = rOptions["tolerance"].as<double>();
-            if (rOptions.hasOwnProperty("recordLayers"))
-                o.mRecordLayers = rOptions["recordLayers"].as<bool>();
-            if (rOptions.hasOwnProperty("maxCells"))
-                o.mMaxCells = static_cast<std::int64_t>(rOptions["maxCells"].as<double>());
-        }
-        meshioplusplus::SweepResult r = meshioplusplus::revolve(val_to_mesh(rMeshObj), o);
-        return sweep_result_js(r, true);
-    });
-}
-
-// mirror (roadmap 3.2.5): reflect across a plane, every cell right side out;
-// options {origin, normal, keepOriginal, weld, tolerance, reflectVectorData}.
-val mirror_js(const val& rMeshObj, const val& rOptions) {
-    return with_js_errors([&]() -> val {
-        meshioplusplus::MirrorOptions o;
-        if (!rOptions.isUndefined() && !rOptions.isNull()) {
-            check_settings_keys(rOptions, "the mirror options",
-                                {"origin", "normal", "keepOriginal", "weld", "tolerance",
-                                 "reflectVectorData"});
-            if (rOptions.hasOwnProperty("origin"))
-                o.mOrigin = js_vec3(rOptions["origin"], "mirror: origin");
-            if (rOptions.hasOwnProperty("normal"))
-                o.mNormal = js_vec3(rOptions["normal"], "mirror: normal");
-            if (rOptions.hasOwnProperty("keepOriginal"))
-                o.mKeepOriginal = rOptions["keepOriginal"].as<bool>();
-            if (rOptions.hasOwnProperty("weld"))
-                o.mWeld = rOptions["weld"].as<bool>();
-            if (rOptions.hasOwnProperty("tolerance"))
-                o.mTolerance = rOptions["tolerance"].as<double>();
-            if (rOptions.hasOwnProperty("reflectVectorData"))
-                o.mReflectVectorData = rOptions["reflectVectorData"].as<bool>();
-        }
-        meshioplusplus::MirrorResult r = meshioplusplus::mirror(val_to_mesh(rMeshObj), o);
-        val out = val::object();
-        out.set("mesh", mesh_to_val(r.mMesh));
-        out.set("numFlippedCells", static_cast<double>(r.mNumFlippedCells));
-        out.set("numPointsOnPlane", static_cast<double>(r.mNumPointsOnPlane));
-        out.set("numDroppedCells", static_cast<double>(r.mNumDroppedCells));
-        out.set("numDroppedSides", static_cast<double>(r.mNumDroppedSides));
-        val warnings = val::array();
-        for (const std::string& w : r.mWarnings)
-            warnings.call<void>("push", w);
-        out.set("warnings", warnings);
-        return out;
-    });
-}
-
-// tetrahedralize (roadmap 6.7): tetrahedra filling a closed triangle surface;
-// options {backend ("auto" | "netgen" | "octree"), maxSize, maxVolume,
-// grading, optimizeSteps, maxCells, faceArray}, all optional. No WebAssembly
-// build of Netgen exists (`hasNetgen()` is false), so "auto" is the native
-// octree backend, its boundary fitted, and "netgen" throws naming
-// MESHIOPLUSPLUS_WITH_NETGEN.
-val tetrahedralize_js(const val& rMeshObj, const val& rOptions) {
-    return with_js_errors([&]() -> val {
-        meshioplusplus::TetrahedralizeOptions o;
-        if (!rOptions.isUndefined() && !rOptions.isNull()) {
-            check_settings_keys(rOptions, "the tetrahedralize options",
-                                {"backend", "maxSize", "maxVolume", "grading", "optimizeSteps",
-                                 "maxCells", "faceArray"});
-            if (rOptions.hasOwnProperty("backend")) {
-                const std::string b = rOptions["backend"].as<std::string>();
-                if (b == "auto")
-                    o.mBackend = meshioplusplus::TetrahedralizeBackend::Auto;
-                else if (b == "netgen")
-                    o.mBackend = meshioplusplus::TetrahedralizeBackend::Netgen;
-                else if (b == "octree")
-                    o.mBackend = meshioplusplus::TetrahedralizeBackend::Octree;
-                else
-                    throw std::invalid_argument(
-                        "meshio++: tetrahedralize: backend must be 'auto', 'netgen' or 'octree', "
-                        "not '" +
-                        b + "'");
-            }
-            if (rOptions.hasOwnProperty("maxSize"))
-                o.mMaxSize = rOptions["maxSize"].as<double>();
-            if (rOptions.hasOwnProperty("maxVolume"))
-                o.mMaxVolume = rOptions["maxVolume"].as<double>();
-            if (rOptions.hasOwnProperty("grading"))
-                o.mGrading = rOptions["grading"].as<double>();
-            if (rOptions.hasOwnProperty("optimizeSteps"))
-                o.mOptimizeSteps = rOptions["optimizeSteps"].as<int>();
-            if (rOptions.hasOwnProperty("maxCells"))
-                o.mMaxCells = static_cast<std::int64_t>(rOptions["maxCells"].as<double>());
-            if (rOptions.hasOwnProperty("faceArray"))
-                o.mFaceArray = rOptions["faceArray"].as<std::string>();
-        }
-        meshioplusplus::TetrahedralizeResult r =
-            meshioplusplus::tetrahedralize(val_to_mesh(rMeshObj), o);
-        val out = val::object();
-        out.set("mesh", mesh_to_val(r.mMesh));
-        out.set("numTetrahedra", static_cast<double>(r.mNumTetrahedra));
-        out.set("numPoints", static_cast<double>(r.mNumPoints));
-        out.set("numNewPoints", static_cast<double>(r.mNumNewPoints));
-        out.set("numRegions", static_cast<double>(r.mNumRegions));
-        out.set("numBoundaryTriangles", static_cast<double>(r.mNumBoundaryTriangles));
-        out.set("boundaryPreserved", r.mBoundaryPreserved);
-        out.set("hausdorffToSurface", r.mHausdorffToSurface);
-        out.set("minDihedralDeg", r.mMinDihedralDeg);
-        out.set("maxDihedralDeg", r.mMaxDihedralDeg);
-        out.set("volume", r.mVolume);
-        out.set("backend", r.mBackend);
-        val warnings = val::array();
-        for (const std::string& w : r.mWarnings)
-            warnings.call<void>("push", w);
-        out.set("warnings", warnings);
-        return out;
-    });
-}
-
-/// Whether tetrahedralize's Netgen backend is linked in: never in a
-/// WebAssembly build (the octree backend always is).
-bool has_netgen_js() {
-    return meshioplusplus::tetrahedralize_has_netgen();
-}
-
-// The MMG backend (roadmap 3.2): never in either WebAssembly artifact until
-// the port of roadmap 3.2.8, so the MMG operations are not bound here.
-bool has_mmg_js() {
-    return meshioplusplus::mmg_available();
-}
-
-// project_to_cad (roadmap 6.10.1): every point of a mesh onto the CAD face or
-// edge its cells name; options {faceArray, edgeArray, maxDistance,
-// trimSamples}, all optional.
-val project_to_cad_js(const val& rMeshObj, const val& rInfo, const val& rOptions) {
-    return with_js_errors([&]() -> val {
-        if (rInfo.isUndefined() || rInfo.isNull() || !rInfo.hasOwnProperty("faces"))
-            throw std::invalid_argument(
-                "meshio++: project_to_cad: the info object is not a B-rep (no 'faces')");
-        meshioplusplus::ProjectToCadOptions o;
-        if (!rOptions.isUndefined() && !rOptions.isNull()) {
-            check_settings_keys(rOptions, "the projectToCad options",
-                                {"faceArray", "edgeArray", "maxDistance", "trimSamples"});
-            if (rOptions.hasOwnProperty("faceArray"))
-                o.mFaceArray = rOptions["faceArray"].as<std::string>();
-            if (rOptions.hasOwnProperty("edgeArray"))
-                o.mEdgeArray = rOptions["edgeArray"].as<std::string>();
-            if (rOptions.hasOwnProperty("maxDistance"))
-                o.mMaxDistance = rOptions["maxDistance"].as<double>();
-            if (rOptions.hasOwnProperty("trimSamples"))
-                o.mTrimSamples = rOptions["trimSamples"].as<int>();
-        }
-        meshioplusplus::ProjectToCadResult r =
-            meshioplusplus::project_to_cad(val_to_mesh(rMeshObj), val_to_brep_info(rInfo), o);
-        val out = val::object();
-        out.set("mesh", mesh_to_val(r.mMesh));
-        out.set("numProjected", static_cast<double>(r.mNumProjected));
-        out.set("numOnEdges", static_cast<double>(r.mNumOnEdges));
-        out.set("numOnCurves", static_cast<double>(r.mNumOnCurves));
-        out.set("numCorners", static_cast<double>(r.mNumCorners));
-        out.set("numAmbiguous", static_cast<double>(r.mNumAmbiguous));
-        out.set("numTooFar", static_cast<double>(r.mNumTooFar));
-        out.set("numFailed", static_cast<double>(r.mNumFailed));
-        out.set("numOutsideTrim", static_cast<double>(r.mNumOutsideTrim));
-        out.set("maxMove", r.mMaxMove);
-        val outside = val::array();
-        for (const std::int64_t i : r.mOutsideTrim)
-            outside.call<void>("push", static_cast<double>(i));
-        out.set("outsideTrim", outside);
-        val warnings = val::array();
-        for (const std::string& w : r.mWarnings)
-            warnings.call<void>("push", w);
-        out.set("warnings", warnings);
-        return out;
-    });
-}
-
 val undo_green_js(const val& rCoarseObj, const val& rFineObj) {
     return with_js_errors([&]() -> val {
         meshioplusplus::UndoGreenResult r =
@@ -8612,7 +6843,6 @@ EMSCRIPTEN_BINDINGS(meshioplusplus_wasm) {
     emscripten::function("parallelBackend", &parallel_backend_js);
     emscripten::function("hasCgnslib", &has_cgnslib_js);
     emscripten::function("hasOcct", &has_occt_js);
-    emscripten::function("hasKahip", &has_kahip_js);
     emscripten::function("hasZstd", &has_zstd_js);
     emscripten::function("hasLz4", &has_lz4_js);
     emscripten::function("hasBzip2", &has_bzip2_js);
@@ -8636,43 +6866,7 @@ EMSCRIPTEN_BINDINGS(meshioplusplus_wasm) {
     emscripten::function("slice", &slice_js);
     emscripten::function("isosurface", &isosurface_js);
     emscripten::function("grid", &grid_js);
-    emscripten::function("rectangle", &rectangle_js);
-    emscripten::function("box", &box_js);
-    emscripten::function("disk", &disk_js);
-    emscripten::function("uvSphere", &uv_sphere_js);
-    emscripten::function("icosaSphere", &icosa_sphere_js);
-    emscripten::function("cylinder", &cylinder_js);
-    emscripten::function("referenceTriangle", &reference_triangle_js);
-    emscripten::function("ngon", &ngon_js);
-    emscripten::function("annulus", &annulus_js);
-    emscripten::function("lshape", &lshape_js);
-    emscripten::function("plateWithHole", &plate_with_hole_js);
-    emscripten::function("honeycomb", &honeycomb_js);
-    emscripten::function("referenceCells", &reference_cells_js);
-    emscripten::function("line", &line_js);
-    emscripten::function("circle", &circle_js);
-    emscripten::function("helix", &helix_js);
-    emscripten::function("spherePoints", &sphere_points_js);
-    emscripten::function("boxPoints", &box_points_js);
-    emscripten::function("tetraSphere", &tetra_sphere_js);
-    emscripten::function("octaSphere", &octa_sphere_js);
-    emscripten::function("cubeSphere", &cube_sphere_js);
-    emscripten::function("geoSphere", &geo_sphere_js);
-    emscripten::function("torus", &torus_js);
-    emscripten::function("moebius", &moebius_js);
-    emscripten::function("tube", &tube_js);
-    emscripten::function("cone", &cone_js);
-    emscripten::function("capsule", &capsule_js);
-    emscripten::function("boxSurface", &box_surface_js);
-    emscripten::function("platonic", &platonic_js);
-    emscripten::function("ball", &ball_js);
-    emscripten::function("sphericalShell", &spherical_shell_js);
-    emscripten::function("pipe", &pipe_js);
-    emscripten::function("fichera", &fichera_js);
-    emscripten::function("solidTorus", &solid_torus_js);
     emscripten::function("voxelize", &voxelize_js);
-    emscripten::function("octree", &octree_js);
-    emscripten::function("octreeMesh", &octree_mesh_js);
     emscripten::function("surfaceWatertightCheck", &surface_watertight_check_js);
     emscripten::function("sampleDistance", &sample_distance_js);
     emscripten::function("distanceToSurface", &distance_to_surface_js);
@@ -8680,8 +6874,6 @@ EMSCRIPTEN_BINDINGS(meshioplusplus_wasm) {
     emscripten::function("gradient", &gradient_js);
     emscripten::function("hessian", &hessian_js);
     emscripten::function("estimateError", &estimate_error_js);
-    emscripten::function("errorSize", &error_size_js);
-    emscripten::function("checkConformity", &check_conformity_js);
     emscripten::function("remesh", &remesh_js);
     emscripten::function("remeshVolume", &remesh_volume_js);
     emscripten::function("optimizeVolume", &optimize_volume_js);
@@ -8691,19 +6883,9 @@ EMSCRIPTEN_BINDINGS(meshioplusplus_wasm) {
     emscripten::function("segment", &segment_js);
     emscripten::function("fitPrimitives", &fit_primitives_js);
     emscripten::function("fitCad", &fit_cad_js);
-    emscripten::function("refinePatches", &refine_patches_js);
     emscripten::function("tessellate", &tessellate_js);
     emscripten::function("igaRefine", &iga_refine_js);
     emscripten::function("igaSample", &iga_sample_js);
-    emscripten::function("meshCadSurface", &mesh_cad_surface_js);
-    emscripten::function("projectToCad", &project_to_cad_js);
-    emscripten::function("boundaryLayer", &boundary_layer_js);
-    emscripten::function("extrude", &extrude_js);
-    emscripten::function("revolve", &revolve_js);
-    emscripten::function("mirror", &mirror_js);
-    emscripten::function("tetrahedralize", &tetrahedralize_js);
-    emscripten::function("hasNetgen", &has_netgen_js);
-    emscripten::function("hasMmg", &has_mmg_js);
     emscripten::function("igaEvaluate", &iga_evaluate_js);
     emscripten::function("render", &render_js);
     emscripten::function("renderText", &render_text_js);

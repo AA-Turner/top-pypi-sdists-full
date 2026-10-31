@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 import os
+import stat
+import sys
 import tarfile
 from abc import ABC
 from collections import defaultdict
@@ -156,12 +158,14 @@ class Pep517VenvPackager(PythonPackageToxEnv, ABC):
             keys=["meta_dir"],
             of_type=Path,
             default=lambda conf, name: self.env_dir / ".meta",  # ruff:ignore[unused-lambda-argument]
+            post_process=self._relative_to_tox_root,
             desc="directory where to put the project metadata files",
         )
         self.conf.add_config(
             keys=["pkg_dir"],
             of_type=Path,
             default=lambda conf, name: self.env_dir / "dist",  # ruff:ignore[unused-lambda-argument]
+            post_process=self._relative_to_tox_root,
             desc="directory where to put project packages",
         )
         for key in ("sdist", "wheel", "editable"):
@@ -196,8 +200,23 @@ class Pep517VenvPackager(PythonPackageToxEnv, ABC):
     @property
     def meta_folder(self) -> Path:
         meta_folder = self.conf.get("meta_dir", Path)
+        # the build frontend empties this folder before each metadata build, which would wipe a link's target
+        if meta_folder.is_symlink() or (
+            sys.platform == "win32" and meta_folder.exists() and self._is_windows_junction(meta_folder)
+        ):
+            msg = f"{meta_folder} is a link where the package metadata should live; delete it"
+            raise Fail(msg)
         meta_folder.mkdir(exist_ok=True)
         return meta_folder
+
+    @staticmethod
+    def _is_windows_junction(path: Path) -> bool:
+        # Linux type stubs omit the Windows-only stat fields.
+        return (
+            isinstance(reparse_tag := getattr(path.lstat(), "st_reparse_tag", None), int)
+            and isinstance(junction_tag := getattr(stat, "IO_REPARSE_TAG_MOUNT_POINT", None), int)
+            and reparse_tag == junction_tag
+        )
 
     @property
     def meta_folder_if_populated(self) -> Path | None:
@@ -276,17 +295,19 @@ class Pep517VenvPackager(PythonPackageToxEnv, ABC):
             config_settings = self.conf.get_optional("config_settings_get_requires_for_build_sdist", dict[str, Any])
             sdist_requires = self._frontend.get_requires_for_build_sdist(config_settings=config_settings).requires
             deps = [*self.requires(), *sdist_requires, *deps]
-            package: Package = EditableLegacyPackage(self.core["tox_root"], deps)  # the folder itself is the package
+            package: Package = EditableLegacyPackage(self.root, deps)
         elif of_type == "sdist":
             self.setup()
             with self._pkg_lock:
                 config_settings = self.conf["config_settings_build_sdist"]
                 sdist = self._frontend.build_sdist(sdist_directory=self.pkg_dir, config_settings=config_settings).sdist
-                sdist = create_session_view(sdist, self._package_temp_path)
+                sdist = create_session_view(sdist, self._package_temp_path, self.core["tox_root"])
                 self._package_paths.add(sdist)
                 package = SdistPackage(sdist, deps, config_settings=self.conf["config_settings_build_wheel"])
         elif of_type == "sdist-wheel":
-            wheel = create_session_view(self._build_wheel_via_sdist(for_env), self._package_temp_path)
+            wheel = create_session_view(
+                self._build_wheel_via_sdist(for_env), self._package_temp_path, self.core["tox_root"]
+            )
             self._package_paths.add(wheel)
             package = WheelPackage(wheel, deps)
         elif of_type in {"wheel", "editable"}:
@@ -310,7 +331,7 @@ class Pep517VenvPackager(PythonPackageToxEnv, ABC):
                         metadata_directory=self.meta_folder_if_populated,
                         config_settings=config_settings,
                     ).wheel
-                    wheel = create_session_view(wheel, self._package_temp_path)
+                    wheel = create_session_view(wheel, self._package_temp_path, self.core["tox_root"])
                     self._package_paths.add(wheel)
                 package = (EditablePackage if of_type == "editable" else WheelPackage)(wheel, deps)
         else:  # pragma: no cover # for when we introduce new packaging types and don't implement
@@ -389,7 +410,7 @@ class Pep517VenvPackager(PythonPackageToxEnv, ABC):
         return deps
 
     def _load_deps_from_static(self, for_env: EnvConfigSet) -> list[Requirement] | None:
-        return resolve_extras_static(self.core.get("package_root", Path), for_env.get("extras", set[str]))
+        return resolve_extras_static(self.root, for_env.get("extras", set[str]))
 
     def _load_deps_from_built_metadata(self, for_env: EnvConfigSet) -> list[Requirement]:
         # dependencies might depend on the python environment we're running in => if we build a wheel use that env
@@ -579,5 +600,7 @@ def _assert_outcome(outcome: Outcome | None) -> None:
 
 __all__ = [
     "Pep517VenvPackager",
+    "Pep517VirtualEnvFrontend",
     "Pep517VirtualEnvPackager",
+    "ToxBackendFailed",
 ]

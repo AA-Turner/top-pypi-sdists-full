@@ -21,6 +21,7 @@ import yaml
 
 from lithops import constants as c
 from lithops.config import (
+    _check_loopback_addresses,
     _ensure_lithops_section,
     _resolve_mode_and_backend,
     _section_with_user_agent,
@@ -290,6 +291,13 @@ class TestResolveModeAndBackend:
         assert backend is None
         assert mode == c.SERVERLESS
 
+    def test_an_empty_mode_section_uses_the_default_backend(self):
+        # 'standalone:' with no body in the YAML file loads as None
+        cfg = {'lithops': {'mode': c.STANDALONE}, c.STANDALONE: None}
+        backend, mode = _resolve_mode_and_backend(cfg)
+        assert backend == c.STANDALONE_BACKEND_DEFAULT
+        assert mode == c.STANDALONE
+
     def test_empty_string_backend_is_treated_as_missing(self):
         cfg = {'lithops': {'mode': c.LOCALHOST, 'backend': ''}}
         backend, mode = _resolve_mode_and_backend(cfg)
@@ -554,6 +562,74 @@ class TestDefaultConfig:
             default_config(config_data=_localhost_input(monitoring='azure_queue'))
 
 
+class TestLoopbackAddresses:
+
+    @staticmethod
+    def _config(mode, storage, monitoring, **sections):
+        backend = 'aws_ec2' if mode == 'standalone' else 'aws_lambda'
+        lithops_cfg = {'mode': mode, 'backend': backend, 'storage': storage, 'monitoring': monitoring}
+        return {'lithops': lithops_cfg, **sections}
+
+
+    @pytest.mark.parametrize('storage, monitoring, sections', [
+        ('aws_s3', 'redis', {'redis': {'host': '127.0.0.1'}}),
+        ('aws_s3', 'redis', {'redis': {'host': '::1'}}),
+        ('aws_s3', 'rabbitmq', {'rabbitmq': {'amqp_url': 'amqp://user:pass@localhost:5672/vhost'}}),
+        ('minio', 'storage', {'minio': {'endpoint': 'http://127.0.0.1:9000'}}),
+        ('redis', 'storage', {'redis': {'host': 'localhost:6379'}}),
+    ])
+    def test_serverless_workers_refuse_a_loopback_address(self, storage, monitoring, sections):
+        """A serverless worker would reach its own container, so the job cannot work"""
+        config = self._config('serverless', storage, monitoring, **sections)
+        with pytest.raises(Exception, match='is a loopback address, which the aws_lambda workers cannot reach'):
+            _check_loopback_addresses(config)
+
+    def test_standalone_workers_only_warn(self):
+        """An SSH tunnel can bring the service to the loopback address of the VM"""
+        config = self._config('standalone', 'aws_s3', 'redis', redis={'host': '127.0.0.1'})
+        with patch('lithops.config.logger') as logger:
+            _check_loopback_addresses(config)
+        assert 'is a loopback address, which the aws_ec2 workers only reach if' in logger.warning.call_args[0][0]
+
+    def test_singularity_workers_only_warn(self):
+        """Its containers share the network of the host, which can be this one"""
+        with patch('lithops.config.logger') as logger:
+            default_config(config_data={
+                'lithops': {'backend': 'singularity', 'storage': 'redis', 'monitoring': 'rabbitmq'},
+                'rabbitmq': {'amqp_url': 'amqp://guest@localhost:5672'},
+                'redis': {'host': 'redis.example.com'},
+            })
+        assert any(
+            'which the singularity workers only reach if' in call.args[0]
+            for call in logger.warning.call_args_list
+        )
+
+    def test_default_config_checks_the_addresses(self):
+        # Backends whose modules import no SDK beyond the tests extra
+        def config(redis_host):
+            return {
+                'lithops': {'backend': 'openwhisk', 'storage': 'redis'},
+                'openwhisk': {'endpoint': 'https://openwhisk.example.com', 'namespace': 'ns', 'api_key': 'key'},
+                'redis': {'host': redis_host},
+            }
+
+        with pytest.raises(Exception, match='is a loopback address, which the openwhisk workers cannot reach'):
+            default_config(config_data=config('127.0.0.1'))
+        cfg = default_config(config_data=config('redis.example.com'))
+        assert cfg['lithops']['mode'] == c.SERVERLESS
+
+    @pytest.mark.parametrize('mode, host', [
+        ('localhost', '127.0.0.1'),
+        ('serverless', '10.0.0.5'),
+        ('standalone', 'redis.example.com'),
+    ])
+    def test_a_reachable_address_is_accepted(self, mode, host):
+        config = self._config(mode, 'aws_s3', 'redis', redis={'host': host})
+        with patch('lithops.config.logger') as logger:
+            _check_loopback_addresses(config)
+        logger.warning.assert_not_called()
+
+
 class TestStorageAndExtract:
 
     def test_default_storage_config_localhost(self):
@@ -639,3 +715,69 @@ class TestStorageAndExtract:
         extracted = extract_standalone_config(cfg)
         extracted['exec_mode'] = 'consume'
         assert cfg[c.STANDALONE]['exec_mode'] == 'reuse'
+
+
+class TestGceProjectFallback:
+    @pytest.fixture(autouse=True)
+    def _need_gcp(self):
+        pytest.importorskip('googleapiclient')
+        pytest.importorskip('google_auth_httplib2')
+
+    @pytest.mark.parametrize('mode', ['create', 'reuse', 'consume'])
+    def test_project_from_credentials(self, tmp_path, mode):
+        from lithops.standalone.backends.gcp_compute_engine.config import load_config
+        path = tmp_path / 'credentials.json'
+        path.write_text(json.dumps({'project_id': 'credentials-project'}))
+        cfg = {
+            'gcp': {'credentials_path': str(path)},
+            'gcp_compute_engine': {'zone': 'us-east1-b', 'instance_name': 'vm'},
+            'standalone': {'exec_mode': mode},
+        }
+        load_config(cfg)
+        assert cfg['gcp_compute_engine']['project_name'] == 'credentials-project'
+
+    @pytest.mark.parametrize('section', ['gcp', 'gcp_compute_engine'])
+    def test_explicit_project_wins(self, section):
+        from lithops.standalone.backends.gcp_compute_engine.config import load_config
+        cfg = {'gcp': {}, 'gcp_compute_engine': {'zone': 'us-east1-b'}}
+        cfg[section]['project_name'] = 'explicit-project'
+        with patch('google.auth.default') as adc:
+            load_config(cfg)
+        assert cfg['gcp_compute_engine']['project_name'] == 'explicit-project'
+        adc.assert_not_called()
+
+    def test_backend_project_overrides_shared_project(self):
+        from lithops.standalone.backends.gcp_compute_engine.config import load_config
+        cfg = {
+            'gcp': {'project_name': 'shared'},
+            'gcp_compute_engine': {'zone': 'us-east1-b', 'project_name': 'backend'},
+        }
+        load_config(cfg)
+        assert cfg['gcp_compute_engine']['project_name'] == 'backend'
+
+    def test_project_from_adc(self, monkeypatch):
+        from lithops.standalone.backends.gcp_compute_engine.config import load_config
+        monkeypatch.delenv('GOOGLE_APPLICATION_CREDENTIALS', raising=False)
+        cfg = {'gcp_compute_engine': {'zone': 'us-east1-b'}}
+        with patch('google.auth.default', return_value=(MagicMock(), 'adc-project')):
+            load_config(cfg)
+        assert cfg['gcp_compute_engine']['project_name'] == 'adc-project'
+
+    def test_credentials_from_environment_and_home_expansion(self, tmp_path, monkeypatch):
+        from lithops.standalone.backends.gcp_compute_engine.config import load_config
+        monkeypatch.setenv('HOME', str(tmp_path))
+        monkeypatch.setenv('GOOGLE_APPLICATION_CREDENTIALS', '~/credentials.json')
+        path = tmp_path / 'credentials.json'
+        path.write_text(json.dumps({'project_id': 'env-project'}))
+        cfg = {'gcp_compute_engine': {'zone': 'us-east1-b'}}
+        load_config(cfg)
+        assert cfg['gcp_compute_engine']['project_name'] == 'env-project'
+        assert cfg['gcp_compute_engine']['credentials_path'] == str(path)
+
+    def test_no_resolvable_project_still_raises(self, monkeypatch):
+        from lithops.standalone.backends.gcp_compute_engine.config import load_config
+        monkeypatch.delenv('GOOGLE_APPLICATION_CREDENTIALS', raising=False)
+        cfg = {'gcp_compute_engine': {'zone': 'us-east1-b'}}
+        with patch('google.auth.default', return_value=(MagicMock(), None)):
+            with pytest.raises(Exception, match='project_name'):
+                load_config(cfg)

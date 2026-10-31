@@ -247,17 +247,19 @@ def _host_pattern(pattern: str) -> re.Pattern[str] | None:
     return re.compile(regex)
 
 
-def _match_provider(
+def _matching_providers(
     allowed: Sequence[str], providers: Sequence[Mapping[str, Any]]
-) -> dict[str, Any] | None:
+) -> list[dict[str, Any]]:
+    """Every provider serving an allowed host, in discovery order."""
     patterns = [
         compiled for compiled in map(_host_pattern, allowed) if compiled is not None
     ]
+    matching = []
     for provider in providers:
         hosts = [str(host).lower() for host in provider.get("hosts", [])]
         if any(pattern.fullmatch(host) for pattern in patterns for host in hosts):
-            return dict(provider)
-    return None
+            matching.append(dict(provider))
+    return matching
 
 
 def _resolve_manifest(manifest: Mapping[str, Any]) -> dict[str, Any]:
@@ -476,6 +478,8 @@ class _Walk:
     config: _ConfigValues
     seen: set[int] = field(default_factory=set)
     record_hosts: list[_RecordHost] = field(default_factory=list)
+    # Streams whose own request host could not be read.
+    unread: list[str] = field(default_factory=list)
 
 
 def _stream_name(stream: Mapping[str, Any]) -> str:
@@ -527,6 +531,12 @@ def _record_fields(url_base: str, extra_fields: set[str]) -> list[str]:
     return [keys[1]]
 
 
+def _unread_host(report: SupportReport, walk: _Walk, stream: str, reason: str) -> None:
+    """A stream whose own request host cannot be read: undecidable, and unread."""
+    _unknown(report, f"{stream}: {reason}")
+    walk.unread.append(stream)
+
+
 def _stream_needs(
     stream: Mapping[str, Any], report: SupportReport, walk: _Walk
 ) -> list[OperationNeed]:
@@ -557,7 +567,7 @@ def _stream_needs(
     url_base = requester.get("url_base")
     path = requester.get("path", "")
     if not isinstance(url_base, str) or not isinstance(path, str):
-        _unknown(report, f"{name}: the manifest declares no url_base/path")
+        _unread_host(report, walk, name, "the manifest declares no url_base/path")
         return []
     url_base = _render_parameters(url_base, parameters)
     path = _render_parameters(path, parameters)
@@ -581,7 +591,9 @@ def _stream_needs(
                 needs += _stream_needs(parent, report, walk)
             return needs
         else:
-            _unknown(report, f"{name}: url_base {url_base!r} has no static host")
+            _unread_host(
+                report, walk, name, f"url_base {url_base!r} has no static host"
+            )
             return []
     elif _TEMPLATE.search(host) and walk.config.complete:
         # A templated label (`{{ config['subdomain'] }}.zendesk.com`): the
@@ -595,10 +607,12 @@ def _stream_needs(
             or "@" in rendered.netloc
         ):
             # A value with a path or userinfo would move the request too.
-            _unknown(
+            _unread_host(
                 report,
-                f"{name}: url_base {url_base!r} has a host label the case's "
-                "config does not set to a plain host name",
+                walk,
+                name,
+                f"url_base {url_base!r} has a host label the case's config does "
+                "not set to a plain host name",
             )
             return []
         host = rendered.netloc.lower()
@@ -846,7 +860,9 @@ def check_sandbox_support(
             only the spec's defaults.
         check_streams: Check the streams the manifest's CHECK reads instead of
             `streams` (which stay the fallback when it names none).
-        host_only: Only match the provider host; no stream is checked.
+        host_only: Only match the provider: a twin serving an allowed host
+            that, when the manifest's request hosts can be read, also serves
+            one of them (see `_host_only_report`). No operation is checked.
     """
     report = SupportReport(result="supported")
     data = metadata.get("data", metadata)
@@ -862,17 +878,19 @@ def check_sandbox_support(
         return SupportReport(
             result="unknown", reasons=["metadata.yaml declares no allowedHosts"]
         )
-    provider = _match_provider(allowed, discovery.providers())
-    if provider is None:
+    candidates = _matching_providers(allowed, discovery.providers())
+    if not candidates:
         configured = [host for host in allowed if _CONFIG_PLACEHOLDER.search(host)]
         return SupportReport(
             # A host taken from config could still be one a twin serves.
             result="unknown" if configured else "unsupported",
             reasons=[f"no sandbox provider serves {', '.join(allowed)}"],
         )
-    report.provider = str(provider.get("id"))
     if host_only:
-        return report
+        return _host_only_report(candidates, manifest, config)
+    # A wrong provider is rejected below by its operation checks.
+    provider = candidates[0]
+    report.provider = str(provider.get("id"))
     if manifest is None:
         report.result = "unknown"
         report.reasons.append(
@@ -977,6 +995,94 @@ def check_sandbox_support(
     report.reasons = list(dict.fromkeys(report.reasons))
     report.warnings = list(dict.fromkeys(report.warnings))
     return report
+
+
+_ALLOWED_HOSTS_ONLY = "so the provider was matched on allowedHosts only"
+_UNREAD_NAMES_SHOWN = 5
+
+
+def _request_hosts(
+    manifest: Mapping[str, Any], config: Mapping[str, Any] | None
+) -> tuple[list[str], list[str]]:
+    """The hosts a manifest's streams request, and the streams whose host is unread.
+
+    Every stream is walked as the full check walks it, and so are dynamic
+    streams' templates and component resolvers, which make requests too.
+    Token endpoints are left out: a twin that serves only a shared one
+    (`oauth2.googleapis.com`) does not serve the connector.
+    """
+    resolved = _resolve_manifest(manifest)
+    # The walk's reasons and warnings concern operations, which are not checked.
+    scratch = SupportReport(result="supported")
+    walk = _Walk(config=_render_config(manifest, config))
+    streams = [s for s in resolved.get("streams") or [] if isinstance(s, dict)]
+    for entry in resolved.get("dynamic_streams") or []:
+        if not isinstance(entry, dict):
+            continue
+        if isinstance(entry.get("stream_template"), dict):
+            streams.append(entry["stream_template"])
+        resolver = entry.get("components_resolver")
+        retriever = resolver.get("retriever") if isinstance(resolver, dict) else None
+        if isinstance(retriever, dict):
+            name = f"{entry.get('name') or 'dynamic_streams'} resolver"
+            streams.append({"name": name, "retriever": retriever})
+    needs = [
+        need for stream in streams for need in _stream_needs(stream, scratch, walk)
+    ]
+    hosts = sorted({need.host for need in needs if not need.token_endpoint})
+    return hosts, list(dict.fromkeys(walk.unread))
+
+
+def _host_only_report(
+    candidates: Sequence[Mapping[str, Any]],
+    manifest: Mapping[str, Any] | None,
+    config: Mapping[str, Any] | None,
+) -> SupportReport:
+    """Pick the provider among those serving an allowed host.
+
+    Without a manifest, or when no request host can be read from it, the
+    first one wins. Otherwise it must also serve a host the streams request,
+    since twins list shared hosts (youtube_analytics `oauth2.googleapis.com`)
+    that many other connectors allow.
+    """
+    first = str(candidates[0].get("id"))
+    if manifest is None:
+        return SupportReport(
+            result="supported",
+            provider=first,
+            warnings=[
+                f"the connector has no declarative manifest, {_ALLOWED_HOSTS_ONLY}"
+            ],
+        )
+    hosts, unread = _request_hosts(manifest, config)
+    if not hosts:
+        return SupportReport(
+            result="supported",
+            provider=first,
+            warnings=[
+                "no stream's request host could be read from the manifest, "
+                + _ALLOWED_HOSTS_ONLY
+            ],
+        )
+    for provider in candidates:
+        if any(_host_served(host, provider) for host in hosts):
+            return SupportReport(result="supported", provider=str(provider.get("id")))
+    reason = (
+        f"allowedHosts match {', '.join(str(p.get('id')) for p in candidates)}, "
+        f"but no stream requests a host they serve (requests go to {', '.join(hosts)})"
+    )
+    if not unread:
+        return SupportReport(result="unsupported", reasons=[reason])
+    shown = ", ".join(unread[:_UNREAD_NAMES_SHOWN])
+    if len(unread) > _UNREAD_NAMES_SHOWN:
+        shown += ", ..."
+    # An unread host could be one a twin serves.
+    return SupportReport(
+        result="unknown",
+        reasons=[
+            f"{reason}; the host of {len(unread)} stream(s) could not be read ({shown})"
+        ],
+    )
 
 
 def _check_stream_names(manifest: Mapping[str, Any]) -> list[str]:

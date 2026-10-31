@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: agent-framework-orchestrations
-Version: 1.4.0
+Version: 1.4.1
 Summary: Orchestration patterns for Microsoft Agent Framework. Includes SequentialBuilder, ConcurrentBuilder, HandoffBuilder, GroupChatBuilder, and MagenticBuilder.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
@@ -9,7 +9,6 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13

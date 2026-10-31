@@ -25,12 +25,97 @@ class OrderFee(System.Object):
     ZERO: QuantConnect.Orders.Fees.OrderFee = ...
     """Gets an instance of OrderFee that represents zero."""
 
+    @overload
+    def __add__(self, other: QuantConnect.Orders.Fees.OrderFee) -> float:
+        ...
+
+    @overload
+    def __add__(self, other: float) -> float:
+        ...
+
+    def __float__(self) -> float:
+        ...
+
+    @overload
+    def __ge__(self, other: QuantConnect.Orders.Fees.OrderFee) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: QuantConnect.Orders.Fees.OrderFee) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: float) -> bool:
+        ...
+
     def __init__(self, order_fee: QuantConnect.Securities.CashAmount) -> None:
         """
         Initializes a new instance of the OrderFee class
         
         :param order_fee: The order fee
         """
+        ...
+
+    def __int__(self) -> int:
+        ...
+
+    @overload
+    def __le__(self, other: QuantConnect.Orders.Fees.OrderFee) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: QuantConnect.Orders.Fees.OrderFee) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __mul__(self, other: QuantConnect.Orders.Fees.OrderFee) -> float:
+        ...
+
+    @overload
+    def __mul__(self, other: float) -> float:
+        ...
+
+    def __neg__(self) -> float:
+        ...
+
+    def __radd__(self, other: float) -> float:
+        ...
+
+    def __rmul__(self, other: float) -> float:
+        ...
+
+    def __rsub__(self, other: float) -> float:
+        ...
+
+    def __rtruediv__(self, other: float) -> float:
+        ...
+
+    @overload
+    def __sub__(self, other: QuantConnect.Orders.Fees.OrderFee) -> float:
+        ...
+
+    @overload
+    def __sub__(self, other: float) -> float:
+        ...
+
+    @overload
+    def __truediv__(self, other: QuantConnect.Orders.Fees.OrderFee) -> float:
+        ...
+
+    @overload
+    def __truediv__(self, other: float) -> float:
         ...
 
     def apply_to_portfolio(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, fill: QuantConnect.Orders.OrderEvent) -> None:

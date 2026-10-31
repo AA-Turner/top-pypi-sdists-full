@@ -354,11 +354,13 @@ def _load_dataset_inner(
     columns: Optional[Sequence[ColumnMetadata]],
     return_type: Literal["polars_dataframe", "polars_lazyframe", "pandas", "pyarrow"],
 ) -> Union[pl.DataFrame, pl.LazyFrame, pd.DataFrame, pa.Table]:
-    try:
-        import polars as pl
-    except ImportError:
-        raise missing_dependency_exception("chalkpy[runtime]")
-    del pl  # unused
+    if return_type != "pyarrow":
+        # Only the non-pyarrow return types go through polars; `to_arrow()` is pure pyarrow.
+        try:
+            import polars as pl
+        except ImportError:
+            raise missing_dependency_exception("chalkpy[runtime]")
+        del pl  # unused
     # V2 datasets are in multiple files, and have column names encoded
     # due to DB limitations (e.g. bigquery does not support '.' in column names)
     # In addition, the datasets may contain extra columns (e.g. replaced observed at)
@@ -726,11 +728,13 @@ def load_dataset(
             "No outputs found. Check `dataset.status` to see if query is still running, and "
             + "'dataset.errors' for any query errors that may have occurred."
         )
-    try:
-        import polars as pl
-    except ImportError:
-        raise missing_dependency_exception("chalkpy[runtime]")
-    del pl  # Unused
+    if return_type != "pyarrow":
+        # Only the non-pyarrow return types go through polars; `to_arrow()` is pure pyarrow.
+        try:
+            import polars as pl
+        except ImportError:
+            raise missing_dependency_exception("chalkpy[runtime]")
+        del pl  # Unused
     if not isinstance(version, DatasetVersion):
         try:
             version = DatasetVersion(version)

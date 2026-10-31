@@ -1,0 +1,145 @@
+import logging
+import time
+
+from django.apps.config import AppConfig
+from django.conf import settings
+from django.db.backends.base import base as django_db_base
+from django.db.utils import ProgrammingError
+from django.dispatch import Signal
+
+from typing import Union, Tuple, Callable, List  # noqa. flake8 #118
+
+
+_log = logging.getLogger(__name__)
+
+
+pre_reconnect = Signal()
+post_reconnect = Signal()
+
+_operror_types = ()  # type: Union[Tuple[type], Tuple]
+database_modules = [
+    ("django.db.utils", "OperationalError"),
+    ("psycopg2", "OperationalError"),
+    ("psycopg", "OperationalError"),
+    ("sqlite3", "OperationalError"),
+    ("MySQLdb", "OperationalError"),
+    ("pyodbc", "InterfaceError"),
+]
+
+for module_name, error_name in database_modules:
+    try:
+        module = __import__(module_name, fromlist=[error_name])
+        error_type = getattr(module, error_name)
+        _operror_types += (error_type,)
+    except ImportError:
+        pass
+
+
+def monkeypatch_django() -> None:
+    def ensure_connection_with_retries(self: django_db_base.BaseDatabaseWrapper) -> None:
+        self._max_dbconn_retry_times = getattr(settings, "MAX_DBCONN_RETRY_TIMES", 1)
+        # Validate and normalize max retry times to a non-negative integer
+        if not isinstance(self._max_dbconn_retry_times, int) or self._max_dbconn_retry_times < 0:
+            _log.warning(
+                "Invalid MAX_DBCONN_RETRY_TIMES setting %r; falling back to 1.",
+                self._max_dbconn_retry_times,
+            )
+            self._max_dbconn_retry_times = 1
+        self._dbconn_retry_delay = getattr(settings, "DBCONN_RETRY_DELAY", 0)
+        # Validate and normalize retry delay to a non-negative number
+        if not isinstance(self._dbconn_retry_delay, (int, float)) or self._dbconn_retry_delay < 0:
+            _log.warning(
+                "Invalid DBCONN_RETRY_DELAY setting %r; falling back to 0 seconds.",
+                self._dbconn_retry_delay,
+            )
+            self._dbconn_retry_delay = 0
+        self._dbconn_retry_backoff = getattr(settings, "DBCONN_RETRY_BACKOFF", 1)
+        # Validate and normalize backoff factor to a positive number
+        if not isinstance(self._dbconn_retry_backoff, (int, float)) or self._dbconn_retry_backoff <= 0:
+            _log.warning(
+                "Invalid DBCONN_RETRY_BACKOFF setting %r; falling back to 1.",
+                self._dbconn_retry_backoff,
+            )
+            self._dbconn_retry_backoff = 1
+
+        if self.connection is not None and hasattr(self.connection, 'closed') and self.connection.closed:
+            _log.debug("failed connection detected")
+            if self.in_atomic_block:
+                self.closed_in_transaction = True
+            self.connection = None
+
+        if self.connection is None and not hasattr(self, '_in_connecting'):
+            if self.in_atomic_block and self.closed_in_transaction:
+                raise ProgrammingError("Cannot reconnect to the database in an atomic block.")
+            with self.wrap_database_errors:
+                try:
+                    self._in_connecting = True
+                    if self._max_dbconn_retry_times > 0 and getattr(self, "_dbconn_failing_fast", False):
+                        # Retries have been exhausted before, so we only make a single attempt until one succeeds.
+                        # Still give libraries like 12factor-vault the chance to update the credentials first,
+                        # otherwise no attempt could ever succeed once they have expired.
+                        pre_reconnect.send(self.__class__, dbwrapper=self)
+                    self.connect()
+                except Exception as e:
+                    if isinstance(e, _operror_types):
+                        if self._max_dbconn_retry_times == 0:
+                            _log.info("Not reconnecting; MAX_DBCONN_RETRY_TIMES=0.")
+                            raise
+                        elif (
+                                hasattr(self, "_connection_retries") and
+                                self._connection_retries >= self._max_dbconn_retry_times
+                        ):
+                            _log.error("Reconnecting to the database didn't help %s", str(e))
+                            del self._in_connecting
+                            post_reconnect.send(self.__class__, dbwrapper=self)
+                            # _connection_retries is deliberately not reset here, so further connection attempts fail
+                            # fast instead of hammering a struggling database until one succeeds.
+                            self._dbconn_failing_fast = True
+                            raise
+                        else:
+                            _log.info("Database connection failed. Refreshing...")
+                            # mark the retry
+                            try:
+                                self._connection_retries += 1
+                            except AttributeError:
+                                self._connection_retries = 1
+
+                            # ensure that we retry the connection. Sometimes .closed isn't set correctly.
+                            self.connection = None
+                            del self._in_connecting
+
+                            # apply delay with backoff before retry
+                            if self._dbconn_retry_delay > 0:
+                                current_delay = self._dbconn_retry_delay * (
+                                    self._dbconn_retry_backoff ** (self._connection_retries - 1)
+                                )
+                                _log.debug("Waiting %.2f seconds before retry attempt %d",
+                                           current_delay, self._connection_retries)
+                                time.sleep(current_delay)
+
+                            # give libraries like 12factor-vault the chance to update the credentials
+                            pre_reconnect.send(self.__class__, dbwrapper=self)
+                            self.ensure_connection()
+                            post_reconnect.send(self.__class__, dbwrapper=self)
+                    else:
+                        _log.debug("Database connection failed, but not due to a known error for dbconn_retry %s",
+                                   str(e))
+                        raise
+                else:
+                    # connection successful, reset the retry counter
+                    self._connection_retries = 0
+                    self._dbconn_failing_fast = False
+                finally:
+                    # always clear the flag
+                    if hasattr(self, '_in_connecting'):
+                        del self._in_connecting
+
+    _log.debug("django_dbconn_retry: monkeypatching BaseDatabaseWrapper")
+    django_db_base.BaseDatabaseWrapper.ensure_connection = ensure_connection_with_retries
+
+
+class DjangoIntegration(AppConfig):
+    name = "django_dbconn_retry"
+
+    def ready(self) -> None:
+        monkeypatch_django()

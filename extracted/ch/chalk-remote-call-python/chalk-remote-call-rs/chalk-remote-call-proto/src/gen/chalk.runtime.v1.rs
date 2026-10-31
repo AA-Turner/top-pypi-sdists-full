@@ -49,6 +49,10 @@ pub struct EnqueueRemoteCallRequest {
     /// The arguments for the call.
     #[prost(message, optional, tag="2")]
     pub args: ::core::option::Option<RemoteCallArgs>,
+    /// Overrides the deployed retry count, excluding the initial attempt. Absence
+    /// inherits the deployed policy; zero disables retries. Requires Stream workers.
+    #[prost(int32, optional, tag="3")]
+    pub max_retries: ::core::option::Option<i32>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -69,6 +73,10 @@ pub struct OpenRemoteCallBatch {
     pub batch_id: ::prost::alloc::string::String,
     #[prost(string, tag="3")]
     pub result_cursor: ::prost::alloc::string::String,
+    /// Retry count for every row, excluding the initial attempt. Absence inherits
+    /// the deployed policy. Resuming a batch preserves its admitted retry policy.
+    #[prost(int32, optional, tag="4")]
+    pub max_retries: ::core::option::Option<i32>,
 }
 /// A transport chunk containing consecutive input rows. The server assigns one
 /// call ID and enqueues one independently schedulable work item per row.
@@ -291,6 +299,16 @@ pub struct FunctionCallInfo {
     /// The W3C traceparent header value propagated with this call, if any.
     #[prost(string, tag="6")]
     pub trace_id: ::prost::alloc::string::String,
+    /// Authorized worker dispatches, excluding exhaustion-only deliveries. A worker
+    /// can stop before entering the handler. Absent for older retained records.
+    #[prost(uint64, optional, tag="7")]
+    pub attempt_count: ::core::option::Option<u64>,
+    /// Effective retry count plus the initial attempt. Absent for older records.
+    #[prost(uint64, optional, tag="8")]
+    pub max_attempts: ::core::option::Option<u64>,
+    /// When the latest authorized attempt was dispatched to a worker.
+    #[prost(message, optional, tag="9")]
+    pub last_attempt_at: ::core::option::Option<::prost_types::Timestamp>,
 }
 /// Request the most recent calls to a given function.
 #[allow(clippy::derive_partial_eq_without_eq)]

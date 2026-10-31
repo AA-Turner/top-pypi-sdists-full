@@ -526,6 +526,15 @@ class Option(QuantConnect.Securities.Security, QuantConnect.Securities.IDerivati
         """
         ...
 
+    def in_the_money_amount(self, quantity: float) -> QuantConnect.Securities.ConvertibleCashAmount:
+        """
+        Gets the option's ITM amount for the given quantity.
+        
+        :param quantity: The quantity
+        :returns: The ITM amount for the absolute quantity.
+        """
+        ...
+
     def is_auto_exercised(self, underlying_price: float) -> bool:
         """Checks if option is eligible for automatic exercise on expiration"""
         ...
@@ -729,22 +738,6 @@ class CurrentPriceOptionPriceModel(QuantConnect.Securities.Option.OptionPriceMod
     This is a stub implementation until the real models are implemented
     """
 
-    @overload
-    def evaluate(self, security: QuantConnect.Securities.Security, slice: QuantConnect.Data.Slice, contract: QuantConnect.Data.Market.OptionContract) -> QuantConnect.Securities.Option.OptionPriceModelResult:
-        """
-        Creates a new OptionPriceModelResult containing the current Security.price
-        and a default, empty instance of first Order Greeks
-        
-        :param security: The option security object
-        :param slice: The current data slice. This can be used to access other information
-        available to the algorithm
-        :param contract: The option contract to evaluate
-        :returns: An instance of OptionPriceModelResult containing the theoretical
-        price of the specified option contract.
-        """
-        ...
-
-    @overload
     def evaluate(self, parameters: QuantConnect.Securities.Option.OptionPriceModelParameters) -> QuantConnect.Securities.Option.OptionPriceModelResult:
         """
         Evaluates the specified option contract to compute a theoretical price, IV and greeks
@@ -2051,21 +2044,6 @@ class QLOptionPriceModel(QuantConnect.Securities.Option.OptionPriceModel):
         """
         ...
 
-    @overload
-    def evaluate(self, security: QuantConnect.Securities.Security, slice: QuantConnect.Data.Slice, contract: QuantConnect.Data.Market.OptionContract) -> QuantConnect.Securities.Option.OptionPriceModelResult:
-        """
-        Evaluates the specified option contract to compute a theoretical price, IV and greeks
-        
-        :param security: The option security object
-        :param slice: The current data slice. This can be used to access other information
-        available to the algorithm
-        :param contract: The option contract to evaluate
-        :returns: An instance of OptionPriceModelResult containing the theoretical
-        price of the specified option contract.
-        """
-        ...
-
-    @overload
     def evaluate(self, parameters: QuantConnect.Securities.Option.OptionPriceModelParameters) -> QuantConnect.Securities.Option.OptionPriceModelResult:
         """
         Evaluates the specified option contract to compute a theoretical price, IV and greeks

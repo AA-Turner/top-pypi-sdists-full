@@ -273,7 +273,8 @@ class TransformedPDEntry(PDEntry):
         return {
             "@module": type(self).__module__,
             "@class": type(self).__name__,
-            "sp_mapping": self.sp_mapping,
+            # Composition keys are not JSON-serializable, so store (composition, species) pairs.
+            "sp_mapping": [[comp.as_dict(), sp.as_dict()] for comp, sp in self.sp_mapping.items()],
             **self.original_entry.as_dict(),
         }
 
@@ -286,8 +287,11 @@ class TransformedPDEntry(PDEntry):
         Returns:
             TransformedPDEntry
         """
-        sp_mapping = dct["sp_mapping"]
-        del dct["sp_mapping"]
+        dct = dct.copy()
+        sp_mapping = dct.pop("sp_mapping")
+        if not isinstance(sp_mapping, dict):
+            decoder = MontyDecoder()
+            sp_mapping = {Composition(comp): decoder.process_decoded(sp) for comp, sp in sp_mapping}
         entry = MontyDecoder().process_decoded(dct)
         return cls(entry, sp_mapping)
 
@@ -1577,8 +1581,11 @@ class GrandPotentialPhaseDiagram(PhaseDiagram):
         return {
             "@module": type(self).__module__,
             "@class": type(self).__name__,
-            "all_entries": [entry.as_dict() for entry in self.all_entries],
-            "chempots": self.chempots,
+            # Store the original (non-grand-potential) entries so from_dict does not
+            # wrap GrandPotPDEntry objects in a second GrandPotPDEntry.
+            "all_entries": [entry.original_entry.as_dict() for entry in self.all_entries],
+            # Element keys are not JSON-serializable.
+            "chempots": {el.symbol: mu for el, mu in self.chempots.items()},
             "elements": [entry.as_dict() for entry in self.elements],
         }
 
@@ -1592,6 +1599,8 @@ class GrandPotentialPhaseDiagram(PhaseDiagram):
             GrandPotentialPhaseDiagram
         """
         entries = MontyDecoder().process_decoded(dct["all_entries"])
+        # Legacy dicts stored GrandPotPDEntry objects; unwrap them to the original entries.
+        entries = [entry.original_entry if isinstance(entry, GrandPotPDEntry) else entry for entry in entries]
         elements = MontyDecoder().process_decoded(dct["elements"])
         return cls(entries, dct["chempots"], elements)
 
@@ -1690,11 +1699,12 @@ class CompoundPhaseDiagram(PhaseDiagram):
             sp_mapping[comp] = DummySpecies("X" + self.num2str(idx))
 
         for entry in entries:
-            if getattr(entry, "attribute", None) is None:
-                entry.attribute = getattr(entry, "entry_id", None)
-
             try:
                 transformed_entry = TransformedPDEntry(entry, sp_mapping)
+                # Label with the entry_id if no attribute is set. Set this on the
+                # transformed entry rather than mutating the caller's entry.
+                if transformed_entry.attribute is None:
+                    transformed_entry.attribute = getattr(entry, "entry_id", None)
                 new_entries.append(transformed_entry)
             except ReactionError:
                 # If the reaction can't be balanced, the entry does not fall
@@ -1727,7 +1737,8 @@ class CompoundPhaseDiagram(PhaseDiagram):
             CompoundPhaseDiagram
         """
         entries = MontyDecoder().process_decoded(dct["original_entries"])
-        terminal_compositions = MontyDecoder().process_decoded(dct["terminal_compositions"])
+        # as_dict stores terminal compositions as plain {element: amount} dicts
+        terminal_compositions = [Composition(comp) for comp in dct["terminal_compositions"]]
         return cls(entries, terminal_compositions, dct["normalize_terminal_compositions"])
 
 
@@ -2644,7 +2655,9 @@ def _get_slsqp_decomp(
 
     # NOTE normalize arrays to avoid calls to fractional_composition
     b /= np.sum(b)
-    A_transpose /= np.sum(A_transpose, axis=0)
+    col_sums = np.sum(A_transpose, axis=0)
+    # entries with no elements in the chemical space keep an all-zero column instead of 0/0 = nan
+    A_transpose = np.divide(A_transpose, col_sums, out=np.zeros_like(A_transpose), where=col_sums > 0)
 
     # Energies of competing entries
     Es = np.array([comp_entry.energy_per_atom for comp_entry in competing_entries])
@@ -2657,8 +2670,9 @@ def _get_slsqp_decomp(
 
     options = {"maxiter": maxiter, "disp": False}
 
-    # NOTE max_bound needs to be larger than 1
-    max_bound = comp.num_atoms
+    # NOTE max_bound needs to be at least 1 since the amounts are fractions of the
+    # normalized composition (a fractional comp, e.g. Li0.2O0.1, has num_atoms < 1)
+    max_bound = max(comp.num_atoms, 1)
     bounds = [(0, max_bound)] * len(competing_entries)
     x0 = [1 / len(competing_entries)] * len(competing_entries)
 
@@ -2917,7 +2931,7 @@ class PDPlotter:
             x1 = v
             y1 = dct["evolution"] / num_atoms
 
-            x2 = -(evolution[idx + 1]["chempot"] - element_energy) if idx != len(evolution) - 1 else 5.0
+            x2 = -(evolution[idx + 1]["chempot"] - element_energy) if idx != len(evolution) - 1 else xlim
             if show_label_index is not None and idx in show_label_index:
                 products = [
                     re.sub(r"(\d+)", r"$_{\1}$", p.reduced_formula)
@@ -3715,7 +3729,7 @@ class PDPlotter:
 
         stable_props = get_marker_props(stable_coords, stable_entries)
         unstable_props = get_marker_props(unstable_coords, unstable_entries)
-        highlight_props = get_marker_props(highlight_coords, highlight_entries)
+        highlight_props = get_marker_props(highlight_coords, highlight_ents)
 
         stable_markers, unstable_markers, highlight_markers = {}, {}, {}
 
@@ -4206,13 +4220,9 @@ class PDPlotter:
                 cmap = energy_colormap
             norm = Normalize(vmin=vmin, vmax=vmax)
             _map = ScalarMappable(norm=norm, cmap=cmap)
-            _energies: list[float] = list(
-                filter(
-                    None,
-                    (self._pd.get_equilibrium_reaction_energy(entry) for entry in labels.values()),
-                )
-            )
-            energies = [en if en < 0 else -0.000_000_01 for en in _energies]
+            # Keep one value per stable entry: elemental entries have a reaction energy of 0
+            _energies = [self._pd.get_equilibrium_reaction_energy(entry) for entry in labels.values()]
+            energies = [en if en is not None and en < 0 else -0.000_000_01 for en in _energies]
             vals_stable = _map.to_rgba(np.array(energies))
             ii = 0
             if process_attributes:
@@ -4293,15 +4303,15 @@ class PDPlotter:
         if self.show_unstable:
             font = FontProperties()
             font.set_size(16)
-            energies_unstable = list(filter(None, (self._pd.get_e_above_hull(entry) for entry in unstable)))
+            # Keep one value per unstable entry so colors stay aligned with the entries
+            energies_unstable = [self._pd.get_e_above_hull(entry) or 0.0 for entry in unstable]
             if energy_colormap is not None and energies is not None and _map is not None:
                 energies.extend(energies_unstable)
                 vals_unstable = _map.to_rgba(np.array(energies_unstable))
             else:
                 vals_unstable = None
 
-            ii = 0
-            for entry, coords in unstable.items():
+            for idx, (entry, coords) in enumerate(unstable.items()):
                 ehull = self._pd.get_e_above_hull(entry)
                 if ehull is not None and ehull < self.show_unstable:
                     vec = np.asarray(coords) - center
@@ -4324,7 +4334,7 @@ class PDPlotter:
                             "s",
                             linewidth=3,
                             markeredgecolor="k",
-                            markerfacecolor=vals_unstable[ii],
+                            markerfacecolor=vals_unstable[idx],
                             markersize=8,
                         )
                     if label_unstable:
@@ -4338,11 +4348,10 @@ class PDPlotter:
                             verticalalignment=valign,
                             fontproperties=font,
                         )
-                    ii += 1
 
         if energy_colormap is not None and show_colorbar and energies is not None and _map is not None:
             _map.set_array(energies)
-            cbar = plt.colorbar(_map)
+            cbar = plt.colorbar(_map, ax=ax)
             cbar.set_label(
                 "Energy [meV/at] above hull (positive values)\nInverse energy [meV/at] above hull (negative values)",
                 rotation=-90,

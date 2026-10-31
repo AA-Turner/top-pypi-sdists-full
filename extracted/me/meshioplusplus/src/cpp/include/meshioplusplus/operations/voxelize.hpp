@@ -57,7 +57,6 @@
 #include <string>
 
 // Project includes
-#include "meshioplusplus/detail/planar_skin.hpp"
 #include "meshioplusplus/export.hpp"
 #include "meshioplusplus/mesh.hpp"
 #include "meshioplusplus/operations/sdf.hpp"
@@ -86,10 +85,7 @@ MESHIOPLUSPLUS_API VoxelFill voxel_fill_from_name(const std::string& rName);
 
 /// Options for `voxelize`.
 struct VoxelOptions {
-    /// Cell counts per axis. Exactly one of this and `mCellSize` must be set. A
-    /// zero third entry selects the 2-D variant (`quad` pixels around a planar
-    /// skin; see `detail/planar_skin.hpp`); a cell size on a mesh of nothing but
-    /// `line` cells selects it too.
+    /// Cell counts per axis. Exactly one of this and `mCellSize` must be set.
     std::optional<std::array<std::int64_t, 3>> mResolution;
     /// Cell size (cubic). Exactly one of this and `mResolution` must be set.
     std::optional<double> mCellSize;
@@ -110,9 +106,6 @@ struct VoxelOptions {
     std::int64_t mMaxCells = 20000000;
     /// How `VoxelFill::Inside` decides what is inside.
     SurfaceDistanceOptions mDistance;
-    /// The plane of a 2-D skin (`Auto`: the axis of zero extent, `z` first).
-    /// Ignored by the 3-D variant, as `OctreeOptions::mPlane` is.
-    detail::PlanarPlane mPlane = detail::PlanarPlane::Auto;
 };
 
 /// The result of `voxelize`: the grid and the lattice it came from.

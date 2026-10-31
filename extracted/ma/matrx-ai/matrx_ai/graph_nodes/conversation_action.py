@@ -17,17 +17,23 @@ no cost ledger / durability / cancel-resume. It also read
 ``resolution.config`` on a ``UnifiedConfig`` (no such attribute), so it had
 never executed. See ``common-docs/systems/workflows/NODE_API_PARITY.md``.
 
-This is the right entry point when a workflow needs to thread multiple turns
-onto the same conversation. Use ``agent.start`` to begin a thread, and
-``conversation.continue`` to push further turns onto it.
+This is THE entry point when a workflow needs to thread multiple turns onto
+the same conversation. A step that starts an agent (Run Agent, Run Mandate,
+Run Typed Agent, Run Agent in Batches) always opens its OWN conversation and
+reports it as ``conversation_id`` on its output; it refuses a conversation to
+continue (2026-10-29). Map that output onto this step's ``conversation_id`` to
+push further turns onto it. Everything a starting step offered a continuing
+turn is here: tools, model and settings overrides (authored and per-run), the
+per-call money guards, the iteration limit, and its own request record.
 """
 
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator
-from contextlib import AsyncExitStack, asynccontextmanager
-from typing import Literal
+import uuid
+from collections.abc import AsyncIterator, Iterator
+from contextlib import AsyncExitStack, asynccontextmanager, contextmanager
+from typing import Any, Literal
 
 from matrx_connect.context.app_context import (
     clear_app_context,
@@ -111,6 +117,38 @@ class ConversationContinueInput(BaseModel):
         default_factory=dict,
         description="LLM parameter overrides for this turn (temperature, model, ...).",
         json_schema_extra=field_extras(widget="json"),
+    )
+    runtime_config_overrides: dict[str, JsonValue] | None = Field(
+        default=None,
+        description=(
+            "Per-RUN LLM parameter overrides, meant to arrive on an EDGE from an upstream step. "
+            "Merged key by key on top of config_overrides, so an edge never wipes the authored ones."
+        ),
+        json_schema_extra=field_extras(widget="json"),
+    )
+    model_this_turn_only: bool = Field(
+        default=False,
+        description="A model in config_overrides applies to this turn only and never sticks to the conversation.",
+    )
+
+    # --- per-call money guards (the same two Run Agent carries) ---
+    max_output_tokens: int | None = Field(
+        default=None,
+        ge=0,
+        title="Longest answer (tokens)",
+        description=(
+            "The output-token ceiling sent with this step's AI calls, above every other setting. "
+            "Often fed from a setting. Blank or 0: the conversation's own."
+        ),
+    )
+    max_call_cost_usd: float | None = Field(
+        default=None,
+        ge=0,
+        title="Cap per AI call (USD)",
+        description=(
+            "Each AI call is priced before it is sent (request plus longest answer, at the "
+            "model's price) and refused over this cap. Blank or 0: no cap."
+        ),
     )
 
     # --- caller context ---
@@ -290,41 +328,80 @@ def require_conversation_host(node_type: str) -> None:
         )
 
 
-def build_continue_request(inputs: ConversationContinueInput):
-    """Build the host ``ConversationContinueRequest`` for one continue step.
+#: Step inputs the STEP consumes — never host request-body fields. ``conversation_id`` is a path
+#: parameter on the HTTP route (a separate argument to the continuer here); the per-run config layer
+#: and the longest-answer limit fold into ``config_overrides``; the cost cap opens a scope around the
+#: call (``_step_call_scope``).
+STEP_ONLY_INPUTS: frozenset[str] = frozenset(
+    {"conversation_id", "runtime_config_overrides", "max_output_tokens", "max_call_cost_usd"}
+)
 
-    ``conversation_id`` is excluded — it is a path parameter on the HTTP
-    route and a separate argument to ``conversation_continuer`` here, never a
-    request-body field.
-    """
+
+def _turn_payload(inputs: ConversationContinueInput, *, exclude: set[str] | None = None) -> dict[str, Any]:
+    """The host body for one turn: every declared field, with ``config_overrides`` layered the way
+    Run Agent layers them (authored → per-run → the step's longest-answer limit) through THE one
+    merge, so a class pin never rides onto another model."""
+    from matrx_ai.config.llm_params import merge_llm_overrides
+
+    payload = inputs.model_dump(exclude_none=True, exclude={*STEP_ONLY_INPUTS, *(exclude or set())})
+    ceiling = {"max_output_tokens": inputs.max_output_tokens} if inputs.max_output_tokens else None
+    layered: dict[str, Any] = {}
+    for layer in (inputs.config_overrides, inputs.runtime_config_overrides, ceiling):
+        layered = merge_llm_overrides(layered, dict(layer) if layer else None)
+    payload["config_overrides"] = layered
+    return payload
+
+
+def build_continue_request(inputs: ConversationContinueInput):
+    """Build the host ``ConversationContinueRequest`` for one continue step."""
     ConversationContinueRequest = get_ext("ConversationContinueRequest")
-    payload = inputs.model_dump(
-        exclude_none=True,
-        exclude={"conversation_id"},
-    )
-    return ConversationContinueRequest.model_validate(payload)
+    return ConversationContinueRequest.model_validate(_turn_payload(inputs))
+
+
+@contextmanager
+def _step_call_scope(ctx: NodeExecutionContext, inputs: ConversationContinueInput) -> Iterator[Any]:
+    """The step's own AppContext for one turn: its OWN request id (one AI call = one
+    ``chat.user_request``; a forked step context inherits the workflow root's, exactly the defect
+    ``run_step_agent`` closed for Run Agent), the step's node id for refusals to name, and the
+    per-call spend cap when the author set one."""
+    from matrx_ai.providers.guardrail_gate import call_spend_cap_scope
+
+    try:
+        ctx.app.metadata["workflow_node_id"] = getattr(ctx, "node_id", None) or "?"
+    except Exception:  # noqa: BLE001 — identity is a label, never a gate
+        pass
+    override = getattr(ctx.app, "with_overrides", None)
+    step_app = override(request_id=str(uuid.uuid4())) if callable(override) else ctx.app
+    token = set_app_context(step_app)
+    try:
+        subject = f"Step {getattr(ctx, 'node_id', None) or '?'}"
+        with call_spend_cap_scope(inputs.max_call_cost_usd or None, subject=subject):
+            yield step_app
+    finally:
+        clear_app_context(token)
+
+
+async def _ensure_pricing(inputs: ConversationContinueInput) -> None:
+    if inputs.max_call_cost_usd:
+        from matrx_ai.config.usage_config import ensure_pricing_lookup
+
+        await ensure_pricing_lookup()
 
 
 async def run_step_conversation_continue(
-    ctx: NodeExecutionContext, conversation_id: str, request
+    ctx: NodeExecutionContext, conversation_id: str, request, inputs: ConversationContinueInput
 ):
-    """Run the resolved continue-request inside the workflow step's forked AppContext.
+    """Run the resolved continue-request inside the workflow step's own AppContext.
 
-    Mirrors ``agent_action.py::run_step_agent`` exactly: sets the AppContext
-    ContextVar to the workflow step's forked context for the duration of the
-    call (matrx-ai's executor and run_ai_task read ``get_app_context()``),
-    and wraps the call in the same block-stream scope so a continue step's
-    tokens render as typed blocks instead of raw chunks.
+    Mirrors ``agent_action.py::run_step_agent``: the AppContext ContextVar is the step's for the
+    duration of the call (matrx-ai's executor and run_ai_task read ``get_app_context()``), and the
+    call runs in the same block-stream scope so a continue step's tokens render as typed blocks.
     """
     conversation_continuer = get_ext("conversation_continuer")
-    token = set_app_context(ctx.app)
-    try:
+    await _ensure_pricing(inputs)
+    with _step_call_scope(ctx, inputs):
         async with _block_stream_scope():
-            return await conversation_continuer(
-                conversation_id, request, get_app_context()
-            )
-    finally:
-        clear_app_context(token)
+            return await conversation_continuer(conversation_id, request, get_app_context())
 
 
 @asynccontextmanager
@@ -376,7 +453,7 @@ async def conversation_continue(
     limit = await resolve_step_iteration_limit(ctx, inputs.max_iterations)
     inputs.max_iterations = limit.value
     request = build_continue_request(inputs)
-    completed = await run_step_conversation_continue(ctx, inputs.conversation_id, request)
+    completed = await run_step_conversation_continue(ctx, inputs.conversation_id, request, inputs)
 
     # Node Result System: a failed turn becomes a structured Failure
     # (code='ai_turn_failed', billed usage in details) instead of a raise.
@@ -410,10 +487,6 @@ class ConversationForkAndRunInput(ConversationContinueInput):
     )
     fork_title: str | None = Field(
         default=None, description="Title of the new conversation (default 'Fork: <source>')."
-    )
-    model_this_turn_only: bool = Field(
-        default=False,
-        description="A model in config_overrides applies to this turn only and never sticks to the fork.",
     )
     keep_whole: bool = Field(
         default=True,
@@ -455,10 +528,7 @@ AGENT_MODEL = frozenset({"", "agent", "agent's model", "agent model"})
 def build_fork_request(inputs: ConversationForkAndRunInput):
     """Build the host ``ForkAndRunRequest``: the question becomes the host turn."""
     ForkAndRunRequest = get_ext("ForkAndRunRequest")
-    payload = inputs.model_dump(
-        exclude_none=True,
-        exclude={"conversation_id", "question", "question_reason"},
-    )
+    payload = _turn_payload(inputs, exclude={"question", "question_reason"})
     # A workflow names "the last message" and "the agent's own model" in words, so its defaults stay visible.
     if str(payload.get("from_message_id") or "").strip().lower() in LAST_MESSAGE:
         payload.pop("from_message_id", None)
@@ -505,14 +575,12 @@ async def conversation_fork_and_run(
     inputs.max_iterations = limit.value
     request = build_fork_request(inputs)
     fork_runner = get_ext("conversation_fork_runner")
-    token = set_app_context(ctx.app)
-    try:
+    await _ensure_pricing(inputs)
+    with _step_call_scope(ctx, inputs):
         async with _block_stream_scope():
             fork_event, completed = await fork_runner(
                 inputs.conversation_id, request, get_app_context()
             )
-    finally:
-        clear_app_context(token)
     result = await asyncio.to_thread(normalize_completed_result, completed)
     if isinstance(result, Success):
         value = result.result

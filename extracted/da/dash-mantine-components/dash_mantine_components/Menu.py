@@ -35,7 +35,7 @@ Keyword arguments:
 - arrowOffset (number; optional):
     Arrow offset in px, `5` by default.
 
-- arrowPosition (a value equal to: 'center', 'side'; optional):
+- arrowPosition (a value equal to: 'center', 'side', 'merge'; optional):
     Arrow position.
 
 - arrowRadius (number; optional):
@@ -51,6 +51,10 @@ Keyword arguments:
 - classNames (dict; optional):
     Adds custom CSS class names to inner elements of a component.  See
     Styles API docs.
+
+- clickOutsideCapture (boolean; optional):
+    If set, outside click listeners are registered in the capture
+    phase default False.
 
 - clickOutsideEvents (list of strings; optional):
     Events that trigger outside clicks.
@@ -78,6 +82,10 @@ Keyword arguments:
     Changes floating ui [position
     strategy](https://floating-ui.com/docs/usefloating#strategy),
     `'absolute'` by default.
+
+- hideDetached (boolean; optional):
+    If set, the dropdown is hidden when the element is hidden with
+    styles or not visible on the screen default True.
 
 - keepMounted (boolean; optional):
     If set dropdown will not be unmounted from the DOM when it is
@@ -215,9 +223,14 @@ Keyword arguments:
     Dropdown position relative to the target element, `'bottom'` by
     default.
 
-- positionDependencies (list of boolean | number | string | dict | lists; optional):
-    `useEffect` dependencies to force update dropdown position, `[]`
-    by default.
+- preventPositionChangeWhenVisible (boolean; optional):
+    If `True`, the dropdown picks its side on open (flip runs once,
+    preferring the `position` prop) and then never changes side —
+    scrolling, resizing, and content size changes will not flip the
+    dropdown. The side is recalculated fresh on the next open. Does
+    not affect the `shift` middleware. Set to `False` to keep flip
+    active and allow the dropdown to re-flip on every change. default
+    True.
 
 - radius (number; optional):
     Key of `theme.radius` or any valid CSS value to set border-radius,
@@ -321,7 +334,7 @@ Keyword arguments:
             {
             "mainAxis": NotRequired[bool],
             "crossAxis": NotRequired[typing.Union[bool, Literal["alignment"]]],
-            "rootBoundary": NotRequired[typing.Union[Literal["viewport"], Literal["document"]]],
+            "rootBoundary": NotRequired[typing.Union[Literal["viewport"], Literal["layoutViewport"], Literal["document"]]],
             "elementContext": NotRequired[Literal["reference", "floating"]],
             "altBoundary": NotRequired[bool],
             "padding": NotRequired[typing.Union[NumberType]],
@@ -363,7 +376,6 @@ Keyword arguments:
         id: typing.Optional[typing.Union[str, dict]] = None,
         position: typing.Optional[Literal["top", "right", "bottom", "left", "top-end", "top-start", "right-end", "right-start", "bottom-end", "bottom-start", "left-end", "left-start"]] = None,
         offset: typing.Optional[typing.Union[NumberType]] = None,
-        positionDependencies: typing.Optional[typing.Sequence[typing.Any]] = None,
         keepMounted: typing.Optional[bool] = None,
         transitionProps: typing.Optional["TransitionProps"] = None,
         width: typing.Optional[typing.Union[str, NumberType]] = None,
@@ -372,7 +384,7 @@ Keyword arguments:
         arrowSize: typing.Optional[NumberType] = None,
         arrowOffset: typing.Optional[NumberType] = None,
         arrowRadius: typing.Optional[NumberType] = None,
-        arrowPosition: typing.Optional[Literal["center", "side"]] = None,
+        arrowPosition: typing.Optional[Literal["center", "side", "merge"]] = None,
         withinPortal: typing.Optional[bool] = None,
         portalProps: typing.Optional[dict] = None,
         zIndex: typing.Optional[typing.Union[str, NumberType]] = None,
@@ -383,15 +395,18 @@ Keyword arguments:
         floatingStrategy: typing.Optional[Literal["absolute", "fixed"]] = None,
         overlayProps: typing.Optional[dict] = None,
         withOverlay: typing.Optional[bool] = None,
+        hideDetached: typing.Optional[bool] = None,
+        preventPositionChangeWhenVisible: typing.Optional[bool] = None,
+        clickOutsideCapture: typing.Optional[bool] = None,
         classNames: typing.Optional[dict] = None,
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
         attributes: typing.Optional[typing.Any] = None,
         **kwargs
     ):
-        self._prop_names = ['children', 'id', 'arrowOffset', 'arrowPosition', 'arrowRadius', 'arrowSize', 'attributes', 'classNames', 'clickOutsideEvents', 'closeDelay', 'closeOnClickOutside', 'closeOnEscape', 'closeOnItemClick', 'defaultOpened', 'disabled', 'floatingStrategy', 'keepMounted', 'loop', 'menuItemTabIndex', 'middlewares', 'offset', 'openDelay', 'opened', 'overlayProps', 'portalProps', 'position', 'positionDependencies', 'radius', 'returnFocus', 'shadow', 'styles', 'transitionProps', 'trapFocus', 'trigger', 'unstyled', 'variant', 'width', 'withArrow', 'withOverlay', 'withinPortal', 'zIndex']
+        self._prop_names = ['children', 'id', 'arrowOffset', 'arrowPosition', 'arrowRadius', 'arrowSize', 'attributes', 'classNames', 'clickOutsideCapture', 'clickOutsideEvents', 'closeDelay', 'closeOnClickOutside', 'closeOnEscape', 'closeOnItemClick', 'defaultOpened', 'disabled', 'floatingStrategy', 'hideDetached', 'keepMounted', 'loop', 'menuItemTabIndex', 'middlewares', 'offset', 'openDelay', 'opened', 'overlayProps', 'portalProps', 'position', 'preventPositionChangeWhenVisible', 'radius', 'returnFocus', 'shadow', 'styles', 'transitionProps', 'trapFocus', 'trigger', 'unstyled', 'variant', 'width', 'withArrow', 'withOverlay', 'withinPortal', 'zIndex']
         self._valid_wildcard_attributes =            []
-        self.available_properties = ['children', 'id', 'arrowOffset', 'arrowPosition', 'arrowRadius', 'arrowSize', 'attributes', 'classNames', 'clickOutsideEvents', 'closeDelay', 'closeOnClickOutside', 'closeOnEscape', 'closeOnItemClick', 'defaultOpened', 'disabled', 'floatingStrategy', 'keepMounted', 'loop', 'menuItemTabIndex', 'middlewares', 'offset', 'openDelay', 'opened', 'overlayProps', 'portalProps', 'position', 'positionDependencies', 'radius', 'returnFocus', 'shadow', 'styles', 'transitionProps', 'trapFocus', 'trigger', 'unstyled', 'variant', 'width', 'withArrow', 'withOverlay', 'withinPortal', 'zIndex']
+        self.available_properties = ['children', 'id', 'arrowOffset', 'arrowPosition', 'arrowRadius', 'arrowSize', 'attributes', 'classNames', 'clickOutsideCapture', 'clickOutsideEvents', 'closeDelay', 'closeOnClickOutside', 'closeOnEscape', 'closeOnItemClick', 'defaultOpened', 'disabled', 'floatingStrategy', 'hideDetached', 'keepMounted', 'loop', 'menuItemTabIndex', 'middlewares', 'offset', 'openDelay', 'opened', 'overlayProps', 'portalProps', 'position', 'preventPositionChangeWhenVisible', 'radius', 'returnFocus', 'shadow', 'styles', 'transitionProps', 'trapFocus', 'trigger', 'unstyled', 'variant', 'width', 'withArrow', 'withOverlay', 'withinPortal', 'zIndex']
         self.available_wildcard_properties =            []
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

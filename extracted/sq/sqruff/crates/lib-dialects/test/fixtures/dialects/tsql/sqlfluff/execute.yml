@@ -134,8 +134,7 @@ file:
       - comparison_operator:
         - raw_comparison_operator: =
       - expression:
-        - naked_identifier: N
-        - quoted_literal: '''MS_Description'''
+        - quoted_literal: N'MS_Description'
       - comma: ','
       - tsql_variable: '@value'
       - comparison_operator:
@@ -147,29 +146,25 @@ file:
       - comparison_operator:
         - raw_comparison_operator: =
       - expression:
-        - naked_identifier: N
-        - quoted_literal: '''SCHEMA'''
+        - quoted_literal: N'SCHEMA'
       - comma: ','
       - tsql_variable: '@level0name'
       - comparison_operator:
         - raw_comparison_operator: =
       - expression:
-        - naked_identifier: N
-        - quoted_literal: '''my_schema_name'''
+        - quoted_literal: N'my_schema_name'
       - comma: ','
       - tsql_variable: '@level1type'
       - comparison_operator:
         - raw_comparison_operator: =
       - expression:
-        - naked_identifier: N
-        - quoted_literal: '''my_object_type'''
+        - quoted_literal: N'my_object_type'
       - comma: ','
       - tsql_variable: '@level1name'
       - comparison_operator:
         - raw_comparison_operator: =
       - expression:
-        - naked_identifier: N
-        - quoted_literal: '''my_object_name'''
+        - quoted_literal: N'my_object_name'
   - statement:
     - execute_script_statement:
       - keyword: EXEC
@@ -221,19 +216,20 @@ file:
         - keyword: DEFAULT
   - statement_terminator: ;
   - statement:
-    - keyword: DECLARE
-    - tsql_variable: '@statement'
-    - data_type:
-      - keyword: nvarchar
-      - bracketed_arguments:
-        - bracketed:
-          - start_bracket: (
-          - keyword: max
-          - end_bracket: )
-    - assignment_operator:
-      - raw_comparison_operator: =
-    - expression:
-      - quoted_literal: '''SELECT 1'''
+    - declare_segment:
+      - keyword: DECLARE
+      - tsql_variable: '@statement'
+      - data_type:
+        - keyword: nvarchar
+        - bracketed_arguments:
+          - bracketed:
+            - start_bracket: (
+            - keyword: max
+            - end_bracket: )
+      - assignment_operator:
+        - raw_comparison_operator: =
+      - expression:
+        - quoted_literal: '''SELECT 1'''
   - statement:
     - execute_script_statement:
       - keyword: EXEC
@@ -251,35 +247,37 @@ file:
         - end_bracket: )
   - statement_terminator: ;
   - statement:
-    - keyword: DECLARE
-    - tsql_variable: '@s1'
-    - keyword: AS
-    - data_type:
-      - keyword: varchar
-      - bracketed_arguments:
-        - bracketed:
-          - start_bracket: (
-          - integer_literal: '10'
-          - end_bracket: )
-    - assignment_operator:
-      - raw_comparison_operator: =
-    - expression:
-      - null_literal: 'NULL'
+    - declare_segment:
+      - keyword: DECLARE
+      - tsql_variable: '@s1'
+      - keyword: AS
+      - data_type:
+        - keyword: varchar
+        - bracketed_arguments:
+          - bracketed:
+            - start_bracket: (
+            - integer_literal: '10'
+            - end_bracket: )
+      - assignment_operator:
+        - raw_comparison_operator: =
+      - expression:
+        - null_literal: 'NULL'
   - statement_terminator: ;
   - statement:
-    - keyword: DECLARE
-    - tsql_variable: '@s2'
-    - data_type:
-      - keyword: varchar
-      - bracketed_arguments:
-        - bracketed:
-          - start_bracket: (
-          - integer_literal: '10'
-          - end_bracket: )
-    - assignment_operator:
-      - raw_comparison_operator: =
-    - expression:
-      - null_literal: 'NULL'
+    - declare_segment:
+      - keyword: DECLARE
+      - tsql_variable: '@s2'
+      - data_type:
+        - keyword: varchar
+        - bracketed_arguments:
+          - bracketed:
+            - start_bracket: (
+            - integer_literal: '10'
+            - end_bracket: )
+      - assignment_operator:
+        - raw_comparison_operator: =
+      - expression:
+        - null_literal: 'NULL'
   - statement_terminator: ;
   - statement:
     - set_local_variable_segment:
@@ -383,21 +381,22 @@ file:
     - keyword: GO
 - batch:
   - statement:
-    - keyword: DECLARE
-    - tsql_variable: '@CheckDate'
-    - keyword: AS
-    - data_type:
-      - keyword: DATETIME
-    - assignment_operator:
-      - raw_comparison_operator: =
-    - expression:
-      - function:
-        - function_name:
-          - function_name_identifier: GETDATE
-        - function_contents:
-          - bracketed:
-            - start_bracket: (
-            - end_bracket: )
+    - declare_segment:
+      - keyword: DECLARE
+      - tsql_variable: '@CheckDate'
+      - keyword: AS
+      - data_type:
+        - keyword: DATETIME
+      - assignment_operator:
+        - raw_comparison_operator: =
+      - expression:
+        - function:
+          - function_name:
+            - function_name_identifier: GETDATE
+          - function_contents:
+            - bracketed:
+              - start_bracket: (
+              - end_bracket: )
   - statement_terminator: ;
   - statement:
     - execute_script_statement:
@@ -414,18 +413,20 @@ file:
           - tsql_variable: '@CheckDate'
   - statement_terminator: ;
   - statement:
-    - keyword: DECLARE
-    - tsql_variable: '@schemaname'
-    - keyword: AS
-    - data_type:
-      - data_type_identifier: sysname
+    - declare_segment:
+      - keyword: DECLARE
+      - tsql_variable: '@schemaname'
+      - keyword: AS
+      - data_type:
+        - data_type_identifier: sysname
   - statement_terminator: ;
   - statement:
-    - keyword: DECLARE
-    - tsql_variable: '@tablename'
-    - keyword: AS
-    - data_type:
-      - data_type_identifier: sysname
+    - declare_segment:
+      - keyword: DECLARE
+      - tsql_variable: '@tablename'
+      - keyword: AS
+      - data_type:
+        - data_type_identifier: sysname
   - statement_terminator: ;
   - statement:
     - execute_script_statement:
@@ -444,11 +445,12 @@ file:
         - end_bracket: )
   - statement_terminator: ;
   - statement:
-    - keyword: DECLARE
-    - tsql_variable: '@retstat'
-    - keyword: AS
-    - data_type:
-      - keyword: INT
+    - declare_segment:
+      - keyword: DECLARE
+      - tsql_variable: '@retstat'
+      - keyword: AS
+      - data_type:
+        - keyword: INT
   - statement_terminator: ;
   - statement:
     - execute_script_statement:
@@ -470,20 +472,21 @@ file:
         - integer_literal: '6'
   - statement_terminator: ;
   - statement:
-    - keyword: DECLARE
-    - tsql_variable: '@proc_name'
-    - keyword: AS
-    - data_type:
-      - keyword: VARCHAR
-      - bracketed_arguments:
-        - bracketed:
-          - start_bracket: (
-          - integer_literal: '30'
-          - end_bracket: )
-    - assignment_operator:
-      - raw_comparison_operator: =
-    - expression:
-      - quoted_literal: '''sys.sp_who'''
+    - declare_segment:
+      - keyword: DECLARE
+      - tsql_variable: '@proc_name'
+      - keyword: AS
+      - data_type:
+        - keyword: VARCHAR
+        - bracketed_arguments:
+          - bracketed:
+            - start_bracket: (
+            - integer_literal: '30'
+            - end_bracket: )
+      - assignment_operator:
+        - raw_comparison_operator: =
+      - expression:
+        - quoted_literal: '''sys.sp_who'''
   - statement_terminator: ;
   - statement:
     - execute_script_statement:
@@ -588,16 +591,17 @@ file:
         - keyword: RECOMPILE
   - statement_terminator: ;
   - statement:
-    - keyword: DECLARE
-    - tsql_variable: '@returnstatus'
-    - keyword: AS
-    - data_type:
-      - keyword: NVARCHAR
-      - bracketed_arguments:
-        - bracketed:
-          - start_bracket: (
-          - integer_literal: '15'
-          - end_bracket: )
+    - declare_segment:
+      - keyword: DECLARE
+      - tsql_variable: '@returnstatus'
+      - keyword: AS
+      - data_type:
+        - keyword: NVARCHAR
+        - bracketed_arguments:
+          - bracketed:
+            - start_bracket: (
+            - integer_literal: '15'
+            - end_bracket: )
   - statement_terminator: ;
   - statement:
     - execute_script_statement:

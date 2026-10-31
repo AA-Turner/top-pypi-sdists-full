@@ -51,7 +51,7 @@ from uuid import uuid4
 from matrx_utils.knob_fallback import knob_or_declared_default
 
 from matrx_ai.orchestrator.visual_map_fixes import (
-    PATCH_INSTRUCTIONS,
+    REPAIR_TURN_PATCH_TEXT,
     apply_patch,
     identity_fixes,
     mechanical_fixes,
@@ -558,7 +558,7 @@ def repair_notice(provision: dict[str, Any]) -> str:
     card = provision.get("authoring_card")
     if isinstance(card, str) and card.strip():
         parts.append(card.strip())
-    parts.append(PATCH_INSTRUCTIONS)
+    parts.append(REPAIR_TURN_PATCH_TEXT)
     return "\n\n".join(parts)
 
 

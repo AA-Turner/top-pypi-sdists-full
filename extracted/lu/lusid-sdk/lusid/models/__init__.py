@@ -268,6 +268,7 @@ from lusid.models.capital_distribution_event import CapitalDistributionEvent
 from lusid.models.capital_gains_distribution_event import CapitalGainsDistributionEvent
 from lusid.models.capital_interest import CapitalInterest
 from lusid.models.capital_interest_transfer_event import CapitalInterestTransferEvent
+from lusid.models.capitalisation_event import CapitalisationEvent
 from lusid.models.caplet_floorlet_cash_flow_event import CapletFloorletCashFlowEvent
 from lusid.models.carry_accrual_amount import CarryAccrualAmount
 from lusid.models.carry_accrual_line import CarryAccrualLine
@@ -307,6 +308,7 @@ from lusid.models.change_history_action import ChangeHistoryAction
 from lusid.models.change_interval import ChangeInterval
 from lusid.models.change_interval_with_order_management_detail import ChangeIntervalWithOrderManagementDetail
 from lusid.models.change_item import ChangeItem
+from lusid.models.chargeable_gains_take_on import ChargeableGainsTakeOn
 from lusid.models.chart_of_accounts import ChartOfAccounts
 from lusid.models.chart_of_accounts_properties import ChartOfAccountsProperties
 from lusid.models.chart_of_accounts_request import ChartOfAccountsRequest
@@ -523,7 +525,9 @@ from lusid.models.date_time_compliance_parameter import DateTimeComplianceParame
 from lusid.models.date_time_list_compliance_parameter import DateTimeListComplianceParameter
 from lusid.models.day_month import DayMonth
 from lusid.models.day_of_week import DayOfWeek
+from lusid.models.dealing_estimates import DealingEstimates
 from lusid.models.dealing_flow_summary import DealingFlowSummary
+from lusid.models.dealing_flow_valuation import DealingFlowValuation
 from lusid.models.decimal_compliance_parameter import DecimalComplianceParameter
 from lusid.models.decimal_list import DecimalList
 from lusid.models.decimal_list_compliance_parameter import DecimalListComplianceParameter
@@ -606,6 +610,9 @@ from lusid.models.equity_vol_surface_data import EquityVolSurfaceData
 from lusid.models.error_detail import ErrorDetail
 from lusid.models.estimate_transfer_agency_order_request import EstimateTransferAgencyOrderRequest
 from lusid.models.estimate_transfer_agency_orders_response import EstimateTransferAgencyOrdersResponse
+from lusid.models.estimate_valuation import EstimateValuation
+from lusid.models.estimate_valuation_difference import EstimateValuationDifference
+from lusid.models.estimate_valuation_outcome import EstimateValuationOutcome
 from lusid.models.estimate_variant import EstimateVariant
 from lusid.models.event_date_range import EventDateRange
 from lusid.models.event_inheritance import EventInheritance
@@ -1401,6 +1408,7 @@ from lusid.models.rec_result_counts import RecResultCounts
 from lusid.models.rec_result_decision_group import RecResultDecisionGroup
 from lusid.models.rec_result_decision_update import RecResultDecisionUpdate
 from lusid.models.rec_result_exception import RecResultException
+from lusid.models.rec_result_external_identifiers_item import RecResultExternalIdentifiersItem
 from lusid.models.rec_result_holding_impact import RecResultHoldingImpact
 from lusid.models.rec_result_holding_item import RecResultHoldingItem
 from lusid.models.rec_result_item import RecResultItem
@@ -1704,6 +1712,9 @@ from lusid.models.string_comparison_type import StringComparisonType
 from lusid.models.string_compliance_parameter import StringComplianceParameter
 from lusid.models.string_list import StringList
 from lusid.models.string_list_compliance_parameter import StringListComplianceParameter
+from lusid.models.strip_bond import StripBond
+from lusid.models.strip_bond_cashflow_event import StripBondCashflowEvent
+from lusid.models.strip_bond_model_options import StripBondModelOptions
 from lusid.models.structured_result_data import StructuredResultData
 from lusid.models.structured_result_data_id import StructuredResultDataId
 from lusid.models.structured_result_data_result import StructuredResultDataResult
@@ -2284,6 +2295,7 @@ __all__ = [
     "CapitalGainsDistributionEvent",
     "CapitalInterest",
     "CapitalInterestTransferEvent",
+    "CapitalisationEvent",
     "CapletFloorletCashFlowEvent",
     "CarryAccrualAmount",
     "CarryAccrualLine",
@@ -2323,6 +2335,7 @@ __all__ = [
     "ChangeInterval",
     "ChangeIntervalWithOrderManagementDetail",
     "ChangeItem",
+    "ChargeableGainsTakeOn",
     "ChartOfAccounts",
     "ChartOfAccountsProperties",
     "ChartOfAccountsRequest",
@@ -2539,7 +2552,9 @@ __all__ = [
     "DateTimeListComplianceParameter",
     "DayMonth",
     "DayOfWeek",
+    "DealingEstimates",
     "DealingFlowSummary",
+    "DealingFlowValuation",
     "DecimalComplianceParameter",
     "DecimalList",
     "DecimalListComplianceParameter",
@@ -2622,6 +2637,9 @@ __all__ = [
     "ErrorDetail",
     "EstimateTransferAgencyOrderRequest",
     "EstimateTransferAgencyOrdersResponse",
+    "EstimateValuation",
+    "EstimateValuationDifference",
+    "EstimateValuationOutcome",
     "EstimateVariant",
     "EventDateRange",
     "EventInheritance",
@@ -3417,6 +3435,7 @@ __all__ = [
     "RecResultDecisionGroup",
     "RecResultDecisionUpdate",
     "RecResultException",
+    "RecResultExternalIdentifiersItem",
     "RecResultHoldingImpact",
     "RecResultHoldingItem",
     "RecResultItem",
@@ -3720,6 +3739,9 @@ __all__ = [
     "StringComplianceParameter",
     "StringList",
     "StringListComplianceParameter",
+    "StripBond",
+    "StripBondCashflowEvent",
+    "StripBondModelOptions",
     "StructuredResultData",
     "StructuredResultDataId",
     "StructuredResultDataResult",

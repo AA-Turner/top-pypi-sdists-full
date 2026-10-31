@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional, Set, Tuple
 from uuid import uuid4
 
+from ._whitespace import trim_javascript_whitespace
 from .errors import HOST_PROTOCOL_ERROR, SuperDocError
 from .protocol import apply_operation_param_aliases
 from .sdk_policy import SDK_POLICY
@@ -37,7 +38,7 @@ def _document_author(user: Optional[Dict[str, str]]) -> Optional[Dict[str, str]]
         )
     name = user.get('name')
     email = user.get('email')
-    if not isinstance(name, str) or not name.strip():
+    if not isinstance(name, str) or not trim_javascript_whitespace(name):
         raise SuperDocError(
             'user.name must be a non-empty string.',
             code='INVALID_ARGUMENT',
@@ -68,7 +69,7 @@ def build_document_open_params(
         )
 
     path = params.get('doc')
-    if not isinstance(path, str) or not path.strip() or path == '-':
+    if not isinstance(path, str) or not trim_javascript_whitespace(path) or path == '-':
         raise _unsupported(
             'Structured document RPC v0 requires doc.open({"doc": path}).',
             'doc.open',

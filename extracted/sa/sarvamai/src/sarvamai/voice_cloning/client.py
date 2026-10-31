@@ -328,7 +328,7 @@ class VoiceCloningClient:
         **Base URL:** `https://api.sarvam.ai`.
         **Auth:** send your key in the `api-subscription-key` header.
 
-        **Limits:** max file size 50 MB. Voice count is capped by your subscription tier (e.g. 3 voices on the starter tier) - the API returns 403 `TIER_LIMIT_REACHED` when the cap is hit.
+        **Limits:** max file size 50 MB. Voice count is capped by your subscription tier (e.g. 50 voices on the starter tier, counted across your organization) - the API returns 403 `TIER_LIMIT_REACHED` when the cap is hit.
 
         **Billing:** charged against the voice cloning API. See the [pricing page](https://docs.sarvam.ai/api/getting-started/pricing).
 
@@ -473,7 +473,7 @@ class VoiceCloningClient:
 
     def delete_voice(self, voice_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> None:
         """
-        **Beta.** Deletes a cloned voice: its audio assets are removed and the voice is no longer listed or usable for synthesis. On the free plan (capped at 5 voices), deleting a voice frees a slot. Paid plans are not capped.
+        **Beta.** Deletes a cloned voice: its audio assets are removed and the voice is no longer listed or usable for synthesis. On the Starter (pay as you go) plan (capped at 50 voices across your organization), deleting a voice frees a slot. Pro and Enterprise plans have higher limits.
 
         **Base URL:** `https://api.sarvam.ai`.
         **Auth:** send your key in the `api-subscription-key` header. Returns `204 No Content` on success.
@@ -828,7 +828,7 @@ class AsyncVoiceCloningClient:
         **Base URL:** `https://api.sarvam.ai`.
         **Auth:** send your key in the `api-subscription-key` header.
 
-        **Limits:** max file size 50 MB. Voice count is capped by your subscription tier (e.g. 3 voices on the starter tier) - the API returns 403 `TIER_LIMIT_REACHED` when the cap is hit.
+        **Limits:** max file size 50 MB. Voice count is capped by your subscription tier (e.g. 50 voices on the starter tier, counted across your organization) - the API returns 403 `TIER_LIMIT_REACHED` when the cap is hit.
 
         **Billing:** charged against the voice cloning API. See the [pricing page](https://docs.sarvam.ai/api/getting-started/pricing).
 
@@ -997,7 +997,7 @@ class AsyncVoiceCloningClient:
 
     async def delete_voice(self, voice_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> None:
         """
-        **Beta.** Deletes a cloned voice: its audio assets are removed and the voice is no longer listed or usable for synthesis. On the free plan (capped at 5 voices), deleting a voice frees a slot. Paid plans are not capped.
+        **Beta.** Deletes a cloned voice: its audio assets are removed and the voice is no longer listed or usable for synthesis. On the Starter (pay as you go) plan (capped at 50 voices across your organization), deleting a voice frees a slot. Pro and Enterprise plans have higher limits.
 
         **Base URL:** `https://api.sarvam.ai`.
         **Auth:** send your key in the `api-subscription-key` header. Returns `204 No Content` on success.

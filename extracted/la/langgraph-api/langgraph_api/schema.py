@@ -261,6 +261,8 @@ class Run(TypedDict):
     """Strategy to handle concurrent runs on the same thread."""
     langsmith_session_name: str | None
     """LangSmith tracing session (project) name for this run, if tracing is enabled."""
+    cancel_reason: str | None
+    """Why the run was cancelled, if it was. Server-generated."""
 
 
 class RunSend(TypedDict):
@@ -354,6 +356,19 @@ ThreadSelectField = Literal[
 ]
 THREAD_FIELDS: set[str] = set(ThreadSelectField.__args__)
 
+# Thread state (history entry) select fields
+ThreadStateSelectField = Literal[
+    "values",
+    "next",
+    "tasks",
+    "checkpoint",
+    "metadata",
+    "created_at",
+    "parent_checkpoint",
+    "interrupts",
+]
+THREAD_STATE_FIELDS: set[str] = set(ThreadStateSelectField.__args__)
+
 # Run select fields
 RunSelectField = Literal[
     "run_id",
@@ -366,6 +381,7 @@ RunSelectField = Literal[
     "kwargs",
     "multitask_strategy",
     "langsmith_session_name",
+    "cancel_reason",
 ]
 RUN_FIELDS: set[str] = set(RunSelectField.__args__)
 
@@ -387,113 +403,3 @@ CronSelectField = Literal[
     "enabled",
 ]
 CRON_FIELDS: set[str] = set(CronSelectField.__args__)
-
-# Encryption field constants
-# These define which fields are encrypted for each model type.
-#
-# Note: Checkpoint encryption (checkpoint, metadata columns in checkpoints table, plus
-# blob data in checkpoint_blobs and checkpoint_writes) is handled directly by the
-# Checkpointer class in storage_postgres/langgraph_runtime_postgres/checkpoint.py.
-# The checkpointer uses encrypt_json_if_needed/decrypt_json_if_needed directly rather
-# than the field list pattern used by the API middleware. This is because checkpoints
-# are only accessed via the checkpointer's internal methods (aget_tuple, aput, etc.),
-# not through generic API CRUD operations.
-
-THREAD_ENCRYPTION_FIELDS = ["metadata", "config", "values", "interrupts", "error"]
-
-# kwargs is a nested blob - its subfields are decrypted automatically by the middleware
-RUN_ENCRYPTION_FIELDS = ["metadata", "kwargs"]
-
-ASSISTANT_ENCRYPTION_FIELDS = ["metadata", "config", "context"]
-
-# payload is a nested blob - its subfields are decrypted automatically by the middleware
-CRON_ENCRYPTION_FIELDS = ["metadata", "payload"]
-
-# Store encryption - only the value field contains user data
-STORE_ENCRYPTION_FIELDS = ["value"]
-
-# The middleware automatically decrypts these subfields when decrypting the parent field.
-# This is recursive: if a subfield is also in NESTED_ENCRYPTED_SUBFIELDS, its subfields
-# are decrypted too (e.g., run.kwargs.config.configurable).
-NESTED_ENCRYPTED_SUBFIELDS: dict[tuple[str, str], list[str]] = {
-    ("run", "kwargs"): ["input", "config", "context", "command"],
-    ("run", "config"): ["configurable", "metadata"],
-    ("cron", "payload"): ["metadata", "context", "input", "config"],
-    ("cron", "config"): ["configurable", "metadata"],
-    ("assistant", "config"): ["configurable"],
-    ("thread", "config"): ["configurable"],
-}
-
-# Convenience alias for cron payload subfields.
-#
-# This is a reflection of an unfortunate asymmetry in cron's data model.
-#
-# The cron API requests have payload fields (metadata, input, config, context) at the
-# top level, but at rest they're nested inside the `payload` JSONB column (with
-# metadata also duplicated as a top-level column). This alias is used to encrypt
-# those fields in the flat request before storage.
-CRON_PAYLOAD_ENCRYPTION_SUBFIELDS = NESTED_ENCRYPTED_SUBFIELDS[("cron", "payload")]
-
-# Convenience alias for run kwargs subfields, used by the worker for decryption.
-RUN_KWARGS_ENCRYPTION_SUBFIELDS = NESTED_ENCRYPTED_SUBFIELDS[("run", "kwargs")]
-
-# Fields that should NEVER be encrypted in ANY context.
-# These are system fields with unique prefixes or names that are safe to skip globally.
-NEVER_ENCRYPT_FIELDS_GLOBAL: frozenset[str] = frozenset(
-    {
-        # System identifiers (UUIDs, not user-provided)
-        "thread_id",
-        "run_id",
-        "assistant_id",
-        "graph_id",
-        "checkpoint_id",
-        "task_id",
-        # Internal __pregel_* fields - uniquely named, safe to skip everywhere
-        "__pregel_checkpointer",
-        "__pregel_resuming",
-        "__pregel_durability",
-        "__pregel_stream",
-        "__pregel_task_id",
-        "__pregel_checkpoint_ns",
-        # Internal timing/scheduling fields
-        "__after_seconds__",
-        "__request_start_time_ms__",
-        # Encryption context markers (must stay plaintext for routing)
-        "__encryption_context__",
-        "__blob_encryption_context__",
-        # LangGraph system fields (mirrors AES_JSON_DISALLOWED_KEYS)
-        "langgraph_version",
-        "langgraph_api_version",
-        "langgraph_plan",
-        "langgraph_host",
-        "langgraph_api_url",
-        "langgraph_request_id",
-        "langgraph_auth_user_id",
-        "langgraph_auth_permissions",
-    }
-)
-
-# Path-based skip rules for encryption.
-# Format: "model_type.field.subfield...key" using dot notation.
-# These allow surgical control over which fields skip encryption at specific locations.
-# Use "*" as a wildcard segment to match any field at that level.
-#
-# Examples:
-#   "run.kwargs.config.configurable.ttl" - skip ttl only in run's configurable
-NEVER_ENCRYPT_PATHS: frozenset[str] = frozenset(
-    {
-        # Run execution parameters
-        "run.kwargs.config.recursion_limit",
-        "run.kwargs.config.max_concurrency",
-        # Temporary flag - must stay plaintext for SQL: (kwargs->>'temporary')::boolean
-        "run.kwargs.temporary",
-        # Thread TTL in run configurable - needs to stay plaintext for system to apply
-        "run.kwargs.config.configurable.ttl",
-        # Checkpoint metadata execution state - system-controlled, not user data
-        "checkpoint.metadata.source",
-        "checkpoint.metadata.step",
-        "checkpoint.metadata.parents",
-        "checkpoint.metadata.run_attempt",
-        "checkpoint.metadata.counters_since_delta_snapshot",
-    }
-)

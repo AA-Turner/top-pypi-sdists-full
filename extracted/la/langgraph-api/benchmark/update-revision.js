@@ -3,6 +3,8 @@
  * Uses Host v2 deployment APIs.
  */
 
+import { writeFileSync } from 'node:fs';
+
 import { createRevision, requireApiKey } from './host-v2.js';
 
 const DEPLOYMENT_ID =
@@ -16,5 +18,7 @@ async function updateRevision() {
 
 updateRevision().catch((error) => {
   console.error('Fatal error during revision update:', error.message);
+  // The report only sees the benchmark step as skipped; this is the reason.
+  writeFileSync('revision_error.txt', error.message);
   process.exit(1);
 });

@@ -110,11 +110,6 @@ class MinioStorageBackend:
                     logger.debug('PUT Object {} - Size: {} - {}'.format(key, sizeof_fmt(len(data)), status))
                 except Exception:
                     logger.debug('PUT Object {} {}'.format(key, status))
-            except botocore.exceptions.ClientError as e:
-                if e.response['Error']['Code'] == "NoSuchKey":
-                    raise StorageNoSuchKeyError(bucket_name, key)
-                else:
-                    raise e
             except botocore.exceptions.ReadTimeoutError as e:
                 if retries == OBJ_REQ_RETRIES:
                     raise e
@@ -273,7 +268,7 @@ class MinioStorageBackend:
                         object_list.append(item)
             return object_list
         except botocore.exceptions.ClientError as e:
-            if e.response['Error']['Code'] == '404':
+            if e.response['Error']['Code'] in ('404', 'NoSuchBucket'):
                 raise StorageNoSuchKeyError(bucket_name, '' if prefix is None else prefix)
             else:
                 raise e
@@ -298,7 +293,7 @@ class MinioStorageBackend:
                         key_list.append(item['Key'])
             return key_list
         except botocore.exceptions.ClientError as e:
-            if e.response['Error']['Code'] == '404':
+            if e.response['Error']['Code'] in ('404', 'NoSuchBucket'):
                 raise StorageNoSuchKeyError(bucket_name, prefix)
             else:
                 raise e

@@ -800,7 +800,16 @@ class ToProtoConverter:
         outputs: list[pb.ResolverOutput] = []
         for o in raw_outputs:
             if isinstance(o, type) and issubclass(o, DataFrame):  # pyright: ignore[reportUnnecessaryIsInstance]
-                outputs.append(pb.ResolverOutput(df=ToProtoConverter.convert_dataframe(o)))
+                outputs.append(
+                    pb.ResolverOutput(
+                        df=ToProtoConverter._convert_dataframe_columns(o),
+                        relationship=(
+                            ToProtoConverter.create_feature_reference(o.__relationship__)
+                            if o.__relationship__ is not None
+                            else None
+                        ),
+                    )
+                )
             elif isinstance(o, Feature):  # pyright: ignore[reportUnnecessaryIsInstance]
                 outputs.append(pb.ResolverOutput(feature=ToProtoConverter.create_feature_reference(o)))
             else:
@@ -1283,6 +1292,15 @@ class ToProtoConverter:
 
     @staticmethod
     def convert_dataframe(df: type[DataFrame]) -> pb.DataFrameType:
+        if df.__relationship__ is not None:
+            # Only a resolver output names a relationship, and `convert_resolver_outputs` carries it on `ResolverOutput`.
+            raise ValueError(
+                f"Cannot serialize {df!r}: only a resolver's output DataFrame can use for_relationship(...)."
+            )
+        return ToProtoConverter._convert_dataframe_columns(df)
+
+    @staticmethod
+    def _convert_dataframe_columns(df: type[DataFrame]) -> pb.DataFrameType:
         return pb.DataFrameType(
             root_namespace=get_unique_item(x.root_namespace for x in df.columns if x.root_namespace != PSEUDONAMESPACE),
             optional_columns=(

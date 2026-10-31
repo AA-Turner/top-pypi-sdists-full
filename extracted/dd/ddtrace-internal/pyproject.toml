@@ -4,11 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ddtrace-internal"
-version = "0.1.0"
+version = "0.2.0"
 description = "Stub internal Datadog Python package (ddtrace-internal)."
 readme = "README.md"
 requires-python = ">=3.9"
 authors = [{ name = "Datadog, Inc.", email = "dev@datadoghq.com" }]
+license = "BSD-3-Clause OR Apache-2.0" 
+
+[project.urls]
+Repository = "https://github.com/DataDog/datadog-apm-python"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -20,8 +24,8 @@ where = ["src"]
 python_files = ["test.py", "test_*.py"]
 
 [tool.deptry]
-# `setup.py`/`scripts/`/`tests/`/`riotfile.py` aren't part of the installable
+# `setup.py`/`scripts/`/`tests/` aren't part of the installable
 # package and pull in their own build/dev-only imports; deptry's `exclude`
 # is `re.match`-anchored, hence the leading `.*` to match regardless of
 # invocation path.
-exclude = [".*/scripts(/|$)", ".*/setup\\.py$", ".*/tests(/|$)", ".*/riotfile\\.py$"]
+exclude = [".*/scripts(/|$)", ".*/setup\\.py$", ".*/tests(/|$)"]

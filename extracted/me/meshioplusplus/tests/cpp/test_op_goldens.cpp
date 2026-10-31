@@ -25,11 +25,8 @@
  * `remesh_volume`, `sample_distance`, `distance_to_surface`, the marching
  * kernel behind `isosurface` and `slice`, `convert_cells`, `interpolate`,
  * `repair`, `diff`, `sobolev_deform`, `gradient`, and the duplicate-cell
- * passes over mixed, polyhedral and ragged blocks), and `mesh_cad_surface`
- * (its solids and its v17.14.0 paths: crossing splits, rotated closed edges,
- * embedded edges), which mesh generation's refinement must leave byte for
- * byte at its defaults. The digests were taken from the implementation
- * before each rewrite; the repeated-run checks hold
+ * passes over mixed, polyhedral and ragged blocks). The digests were taken
+ * from the implementation before each rewrite; the repeated-run checks hold
  * everywhere, the golden digests on x86-64 GCC/Clang only (no FMA contraction
  * there).
  */
@@ -39,7 +36,6 @@
 
 #include <gtest/gtest.h>
 
-#include "brep_solids.hpp"
 #include "golden_fixtures.hpp"
 #include "meshioplusplus/operations/agglomerate.hpp"
 #include "meshioplusplus/operations/clean.hpp"
@@ -53,7 +49,6 @@
 #include "meshioplusplus/operations/interpolate.hpp"
 #include "meshioplusplus/operations/isosurface.hpp"
 #include "meshioplusplus/operations/merge.hpp"
-#include "meshioplusplus/operations/mesh_cad.hpp"
 #include "meshioplusplus/operations/normals.hpp"
 #include "meshioplusplus/operations/refine.hpp"
 #include "meshioplusplus/operations/remesh.hpp"
@@ -68,7 +63,6 @@
 #include "meshioplusplus/operations/surface.hpp"
 #include "meshioplusplus/operations/undo_green.hpp"
 #include "meshioplusplus/operations/voxelize.hpp"
-#include "meshioplusplus/operations/primitives.hpp"
 
 namespace {
 
@@ -176,21 +170,6 @@ std::uint64_t og_shrinkwrap() {
     std::memcpy(conn.Data(), surface.Cells(0).Conn().Data(), conn.Nbytes());
     inflated.AddCellBlock(surface.Cells(0).Type(), std::move(conn));
     return ft_mesh(mio::shrinkwrap(inflated, surface).mMesh);
-}
-
-// The parametric generators read no input, so one digest pins every shape's
-// points, cells and regions, linear and quadratic.
-std::uint64_t og_primitives() {
-    MeshDigest d;
-    d.Of(mio::rectangle({{5, 4}}, {{2.0, 1.5}}, {{0.1, 0.2, 0.3}}, "triangle", "zigzag", 2));
-    d.Of(mio::box({{3, 2, 2}}, {{1.5, 1.0, 1.0}}, {{0, 0, 0}}, "tetra", 2));
-    d.Of(mio::box({{2, 2, 2}}, {{1, 1, 1}}, {{0, 0, 0}}, "wedge", 1));
-    d.Of(mio::disk(1.5, 4, {{0, 0, 0}}, "quad", 2));
-    d.Of(mio::uv_sphere(2.0, 9, 5, {{0, 0, 0}}, "quad", 2));
-    d.Of(mio::icosa_sphere(1.0, 2, {{0, 0, 0}}, 2));
-    d.Of(mio::cylinder(1.0, 2.0, 3, 3, {{0, 0, 0}}, "wedge", 2));
-    d.Of(mio::reference_cells());
-    return d.Value();
 }
 
 std::uint64_t og_voxelize() {
@@ -554,59 +533,6 @@ std::uint64_t og_merge_mixed() {
     return d.Value();
 }
 
-// mesh_cad_surface: the mesh and the counts of its report, per model. The
-// two cases below with min_angle = 0 and no smoothing are the unrefined
-// mesh; refinement must leave them byte for byte (roadmap 6.2).
-void og_mesh_cad_into(MeshDigest& rD, const mio::BrepInfo& rInfo, double H, double MinAngle = 0.0,
-                      int Smooth = 0,
-                      mio::MeshCadSmoothing Method = mio::MeshCadSmoothing::Laplacian) {
-    mio::MeshCadSurfaceOptions o;
-    o.mTargetSize = H;
-    o.mMinAngleDeg = MinAngle;
-    o.mSmoothIterations = Smooth;
-    o.mSmoothMethod = Method;
-    const auto r = mio::mesh_cad_surface(rInfo, o);
-    rD.Of(r.mMesh);
-    for (const std::int64_t v : {r.mNumFailed, r.mNumOpenEdges, r.mNumNonManifoldEdges,
-                                 r.mNumMisorientedEdges, r.mNumDegenerateDropped})
-        rD.Bytes(&v, sizeof v);
-    if (MinAngle > 0.0 || Smooth > 0) {
-        for (const std::int64_t v : {r.mNumRefinementPoints, r.mNumFacesBelowBound, r.mNumSmoothed})
-            rD.Bytes(&v, sizeof v);
-        rD.Bytes(r.mAngleHistogram.data(), sizeof(r.mAngleHistogram));
-    }
-}
-
-std::uint64_t og_mesh_cad_solids() {
-    MeshDigest d;
-    og_mesh_cad_into(d, brep_solids::box(1.0, 2.0, 3.0), 0.3);
-    og_mesh_cad_into(d, brep_solids::capped_cylinder(1.0, 2.0), 0.1);
-    og_mesh_cad_into(d, brep_solids::sphere(1.0), 0.2);
-    og_mesh_cad_into(d, brep_solids::patch_box(), 0.25);
-    return d.Value();
-}
-
-std::uint64_t og_mesh_cad_v17_14() {
-    MeshDigest d;
-    og_mesh_cad_into(d, brep_solids::disc_with_hole(), 1.1);
-    og_mesh_cad_into(d, brep_solids::thick_disc_with_hole(), 1.1);
-    og_mesh_cad_into(d, brep_solids::capped_cylinder(1.0, 2.0, 0.5 * brep_solids::kPi), 0.2);
-    og_mesh_cad_into(d, brep_solids::plate_with_fin(), 0.1);
-    return d.Value();
-}
-
-// Refinement to 25 degrees (planar, seam, poles) and both smoothers.
-std::uint64_t og_mesh_cad_refined() {
-    MeshDigest d;
-    og_mesh_cad_into(d, brep_solids::box(1.0, 2.0, 3.0), 0.3, 25.0);
-    og_mesh_cad_into(d, brep_solids::capped_cylinder(1.0, 2.0), 0.2, 25.0);
-    og_mesh_cad_into(d, brep_solids::sphere(1.0), 0.2, 25.0);
-    og_mesh_cad_into(d, brep_solids::disc_with_hole(), 1.1, 25.0, 2);
-    og_mesh_cad_into(d, brep_solids::capped_cylinder(1.0, 2.0), 0.2, 0.0, 2,
-                     mio::MeshCadSmoothing::Odt);
-    return d.Value();
-}
-
 struct OgCase {
     const char* mName;
     std::uint64_t (*mRun)();
@@ -621,7 +547,6 @@ const OgCase kOgCases[] = {
     {"sdf", og_sdf, 0x175cf3b488dec5f1ull},
     {"shrinkwrap", og_shrinkwrap, 0xb0848f2913e6c5c1ull},
     {"voxelize", og_voxelize, 0x6ba9809e780fc0adull},
-    {"primitives", og_primitives, 0xb25c3db914f56668ull},
     {"curvature", og_curvature, 0x57e791c665c3c096ull},
     {"normals", og_normals, 0xdd92696ea89a5ad9ull},
     {"segment", og_segment, 0x5ea31eda31330c87ull},
@@ -646,9 +571,6 @@ const OgCase kOgCases[] = {
     {"gradient", og_gradient, 0xc3a947740b3221bcull},
     {"clean_mixed", og_clean_mixed, 0x7a70d94cd8d6e8feull},
     {"merge_mixed", og_merge_mixed, 0x275bb867891ac42bull},
-    {"mesh_cad_solids", og_mesh_cad_solids, 0xc896bd5d97ba996bull},
-    {"mesh_cad_v17_14", og_mesh_cad_v17_14, 0x4f46d9ad572f5749ull},
-    {"mesh_cad_refined", og_mesh_cad_refined, 0x67c720c4625879a5ull},
 };
 
 TEST(OpGoldens, ResultsAreStableAcrossRepeatedRuns) {

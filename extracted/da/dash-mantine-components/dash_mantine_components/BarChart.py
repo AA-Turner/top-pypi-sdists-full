@@ -33,6 +33,10 @@ Keyword arguments:
 - id (string; optional):
     Unique ID to identify this component in Dash callbacks.
 
+- accessibilityLayer (boolean; optional):
+    Determines whether the chart should be keyboard-navigable with the
+    recharts accessibility layer, `True` by default.
+
 - aria-* (string; optional):
     Wild card aria attributes.
 
@@ -80,6 +84,13 @@ Keyword arguments:
 - bottom (string | number | dict; optional):
     Bottom offset – Accepts CSS values or a dict for responsive
     styles.
+
+- brushDragEnd (dict with strings as keys and values of type number; optional):
+    The startIndex and endIndex  of the selected brush range when
+    dragging ends. Read only.
+
+- brushProps (dict with strings as keys and values of type boolean | number | string | dict | list; optional):
+    Props passed down to the `Brush` component.
 
 - c (string | dict; optional):
     Color – Accepts theme color keys, CSS values, or a dict for
@@ -150,7 +161,7 @@ Keyword arguments:
     Color of the grid and cursor lines, by default depends on color
     scheme.
 
-- gridProps (dict; optional):
+- gridProps (dict with strings as keys and values of type boolean | number | string | dict | list; optional):
     Props passed down to the `CartesianGrid` component.
 
 - h (string | number | dict; optional):
@@ -178,7 +189,7 @@ Keyword arguments:
 - left (string | number | dict; optional):
     Left offset – Accepts CSS values or a dict for responsive styles.
 
-- legendProps (dict; optional):
+- legendProps (dict with strings as keys and values of type boolean | number | string | dict | list; optional):
     Props passed down to the `Legend` component.
 
 - lh (string | number | dict; optional):
@@ -231,12 +242,18 @@ Keyword arguments:
     Margin inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- mie (number; optional):
+    MarginInlineEnd, theme key: theme.spacing.
+
 - mih (string | number | dict; optional):
     Minimum height – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
 
 - minBarSize (number; optional):
     Sets minimum height of the bar in px, `0` by default.
+
+- mis (number; optional):
+    MarginInlineStart, theme key: theme.spacing.
 
 - miw (string | number | dict; optional):
     Minimum width – Accepts theme spacing keys, CSS values, or a dict
@@ -289,6 +306,12 @@ Keyword arguments:
     Padding inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- pie (number; optional):
+    PaddingInlineEnd, theme key: theme.spacing.
+
+- pis (number; optional):
+    PaddingInlineStart, theme key: theme.spacing.
+
 - pl (string | number | dict; optional):
     Padding left – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
@@ -316,7 +339,13 @@ Keyword arguments:
     Padding block – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
 
-- referenceLines (list of dicts; optional):
+- referenceAreas (list of dicts with strings as keys and values of type boolean | number | string | dict | list; optional):
+    Reference areas that should be displayed on the chart.
+
+- referenceDots (list of dicts with strings as keys and values of type boolean | number | string | dict | list; optional):
+    Reference dots that should be displayed on the chart.
+
+- referenceLines (list of dicts with strings as keys and values of type boolean | number | string | dict | list; optional):
     Reference lines that should be displayed on the chart.
 
 - right (string | number | dict; optional):
@@ -373,7 +402,7 @@ Keyword arguments:
 - tooltipAnimationDuration (number; optional):
     Tooltip position animation duration in ms, `0` by default.
 
-- tooltipProps (dict; optional):
+- tooltipProps (dict with strings as keys and values of type boolean | number | string | dict | list; optional):
     Props passed down to the `Tooltip` component.
 
 - top (string | number | dict; optional):
@@ -420,6 +449,10 @@ Keyword arguments:
     use {position: 'inside'} to move the labels inside each bar).
     False by default.
 
+- withBrush (boolean; optional):
+    Determines whether a brush (range selector) should be displayed
+    under the chart, `False` by default.
+
 - withLegend (boolean; optional):
     Determines whether chart legend should be displayed, `False` by
     default.
@@ -441,29 +474,18 @@ Keyword arguments:
 - xAxisLabel (string; optional):
     A label to display below the x-axis.
 
-- xAxisProps (dict; optional):
+- xAxisProps (dict with strings as keys and values of type boolean | number | string | dict | list; optional):
     Props passed down to the `XAxis` recharts component.
 
 - yAxisLabel (string; optional):
     A label to display next to the y-axis.
 
-- yAxisProps (dict; optional):
+- yAxisProps (dict with strings as keys and values of type boolean | number | string | dict | list; optional):
     Props passed down to the `YAxis` recharts component."""
     _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
     _type = 'BarChart'
-    Series = TypedDict(
-        "Series",
-            {
-            "stackId": NotRequired[str],
-            "name": str,
-            "color": NotRequired[typing.Union[Literal["dark"], Literal["gray"], Literal["red"], Literal["pink"], Literal["grape"], Literal["violet"], Literal["indigo"], Literal["blue"], Literal["cyan"], Literal["green"], Literal["lime"], Literal["yellow"], Literal["orange"], Literal["teal"]]],
-            "label": NotRequired[str],
-            "yAxisId": NotRequired[str]
-        }
-    )
-
     LoadingState = TypedDict(
         "LoadingState",
             {
@@ -477,8 +499,8 @@ Keyword arguments:
     def __init__(
         self,
         children: typing.Optional[ComponentType] = None,
-        data: typing.Optional[typing.Sequence[typing.Dict[typing.Union[str, float, int], typing.Any]]] = None,
-        series: typing.Optional[typing.Sequence["Series"]] = None,
+        data: typing.Optional[typing.Sequence[typing.Dict[str, typing.Any]]] = None,
+        series: typing.Optional[typing.Sequence[typing.Dict[str, typing.Any]]] = None,
         type: typing.Optional[Literal["default", "stacked", "percent", "waterfall"]] = None,
         fillOpacity: typing.Optional[NumberType] = None,
         cursorFill: typing.Optional[typing.Optional[str]] = None,
@@ -552,20 +574,24 @@ Keyword arguments:
         style: typing.Optional[typing.Any] = None,
         lightHidden: typing.Optional[bool] = None,
         darkHidden: typing.Optional[bool] = None,
+        mis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        mie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         dataKey: typing.Optional[str] = None,
-        referenceLines: typing.Optional[typing.Sequence[dict]] = None,
+        referenceLines: typing.Optional[typing.Sequence[typing.Dict[typing.Union[str, float, int], typing.Any]]] = None,
         withXAxis: typing.Optional[bool] = None,
         withYAxis: typing.Optional[bool] = None,
-        xAxisProps: typing.Optional[dict] = None,
-        yAxisProps: typing.Optional[dict] = None,
-        gridProps: typing.Optional[dict] = None,
+        xAxisProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
+        yAxisProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
+        gridProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
         tickLine: typing.Optional[Literal["none", "x", "y", "xy"]] = None,
         strokeDasharray: typing.Optional[typing.Union[str, NumberType]] = None,
         gridAxis: typing.Optional[Literal["none", "x", "y", "xy"]] = None,
         unit: typing.Optional[str] = None,
         tooltipAnimationDuration: typing.Optional[NumberType] = None,
-        legendProps: typing.Optional[dict] = None,
-        tooltipProps: typing.Optional[dict] = None,
+        legendProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
+        tooltipProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
         withLegend: typing.Optional[bool] = None,
         withTooltip: typing.Optional[bool] = None,
         textColor: typing.Optional[typing.Optional[str]] = None,
@@ -577,6 +603,12 @@ Keyword arguments:
         rightYAxisProps: typing.Optional[typing.Any] = None,
         rightYAxisLabel: typing.Optional[typing.Any] = None,
         valueFormatter: typing.Optional[typing.Any] = None,
+        accessibilityLayer: typing.Optional[bool] = None,
+        withBrush: typing.Optional[bool] = None,
+        brushProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
+        brushDragEnd: typing.Optional[typing.Dict[typing.Union[str, float, int], NumberType]] = None,
+        referenceAreas: typing.Optional[typing.Sequence[typing.Dict[typing.Union[str, float, int], typing.Any]]] = None,
+        referenceDots: typing.Optional[typing.Sequence[typing.Dict[typing.Union[str, float, int], typing.Any]]] = None,
         classNames: typing.Optional[dict] = None,
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
@@ -587,9 +619,9 @@ Keyword arguments:
         loading_state: typing.Optional["LoadingState"] = None,
         **kwargs
     ):
-        self._prop_names = ['children', 'id', 'aria-*', 'attributes', 'barChartProps', 'barLabelColor', 'barProps', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clickData', 'clickSeriesName', 'cursorFill', 'darkHidden', 'data', 'data-*', 'dataKey', 'display', 'ff', 'fillOpacity', 'flex', 'fs', 'fw', 'fz', 'getBarColor', 'gridAxis', 'gridColor', 'gridProps', 'h', 'hiddenFrom', 'highlightHover', 'hoverData', 'hoverSeriesName', 'inset', 'left', 'legendProps', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxBarWidth', 'mb', 'me', 'mih', 'minBarSize', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'orientation', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'referenceLines', 'right', 'rightYAxisLabel', 'rightYAxisProps', 'series', 'strokeDasharray', 'style', 'styles', 'ta', 'tabIndex', 'td', 'textColor', 'tickLine', 'tooltipAnimationDuration', 'tooltipProps', 'top', 'tt', 'type', 'unit', 'unstyled', 'valueFormatter', 'valueLabelProps', 'variant', 'visibleFrom', 'w', 'withBarValueLabel', 'withLegend', 'withRightYAxis', 'withTooltip', 'withXAxis', 'withYAxis', 'xAxisLabel', 'xAxisProps', 'yAxisLabel', 'yAxisProps']
+        self._prop_names = ['children', 'id', 'accessibilityLayer', 'aria-*', 'attributes', 'barChartProps', 'barLabelColor', 'barProps', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'brushDragEnd', 'brushProps', 'c', 'className', 'classNames', 'clickData', 'clickSeriesName', 'cursorFill', 'darkHidden', 'data', 'data-*', 'dataKey', 'display', 'ff', 'fillOpacity', 'flex', 'fs', 'fw', 'fz', 'getBarColor', 'gridAxis', 'gridColor', 'gridProps', 'h', 'hiddenFrom', 'highlightHover', 'hoverData', 'hoverSeriesName', 'inset', 'left', 'legendProps', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxBarWidth', 'mb', 'me', 'mie', 'mih', 'minBarSize', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'orientation', 'p', 'pb', 'pe', 'pie', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'referenceAreas', 'referenceDots', 'referenceLines', 'right', 'rightYAxisLabel', 'rightYAxisProps', 'series', 'strokeDasharray', 'style', 'styles', 'ta', 'tabIndex', 'td', 'textColor', 'tickLine', 'tooltipAnimationDuration', 'tooltipProps', 'top', 'tt', 'type', 'unit', 'unstyled', 'valueFormatter', 'valueLabelProps', 'variant', 'visibleFrom', 'w', 'withBarValueLabel', 'withBrush', 'withLegend', 'withRightYAxis', 'withTooltip', 'withXAxis', 'withYAxis', 'xAxisLabel', 'xAxisProps', 'yAxisLabel', 'yAxisProps']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['children', 'id', 'aria-*', 'attributes', 'barChartProps', 'barLabelColor', 'barProps', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clickData', 'clickSeriesName', 'cursorFill', 'darkHidden', 'data', 'data-*', 'dataKey', 'display', 'ff', 'fillOpacity', 'flex', 'fs', 'fw', 'fz', 'getBarColor', 'gridAxis', 'gridColor', 'gridProps', 'h', 'hiddenFrom', 'highlightHover', 'hoverData', 'hoverSeriesName', 'inset', 'left', 'legendProps', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxBarWidth', 'mb', 'me', 'mih', 'minBarSize', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'orientation', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'referenceLines', 'right', 'rightYAxisLabel', 'rightYAxisProps', 'series', 'strokeDasharray', 'style', 'styles', 'ta', 'tabIndex', 'td', 'textColor', 'tickLine', 'tooltipAnimationDuration', 'tooltipProps', 'top', 'tt', 'type', 'unit', 'unstyled', 'valueFormatter', 'valueLabelProps', 'variant', 'visibleFrom', 'w', 'withBarValueLabel', 'withLegend', 'withRightYAxis', 'withTooltip', 'withXAxis', 'withYAxis', 'xAxisLabel', 'xAxisProps', 'yAxisLabel', 'yAxisProps']
+        self.available_properties = ['children', 'id', 'accessibilityLayer', 'aria-*', 'attributes', 'barChartProps', 'barLabelColor', 'barProps', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'brushDragEnd', 'brushProps', 'c', 'className', 'classNames', 'clickData', 'clickSeriesName', 'cursorFill', 'darkHidden', 'data', 'data-*', 'dataKey', 'display', 'ff', 'fillOpacity', 'flex', 'fs', 'fw', 'fz', 'getBarColor', 'gridAxis', 'gridColor', 'gridProps', 'h', 'hiddenFrom', 'highlightHover', 'hoverData', 'hoverSeriesName', 'inset', 'left', 'legendProps', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxBarWidth', 'mb', 'me', 'mie', 'mih', 'minBarSize', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'orientation', 'p', 'pb', 'pe', 'pie', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'referenceAreas', 'referenceDots', 'referenceLines', 'right', 'rightYAxisLabel', 'rightYAxisProps', 'series', 'strokeDasharray', 'style', 'styles', 'ta', 'tabIndex', 'td', 'textColor', 'tickLine', 'tooltipAnimationDuration', 'tooltipProps', 'top', 'tt', 'type', 'unit', 'unstyled', 'valueFormatter', 'valueLabelProps', 'variant', 'visibleFrom', 'w', 'withBarValueLabel', 'withBrush', 'withLegend', 'withRightYAxis', 'withTooltip', 'withXAxis', 'withYAxis', 'xAxisLabel', 'xAxisProps', 'yAxisLabel', 'yAxisProps']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

@@ -363,7 +363,12 @@ class AsyncQueue(Generic[T], asyncio.Queue[T]):
 
 
 class NoSignalServer(uvicorn.Server):
-    """Serve until cancelled without replacing the process signal handlers."""
+    """uvicorn server that leaves the process signal handlers alone.
+
+    uvicorn's own SIGTERM handler exits on the first signal, which would
+    short-circuit the queue's graceful shutdown. This server runs until the
+    task awaiting ``serve()`` is cancelled.
+    """
 
     @contextmanager
     def capture_signals(self) -> Generator[None, None, None]:

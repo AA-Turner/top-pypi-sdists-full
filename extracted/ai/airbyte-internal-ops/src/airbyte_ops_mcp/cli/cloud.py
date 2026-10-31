@@ -4491,6 +4491,16 @@ def sandbox_support(
         str,
         Parameter(help="airbytehq/airbyte ref to read the connector from."),
     ] = "master",
+    host_only: Annotated[
+        bool,
+        Parameter(
+            help="Only decide whether a twin serves the connector's provider: "
+            "one serving an allowed host and, when the manifest's request hosts "
+            "can be read, one of those (token endpoints don't count). No "
+            "operation is checked, so `operations` is empty. Cannot be combined "
+            "with --streams or --dataset-needs."
+        ),
+    ] = False,
 ) -> None:
     """Check statically whether a SaaS Sandbox twin covers a connector's needs.
 
@@ -4500,8 +4510,15 @@ def sandbox_support(
     --offline`; needs the `sandbox` CLI, but no server). Prints a JSON report
     whose `result` is `supported`, `unsupported` or `unknown`. `unknown` means
     the requests could not be read statically; the case lane's twin-gap gate
-    still decides during the run.
+    still decides during the run. With --host-only, only the provider match is
+    decided (the oncall shadow gate's "has a twin" question).
     """
+    # Checked on presence, so `--streams ""` is refused too.
+    if host_only and (streams is not None or dataset_needs is not None):
+        exit_with_error(
+            "--host-only checks no stream or dataset need; drop --streams and "
+            "--dataset-needs"
+        )
     print_json(
         run_sandbox_support_check(
             connector_name=connector_name,
@@ -4509,6 +4526,7 @@ def sandbox_support(
             dataset_needs=_split_csv(dataset_needs),
             connector_dir=Path(connector_dir) if connector_dir else None,
             ref=ref,
+            host_only=host_only,
         )
     )
 

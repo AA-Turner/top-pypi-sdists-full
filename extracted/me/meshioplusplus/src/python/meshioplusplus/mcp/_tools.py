@@ -46,20 +46,10 @@ from .. import (
     GeometryGuard,
     GridArray,
     GridSpec,
-    adapt,
     agglomerate,
-    annulus,
     attach_quality,
-    ball,
-    boundary_layer,
-    box,
-    box_points,
-    box_surface,
-    capsule,
     cell_data_to_point_data,
-    check_conformity,
     check_quality,
-    circle,
     clean,
     compute_bandwidth,
     compute_curvature,
@@ -67,13 +57,10 @@ from .. import (
     compute_quality,
     compute_sdf,
     compute_stats,
-    cone,
     conservative_interpolate,
     contact_pairs,
     convert_cells,
     crop,
-    cube_sphere,
-    cylinder,
     data_calc,
     data_condition,
     data_info,
@@ -82,66 +69,35 @@ from .. import (
     decimate,
     decimate_volume,
     diff,
-    discretize_levelset,
-    disk,
     distance_to_surface,
     edit_regions,
-    error_size,
     estimate_error,
     extract_skin,
     extract_surface,
-    extrude,
     feature_edges,
-    fichera,
     find_interface,
     fit_cad,
     fit_primitives,
-    geo_sphere,
     geometry_descriptors,
     gradient,
     grid,
-    has_mmg,
-    has_mmg_elas,
     hausdorff_distance,
-    helix,
     hessian,
-    honeycomb,
-    icosa_sphere,
     iga_evaluate,
     iga_refine,
     iga_sample,
     interpolate,
     isosurface,
-    line,
-    lshape,
     match_periodic_nodes,
     merge,
-    mesh_cad_surface,
-    mesh_domain,
-    metric_from_hessian,
-    mirror,
-    moebius,
-    move,
-    ngon,
-    octa_sphere,
-    octree,
-    octree_mesh,
     optimize_volume,
     partition,
-    pipe,
-    plate_with_hole,
-    platonic,
     point_data_to_cell_data,
     power_spectrum,
-    project_to_cad,
     proximity_graph,
     read,
     read_metadata,
-    rectangle,
-    reference_cells,
-    reference_triangle,
     refine,
-    refine_patches,
     region_adjacency,
     remesh,
     remesh_volume,
@@ -149,7 +105,6 @@ from .. import (
     reorder,
     repair,
     resample_grid,
-    revolve,
     run_pipeline,
     sample_distance,
     sample_grid,
@@ -163,9 +118,6 @@ from .. import snapshot as _snapshot_fn
 from .. import (
     sniff_format,
     sobolev_deform,
-    solid_torus,
-    sphere_points,
-    spherical_shell,
     split,
     split_interface,
     subdivide,
@@ -173,13 +125,8 @@ from .. import (
     surface_watertight_check,
     tensor_invariants,
     tessellate,
-    tetra_sphere,
-    tetrahedralize,
-    torus,
     transform,
-    tube,
     undo_green,
-    uv_sphere,
     voxelize,
     write,
 )
@@ -616,29 +563,6 @@ def tool_check_quality(
             mesh, require, max_inverted=max_inverted, max_degenerate=max_degenerate
         )
     )
-
-
-def tool_check_conformity(
-    input_path,
-    output_path=None,
-    file_format=None,
-    output_format=None,
-    tolerance=1e-9,
-):
-    """Conformity check: hanging nodes (3-D), T-junctions (2-D), partly
-    overlapping and unwelded facet pairs, the verdict and which find_interface
-    mode suits the mesh. Pass ``output_path`` to write a copy of the mesh
-    carrying the ``conformity:hanging`` point_data flags."""
-    mesh = _load(input_path, file_format)
-    out, report = check_conformity(
-        mesh,
-        tolerance=tolerance,
-        attach_flags=output_path is not None,
-        return_report=True,
-    )
-    if output_path is not None:
-        report["output_path"] = _store(out, output_path, output_format)
-    return _json_safe(report)
 
 
 def tool_data_info(input_path, file_format=None):
@@ -1468,826 +1392,6 @@ def tool_grid(
     return _result(_store(out, output_path, output_format), out)
 
 
-def tool_rectangle(
-    output_path,
-    output_format=None,
-    dims=None,
-    size=None,
-    origin=None,
-    cell_type="quad",
-    split="zigzag",
-    order=1,
-    max_cells=20000000,
-    complete=False,
-):
-    """Generate a regular 2-D grid of quads or triangles; reads no input."""
-    out = rectangle(
-        dims=(1, 1) if dims is None else dims,
-        size=(1.0, 1.0) if size is None else size,
-        origin=(0.0, 0.0, 0.0) if origin is None else origin,
-        cell_type=cell_type,
-        split=split,
-        order=order,
-        max_cells=max_cells,
-        complete=complete,
-    )
-    return _result(_store(out, output_path, output_format), out)
-
-
-def tool_box(
-    output_path,
-    output_format=None,
-    dims=None,
-    size=None,
-    origin=None,
-    cell_type="hexahedron",
-    order=1,
-    max_cells=20000000,
-    complete=False,
-):
-    """Generate a regular 3-D grid of hexahedra, tetrahedra or wedges; reads no input."""
-    out = box(
-        dims=(1, 1, 1) if dims is None else dims,
-        size=(1.0, 1.0, 1.0) if size is None else size,
-        origin=(0.0, 0.0, 0.0) if origin is None else origin,
-        cell_type=cell_type,
-        order=order,
-        max_cells=max_cells,
-        complete=complete,
-    )
-    return _result(_store(out, output_path, output_format), out)
-
-
-def tool_disk(
-    output_path,
-    output_format=None,
-    radius=1.0,
-    n=8,
-    center=None,
-    cell_type="quad",
-    order=1,
-    max_cells=20000000,
-    complete=False,
-):
-    """Generate a disk of quads or triangles; reads no input."""
-    out = disk(
-        radius=radius,
-        n=n,
-        center=(0.0, 0.0, 0.0) if center is None else center,
-        cell_type=cell_type,
-        order=order,
-        max_cells=max_cells,
-        complete=complete,
-    )
-    return _result(_store(out, output_path, output_format), out)
-
-
-def tool_uv_sphere(
-    output_path,
-    output_format=None,
-    radius=1.0,
-    nu=16,
-    nv=8,
-    center=None,
-    cell_type="triangle",
-    order=1,
-    max_cells=20000000,
-    complete=False,
-):
-    """Generate a latitude/longitude sphere surface, oriented outward; reads no input."""
-    out = uv_sphere(
-        radius=radius,
-        nu=nu,
-        nv=nv,
-        center=(0.0, 0.0, 0.0) if center is None else center,
-        cell_type=cell_type,
-        order=order,
-        max_cells=max_cells,
-        complete=complete,
-    )
-    return _result(_store(out, output_path, output_format), out)
-
-
-def tool_icosa_sphere(
-    output_path,
-    output_format=None,
-    radius=1.0,
-    subdivisions=2,
-    center=None,
-    order=1,
-    max_cells=20000000,
-    complete=False,
-):
-    """Generate an icosahedron-based sphere surface; reads no input."""
-    out = icosa_sphere(
-        radius=radius,
-        subdivisions=subdivisions,
-        center=(0.0, 0.0, 0.0) if center is None else center,
-        order=order,
-        max_cells=max_cells,
-        complete=complete,
-    )
-    return _result(_store(out, output_path, output_format), out)
-
-
-def tool_cylinder(
-    output_path,
-    output_format=None,
-    radius=1.0,
-    height=1.0,
-    nxy=8,
-    nz=8,
-    center=None,
-    cell_type="hexahedron",
-    order=1,
-    max_cells=20000000,
-    complete=False,
-):
-    """Generate a solid cylinder along z with side/top/bottom regions; reads no input."""
-    out = cylinder(
-        radius=radius,
-        height=height,
-        nxy=nxy,
-        nz=nz,
-        center=(0.0, 0.0, 0.0) if center is None else center,
-        cell_type=cell_type,
-        order=order,
-        max_cells=max_cells,
-        complete=complete,
-    )
-    return _result(_store(out, output_path, output_format), out)
-
-
-def tool_reference_triangle(
-    output_path,
-    output_format=None,
-    n=4,
-    size=None,
-    origin=None,
-    order=1,
-    max_cells=20000000,
-    complete=False,
-):
-    """Generate the reference triangle refined into n*n triangles; reads no input."""
-    out = reference_triangle(
-        n=n,
-        size=(1.0, 1.0) if size is None else size,
-        origin=(0.0, 0.0, 0.0) if origin is None else origin,
-        order=order,
-        max_cells=max_cells,
-        complete=complete,
-    )
-    return _result(_store(out, output_path, output_format), out)
-
-
-def tool_ngon(
-    output_path,
-    output_format=None,
-    sides=6,
-    radius=1.0,
-    rings=1,
-    center=None,
-    order=1,
-    max_cells=20000000,
-    complete=False,
-):
-    """Generate a regular polygon fanned from its centre; reads no input."""
-    out = ngon(
-        sides=sides,
-        radius=radius,
-        rings=rings,
-        center=(0.0, 0.0, 0.0) if center is None else center,
-        order=order,
-        max_cells=max_cells,
-        complete=complete,
-    )
-    return _result(_store(out, output_path, output_format), out)
-
-
-def tool_annulus(
-    output_path,
-    output_format=None,
-    inner_radius=0.5,
-    outer_radius=1.0,
-    ntheta=16,
-    nr=4,
-    angle=2.0 * np.pi,
-    center=None,
-    cell_type="quad",
-    order=1,
-    max_cells=20000000,
-    complete=False,
-):
-    """Generate an annulus, or a sector of one with a seam pair; reads no input."""
-    out = annulus(
-        inner_radius=inner_radius,
-        outer_radius=outer_radius,
-        ntheta=ntheta,
-        nr=nr,
-        angle=angle,
-        center=(0.0, 0.0, 0.0) if center is None else center,
-        cell_type=cell_type,
-        order=order,
-        max_cells=max_cells,
-        complete=complete,
-    )
-    return _result(_store(out, output_path, output_format), out)
-
-
-def tool_lshape(
-    output_path,
-    output_format=None,
-    n=4,
-    size=2.0,
-    center=None,
-    cell_type="quad",
-    order=1,
-    max_cells=20000000,
-    complete=False,
-):
-    """Generate the L-shaped domain (a square minus a quadrant); reads no input."""
-    out = lshape(
-        n=n,
-        size=size,
-        center=(0.0, 0.0, 0.0) if center is None else center,
-        cell_type=cell_type,
-        order=order,
-        max_cells=max_cells,
-        complete=complete,
-    )
-    return _result(_store(out, output_path, output_format), out)
-
-
-def tool_plate_with_hole(
-    output_path,
-    output_format=None,
-    radius=0.25,
-    size=1.0,
-    nt=8,
-    nr=4,
-    center=None,
-    cell_type="quad",
-    order=1,
-    max_cells=20000000,
-    complete=False,
-):
-    """Generate a square plate around a circular hole; reads no input."""
-    out = plate_with_hole(
-        radius=radius,
-        size=size,
-        nt=nt,
-        nr=nr,
-        center=(0.0, 0.0, 0.0) if center is None else center,
-        cell_type=cell_type,
-        order=order,
-        max_cells=max_cells,
-        complete=complete,
-    )
-    return _result(_store(out, output_path, output_format), out)
-
-
-def tool_honeycomb(
-    output_path,
-    output_format=None,
-    dims=None,
-    edge=1.0,
-    origin=None,
-    max_cells=20000000,
-):
-    """Generate a tiling of hexagons as one polygon block; reads no input."""
-    out = honeycomb(
-        dims=(4, 4) if dims is None else dims,
-        edge=edge,
-        origin=(0.0, 0.0, 0.0) if origin is None else origin,
-        max_cells=max_cells,
-    )
-    return _result(_store(out, output_path, output_format), out)
-
-
-def tool_line(
-    output_path,
-    output_format=None,
-    n=8,
-    start=None,
-    end=None,
-    order=1,
-    max_cells=20000000,
-    complete=False,
-):
-    """Generate a straight segment of line cells; reads no input."""
-    out = line(
-        n=n,
-        start=(0.0, 0.0, 0.0) if start is None else start,
-        end=(1.0, 0.0, 0.0) if end is None else end,
-        order=order,
-        max_cells=max_cells,
-        complete=complete,
-    )
-    return _result(_store(out, output_path, output_format), out)
-
-
-def tool_circle(
-    output_path,
-    output_format=None,
-    radius=1.0,
-    n=16,
-    center=None,
-    order=1,
-    max_cells=20000000,
-    complete=False,
-):
-    """Generate a closed polyline on a circle; reads no input."""
-    out = circle(
-        radius=radius,
-        n=n,
-        center=(0.0, 0.0, 0.0) if center is None else center,
-        order=order,
-        max_cells=max_cells,
-        complete=complete,
-    )
-    return _result(_store(out, output_path, output_format), out)
-
-
-def tool_helix(
-    output_path,
-    output_format=None,
-    radius=1.0,
-    pitch=1.0,
-    turns=2.0,
-    n=32,
-    center=None,
-    order=1,
-    max_cells=20000000,
-    complete=False,
-):
-    """Generate a helix of line cells; reads no input."""
-    out = helix(
-        radius=radius,
-        pitch=pitch,
-        turns=turns,
-        n=n,
-        center=(0.0, 0.0, 0.0) if center is None else center,
-        order=order,
-        max_cells=max_cells,
-        complete=complete,
-    )
-    return _result(_store(out, output_path, output_format), out)
-
-
-def tool_sphere_points(
-    output_path,
-    output_format=None,
-    n=100,
-    radius=1.0,
-    center=None,
-    max_cells=20000000,
-):
-    """Generate points on a sphere (a Fibonacci lattice); reads no input."""
-    out = sphere_points(
-        n=n,
-        radius=radius,
-        center=(0.0, 0.0, 0.0) if center is None else center,
-        max_cells=max_cells,
-    )
-    return _result(_store(out, output_path, output_format), out)
-
-
-def tool_box_points(
-    output_path,
-    output_format=None,
-    n=100,
-    size=None,
-    origin=None,
-    seed=0,
-    max_cells=20000000,
-):
-    """Generate seeded uniform points in a box; reads no input."""
-    out = box_points(
-        n=n,
-        size=(1.0, 1.0, 1.0) if size is None else size,
-        origin=(0.0, 0.0, 0.0) if origin is None else origin,
-        seed=seed,
-        max_cells=max_cells,
-    )
-    return _result(_store(out, output_path, output_format), out)
-
-
-def tool_tetra_sphere(
-    output_path,
-    output_format=None,
-    radius=1.0,
-    subdivisions=3,
-    center=None,
-    order=1,
-    max_cells=20000000,
-    complete=False,
-):
-    """Generate a sphere surface from a subdivided tetrahedron; reads no input."""
-    out = tetra_sphere(
-        radius=radius,
-        subdivisions=subdivisions,
-        center=(0.0, 0.0, 0.0) if center is None else center,
-        order=order,
-        max_cells=max_cells,
-        complete=complete,
-    )
-    return _result(_store(out, output_path, output_format), out)
-
-
-def tool_octa_sphere(
-    output_path,
-    output_format=None,
-    radius=1.0,
-    subdivisions=2,
-    center=None,
-    order=1,
-    max_cells=20000000,
-    complete=False,
-):
-    """Generate a sphere surface from a subdivided octahedron; reads no input."""
-    out = octa_sphere(
-        radius=radius,
-        subdivisions=subdivisions,
-        center=(0.0, 0.0, 0.0) if center is None else center,
-        order=order,
-        max_cells=max_cells,
-        complete=complete,
-    )
-    return _result(_store(out, output_path, output_format), out)
-
-
-def tool_cube_sphere(
-    output_path,
-    output_format=None,
-    radius=1.0,
-    n=4,
-    center=None,
-    cell_type="quad",
-    order=1,
-    max_cells=20000000,
-    complete=False,
-):
-    """Generate a sphere surface from a cube's six gridded faces; reads no input."""
-    out = cube_sphere(
-        radius=radius,
-        n=n,
-        center=(0.0, 0.0, 0.0) if center is None else center,
-        cell_type=cell_type,
-        order=order,
-        max_cells=max_cells,
-        complete=complete,
-    )
-    return _result(_store(out, output_path, output_format), out)
-
-
-def tool_geo_sphere(
-    output_path,
-    output_format=None,
-    radius=1.0,
-    n=4,
-    center=None,
-    order=1,
-    max_cells=20000000,
-    complete=False,
-):
-    """Generate a geodesic sphere of any frequency; reads no input."""
-    out = geo_sphere(
-        radius=radius,
-        n=n,
-        center=(0.0, 0.0, 0.0) if center is None else center,
-        order=order,
-        max_cells=max_cells,
-        complete=complete,
-    )
-    return _result(_store(out, output_path, output_format), out)
-
-
-def tool_torus(
-    output_path,
-    output_format=None,
-    major_radius=1.0,
-    minor_radius=0.25,
-    nu=32,
-    nv=16,
-    center=None,
-    cell_type="quad",
-    order=1,
-    max_cells=20000000,
-    complete=False,
-):
-    """Generate a torus surface; reads no input."""
-    out = torus(
-        major_radius=major_radius,
-        minor_radius=minor_radius,
-        nu=nu,
-        nv=nv,
-        center=(0.0, 0.0, 0.0) if center is None else center,
-        cell_type=cell_type,
-        order=order,
-        max_cells=max_cells,
-        complete=complete,
-    )
-    return _result(_store(out, output_path, output_format), out)
-
-
-def tool_moebius(
-    output_path,
-    output_format=None,
-    radius=1.0,
-    width=0.5,
-    nu=32,
-    nv=4,
-    num_twists=1,
-    center=None,
-    cell_type="quad",
-    order=1,
-    max_cells=20000000,
-    complete=False,
-):
-    """Generate a Moebius band; reads no input."""
-    out = moebius(
-        radius=radius,
-        width=width,
-        nu=nu,
-        nv=nv,
-        num_twists=num_twists,
-        center=(0.0, 0.0, 0.0) if center is None else center,
-        cell_type=cell_type,
-        order=order,
-        max_cells=max_cells,
-        complete=complete,
-    )
-    return _result(_store(out, output_path, output_format), out)
-
-
-def tool_tube(
-    output_path,
-    output_format=None,
-    radius=1.0,
-    height=1.0,
-    ntheta=16,
-    nz=4,
-    center=None,
-    cell_type="quad",
-    order=1,
-    max_cells=20000000,
-    complete=False,
-):
-    """Generate an open cylinder surface; reads no input."""
-    out = tube(
-        radius=radius,
-        height=height,
-        ntheta=ntheta,
-        nz=nz,
-        center=(0.0, 0.0, 0.0) if center is None else center,
-        cell_type=cell_type,
-        order=order,
-        max_cells=max_cells,
-        complete=complete,
-    )
-    return _result(_store(out, output_path, output_format), out)
-
-
-def tool_cone(
-    output_path,
-    output_format=None,
-    radius=1.0,
-    height=1.0,
-    ntheta=16,
-    nz=4,
-    center=None,
-    cell_type="quad",
-    order=1,
-    max_cells=20000000,
-    complete=False,
-):
-    """Generate a closed cone surface; reads no input."""
-    out = cone(
-        radius=radius,
-        height=height,
-        ntheta=ntheta,
-        nz=nz,
-        center=(0.0, 0.0, 0.0) if center is None else center,
-        cell_type=cell_type,
-        order=order,
-        max_cells=max_cells,
-        complete=complete,
-    )
-    return _result(_store(out, output_path, output_format), out)
-
-
-def tool_capsule(
-    output_path,
-    output_format=None,
-    radius=0.5,
-    height=1.0,
-    ntheta=16,
-    nz=4,
-    ncap=4,
-    center=None,
-    cell_type="quad",
-    order=1,
-    max_cells=20000000,
-    complete=False,
-):
-    """Generate a capsule surface; reads no input."""
-    out = capsule(
-        radius=radius,
-        height=height,
-        ntheta=ntheta,
-        nz=nz,
-        ncap=ncap,
-        center=(0.0, 0.0, 0.0) if center is None else center,
-        cell_type=cell_type,
-        order=order,
-        max_cells=max_cells,
-        complete=complete,
-    )
-    return _result(_store(out, output_path, output_format), out)
-
-
-def tool_box_surface(
-    output_path,
-    output_format=None,
-    dims=None,
-    size=None,
-    origin=None,
-    cell_type="quad",
-    order=1,
-    max_cells=20000000,
-    complete=False,
-):
-    """Generate the closed boundary surface of a box; reads no input."""
-    out = box_surface(
-        dims=(1, 1, 1) if dims is None else dims,
-        size=(1.0, 1.0, 1.0) if size is None else size,
-        origin=(0.0, 0.0, 0.0) if origin is None else origin,
-        cell_type=cell_type,
-        order=order,
-        max_cells=max_cells,
-        complete=complete,
-    )
-    return _result(_store(out, output_path, output_format), out)
-
-
-def tool_platonic(
-    output_path,
-    output_format=None,
-    name="icosahedron",
-    radius=1.0,
-    center=None,
-    max_cells=20000000,
-):
-    """Generate a platonic solid's surface, one cell per face; reads no input."""
-    out = platonic(
-        name=name,
-        radius=radius,
-        center=(0.0, 0.0, 0.0) if center is None else center,
-        max_cells=max_cells,
-    )
-    return _result(_store(out, output_path, output_format), out)
-
-
-def tool_ball(
-    output_path,
-    output_format=None,
-    radius=1.0,
-    n=4,
-    center=None,
-    cell_type="hexahedron",
-    order=1,
-    max_cells=20000000,
-    complete=False,
-):
-    """Generate a solid ball by the seven-block butterfly; reads no input."""
-    out = ball(
-        radius=radius,
-        n=n,
-        center=(0.0, 0.0, 0.0) if center is None else center,
-        cell_type=cell_type,
-        order=order,
-        max_cells=max_cells,
-        complete=complete,
-    )
-    return _result(_store(out, output_path, output_format), out)
-
-
-def tool_spherical_shell(
-    output_path,
-    output_format=None,
-    inner_radius=0.5,
-    outer_radius=1.0,
-    n=4,
-    nr=2,
-    ratio=1.0,
-    center=None,
-    order=1,
-    max_cells=20000000,
-    complete=False,
-):
-    """Generate a thick spherical shell of hexahedra; reads no input."""
-    out = spherical_shell(
-        inner_radius=inner_radius,
-        outer_radius=outer_radius,
-        n=n,
-        nr=nr,
-        ratio=ratio,
-        center=(0.0, 0.0, 0.0) if center is None else center,
-        order=order,
-        max_cells=max_cells,
-        complete=complete,
-    )
-    return _result(_store(out, output_path, output_format), out)
-
-
-def tool_pipe(
-    output_path,
-    output_format=None,
-    inner_radius=0.5,
-    outer_radius=1.0,
-    height=1.0,
-    ntheta=16,
-    nr=2,
-    nz=4,
-    ratio=1.0,
-    center=None,
-    order=1,
-    max_cells=20000000,
-    complete=False,
-):
-    """Generate a thick-walled pipe of hexahedra; reads no input."""
-    out = pipe(
-        inner_radius=inner_radius,
-        outer_radius=outer_radius,
-        height=height,
-        ntheta=ntheta,
-        nr=nr,
-        nz=nz,
-        ratio=ratio,
-        center=(0.0, 0.0, 0.0) if center is None else center,
-        order=order,
-        max_cells=max_cells,
-        complete=complete,
-    )
-    return _result(_store(out, output_path, output_format), out)
-
-
-def tool_fichera(
-    output_path,
-    output_format=None,
-    n=2,
-    size=2.0,
-    center=None,
-    cell_type="hexahedron",
-    order=1,
-    max_cells=20000000,
-    complete=False,
-):
-    """Generate the Fichera corner (a cube minus an octant); reads no input."""
-    out = fichera(
-        n=n,
-        size=size,
-        center=(0.0, 0.0, 0.0) if center is None else center,
-        cell_type=cell_type,
-        order=order,
-        max_cells=max_cells,
-        complete=complete,
-    )
-    return _result(_store(out, output_path, output_format), out)
-
-
-def tool_solid_torus(
-    output_path,
-    output_format=None,
-    major_radius=1.0,
-    minor_radius=0.25,
-    n=4,
-    nu=32,
-    center=None,
-    order=1,
-    max_cells=20000000,
-    complete=False,
-):
-    """Generate a solid torus of hexahedra; reads no input."""
-    out = solid_torus(
-        major_radius=major_radius,
-        minor_radius=minor_radius,
-        n=n,
-        nu=nu,
-        center=(0.0, 0.0, 0.0) if center is None else center,
-        order=order,
-        max_cells=max_cells,
-        complete=complete,
-    )
-    return _result(_store(out, output_path, output_format), out)
-
-
-def tool_reference_cells(output_path, output_format=None, types=None, pairs=False):
-    """Generate one cell of each requested type in reference coordinates; reads no input."""
-    out = reference_cells(types=types, pairs=pairs)
-    return _result(_store(out, output_path, output_format), out)
-
-
 def tool_voxelize(
     input_path,
     output_path,
@@ -2302,7 +1406,6 @@ def tool_voxelize(
     attach_occupancy=False,
     max_cells=20000000,
     sign="pseudonormal",
-    plane="auto",
 ):
     """Build a regular grid around a mesh; optionally keep only its surface or interior."""
     mesh = _load(input_path, input_format)
@@ -2318,251 +1421,7 @@ def tool_voxelize(
         max_cells=max_cells,
         sign=sign,
         watertight_check="off",
-        plane=plane,
         return_report=True,
-    )
-    return _result(_store(out, output_path, output_format), out, **report)
-
-
-def tool_octree_mesh(
-    input_path,
-    output_path,
-    input_format=None,
-    output_format=None,
-    output="tet",
-    min_size=0.0,
-    max_size=0.0,
-    max_level=-1,
-    bounds=None,
-    padding=0.0,
-    padding_relative=0.1,
-    curvature_angle=15.0,
-    feature_angle=30.0,
-    corner_angle=30.0,
-    feature_size=0.0,
-    gap_cells=2.0,
-    gap_outside=False,
-    size_array=None,
-    surface_region=None,
-    grading_layers=1,
-    skin_grading="graded",
-    surface_size=0.0,
-    winding_threshold=0.5,
-    winding_beta=2.0,
-    conformity="stuffing",
-    alpha_long=0.24799,
-    alpha_short=0.40173,
-    preserve_features=True,
-    fit_iterations=5,
-    dihedral_floor_guard=True,
-    fill="inside",
-    keep_outside=False,
-    attach_distance=True,
-    attach_quality=False,
-    pillow=True,
-    hex_grading="uniform",
-    untangle_iterations=50,
-    max_cells=20000000,
-    max_tets=100000000,
-):
-    """Mesh the inside of a skin on a balanced octree (castellated, tet or hex)."""
-    mesh = _load(input_path, input_format)
-    out, report = octree_mesh(
-        mesh,
-        output=output,
-        min_size=min_size,
-        max_size=max_size,
-        max_level=max_level,
-        bounds=bounds,
-        padding=padding,
-        padding_relative=padding_relative,
-        curvature_angle=curvature_angle,
-        feature_angle=feature_angle,
-        corner_angle=corner_angle,
-        feature_size=feature_size,
-        gap_cells=gap_cells,
-        gap_outside=gap_outside,
-        size_array=size_array,
-        surface_region=surface_region,
-        grading_layers=grading_layers,
-        skin_grading=skin_grading,
-        surface_size=surface_size,
-        winding_threshold=winding_threshold,
-        winding_beta=winding_beta,
-        conformity=conformity,
-        alpha_long=alpha_long,
-        alpha_short=alpha_short,
-        preserve_features=preserve_features,
-        fit_iterations=fit_iterations,
-        dihedral_floor_guard=dihedral_floor_guard,
-        fill=fill,
-        keep_outside=keep_outside,
-        attach_distance=attach_distance,
-        attach_quality=attach_quality,
-        pillow=pillow,
-        hex_grading=hex_grading,
-        untangle_iterations=untangle_iterations,
-        max_cells=max_cells,
-        max_tets=max_tets,
-        return_report=True,
-    )
-    return _result(_store(out, output_path, output_format), out, **report)
-
-
-def tool_mesh_cad_surface(
-    input_path,
-    output_path,
-    target_size,
-    input_format=None,
-    output_format=None,
-    max_chordal_deviation=0.0,
-    min_points_per_edge=0,
-    tolerance=0.0,
-    record_face_ids=True,
-    edges=True,
-    match_unreferenced_trims=True,
-    strict=False,
-    max_points=50000000,
-    min_angle=0.0,
-    smooth_iterations=0,
-    smooth_method="laplacian",
-    order=1,
-    curvature_deviation=0.0,
-    cells_across_gaps=0.0,
-    grading=0.0,
-    pole_rings=0,
-    face_sizes=None,
-    edge_sizes=None,
-    background_path=None,
-    background_array="size",
-    metric="mean",
-    virtual_edges=False,
-    reparam_condition_number=0.0,
-    model_tolerances=False,
-    virtual_faces=False,
-    lop_corners=False,
-    metric_background_path=None,
-    metric_array="",
-    metric_error=0.0,
-    untangle=False,
-    quads="none",
-    quad_pairs="matching",
-):
-    """Triangulate a CAD model's faces (CAD JSON, STEP, IGES) into one
-    conforming surface mesh at a target edge size, optionally sized by
-    curvature and gaps or by an anisotropic metric from a field's Hessian,
-    refined to a minimum angle, graded at poles, smoothed, and curved (order
-    2 or 3, folded elements untangled); faces with unusable parameters
-    flattened, slivers merged, the model's own tolerances accepted, acute
-    corners lopped, and the triangles recombined into quads (curved quad9 or
-    quad16 at order 2 or 3). Reports min_metric_angle with a metric
-    background."""
-    mesh = _load(input_path, input_format)
-    out, report = mesh_cad_surface(
-        mesh,
-        target_size,
-        max_chordal_deviation=max_chordal_deviation,
-        min_points_per_edge=min_points_per_edge,
-        tolerance=tolerance,
-        record_face_ids=record_face_ids,
-        edges=edges,
-        match_unreferenced_trims=match_unreferenced_trims,
-        strict=strict,
-        max_points=max_points,
-        min_angle=min_angle,
-        smooth_iterations=smooth_iterations,
-        smooth_method=smooth_method,
-        order=order,
-        curvature_deviation=curvature_deviation,
-        cells_across_gaps=cells_across_gaps,
-        grading=grading,
-        pole_rings=pole_rings,
-        face_sizes=_index_sizes(face_sizes),
-        edge_sizes=_index_sizes(edge_sizes),
-        background=None if background_path is None else _load(background_path, None),
-        background_array=background_array,
-        metric=metric,
-        virtual_edges=virtual_edges,
-        reparam_condition_number=reparam_condition_number,
-        model_tolerances=model_tolerances,
-        virtual_faces=virtual_faces,
-        lop_corners=lop_corners,
-        metric_background=(
-            None
-            if metric_background_path is None
-            else _load(metric_background_path, None)
-        ),
-        metric_array=metric_array,
-        metric_error=metric_error,
-        untangle=untangle,
-        quads=quads,
-        quad_pairs=quad_pairs,
-        return_report=True,
-    )
-    return _result(_store(out, output_path, output_format), out, **report)
-
-
-def _index_sizes(sizes):
-    """Sizes keyed by index as JSON gives them (``{"3": 0.1}``) as pairs."""
-    if sizes is None:
-        return None
-    return [(int(k), float(v)) for k, v in dict(sizes).items()]
-
-
-def tool_octree(
-    input_path,
-    output_path,
-    input_format=None,
-    output_format=None,
-    root_cells=(1, 1, 1),
-    min_level=0,
-    max_level=4,
-    bounds=None,
-    padding=0.0,
-    padding_relative=0.0,
-    dimension=0,
-    sample_distance=0.0,
-    balance="face",
-    fill="all",
-    attach_distance=False,
-    even_odd=False,
-    max_cells=20000000,
-    sign="pseudonormal",
-    transition="hanging",
-    snap=False,
-    surface_level=None,
-    curvature_threshold=0.0,
-    feature_angle=0.0,
-    size_array=None,
-    plane="auto",
-):
-    """Build an octree (quadtree) around a mesh skin, fine only where the skin is."""
-    mesh = _load(input_path, input_format)
-    out, report = octree(
-        mesh,
-        root_cells=root_cells,
-        min_level=min_level,
-        max_level=max_level,
-        bounds=bounds,
-        padding=padding,
-        padding_relative=padding_relative,
-        dimension=dimension,
-        sample_distance=sample_distance,
-        balance=balance,
-        fill=fill,
-        attach_distance=attach_distance,
-        even_odd=even_odd,
-        max_cells=max_cells,
-        sign=sign,
-        watertight_check="off",
-        return_report=True,
-        transition=transition,
-        snap=snap,
-        surface_level=surface_level,
-        curvature_threshold=curvature_threshold,
-        feature_angle=feature_angle,
-        size_array=size_array,
-        plane=plane,
     )
     return _result(_store(out, output_path, output_format), out, **report)
 
@@ -3080,14 +1939,10 @@ def tool_segment(
     min_patch_cells=1,
     region="",
     prefix="patch",
-    method="angle",
-    tolerance=1e-3,
 ):
     """Split a surface into smooth patches by region growing, bounded by its
-    feature edges (method="angle") or where the plane, sphere, cylinder, cone
-    or torus its facets lie on changes (method="primitive"); written with cell
-    data segment:patch, field data segment:adjacency and one cell region per
-    patch (<prefix>:<k>)."""
+    feature edges; written with cell data segment:patch, field data
+    segment:adjacency and one cell region per patch (<prefix>:<k>)."""
     mesh = _load(input_path, input_format)
     out, report = segment(
         mesh,
@@ -3098,8 +1953,6 @@ def tool_segment(
         region=region,
         prefix=prefix,
         return_report=True,
-        method=method,
-        tolerance=tolerance,
     )
     return _result(
         _store(out, output_path, output_format),
@@ -3156,62 +2009,6 @@ def tool_fit_primitives(
         patches=patches,
         **{k: int(v) for k, v in report.items()},
     )
-
-
-def tool_refine_patches(
-    input_path,
-    output_path,
-    input_format=None,
-    output_format=None,
-    segment_method="angle",
-    segment_tolerance=1e-3,
-    feature_angle=30.0,
-    tolerance=1e-3,
-    relative=True,
-    normal_weight=1.0,
-    epsilon=1e-3,
-    max_iterations=10,
-    min_patch_cells=3,
-    ransac_seed=0x6D657368696F2B2B,
-    types=None,
-    allow_split=True,
-    allow_merge=True,
-    prefix="patch",
-):
-    """Refine the segment:patch labels of a surface by variational shape
-    approximation until one plane, sphere, cylinder, cone or torus explains
-    each patch within tolerance: boundaries move, a primitive is split out of
-    a freeform patch by seeded RANSAC, neighbours one primitive explains
-    merge. A surface without segment:patch is segmented first (segment_method,
-    segment_tolerance, feature_angle). Written with segment:patch, the patch
-    regions and the fit:* data rewritten, and refine:* per-patch field data;
-    the report carries the counts, the explained area share before and after,
-    the Hausdorff distance and why refinement stopped."""
-    mesh = _load(input_path, input_format)
-    if "segment:patch" not in mesh.cell_data:
-        mesh = segment(
-            mesh,
-            feature_angle=feature_angle,
-            method=segment_method,
-            tolerance=segment_tolerance,
-        )
-    out, report = refine_patches(
-        mesh,
-        tolerance=tolerance,
-        relative=relative,
-        normal_weight=normal_weight,
-        epsilon=epsilon,
-        feature_angle=feature_angle,
-        max_iterations=max_iterations,
-        min_patch_cells=min_patch_cells,
-        ransac_seed=ransac_seed,
-        types=list(types) if types is not None else None,
-        allow_split=allow_split,
-        allow_merge=allow_merge,
-        prefix=prefix,
-        return_report=True,
-    )
-    return _result(_store(out, output_path, output_format), out, **report)
 
 
 def tool_iga_refine(
@@ -3320,7 +2117,7 @@ def tool_fit_cad(
     mesh_output_path=None,
     curvature_tolerance=0.0,
     min_patch_cells=1,
-    fit_tolerance=None,
+    fit_tolerance=1e-3,
     tolerance=None,
     exact_edges=True,
     types=None,
@@ -3333,111 +2130,32 @@ def tool_fit_cad(
     freeform_split=True,
     fillets=True,
     threads=True,
-    segment_method="primitive",
-    segment_tolerance=1e-3,
-    merge_faces=True,
-    backend="auto",
-    refine_segmentation=False,
-    max_refine_iterations=10,
-    refine_epsilon=1e-3,
-    normal_weight=1.0,
-    allow_merge=True,
-    allow_split=True,
-    ransac_seed=0x6D657368696F2B2B,
-    refine_tolerance=1e-3,
-    relative_tolerance=True,
-    freeform_general=False,
-    freeform_tolerance=0.0,
-    freeform_smoothing=1e-12,
-    max_freeform_poles=40,
-    max_freeform_iterations=30,
-    max_freeform_splits=2,
-    sew_tolerance=0.0,
-    extend_surfaces=False,
-    snap_junctions=False,
-    face_deviation=False,
-    freeform_mode="legacy",
-    freeform_parameterization="auto",
-    extraordinary_vertex="g1x",
-    local_refine="knots",
-    freeform_g1_tolerance_deg=1.0,
-    freeform_max_control_points=400,
-    layout_target_patch_size=0.1,
-    layout_max_valence_deviation=2,
-    resegment_rounds=2,
-    layout_snap_to_features=True,
-    validate_by_surface_sampling=True,
-    constrain_primitives=False,
 ):
     """Turn the fitted patches of a closed skin into a CAD solid with analytic
-    faces (and, through OpenCASCADE, rolling-ball fillet, thread flank and
-    freeform B-spline ones for what no primitive explains), written to
-    output_path as STEP, and to cad_json_output_path as Kratos CAD JSON. A skin
-    without segment:patch is segmented (segment_method, segment_tolerance,
-    curvature_tolerance, min_patch_cells) and fitted (fit_tolerance, by
-    default the primitive segmentation's own as a length) first. backend
-    "native" (and "auto" without OpenCASCADE) needs no CAD kernel.
-    refine_segmentation first refines the patches by variational shape
-    approximation (refine_patches: max_refine_iterations, refine_epsilon,
-    normal_weight, allow_merge, allow_split, ransac_seed, refine_tolerance,
-    relative_tolerance) and adds refined, refinement_kept, refine_iterations,
-    num_refine_splits, num_refine_merges and the explained area share before
-    and after to the report. freeform_general tries what the plane and
-    cylinder freeform fit leaves as a general B-spline face (freeform_tolerance,
-    freeform_smoothing, max_freeform_poles, max_freeform_iterations,
-    max_freeform_splits) and adds num_freeform_general,
-    num_freeform_refinements and avg_freeform_poles; sew_tolerance sets the
-    sewing tolerance; extend_surfaces adds num_extended_edges,
-    snap_junctions num_snapped_junctions, and face_deviation hausdorff_max,
-    hausdorff_rms and the fit_cad:face_hausdorff / fit_cad:face_rms field
-    data. The report always holds closed. freeform_mode ("legacy" by default;
-    "adaptive", "network" or "auto") picks how the patches no primitive or
-    feature fit explains are treated (freeform_parameterization,
-    extraordinary_vertex, local_refine, freeform_g1_tolerance_deg,
-    freeform_max_control_points, layout_target_patch_size,
-    layout_max_valence_deviation, resegment_rounds, layout_snap_to_features,
-    validate_by_surface_sampling); outside "legacy" the report adds
-    freeform_mode, brep_checked, facet_area_fraction (the area share left on
-    facet faces), num_freeform_adaptive, num_network_patches,
-    num_network_edges, num_extraordinary_vertices, num_resegmented,
-    num_escalations, max_g1_angle_deg, max_freeform_distance,
-    rms_freeform_distance and faces (per patch: param_method, num_ctrl,
-    distances, escalation_steps and demotion_reason). constrain_primitives
-    (off) fits related primitives together on either backend -- coaxial
-    cylinders, cones, tori and spheres share one axis, parallel and
-    perpendicular planes and nearly equal radii are made exact, each change
-    kept only where its patch still passes its fit -- and adds
-    num_constrained_primitives and num_constraint_groups."""
+    faces (and, for what no primitive explains, rolling-ball fillet, thread
+    flank and freeform B-spline ones), written to output_path as STEP (needs a
+    core built with OpenCASCADE), and to cad_json_output_path as Kratos CAD
+    JSON. A skin without segment:patch / fit:patch_* is segmented
+    (curvature_tolerance, min_patch_cells) and fitted (fit_tolerance) first."""
     from .._fit_cad import has_occt
 
-    occt = has_occt()
-    if backend == "occt" and not occt:
+    if not has_occt():
         # The guarded error shape, plus the capability itself.
         return {
-            "error": "meshio++: fit_cad: this build has no OpenCASCADE backend "
-            "(the PyPI wheels carry it); rebuild with -DMESHIOPLUSPLUS_WITH_OCCT=ON "
-            "(OpenCASCADE 7.6 or later), or use backend='native'",
+            "error": "meshio++: fit_cad: this build has no OpenCASCADE backend; "
+            "rebuild with -DMESHIOPLUSPLUS_WITH_OCCT=ON (OpenCASCADE 7.6 or later)",
             "error_type": "NotImplementedError",
             "occt_available": False,
         }
     mesh = _load(input_path, input_format)
-    fit_kwargs = {} if fit_tolerance is None else {"tolerance": fit_tolerance}
     if "segment:patch" not in mesh.cell_data:
         mesh = segment(
             mesh,
             curvature_tolerance=curvature_tolerance,
             min_patch_cells=min_patch_cells,
-            method=segment_method,
-            tolerance=segment_tolerance,
         )
-        if segment_method == "primitive" and fit_tolerance is None:
-            # Fit at the tolerance the patches were grown at, as a length.
-            pts = np.asarray(mesh.points, dtype=np.float64)
-            diag = float(np.linalg.norm(pts.max(axis=0) - pts.min(axis=0)))
-            if diag > 0.0:
-                fit_kwargs = {"tolerance": segment_tolerance * diag, "relative": False}
     if "fit:patch_id" not in mesh.field_data:
-        mesh = fit_primitives(mesh, **fit_kwargs)
+        mesh = fit_primitives(mesh, tolerance=fit_tolerance)
     step_path = _resolve(output_path, for_write=True)
     out, report = fit_cad(
         mesh,
@@ -3454,42 +2172,9 @@ def tool_fit_cad(
         fillets=fillets,
         threads=threads,
         return_report=True,
-        merge_faces=merge_faces,
-        backend=backend,
-        refine_segmentation=refine_segmentation,
-        max_refine_iterations=max_refine_iterations,
-        refine_epsilon=refine_epsilon,
-        normal_weight=normal_weight,
-        allow_merge=allow_merge,
-        allow_split=allow_split,
-        ransac_seed=ransac_seed,
-        refine_tolerance=refine_tolerance,
-        relative_tolerance=relative_tolerance,
-        freeform_general=freeform_general,
-        freeform_tolerance=freeform_tolerance,
-        freeform_smoothing=freeform_smoothing,
-        max_freeform_poles=max_freeform_poles,
-        max_freeform_iterations=max_freeform_iterations,
-        max_freeform_splits=max_freeform_splits,
-        sew_tolerance=sew_tolerance,
-        extend_surfaces=extend_surfaces,
-        snap_junctions=snap_junctions,
-        face_deviation=face_deviation,
-        freeform_mode=freeform_mode,
-        freeform_parameterization=freeform_parameterization,
-        extraordinary_vertex=extraordinary_vertex,
-        local_refine=local_refine,
-        freeform_g1_tolerance_deg=freeform_g1_tolerance_deg,
-        freeform_max_control_points=freeform_max_control_points,
-        layout_target_patch_size=layout_target_patch_size,
-        layout_max_valence_deviation=layout_max_valence_deviation,
-        resegment_rounds=resegment_rounds,
-        layout_snap_to_features=layout_snap_to_features,
-        validate_by_surface_sampling=validate_by_surface_sampling,
-        constrain_primitives=constrain_primitives,
     )
     _cache_invalidate(step_path)
-    extra = {"step_path": step_path, "occt_available": occt, **report}
+    extra = {"step_path": step_path, "occt_available": True, **report}
     if cad_json_output_path:
         cad_path = _resolve(cad_json_output_path, for_write=True)
         write(cad_path, out, file_format="cad_json")
@@ -3923,46 +2608,6 @@ def tool_estimate_error(
     )
 
 
-def tool_error_size(
-    input_path,
-    output_path,
-    target_error,
-    input_format=None,
-    output_format=None,
-    error_array="error:zz",
-    order=1.0,
-    min_size=0.0,
-    max_size=0.0,
-    output="size",
-    overwrite=False,
-):
-    """A per-point size field from a per-cell error indicator (what
-    estimate_error writes) by the Zienkiewicz-Zhu adaptive procedure, for
-    mesh_cad_surface's background. Returns num_cells, num_skipped,
-    num_clamped, min_size and max_size alongside the mesh summary."""
-    mesh = _load(input_path, input_format)
-    out, report = error_size(
-        mesh,
-        error_array,
-        target_error=target_error,
-        order=order,
-        min_size=min_size,
-        max_size=max_size,
-        output=output,
-        overwrite=overwrite,
-        return_report=True,
-    )
-    return _result(
-        _store(out, output_path, output_format),
-        out,
-        num_cells=int(report["num_cells"]),
-        num_skipped=int(report["num_skipped"]),
-        num_clamped=int(report["num_clamped"]),
-        min_size=float(report["min_size"]),
-        max_size=float(report["max_size"]),
-    )
-
-
 def tool_transform(
     input_path,
     output_path,
@@ -4174,294 +2819,6 @@ def tool_decimate_volume(
         return_report=True,
     )
     return _result(_store(out, output_path, output_format), out, **report)
-
-
-def _mmg_unavailable(op):
-    """The guarded error shape for an MMG tool in a build without MMG, plus the capability."""
-    return {
-        "error": f"meshio++: {op}: the MMG backend is not built in: rebuild with "
-        "-DMESHIOPLUSPLUS_WITH_MMG=ON and a shared MMG install (build/build-mmg.sh; "
-        "see doc/mmg.md); the PyPI wheels do not carry it",
-        "error_type": "NotImplementedError",
-        "mmg_available": False,
-    }
-
-
-def tool_adapt(
-    input_path,
-    output_path,
-    input_format=None,
-    output_format=None,
-    hsiz=None,
-    size=None,
-    metric=None,
-    hmin=None,
-    hmax=None,
-    hausd=None,
-    hgrad=None,
-    hgradreq=None,
-    angle_detection=45.0,
-    optim=False,
-    noinsert=False,
-    noswap=False,
-    nomove=False,
-    nosurf=False,
-    nreg=False,
-    opnbdy=False,
-    frozen=None,
-    required=None,
-    local=None,
-):
-    """Remesh to a constant size (hsiz), a size field or an anisotropic metric
-    (point_data names) with MMG: mmg3d for tetrahedra, mmg2d for a planar
-    triangle mesh, mmgs for another triangle surface. Cell and side regions
-    come back under their names; other point/cell data is dropped. Reports
-    status, library, counts in and out and the aspect-ratio quality."""
-    if not has_mmg():
-        return _mmg_unavailable("adapt")
-    mesh = _load(input_path, input_format)
-    out, report = adapt(
-        mesh,
-        hsiz=hsiz,
-        size=size,
-        metric=metric,
-        hmin=hmin,
-        hmax=hmax,
-        hausd=hausd,
-        hgrad=hgrad,
-        hgradreq=hgradreq,
-        angle_detection=angle_detection,
-        optim=optim,
-        noinsert=noinsert,
-        noswap=noswap,
-        nomove=nomove,
-        nosurf=nosurf,
-        nreg=nreg,
-        opnbdy=opnbdy,
-        frozen=frozen,
-        required=required,
-        local=local,
-        return_report=True,
-    )
-    return _result(
-        _store(out, output_path, output_format), out, mmg_available=True, **report
-    )
-
-
-def tool_discretize_levelset(
-    input_path,
-    output_path,
-    level_set,
-    input_format=None,
-    output_format=None,
-    isovalue=0.0,
-    materials=None,
-    remove_small_components=None,
-    hmin=None,
-    hmax=None,
-    hausd=None,
-    hgrad=None,
-    hgradreq=None,
-    angle_detection=45.0,
-    optim=False,
-    noinsert=False,
-    noswap=False,
-    nomove=False,
-    nosurf=False,
-    nreg=False,
-    opnbdy=False,
-    frozen=None,
-    required=None,
-    local=None,
-):
-    """Embed the isovalue of a point_data level set conformally and remesh
-    both sides with MMG. The elements carry medit:ref (3 inside, 2 outside, or
-    the materials') and the cell regions inside/outside; the interface is the
-    side region interface. Reports as adapt."""
-    if not has_mmg():
-        return _mmg_unavailable("discretize_levelset")
-    mesh = _load(input_path, input_format)
-    out, report = discretize_levelset(
-        mesh,
-        level_set,
-        isovalue,
-        materials=[tuple(m) for m in materials or []],
-        remove_small_components=remove_small_components,
-        hmin=hmin,
-        hmax=hmax,
-        hausd=hausd,
-        hgrad=hgrad,
-        hgradreq=hgradreq,
-        angle_detection=angle_detection,
-        optim=optim,
-        noinsert=noinsert,
-        noswap=noswap,
-        nomove=nomove,
-        nosurf=nosurf,
-        nreg=nreg,
-        opnbdy=opnbdy,
-        frozen=frozen,
-        required=required,
-        local=local,
-        return_report=True,
-    )
-    return _result(
-        _store(out, output_path, output_format), out, mmg_available=True, **report
-    )
-
-
-def tool_mesh_domain(
-    input_path,
-    output_path,
-    input_format=None,
-    output_format=None,
-    hsiz=None,
-    size=None,
-    holes=None,
-    hmin=None,
-    hmax=None,
-    hausd=None,
-    hgrad=None,
-    hgradreq=None,
-    angle_detection=45.0,
-    optim=False,
-    noinsert=False,
-    noswap=False,
-    nomove=False,
-    nosurf=False,
-    nreg=False,
-    opnbdy=False,
-    frozen=None,
-    required=None,
-    local=None,
-):
-    """Triangulate the planar domain the line cells of a mesh bound with MMG
-    (MMG2D_mmg2dmesh). Each enclosed region is a cell region subdomain:<k>;
-    holes lists one (x, y) point inside each region to leave out. Reports as
-    adapt plus num_subdomains and num_holes."""
-    if not has_mmg():
-        return _mmg_unavailable("mesh_domain")
-    boundary = _load(input_path, input_format)
-    out, report = mesh_domain(
-        boundary,
-        hsiz=hsiz,
-        size=size,
-        holes=[tuple(h) for h in holes or []],
-        hmin=hmin,
-        hmax=hmax,
-        hausd=hausd,
-        hgrad=hgrad,
-        hgradreq=hgradreq,
-        angle_detection=angle_detection,
-        optim=optim,
-        noinsert=noinsert,
-        noswap=noswap,
-        nomove=nomove,
-        nosurf=nosurf,
-        nreg=nreg,
-        opnbdy=opnbdy,
-        frozen=frozen,
-        required=required,
-        local=local,
-        return_report=True,
-    )
-    return _result(
-        _store(out, output_path, output_format), out, mmg_available=True, **report
-    )
-
-
-def tool_move(
-    input_path,
-    output_path,
-    displacement,
-    moving,
-    input_format=None,
-    output_format=None,
-    lagrangian=1,
-    hmin=None,
-    hmax=None,
-    hausd=None,
-    hgrad=None,
-    hgradreq=None,
-    angle_detection=45.0,
-    optim=False,
-    noinsert=False,
-    noswap=False,
-    nomove=False,
-    nosurf=False,
-    nreg=False,
-    opnbdy=False,
-    frozen=None,
-    required=None,
-    local=None,
-):
-    """Move a mesh by the point_data displacement of the boundary facets of
-    the regions moving, remeshing as it deforms with MMG's Lagrangian mode
-    (needs MMG with ELAS). Reports as adapt, plus mmg_elas_available."""
-    if not has_mmg():
-        return _mmg_unavailable("move")
-    if not has_mmg_elas():
-        return {
-            "error": "meshio++: move: the linked MMG was built without ELAS, which "
-            "its Lagrangian mode needs: rebuild MMG with build/build-mmg.sh "
-            "--with-elas (GPL-3.0; see doc/mmg.md)",
-            "error_type": "NotImplementedError",
-            "mmg_available": True,
-            "mmg_elas_available": False,
-        }
-    mesh = _load(input_path, input_format)
-    out, report = move(
-        mesh,
-        displacement,
-        moving,
-        lagrangian=lagrangian,
-        hmin=hmin,
-        hmax=hmax,
-        hausd=hausd,
-        hgrad=hgrad,
-        hgradreq=hgradreq,
-        angle_detection=angle_detection,
-        optim=optim,
-        noinsert=noinsert,
-        noswap=noswap,
-        nomove=nomove,
-        nosurf=nosurf,
-        nreg=nreg,
-        opnbdy=opnbdy,
-        frozen=frozen,
-        required=required,
-        local=local,
-        return_report=True,
-    )
-    return _result(
-        _store(out, output_path, output_format),
-        out,
-        mmg_available=True,
-        mmg_elas_available=True,
-        **report,
-    )
-
-
-def tool_metric_from_hessian(
-    input_path,
-    output_path,
-    hessian,
-    input_format=None,
-    output_format=None,
-    error=1e-2,
-    hmin=1e-3,
-    hmax=1.0,
-    output="metric",
-):
-    """The anisotropic metric of a point_data Hessian (n, 9) or (n, 4), for
-    adapt: M = c/error |H|, its sizes clamped to [hmin, hmax], written as
-    point_data output in the lower-triangle order of a Medit .sol. Needs no
-    MMG."""
-    mesh = _load(input_path, input_format)
-    out = metric_from_hessian(
-        mesh, hessian, error=error, hmin=hmin, hmax=hmax, output=output
-    )
-    return _result(_store(out, output_path, output_format), out)
 
 
 def tool_remesh(
@@ -4784,199 +3141,6 @@ def tool_conservative_interpolate(
         on_conflict=on_conflict,
     )
     return _result(_store(out, output_path, output_format), out)
-
-
-def tool_boundary_layer(
-    input_path,
-    output_path,
-    first_height,
-    input_format=None,
-    output_format=None,
-    num_layers=3,
-    growth=1.2,
-    reverse=False,
-    collision_fraction=0.45,
-    smooth_iterations=5,
-    max_shrink=6,
-    collapse="points",
-    normal_smooth_iterations=0,
-    front_check=True,
-):
-    """Grow prismatic boundary layers from a triangle and quad surface.
-    Returns the counts (num_cells, num_wedges, num_hexahedra, num_pyramids,
-    num_tetrahedra, num_shrunk, num_collapsed, num_not_visible,
-    num_fewer_layers, num_front_crossings), min_scaled_jacobian, the
-    thickness range and cap_closed alongside the mesh summary."""
-    mesh = _load(input_path, input_format)
-    out, report = boundary_layer(
-        mesh,
-        first_height,
-        num_layers=num_layers,
-        growth=growth,
-        reverse=reverse,
-        collision_fraction=collision_fraction,
-        smooth_iterations=smooth_iterations,
-        max_shrink=max_shrink,
-        collapse=collapse,
-        normal_smooth_iterations=normal_smooth_iterations,
-        front_check=front_check,
-        return_report=True,
-    )
-    return _result(_store(out, output_path, output_format), out, **report)
-
-
-def tool_extrude(
-    input_path,
-    output_path,
-    input_format=None,
-    output_format=None,
-    direction=(0.0, 0.0, 1.0),
-    num_layers=1,
-    ratio=1.0,
-    offsets=None,
-    record_layers=False,
-    max_cells=20_000_000,
-):
-    """Sweep a surface into a volume (or a curve into a surface) along a
-    vector. Returns num_cells, num_hexahedra, num_wedges, num_pyramids,
-    num_tetrahedra, num_quads, num_triangles, num_flipped,
-    min_scaled_jacobian and warnings alongside the mesh summary."""
-    mesh = _load(input_path, input_format)
-    out, report = extrude(
-        mesh,
-        direction=direction,
-        num_layers=num_layers,
-        ratio=ratio,
-        offsets=offsets,
-        record_layers=record_layers,
-        max_cells=max_cells,
-        return_report=True,
-    )
-    return _result(_store(out, output_path, output_format), out, **report)
-
-
-def tool_revolve(
-    input_path,
-    output_path,
-    input_format=None,
-    output_format=None,
-    axis=(0.0, 1.0, 0.0),
-    axis_point=(0.0, 0.0, 0.0),
-    angle=360.0,
-    num_layers=16,
-    tolerance=1e-9,
-    record_layers=False,
-    max_cells=20_000_000,
-):
-    """Sweep a surface (or a curve) around an axis. Returns the extrude
-    counts, num_on_axis, full, min_scaled_jacobian and warnings alongside the
-    mesh summary."""
-    mesh = _load(input_path, input_format)
-    out, report = revolve(
-        mesh,
-        axis=axis,
-        axis_point=axis_point,
-        angle=angle,
-        num_layers=num_layers,
-        tolerance=tolerance,
-        record_layers=record_layers,
-        max_cells=max_cells,
-        return_report=True,
-    )
-    return _result(_store(out, output_path, output_format), out, **report)
-
-
-def tool_mirror(
-    input_path,
-    output_path,
-    input_format=None,
-    output_format=None,
-    origin=(0.0, 0.0, 0.0),
-    normal=(1.0, 0.0, 0.0),
-    keep_original=False,
-    weld=True,
-    tolerance=1e-9,
-    reflect_vector_data=False,
-):
-    """Reflect a mesh across a plane with every cell right side out. Returns
-    num_flipped_cells, num_points_on_plane, num_dropped_cells,
-    num_dropped_sides and warnings alongside the mesh summary."""
-    mesh = _load(input_path, input_format)
-    out, report = mirror(
-        mesh,
-        origin=origin,
-        normal=normal,
-        keep_original=keep_original,
-        weld=weld,
-        tolerance=tolerance,
-        reflect_vector_data=reflect_vector_data,
-        return_report=True,
-    )
-    return _result(_store(out, output_path, output_format), out, **report)
-
-
-def tool_tetrahedralize(
-    input_path,
-    output_path,
-    input_format=None,
-    output_format=None,
-    backend="auto",
-    max_size=0.0,
-    max_volume=0.0,
-    grading=0.3,
-    optimize_steps=3,
-    max_cells=50_000_000,
-    face_array="cad:face",
-):
-    """Fill a closed triangle surface with tetrahedra: its triangles kept
-    (Netgen) or its boundary fitted (the native octree backend; auto takes
-    Netgen when built in). Returns num_tetrahedra, num_points, num_new_points,
-    num_regions, num_boundary_triangles, boundary_preserved,
-    hausdorff_to_surface, min_dihedral_deg, max_dihedral_deg, volume,
-    backend and warnings alongside the mesh summary."""
-    mesh = _load(input_path, input_format)
-    out, report = tetrahedralize(
-        mesh,
-        backend=backend,
-        max_size=max_size,
-        max_volume=max_volume,
-        grading=grading,
-        optimize_steps=optimize_steps,
-        max_cells=max_cells,
-        face_array=face_array,
-        return_report=True,
-    )
-    return _result(_store(out, output_path, output_format), out, **report)
-
-
-def tool_project_to_cad(
-    input_path,
-    model_path,
-    output_path,
-    input_format=None,
-    output_format=None,
-    face_array="cad:face",
-    edge_array="cad:edge",
-    max_distance=0.0,
-    trim_samples=16,
-):
-    """Move a mesh's points back onto the CAD faces and edges its cells name
-    (cad:face / cad:edge, as mesh_cad_surface writes them) of the model at
-    model_path (CAD JSON, STEP or IGES). Returns the counts (num_projected,
-    num_on_edges, num_on_curves, num_corners, num_ambiguous, num_too_far, num_failed,
-    num_outside_trim), max_move and outside_trim alongside the mesh summary."""
-    mesh = _load(input_path, input_format)
-    model = _load(model_path, None)
-    out, report = project_to_cad(
-        mesh,
-        model,
-        face_array=face_array,
-        edge_array=edge_array,
-        max_distance=max_distance,
-        trim_samples=trim_samples,
-        return_report=True,
-    )
-    return _result(_store(out, output_path, output_format), out, **report)
 
 
 def tool_undo_green(
@@ -6456,12 +4620,8 @@ TOOL_REGISTRY = OrderedDict(
             {"fn": tool_fit_primitives, "wraps": ("fit_primitives",), "gated": None},
         ),
         (
-            "refine_patches",
-            {"fn": tool_refine_patches, "wraps": ("refine_patches",), "gated": None},
-        ),
-        (
             "fit_cad",
-            {"fn": tool_fit_cad, "wraps": ("fit_cad",), "gated": None},
+            {"fn": tool_fit_cad, "wraps": ("fit_cad",), "gated": "occt"},
         ),
         (
             "iga_refine",
@@ -6523,14 +4683,6 @@ TOOL_REGISTRY = OrderedDict(
             "check_quality",
             {"fn": tool_check_quality, "wraps": ("check_quality",), "gated": None},
         ),
-        (
-            "check_conformity",
-            {
-                "fn": tool_check_conformity,
-                "wraps": ("check_conformity",),
-                "gated": None,
-            },
-        ),
         ("repair", {"fn": tool_repair, "wraps": ("repair",), "gated": None}),
         (
             "shrinkwrap",
@@ -6544,142 +4696,8 @@ TOOL_REGISTRY = OrderedDict(
             "estimate_error",
             {"fn": tool_estimate_error, "wraps": ("estimate_error",), "gated": None},
         ),
-        (
-            "error_size",
-            {"fn": tool_error_size, "wraps": ("error_size",), "gated": None},
-        ),
         ("grid", {"fn": tool_grid, "wraps": ("grid",), "gated": None}),
-        ("rectangle", {"fn": tool_rectangle, "wraps": ("rectangle",), "gated": None}),
-        ("box", {"fn": tool_box, "wraps": ("box",), "gated": None}),
-        ("disk", {"fn": tool_disk, "wraps": ("disk",), "gated": None}),
-        ("uv_sphere", {"fn": tool_uv_sphere, "wraps": ("uv_sphere",), "gated": None}),
-        (
-            "icosa_sphere",
-            {"fn": tool_icosa_sphere, "wraps": ("icosa_sphere",), "gated": None},
-        ),
-        ("cylinder", {"fn": tool_cylinder, "wraps": ("cylinder",), "gated": None}),
-        (
-            "reference_triangle",
-            {
-                "fn": tool_reference_triangle,
-                "wraps": ("reference_triangle",),
-                "gated": None,
-            },
-        ),
-        ("ngon", {"fn": tool_ngon, "wraps": ("ngon",), "gated": None}),
-        ("annulus", {"fn": tool_annulus, "wraps": ("annulus",), "gated": None}),
-        ("lshape", {"fn": tool_lshape, "wraps": ("lshape",), "gated": None}),
-        (
-            "plate_with_hole",
-            {
-                "fn": tool_plate_with_hole,
-                "wraps": ("plate_with_hole",),
-                "gated": None,
-            },
-        ),
-        ("honeycomb", {"fn": tool_honeycomb, "wraps": ("honeycomb",), "gated": None}),
-        (
-            "reference_cells",
-            {"fn": tool_reference_cells, "wraps": ("reference_cells",), "gated": None},
-        ),
-        ("line", {"fn": tool_line, "wraps": ("line",), "gated": None}),
-        ("circle", {"fn": tool_circle, "wraps": ("circle",), "gated": None}),
-        ("helix", {"fn": tool_helix, "wraps": ("helix",), "gated": None}),
-        (
-            "sphere_points",
-            {"fn": tool_sphere_points, "wraps": ("sphere_points",), "gated": None},
-        ),
-        (
-            "box_points",
-            {"fn": tool_box_points, "wraps": ("box_points",), "gated": None},
-        ),
-        (
-            "tetra_sphere",
-            {"fn": tool_tetra_sphere, "wraps": ("tetra_sphere",), "gated": None},
-        ),
-        (
-            "octa_sphere",
-            {"fn": tool_octa_sphere, "wraps": ("octa_sphere",), "gated": None},
-        ),
-        (
-            "cube_sphere",
-            {"fn": tool_cube_sphere, "wraps": ("cube_sphere",), "gated": None},
-        ),
-        (
-            "geo_sphere",
-            {"fn": tool_geo_sphere, "wraps": ("geo_sphere",), "gated": None},
-        ),
-        ("torus", {"fn": tool_torus, "wraps": ("torus",), "gated": None}),
-        ("moebius", {"fn": tool_moebius, "wraps": ("moebius",), "gated": None}),
-        ("tube", {"fn": tool_tube, "wraps": ("tube",), "gated": None}),
-        ("cone", {"fn": tool_cone, "wraps": ("cone",), "gated": None}),
-        ("capsule", {"fn": tool_capsule, "wraps": ("capsule",), "gated": None}),
-        (
-            "box_surface",
-            {"fn": tool_box_surface, "wraps": ("box_surface",), "gated": None},
-        ),
-        ("platonic", {"fn": tool_platonic, "wraps": ("platonic",), "gated": None}),
-        ("ball", {"fn": tool_ball, "wraps": ("ball",), "gated": None}),
-        (
-            "spherical_shell",
-            {"fn": tool_spherical_shell, "wraps": ("spherical_shell",), "gated": None},
-        ),
-        ("pipe", {"fn": tool_pipe, "wraps": ("pipe",), "gated": None}),
-        ("fichera", {"fn": tool_fichera, "wraps": ("fichera",), "gated": None}),
-        (
-            "solid_torus",
-            {"fn": tool_solid_torus, "wraps": ("solid_torus",), "gated": None},
-        ),
         ("voxelize", {"fn": tool_voxelize, "wraps": ("voxelize",), "gated": None}),
-        ("octree", {"fn": tool_octree, "wraps": ("octree",), "gated": None}),
-        (
-            "octree_mesh",
-            {"fn": tool_octree_mesh, "wraps": ("octree_mesh",), "gated": None},
-        ),
-        (
-            "mesh_cad_surface",
-            {
-                "fn": tool_mesh_cad_surface,
-                "wraps": ("mesh_cad_surface",),
-                "gated": None,
-            },
-        ),
-        (
-            "boundary_layer",
-            {
-                "fn": tool_boundary_layer,
-                "wraps": ("boundary_layer",),
-                "gated": None,
-            },
-        ),
-        (
-            "extrude",
-            {"fn": tool_extrude, "wraps": ("extrude",), "gated": None},
-        ),
-        (
-            "revolve",
-            {"fn": tool_revolve, "wraps": ("revolve",), "gated": None},
-        ),
-        (
-            "mirror",
-            {"fn": tool_mirror, "wraps": ("mirror",), "gated": None},
-        ),
-        (
-            "tetrahedralize",
-            {
-                "fn": tool_tetrahedralize,
-                "wraps": ("tetrahedralize",),
-                "gated": None,
-            },
-        ),
-        (
-            "project_to_cad",
-            {
-                "fn": tool_project_to_cad,
-                "wraps": ("project_to_cad",),
-                "gated": None,
-            },
-        ),
         (
             "grid_sample",
             {"fn": tool_grid_sample, "wraps": ("sample_grid",), "gated": None},
@@ -6762,28 +4780,6 @@ TOOL_REGISTRY = OrderedDict(
         (
             "decimate_volume",
             {"fn": tool_decimate_volume, "wraps": ("decimate_volume",), "gated": None},
-        ),
-        ("adapt", {"fn": tool_adapt, "wraps": ("adapt",), "gated": None}),
-        (
-            "discretize_levelset",
-            {
-                "fn": tool_discretize_levelset,
-                "wraps": ("discretize_levelset",),
-                "gated": None,
-            },
-        ),
-        (
-            "mesh_domain",
-            {"fn": tool_mesh_domain, "wraps": ("mesh_domain",), "gated": None},
-        ),
-        ("move", {"fn": tool_move, "wraps": ("move",), "gated": None}),
-        (
-            "metric_from_hessian",
-            {
-                "fn": tool_metric_from_hessian,
-                "wraps": ("metric_from_hessian",),
-                "gated": None,
-            },
         ),
         ("remesh", {"fn": tool_remesh, "wraps": ("remesh",), "gated": None}),
         (

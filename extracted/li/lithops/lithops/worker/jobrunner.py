@@ -41,11 +41,12 @@ except ModuleNotFoundError:
 
 from lithops.constants import REDUCE_JOB_ENV
 from lithops.storage import Storage
+from lithops.job.partitioner import CHUNK_THRESHOLD
 from lithops.wait import wait
 from lithops.future import ResponseFuture
 from lithops.utils import (
     WrappedStreamingBody, sizeof_fmt, is_object_processing_function,
-    FuturesList, verify_args, WrappedStreamingBodyPartition
+    FuturesList, verify_args, _chained_futures, WrappedStreamingBodyPartition
 )
 from lithops.storage.utils import create_output_key
 
@@ -78,7 +79,6 @@ class JobStats:
     """
 
     def __init__(self, stats_filename: str):
-        self.stats_filename = stats_filename
         self.stats_fid = open(stats_filename, 'w')
 
     def write(self, key: str, value: Any) -> None:
@@ -166,14 +166,13 @@ class JobRunner:
         """
         func_sig = inspect.signature(function)
 
-        if len(data) == 1 and 'future' in data:
-            # Function chaining feature
-            out = [
-                data.pop('future').result(
-                    internal_storage=self.internal_storage
-                )
-            ]
-            data.update(verify_args(function, out, None)[0])
+        if len(data) == 1:
+            # Function chaining. A param of the user function can be named
+            # future too, so only a future (or a list or tuple of them)
+            # is a chain. A list arrives as one argument of results; a
+            # tuple is unpacked into the signature, as call_async() does
+            # with plain data
+            self._resolve_chained_input(function, data)
 
         if 'ibm_cos' in func_sig.parameters:
             data['ibm_cos'] = self._create_ibm_cos_client()
@@ -186,6 +185,28 @@ class JobRunner:
 
         if 'id' in func_sig.parameters:
             data['id'] = int(self.job.call_id)
+
+    def _resolve_chained_input(self, function: Callable, data: Dict[str, Any]) -> None:
+        """Replaces a chained future input with the results it produced"""
+        chained = data.get('future')
+        storage = self.internal_storage
+
+        def results_of(futures):
+            return [
+                fut.result(internal_storage=storage) for fut in futures
+            ]
+
+        if isinstance(chained, ResponseFuture):
+            resolved = [chained.result(internal_storage=storage)]
+        elif isinstance(chained, tuple) and _chained_futures(chained) is not None:
+            resolved = [tuple(results_of(chained))]
+        elif isinstance(chained, list) and _chained_futures(chained) is not None:
+            resolved = [results_of(chained)]
+        else:
+            return
+
+        data.clear()
+        data.update(verify_args(function, resolved, None)[0])
 
     def _wait_futures(self, data: Dict[str, Any]) -> None:
         """
@@ -200,8 +221,12 @@ class JobRunner:
         fut_list.clear()
         data[key] = results
 
-    def _open_object_stream(self, obj: Any, extra_get_args: Dict[str, Any]):
-        """Opens the object to process, wherever it lives"""
+    def _open_object_stream(self, obj: Any, byte_range: Optional[Tuple[int, int]]):
+        """Opens the object to process, or the given byte range of it, wherever it lives"""
+        extra_get_args = {}
+        if byte_range is not None:
+            extra_get_args['Range'] = f'bytes={byte_range[0]}-{byte_range[1]}'
+
         if hasattr(obj, 'bucket') and not hasattr(obj, 'path'):
             logger.info(
                 f'Getting dataset from {obj.backend}://{obj.bucket}/{obj.key}'
@@ -224,9 +249,9 @@ class JobRunner:
 
         logger.info(f'Getting dataset from {obj.path}')
         with open(obj.path, "rb") as f:
-            if obj.data_byte_range is None:
+            if byte_range is None:
                 return io.BytesIO(f.read())
-            first_byte, last_byte = obj.data_byte_range
+            first_byte, last_byte = byte_range
             f.seek(first_byte)
             return io.BytesIO(f.read(last_byte - first_byte + 1))
 
@@ -236,12 +261,7 @@ class JobRunner:
         down to the chunk that this task is responsible for
         """
         obj = data['obj']
-        extra_get_args = {}
-        if obj.data_byte_range is not None:
-            first_byte, last_byte = obj.data_byte_range
-            extra_get_args['Range'] = f'bytes={first_byte}-{last_byte}'
-
-        stream = self._open_object_stream(obj, extra_get_args)
+        stream = self._open_object_stream(obj, obj.data_byte_range)
 
         if obj.data_byte_range is None:
             obj.data_stream = stream
@@ -249,11 +269,13 @@ class JobRunner:
             last_byte = obj.chunk_size - 1
             obj.data_byte_range = (first_byte, last_byte)
         else:
+            first_byte, last_byte = obj.data_byte_range
             if obj.newline is None:
                 obj.data_stream = WrappedStreamingBody(stream, obj.chunk_size)
             else:
                 obj.data_stream = WrappedStreamingBodyPartition(
-                    stream, obj.chunk_size, obj.data_byte_range, obj.newline
+                    stream, obj.chunk_size, obj.data_byte_range, obj.newline,
+                    more=lambda first: self._more_of_object(obj, first)
                 )
             if last_byte - first_byte > obj.chunk_size:
                 last_byte = first_byte + obj.chunk_size - 1
@@ -263,6 +285,16 @@ class JobRunner:
             f'Chunk: {obj.part}/{obj.total_parts} - Size: {obj.chunk_size} - '
             f'Range: {first_byte}-{last_byte}'
         )
+
+    def _more_of_object(self, obj: Any, first_byte: int):
+        """
+        The next CHUNK_THRESHOLD bytes of the object from first_byte on, for a
+        last row longer than the range of its chunk. None past the end
+        """
+        if first_byte >= obj.total_size:
+            return None
+        last_byte = min(first_byte + CHUNK_THRESHOLD, obj.total_size) - 1
+        return self._open_object_stream(obj, (first_byte, last_byte))
 
     def _write_function_stats(
         self, start_tstamp: float, end_tstamp: float
@@ -417,32 +449,30 @@ def _prepare_args(
     Converts the data envelope into normal args and kwargs, respecting the
     actual var-length parameter names of func
     """
-    func_sig = inspect.signature(func)
-    var_pos_name = None
-    var_kw_name = None
-
-    for name, param in func_sig.parameters.items():
-        if param.kind == inspect.Parameter.VAR_POSITIONAL:
-            var_pos_name = name
-        elif param.kind == inspect.Parameter.VAR_KEYWORD:
-            var_kw_name = name
-
-    payload = dict(data)
-
-    if var_pos_name is not None and var_pos_name in payload:
-        args = payload.pop(var_pos_name)
-        if args is None:
-            args = ()
-    else:
-        args = ()
-
-    if var_kw_name is not None and var_kw_name in payload:
-        kwargs = payload.pop(var_kw_name)
-        if kwargs is None:
-            kwargs = {}
-    else:
-        kwargs = {}
-
-    kwargs.update(payload)
-
-    return args, kwargs
+    # BoundArguments puts every param in its place: positional-only ones and
+    # the ones before *args by position, the rest by name. Names that are not
+    # params go to **kwargs
+    sig = inspect.signature(func)
+    params = list(sig.parameters.values())
+    arguments = {}
+    for i, param in enumerate(params):
+        if param.name in data:
+            value = data[param.name]
+            # An empty *args or **kwargs may come as None
+            if value is None and param.kind == param.VAR_POSITIONAL:
+                value = ()
+            elif value is None and param.kind == param.VAR_KEYWORD:
+                value = {}
+            arguments[param.name] = value
+        elif param.default is not param.empty and any(
+            later.name in data and later.kind in (later.POSITIONAL_ONLY, later.VAR_POSITIONAL)
+            for later in params[i + 1:]
+        ):
+            # The data may leave out a param that has a default. Before one
+            # that only goes by position it takes that default, or the
+            # positional ones after it would be passed by name
+            arguments[param.name] = param.default
+    bound = inspect.BoundArguments(sig, arguments)
+    kwargs = bound.kwargs
+    kwargs.update((k, v) for k, v in data.items() if k not in sig.parameters)
+    return bound.args, kwargs

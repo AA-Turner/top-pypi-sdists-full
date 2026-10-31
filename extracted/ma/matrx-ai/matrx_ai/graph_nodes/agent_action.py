@@ -34,7 +34,7 @@ import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 from matrx_connect.context.app_context import (
     clear_app_context,
@@ -43,7 +43,6 @@ from matrx_connect.context.app_context import (
 )
 from matrx_graph.actions import register_node
 from matrx_graph.types.context import NodeExecutionContext
-from matrx_graph.types.identity_inputs import identity_input
 from matrx_graph.types.primitives import ActionTier, NodeCategory
 from matrx_graph.types.result import NodeResult
 from matrx_graph.types.usl import field_extras
@@ -132,6 +131,41 @@ class AgentStartConfig(BaseModel):
             "5,000 tokens a call."
         ),
     )
+
+
+#: The keys that would make a starting step CONTINUE an existing conversation. No step that starts a
+#: saved agent takes them (2026-10-29): continuing is ``ai.conversation.continue`` ("Continue
+#: Conversation"); copying then asking is ``ai.conversation.fork_and_run``.
+CONTINUATION_KEYS: frozenset[str] = frozenset({"conversation_id", "is_new"})
+
+
+def refuse_conversation_continuation(data: Any, *, node_label: str) -> Any:
+    """Refuse an author's request to continue a conversation on a step that STARTS an agent.
+
+    A real ``conversation_id`` is the author asking this step to append to an existing thread —
+    the wrong step type, refused by name with the step to use instead. An empty one (and any
+    ``is_new``, which only ever qualified the id) carries no instruction: it is form cruft from
+    when these steps declared the fields, dropped with a warning rather than failing a run.
+    """
+    if not isinstance(data, dict) or not (CONTINUATION_KEYS & set(data)):
+        return data
+    conversation_id = data.get("conversation_id")
+    if conversation_id not in (None, ""):
+        raise ValueError(
+            "This step starts a saved agent, and it was given a conversation to continue "
+            f"({conversation_id!r}). A step that starts an agent always opens its own "
+            "conversation and reports it as conversation_id on its output. To add a turn to an "
+            "existing conversation, use Continue Conversation (ai.conversation.continue) with "
+            "that conversation_id; to branch from it, use Fork and Ask "
+            "(ai.conversation.fork_and_run)."
+        )
+    vcprint(
+        f"[{node_label}] dropped empty {sorted(CONTINUATION_KEYS & set(data))} left on this step "
+        "by the old form. A step that starts an agent always opens its own conversation; the "
+        "step is unaffected.",
+        color="yellow",
+    )
+    return {k: v for k, v in data.items() if k not in CONTINUATION_KEYS}
 
 
 class AgentRunCommonInput(BaseModel):
@@ -246,29 +280,22 @@ class AgentRunCommonInput(BaseModel):
         refuse_served_via_outside_the_run_request(value, where="a workflow step's settings")
         return value
 
-    # --- conversation gating ---
-    conversation_id: str | None = Field(
-        default=None,
-        description="Continue an existing conversation. Leave blank for a fresh thread.",
-        # IDENTITY, not data: a conversation belongs to whoever opened it, and
-        # its immutable variables are frozen on turn one. A plain upstream
-        # broadcast carrying an ``agent_result``'s ``conversation_id`` used to
-        # land here and make this step CONTINUE the upstream agent's thread —
-        # which the binding guard correctly refused with a 409
-        # (``conversation_binding_mismatch``), killing the whole run. The
-        # engine now withholds it from unmapped edges; an author who really
-        # means to continue that thread maps it explicitly.
-        json_schema_extra=identity_input(),
-    )
-    is_new: bool | None = Field(
-        default=None,
-        description=(
-            "Explicit assertion about whether this is a new conversation. "
-            "True = create new (409 if id already exists), False = continue "
-            "(404 if id missing). Blank means: new when no conversation_id was "
-            "given, continue when one was."
-        ),
-    )
+    # --- no conversation gating (2026-10-29) ---
+    # These steps START a run: each one opens its OWN conversation, minted in
+    # ``_resolve_conversation_start_fields`` and reported on the output
+    # (``AiExecutionResult.conversation_id``). Adding a turn to an existing
+    # conversation is the Chat steps' job (``ai.conversation.continue``,
+    # ``ai.conversation.fork_and_run``, ``ai.conversation.revise``), so neither
+    # ``conversation_id`` nor ``is_new`` is an input here. They stay IDENTITY
+    # keys for the engine: an upstream agent_result broadcast carries
+    # ``conversation_id`` and is withheld (announced) before it reaches the
+    # step; a value an author sets or maps is refused below by name.
+    __identity_inputs__: ClassVar[frozenset[str]] = CONTINUATION_KEYS
+
+    @model_validator(mode="before")
+    @classmethod
+    def _refuse_conversation_continuation(cls, data: Any) -> Any:
+        return refuse_conversation_continuation(data, node_label=cls.__name__)
 
     # --- stateless multi-turn (only valid with store=false; the host's
     # AgentStartRequest re-enforces the guard on entry) ---
@@ -689,12 +716,15 @@ def _resolve_conversation_start_fields(
     The host's ``AgentStartRequest`` requires ``organization_id`` /
     ``conversation_id`` / ``is_new`` / ``store`` with no defaults — a caller
     always knows all four, and the ambiguity of omitting one is what that
-    contract exists to kill. A workflow author, however, legitimately leaves
-    the node's conversation fields blank for "just run it", so the node
-    resolves them deterministically here:
+    contract exists to kill. A step that starts an agent has no conversation
+    input (``refuse_conversation_continuation``), so the node resolves them
+    deterministically here:
 
-    * no id     → mint one and create it (``is_new=True``)
-    * id given  → continue it unless the author explicitly said ``is_new``
+    * no id     → mint one and create it (``is_new=True``) — every Run Agent,
+      Run Mandate and Run Typed Agent step
+    * id given  → set by the ENGINE, never an author: Run Agent in Batches
+      hands each item its durable conversation (``is_new`` from whether it
+      exists yet, so a retried item resumes its own thread)
     * ``store`` → always present on the node input (defaults True)
     * ``organization_id`` → the author's value, else the RUN's organization
       (passed in from the step context). This is not the server manufacturing

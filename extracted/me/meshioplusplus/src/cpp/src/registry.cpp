@@ -210,7 +210,6 @@ const std::map<std::string, ReadFn>& registry_readers() {
         // for unv/med below. The MdpaInfo is dropped here, like MedInfo.
         {"mdpa", [](const std::string& path) { return meshioplusplus::read_mdpa(path); }},
         {"medit", meshioplusplus::read_medit},
-        {"medit_sol", meshioplusplus::read_medit_sol},
         // A lambda: read_mfem is overloaded (grid functions). `.mesh` stays
         // medit's extension; resolve_format hands MFEM files over by content.
         {"mfem", [](const std::string& path) { return meshioplusplus::read_mfem(path); }},
@@ -374,7 +373,6 @@ const std::map<std::string, WriteFn>& registry_writers() {
         {"ip", meshioplusplus::write_ip},
         {"mdpa", [](const std::string& p, const Mesh& mm) { meshioplusplus::write_mdpa(p, mm); }},
         {"medit", meshioplusplus::write_medit},
-        {"medit_sol", meshioplusplus::write_medit_sol},
         {"mfem",
          [](const std::string& path, const Mesh& mesh) { meshioplusplus::write_mfem(path, mesh); }},
         {"mff", meshioplusplus::write_mff},
@@ -401,9 +399,8 @@ const std::map<std::string, WriteFn>& registry_writers() {
              meshioplusplus::write_stl(p, mm, /*binary=*/false, /*skin=*/true);
          }},
         // STEP is read through the optional OpenCASCADE backend (roadmap
-        // §6.2.1) and written without it, one face per surface by default
-        // (StepFaces::Auto: coplanar facets merged, fitted patches analytic).
-        {"step", [](const std::string& p, const Mesh& mm) { meshioplusplus::write_step(p, mm); }},
+        // §6.2.1) and written as a faceted solid without it.
+        {"step", meshioplusplus::write_step},
         {"su2", meshioplusplus::write_su2},
         // svg/tikz are 2D-drawing formats (read only as the structure meshio++
         // writes); the flat bindings emit them with the fixed default styling
@@ -620,8 +617,6 @@ const std::map<std::string, std::string>& registry_extension_defaults() {
         {".mdpa", "mdpa"},
         {".mesh", "medit"},
         {".meshb", "medit"},
-        {".sol", "medit_sol"},
-        {".solb", "medit_sol"},
         {".mfm", "mfm"},
         {".mphbin", "mphbin"},
         {".mphtxt", "mphtxt"},

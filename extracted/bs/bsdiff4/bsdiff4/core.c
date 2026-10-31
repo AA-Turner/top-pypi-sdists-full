@@ -10,9 +10,9 @@
 #include <stdint.h>
 
 
-/* swap two suffix array entries */
+/* swap two values */
 static inline void
-swap_indices(Py_ssize_t *a, Py_ssize_t *b)
+swap(Py_ssize_t *a, Py_ssize_t *b)
 {
     Py_ssize_t tmp = *a;
     *a = *b;
@@ -21,7 +21,7 @@ swap_indices(Py_ssize_t *a, Py_ssize_t *b)
 
 /* sort and rank a small suffix group */
 static void
-split_small(Py_ssize_t *I, Py_ssize_t *V, Py_ssize_t start,
+split_small(Py_ssize_t *sa, Py_ssize_t *rank, Py_ssize_t start,
             Py_ssize_t len, Py_ssize_t h)
 {
     Py_ssize_t j, k;
@@ -30,37 +30,37 @@ split_small(Py_ssize_t *I, Py_ssize_t *V, Py_ssize_t start,
         Py_ssize_t i, x;
 
         j = 1;
-        x = V[I[k] + h];
+        x = rank[sa[k] + h];
         for (i = 1; k + i < start + len; i++) {
-            if (V[I[k + i] + h] < x) {
-                x = V[I[k + i] + h];
+            if (rank[sa[k + i] + h] < x) {
+                x = rank[sa[k + i] + h];
                 j = 0;
             }
-            if (V[I[k + i] + h] == x) {
-                swap_indices(&I[k + j], &I[k + i]);
+            if (rank[sa[k + i] + h] == x) {
+                swap(&sa[k + j], &sa[k + i]);
                 j++;
             }
         }
         for (i = 0; i < j; i++)
-            V[I[k + i]] = k + j - 1;
+            rank[sa[k + i]] = k + j - 1;
         if (j == 1)
-            I[k] = -1;
+            sa[k] = -1;
     }
 }
 
 /* partition a suffix group around a pivot rank */
 static void
-partition_group(Py_ssize_t *I, Py_ssize_t *V, Py_ssize_t start,
+partition_group(Py_ssize_t *sa, Py_ssize_t *rank, Py_ssize_t start,
                 Py_ssize_t len, Py_ssize_t h,
                 Py_ssize_t *lower, Py_ssize_t *upper)
 {
     Py_ssize_t i, j, k, x, jj = 0, kk = 0;
 
-    x = V[I[start + len / 2] + h];
+    x = rank[sa[start + len / 2] + h];
     for (i = start; i < start + len; i++) {
-        if (V[I[i] + h] < x)
+        if (rank[sa[i] + h] < x)
             jj++;
-        if (V[I[i] + h] == x)
+        if (rank[sa[i] + h] == x)
             kk++;
     }
     jj += start;
@@ -69,25 +69,25 @@ partition_group(Py_ssize_t *I, Py_ssize_t *V, Py_ssize_t start,
     j = k = 0;
     i = start;
     while (i < jj) {
-        if (V[I[i] + h] < x) {
+        if (rank[sa[i] + h] < x) {
             i++;
         }
-        else if (V[I[i] + h] == x) {
-            swap_indices(&I[i], &I[jj + j]);
+        else if (rank[sa[i] + h] == x) {
+            swap(&sa[i], &sa[jj + j]);
             j++;
         }
         else {
-            swap_indices(&I[i], &I[kk + k]);
+            swap(&sa[i], &sa[kk + k]);
             k++;
         }
     }
 
     while (jj + j < kk) {
-        if (V[I[jj + j] + h] == x) {
+        if (rank[sa[jj + j] + h] == x) {
             j++;
         }
         else {
-            swap_indices(&I[jj + j], &I[kk + k]);
+            swap(&sa[jj + j], &sa[kk + k]);
             k++;
         }
     }
@@ -98,156 +98,156 @@ partition_group(Py_ssize_t *I, Py_ssize_t *V, Py_ssize_t start,
 
 /* recursively split and rank a suffix group */
 static void
-split(Py_ssize_t *I, Py_ssize_t *V, Py_ssize_t start,
+split(Py_ssize_t *sa, Py_ssize_t *rank, Py_ssize_t start,
       Py_ssize_t len, Py_ssize_t h)
 {
     Py_ssize_t lower, upper, i;
 
     if (len < 16) {
-        split_small(I, V, start, len, h);
+        split_small(sa, rank, start, len, h);
         return;
     }
 
-    partition_group(I, V, start, len, h, &lower, &upper);
+    partition_group(sa, rank, start, len, h, &lower, &upper);
 
     if (lower > start)
-        split(I, V, start, lower - start, h);
+        split(sa, rank, start, lower - start, h);
 
     for (i = lower; i < upper; i++)
-        V[I[i]] = upper - 1;
+        rank[sa[i]] = upper - 1;
     if (upper - lower == 1)
-        I[lower] = -1;
+        sa[lower] = -1;
     if (start + len > upper)
-        split(I, V, upper, start + len - upper, h);
+        split(sa, rank, upper, start + len - upper, h);
 }
 
-/* construct the suffix array for old */
+/* construct suffix array for a byte string */
 static void
-qsufsort(Py_ssize_t *I, Py_ssize_t *V,
-         const unsigned char *old, Py_ssize_t oldsize)
+qsufsort(Py_ssize_t *sa, Py_ssize_t *rank,
+         const unsigned char *str, Py_ssize_t size)
 {
     Py_ssize_t buckets[256], i, h;
 
     for (i = 0; i < 256; i++)
         buckets[i] = 0;
-    for (i = 0; i < oldsize; i++)
-        buckets[old[i]]++;
+    for (i = 0; i < size; i++)
+        buckets[str[i]]++;
     for (i = 1; i < 256; i++)
         buckets[i] += buckets[i - 1];
     for (i = 255; i > 0; i--)
         buckets[i] = buckets[i - 1];
     buckets[0] = 0;
 
-    for (i = 0; i < oldsize; i++)
-        I[++buckets[old[i]]] = i;
-    I[0] = oldsize;
-    for (i = 0; i < oldsize; i++)
-        V[i] = buckets[old[i]];
-    V[oldsize] = 0;
+    for (i = 0; i < size; i++)
+        sa[++buckets[str[i]]] = i;
+    sa[0] = size;
+    for (i = 0; i < size; i++)
+        rank[i] = buckets[str[i]];
+    rank[size] = 0;
     for (i = 1; i < 256; i++)
         if (buckets[i] == buckets[i - 1] + 1)
-            I[buckets[i]] = -1;
-    I[0] = -1;
+            sa[buckets[i]] = -1;
+    sa[0] = -1;
 
-    for (h = 1; I[0] != -(oldsize + 1); h += h) {
+    for (h = 1; sa[0] != -(size + 1); h += h) {
         Py_ssize_t len = 0;
 
-        for (i = 0; i < oldsize + 1;) {
-            if (I[i] < 0) {
-                len -= I[i];
-                i -= I[i];
+        for (i = 0; i <= size;) {
+            if (sa[i] < 0) {
+                len -= sa[i];
+                i -= sa[i];
             }
             else {
                 if (len)
-                    I[i - len] = -len;
-                len = V[I[i]] + 1 - i;
-                split(I, V, i, len, h);
+                    sa[i - len] = -len;
+                len = rank[sa[i]] + 1 - i;
+                split(sa, rank, i, len, h);
                 i += len;
-                len=0;
+                len = 0;
             }
         }
         if (len)
-            I[i - len] = -len;
+            sa[i - len] = -len;
     }
 
-    for (i = 0; i < oldsize + 1; i++)
-        I[V[i]] = i;
+    for (i = 0; i <= size; i++)
+        sa[rank[i]] = i;
 }
 
 /* construct suffix array */
 static Py_ssize_t *
-build_suffix_array(const char *old, Py_ssize_t oldsize)
+build_suffix_array(const char *str, Py_ssize_t size)
 {
-    Py_ssize_t *I;  /* suffix array */
-    Py_ssize_t *V;  /* temporary rank storage */
+    Py_ssize_t *sa;    /* suffix array */
+    Py_ssize_t *rank;  /* temporary rank storage */
 
-    I = PyMem_Malloc((oldsize + 1) * sizeof(Py_ssize_t));
-    if (I == NULL) {
+    sa = PyMem_Malloc((size + 1) * sizeof(Py_ssize_t));
+    if (sa == NULL) {
         PyErr_NoMemory();
         return NULL;
     }
 
-    V = PyMem_Malloc((oldsize + 1) * sizeof(Py_ssize_t));
-    if (V == NULL) {
+    rank = PyMem_Malloc((size + 1) * sizeof(Py_ssize_t));
+    if (rank == NULL) {
         PyErr_NoMemory();
-        PyMem_Free(I);
+        PyMem_Free(sa);
         return NULL;
     }
 
     Py_BEGIN_ALLOW_THREADS  /* release GIL */
-    qsufsort(I, V, (const unsigned char *) old, oldsize);
+    qsufsort(sa, rank, (const unsigned char *) str, size);
     Py_END_ALLOW_THREADS
 
-    PyMem_Free(V);
-    return I;
+    PyMem_Free(rank);
+    return sa;
 }
 
 /* return the length of the common prefix */
 static Py_ssize_t
-matchlen(const unsigned char *old, Py_ssize_t oldsize,
-         const unsigned char *new, Py_ssize_t newsize)
+matchlen(const char *a, Py_ssize_t a_len,
+         const char *b, Py_ssize_t b_len)
 {
     Py_ssize_t i = 0;
 
-    while (i < oldsize && i < newsize && old[i] == new[i])
+    while (i < a_len && i < b_len && a[i] == b[i])
         i++;
     return i;
 }
 
-/* find the suffix with the longest prefix match */
+/* return the longest prefix-match length and store its position in *pos */
 static Py_ssize_t
-search(const Py_ssize_t *I,
-       const unsigned char *old, Py_ssize_t oldsize,
-       const unsigned char *new, Py_ssize_t newsize,
-       Py_ssize_t st, Py_ssize_t en, Py_ssize_t *pos)
+search(const Py_ssize_t *sa,
+       const char *a, Py_ssize_t a_len,
+       const char *b, Py_ssize_t b_len,
+       Py_ssize_t lo, Py_ssize_t hi, Py_ssize_t *pos)
 {
     Py_ssize_t x, y;
 
-    if (en - st < 2) {
-        x = matchlen(old + I[st], oldsize - I[st], new, newsize);
-        y = matchlen(old + I[en], oldsize - I[en], new, newsize);
+    if (hi - lo < 2) {
+        x = matchlen(a + sa[lo], a_len - sa[lo], b, b_len);
+        y = matchlen(a + sa[hi], a_len - sa[hi], b, b_len);
 
         if (x > y) {
-            *pos = I[st];
+            *pos = sa[lo];
             return x;
         }
         else {
-            *pos = I[en];
+            *pos = sa[hi];
             return y;
         }
     }
 
-    x = st + (en - st) / 2;
-    if (memcmp(old + I[x], new, Py_MIN(oldsize - I[x], newsize)) < 0)
-        return search(I, old, oldsize, new, newsize, x, en, pos);
+    x = lo + (hi - lo) / 2;
+    if (memcmp(a + sa[x], b, Py_MIN(a_len - sa[x], b_len)) < 0)
+        return search(sa, a, a_len, b, b_len, x, hi, pos);
     else
-        return search(I, old, oldsize, new, newsize, st, x, pos);
+        return search(sa, a, a_len, b, b_len, lo, x, pos);
 }
 
 typedef struct {
     PyObject *control;      /* control block as bytearray */
     unsigned char *diff;    /* difference block */
-    unsigned char *extra;   /* extra block */
+    char *extra;            /* extra block */
     Py_ssize_t diff_len;    /* length of difference block */
     Py_ssize_t extra_len;   /* length of extra block */
 } DiffResult;
@@ -311,17 +311,17 @@ append_control(PyObject *control, Py_ssize_t x, Py_ssize_t y, Py_ssize_t z)
 
 /* find the best forward match length */
 static Py_ssize_t
-forward_match_length(const char *origData, Py_ssize_t origDataLength,
-                     const char *newData, Py_ssize_t lastscan,
+forward_match_length(const char *src, Py_ssize_t src_len,
+                     const char *dst, Py_ssize_t lastscan,
                      Py_ssize_t lastpos, Py_ssize_t scan)
 {
     Py_ssize_t i, score = 0, best_score = 0, best_length = 0;
 
-    for (i = 0; lastscan + i < scan && lastpos + i < origDataLength;) {
-        if (origData[lastpos + i] == newData[lastscan + i])
+    for (i = 0; lastscan + i < scan && lastpos + i < src_len;) {
+        if (src[lastpos + i] == dst[lastscan + i])
             score++;
         i++;
-        if (score * 2 - i > best_score * 2 - best_length) {
+        if (2 * score - i > 2 * best_score - best_length) {
             best_score = score;
             best_length = i;
         }
@@ -331,15 +331,15 @@ forward_match_length(const char *origData, Py_ssize_t origDataLength,
 
 /* find the best backward match length */
 static Py_ssize_t
-backward_match_length(const char *origData, const char *newData,
+backward_match_length(const char *src, const char *dst,
                       Py_ssize_t lastscan, Py_ssize_t scan, Py_ssize_t pos)
 {
     Py_ssize_t i, score = 0, best_score = 0, best_length = 0;
 
     for (i = 1; scan >= lastscan + i && pos >= i; i++) {
-        if (origData[pos - i] == newData[scan - i])
+        if (src[pos - i] == dst[scan - i])
             score++;
-        if (score * 2 - i > best_score * 2 - best_length) {
+        if (2 * score - i > 2 * best_score - best_length) {
             best_score = score;
             best_length = i;
         }
@@ -349,7 +349,7 @@ backward_match_length(const char *origData, const char *newData,
 
 /* resolve overlap between forward and backward matches */
 static void
-adjust_overlap(const char *origData, const char *newData,
+adjust_overlap(const char *src, const char *dst,
                Py_ssize_t lastscan, Py_ssize_t lastpos, Py_ssize_t scan,
                Py_ssize_t pos, Py_ssize_t *lenf, Py_ssize_t *lenb)
 {
@@ -361,10 +361,10 @@ adjust_overlap(const char *origData, const char *newData,
     overlap = (lastscan + *lenf) - (scan - *lenb);
 
     for (i = 0; i < overlap; i++) {
-        if (newData[lastscan + *lenf - overlap + i] ==
-                origData[lastpos + *lenf - overlap + i])
+        if (dst[lastscan + *lenf - overlap + i] ==
+            src[lastpos + *lenf - overlap + i])
             score++;
-        if (newData[scan - *lenb + i] == origData[pos - *lenb + i])
+        if (dst[scan - *lenb + i] == src[pos - *lenb + i])
             score--;
         if (score > best_score) {
             best_score = score;
@@ -378,30 +378,29 @@ adjust_overlap(const char *origData, const char *newData,
 
 /* construct the control, diff and extra blocks */
 static int
-compute_diff(const char *origData, Py_ssize_t origDataLength,
-             const char *newData, Py_ssize_t newDataLength,
-             DiffResult *result)
+compute_diff(const char *src, Py_ssize_t src_len,
+             const char *dst, Py_ssize_t dst_len, DiffResult *result)
 {
     Py_ssize_t lastscan, lastpos, lastoffset;
     Py_ssize_t scan, pos, len;
-    Py_ssize_t *I;
+    Py_ssize_t *sa;
 
     result->control = PyByteArray_FromStringAndSize(NULL, 0);
     if (result->control == NULL)
         return -1;
 
-    /* perform sort on original data */
-    I = build_suffix_array(origData, origDataLength);
-    if (I == NULL)
+    /* perform suffix sort on source data */
+    sa = build_suffix_array(src, src_len);
+    if (sa == NULL)
         return -1;
 
     /* allocate memory for the diff and extra blocks */
-    result->diff = PyMem_Malloc(newDataLength + 1);
+    result->diff = PyMem_Malloc(dst_len + 1);
     if (result->diff == NULL) {
         PyErr_NoMemory();
         goto error;
     }
-    result->extra = PyMem_Malloc(newDataLength + 1);
+    result->extra = PyMem_Malloc(dst_len + 1);
     if (result->extra == NULL) {
         PyErr_NoMemory();
         goto error;
@@ -409,56 +408,57 @@ compute_diff(const char *origData, Py_ssize_t origDataLength,
     result->diff_len = 0;
     result->extra_len = 0;
 
-    /* perform the diff */
+    /* perform diff */
     len = scan = lastscan = lastpos = lastoffset = pos = 0;
-    while (scan < newDataLength) {
+    while (scan < dst_len) {
         Py_ssize_t oldscore = 0, scsc;
 
         if (PyErr_CheckSignals() < 0)
             goto error;
 
+        /* find a match worth switching to from the previous source offset */
         Py_BEGIN_ALLOW_THREADS  /* release GIL */
-        for (scsc = scan += len; scan < newDataLength; scan++) {
-            len = search(I, (const unsigned char *) origData, origDataLength,
-                         (const unsigned char *) newData + scan,
-                         newDataLength - scan, 0, origDataLength, &pos);
+        scan += len;
+        for (scsc = scan; scan < dst_len; scan++) {
+            len = search(sa, src, src_len,
+                         dst + scan, dst_len - scan,
+                         0, src_len, &pos);
             for (; scsc < scan + len; scsc++)
-                if (scsc + lastoffset < origDataLength &&
-                          origData[scsc + lastoffset] == newData[scsc])
+                if (scsc + lastoffset < src_len &&
+                          src[scsc + lastoffset] == dst[scsc])
                     oldscore++;
             if ((len == oldscore && len != 0) || len > oldscore + 8)
                 break;
-            if (scan + lastoffset < origDataLength &&
-                      origData[scan + lastoffset] == newData[scan])
+            if (scan + lastoffset < src_len &&
+                      src[scan + lastoffset] == dst[scan])
                 oldscore--;
         }
         Py_END_ALLOW_THREADS
 
-        if (len != oldscore || scan == newDataLength) {
-            Py_ssize_t lenb = 0, lenf, i;
+        /* emit data preceding the new match, or all remaining data at EOF */
+        if (len != oldscore || scan == dst_len) {
+            Py_ssize_t lenb = 0, lenf, extra_len, z, i;
 
-            lenf = forward_match_length(origData, origDataLength, newData,
+            lenf = forward_match_length(src, src_len, dst,
                                         lastscan, lastpos, scan);
-            if (scan < newDataLength)
-                lenb = backward_match_length(origData, newData,
-                                             lastscan, scan, pos);
-            adjust_overlap(origData, newData, lastscan, lastpos, scan, pos,
+            if (scan < dst_len)
+                lenb = backward_match_length(src, dst, lastscan, scan, pos);
+            adjust_overlap(src, dst, lastscan, lastpos, scan, pos,
                            &lenf, &lenb);
 
             for (i = 0; i < lenf; i++)
                 result->diff[result->diff_len + i] =
-                    newData[lastscan + i] - origData[lastpos + i];
-            for (i = 0; i < (scan - lenb) - (lastscan + lenf); i++)
-                result->extra[result->extra_len + i] =
-                    newData[lastscan + lenf + i];
+                    dst[lastscan + i] - src[lastpos + i];
+
+            extra_len = (scan - lenb) - (lastscan + lenf);
+            memcpy(result->extra + result->extra_len,
+                   dst + lastscan + lenf, extra_len);
 
             result->diff_len += lenf;
-            result->extra_len += (scan - lenb) - (lastscan + lenf);
+            result->extra_len += extra_len;
 
-            if (append_control(result->control,
-                               lenf,
-                               (scan - lenb) - (lastscan + lenf),
-                               (pos - lenb) - (lastpos + lenf)) < 0)
+            z = (pos - lenb) - (lastpos + lenf);
+            if (append_control(result->control, lenf, extra_len, z) < 0)
                 goto error;
 
             lastscan = scan - lenb;
@@ -467,11 +467,11 @@ compute_diff(const char *origData, Py_ssize_t origDataLength,
         }
     }
 
-    PyMem_Free(I);
+    PyMem_Free(sa);
     return 0;
 
 error:
-    PyMem_Free(I);
+    PyMem_Free(sa);
     return -1;
 }
 
@@ -485,15 +485,13 @@ build_diff_result(DiffResult *result)
     if (control == NULL)
         return NULL;
 
-    diff = PyBytes_FromStringAndSize((char *) result->diff,
-                                     result->diff_len);
+    diff = PyBytes_FromStringAndSize((char *) result->diff, result->diff_len);
     if (diff == NULL) {
         Py_DECREF(control);
         return NULL;
     }
 
-    extra = PyBytes_FromStringAndSize((char *) result->extra,
-                                      result->extra_len);
+    extra = PyBytes_FromStringAndSize(result->extra, result->extra_len);
     if (extra == NULL) {
         Py_DECREF(control);
         Py_DECREF(diff);
@@ -512,17 +510,14 @@ static PyObject *
 mod_diff(PyObject *module, PyObject *args)
 {
     DiffResult diff = {NULL, NULL, NULL, 0, 0};
-    Py_ssize_t origDataLength, newDataLength;
-    char *origData, *newData;
+    Py_ssize_t src_len, dst_len;
+    char *src, *dst;
     PyObject *result;
 
-    if (!PyArg_ParseTuple(args, "s#s#",
-                          &origData, &origDataLength,
-                          &newData, &newDataLength))
+    if (!PyArg_ParseTuple(args, "s#s#", &src, &src_len, &dst, &dst_len))
         return NULL;
 
-    if (compute_diff(origData, origDataLength,
-                     newData, newDataLength, &diff) < 0)
+    if (compute_diff(src, src_len, dst, dst_len, &diff) < 0)
         result = NULL;
     else
         result = build_diff_result(&diff);
@@ -555,84 +550,88 @@ decode_tuple(const char *str, int64_t *x, int64_t *y, int64_t *z)
     *z = decode_int64(str + 16);
 }
 
+#define CORRUPT(s) PyErr_SetString(PyExc_ValueError, "corrupt patch (" s ")")
+
 /* update the source offset while checking for overflow */
 static int
-update_oldpos(int64_t *oldpos, int64_t increment)
+update_src_pos(int64_t *src_pos, int64_t increment)
 {
-    if ((increment > 0 && *oldpos > INT64_MAX - increment) ||
-        (increment < 0 && *oldpos < INT64_MIN - increment)) {
-        PyErr_SetString(PyExc_ValueError, "corrupt patch (offset overflow)");
+    if ((increment > 0 && *src_pos > INT64_MAX - increment) ||
+        (increment < 0 && *src_pos < INT64_MIN - increment)) {
+        CORRUPT("offset overflow");
         return -1;
     }
-    *oldpos += increment;
+    *src_pos += increment;
     return 0;
 }
 
-/* apply control, diff and extra blocks to the original data */
+/* apply control, diff and extra blocks to the source data */
 static PyObject *
 mod_patch(PyObject *module, PyObject *args)
 {
-    char *origData, *newData, *controlBlock, *diffBlock, *extraBlock;
-    Py_ssize_t origDataLength, newDataLength, controlBlockLength;
-    Py_ssize_t diffRemaining, extraRemaining;
+    char *src, *dst, *control_block, *diff_block, *extra_block;
+    Py_ssize_t src_len, dst_len, control_len;
+    Py_ssize_t diff_remaining, extra_remaining;
     PyObject *result;
-    Py_ssize_t newpos = 0, i;
-    int64_t oldpos = 0;
+    Py_ssize_t dst_pos = 0, i;
+    int64_t src_pos = 0;
 
     if (!PyArg_ParseTuple(args, "s#ns#s#s#",
-                          &origData, &origDataLength, &newDataLength,
-                          &controlBlock, &controlBlockLength,
-                          &diffBlock, &diffRemaining,
-                          &extraBlock, &extraRemaining))
+                          &src, &src_len, &dst_len,
+                          &control_block, &control_len,
+                          &diff_block, &diff_remaining,
+                          &extra_block, &extra_remaining))
         return NULL;
 
-    if (newDataLength < 0) {
-        PyErr_SetString(PyExc_ValueError, "negative new data length");
+    if (dst_len < 0) {
+        CORRUPT("negative destination length");
         return NULL;
     }
-    if (controlBlockLength % 24) {
-        PyErr_SetString(PyExc_ValueError, "incorrect control block");
+    if (control_len % 24) {
+        CORRUPT("invalid control block");
         return NULL;
     }
 
-    result = PyBytes_FromStringAndSize(NULL, newDataLength);
+    result = PyBytes_FromStringAndSize(NULL, dst_len);
     if (result == NULL)
         return NULL;
-    newData = PyBytes_AS_STRING(result);
+    dst = PyBytes_AS_STRING(result);
 
-    for (i = 0; i < controlBlockLength; i += 24) {
+    for (i = 0; i < control_len; i += 24) {
         int64_t x, y, z, j;
 
-        decode_tuple(controlBlock + i, &x, &y, &z);
-        if (x < 0 || x > newDataLength - newpos || x > diffRemaining) {
-            PyErr_SetString(PyExc_ValueError, "corrupt patch (overflow)");
+        decode_tuple(control_block + i, &x, &y, &z);
+        if (x < 0 || x > dst_len - dst_pos || x > diff_remaining) {
+            CORRUPT("x out of range");
             goto error;
         }
-        memcpy(newData + newpos, diffBlock, x);
-        diffBlock += x;
-        diffRemaining -= x;
-        /* Check bounds without overflowing oldpos + j. */
+        memcpy(dst + dst_pos, diff_block, x);
+        diff_block += x;
+        diff_remaining -= x;
+        /* Check bounds without overflowing src_pos + j. */
         for (j = 0; j < x; j++)
-            if (oldpos >= -j && oldpos < origDataLength - j)
-                newData[newpos + j] += origData[oldpos + j];
-        newpos += x;
-        if (y < 0 || y > newDataLength - newpos || y > extraRemaining) {
-            PyErr_SetString(PyExc_ValueError, "corrupt patch (overflow)");
+            if (src_pos >= -j && src_pos < src_len - j)
+                dst[dst_pos + j] += src[src_pos + j];
+        dst_pos += x;
+        if (y < 0 || y > dst_len - dst_pos || y > extra_remaining) {
+            CORRUPT("y out of range");
             goto error;
         }
-        memcpy(newData + newpos, extraBlock, y);
-        extraBlock += y;
-        extraRemaining -= y;
-        newpos += y;
-        if (update_oldpos(&oldpos, x) < 0 ||
-            update_oldpos(&oldpos, z) < 0)
+        memcpy(dst + dst_pos, extra_block, y);
+        extra_block += y;
+        extra_remaining -= y;
+        dst_pos += y;
+        if (update_src_pos(&src_pos, x) < 0 ||
+            update_src_pos(&src_pos, z) < 0)
             goto error;
     }
 
-    /* confirm that a valid patch was applied */
-    if (newpos != newDataLength || diffRemaining != 0 ||
-            extraRemaining != 0) {
-        PyErr_SetString(PyExc_ValueError, "corrupt patch (underflow)");
+    if (dst_pos != dst_len) {
+        CORRUPT("incomplete output");
+        goto error;
+    }
+    if (diff_remaining != 0 || extra_remaining != 0) {
+        CORRUPT("unused block data");
         goto error;
     }
 
@@ -643,6 +642,7 @@ error:
     return NULL;
 }
 
+#undef CORRUPT
 
 /* encode an integer as 8 bytes */
 static PyObject *
@@ -679,7 +679,7 @@ mod_decode_int64(PyObject *module, PyObject *bytes)
 static PyObject *
 mod_suffix_array(PyObject *module, PyObject *bytes)
 {
-    Py_ssize_t *I;
+    Py_ssize_t *sa;
     PyObject *list;
     Py_ssize_t size, i;
     char *str;
@@ -687,8 +687,8 @@ mod_suffix_array(PyObject *module, PyObject *bytes)
     if (PyBytes_AsStringAndSize(bytes, &str, &size) < 0)
         return NULL;
 
-    I = build_suffix_array(str, size);
-    if (I == NULL)
+    sa = build_suffix_array(str, size);
+    if (sa == NULL)
         return NULL;
 
     list = PyList_New(size + 1);
@@ -696,17 +696,17 @@ mod_suffix_array(PyObject *module, PyObject *bytes)
         goto error;
 
     for (i = 0; i <= size; i++) {
-        PyObject *item = PyLong_FromSsize_t(I[i]);
+        PyObject *item = PyLong_FromSsize_t(sa[i]);
         if (item == NULL)
             goto error;
         PyList_SET_ITEM(list, i, item);
     }
 
-    PyMem_Free(I);
+    PyMem_Free(sa);
     return list;
  error:
     Py_XDECREF(list);
-    PyMem_Free(I);
+    PyMem_Free(sa);
     return NULL;
 }
 

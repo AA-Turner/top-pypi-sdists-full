@@ -34,7 +34,7 @@ class BatchRoleBindingsResult(object):
     """
     openapi_types = {
         'added': 'list[RoleBinding]',
-        'removed': 'list[str]'
+        'removed': 'list[RoleBinding]'
     }
 
     attribute_map = {
@@ -82,9 +82,10 @@ class BatchRoleBindingsResult(object):
     def removed(self):
         """Gets the removed of this BatchRoleBindingsResult.  # noqa: E501
 
+        The bindings the batch revoked, each with what it granted and to whom.  # noqa: E501
 
         :return: The removed of this BatchRoleBindingsResult.  # noqa: E501
-        :rtype: list[str]
+        :rtype: list[RoleBinding]
         """
         return self._removed
 
@@ -92,9 +93,10 @@ class BatchRoleBindingsResult(object):
     def removed(self, removed):
         """Sets the removed of this BatchRoleBindingsResult.
 
+        The bindings the batch revoked, each with what it granted and to whom.  # noqa: E501
 
         :param removed: The removed of this BatchRoleBindingsResult.  # noqa: E501
-        :type: list[str]
+        :type: list[RoleBinding]
         """
 
         self._removed = removed

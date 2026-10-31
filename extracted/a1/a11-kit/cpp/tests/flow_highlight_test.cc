@@ -19,7 +19,9 @@
 
 #include <absl/strings/str_cat.h>
 #include <gtest/gtest.h>
+#include <nlohmann/json.hpp>
 
+#include "a11/flow/emit_json.h"
 #include "a11/flow/highlight.h"
 #include "a11/flow/lexer.h"
 
@@ -95,30 +97,32 @@ TEST(FlowHighlight, AKeywordMayBeUpperCaseButNotMixed) {
 }
 
 TEST(FlowHighlight, APortDeclarationReadsAsOne) {
-  EXPECT_EQ(Coloured("in question: string required \"What to find out.\""),
-            (std::vector<std::string>{
-                "declaration-keyword:in", "identifier:question",
-                "punctuation::", "type:string", "declaration-keyword:required",
-                "string:\"What to find out.\""}));
+  EXPECT_EQ(
+      Coloured("in question: string required \"What to find out.\""),
+      (std::vector<std::string>{"declaration-keyword:in", "identifier:question",
+                                "punctuation::", "builtin-type:string",
+                                "declaration-keyword:required",
+                                "string:\"What to find out.\""}));
 }
 
 TEST(FlowHighlight, APortTypeMayBeATagOrGenericAndStopsAtTheLine) {
   EXPECT_EQ(
-      Coloured("out audio: a11.sdk.AudioBuffer stream"),
-      (std::vector<std::string>{"declaration-keyword:out", "identifier:audio",
-                                "punctuation::", "type:a11", "punctuation:.",
-                                "type:sdk", "punctuation:.", "type:AudioBuffer",
-                                "declaration-keyword:stream"}));
-  EXPECT_EQ(Coloured("in frames: list[a11.NodeFragment] required"),
+      Coloured("out audio: a11::sdk::AudioBuffer stream"),
+      (std::vector<std::string>{
+          "declaration-keyword:out", "identifier:audio", "punctuation::",
+          "namespace-name:a11", "punctuation:::", "namespace-name:sdk",
+          "punctuation:::", "type:AudioBuffer", "declaration-keyword:stream"}));
+  EXPECT_EQ(Coloured("in frames: std::list[a11::NodeFragment] required"),
             (std::vector<std::string>{
                 "declaration-keyword:in", "identifier:frames",
-                "punctuation::", "type:list", "bracket:[", "type:a11",
-                "punctuation:.", "type:NodeFragment", "bracket:]",
-                "declaration-keyword:required"}));
+                "punctuation::", "builtin-type:std",
+                "builtin-type:::", "builtin-type:list", "bracket:[",
+                "namespace-name:a11", "punctuation:::", "type:NodeFragment",
+                "bracket:]", "declaration-keyword:required"}));
   // A declaration is one line: the statement under it is a statement.
   EXPECT_EQ(Coloured("in q: string\npage.text"),
             (std::vector<std::string>{"declaration-keyword:in", "identifier:q",
-                                      "punctuation::", "type:string",
+                                      "punctuation::", "builtin-type:string",
                                       "identifier:page", "punctuation:.",
                                       "member:text"}));
 }
@@ -139,8 +143,9 @@ TEST(FlowHighlight, AWordIsAStageOnlyAfterAPipe) {
           "stage:truncate", "number:200", "flow-operator:|", "stage:count"}));
   // The same words nowhere near a pipe: `text` is the port type it is here, and
   // `count` is nothing in particular.
-  EXPECT_EQ(Coloured("text count"),
-            (std::vector<std::string>{"type:text", "identifier:count"}));
+  EXPECT_EQ(
+      Coloured("text count"),
+      (std::vector<std::string>{"builtin-type:text", "identifier:count"}));
 }
 
 TEST(FlowHighlight, ThenAndWhereAreStagesWithoutAPipeGivenAnOperand) {
@@ -198,11 +203,11 @@ TEST(FlowHighlight, NodeIsTheKeywordOnlyWhereItMakesANode) {
 }
 
 TEST(FlowHighlight, OfJoinsAWaitsSubjects) {
-  EXPECT_EQ(
-      Coloured("wait first of a, b"),
-      (std::vector<std::string>{"statement-keyword:wait", "identifier:first",
-                                "statement-keyword:of", "identifier:a",
-                                "punctuation:,", "identifier:b"}));
+  EXPECT_EQ(Coloured("wait first of a, b"),
+            (std::vector<std::string>{"statement-keyword:wait",
+                                      "statement-keyword:first",
+                                      "statement-keyword:of", "identifier:a",
+                                      "punctuation:,", "identifier:b"}));
   // The same word before a `=` is a binding name, as every other clause and
   // statement word already is.
   EXPECT_EQ(Coloured("of = run act()"),
@@ -213,10 +218,11 @@ TEST(FlowHighlight, OfJoinsAWaitsSubjects) {
 
 TEST(FlowHighlight, AFunctionIsAFunctionWhereItIsCalled) {
   EXPECT_EQ(
-      Coloured("| map join(it, \", \")"),
-      (std::vector<std::string>{"flow-operator:|", "stage:map", "builtin:join",
-                                "parenthesis:(", "constant:it", "punctuation:,",
-                                "string:\", \"", "parenthesis:)"}));
+      Coloured("| map std::join(it, \", \")"),
+      (std::vector<std::string>{
+          "flow-operator:|", "stage:map", "namespace-name:std",
+          "punctuation:::", "builtin:join", "parenthesis:(", "constant:it",
+          "punctuation:,", "string:\", \"", "parenthesis:)"}));
   // `join` with no argument list after it is the stage, not the function.
   EXPECT_EQ(Coloured("| join"),
             (std::vector<std::string>{"flow-operator:|", "stage:join"}));
@@ -237,12 +243,12 @@ TEST(FlowHighlight, AStatusCodeIsAConstantAndAFieldIsAField) {
 }
 
 TEST(FlowHighlight, ATagBeforeABraceIsAType) {
-  EXPECT_EQ(
-      Coloured("| map a11.sdk.Interaction{role: \"user\"}"),
-      (std::vector<std::string>{
-          "flow-operator:|", "stage:map", "type:a11", "punctuation:.",
-          "type:sdk", "punctuation:.", "type:Interaction", "brace:{",
-          "identifier:role", "punctuation::", "string:\"user\"", "brace:}"}));
+  EXPECT_EQ(Coloured("| map a11::sdk::Interaction{role: \"user\"}"),
+            (std::vector<std::string>{
+                "flow-operator:|", "stage:map", "namespace-name:a11",
+                "punctuation:::", "namespace-name:sdk", "punctuation:::",
+                "type:Interaction", "brace:{", "identifier:role",
+                "punctuation::", "string:\"user\"", "brace:}"}));
   // A bare name before a brace is a name and a block, which is what keeps
   // `if outcome {` reading the way it always has.
   EXPECT_EQ(Coloured("if outcome {"),
@@ -251,10 +257,41 @@ TEST(FlowHighlight, ATagBeforeABraceIsAType) {
 }
 
 TEST(FlowHighlight, ACastNamesAType) {
-  EXPECT_EQ(Coloured("x as a11.sdk.AudioBuffer"),
+  EXPECT_EQ(Coloured("x as a11::sdk::AudioBuffer"),
             (std::vector<std::string>{"identifier:x", "declaration-keyword:as",
-                                      "type:a11", "punctuation:.", "type:sdk",
-                                      "punctuation:.", "type:AudioBuffer"}));
+                                      "namespace-name:a11",
+                                      "punctuation:::", "namespace-name:sdk",
+                                      "punctuation:::", "type:AudioBuffer"}));
+}
+
+TEST(FlowHighlight, StringEscapesAreSeparateNonoverlappingSpans) {
+  const std::string source = R"("a\0b\n\"\\c" "plain")";
+  EXPECT_EQ(Coloured(source),
+            (std::vector<std::string>{
+                "string:\"a", "string-escape:\\0", "string:b",
+                "string-escape:\\n", "string-escape:\\\"", "string-escape:\\\\",
+                "string:c\"", "string:\"plain\""}));
+  EXPECT_EQ(Coloured(R"("\é")"),
+            (std::vector<std::string>{"string:\"", "string-escape:\\é",
+                                      "string:\""}));
+  const std::string multiline = "\"\"\"é\\0\n  \\tend\"\"\"";
+  const auto tokens = Highlight(Lex(multiline).tokens);
+  size_t end = 0;
+  for (const auto& token : tokens) {
+    EXPECT_EQ(token.start, end);
+    EXPECT_GT(token.end, token.start);
+    end = token.end;
+    if (token.kind == SemanticKind::kStringEscape) {
+      EXPECT_EQ(token.line, token.start == multiline.find("\\0") ? 1 : 2);
+      EXPECT_EQ(token.column, token.line == 1 ? 5 : 3);
+    }
+  }
+  EXPECT_EQ(end, multiline.size());
+  const auto envelope = TokensToJsonValue("escape.flow", source);
+  ASSERT_TRUE(envelope["diagnostics"].empty());
+  for (const auto& token : envelope["tokens"]) {
+    EXPECT_EQ(token["lexical"], "string");
+  }
 }
 
 TEST(FlowHighlight, EveryTokenIsClassifiedAndNoneIsInvented) {
@@ -262,8 +299,7 @@ TEST(FlowHighlight, EveryTokenIsClassifiedAndNoneIsInvented) {
       "flow t {\n  in q: string\n  q | first 1 -> a  # done\n}\n";
   const LexResult lexed = Lex(source);
   const std::vector<SemanticToken> semantic = Highlight(lexed.tokens);
-  // One entry per token, the closing `end` aside: a frontend pairs them up by
-  // index and by offset.
+  // Tokens without string escapes retain their lexical ranges.
   EXPECT_EQ(semantic.size(), lexed.tokens.size() - 1);
   for (size_t index = 0; index < semantic.size(); ++index) {
     EXPECT_EQ(semantic[index].start, lexed.tokens[index].start);
@@ -275,6 +311,7 @@ TEST(FlowHighlight, EveryTokenIsClassifiedAndNoneIsInvented) {
 TEST(FlowHighlight, SemanticKindNamesRoundTrip) {
   for (const SemanticKind kind : {SemanticKind::kComment,
                                   SemanticKind::kString,
+                                  SemanticKind::kStringEscape,
                                   SemanticKind::kNumber,
                                   SemanticKind::kDuration,
                                   SemanticKind::kDeclarationKeyword,
@@ -283,6 +320,8 @@ TEST(FlowHighlight, SemanticKindNamesRoundTrip) {
                                   SemanticKind::kStage,
                                   SemanticKind::kBuiltin,
                                   SemanticKind::kType,
+                                  SemanticKind::kBuiltinType,
+                                  SemanticKind::kNamespaceName,
                                   SemanticKind::kStatusCode,
                                   SemanticKind::kConstant,
                                   SemanticKind::kWordOperator,
@@ -319,10 +358,10 @@ TEST(FlowHighlight, ADeclarationEndsAtItsLine) {
                 "declaration-keyword:default", "number:3", "brace:}"}));
 
   // And a real cast still names a type, on its own line and no further.
-  EXPECT_EQ(Coloured("x as a11.Chunk\nheader \"y\" as y"),
+  EXPECT_EQ(Coloured("x as a11::Chunk\nheader \"y\" as y"),
             (std::vector<std::string>{
-                "identifier:x", "declaration-keyword:as", "type:a11",
-                "punctuation:.", "type:Chunk", "declaration-keyword:header",
+                "identifier:x", "declaration-keyword:as", "namespace-name:a11",
+                "punctuation:::", "type:Chunk", "declaration-keyword:header",
                 "string:\"y\"", "declaration-keyword:as", "identifier:y"}));
 }
 
@@ -368,6 +407,8 @@ TEST(FlowHighlight, OnlyAPlainIdentifierBecomesAPort) {
       "  out b:   string\n"
       "  hit = run x(url: url)\n"
       "  hit.url -> b\n"
+      "  record = {url: \"literal\"}\n"
+      "  record.url -> b\n"
       "  \"url\" -> b\n"
       "}",
       true);
@@ -376,7 +417,7 @@ TEST(FlowHighlight, OnlyAPlainIdentifierBecomesAPort) {
   EXPECT_NE(std::find(resolved.begin(), resolved.end(), "string:\"url\""),
             resolved.end());
   // The declaration, the argument's value, and nothing else.
-  EXPECT_EQ(std::count(resolved.begin(), resolved.end(), "port-name:url"), 3);
+  EXPECT_EQ(std::count(resolved.begin(), resolved.end(), "port-name:url"), 4);
 }
 
 TEST(FlowHighlight, AShapesFieldsAreNotTheFlowsPorts) {
@@ -389,6 +430,113 @@ TEST(FlowHighlight, AShapesFieldsAreNotTheFlowsPorts) {
       true);
   EXPECT_EQ(std::count(resolved.begin(), resolved.end(), "port-name:url"), 2);
   EXPECT_EQ(std::count(resolved.begin(), resolved.end(), "identifier:url"), 1);
+}
+
+TEST(FlowHighlight, StandardTypeQualifiersUseTheCompleteTypeStyle) {
+  const auto tokens = Coloured("flow f { out x: std::list[string] }", true);
+  for (const auto* spelling : {"std", "::", "list", "string"}) {
+    EXPECT_NE(std::find(tokens.begin(), tokens.end(),
+                        absl::StrCat("builtin-type:", spelling)),
+              tokens.end());
+  }
+  const auto custom = Coloured("flow f { out x: a11::sdk::Interaction }", true);
+  EXPECT_NE(std::find(custom.begin(), custom.end(), "namespace-name:a11"),
+            custom.end());
+}
+
+TEST(FlowHighlight, StandardTypesAndConversionsRetainTheirRoles) {
+  const auto tokens = Coloured(R"(
+from std import duration, time
+struct Hit { score: int required }
+flow f {
+ in input: string stream
+ out output: std::list[Hit]
+ std::duration timeout = 1s
+ std::time deadline = std::now() + timeout
+ Hit row = Hit{score: 1}
+ std::int("1") -> _
+}
+)",
+                               true);
+  for (const auto* type : {"string", "int", "list", "duration", "time"}) {
+    EXPECT_NE(std::find(tokens.begin(), tokens.end(),
+                        absl::StrCat("builtin-type:", type)),
+              tokens.end())
+        << type;
+  }
+  EXPECT_NE(std::find(tokens.begin(), tokens.end(), "type:Hit"), tokens.end());
+  EXPECT_NE(std::find(tokens.begin(), tokens.end(), "builtin:int"),
+            tokens.end());
+  EXPECT_NE(std::find(tokens.begin(), tokens.end(), "namespace-name:std"),
+            tokens.end());
+}
+
+TEST(FlowHighlight, WaitModesAndTakeExpressionsHaveCompleteKeywordColour) {
+  for (const auto* text :
+       {"wait all", "wait all of a, b", "wait first of a, b"}) {
+    const auto tokens = Coloured(text);
+    EXPECT_NE(std::find(tokens.begin(), tokens.end(), "statement-keyword:wait"),
+              tokens.end());
+    EXPECT_TRUE(std::find(tokens.begin(), tokens.end(),
+                          "statement-keyword:all") != tokens.end() ||
+                std::find(tokens.begin(), tokens.end(),
+                          "statement-keyword:first") != tokens.end());
+  }
+  const auto expressions = Coloured(
+      "string start = take arguments\n string end = try take arguments");
+  EXPECT_EQ(std::count(expressions.begin(), expressions.end(),
+                       "statement-keyword:take"),
+            2);
+  const auto predicate = Coloured("items | take until it == 0");
+  EXPECT_NE(std::find(predicate.begin(), predicate.end(), "stage:take"),
+            predicate.end());
+  EXPECT_NE(std::find(predicate.begin(), predicate.end(), "stage:until"),
+            predicate.end());
+}
+
+TEST(FlowHighlight, ResolvedPortsIncludeKeywordsAndExcludeShadowing) {
+  const auto tokens = Coloured(R"(
+mod text exported {
+ flow clean exported {
+  in text: string stream
+  out status: string stream
+  text -> status
+  for text in ["local"] | flatten { text -> status }
+ }
+}
+flow second { out text: string
+ "result" -> text
+}
+)",
+                               true);
+  EXPECT_EQ(std::count(tokens.begin(), tokens.end(), "port-name:text"), 4);
+  EXPECT_EQ(std::count(tokens.begin(), tokens.end(), "port-name:status"), 3);
+  EXPECT_EQ(std::count(tokens.begin(), tokens.end(), "identifier:text"), 2);
+  EXPECT_NE(std::find(tokens.begin(), tokens.end(), "namespace-name:text"),
+            tokens.end());
+}
+
+TEST(FlowHighlight, BindableModifiersAndImportAliasesAreNotTypesOrKeywords) {
+  const auto tokens = Coloured(R"(
+import "missing" as tools
+export tools::work as alias
+flow f {
+ std::duration timeout = 1s
+ std::time deadline = std::now() + timeout
+ run tools::work() timeout timeout deadline deadline
+}
+)",
+                               true);
+  EXPECT_EQ(
+      std::count(tokens.begin(), tokens.end(), "modifier-keyword:timeout"), 1);
+  EXPECT_EQ(
+      std::count(tokens.begin(), tokens.end(), "modifier-keyword:deadline"), 1);
+  EXPECT_NE(std::find(tokens.begin(), tokens.end(), "identifier:alias"),
+            tokens.end());
+  EXPECT_NE(std::find(tokens.begin(), tokens.end(), "namespace-name:tools"),
+            tokens.end());
+  EXPECT_NE(std::find(tokens.begin(), tokens.end(), "action-name:work"),
+            tokens.end());
 }
 
 }  // namespace

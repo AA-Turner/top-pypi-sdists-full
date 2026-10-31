@@ -11,6 +11,7 @@ import google.protobuf.message
 import google.protobuf.timestamp_pb2
 import sentry_protos.billing.v1.common.v1.address_pb2
 import sentry_protos.billing.v1.common.v1.pending_change_pb2
+import sentry_protos.billing.v1.services.contract.ledger.v1.ledger_withdrawal_pb2
 import sentry_protos.billing.v1.services.contract.v1.invoice_pb2
 import typing
 
@@ -34,6 +35,7 @@ class RolloverContractRequest(google.protobuf.message.Message):
     START_NEW_TERM_FIELD_NUMBER: builtins.int
     TAX_NUMBER_FIELD_NUMBER: builtins.int
     IS_REVERSE_CHARGE_FIELD_NUMBER: builtins.int
+    LEDGER_WITHDRAWALS_FIELD_NUMBER: builtins.int
     contract_id: builtins.int
     tax_transaction_code: builtins.str
     """The tax provider's reference for the tax document opened for this invoice.
@@ -63,6 +65,12 @@ class RolloverContractRequest(google.protobuf.message.Message):
         pending change is being applied during this rollover.
         """
 
+    @property
+    def ledger_withdrawals(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[sentry_protos.billing.v1.services.contract.ledger.v1.ledger_withdrawal_pb2.LedgerWithdrawal]:
+        """Credit that the new invoice's credit-only usage takes from the ledger. At
+        most one per account_id. Written atomically with the invoice.
+        """
+
     def __init__(
         self,
         *,
@@ -76,9 +84,10 @@ class RolloverContractRequest(google.protobuf.message.Message):
         start_new_term: builtins.bool = ...,
         tax_number: builtins.str | None = ...,
         is_reverse_charge: builtins.bool = ...,
+        ledger_withdrawals: collections.abc.Iterable[sentry_protos.billing.v1.services.contract.ledger.v1.ledger_withdrawal_pb2.LedgerWithdrawal] | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["_pending_change", b"_pending_change", "_tax_number", b"_tax_number", "_tax_transaction_code", b"_tax_transaction_code", "address", b"address", "last_usage_ts", b"last_usage_ts", "pending_change", b"pending_change", "tax_number", b"tax_number", "tax_transaction_code", b"tax_transaction_code"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_pending_change", b"_pending_change", "_tax_number", b"_tax_number", "_tax_transaction_code", b"_tax_transaction_code", "address", b"address", "contract_id", b"contract_id", "immediate", b"immediate", "is_reverse_charge", b"is_reverse_charge", "last_usage_ts", b"last_usage_ts", "line_items", b"line_items", "pending_change", b"pending_change", "start_new_term", b"start_new_term", "tax_number", b"tax_number", "tax_transaction_code", b"tax_transaction_code"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["_pending_change", b"_pending_change", "_tax_number", b"_tax_number", "_tax_transaction_code", b"_tax_transaction_code", "address", b"address", "contract_id", b"contract_id", "immediate", b"immediate", "is_reverse_charge", b"is_reverse_charge", "last_usage_ts", b"last_usage_ts", "ledger_withdrawals", b"ledger_withdrawals", "line_items", b"line_items", "pending_change", b"pending_change", "start_new_term", b"start_new_term", "tax_number", b"tax_number", "tax_transaction_code", b"tax_transaction_code"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_pending_change", b"_pending_change"]) -> typing.Literal["pending_change"] | None: ...
     @typing.overload

@@ -18,7 +18,7 @@ import {
   requireApiKey,
   setResourceTiers,
 } from "./host-v2.js";
-import { RUNNERS, readApiVersion } from "./daily-report.js";
+import { RUNNERS } from "./daily-report.js";
 import {
   MIN_HISTORY_NIGHTS,
   cellKey,
@@ -26,14 +26,9 @@ import {
   formatMove,
   loadCapacityHistory,
 } from "./history.js";
-import {
-  describeRunnerBriefly,
-  runnerColumnName,
-  runnerGloss,
-  runnerShortName,
-} from "./runner-descriptions.js";
+import { runnerColumnName, runnerShortName } from "./runner-descriptions.js";
 import { cellWindow, peakCpu, podRange, summarizeServerMetrics } from "./server-metrics.js";
-import { dotFor, postReport } from "./slack.js";
+import { dotFor, footer, postReport } from "./slack.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -85,11 +80,6 @@ function executorOf(summaries) {
 function unitFor(executor) {
   return executor === OPEN_MODEL ? "req/s" : "users";
 }
-
-// Mirrors staircase.py's SLO defaults, for the report header only. Kept here
-// rather than parsed out of a summary so the header still renders when every
-// cell failed and there is no config to read.
-const SLO = { minSuccessRate: 99, maxP50Ms: 3000, maxP95Ms: 10000 };
 
 /**
  * Parse a comma-separated allowlist from an env var.
@@ -325,28 +315,14 @@ function moveLine(row, unit) {
 export function capacityCell(summary) {
   if (!summary) return "-";
   if (summary.error) return "ERR";
-  return String(summary.capacity?.targetVUs ?? 0);
+  const vus = String(summary.capacity?.targetVUs ?? 0);
+  // Passing the last step says only that the server is at least this fast.
+  const lastStep = summary.config?.numSteps;
+  return lastStep != null && summary.capacity?.step === lastStep ? `${vus}+` : vus;
 }
 
 function plural(n, word) {
   return `${n} ${word}${n === 1 ? "" : "s"}`;
-}
-
-function stepSecondsOf(summaries) {
-  const seen = [...new Set(
-    summaries.map((s) => s.config?.plateauDurationSeconds).filter((v) => v != null).map(String),
-  )];
-  if (seen.length === 0) return STAIRCASE_PLATEAU_DURATION;
-  return seen.sort((a, b) => Number(a) - Number(b)).join("/");
-}
-
-/** A dispatch can override the configured geometry; the report describes the run. */
-function geometryOf(deployment, cells) {
-  const ran = ranGeometry(cells) ?? deployment.staircase ?? {};
-  return {
-    start: Number(ran.startLoad ?? STAIRCASE_START_LOAD),
-    step: Number(ran.stepSize ?? STAIRCASE_STEP_SIZE),
-  };
 }
 
 function capacityTable(deployment, rows, unit) {
@@ -391,7 +367,6 @@ export function formatAggregateTable(
   const regressed = rows.filter((row) => row.change && !row.change.better);
   const improved = rows.filter((row) => row.change?.better);
   const bottlenecks = bottleneckLines(rows);
-  const checked = analysed.some((a) => a.nights >= MIN_HISTORY_NIGHTS);
   const allWarnings = [...warnings, ...toolOverheadWarnings(summaries)];
 
   const executor = executorOf(summaries);
@@ -414,7 +389,6 @@ export function formatAggregateTable(
   });
   const lines = [
     `${dot} *Capacity · ${date}*${manual ? " · manual run" : ""}${apiVersion ? ` · API ${apiVersion}` : ""} · ${ran} · ${verdict.join(", ")}`,
-    describeCapacity(analysed, summaries, executor),
   ];
 
   const failedParts = crashed.map((tier) => tier.detail);
@@ -425,57 +399,28 @@ export function formatAggregateTable(
   if (failedParts.length > 0) {
     lines.push(`*Failed:* ${failedParts.join(" · ")} · treat the table as incomplete`);
   }
-
-  if (!checked) {
-    const nights = Math.max(...analysed.map((a) => a.nights));
-    lines.push(`*Regressed:* not checked, ${nights} of ${MIN_HISTORY_NIGHTS} nights of history`);
-  } else {
-    lines.push(`*Regressed:* ${regressed.length > 0 ? regressed.map((row) => moveLine(row, unit)).join(" · ") : "none"}`);
-    if (improved.length > 0) lines.push(`*Improved:* ${improved.map((row) => moveLine(row, unit)).join(" · ")}`);
-  }
-  lines.push(`*Bottlenecks:* ${bottlenecks.length > 0 ? bottlenecks.join(" · ") : "none reported"}`);
+  // hostRequest appends the response body, which can span lines; the detail is often on a later one.
+  const reasons = new Set(rows.map((row) => row.summary?.error?.replace(/\s+/g, " ").trim()).filter(Boolean));
+  if (reasons.size > 0) lines.push(`*Why:* ${[...reasons].join(" · ")}`);
+  if (regressed.length > 0) lines.push(`*Regressed:* ${regressed.map((row) => moveLine(row, unit)).join(" · ")}`);
+  if (bottlenecks.length > 0) lines.push(`*Bottlenecks:* ${bottlenecks.join(" · ")}`);
   for (const warning of allWarnings) lines.push(`:warning: ${warning}`);
 
   for (const { deployment, rows: deploymentRows, nights } of analysed) {
     lines.push("", ...capacityTable(deployment, deploymentRows, unitFor(executorOf(deploymentRows.map((r) => r.summary).filter(Boolean)))));
-    if (checked && nights < MIN_HISTORY_NIGHTS) {
+    if (nights < MIN_HISTORY_NIGHTS) {
       lines.push(`_${nights} of ${MIN_HISTORY_NIGHTS} nights of history, no change flags yet_`);
     }
   }
-
-  lines.push(
-    "",
-    `▲ better ▼ worse than the last ${MIN_HISTORY_NIGHTS}+ nights · \`0\` no step passed · \`ERR\` crashed · \`-\` never ran · 🟢 quiet · 🟡 regression or bottleneck · 🔴 cells failed`,
-  );
   return lines.join("\n");
 }
 
-function describeCapacity(analysed, summaries, executor) {
-  const open = executor === OPEN_MODEL;
-  const unit = unitFor(executor);
-  const climb = analysed
-    .map(({ deployment, rows }) => {
-      const cells = indexCells([deployment], rows.map((r) => r.summary).filter(Boolean))[deployment.slug] ?? {};
-      const { start, step } = geometryOf(deployment, cells);
-      return `+${step} from ${start} (${deploymentName(deployment).toLowerCase()})`;
-    })
-    .join(" or ");
-  const where = analysed.length === 1 ? "one staging deployment" : `${analysed.length} staging deployments`;
-  return (
-    `k6 ${open ? "open-model" : "closed-model"} staircase, ${where} resized per tier: ${open ? "request rate" : "virtual users"} ${climb} every ${stepSecondsOf(summaries)} s, per path: ${RUNNERS.map(runnerGloss).join(", ")}. ` +
-    `Cell = highest ${unit} where success ≥ ${SLO.minSuccessRate}%, p50 ≤ ${SLO.maxP50Ms / 1000} s, p95 ≤ ${SLO.maxP95Ms / 1000} s held for two steps. ` +
-    "One-step graph, no LLM: server ceiling, not customer traffic."
-  );
-}
-
-export function howToRead() {
-  return [
-    "*How to read*",
-    `• *Tests:* ${RUNNERS.map((r) => `${runnerColumnName(r)} = ${describeRunnerBriefly(r)}`).join(" · ")}.`,
-    `• *Regressed / Improved:* a cell outside its own usual range over the last ${MIN_HISTORY_NIGHTS}+ nights measured the same way.`,
-    `• *Bottleneck:* a component at or over ${BOTTLENECK_CPU_PCT}% of its CPU request while the tier held its top step. It is what stops the tier going higher.`,
-    "• Graph is one step, no LLM, so this is server overhead, not a customer workload.",
-  ].join("\n");
+export function formatImprovements(deployments, summaries, history = {}) {
+  const byDeployment = indexCells(deployments, summaries);
+  const rows = deployments.flatMap((d) => analyseDeployment(d, byDeployment[d.slug] ?? {}, history).rows);
+  const unit = unitFor(executorOf(summaries));
+  const improved = rows.filter((row) => row.change?.better);
+  return improved.length > 0 ? `*Improved:* ${improved.map((row) => moveLine(row, unit)).join(" · ")}` : null;
 }
 
 function servedRate(summary) {
@@ -485,25 +430,47 @@ function servedRate(summary) {
   return ceiling != null ? `0 (ceiling ${Math.round(ceiling)})` : "-";
 }
 
-function serverColumns(summaries) {
-  const columns = [];
-  for (const [label, name] of COMPONENTS) {
-    const groups = summaries.map((s) => s?.serverMetrics?.groups?.[label]).filter(Boolean);
-    if (groups.length === 0) continue;
-    if (groups.some(podRange)) columns.push({ label, kind: "pods", width: 7 });
-    if (groups.some((g) => peakCpu(g) != null)) columns.push({ label, kind: "cpu", width: 6 });
-  }
-  return columns;
+function serverColumns(summaries, kind) {
+  const has = kind === "pods" ? podRange : (g) => peakCpu(g) != null;
+  return COMPONENTS.map(([label]) => label).filter((label) =>
+    summaries.some((s) => {
+      const group = s?.serverMetrics?.groups?.[label];
+      return group && has(group);
+    }),
+  );
 }
 
-function serverCell(summary, column) {
-  const group = summary?.serverMetrics?.groups?.[column.label];
-  if (column.kind === "pods") {
+function serverCell(summary, label, kind) {
+  const group = summary?.serverMetrics?.groups?.[label];
+  if (kind === "pods") {
     const range = podRange(group);
     return range ? `${range.min}→${range.max}` : "-";
   }
   const cpu = peakCpu(group);
   return cpu != null ? String(Math.round(cpu)) : "-";
+}
+
+// Tier rows head their runners so each line fits PHONE_WIDTH; a "L search" label column would not.
+function serverTable(deployment, cells, kind) {
+  const present = deployment.tiers.flatMap((tier) => RUNNERS.map((r) => cells[tier]?.[r]).filter((s) => s?.serverMetrics));
+  const columns = serverColumns(present, kind);
+  if (columns.length === 0) return null;
+  const labelWidth = Math.max(...RUNNERS.map((r) => runnerColumnName(r).length)) + 1;
+  const widths = columns.map((label) =>
+    Math.max(label.length, ...present.map((s) => serverCell(s, label, kind).length)) + 1,
+  );
+  const lines = ["```", `${"".padEnd(labelWidth)}${columns.map((label, i) => label.padStart(widths[i])).join("")}`];
+  for (const tier of deployment.tiers) {
+    const runners = RUNNERS.filter((r) => cells[tier]?.[r]?.serverMetrics);
+    if (runners.length === 0) continue;
+    lines.push(tierLabel(deployment, tier));
+    for (const runner of runners) {
+      const row = columns.map((label, i) => serverCell(cells[tier][runner], label, kind).padStart(widths[i]));
+      lines.push(`${` ${runnerColumnName(runner)}`.padEnd(labelWidth)}${row.join("")}`);
+    }
+  }
+  lines.push("```");
+  return lines.join("\n");
 }
 
 export function formatServerView(deployments, summaries) {
@@ -517,39 +484,23 @@ export function formatServerView(deployments, summaries) {
       .map((tier) => `${tierLabel(deployment, tier)} ${RUNNERS.map((r) => servedRate(cells[tier]?.[r])).join(" / ")}`)
       .join(" · ");
     const servedLine = `Runs/sec actually served at the top step, as ${RUNNERS.map(runnerColumnName).join(" / ")}: ${served}`;
-    // The served rate is k6's; the pod and CPU columns are the dashboard's, which is best effort.
-    const columns = serverColumns(present);
-    if (columns.length === 0) {
-      blocks.push(`*${deploymentName(deployment)}*\n${servedLine}`);
-      continue;
-    }
-    const labelWidth = Math.max(...deployment.tiers.map((t) => tierLabel(deployment, t).length)) + 8;
-    const spans = [];
-    for (const column of columns) {
-      const last = spans[spans.length - 1];
-      if (last && last.label === column.label) last.width += column.width;
-      else spans.push({ label: column.label, width: column.width });
-    }
-    const lines = [
-      `*${deploymentName(deployment)}*`,
-      "```",
-      `${"".padEnd(labelWidth)}${spans.map((s) => s.label.padStart(s.width)).join("")}`,
-      `${"".padEnd(labelWidth)}${columns.map((c) => c.kind.padStart(c.width)).join("")}`,
-    ];
-    for (const tier of deployment.tiers) {
-      for (const runner of RUNNERS) {
-        const summary = cells[tier]?.[runner];
-        if (!summary?.serverMetrics) continue;
-        const label = `${tierLabel(deployment, tier)} ${runnerColumnName(runner)}`;
-        lines.push(`${label.padEnd(labelWidth)}${columns.map((c) => serverCell(summary, c).padStart(c.width)).join("")}`);
-      }
-    }
-    lines.push("```", servedLine);
-    blocks.push(lines.join("\n"));
+    // The served rate is k6's; the pod and CPU tables are the dashboard's, which is best effort.
+    const cpu = serverTable(deployment, cells, "cpu");
+    const pods = serverTable(deployment, cells, "pods");
+    blocks.push(
+      [
+        `*${deploymentName(deployment)}*`,
+        cpu ? `_CPU, % of request_\n${cpu}` : null,
+        pods ? `_Pods, start → end_\n${pods}` : null,
+        servedLine,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    );
   }
   if (blocks.length === 0) return null;
   return [
-    "*Pods and CPU per cell*, peak over the whole cell including the steps that failed. Pods are start → end. CPU is % of the pod's request, so over 100 means bursting above it.",
+    "*Pods and CPU per cell*, peak over the whole cell including the steps that failed. CPU over 100 means bursting above the pod's request.",
     ...blocks,
   ].join("\n\n");
 }
@@ -568,19 +519,6 @@ function toolOverheadWarnings(summaries) {
     }
   }
   return lines;
-}
-
-/** A dispatch can override the configured geometry; the report describes the run. */
-function ranGeometry(cells) {
-  for (const byRunner of Object.values(cells)) {
-    for (const summary of Object.values(byRunner)) {
-      const config = summary?.config;
-      if (config?.startLoad != null && config?.stepSize != null && config?.numSteps != null) {
-        return config;
-      }
-    }
-  }
-  return null;
 }
 
 function warningsPathFor(deploymentSlug) {
@@ -911,6 +849,22 @@ function collectSummaries(directory) {
   );
 }
 
+/** The checked-out repo is usually ahead of staging, so the version comes from the deployments. */
+export async function deployedVersion(deployments, fetchImpl = fetch) {
+  const versions = await Promise.all(
+    deployments.map(async ({ baseUrl }) => {
+      try {
+        const response = await fetchImpl(`${baseUrl}/info`, { signal: AbortSignal.timeout(15000) });
+        return response.ok ? ((await response.json())?.version ?? null) : null;
+      } catch {
+        return null;
+      }
+    }),
+  );
+  const known = [...new Set(versions.filter(Boolean))];
+  return known.length > 0 ? known.join("/") : null;
+}
+
 async function runAggregate(summariesDir, { postToSlack, historyDir }) {
   const summaries = collectSummaries(summariesDir);
   const warnings = collectWarnings(summariesDir);
@@ -921,12 +875,13 @@ async function runAggregate(summariesDir, { postToSlack, historyDir }) {
     warnings,
     new Date(),
     history,
-    process.env.API_VERSION || readApiVersion(),
+    await deployedVersion(CAPACITY_DEPLOYMENTS),
     process.env.MANUAL === "true",
   );
-  const artifactUrl = process.env.GITHUB_RUN_URL;
-  text += `\n*Thread:* pods and CPU per cell, and how to read${artifactUrl ? ` · <${artifactUrl}|Artifacts:> raw k6 summaries` : ""}`;
-  const thread = [[formatServerView(CAPACITY_DEPLOYMENTS, summaries), howToRead()].filter(Boolean).join("\n\n")];
+  text += `\n\n${footer("capacity", process.env.GITHUB_RUN_URL)}`;
+  const thread = [
+    [formatImprovements(CAPACITY_DEPLOYMENTS, summaries, history), formatServerView(CAPACITY_DEPLOYMENTS, summaries)].filter(Boolean).join("\n\n"),
+  ];
   if (postToSlack) {
     await postReport({ text, thread });
   } else {

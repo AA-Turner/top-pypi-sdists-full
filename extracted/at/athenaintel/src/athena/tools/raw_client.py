@@ -24,8 +24,6 @@ from ..types.asset_content_request_out import AssetContentRequestOut
 from ..types.asset_read_response_out import AssetReadResponseOut
 from ..types.asset_screenshot_response_out import AssetScreenshotResponseOut
 from ..types.data_frame_request_out import DataFrameRequestOut
-from ..types.data_frame_unknown_format_error import DataFrameUnknownFormatError
-from ..types.file_too_large_error import FileTooLargeError
 from ..types.folder_response import FolderResponse
 from ..types.save_asset_request_out import SaveAssetRequestOut
 from .types.data_frame_tools_request_columns_item import DataFrameToolsRequestColumnsItem
@@ -602,9 +600,9 @@ class RawToolsClient:
                 raise UnsupportedMediaTypeError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        DataFrameUnknownFormatError,
+                        typing.Optional[typing.Any],
                         parse_obj_as(
-                            type_=DataFrameUnknownFormatError,  # type: ignore
+                            type_=typing.Optional[typing.Any],  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -806,9 +804,9 @@ class RawToolsClient:
                 raise ContentTooLargeError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        FileTooLargeError,
+                        typing.Optional[typing.Any],
                         parse_obj_as(
-                            type_=FileTooLargeError,  # type: ignore
+                            type_=typing.Optional[typing.Any],  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1397,9 +1395,9 @@ class AsyncRawToolsClient:
                 raise UnsupportedMediaTypeError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        DataFrameUnknownFormatError,
+                        typing.Optional[typing.Any],
                         parse_obj_as(
-                            type_=DataFrameUnknownFormatError,  # type: ignore
+                            type_=typing.Optional[typing.Any],  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1602,9 +1600,9 @@ class AsyncRawToolsClient:
                 raise ContentTooLargeError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        FileTooLargeError,
+                        typing.Optional[typing.Any],
                         parse_obj_as(
-                            type_=FileTooLargeError,  # type: ignore
+                            type_=typing.Optional[typing.Any],  # type: ignore
                             object_=_response.json(),
                         ),
                     ),

@@ -2,17 +2,14 @@
 
 """Protocol definition for workflow orchestration contexts.
 
-This module defines the ``WorkflowOrchestrationContext`` protocol that abstracts
-the differences between Azure Functions' ``DurableOrchestrationContext`` and the
-standalone ``durabletask.task.OrchestrationContext``.  The shared workflow
-orchestrator (:func:`run_workflow_orchestrator`) programs against this protocol
-so that the same orchestration logic works on any host.
+This module defines the ``WorkflowOrchestrationContext`` protocol. The shared
+workflow orchestrator (:func:`run_workflow_orchestrator`) programs against it so
+that the same orchestration logic works on any host.
 
-Each host provides a thin adapter that maps its native context to this protocol:
-
-- ``DurableTaskWorkflowContext`` (this package) — wraps ``OrchestrationContext``
-- ``AzureFunctionsWorkflowContext`` (azurefunctions package) — wraps
-  ``DurableOrchestrationContext``
+Both hosts run on ``durabletask.task.OrchestrationContext``, which
+``DurableTaskWorkflowContext`` (this package) adapts to this protocol. The Azure
+Functions host uses the same adapter, because azure-functions-durable 2.x gives a
+two-argument orchestrator the durabletask context.
 """
 
 from __future__ import annotations
@@ -26,8 +23,7 @@ class WorkflowOrchestrationContext(Protocol):
     """Host-agnostic interface for workflow orchestration primitives.
 
     All methods that return yieldable tasks return ``Any`` because the concrete
-    task types differ between hosting SDKs (``TaskBase`` for Azure Functions,
-    ``Task[T]`` for durabletask).  The generator-based orchestrator simply
+    task types belong to the hosting SDK.  The generator-based orchestrator simply
     yields these opaque objects back to the hosting framework.
     """
 
@@ -40,9 +36,9 @@ class WorkflowOrchestrationContext(Protocol):
     def is_replaying(self) -> bool:
         """Whether the orchestrator is replaying previously-recorded history.
 
-        Side effects intended to be observed live exactly once (for example,
-        publishing streaming status to the custom status) must be skipped while
-        this is ``True`` so they are not re-emitted on replay.
+        External side effects such as logging should be skipped while this is
+        ``True``. Replacement custom-status snapshots must instead be rebuilt
+        from replay-local state, including the accumulated event timeline.
         """
         ...
 
@@ -73,13 +69,23 @@ class WorkflowOrchestrationContext(Protocol):
         """The current replay-safe UTC datetime."""
         ...
 
-    def prepare_agent_task(self, executor_id: str, message: str, orchestration_instance_id: str) -> Any:
+    def prepare_agent_task(
+        self,
+        executor_id: str,
+        message: str,
+        orchestration_instance_id: str,
+        context_messages: list[dict[str, Any]] | None = None,
+        context_message_ids: list[str] | None = None,
+    ) -> Any:
         """Create a yieldable task that runs an agent executor.
 
         Args:
             executor_id: Agent name / executor ID.
             message: The text message to send to the agent.
             orchestration_instance_id: Instance ID used as the entity session key.
+            context_messages: Optional upstream conversation (serialized ``Message`` dicts)
+                delivered to the agent as prior context.
+            context_message_ids: Occurrence identities, without changing application-visible IDs.
 
         Returns:
             A yieldable task whose result is an ``AgentResponse``.

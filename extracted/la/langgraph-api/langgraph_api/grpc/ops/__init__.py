@@ -20,7 +20,7 @@ from starlette.exceptions import HTTPException
 
 from langgraph_api.auth.custom import handle_event as auth_handle_event
 from langgraph_api.encryption.context import get_encryption_context
-from langgraph_api.encryption.shared import using_custom_encryption
+from langgraph_api.encryption.shared import using_encryption
 from langgraph_api.serde import json_dumpb
 from langgraph_api.utils import get_auth_ctx
 
@@ -138,10 +138,9 @@ def build_encryption_context(model: str) -> enc_pb.EncryptionContext | None:
         model: The model type being operated on (e.g., "assistant", "thread", "run")
 
     Returns:
-        EncryptionContext proto message, or None if no encryption context is set
-        or if running against the inmem backend.
+        EncryptionContext proto message when encryption is configured.
     """
-    if not using_custom_encryption():
+    if not using_encryption():
         return None
 
     enc_ctx = enc_pb.EncryptionContext(model=model)

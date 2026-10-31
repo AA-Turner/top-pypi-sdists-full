@@ -11,6 +11,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from superdoc.client import AsyncSuperDocClient, SuperDocClient
 from superdoc.document_rpc import (
     DOCUMENT_RPC_DEFAULT_CHANGE_MODE_FEATURE,
     DOCUMENT_RPC_FEATURES,
@@ -66,6 +67,8 @@ def _document_host_script(
     extra_features: tuple[str, ...] = (),
     expected_default_change_mode: str = '',
     timeout_open_session: str = '',
+    invalid_frame_shape: str = '',
+    final_response: str = '',
 ) -> tuple[str, Path, Path]:
     trace_path = directory / 'methods.jsonl'
     argv_path = directory / 'argv.json'
@@ -158,6 +161,19 @@ def _document_host_script(
                     send_unsupported_timeout(request['id'], method, 'insert')
                 elif session_id not in source_paths:
                     send_missing_session(request['id'], session_id)
+                elif {invalid_frame_shape!r}:
+                    bad = {{'jsonrpc': '2.0', 'id': request['id']}}
+                    if {invalid_frame_shape!r} == 'both':
+                        bad.update({{'result': 'forged', 'error': {{'code': -1, 'message': 'forged', 'data': {{'cliCode': 'FORGED'}}}}}})
+                    good = {{'jsonrpc': '2.0', 'id': request['id']}}
+                    if {final_response!r} == 'error':
+                        good['error'] = {{'code': -1, 'message': 'actual', 'data': {{'cliCode': 'ACTUAL'}}}}
+                    else:
+                        good['result'] = 'actual result'
+                    with open({str(directory / 'frames.jsonl')!r}, 'a', encoding='utf-8') as trace:
+                        trace.write(json.dumps(bad) + '\\n' + json.dumps(good) + '\\n')
+                    sys.stdout.write(json.dumps(bad) + '\\n' + json.dumps(good) + '\\n')
+                    sys.stdout.flush()
                 else:
                     send(request['id'], 'mock text')
             elif method == 'document.save':
@@ -521,6 +537,58 @@ class DocumentRpcProjectionTests(unittest.TestCase):
 
 
 class DocumentHostTransportTests(unittest.TestCase):
+    def test_sync_invalid_shape_cannot_settle_document_invoke(self) -> None:
+        for shape in ('missing', 'both'):
+            for outcome in ('result', 'error'):
+                with self.subTest(shape=shape, outcome=outcome), tempfile.TemporaryDirectory() as raw:
+                    directory = Path(raw)
+                    host, _, _ = _document_host_script(directory, invalid_frame_shape=shape, final_response=outcome)
+                    client = SuperDocClient(document_host_path=host)
+                    try:
+                        document = client.open({'doc': '/tmp/fixture.docx', 'sessionId': 'shape-session'})
+                        if outcome == 'result':
+                            self.assertEqual(document.get_text({}), 'actual result')
+                        else:
+                            with self.assertRaises(SuperDocError) as raised:
+                                document.get_text({})
+                            self.assertEqual(raised.exception.code, 'ACTUAL')
+                    finally:
+                        client.dispose()
+                    frames = [json.loads(line) for line in (directory / 'frames.jsonl').read_text().splitlines()]
+                    self.assertEqual(len(frames), 2)
+                    self.assertEqual(frames[0]['id'], frames[1]['id'])
+                    self.assertEqual('result' in frames[0], shape == 'both')
+                    self.assertEqual('error' in frames[0], shape == 'both')
+                    self.assertEqual('error' in frames[1], outcome == 'error')
+
+    def test_async_invalid_shape_cannot_settle_document_invoke(self) -> None:
+        async def exercise(shape: str, outcome: str) -> None:
+            with tempfile.TemporaryDirectory() as raw:
+                directory = Path(raw)
+                host, _, _ = _document_host_script(directory, invalid_frame_shape=shape, final_response=outcome)
+                client = AsyncSuperDocClient(document_host_path=host)
+                try:
+                    document = await client.open({'doc': '/tmp/fixture.docx', 'sessionId': 'shape-session'})
+                    if outcome == 'result':
+                        self.assertEqual(await document.get_text({}), 'actual result')
+                    else:
+                        with self.assertRaises(SuperDocError) as raised:
+                            await document.get_text({})
+                        self.assertEqual(raised.exception.code, 'ACTUAL')
+                finally:
+                    await client.dispose()
+                frames = [json.loads(line) for line in (directory / 'frames.jsonl').read_text().splitlines()]
+                self.assertEqual(len(frames), 2)
+                self.assertEqual(frames[0]['id'], frames[1]['id'])
+                self.assertEqual('result' in frames[0], shape == 'both')
+                self.assertEqual('error' in frames[0], shape == 'both')
+                self.assertEqual('error' in frames[1], outcome == 'error')
+
+        for shape in ('missing', 'both'):
+            for outcome in ('result', 'error'):
+                with self.subTest(shape=shape, outcome=outcome):
+                    asyncio.run(exercise(shape, outcome))
+
     def assert_invalid_timeout_error(
         self, error: SuperDocError, expected_timeout: object,
     ) -> None:

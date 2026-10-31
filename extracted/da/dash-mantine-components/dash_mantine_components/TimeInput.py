@@ -178,6 +178,13 @@ Keyword arguments:
     Determines whether component should be hidden in light color
     scheme with `display: none`.
 
+- loading (boolean; optional):
+    Displays loading indicator in the left or right section default
+    False.
+
+- loadingPosition (a value equal to: 'left', 'right'; optional):
+    Position of the loading indicator default 'right'.
+
 - loading_state (dict; optional):
     Object that holds the loading state object coming from
     dash-renderer. For use with dash<3.
@@ -221,6 +228,9 @@ Keyword arguments:
     Margin inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- mie (number; optional):
+    MarginInlineEnd, theme key: theme.spacing.
+
 - mih (string | number | dict; optional):
     Minimum height – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
@@ -228,6 +238,9 @@ Keyword arguments:
 - minTime (string; optional):
     Minimum possible string time, if withSeconds is True, time should
     be in format HH:mm:ss, otherwise HH:mm.
+
+- mis (number; optional):
+    MarginInlineStart, theme key: theme.spacing.
 
 - miw (string | number | dict; optional):
     Minimum width – Accepts theme spacing keys, CSS values, or a dict
@@ -308,6 +321,12 @@ Keyword arguments:
     kept after the browser quit. session: window.sessionStorage, data
     is cleared once the browser quit.
 
+- pie (number; optional):
+    PaddingInlineEnd, theme key: theme.spacing.
+
+- pis (number; optional):
+    PaddingInlineStart, theme key: theme.spacing.
+
 - pl (string | number | dict; optional):
     Padding left – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
@@ -379,6 +398,12 @@ Keyword arguments:
     Adds inline styles directly to inner elements of a component.  See
     Styles API docs.
 
+- success (a list of or a singular dash component, string or number; optional):
+    Determines whether the input should have success styles.
+
+- successProps (dict with strings as keys and values of type boolean | number | string | dict | list; optional):
+    Props passed down to the `Input.Success` component.
+
 - ta (dict; optional):
     Text align – Accepts CSS values or a dict for responsive styles.
 
@@ -425,10 +450,14 @@ Keyword arguments:
 - withSeconds (boolean; optional):
     Determines whether seconds input should be rendered.
 
+- withSuccessStyles (boolean; optional):
+    Determines whether the input should have green border when the
+    `success` prop is set @,default,True.
+
 - wrapperProps (dict with strings as keys and values of type boolean | number | string | dict | list; optional):
     Props passed down to the root element."""
-    _children_props: typing.List[str] = ['label', 'description', 'error', 'leftSection', 'rightSection']
-    _base_nodes = ['label', 'description', 'error', 'leftSection', 'rightSection', 'children']
+    _children_props: typing.List[str] = ['label', 'description', 'error', 'success', 'leftSection', 'rightSection']
+    _base_nodes = ['label', 'description', 'error', 'success', 'leftSection', 'rightSection', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'TimeInput'
     LoadingState = TypedDict(
@@ -513,16 +542,22 @@ Keyword arguments:
         style: typing.Optional[typing.Any] = None,
         lightHidden: typing.Optional[bool] = None,
         darkHidden: typing.Optional[bool] = None,
+        mis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        mie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         wrapperProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
         readOnly: typing.Optional[bool] = None,
         label: typing.Optional[ComponentType] = None,
         description: typing.Optional[ComponentType] = None,
         error: typing.Optional[ComponentType] = None,
+        success: typing.Optional[ComponentType] = None,
         required: typing.Optional[bool] = None,
         withAsterisk: typing.Optional[bool] = None,
         labelProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
         descriptionProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
         errorProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
+        successProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
         inputWrapperOrder: typing.Optional[typing.Sequence[Literal["label", "description", "error", "input"]]] = None,
         size: typing.Optional[typing.Optional[str]] = None,
         leftSection: typing.Optional[ComponentType] = None,
@@ -537,9 +572,12 @@ Keyword arguments:
         disabled: typing.Optional[bool] = None,
         pointer: typing.Optional[bool] = None,
         withErrorStyles: typing.Optional[bool] = None,
+        withSuccessStyles: typing.Optional[bool] = None,
         placeholder: typing.Optional[str] = None,
         name: typing.Optional[str] = None,
         inputProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
+        loading: typing.Optional[bool] = None,
+        loadingPosition: typing.Optional[Literal["left", "right"]] = None,
         classNames: typing.Optional[dict] = None,
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
@@ -547,9 +585,9 @@ Keyword arguments:
         attributes: typing.Optional[typing.Any] = None,
         **kwargs
     ):
-        self._prop_names = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'debounce', 'description', 'descriptionProps', 'disabled', 'display', 'error', 'errorProps', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxTime', 'mb', 'me', 'mih', 'minTime', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'n_blur', 'n_submit', 'name', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withAsterisk', 'withErrorStyles', 'withSeconds', 'wrapperProps']
+        self._prop_names = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'debounce', 'description', 'descriptionProps', 'disabled', 'display', 'error', 'errorProps', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'loading', 'loadingPosition', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxTime', 'mb', 'me', 'mie', 'mih', 'minTime', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'n_blur', 'n_submit', 'name', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pie', 'pis', 'pl', 'placeholder', 'pointer', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'size', 'style', 'styles', 'success', 'successProps', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withAsterisk', 'withErrorStyles', 'withSeconds', 'withSuccessStyles', 'wrapperProps']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'debounce', 'description', 'descriptionProps', 'disabled', 'display', 'error', 'errorProps', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxTime', 'mb', 'me', 'mih', 'minTime', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'n_blur', 'n_submit', 'name', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withAsterisk', 'withErrorStyles', 'withSeconds', 'wrapperProps']
+        self.available_properties = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'debounce', 'description', 'descriptionProps', 'disabled', 'display', 'error', 'errorProps', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'loading', 'loadingPosition', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxTime', 'mb', 'me', 'mie', 'mih', 'minTime', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'n_blur', 'n_submit', 'name', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pie', 'pis', 'pl', 'placeholder', 'pointer', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'size', 'style', 'styles', 'success', 'successProps', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withAsterisk', 'withErrorStyles', 'withSeconds', 'withSuccessStyles', 'wrapperProps']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

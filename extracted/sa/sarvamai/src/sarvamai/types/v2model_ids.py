@@ -2,4 +2,17 @@
 
 import typing
 
-V2ModelIds = typing.Union[typing.Literal["sarvam-105b", "glm5.3", "gemma4", "deepseekv4.1-flash"], typing.Any]
+V2ModelIds = typing.Union[
+    typing.Literal[
+        "sarvam-105b",
+        "glm5.3",
+        "glm5.3-flash",
+        "gemma4",
+        "deepseekv4.1-flash-1017",
+        "deepseekv4-pro",
+        "kimi-k3",
+        "mimo-v2.6-flash",
+        "mimo-v2.6-pro",
+    ],
+    typing.Any,
+]

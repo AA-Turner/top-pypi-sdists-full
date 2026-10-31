@@ -330,7 +330,7 @@ class OpenAITranslator(BaseTranslator):
 
         This translator used to trust that every schema had already been through
         ``schema/lint.py::_make_portable``. Two live paths never do — the
-        ``ai.extract`` workflow node hands the author's raw ``schema_definition``
+        ``ai.llm.chat`` workflow node hands the author's raw ``schema_definition``
         straight to the provider, and a masterworks ingest sends a raw kind
         schema — and both 400'd ("'additionalProperties' is required to be
         supplied and to be false"; "'required' ... Missing '__kind'", 2026-09-11

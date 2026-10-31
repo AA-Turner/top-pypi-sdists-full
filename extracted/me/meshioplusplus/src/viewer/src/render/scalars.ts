@@ -21,12 +21,11 @@ import type { ArrayEntry, ScalarRange } from '../types';
 export const SOLID_COLOR = '';
 
 /**
- * Arrays whose names start with one of these are plumbing, not something to
- * colour by. `surface:parent_cell` is kept in the polydata for the picker's
- * provenance row, and `viewer:label` carries the colour-by-group labels; neither
- * may reach the menu.
+ * Arrays whose names start with this are plumbing, not something to colour by.
+ * `surface:parent_cell` is kept in the polydata for the picker's provenance
+ * row but must never reach the menu.
  */
-export const INTERNAL_PREFIXES = ['surface:', 'viewer:'];
+const INTERNAL_PREFIX = 'surface:';
 
 /** Stable identifier for one colour-by choice. */
 export function colorKey(entry: ArrayEntry): string {
@@ -53,7 +52,7 @@ export function listArrays(polydata: vtkPolyData | null): ArrayEntry[] {
             const array = attrs.getArrayByIndex(i);
             if (!array) continue;
             const name = array.getName();
-            if (INTERNAL_PREFIXES.some((p) => name.startsWith(p))) continue;
+            if (name.startsWith(INTERNAL_PREFIX)) continue;
             const n = array.getNumberOfComponents();
             if (n === 1) {
                 out.push({ location, name, component: -1, label: name });

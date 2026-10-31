@@ -3,17 +3,21 @@
 //! or runs far slower than its peers restarted on a fresh connection from the byte it reached.
 //!
 //! - **Order.** The queue is a plain number, smaller first; equal numbers go in arrival order.
-//!   An object wanted twice is downloaded once.
+//!   An object wanted twice is downloaded once. A task nothing wants leaves the queue in the
+//!   step that finds it so, then ends: a want after that starts a task of its own (cl-686).
 //! - **Tiers.** The local store, then the volume (when one is bound), then the origin. Every
 //!   byte enters the store's admission, which hashes it: wrong bytes are never admitted.
 //! - **Judging a request** is relative and measured, never a timeout. Each request measures
 //!   the rate of every stretch of body it receives between two writes into the store; every
 //!   tick the watch drops one with no answer after 8× the fetch's median time to answer, or
-//!   whose body moved under an eighth of the median stretch rate over its window, and it is
-//!   asked again from the byte it reached. A request that was dropped gets twice the window
-//!   next time, so an origin that is honestly slow still answers, and a fetch whose every
-//!   request is slow restarts none. A cold R2 object stalls at a MiB boundary for whoever asks
-//!   first while a fresh ranged ask is answered at once (pod measurements, 2026-10-01).
+//!   whose body moved under an eighth of the median stretch rate over its window (its last
+//!   ticks on the network: a write into the store neither counts nor starts it over), and it is
+//!   asked again from the byte it reached. An object whose dropped request moved nothing gets
+//!   twice the patience next time, so an origin that is honestly slow still answers; one whose
+//!   request moved bytes is asked again as at first. A cold R2 object stalls at a MiB boundary
+//!   for whoever asks first, again and again, while a fresh ranged ask is answered at once (pod
+//!   measurements, 2026-10-01); a patience that grew per drop let such a drip run unjudged for
+//!   minutes (tfs-138). A fetch whose every request is slow restarts none.
 //! - **Ending.** An object ends on an answer asking again cannot change (absent, refused after
 //!   a fresh location, the same wrong bytes twice), or when nothing in the whole fetch has
 //!   landed for twice its measured patience; the refusal quotes the last answer.
@@ -94,10 +98,6 @@ pub(crate) struct Task {
 }
 
 impl Task {
-    fn wanted(&self) -> bool {
-        self.waiters.load(Ordering::Acquire) > 0
-    }
-
     fn enter(&self, phase: Phase) {
         self.phase.store(phase as u8, Ordering::Release);
         self.moved_ms.store(unix_ms(), Ordering::Release);
@@ -186,6 +186,25 @@ struct Queue {
     tasks: HashMap<String, Arc<Task>>,
     heap: BinaryHeap<Reverse<(u64, u64, String)>>,
     seq: u64,
+}
+
+impl Queue {
+    /// `task` leaves the queue, unless a task of its own already took its object's place.
+    fn remove(&mut self, task: &Arc<Task>) {
+        if self.tasks.get(&task.object.sha256).is_some_and(|t| Arc::ptr_eq(t, task)) {
+            self.tasks.remove(&task.object.sha256);
+        }
+    }
+
+    /// Whether nothing wants `task`; then it leaves the queue in the same step, under the queue's
+    /// lock, so a want after that starts a task of its own and never joins one that is ending.
+    fn unwanted(&mut self, task: &Arc<Task>) -> bool {
+        let unwanted = task.waiters.load(Ordering::Acquire) == 0;
+        if unwanted {
+            self.remove(task);
+        }
+        unwanted
+    }
 }
 
 /// Why the watch dropped a request.
@@ -505,7 +524,6 @@ impl<'s> Sink<'s> {
         if let Some(flight) = flight {
             flight.moved();
             flight.stretch_begins();
-            lock(&flight.window).clear();
             flight.local.store(false, Ordering::Release);
         }
         let (admission, mut buffer, written) = written.map_err(|error| Refusal {
@@ -677,8 +695,7 @@ impl Shared {
             {
                 continue;
             }
-            if !task.wanted() {
-                queue.tasks.remove(&sha256);
+            if queue.unwanted(&task) {
                 self.unbusy();
                 continue;
             }
@@ -706,17 +723,14 @@ impl Shared {
     }
 
     fn finish(&self, task: &Arc<Task>, outcome: Result<Tier>) {
-        let mut queue = lock(&self.queue);
-        if queue
-            .tasks
-            .get(&task.object.sha256)
-            .is_some_and(|t| Arc::ptr_eq(t, task))
-        {
-            queue.tasks.remove(&task.object.sha256);
-        }
-        drop(queue);
+        lock(&self.queue).remove(task);
         task.done.send_replace(Some(outcome));
         self.unbusy();
+    }
+
+    /// Whether nothing wants `task` any more; then it has left the queue (`Queue::unwanted`).
+    fn unwanted(&self, task: &Arc<Task>) -> bool {
+        lock(&self.queue).unwanted(task)
     }
 
     /// Starts tasks as workers come free, most urgent first.
@@ -799,9 +813,6 @@ impl Shared {
                 }
             }
         }
-        if !task.wanted() {
-            return refuse(Code::TRANSFER_FAILED, "nothing wants it");
-        }
         self.from_origin(task).await?;
         if task.origin.public() {
             self.write_back(task.object.clone(), replace);
@@ -816,7 +827,7 @@ impl Shared {
         let (mut doublings, mut wrong) = (0, None::<String>);
         let mut retry = Retry::new(self.tick);
         loop {
-            if !task.wanted() {
+            if self.unwanted(task) {
                 return refuse(Code::TRANSFER_FAILED, "nothing wants it");
             }
             let here = match location.take().filter(|l| !l.expired()) {
@@ -904,12 +915,12 @@ impl Shared {
                     Err(refusal) => return Err(refusal),
                 },
                 Attempt::Again { why, wait, dropped, heard } => {
+                    let moved = task.reached.load(Ordering::Acquire) > reached;
                     if dropped {
                         self.stats.restarts.fetch_add(1, Ordering::Relaxed);
-                        doublings = (doublings + 1).min(MAX_DOUBLINGS);
-                        tracing::debug!(object = %task.object.sha256, at = sink.reached, %why, "restart");
+                        doublings = if moved { 0 } else { (doublings + 1).min(MAX_DOUBLINGS) };
+                        tracing::info!(object = %task.object.sha256, at = sink.reached, %why, "restart");
                     }
-                    let moved = task.reached.load(Ordering::Acquire) > reached;
                     if let Some(pause) = retry.again(task, &why, heard, moved || dropped, wait)? {
                         tokio::time::sleep(pause).await;
                     }
@@ -1330,7 +1341,7 @@ impl Shared {
             if lock(&flight.dropped).is_some() {
                 continue;
             }
-            if !flight.task.wanted() {
+            if self.unwanted(&flight.task) {
                 flight.drop_with(Dropped::Unwanted);
                 continue;
             }

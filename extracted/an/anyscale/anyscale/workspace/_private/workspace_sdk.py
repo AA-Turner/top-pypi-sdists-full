@@ -154,6 +154,14 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         SessionState.STOPPINGERRORED: WorkspaceState.ERRORED,
     }
 
+    # From these the backend accepts a KubeRay start and never acts on it, since resume
+    # needs a suspended RayCluster; unchecked, `wait` would time out on a reported start.
+    # Keyed on SessionState: WorkspaceState folds the resumable Stopped into TERMINATED too.
+    _KUBERAY_UNSTARTABLE_STATES: ClassVar[Dict[SessionState, str]] = {
+        SessionState.TERMINATED: "its RayCluster no longer exists",
+        SessionState.STARTUPERRORED: "it failed to start and has no RayCluster to resume",
+    }
+
     def _resolve_to_workspace_model(
         self,
         *,
@@ -284,6 +292,12 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         workspace_model = self._resolve_to_workspace_model(
             id=id, name=name, cloud=cloud, project=project
         )
+        if workspace_model.kuberay_cr_id:
+            reason = self._KUBERAY_UNSTARTABLE_STATES.get(workspace_model.state)
+            if reason is not None:
+                raise ValueError(
+                    f"Workspace '{workspace_model.name}' cannot be started: {reason}."
+                )
         self.client.start_workspace(workspace_model.id)
         self.logger.info(f"Starting workspace '{workspace_model.name}'")
         return workspace_model.id
@@ -301,6 +315,30 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         )
         self.client.terminate_workspace(workspace_model.id)
         self.logger.info(f"Terminating workspace '{workspace_model.name}'")
+        return workspace_model.id
+
+    def delete(
+        self,
+        *,
+        id: Optional[str] = None,  # noqa: A002
+        name: Optional[str] = None,
+        cloud: Optional[str] = None,
+        project: Optional[str] = None,
+    ) -> str:
+        # Unlike start or terminate, no default cloud or project: a name looked up in the
+        # wrong project would delete that project's same-named workspace.
+        if name is not None and id is None and (cloud is None or project is None):
+            raise ValueError("'cloud' and 'project' are required when using 'name'.")
+        workspace_model = self._resolve_to_workspace_model(
+            id=id, name=name, cloud=cloud, project=project
+        )
+        # Deliberately no client-side state check, unlike start(): no wait follows a delete, so
+        # the server's 409 is the gate, and a copy of its _KUBERAY_DELETABLE_STATES would drift.
+        # The workspace id, never cluster_id: for a KubeRay workspace that is its kcr_ id.
+        self.client.delete_workspace(workspace_model.id)
+        self.logger.info(
+            f"Workspace '{workspace_model.name}' (ID: {workspace_model.id}) has been deleted."
+        )
         return workspace_model.id
 
     def status(
@@ -961,6 +999,13 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         if not workspace:
             raise ValueError(f"Workspace with id '{id}' was not found.")
 
+        # Ahead of the rename and state checks: no endpoint can apply this to a KubeRay
+        # workspace, so failing on either of those first only sends the user round in circles.
+        if workspace.kuberay_cr_id:
+            self._refuse_kuberay_changes(workspace, config)
+            self._logger.info(f"Workspace '{id}' already has these settings; nothing to update.")
+            return id  # type: ignore
+
         # Reject a disallowed rename at the write boundary, but only when the
         # name actually changes. Re-supplying the current name (as a
         # `get -o yaml` round-trip does) or omitting it means "keep current", so
@@ -1047,6 +1092,43 @@ class PrivateWorkspaceSDK(WorkloadSDK):
 
         return id  # type: ignore
 
+    def _refuse_kuberay_changes(
+        self, workspace: ExperimentalWorkspace, config: UpdateWorkspaceConfig
+    ) -> None:
+        """Raise, naming them, if any fields in `config` would change a KubeRay workspace."""
+        # What `get` reports for a KubeRay workspace: re-supplying the current value, as a
+        # `get -o yaml` fed back does, is no change.
+        current = {
+            "name": workspace.name,
+            "priority": workspace.priority,
+            "image_uri": workspace.head_container_image,
+            "idle_termination_minutes": workspace.idle_timeout_minutes,
+        }
+        changes = [
+            field
+            for field, value in current.items()
+            if getattr(config, field) is not None and getattr(config, field) != value
+        ]
+        # `get` never reports these for one, so any value is a change; an empty value asks
+        # for nothing, as on the VM path.
+        changes += [
+            field
+            for field in (
+                "compute_config",
+                "containerfile",
+                "registry_login_secret",
+                "ray_version",
+                "requirements",
+                "env_vars",
+            )
+            if getattr(config, field)
+        ]
+        if changes:
+            raise ValueError(
+                f"Can't change {', '.join(changes)} on workspace '{workspace.id}': it runs on "
+                "KubeRay, and a KubeRay workspace can't be updated yet. Nothing was changed."
+            )
+
     def _convert_cluster_state_to_workspace_state(self, state: SessionState) -> WorkspaceState:
         return cast(
             WorkspaceState,
@@ -1102,6 +1184,9 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         ThreadPoolExecutor is appropriate here because the OpenAPI clients use synchronous I/O
         (requests library), not async/await.
         """
+        if workspace.kuberay_cr_id:
+            return self._fetch_kuberay_workspace_config(workspace)
+
         # First fetch cluster (needed for subsequent calls)
         cluster = self.client.get_workspace_cluster(workspace.id)
         if not cluster:
@@ -1150,6 +1235,28 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             env_vars=env_vars,
             project=results["project"].name if results["project"] else None,
             cloud=results["cloud"].name if results["cloud"] else None,
+            priority=workspace.priority,
+        )
+
+    def _fetch_kuberay_workspace_config(self, workspace: ExperimentalWorkspace) -> WorkspaceConfig:
+        """A KubeRay workspace has no `sessions` row, compute config or Anyscale build to read,
+        so its config is the row's own settings. The image is the head container's as the CR
+        stood at import. Env vars and requirements are left out: only the VM node daemon
+        applies the artifacts that hold them.
+        """
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            cloud_future = executor.submit(self.client.get_cloud, cloud_id=workspace.cloud_id)
+            project_future = executor.submit(
+                self.client.get_project, project_id=workspace.project_id
+            )
+            cloud, project = cloud_future.result(), project_future.result()
+
+        return WorkspaceConfig(
+            name=workspace.name,
+            image_uri=workspace.head_container_image or None,
+            idle_termination_minutes=workspace.idle_timeout_minutes,
+            project=project.name if project else None,
+            cloud=cloud.name if cloud else None,
             priority=workspace.priority,
         )
 

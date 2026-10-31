@@ -32,9 +32,7 @@ def futures_warehouse_receipt_czce(date: str = "20251103") -> dict:
     :return: 指定日期的仓单日报数据
     :rtype: dict
     """
-    import urllib3
 
-    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     if int(date) > 20251101:
         url = f"http://www.czce.com.cn/cn/DFSStaticFiles/Future/{date[:4]}/{date}/FutureDataWhsheet.xlsx"
     else:
@@ -43,7 +41,7 @@ def futures_warehouse_receipt_czce(date: str = "20251103") -> dict:
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/83.0.4103.116 Safari/537.36"
     }
-    r = http.get(url, verify=False, headers=headers)  # noqa: S501
+    r = http.get(url, headers=headers)
     temp_df = pd.read_excel(BytesIO(r.content))
     index_list = temp_df[temp_df.iloc[:, 0].str.find("品种") == 0.0].index.to_list()
     index_list.append(len(temp_df))
@@ -76,7 +74,7 @@ def futures_warehouse_receipt_dce(date: str = "20251027") -> pd.DataFrame:
         "tradeDate": date,
         "varietyId": "all",
     }
-    r = http.post(url, json=payload, timeout=15)
+    r = http.post(url, json=payload)
     # 瑞数反爬虫对未通过浏览器验证的请求返回 412 挑战页，其 cookie 需每次请求前由 JS 重新生成
     if r.status_code == 412:
         raise APIError(
@@ -127,7 +125,7 @@ def __futures_shfe_warehouse_receipt_html(date: str, headers: dict) -> dict:
     :rtype: dict
     """
     url = f"https://www.shfe.com.cn/data/tradedata/future/stockdata/dailystock_{date}/ZH/all.html"
-    r = http.get(url, headers=headers, timeout=15)
+    r = http.get(url, headers=headers)
     r.raise_for_status()
     r.encoding = "utf-8"
     soup = BeautifulSoup(r.text, features="lxml")
@@ -230,7 +228,7 @@ def futures_shfe_warehouse_receipt(date: str = "20260924") -> dict:
             temp_df["WHABBRNAME"].str.split(r"$", expand=True).iloc[:, 0]
         )
         big_dict = {}
-        for item in set(temp_df["VARNAME"]):
+        for item in dict.fromkeys(temp_df["VARNAME"]):
             big_dict[item] = temp_df[temp_df["VARNAME"] == item]
     else:
         url = f"https://www.shfe.com.cn/data/tradedata/future/dailydata/{date}dailystock.html"
@@ -274,12 +272,14 @@ def futures_gfex_warehouse_receipt(date: str = "20240122") -> dict:
         "Chrome/83.0.4103.116 Safari/537.36"
     }
     payload = {"gen_date": date}
-    r = http.post(url=url, data=payload, headers=headers, timeout=15)
+    r = http.post(url=url, data=payload, headers=headers)
     r.raise_for_status()
     data_json = r.json()
     temp_df = pd.DataFrame(data_json["data"])
     symbol_list = list(
-        set([item.upper() for item in temp_df["varietyOrder"].tolist() if item != ""])
+        dict.fromkeys(
+            item.upper() for item in temp_df["varietyOrder"].tolist() if item != ""
+        )
     )
     temp_df = temp_df.rename(
         columns={
@@ -294,7 +294,6 @@ def futures_gfex_warehouse_receipt(date: str = "20240122") -> dict:
     temp_df = temp_df[
         [
             "symbol",
-            "whType",
             "品种",
             "仓库/分库",
             "昨日仓单量",
@@ -302,8 +301,10 @@ def futures_gfex_warehouse_receipt(date: str = "20240122") -> dict:
             "增减",
         ]
     ]
-    temp_df["whType"] = pd.to_numeric(temp_df["whType"], errors="coerce")
-    temp_df = temp_df.dropna(subset=["whType"], how="any", axis=0, ignore_index=True)
+    # 去掉“碳酸锂小计”“总计”等汇总行，它们的仓库名为空。上游原先另有 whType 字段，
+    # 汇总行的值不是数字，代码据此过滤；2026-10 起上游不再返回该字段，接口报 KeyError
+    temp_df = temp_df[temp_df["仓库/分库"].fillna("").str.strip() != ""]
+    temp_df = temp_df.reset_index(drop=True)
     big_dict = dict()
     for symbol in symbol_list:
         inner_temp_df = temp_df[temp_df["symbol"] == symbol.lower()].copy()

@@ -362,3 +362,140 @@ fn test_socks5_success_response() {
     // Bytes 8-9: BND.PORT (0x0000)
     assert_eq!(&SOCKS5_SUCCESS_RESPONSE[8..10], &[0x00, 0x00]);
 }
+
+// ---------------------------------------------------------------------------
+// Reserved-range floor (SSRF / cloud instance-metadata protection)
+//
+// The floor can only ever DENY. These tests pin both halves of that contract:
+// reserved addresses are refused even when the allowlist would permit them,
+// and every previously-reachable destination stays reachable.
+// ---------------------------------------------------------------------------
+#[cfg(test)]
+mod reserved_range_floor {
+    use crate::models::NetworkAccessChecker;
+
+    /// An empty allowlist means "allow everything" — but must not mean
+    /// "allow the instance-metadata endpoint".
+    #[tokio::test]
+    async fn imds_denied_even_with_empty_allowlist() {
+        let checker = NetworkAccessChecker::new(vec![], vec![]);
+        assert!(
+            checker
+                .resolve_if_allowed("169.254.169.254")
+                .await
+                .is_none(),
+            "IMDS must be denied under an empty (allow-all) policy"
+        );
+    }
+
+    /// Explicitly allowlisting the link-local range must still not grant IMDS.
+    /// The floor is not overridable by policy.
+    #[tokio::test]
+    async fn imds_denied_even_when_explicitly_allowlisted() {
+        let checker = NetworkAccessChecker::new(vec!["169.254.0.0/16".to_string()], vec![]);
+        assert!(
+            checker
+                .resolve_if_allowed("169.254.169.254")
+                .await
+                .is_none(),
+            "the floor must not be overridable by an explicit allow rule"
+        );
+    }
+
+    /// IPv4-mapped IPv6 must not be a way around the IPv4 rule.
+    #[tokio::test]
+    async fn ipv4_mapped_ipv6_imds_denied() {
+        let checker = NetworkAccessChecker::new(vec![], vec![]);
+        assert!(
+            checker
+                .resolve_if_allowed("::ffff:169.254.169.254")
+                .await
+                .is_none(),
+            "::ffff:169.254.169.254 must normalise to the IPv4 rule"
+        );
+    }
+
+    /// The deprecated IPv4-compatible form (`::a.b.c.d`) must be denied too —
+    /// `to_ipv4_mapped()` alone does not cover it. Caught in review by Copilot
+    /// on PR #174.
+    #[tokio::test]
+    async fn ipv4_compatible_ipv6_imds_denied() {
+        let checker = NetworkAccessChecker::new(vec![], vec![]);
+        assert!(
+            checker
+                .resolve_if_allowed("::169.254.169.254")
+                .await
+                .is_none(),
+            "::169.254.169.254 (IPv4-compatible) must normalise to the IPv4 rule"
+        );
+    }
+
+    /// Guards the normalisation carve-out: `to_ipv4()` maps `::1` to `0.0.0.1`,
+    /// which the `0.0.0.0/8` rule would otherwise deny. IPv6 loopback must stay
+    /// reachable.
+    #[tokio::test]
+    async fn ipv6_loopback_not_caught_by_ipv4_normalisation() {
+        let checker = NetworkAccessChecker::new(vec![], vec![]);
+        assert!(
+            checker.resolve_if_allowed("::1").await.is_some(),
+            "::1 must not be normalised into 0.0.0.1 and denied"
+        );
+    }
+
+    #[tokio::test]
+    async fn ipv6_link_local_and_aws_imds_v6_denied() {
+        let checker = NetworkAccessChecker::new(vec![], vec![]);
+        assert!(checker.resolve_if_allowed("fe80::1").await.is_none());
+        assert!(checker.resolve_if_allowed("fd00:ec2::254").await.is_none());
+    }
+
+    #[tokio::test]
+    async fn unroutable_ranges_denied() {
+        let checker = NetworkAccessChecker::new(vec![], vec![]);
+        for addr in ["0.0.0.0", "0.1.2.3", "224.0.0.1", "240.0.0.1"] {
+            assert!(
+                checker.resolve_if_allowed(addr).await.is_none(),
+                "{addr} is not a meaningful TCP destination and must be denied"
+            );
+        }
+    }
+
+    // --- NO-REGRESSION: everything below worked before and must still work ---
+
+    /// Loopback is an intentional destination (`keeperdb-proxy` listens on
+    /// 127.0.0.1 by default) and is asserted allowed elsewhere in this file.
+    #[tokio::test]
+    async fn loopback_still_allowed() {
+        let checker = NetworkAccessChecker::new(vec![], vec![]);
+        assert!(checker.resolve_if_allowed("127.0.0.1").await.is_some());
+        assert!(checker.resolve_if_allowed("::1").await.is_some());
+    }
+
+    /// RFC1918 is the normal case for a gateway inside a customer network.
+    #[tokio::test]
+    async fn rfc1918_still_allowed() {
+        let checker = NetworkAccessChecker::new(vec![], vec![]);
+        for addr in ["10.0.0.1", "172.16.0.1", "192.168.1.1"] {
+            assert!(
+                checker.resolve_if_allowed(addr).await.is_some(),
+                "{addr} must remain reachable"
+            );
+        }
+    }
+
+    /// CGNAT is used by carrier NAT and by ZTNA products (Zscaler ZPA
+    /// synthetic IPs), so it must not be swept up by the floor.
+    #[tokio::test]
+    async fn cgnat_still_allowed() {
+        let checker = NetworkAccessChecker::new(vec![], vec![]);
+        assert!(checker.resolve_if_allowed("100.64.0.1").await.is_some());
+    }
+
+    /// A scoped allowlist keeps behaving exactly as before for in-range hosts.
+    #[tokio::test]
+    async fn scoped_allowlist_unchanged() {
+        let checker = NetworkAccessChecker::new(vec!["10.0.0.0/8".to_string()], vec![]);
+        assert!(checker.resolve_if_allowed("10.1.2.3").await.is_some());
+        assert!(checker.resolve_if_allowed("192.168.1.1").await.is_none());
+    }
+}

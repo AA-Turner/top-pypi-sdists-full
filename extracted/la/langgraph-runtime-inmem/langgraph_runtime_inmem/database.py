@@ -1,5 +1,8 @@
 import asyncio
+import contextlib
+import glob
 import os
+import pickle
 import uuid
 from collections import defaultdict
 from collections.abc import AsyncIterator, Awaitable, Callable
@@ -94,6 +97,8 @@ class GlobalStore(PersistentDict):
         ]
         self["assistant_versions"] = []
         self["crons"] = []
+        self["thread_has_next"] = {}
+        self["thread_failed"] = {}
 
 
 OPS_FILENAME = os.path.join(".langgraph_api", ".langgraph_ops.pckl")
@@ -154,41 +159,30 @@ async def connect(
     yield InMemConnectionProto()
 
 
-async def start_pool() -> None:
-    if store._STORE_CONFIG is None:
-        from langgraph_api import config as langgraph_config  # noqa: PLC0415
+def _load_ops_file() -> None:
+    """Load the saved ops file into ``GLOBAL_STORE``, setting it aside if unloadable.
 
-        if langgraph_config.STORE_CONFIG:
-            config_ = langgraph_config.STORE_CONFIG
-            store.set_store_config(config_)
+    Runs the previous process left ``running`` are reset to ``pending`` to be retried.
+    """
+    if not os.path.exists(OPS_FILENAME):
+        return
 
-    if not os.path.exists(".langgraph_api"):
-        os.mkdir(".langgraph_api")
-    if os.path.exists(OPS_FILENAME):
-        try:
-            GLOBAL_STORE.load()
-        except ModuleNotFoundError:
-            logger.error(
-                "Unable to load cached data - your code has changed in a way that's incompatible with the cache."
-                "\nThis usually happens when you've:"
-                "\n  - Renamed or moved classes"
-                "\n  - Changed class structures"
-                "\n  - Pulled updates that modified class definitions in a way that's incompatible with the cache"
-                "\n\nRemoving invalid cache data stored at path: .langgraph_api"
-            )
-            await asyncio.to_thread(os.remove, OPS_FILENAME)
-            await asyncio.to_thread(os.remove, RETRY_COUNTER_FILENAME)
-        except Exception as e:
-            logger.error("Failed to load cached data: %s", str(e))
-            await asyncio.to_thread(os.remove, OPS_FILENAME)
-            await asyncio.to_thread(os.remove, RETRY_COUNTER_FILENAME)
-    for k in ["runs", "threads", "assistant_versions", "assistants"]:
-        if not GLOBAL_STORE.get(k):
-            GLOBAL_STORE[k] = []
+    # Not GLOBAL_STORE.load(): it treats a truncated file as empty.
+    try:
+        with open(OPS_FILENAME, "rb") as f:
+            data = pickle.load(f)
+        if not isinstance(data, dict):
+            raise TypeError(f"expected a dict, found {type(data).__name__}")
+    except Exception as e:
+        if os.path.getsize(OPS_FILENAME) == 0:
+            return
+        _set_aside_ops_file(e)
+        return
+    GLOBAL_STORE.update(data)
 
     # No worker has started yet, so a run saved as running was cut off by a crash.
     # Left running, it blocks every later run on its thread (Runs.next skips the thread).
-    orphaned = [r for r in GLOBAL_STORE["runs"] if r["status"] == "running"]
+    orphaned = [r for r in GLOBAL_STORE.get("runs") or [] if r["status"] == "running"]
     now = datetime.now(UTC)
     for run in orphaned:
         run["status"] = "pending"
@@ -199,6 +193,106 @@ async def start_pool() -> None:
             run_ids=[str(r["run_id"]) for r in orphaned],
         )
 
+
+def upgrade_thread_status_facts(store: dict[str, Any]) -> None:
+    """Ensure fact maps exist for ops files saved by older versions.
+
+    Migration 000066 only adds nullable has_next / failed columns; it does not
+    backfill. Writers fill the facts on the next status write, and status
+    re-derivation keeps the stored status while either fact is still unknown.
+    Cancels that older versions left in ``error`` are left as-is.
+    """
+    store.setdefault("thread_has_next", {})
+    store.setdefault("thread_failed", {})
+
+
+def _set_aside_ops_file(reason: Exception) -> None:
+    """Rename an unloadable ops file to ``<file>.bak-<UTC timestamp>`` and log why."""
+    from langgraph_api.graph import graph_file_module_names  # noqa: PLC0415
+
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    backup = f"{OPS_FILENAME}.bak-{stamp}"
+    n = 1
+    while os.path.exists(backup):
+        backup = f"{OPS_FILENAME}.bak-{stamp}-{n}"
+        n += 1
+    # Don't catch: carrying on would let the next flush overwrite the file.
+    os.replace(OPS_FILENAME, backup)
+    with contextlib.suppress(FileNotFoundError):
+        os.remove(RETRY_COUNTER_FILENAME)
+    try:
+        with open(f"{backup}.reason", "w") as f:
+            f.write(f"{type(reason).__name__}: {reason}")
+    except OSError as e:
+        logger.warning("Could not save why %s was set aside: %s", backup, e)
+
+    message = (
+        f"Could not load saved threads, runs and crons from {OPS_FILENAME}\n"
+        f"  Reason: {type(reason).__name__}: {reason}\n"
+        "  The server is starting without them. The file was NOT deleted; it was moved to:\n"
+        f"    {backup}\n"
+    )
+    if (
+        isinstance(reason, ModuleNotFoundError)
+        and reason.name in graph_file_module_names()
+    ):
+        message += (
+            f"  It references a class from your graph file (module '{reason.name}'), saved by an older\n"
+            "  version of langgraph-api. It can't be restored; newer versions no longer save\n"
+            "  data this way, so this won't happen again."
+        )
+    else:
+        message += (
+            "  To restore it: fix the cause, stop the server, and rename that file back to\n"
+            f"  {os.path.basename(OPS_FILENAME)}. Threads created since this start will be lost.\n"
+            "  This usually means a class stored in thread state was renamed, moved, or\n"
+            "  failed to import (e.g. a syntax error in its module)."
+        )
+    logger.error(message, error_type=type(reason).__name__, backup=backup)
+
+
+def _warn_about_ops_backups() -> None:
+    """Log each ops-file backup left by an earlier start, with why it was set aside."""
+    paths = glob.glob(f"{glob.escape(OPS_FILENAME)}.bak-*")
+    backups = sorted(p for p in paths if not p.endswith(".reason"))
+    for reason in paths:
+        if reason.endswith(".reason") and reason.removesuffix(".reason") not in backups:
+            os.remove(reason)
+    if not backups:
+        return
+
+    lines = []
+    for backup in backups:
+        try:
+            with open(f"{backup}.reason") as f:
+                cause = f.read()
+        except OSError:
+            cause = "unknown cause"
+        lines.append(f"  {backup}: {cause}")
+    logger.warning(
+        f"{len(backups)} unloadable ops file backup(s). Rename one to "
+        f"{os.path.basename(OPS_FILENAME)} once its cause is fixed, or delete it:\n"
+        + "\n".join(lines),
+        backups=backups,
+    )
+
+
+async def start_pool() -> None:
+    if store._STORE_CONFIG is None:
+        from langgraph_api import config as langgraph_config  # noqa: PLC0415
+
+        if langgraph_config.STORE_CONFIG:
+            config_ = langgraph_config.STORE_CONFIG
+            store.set_store_config(config_)
+
+    if not os.path.exists(".langgraph_api"):
+        os.mkdir(".langgraph_api")
+    _warn_about_ops_backups()
+    _load_ops_file()
+    for k in ["runs", "threads", "assistant_versions", "assistants"]:
+        if not GLOBAL_STORE.get(k):
+            GLOBAL_STORE[k] = []
+    upgrade_thread_status_facts(GLOBAL_STORE)
     # Remove agents that were created by the system to avoid removed graphs
     if GLOBAL_STORE.get("assistants"):
         for a in GLOBAL_STORE["assistants"]:
@@ -217,6 +311,7 @@ async def start_pool() -> None:
 
 
 async def stop_pool() -> None:
+    # Stop flushing before closing: close() clears the dicts, and a later flush would write {}.
     stop_flush_loop()
     await asyncio.to_thread(GLOBAL_STORE.close)
     await asyncio.to_thread(GLOBAL_RETRY_COUNTER.close)

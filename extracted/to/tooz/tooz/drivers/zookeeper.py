@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+import json
 from typing import Any, Concatenate, ParamSpec, TypeVar, cast
 import warnings
 
@@ -30,7 +31,9 @@ except ImportError:
 from kazoo.handlers import threading as threading_handler
 from kazoo.protocol import paths
 from kazoo.recipe import lock as kazoo_lock
+from kazoo import retry as kazoo_retry
 from oslo_utils import encodeutils
+from oslo_utils import netutils
 from oslo_utils import strutils
 
 import tooz
@@ -159,7 +162,10 @@ class KazooDriver(coordination.CoordinationDriverCachedRunWatchers):
     """
 
     def __init__(
-        self, member_id: bytes, parsed_url: Any, options: dict[str, Any]
+        self,
+        member_id: bytes,
+        parsed_url: netutils.SplitResult,
+        options: dict[str, Any],
     ) -> None:
         super().__init__(member_id, parsed_url, options)
         options = utils.collapse(options, exclude=frozenset(['hosts']))
@@ -472,12 +478,18 @@ class KazooDriver(coordination.CoordinationDriverCachedRunWatchers):
             except exceptions.ZookeeperError as e:
                 utils.raise_with_cause(tooz.ToozError, str(e), cause=e)
 
-            result: dict[bytes, coordination.Capabilities | None] = {}
+            # Queue every member's read before waiting for the first: kazoo's
+            # connection thread sends them back to back, instead of one round
+            # trip per member.
+            reads = []
             for m in members_ids:
                 member_id = m.encode('ascii')
                 member_path = self._path_member(group_id, member_id)
+                reads.append((member_id, self._coord.get_async(member_path)))
+            result: dict[bytes, coordination.Capabilities | None] = {}
+            for member_id, read in reads:
                 try:
-                    data = self._coord.get(member_path)[0]
+                    data = read.get()[0]
                 except exceptions.NoNodeError:
                     continue
                 except exceptions.ZookeeperError as e:
@@ -597,7 +609,7 @@ class KazooDriver(coordination.CoordinationDriverCachedRunWatchers):
         return str(paths.join(*cleaned_args))
 
     def _make_client(
-        self, parsed_url: Any, options: Any
+        self, parsed_url: netutils.SplitResult, options: Any
     ) -> client.KazooClient:
         # Creates a kazoo client,
         # See: https://github.com/python-zk/kazoo/blob/2.2.1/kazoo/client.py
@@ -614,19 +626,28 @@ class KazooDriver(coordination.CoordinationDriverCachedRunWatchers):
             default_acl = None
             auth_data = None
 
-        maybe_hosts = [parsed_url.netloc] + list(options.get('hosts', []))
+        maybe_hosts = [parsed_url.netloc, *list(options.get('hosts', []))]
         hosts = list(filter(None, maybe_hosts))
         if not hosts:
             hosts = ['localhost:2181']
         randomize_hosts = options.get('randomize_hosts', True)
         use_ssl = options.get('use_ssl', False)
         verify_certs = options.get('verify_certs', True)
+
+        connection_retry = options.get('connection_retry', None)
+        if connection_retry:
+            connection_retry = self._validate_retry_param(connection_retry)
+
+        command_retry = options.get('command_retry', None)
+        if command_retry:
+            command_retry = self._validate_retry_param(command_retry)
+
         client_kwargs = {
             'auth_data': auth_data,
             'ca': options.get('ca', None),
             'certfile': options.get('certfile', None),
-            'connection_retry': options.get('connection_retry'),
-            'command_retry': options.get('command_retry'),
+            'connection_retry': connection_retry,
+            'command_retry': command_retry,
             'default_acl': default_acl,
             'hosts': ",".join(hosts),
             'keyfile': options.get('keyfile', None),
@@ -653,6 +674,26 @@ class KazooDriver(coordination.CoordinationDriverCachedRunWatchers):
                 )
             client_kwargs['handler'] = handler_cls()
         return client.KazooClient(**client_kwargs)
+
+    def _validate_retry_param(self, retry: Any) -> kazoo_retry.KazooRetry:
+        if isinstance(retry, kazoo_retry.KazooRetry):
+            return retry
+
+        if isinstance(retry, dict):
+            return kazoo_retry.KazooRetry(**retry)
+
+        if isinstance(retry, str):
+            try:
+                parsed = json.loads(retry)
+                if not isinstance(parsed, dict):
+                    raise ValueError(
+                        "Retry parameter is JSON but not a dictionary."
+                    )
+                return kazoo_retry.KazooRetry(**parsed)
+            except json.JSONDecodeError:
+                raise ValueError("Retry parameter is not a valid JSON string")
+
+        raise TypeError(f"Unsupported retry parameter type: {type(retry)}")
 
     def stand_down_group_leader(self, group_id: bytes) -> bool:
         if group_id in self._leader_locks:

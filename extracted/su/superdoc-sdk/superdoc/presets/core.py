@@ -25,8 +25,10 @@ between Python ``preset='core'`` and Node ``preset: 'core'``.
 from __future__ import annotations
 
 import inspect
+import math
+import re
 from dataclasses import dataclass
-from typing import Any, Awaitable, Dict, Optional, cast
+from typing import Any, Awaitable, Dict, Optional, Union, cast
 
 from ..errors import SuperDocError
 from ..runtime import SuperDocAsyncRuntime, SuperDocSyncRuntime
@@ -235,6 +237,90 @@ def _core_get_mcp_prompt() -> str:
 # ---------------------------------------------------------------------------
 
 
+def _core_revision(value: Any, explicit_input: bool = False) -> int:
+    numeric = None
+    if isinstance(value, str) and len(value) <= 16 and re.fullmatch(r'0|[1-9][0-9]*', value):
+        numeric = int(value)
+    elif not explicit_input:
+        if type(value) is int:
+            numeric = value
+        elif type(value) is float and math.isfinite(value) and value.is_integer():
+            numeric = int(value)
+    if numeric is None or not 0 <= numeric <= 9007199254740991:
+        raise SuperDocError(
+            'Core dispatch expected_revision must be a canonical non-negative safe integer revision.',
+            code='INVALID_ARGUMENT',
+            details={'preset': 'core', 'option': 'expectedRevision'},
+        )
+    return numeric
+
+
+def _core_action_revision(value: Any, explicit_input: bool = False) -> str:
+    if isinstance(value, str) and value:
+        return value
+    return str(_core_revision(value, explicit_input=explicit_input))
+
+
+def _core_invoke_options(
+    payload: Dict[str, Any], invoke_options: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    options = dict(invoke_options or {})
+    for key in ('dry_run', 'dryRun'):
+        value = options.pop(key, None)
+        if value is not None and not isinstance(value, bool):
+            raise SuperDocError(
+                'Core dispatch dry_run must be a boolean.',
+                code='INVALID_ARGUMENT',
+                details={'preset': 'core', 'option': key},
+            )
+        if value is True:
+            raise SuperDocError(
+                'Core tool dispatch does not support dry-run preview.',
+                code='CAPABILITY_UNSUPPORTED',
+                details={'preset': 'core', 'capability': 'dryRun'},
+            )
+    snake_mode = options.pop('change_mode', None)
+    camel_mode = options.pop('changeMode', None)
+    if snake_mode is not None and camel_mode is not None and snake_mode != camel_mode:
+        raise SuperDocError(
+            'Cannot provide change_mode and changeMode with different values.',
+            code='INVALID_ARGUMENT',
+            details={'preset': 'core'},
+        )
+    change_mode = camel_mode if camel_mode is not None else snake_mode
+    if change_mode is not None:
+        if change_mode not in ('direct', 'tracked'):
+            raise SuperDocError(
+                'Core dispatch change_mode must be "direct" or "tracked".',
+                code='INVALID_ARGUMENT',
+                details={'preset': 'core'},
+            )
+        payload['changeMode'] = change_mode
+    snake_revision = options.pop('expected_revision', None)
+    camel_revision = options.pop('expectedRevision', None)
+    action_dispatch = payload['toolName'] == 'superdoc_perform_action'
+    normalize_revision = _core_action_revision if action_dispatch else _core_revision
+    revision: Optional[Union[str, int]]
+    if action_dispatch and 'expectedRevision' in payload['args']:
+        revision = _core_action_revision(payload['args']['expectedRevision'], explicit_input=True)
+    else:
+        snake_value = normalize_revision(snake_revision) if snake_revision is not None else None
+        camel_value = normalize_revision(camel_revision) if camel_revision is not None else None
+        if snake_revision is not None and camel_revision is not None and snake_revision != camel_revision:
+            raise SuperDocError(
+                'Cannot provide expected_revision and expectedRevision with different values.',
+                code='INVALID_ARGUMENT',
+                details={'preset': 'core'},
+            )
+        revision = camel_value if camel_value is not None else snake_value
+    if revision is not None:
+        if action_dispatch:
+            payload['args'] = {**payload['args'], 'expectedRevision': revision}
+        else:
+            payload['expectedRevision'] = revision
+    return options
+
+
 def _core_dispatch(
     document_handle: Any,
     tool_name: str,
@@ -266,7 +352,7 @@ def _core_dispatch(
         allow_direct_actions=allow_direct_actions,
     )
     runtime = _runtime_from_handle(document_handle)
-    invoke_kwargs = dict(invoke_options or {})
+    invoke_kwargs = _core_invoke_options(payload, invoke_options)
     raw = runtime.invoke('doc.preset.dispatch', payload, **invoke_kwargs)
     # When called against the async client, the bound runtime returns an
     # awaitable. dispatch() (sync) cannot await it; surface the misuse rather
@@ -310,7 +396,7 @@ async def _core_dispatch_async(
         allow_direct_actions=allow_direct_actions,
     )
     runtime = _runtime_from_handle(document_handle)
-    invoke_kwargs = dict(invoke_options or {})
+    invoke_kwargs = _core_invoke_options(payload, invoke_options)
     raw = runtime.invoke('doc.preset.dispatch', payload, **invoke_kwargs)
     if inspect.isawaitable(raw):
         raw = await raw

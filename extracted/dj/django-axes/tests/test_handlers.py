@@ -1,16 +1,15 @@
-from platform import python_implementation
 from unittest.mock import MagicMock, patch
-from datetime import datetime, timezone as dt_timezone
+from datetime import datetime, timedelta, timezone as dt_timezone
 from django.test import override_settings
 from django.utils import timezone
 from axes.handlers.database import AxesDatabaseHandler
 from axes.models import AccessAttempt, AccessLog, AccessFailureLog, AccessAttemptExpiration
 
-from pytest import mark
 
 from django.core.cache import cache
+from django.http import HttpRequest
+from django.http.multipartparser import MultiPartParserError
 from django.urls import reverse
-from django.utils.timezone import timedelta
 
 from axes.conf import settings
 from axes.handlers.proxy import AxesProxyHandler
@@ -239,6 +238,46 @@ class ResetAttemptsTestCase(AxesHandlerBaseTestCase):
     AXES_ENABLE_ACCESS_FAILURE_LOG=True,
 )
 class AxesDatabaseHandlerTestCase(AxesHandlerBaseTestCase):
+    def test_user_login_failed_truncates_long_username(self):
+        max_length = AccessAttempt._meta.get_field("username").max_length
+        username = "x" * (max_length + 1)
+        self.request.POST["username"] = username
+
+        for _ in range(2):
+            AxesProxyHandler.user_login_failed(
+                sender=None, request=self.request, credentials={"username": username}
+            )
+
+        attempt = AccessAttempt.objects.get()
+        self.assertEqual(username[:max_length], attempt.username)
+        self.assertEqual(2, attempt.failures_since_start)
+        self.assertEqual(2, AccessFailureLog.objects.count())
+        for failure in AccessFailureLog.objects.all():
+            self.assertEqual(username[:max_length], failure.username)
+
+    def test_handle_json_post_data(self):
+        def _raise():
+            raise MultiPartParserError("Invalid boundary in multipart: None")
+
+        class MockHttpRequest(HttpRequest):
+            POST = property(lambda self: _raise(), lambda self, value: None)
+
+        request = MockHttpRequest()
+        request.method = "POST"
+        request.META["REMOTE_ADDR"] = self.ip_address
+        request.META["HTTP_USER_AGENT"] = self.user_agent
+        request.META["PATH_INFO"] = self.path_info
+        request.content_type = "application/json"
+        request._body = b"{}"
+        sender = MagicMock()
+        AxesProxyHandler.user_login_failed(
+            sender=sender, request=request, credentials={"token": "dummy"}
+        )
+        self.assertEqual(1, AccessAttempt.objects.count())
+        self.assertIn(
+            'Could not access "request.POST"', AccessAttempt.objects.first().post_data
+        )
+
     def test_handler_reset_attempts(self):
         self.create_attempt()
         self.assertEqual(1, AxesProxyHandler.reset_attempts())
@@ -252,7 +291,7 @@ class AxesDatabaseHandlerTestCase(AxesHandlerBaseTestCase):
     def test_handler_reset_logs_older_than_42_days(self):
         self.create_log()
 
-        then = timezone.now() - timezone.timedelta(days=90)
+        then = timezone.now() - timedelta(days=90)
         with patch("django.utils.timezone.now", return_value=then):
             self.create_log()
 
@@ -268,7 +307,7 @@ class AxesDatabaseHandlerTestCase(AxesHandlerBaseTestCase):
     def test_handler_reset_failure_logs_older_than_42_days(self):
         self.create_failure_log()
 
-        then = timezone.now() - timezone.timedelta(days=90)
+        then = timezone.now() - timedelta(days=90)
         with patch("django.utils.timezone.now", return_value=then):
             self.create_failure_log()
 
@@ -324,7 +363,7 @@ class AxesDatabaseHandlerTestCase(AxesHandlerBaseTestCase):
         credentials = {"username": None, "password": "test"}
         sender = MagicMock()
         AxesProxyHandler.user_login_failed(sender, credentials, self.request)
-        attempt = AccessAttempt.objects.all()
+        AccessAttempt.objects.all()
         self.assertEqual(0, AccessAttempt.objects.count())
         log.warning.assert_called_with(
             "AXES: Username is None and username is the only one lockout parameter, new record will NOT be created."
@@ -334,7 +373,7 @@ class AxesDatabaseHandlerTestCase(AxesHandlerBaseTestCase):
         credentials = {"username": None, "password": "test"}
         sender = MagicMock()
         AxesProxyHandler.user_login_failed(sender, credentials, self.request)
-        attempt = AccessAttempt.objects.all()
+        AccessAttempt.objects.all()
         self.assertEqual(1, AccessAttempt.objects.filter(username__isnull=True).count())
 
     def test_user_login_failed_multiple_username(self):
@@ -540,6 +579,28 @@ class AxesCacheHandlerTestCase(AxesHandlerBaseTestCase):
         AxesProxyHandler.user_login_failed(sender, credentials, self.request)
         self.assertTrue(cache_add.called)
 
+    @patch.object(cache, "touch")
+    @patch.object(cache, "incr", side_effect=ValueError("Key 'test' not found"))
+    @patch.object(cache, "add", side_effect=[False, True])
+    def test_user_login_failed_when_key_expires_before_incr(
+        self, cache_add, cache_incr, cache_touch
+    ):
+        """A key expiring between the add and the incr must not raise.
+
+        The cool off window has elapsed by the time incr runs, so the failure
+        starts a fresh count rather than propagating the ValueError. See #1144.
+        """
+        credentials = {"username": "jane.doe", "password": "test"}
+        sender = MagicMock()
+
+        AxesProxyHandler.user_login_failed(sender, credentials, self.request)
+
+        self.assertTrue(cache_incr.called)
+        self.assertEqual(self.request.axes_failures_since_start, 1)
+        # The count is re-seeded with its timeout, so touch is not needed.
+        self.assertEqual(cache_add.call_count, 2)
+        self.assertFalse(cache_touch.called)
+
 
 @override_settings(AXES_HANDLER="axes.handlers.dummy.AxesDummyHandler")
 class AxesDummyHandlerTestCase(AxesHandlerBaseTestCase):
@@ -571,7 +632,7 @@ class AxesTestHandlerTestCase(AxesHandlerBaseTestCase):
         self.assertEqual(0, AxesProxyHandler.get_failures(self.request, {}))
 
 
-@override_settings(AXES_HANDLER="axes.handlers.database.AxesDatabaseHandler", AXES_COOLOFF_TIME=timezone.timedelta(seconds=10))
+@override_settings(AXES_HANDLER="axes.handlers.database.AxesDatabaseHandler", AXES_COOLOFF_TIME=timedelta(seconds=10))
 class AxesDatabaseHandlerExpirationFlagTestCase(AxesTestCase):
     def setUp(self):
         super().setUp()
@@ -611,7 +672,7 @@ class AxesDatabaseHandlerExpirationFlagTestCase(AxesTestCase):
         )
         dummy_attempt.expiration = AccessAttemptExpiration.objects.create(
             access_attempt=dummy_attempt,
-            expires_at=timezone.now() - timezone.timedelta(days=1)  # Set to expire in the past
+            expires_at=timezone.now() - timedelta(days=1)  # Set to expire in the past
         )
 
         count = self.handler.clean_expired_user_attempts(request=None, credentials=None)
@@ -638,7 +699,7 @@ class AxesDatabaseHandlerExpirationFlagTestCase(AxesTestCase):
         )
         attempt_not_expired.expiration = AccessAttemptExpiration.objects.create(
             access_attempt=attempt_not_expired,
-            expires_at=timezone.now() + timezone.timedelta(days=1)  # Set to expire in the future
+            expires_at=timezone.now() + timedelta(days=1)  # Set to expire in the future
         )
 
         attempt_expired = AccessAttempt.objects.create(
@@ -649,7 +710,7 @@ class AxesDatabaseHandlerExpirationFlagTestCase(AxesTestCase):
         )
         attempt_expired.expiration = AccessAttemptExpiration.objects.create(
             access_attempt=attempt_expired,
-            expires_at=timezone.now() - timezone.timedelta(days=1)  # Set to expire in the past
+            expires_at=timezone.now() - timedelta(days=1)  # Set to expire in the past
         )
 
         access_attempt_count = AccessAttempt.objects.count()
@@ -679,7 +740,7 @@ class AxesDatabaseHandlerExpirationFlagTestCase(AxesTestCase):
         )
         attempt_not_expired_1.expiration = AccessAttemptExpiration.objects.create(
             access_attempt=attempt_not_expired_1,
-            expires_at=timezone.now() + timezone.timedelta(days=1)  # Set to expire in the future
+            expires_at=timezone.now() + timedelta(days=1)  # Set to expire in the future
         )
 
         attempt_not_expired_2 = AccessAttempt.objects.create(
@@ -690,7 +751,7 @@ class AxesDatabaseHandlerExpirationFlagTestCase(AxesTestCase):
         )
         attempt_not_expired_2.expiration = AccessAttemptExpiration.objects.create(
             access_attempt=attempt_not_expired_2,
-            expires_at=timezone.now() + timezone.timedelta(days=2)  # Set to expire in the future
+            expires_at=timezone.now() + timedelta(days=2)  # Set to expire in the future
         )
 
         access_attempt_count = AccessAttempt.objects.count()

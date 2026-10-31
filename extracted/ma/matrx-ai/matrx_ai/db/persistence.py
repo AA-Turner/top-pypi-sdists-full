@@ -36,6 +36,7 @@ from matrx_ai.db.control_tokens import (
     merge_control_token_metadata,
 )
 from matrx_ai.db.message_parts import validate_message_content
+from matrx_ai.persistence.sealed import stored_message_content
 from matrx_ai.db.message_positions import APPEND_MESSAGE_POSITION
 
 # IMPORT SAFETY — ai_model_manager and cxm both resolve host-injected DB
@@ -1422,7 +1423,7 @@ async def persist_completed_request(
                     msg_content = []
                 else:
                     try:
-                        msg_content = validate_message_content(raw_content)
+                        msg_content = await stored_message_content(raw_content)
                     except ValueError as validation_err:
                         vcprint(
                             f"[CX PERSISTENCE] Message content validation failed "
@@ -1489,6 +1490,7 @@ async def persist_completed_request(
                 _meta_kwargs = {"metadata": _clean_meta} if _clean_meta else {}
 
                 msg_id: str = ""
+                _row_created_at = datetime.now(UTC).isoformat()
                 # persist_completed_request establishes a request or standalone
                 # Coordinator before reaching this loop, so queue helpers cannot
                 # drop these writes for lack of an owner.
@@ -1508,6 +1510,10 @@ async def persist_completed_request(
                     # no JWT so _stamp_actor cannot derive created_by automatically.
                     # user_id is validated as a UUID earlier in this function.
                     "created_by": user_id or None,
+                    # The row's time is stamped HERE and sent on the wire (record_update /
+                    # record_reserved ``created_at``), so a live client draws the very instant a
+                    # reload reads back — their "Worked for" can no longer differ by a second.
+                    "created_at": _row_created_at,
                     **_meta_kwargs,
                     **_promoted,
                 }
@@ -1518,7 +1524,7 @@ async def persist_completed_request(
                 ):
                     _msg_fields["agent_id"] = _pinned_agent_id
                 if role_val == "user" and "user_content" in msg:
-                    _msg_fields["user_content"] = validate_message_content(msg["user_content"])
+                    _msg_fields["user_content"] = await stored_message_content(msg["user_content"])
                 from uuid import uuid4 as _uuid4
 
                 try:
@@ -1532,7 +1538,9 @@ async def persist_completed_request(
 
                         if tracker and emitter:
                             try:
-                                await tracker.mark_active(emitter, "message", msg_id)
+                                await tracker.mark_active(
+                                    emitter, "message", msg_id, created_at=_row_created_at
+                                )
                             except Exception:
                                 pass
                     else:
@@ -1601,8 +1609,11 @@ async def persist_completed_request(
                                             "source": "iteration_persist",
                                         },
                                         record_id=msg_id,
+                                        created_at=_row_created_at,
                                     )
-                                    await tracker.mark_active(emitter, "message", msg_id)
+                                    await tracker.mark_active(
+                                        emitter, "message", msg_id, created_at=_row_created_at
+                                    )
                                 except Exception as _announce_exc:
                                     vcprint(
                                         f"[CX PERSISTENCE] Failed to announce iteration "
@@ -2432,6 +2443,17 @@ async def _refresh_cache_state(
         or 0
     )
     new_state["last_cache_read_tokens"] = int(cache_read or 0)
+
+    # The history window's cut (``send_boundary._apply_history_window``) lives beside the cache facts it
+    # depends on: a warm next turn replays exactly this cut, from any server task.
+    try:
+        from matrx_ai.config.send_boundary import HISTORY_CUT_KEY, remembered_history_cut
+
+        remembered = remembered_history_cut(str(conversation_id))
+        if isinstance(remembered, dict):
+            new_state[HISTORY_CUT_KEY] = dict(remembered)
+    except Exception:  # noqa: BLE001 — the cut is re-derived on the next cold turn
+        vcprint(f"[persistence] history cut for {conversation_id} not carried into cache_state", color="yellow")
 
     # Trim accounting:
     if trim_summary:

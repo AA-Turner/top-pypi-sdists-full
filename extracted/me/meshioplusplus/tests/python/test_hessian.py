@@ -32,7 +32,34 @@ from meshioplusplus._hessian import _hessian_py
 
 def _hex_grid(n):
     """A regular n x n x n hexahedron grid on [0,n]^3."""
-    return mp.box((n, n, n), (n, n, n))
+    pts = []
+    for k in range(n + 1):
+        for j in range(n + 1):
+            for i in range(n + 1):
+                pts.append([float(i), float(j), float(k)])
+    pts = np.array(pts)
+
+    def vid(i, j, k):
+        return (k * (n + 1) + j) * (n + 1) + i
+
+    cells = []
+    for k in range(n):
+        for j in range(n):
+            for i in range(n):
+                cells.append(
+                    [
+                        vid(i, j, k),
+                        vid(i + 1, j, k),
+                        vid(i + 1, j + 1, k),
+                        vid(i, j + 1, k),
+                        vid(i, j, k + 1),
+                        vid(i + 1, j, k + 1),
+                        vid(i + 1, j + 1, k + 1),
+                        vid(i, j + 1, k + 1),
+                    ]
+                )
+    cells = np.array(cells, dtype=np.int64)
+    return mp.Mesh(pts, [("hexahedron", cells)])
 
 
 def _tapered_hex():

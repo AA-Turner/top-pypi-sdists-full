@@ -3,7 +3,6 @@ from string import ascii_letters, digits
 from time import sleep
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.base_user import AbstractBaseUser
 from django.http import HttpRequest
 from django.test import TestCase
 from django.urls import reverse
@@ -141,14 +140,14 @@ class AxesTestCase(TestCase):
             reverse("admin:login"),
             post_data,
             REMOTE_ADDR=remote_addr or self.ip_address,
-            HTTP_USER_AGENT=self.user_agent,
+            headers={"user-agent": self.user_agent},
         )
 
     def logout(self):
         return self.client.post(
             reverse("admin:logout"),
             REMOTE_ADDR=self.ip_address,
-            HTTP_USER_AGENT=self.user_agent,
+            headers={"user-agent": self.user_agent},
         )
 
     def check_login(self):

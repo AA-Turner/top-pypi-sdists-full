@@ -731,6 +731,38 @@ def test_a_new_stream_case_passes_when_the_affected_release_lacks_the_stream(
     assert report.support["new_streams_unchecked"] == ["threads"]
 
 
+def test_a_new_stream_case_fails_when_no_stream_calls_a_host_the_twin_serves(
+    tmp_path,
+):
+    # allowedHosts reach the slack twin (as a shared token host would), but
+    # every stream calls another host.
+    case = _case_with_expectations(tmp_path, new_streams=["threads"])
+    connector = tmp_path / "source-slack"
+    shutil.copytree(CONNECTOR_FIXTURE, connector)
+    _manifest_only(connector)
+    manifest = connector / "manifest.yaml"
+    manifest.write_text(
+        manifest.read_text().replace(
+            "https://slack.com/api/", "https://files.example.com/api/"
+        )
+    )
+    metadata = connector / "metadata.yaml"
+    metadata.write_text(
+        metadata.read_text().replace(
+            "- slack.com", "- slack.com\n      - files.example.com"
+        )
+    )
+
+    report = check_case(
+        case, "source-slack", check_origin=_no_origin_problems, connector_dir=connector
+    )
+
+    assert report.status == "fail"
+    assert report.support is not None
+    assert report.support["result"] == "unsupported"
+    assert "no stream requests a host they serve" in report.support["reasons"][0]
+
+
 def test_a_new_stream_the_affected_release_defines_fails_the_gate(
     tmp_path, connector_dir
 ):

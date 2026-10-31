@@ -91,7 +91,32 @@ def _render_table(data: Any, columns: Optional[Sequence[str]]) -> str:
     cols = list(columns) if columns else (list(rows[0]) if rows else [])
     headers = [col.upper() for col in cols]
     body = [[row.get(col) for col in cols] for row in rows]
-    return tabulate.tabulate(body, headers=headers, tablefmt="plain", missingval="")
+    # tabulate reads number-like strings as numbers, which is fine for "3" but turns a
+    # driver version "550.90" into 550.9. Keep parsing (and the right-alignment it gives)
+    # except in a column where it would change what is printed.
+    lossy_columns = [
+        index
+        for index in range(len(cols))
+        if any(isinstance(row[index], str) and _numparse_is_lossy(row[index]) for row in body)
+    ]
+    return tabulate.tabulate(
+        body,
+        headers=headers,
+        tablefmt="plain",
+        missingval="",
+        disable_numparse=lossy_columns or False,
+    )
+
+
+def _numparse_is_lossy(text: str) -> bool:
+    """Whether tabulate's number parsing would print `text` differently."""
+    try:
+        number = float(text)
+    except ValueError:
+        return False
+    if text.lstrip("+-").isdigit():
+        return str(int(number)) != text
+    return format(number, "g") != text
 
 
 def _to_plain(data: Any) -> Any:

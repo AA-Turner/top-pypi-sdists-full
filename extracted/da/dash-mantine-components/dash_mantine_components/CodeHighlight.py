@@ -81,6 +81,9 @@ Keyword arguments:
 - code (string; required):
     Code to highlight.
 
+- collapseCodeLabel (string; optional):
+    Label for collapse button default 'Collapse code'.
+
 - copiedLabel (string; optional):
     Copied tooltip label, `'Copied'` by default.
 
@@ -94,8 +97,14 @@ Keyword arguments:
 - data-* (string; optional):
     Wild card data attributes.
 
+- defaultExpanded (boolean; optional):
+    Uncontrolled expanded default state.
+
 - display (dict; optional):
     Display – Accepts CSS values or a dict for responsive styles.
+
+- expandCodeLabel (string; optional):
+    Label for expand button default 'Expand code'.
 
 - ff (string | dict; optional):
     Font family – Accepts CSS values or a dict for responsive styles.
@@ -129,7 +138,7 @@ Keyword arguments:
 - inset (string | number | dict; optional):
     Inset – Accepts CSS values or a dict for responsive styles.
 
-- language (string; required):
+- language (string; optional):
     Code language, `'tsx'` by default.
 
 - left (string | number | dict; optional):
@@ -174,6 +183,9 @@ Keyword arguments:
     Maximum width – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
 
+- maxCollapsedHeight (string | number; optional):
+    Max height of collapsed state default 180px.
+
 - mb (string | number | dict; optional):
     Margin bottom – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
@@ -182,9 +194,15 @@ Keyword arguments:
     Margin inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- mie (number; optional):
+    MarginInlineEnd, theme key: theme.spacing.
+
 - mih (string | number | dict; optional):
     Minimum height – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
+
+- mis (number; optional):
+    MarginInlineStart, theme key: theme.spacing.
 
 - miw (string | number | dict; optional):
     Minimum width – Accepts theme spacing keys, CSS values, or a dict
@@ -234,6 +252,12 @@ Keyword arguments:
     Padding inline end – Accepts theme spacing keys, CSS values, or a
     dict for responsive styles.
 
+- pie (number; optional):
+    PaddingInlineEnd, theme key: theme.spacing.
+
+- pis (number; optional):
+    PaddingInlineStart, theme key: theme.spacing.
+
 - pl (string | number | dict; optional):
     Padding left – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
@@ -260,6 +284,10 @@ Keyword arguments:
 - py (string | number | dict; optional):
     Padding block – Accepts theme spacing keys, CSS values, or a dict
     for responsive styles.
+
+- radius (number; optional):
+    Key of `theme.radius` or any valid CSS value to set border-radius
+    default 0.
 
 - right (string | number | dict; optional):
     Right offset – Accepts CSS values or a dict for responsive styles.
@@ -299,9 +327,25 @@ Keyword arguments:
     Width – Accepts theme spacing keys, CSS values, or a dict for
     responsive styles.
 
+- withBorder (boolean; optional):
+    Adds border to the root element default False.
+
 - withCopyButton (boolean; optional):
     Determines whether copy button should be displayed, `True` by
-    default."""
+    default.
+
+- withExpandButton (boolean; optional):
+    Determines whether the expand/collapse button should be displayed
+    default False.
+
+- withFirstLineIndentation (boolean; optional):
+    If set, indentation of the first line of the code is preserved. By
+    default, it is removed along with the rest of the leading and
+    trailing whitespace. @,default,False.
+
+- withLineNumbers (boolean; optional):
+    Determines whether line numbers should be displayed
+    @,default,False."""
     _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
@@ -324,6 +368,15 @@ Keyword arguments:
         copyLabel: typing.Optional[str] = None,
         copiedLabel: typing.Optional[str] = None,
         highlightOnClient: typing.Optional[bool] = None,
+        defaultExpanded: typing.Optional[bool] = None,
+        maxCollapsedHeight: typing.Optional[typing.Union[str, NumberType]] = None,
+        withExpandButton: typing.Optional[bool] = None,
+        expandCodeLabel: typing.Optional[str] = None,
+        collapseCodeLabel: typing.Optional[str] = None,
+        radius: typing.Optional[typing.Union[str, NumberType]] = None,
+        withBorder: typing.Optional[bool] = None,
+        withLineNumbers: typing.Optional[bool] = None,
+        withFirstLineIndentation: typing.Optional[bool] = None,
         hiddenFrom: typing.Optional[str] = None,
         visibleFrom: typing.Optional[str] = None,
         mod: typing.Optional[typing.Union[str, dict, typing.Sequence[typing.Union[str, dict]]]] = None,
@@ -381,6 +434,10 @@ Keyword arguments:
         style: typing.Optional[typing.Any] = None,
         lightHidden: typing.Optional[bool] = None,
         darkHidden: typing.Optional[bool] = None,
+        mis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        mie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pis: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
+        pie: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         classNames: typing.Optional[dict] = None,
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
@@ -391,16 +448,16 @@ Keyword arguments:
         loading_state: typing.Optional["LoadingState"] = None,
         **kwargs
     ):
-        self._prop_names = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'code', 'copiedLabel', 'copyLabel', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'highlightOnClient', 'inset', 'language', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withCopyButton']
+        self._prop_names = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'code', 'collapseCodeLabel', 'copiedLabel', 'copyLabel', 'darkHidden', 'data-*', 'defaultExpanded', 'display', 'expandCodeLabel', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'highlightOnClient', 'inset', 'language', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxCollapsedHeight', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pie', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'right', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withBorder', 'withCopyButton', 'withExpandButton', 'withFirstLineIndentation', 'withLineNumbers']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'code', 'copiedLabel', 'copyLabel', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'highlightOnClient', 'inset', 'language', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withCopyButton']
+        self.available_properties = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'code', 'collapseCodeLabel', 'copiedLabel', 'copyLabel', 'darkHidden', 'data-*', 'defaultExpanded', 'display', 'expandCodeLabel', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'highlightOnClient', 'inset', 'language', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxCollapsedHeight', 'mb', 'me', 'mie', 'mih', 'mis', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pie', 'pis', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'right', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withBorder', 'withCopyButton', 'withExpandButton', 'withFirstLineIndentation', 'withLineNumbers']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()
         _locals.update(kwargs)  # For wildcard attrs and excess named props
         args = {k: _locals[k] for k in _explicit_args}
 
-        for k in ['code', 'language']:
+        for k in ['code']:
             if k not in args:
                 raise TypeError(
                     'Required argument `' + k + '` was not specified.')

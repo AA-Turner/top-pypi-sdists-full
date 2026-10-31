@@ -60,7 +60,7 @@ from anyscale.commands.setup_k8s import (
     setup_kubernetes_cloud,
     setup_kubernetes_cloud_resource,
 )
-from anyscale.commands.setup_kuberay import setup_kuberay_cloud
+from anyscale.commands.setup_kuberay import KuberayOperatorMode, setup_kuberay_cloud
 from anyscale.commands.util import AnyscaleCommand, OptionPromptNull
 from anyscale.controllers.cloud_controller import CloudController
 from anyscale.errors import InvalidConfigError, ResourceNotFoundError, UserError
@@ -449,6 +449,56 @@ def default_region(provider: str) -> str:
     hidden=True,
 )
 @click.option(
+    "--control-plane-domain",
+    help="Edge domain of a non-production Anyscale environment, for internal testing. (KubeRay)",
+    required=False,
+    type=str,
+    hidden=True,
+)
+@click.option(
+    "--kuberay-operator",
+    help=(
+        "Where the KubeRay operator comes from. auto (the default) keeps an operator "
+        "already running on the cluster and otherwise offers to install the one bundled "
+        "with the connector chart, install always installs the bundled one, skip leaves "
+        "it to you. (KubeRay)"
+    ),
+    required=False,
+    type=click.Choice([mode.value for mode in KuberayOperatorMode], case_sensitive=False),
+    default=None,
+)
+@click.option(
+    "--dcgm-namespace",
+    help=(
+        "Namespace of the dcgm-exporter Service the gateway scrapes for GPU metrics. Setup "
+        "fails when none is there. Without it, setup looks across the cluster and, on GPU "
+        "nodes with no exporter, offers the one bundled with the connector chart. (KubeRay)"
+    ),
+    required=False,
+    type=str,
+    default=None,
+)
+@click.option(
+    "--ingress-class",
+    help=(
+        "IngressClass for the Observability API's Ingress, which the console reads telemetry "
+        "through. Setup fails when the class is not on the cluster. Without it, setup lists the "
+        "cluster's classes and asks, or installs the ingress controller bundled with the "
+        "connector chart. With --yes it installs the bundled controller unasked. (KubeRay)"
+    ),
+    required=False,
+    type=str,
+    default=None,
+)
+@click.option(
+    "--test-job/--no-test-job",
+    help=(
+        "Run a sample RayJob after setup and print its console link. Setup asks when neither is "
+        "passed, and --yes skips it unless --test-job is passed. (KubeRay)"
+    ),
+    default=None,
+)
+@click.option(
     "--namespace",
     help="Kubernetes namespace to install into. Defaults to anyscale-operator (K8s) or anyscale-connector (KubeRay).",
     required=False,
@@ -536,7 +586,7 @@ def default_region(provider: str) -> str:
     ),
 )
 @disabled_on_azure("cloud setup")
-def setup_cloud(  # noqa: PLR0913
+def setup_cloud(  # noqa: PLR0912, PLR0913
     provider: str,
     region: str,
     name: str,
@@ -545,6 +595,11 @@ def setup_cloud(  # noqa: PLR0913
     cluster_context: Optional[str],
     connector_chart: Optional[str],
     connector_values: Optional[str],
+    control_plane_domain: Optional[str],
+    kuberay_operator: Optional[str],
+    dcgm_namespace: Optional[str],
+    ingress_class: Optional[str],
+    test_job: Optional[bool],
     namespace: Optional[str],
     project_id: str,
     resource_group: Optional[str],
@@ -581,10 +636,27 @@ def setup_cloud(  # noqa: PLR0913
             yes=yes,
             connector_chart=connector_chart,
             connector_values=connector_values,
+            kuberay_operator=(
+                KuberayOperatorMode(kuberay_operator)
+                if kuberay_operator
+                else KuberayOperatorMode.AUTO
+            ),
+            control_plane_domain=control_plane_domain,
+            dcgm_namespace=dcgm_namespace,
+            ingress_class=ingress_class,
+            test_job=test_job,
             auto_add_user=(not disable_auto_add_user),
             debug=debug,
         )
         return
+    for flag, value in (
+        ("--kuberay-operator", kuberay_operator),
+        ("--dcgm-namespace", dcgm_namespace),
+        ("--ingress-class", ingress_class),
+        ("--test-job/--no-test-job", test_job),
+    ):
+        if value is not None:
+            raise click.ClickException(f"{flag} is only supported with --stack=kuberay.")
 
     # For normal setup, provider and region are required - prompt if not provided
     if not provider:

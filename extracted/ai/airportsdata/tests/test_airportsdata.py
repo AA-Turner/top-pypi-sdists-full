@@ -1,8 +1,9 @@
 """Tests."""
 
+__lazy_modules__ = ['importlib.resources']
+
 import sys
-import warnings
-import zoneinfo
+from importlib.resources import files
 from pathlib import Path
 
 import pytest
@@ -12,7 +13,7 @@ sys.path.insert(1, str(Path(__file__).parent.parent))
 import airportsdata
 
 pylatest_only = pytest.mark.skipif(
-    sys.version_info < (3, 14),
+    sys.version_info < (3, 15),
     reason='Data quality and integrity is only checked once, with latest Python version',
 )
 
@@ -20,7 +21,7 @@ pylatest_only = pytest.mark.skipif(
 airports_icao = airportsdata.load('ICAO')
 iso_3166_1 = {
     'AF',
-    'AX',
+    'AX',  # Åland Islands, also part of FI
     'AL',
     'DZ',
     'AS',
@@ -198,7 +199,7 @@ iso_3166_1 = {
     'PN',
     'PL',
     'PT',
-    'PR',
+    'PR',  # Puerto Rico, also part of US
     'QA',
     'RE',
     'RO',
@@ -232,7 +233,7 @@ iso_3166_1 = {
     'LK',
     'SD',
     'SR',
-    'SJ',
+    'SJ',  # Svalbard and Jan Mayen, also part of NO
     'SE',
     'CH',
     'SY',
@@ -262,7 +263,7 @@ iso_3166_1 = {
     'VE',
     'VN',
     'VG',
-    'VI',
+    'VI',  # The United States Virgin Islands, also part of US
     'WF',
     'EH',
     'YE',
@@ -271,180 +272,7 @@ iso_3166_1 = {
 }  # As of 2020-11-06
 # There is no ISO 3166-1 country code for the Republic of Kosovo, however 'XK' is a self assigned code that is used by
 # many international organisations per https://en.wikipedia.org/wiki/ISO_3166-2:RS#Note
-iso_3166_1.add('XK')
-tz_available = zoneinfo.available_timezones()
-tz_deprecated = {
-    'Africa/Asmera',
-    'Africa/Timbuktu',
-    'America/Argentina/ComodRivadavia',
-    'America/Atka',
-    'America/Buenos_Aires',
-    'America/Catamarca',
-    'America/Coral_Harbour',
-    'America/Cordoba',
-    'America/Ensenada',
-    'America/Fort_Wayne',
-    'America/Godthab',
-    'America/Indianapolis',
-    'America/Jujuy',
-    'America/Knox_IN',
-    'America/Louisville',
-    'America/Mendoza',
-    'America/Montreal',
-    'America/Porto_Acre',
-    'America/Rosario',
-    'America/Santa_Isabel',
-    'America/Shiprock',
-    'America/Virgin',
-    'Antarctica/South_Pole',
-    'Asia/Ashkhabad',
-    'Asia/Calcutta',
-    'Asia/Chongqing',
-    'Asia/Chungking',
-    'Asia/Dacca',
-    'Asia/Harbin',
-    'Asia/Istanbul',
-    'Asia/Kashgar',
-    'Asia/Katmandu',
-    'Asia/Macao',
-    'Asia/Rangoon',
-    'Asia/Saigon',
-    'Asia/Tel_Aviv',
-    'Asia/Thimbu',
-    'Asia/Ujung_Pandang',
-    'Asia/Ulan_Bator',
-    'Atlantic/Faeroe',
-    'Atlantic/Jan_Mayen',
-    'Australia/ACT',
-    'Australia/Canberra',
-    'Australia/LHI',
-    'Australia/North',
-    'Australia/NSW',
-    'Australia/Queensland',
-    'Australia/South',
-    'Australia/Tasmania',
-    'Australia/Victoria',
-    'Australia/West',
-    'Australia/Yancowinna',
-    'Brazil/Acre',
-    'Brazil/DeNoronha',
-    'Brazil/East',
-    'Brazil/West',
-    'Canada/Atlantic',
-    'Canada/Central',
-    'Canada/Eastern',
-    'Canada/Mountain',
-    'Canada/Newfoundland',
-    'Canada/Pacific',
-    'Canada/Saskatchewan',
-    'Canada/Yukon',
-    'CET',
-    'Chile/Continental',
-    'Chile/EasterIsland',
-    'CST6CDT',
-    'Cuba',
-    'EET',
-    'Egypt',
-    'Eire',
-    'EST',
-    'EST5EDT',
-    'Etc/GMT',
-    'Etc/GMT+0',
-    'Etc/GMT+1',
-    'Etc/GMT+10',
-    'Etc/GMT+11',
-    'Etc/GMT+12',
-    'Etc/GMT+2',
-    'Etc/GMT+3',
-    'Etc/GMT+4',
-    'Etc/GMT+5',
-    'Etc/GMT+6',
-    'Etc/GMT+7',
-    'Etc/GMT+8',
-    'Etc/GMT+9',
-    'Etc/GMT-0',
-    'Etc/GMT-1',
-    'Etc/GMT-10',
-    'Etc/GMT-11',
-    'Etc/GMT-12',
-    'Etc/GMT-13',
-    'Etc/GMT-14',
-    'Etc/GMT-2',
-    'Etc/GMT-3',
-    'Etc/GMT-4',
-    'Etc/GMT-5',
-    'Etc/GMT-6',
-    'Etc/GMT-7',
-    'Etc/GMT-8',
-    'Etc/GMT-9',
-    'Etc/GMT0',
-    'Etc/Greenwich',
-    'Etc/UCT',
-    'Etc/Universal',
-    'Etc/UTC',
-    'Etc/Zulu',
-    'Europe/Belfast',
-    'Europe/Kiev',  # added by author on 2023-09-01
-    'Europe/Nicosia',
-    'Europe/Tiraspol',
-    'Factory',
-    'GB',
-    'GB-Eire',
-    'GMT',
-    'GMT+0',
-    'GMT-0',
-    'GMT0',
-    'Greenwich',
-    'Hongkong',
-    'HST',
-    'Iceland',
-    'Iran',
-    'Israel',
-    'Jamaica',
-    'Japan',
-    'Kwajalein',
-    'Libya',
-    'MET',
-    'Mexico/BajaNorte',
-    'Mexico/BajaSur',
-    'Mexico/General',
-    'MST',
-    'MST7MDT',
-    'Navajo',
-    'NZ',
-    'NZ-CHAT',
-    'Pacific/Johnston',
-    'Pacific/Ponape',
-    'Pacific/Samoa',
-    'Pacific/Truk',
-    'Pacific/Yap',
-    'Poland',
-    'Portugal',
-    'PRC',
-    'PST8PDT',
-    'ROC',
-    'ROK',
-    'Singapore',
-    'Turkey',
-    'UCT',
-    'Universal',
-    'US/Alaska',
-    'US/Aleutian',
-    'US/Arizona',
-    'US/Central',
-    'US/East-Indiana',
-    'US/Eastern',
-    'US/Hawaii',
-    'US/Indiana-Starke',
-    'US/Michigan',
-    'US/Mountain',
-    'US/Pacific',
-    'US/Samoa',
-    'UTC',
-    'W-SU',
-    'WET',
-    'Zulu',
-}  # from https://www.php.net/timezones.others 2020-11-08; UTC kept in the list as it's non-geographical
+iso_3166_1.add('XK')  # disputed by RS
 subdiv = {  # ISO 3166-2 subdivisions for certain countries https://en.wikipedia.org/wiki/ISO_3166-2
     'CA': {
         'Ontario',
@@ -609,15 +437,6 @@ def test_data_quality() -> None:
         assert -90 <= airport['lat'] <= 90
         assert isinstance(airport['lon'], float)
         assert -180 <= airport['lon'] <= 180
-        if airport['tz'] in tz_deprecated:
-            warnings.warn(
-                DeprecationWarning(
-                    f'"{icao}": tz "{airport["tz"]}" is deprecated; replace with correct one\n'
-                    f'(see https://github.com/eggert/tz/blob/master/backward)',
-                ),
-                stacklevel=1,
-            )
-        assert airport['tz'] in tz_available
         if airport['lid']:
             assert len(airport['lid']) in {3, 4, 7}  # 7 is ICAO
             if len(airport['lid']) == 7:
@@ -631,6 +450,50 @@ def test_data_quality() -> None:
             else:
                 assert airport['lid'].isupper()
                 assert airport['lid'].isalnum()
+
+
+@pylatest_only
+def test_tz_current() -> None:
+    """Test that every tz is a current IANA name, i.e. one listed in zone.tab of the tzdata package.
+
+    zone.tab keeps per-country names that are now links (e.g. Europe/Oslo) but drops retired ones (e.g.
+    Pacific/Enderbury), which OS time zone databases may no longer ship. Skipped where tzdata is not installed (it is
+    only a test requirement on Windows): checking once is enough.
+    """
+    zone_country = _zone_tab_countries()
+    not_current = {icao: airport['tz'] for icao, airport in airports_icao.items() if airport['tz'] not in zone_country}
+    assert not not_current, f'tz not in IANA zone.tab (retired or invalid): {not_current}'
+
+
+@pylatest_only
+def test_tz_country() -> None:
+    """Test that every tz is one of the airport's own country per IANA zone.tab (not a neighbour's at the same time).
+
+    Exceptions are our country conventions: US territories PR and VI coded US, Svalbard/Jan Mayen (SJ) coded NO, Åland
+    (AX) coded FI, and Kosovo (XK, which has no zone of its own) on Europe/Belgrade.
+    """
+    zone_country = _zone_tab_countries()
+    exceptions = {('US', 'PR'), ('US', 'VI'), ('NO', 'SJ'), ('FI', 'AX'), ('XK', 'RS')}
+    wrong_country = {
+        icao: (airport['country'], airport['tz'])
+        for icao, airport in airports_icao.items()
+        if (tz_country := zone_country.get(airport['tz'])) is not None
+        and tz_country != airport['country']
+        and (airport['country'], tz_country) not in exceptions
+    }
+    assert not wrong_country, f'tz of another country per IANA zone.tab: {wrong_country}'
+
+
+def _zone_tab_countries() -> dict[str, str]:
+    """Return {tz: ISO 3166-1 country code} from zone.tab of the tzdata package, skipping the test if not installed."""
+    pytest.importorskip('tzdata')
+    zone_tab = files('tzdata').joinpath('zoneinfo', 'zone.tab').read_text(encoding='utf-8')
+    zone_country = {}
+    for line in zone_tab.splitlines():
+        if line and not line.startswith('#'):
+            country, _, tz = line.split('\t')[:3]
+            zone_country[tz] = country
+    return zone_country
 
 
 @pylatest_only

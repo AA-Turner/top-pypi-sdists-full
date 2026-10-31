@@ -236,13 +236,15 @@ class ElevenLabsChat:
                 unified_config, profile, emitter, matrx_model_name, script
             )
 
+        # No voice named = one speaker in the model's catalog default voice
+        # (``resolve_tts_voice`` below reads ``profile.tts_default_voice_id``, the one
+        # ai.voices row listing this model in ``default_for_models``) — as every other
+        # TTS client does. This used to raise "No tts_voice configured".
+        from matrx_ai.config.tts_config import TTSVoiceConfig
+
         tts = unified_config.tts_voice_config
         if not tts or not tts.is_configured:
-            raise ValueError(
-                "[ElevenLabs TTS] No tts_voice configured. "
-                "Pass tts_voice as a list of {text, voice_id} dicts for dialogue mode, "
-                "or a string voice_id for single-speaker mode."
-            )
+            tts = TTSVoiceConfig()
 
         audio_format = (unified_config.audio_format or "mp3").lower()
         # ElevenLabs output_format uses a compound string like "mp3_44100_128"
